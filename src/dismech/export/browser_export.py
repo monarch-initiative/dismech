@@ -1,0 +1,187 @@
+"""
+Browser data exporter for dismech.
+
+Transforms disorder YAML files into JSON for the faceted search browser.
+Each disorder becomes one record with aggregated searchable fields.
+"""
+
+import json
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+
+def slugify(name: str) -> str:
+    """Convert a disorder name to a filename-safe slug."""
+    return name.replace(' ', '_').replace('/', '_').replace('(', '').replace(')', '')
+
+
+class BrowserExporter:
+    """Export disorder data to browser-friendly JSON format."""
+
+    def load_disorder(self, file_path: Path) -> dict[str, Any]:
+        """Load a single disorder YAML file."""
+        with open(file_path) as f:
+            return yaml.safe_load(f)
+
+    def extract_disorder(self, disorder: dict[str, Any], source_file: str) -> dict[str, Any]:
+        """
+        Extract a disorder into a single searchable record.
+        """
+        name = disorder.get("name", "Unknown")
+        category = disorder.get("category", "")
+        parents = disorder.get("parents", [])
+
+        # Disease term
+        disease_id = None
+        if disorder.get("disease_term") and disorder["disease_term"].get("term"):
+            disease_id = disorder["disease_term"]["term"].get("id")
+
+        # Subtypes
+        subtypes = [s.get("name", "") for s in disorder.get("has_subtypes", []) if s.get("name")]
+
+        # Pathophysiology
+        pathophysiology_names = []
+        cell_types = []
+        cell_type_ids = []
+        biological_processes = []
+
+        for patho in disorder.get("pathophysiology", []):
+            if patho.get("name"):
+                pathophysiology_names.append(patho["name"])
+            for ct in patho.get("cell_types", []):
+                ct_name = ct.get("preferred_term") or ct.get("term", {}).get("label", "")
+                if ct_name and ct_name not in cell_types:
+                    cell_types.append(ct_name)
+                ct_id = ct.get("term", {}).get("id")
+                if ct_id and ct_id not in cell_type_ids:
+                    cell_type_ids.append(ct_id)
+            for bp in patho.get("biological_processes", []):
+                bp_name = bp.get("preferred_term", "")
+                if bp_name and bp_name not in biological_processes:
+                    biological_processes.append(bp_name)
+
+        # Phenotypes
+        phenotype_names = []
+        phenotype_categories = []
+        phenotype_ids = []
+        frequencies = []
+
+        for pheno in disorder.get("phenotypes", []):
+            if pheno.get("name"):
+                phenotype_names.append(pheno["name"])
+            if pheno.get("category") and pheno["category"] not in phenotype_categories:
+                phenotype_categories.append(pheno["category"])
+            freq = pheno.get("frequency")
+            if freq and str(freq) not in frequencies:
+                frequencies.append(str(freq))
+            if pheno.get("phenotype_term") and pheno["phenotype_term"].get("term"):
+                hp_id = pheno["phenotype_term"]["term"].get("id")
+                if hp_id and hp_id not in phenotype_ids:
+                    phenotype_ids.append(hp_id)
+
+        # Genetic associations
+        genes = [g.get("name", "") for g in disorder.get("genetic", []) if g.get("name")]
+
+        # Treatments
+        treatments = [t.get("name", "") for t in disorder.get("treatments", []) if t.get("name")]
+
+        # Environmental factors
+        environmental = [e.get("name", "") for e in disorder.get("environmental", []) if e.get("name")]
+
+        # Biochemical markers
+        biochemical = [b.get("name", "") for b in disorder.get("biochemical", []) if b.get("name")]
+
+        # Build description from various sources
+        description = disorder.get("description", "")
+        if not description and disorder.get("pathophysiology"):
+            # Use first pathophysiology description
+            for p in disorder["pathophysiology"]:
+                if p.get("description"):
+                    description = p["description"]
+                    break
+
+        return {
+            "name": name,
+            "disease_id": disease_id,
+            "category": category,
+            "parents": parents,
+            "subtypes": subtypes,
+            "description": description,
+            "pathophysiology": pathophysiology_names,
+            "cell_types": cell_types,
+            "cell_type_ids": cell_type_ids,
+            "biological_processes": biological_processes,
+            "phenotypes": phenotype_names,
+            "phenotype_categories": phenotype_categories,
+            "phenotype_ids": phenotype_ids,
+            "frequencies": frequencies,
+            "genes": genes,
+            "treatments": treatments,
+            "environmental": environmental,
+            "biochemical": biochemical,
+            "source_file": source_file,
+            "page_url": f"../pages/disorders/{slugify(name)}.html",
+            # Counts for display
+            "num_phenotypes": len(phenotype_names),
+            "num_pathophysiology": len(pathophysiology_names),
+            "num_genes": len(genes),
+            "num_treatments": len(treatments),
+        }
+
+    def export_to_json(self, disorder_files: list[Path], output_path: Path) -> None:
+        """Export all disorder files to a single JSON file."""
+        records = []
+        for file_path in disorder_files:
+            disorder = self.load_disorder(file_path)
+            record = self.extract_disorder(disorder, file_path.name)
+            records.append(record)
+
+        with open(output_path, "w") as f:
+            json.dump(records, f, indent=2)
+
+        print(f"Exported {len(records)} disorders to {output_path}")
+
+    def export_to_js(self, disorder_files: list[Path], output_path: Path) -> None:
+        """Export all disorder files to a JavaScript data file."""
+        records = []
+        for file_path in disorder_files:
+            disorder = self.load_disorder(file_path)
+            record = self.extract_disorder(disorder, file_path.name)
+            records.append(record)
+
+        js_content = f"window.searchData = {json.dumps(records, indent=2)};\n"
+        js_content += "window.dispatchEvent(new Event('searchDataReady'));\n"
+
+        with open(output_path, "w") as f:
+            f.write(js_content)
+
+        print(f"Exported {len(records)} disorders to {output_path}")
+
+
+def main():
+    """CLI entry point."""
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Export disorder data for browser")
+    parser.add_argument("--input-dir", "-i", default="kb/disorders", help="Input directory with YAML files")
+    parser.add_argument("--output", "-o", default="app/data.js", help="Output file path")
+    parser.add_argument("--format", "-f", choices=["json", "js"], default="js", help="Output format")
+
+    args = parser.parse_args()
+
+    input_dir = Path(args.input_dir)
+    output_path = Path(args.output)
+
+    disorder_files = sorted(input_dir.glob("*.yaml"))
+
+    exporter = BrowserExporter()
+    if args.format == "json":
+        exporter.export_to_json(disorder_files, output_path)
+    else:
+        exporter.export_to_js(disorder_files, output_path)
+
+
+if __name__ == "__main__":
+    main()
