@@ -4,7 +4,7 @@ A curated knowledge base of disease pathophysiology, with structured evidence fr
 
 ## Browse the Knowledge Base
 
-**[View all disorders online](https://monarch-initiative.github.io/dismech/disorders/)**
+**[View all disorders online](https://monarch-initiative.github.io/dismech/disorders/)** | **[QC Dashboard](https://monarch-initiative.github.io/dismech/dashboard/)**
 
 Each disorder page includes:
 - Disease mechanisms and pathophysiology
@@ -68,14 +68,55 @@ All claims must cite PubMed references with exact quotes. This prevents misinfor
 
 ### Validation Pipeline
 
-Multiple layers of automated validation:
-1. **Schema validation**: Ensures correct YAML structure
-2. **Ontology term validation**: Verifies term IDs exist and labels match authoritative sources
-3. **Reference validation**: Confirms quoted snippets appear in cited abstracts
+Multiple layers of automated validation ensure data quality and prevent AI hallucinations:
+
+1. **Schema validation**: Ensures correct YAML structure against the LinkML schema
+2. **Ontology term validation**: Verifies term IDs exist and labels match authoritative sources (HPO, MONDO, GO, etc.)
+3. **Reference validation**: Confirms that quoted snippets actually appear in cited PubMed abstracts
+4. **Compliance analysis**: Measures coverage of recommended fields (descriptions, evidence, ontology terms)
 
 ```bash
-just qc  # Run all quality checks
+# Run schema + term validation
+just qc
+
+# Validate a single file
+just validate kb/disorders/Asthma.yaml
+
+# Validate references against PubMed abstracts
+just validate-references kb/disorders/Asthma.yaml
+
+# Analyze compliance with recommended field coverage
+just compliance-all
+
+# Compliance with weighted scoring and threshold checks
+just compliance-weighted
 ```
+
+### Why Reference Validation Matters
+
+All evidence snippets must be **exact quotes** from paper abstracts, not paraphrases. The reference validator fetches abstracts from PubMed and checks that the quoted text appears verbatim. This catches:
+
+- AI-generated paraphrases that don't match the actual paper
+- Wrong PMIDs (e.g., a PMID that points to an unrelated paper)
+- Fabricated citations
+
+When validation fails, either fix the snippet to match the actual abstract or remove the evidence item.
+
+### QC Dashboard
+
+Generate a visual dashboard showing compliance metrics across all disorder files:
+
+```bash
+just gen-dashboard
+```
+
+This creates `dashboard/index.html` with:
+- Summary metrics (files analyzed, average compliance, violations)
+- Slot compliance comparison chart
+- Detailed views of the 10 lowest-compliance files (priority curation targets)
+- Full table of all files sorted by compliance
+
+View online: [QC Dashboard](https://monarch-initiative.github.io/dismech/dashboard/) or locally: `open dashboard/index.html`
 
 ### HTML Generation
 
