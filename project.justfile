@@ -64,6 +64,37 @@ validate-graphs:
 qc: validate-all validate-terms
     @echo "All QC checks passed!"
 
+# Analyze recommended field compliance for all disorder files
+[group('QC')]
+compliance-all:
+    linkml-data-qc {{kb_dir}} -s {{schema_path}} -t Disease -f text
+
+# Analyze compliance for a single file
+[group('QC')]
+compliance file:
+    linkml-data-qc {{file}} -s {{schema_path}} -t Disease -f text
+
+# Generate compliance report as JSON
+[group('QC')]
+compliance-report:
+    linkml-data-qc {{kb_dir}} -s {{schema_path}} -t Disease -f json -o compliance_report.json
+
+# Generate compliance report as CSV
+[group('QC')]
+compliance-csv:
+    linkml-data-qc {{kb_dir}} -s {{schema_path}} -t Disease -f csv -o compliance_report.csv
+
+# Analyze compliance with config file (weighted scoring and thresholds)
+[group('QC')]
+compliance-weighted:
+    linkml-data-qc {{kb_dir}} -s {{schema_path}} -t Disease -c conf/qc_config.yaml -f text
+
+# Generate QC dashboard (HTML site with charts)
+[group('QC')]
+gen-dashboard:
+    linkml-data-qc {{kb_dir}} -s {{schema_path}} -t Disease -c conf/qc_config.yaml --dashboard-dir dashboard/
+    @echo "Dashboard generated in dashboard/"
+
 # Validate snippet/reference pairs against PubMed (checks that quotes appear in cited papers)
 # Note: First run fetches from PubMed and caches; subsequent runs use cache
 [group('QC')]

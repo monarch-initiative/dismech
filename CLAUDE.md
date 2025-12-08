@@ -136,7 +136,92 @@ uv run runoak -i sqlite:obo:maxo search "physical therapy"
 ## Testing
 
 Tests are in `tests/test_data.py`:
-- Schema validation for all 55 disorder files
+- Schema validation for all 56 disorder files
 - Required field checks
 - Evidence reference validation
 - Unique name verification
+
+## Standard Operating Procedure: Adding/Editing Evidence
+
+When adding or editing evidence items in disorder files, follow this SOP to prevent hallucinations:
+
+### 1. Never Fabricate Snippets
+
+Evidence snippets MUST be exact quotes from the cited paper's abstract. Do not paraphrase.
+
+**Wrong:**
+```yaml
+evidence:
+  - reference: PMID:12345678
+    snippet: The study showed that X causes Y through Z mechanism.  # Paraphrase - will fail validation
+```
+
+**Correct:**
+```yaml
+evidence:
+  - reference: PMID:12345678
+    snippet: "X causes Y through the Z mechanism, as demonstrated by..."  # Exact quote from abstract
+```
+
+### 2. Verify PMIDs Before Use
+
+Always check that a PMID actually corresponds to the paper you think it does:
+
+```bash
+# Check cached abstract (if previously fetched)
+cat references_cache/pmid_12345678.md
+
+# Or fetch fresh and validate
+just validate-references kb/disorders/MyDisease.yaml
+```
+
+### 3. Validation Workflow
+
+Before committing changes to any disorder file:
+
+```bash
+# 1. Schema validation (structure correct)
+just validate kb/disorders/MyDisease.yaml
+
+# 2. Reference validation (snippets match abstracts)
+just validate-references kb/disorders/MyDisease.yaml
+
+# 3. Term validation (ontology IDs/labels correct)
+just validate-terms-file kb/disorders/MyDisease.yaml
+```
+
+### 4. When Evidence Cannot Be Verified
+
+If a claim is well-established but you cannot find a quotable snippet:
+
+- **Option A**: Move the claim to the `notes` field (no evidence required)
+- **Option B**: Find a different paper with a quotable abstract
+- **Option C**: Remove the evidence block entirely, keep the description
+
+**Do NOT** fabricate quotes or use incorrect PMIDs.
+
+### 5. Common Validation Errors
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| "Text part not found as substring" | Snippet is paraphrased | Use exact quote from abstract |
+| "Reference not found" | PMID doesn't exist | Verify PMID on PubMed |
+| Low similarity score | Wrong PMID for the paper | Check abstract matches topic |
+
+### 6. Running Full QC
+
+```bash
+# All validation checks
+just qc
+
+# Compliance analysis (recommended field coverage)
+just compliance-all
+
+# With weighted scoring and threshold checks
+just compliance-weighted
+
+# Generate visual dashboard (dashboard/index.html)
+just gen-dashboard
+```
+
+The dashboard shows priority curation targets - the 10 files with lowest compliance scores.
