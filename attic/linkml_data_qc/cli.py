@@ -5,7 +5,6 @@ import sys
 from pathlib import Path
 
 from .analyzer import ComplianceAnalyzer
-from .config import QCConfig
 from .formatters import (
     CSVFormatter,
     JSONFormatter,
