@@ -776,10 +776,8 @@ class ExposureDescriptor(Descriptor):
     """
     A descriptor for exposure events, bindable to ECTO or XCO
     """
-    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'comments': ['Use ECTO (Environmental Conditions, Treatments, and Exposures '
-                      'Ontology) for general exposures',
-                      'Use XCO (Experimental Conditions Ontology) for experimental '
-                      'exposure conditions'],
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'comments': ['Use ECTO (Environmental Conditions, Treatments, and Exposures Ontology) for general exposures',
+                      'Use XCO (Experimental Conditions Ontology) for experimental exposure conditions'],
          'from_schema': 'https://w3id.org/monarch-initiative/dismech',
          'slot_usage': {'term': {'bindings': [{'binds_value_of': 'id',
                                                'obligation_level': 'RECOMMENDED',
@@ -821,8 +819,7 @@ class EnvironmentDescriptor(Descriptor):
     """
     A descriptor for environmental contexts/settings, bindable to ENVO
     """
-    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'comments': ['Use ENVO (Environment Ontology) for habitats, biomes, and '
-                      'environmental features'],
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'comments': ['Use ENVO (Environment Ontology) for habitats, biomes, and environmental features'],
          'from_schema': 'https://w3id.org/monarch-initiative/dismech',
          'slot_usage': {'term': {'bindings': [{'binds_value_of': 'id',
                                                'obligation_level': 'RECOMMENDED',
@@ -1614,8 +1611,7 @@ class Genetic(ConfiguredBaseModel):
          'examples': [{'value': 'Occasional'}]} })
     inheritance: Optional[list[Inheritance]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Genetic', 'Disease'],
          'examples': [{'value': 'Autosomal Dominant'}]} })
-    variants: Optional[list[Variant]] = Field(default=[], json_schema_extra = { "linkml_meta": {'comments': ['can currently be used at gene or disease level, TODO - decide '
-                      'the best level'],
+    variants: Optional[list[Variant]] = Field(default=[], json_schema_extra = { "linkml_meta": {'comments': ['can currently be used at gene or disease level, TODO - decide the best level'],
          'domain_of': ['Genetic', 'Disease']} })
     features: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Genetic'],
          'examples': [{'value': 'DNA virus from the Orthopoxvirus genus'}]} })
@@ -1807,8 +1803,7 @@ class Disease(ConfiguredBaseModel):
     biochemical: Optional[list[Biochemical]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Disease']} })
     stages: Optional[list[Stage]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Disease']} })
     genetic: Optional[list[Genetic]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Disease']} })
-    variants: Optional[list[Variant]] = Field(default=[], json_schema_extra = { "linkml_meta": {'comments': ['can currently be used at gene or disease level, TODO - decide '
-                      'the best level'],
+    variants: Optional[list[Variant]] = Field(default=[], json_schema_extra = { "linkml_meta": {'comments': ['can currently be used at gene or disease level, TODO - decide the best level'],
          'domain_of': ['Genetic', 'Disease']} })
     environmental: Optional[list[Environmental]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Disease']} })
     treatments: Optional[list[Treatment]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Disease']} })
