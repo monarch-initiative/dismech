@@ -341,7 +341,9 @@ class Term(ConfiguredBaseModel):
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
 
     id: str = Field(default=..., description="""Ontology term identifier (CURIE)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Term']} })
-    label: Optional[str] = Field(default=None, description="""Human-readable label for the ontology term""", json_schema_extra = { "linkml_meta": {'domain_of': ['Term']} })
+    label: Optional[str] = Field(default=None, description="""Human-readable label for the ontology term""", json_schema_extra = { "linkml_meta": {'comments': ['This is automatically validated by the linkml-term-validator '
+                      'tool.'],
+         'domain_of': ['Term']} })
 
 
 class Descriptor(ConfiguredBaseModel):
@@ -370,7 +372,8 @@ class Descriptor(ConfiguredBaseModel):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration']} })
+                       'ModelingConsideration'],
+         'recommended': True} })
     term: Optional[Term] = Field(default=None, description="""Optional structured ontology term reference""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor'], 'recommended': True} })
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
 
@@ -381,7 +384,7 @@ class CellTypeDescriptor(Descriptor):
     """
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
          'slot_usage': {'term': {'bindings': [{'binds_value_of': 'id',
-                                               'obligation_level': 'RECOMMENDED',
+                                               'obligation_level': 'REQUIRED',
                                                'range': 'CellTypeTerm'}],
                                  'description': 'Optional Cell Ontology term reference',
                                  'name': 'term'}}})
@@ -406,9 +409,10 @@ class CellTypeDescriptor(Descriptor):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration']} })
+                       'ModelingConsideration'],
+         'recommended': True} })
     term: Optional[Term] = Field(default=None, description="""Optional Cell Ontology term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
-                       'obligation_level': 'RECOMMENDED',
+                       'obligation_level': 'REQUIRED',
                        'range': 'CellTypeTerm'}],
          'domain_of': ['Descriptor'],
          'recommended': True} })
@@ -444,7 +448,8 @@ class BiologicalProcessDescriptor(Descriptor):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration']} })
+                       'ModelingConsideration'],
+         'recommended': True} })
     term: Optional[Term] = Field(default=None, description="""Optional GO biological process term reference""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor'], 'recommended': True} })
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
 
@@ -478,7 +483,8 @@ class AnatomicalEntityDescriptor(Descriptor):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration']} })
+                       'ModelingConsideration'],
+         'recommended': True} })
     term: Optional[Term] = Field(default=None, description="""Optional UBERON anatomical entity term reference""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor'], 'recommended': True} })
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
 
@@ -512,7 +518,8 @@ class ChemicalEntityDescriptor(Descriptor):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration']} })
+                       'ModelingConsideration'],
+         'recommended': True} })
     term: Optional[Term] = Field(default=None, description="""Optional CHEBI chemical entity term reference""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor'], 'recommended': True} })
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
 
@@ -546,7 +553,8 @@ class GeneDescriptor(Descriptor):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration']} })
+                       'ModelingConsideration'],
+         'recommended': True} })
     term: Optional[Term] = Field(default=None, description="""Optional gene database term reference (e.g., HGNC)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor'], 'recommended': True} })
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
 
@@ -580,7 +588,8 @@ class CellularComponentDescriptor(Descriptor):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration']} })
+                       'ModelingConsideration'],
+         'recommended': True} })
     term: Optional[Term] = Field(default=None, description="""Optional GO cellular component term reference""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor'], 'recommended': True} })
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
 
@@ -613,7 +622,8 @@ class AssayDescriptor(Descriptor):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration']} })
+                       'ModelingConsideration'],
+         'recommended': True} })
     term: Optional[Term] = Field(default=None, description="""Optional OBI assay term reference""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor'], 'recommended': True} })
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
 
@@ -646,7 +656,8 @@ class TriggerDescriptor(Descriptor):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration']} })
+                       'ModelingConsideration'],
+         'recommended': True} })
     term: Optional[Term] = Field(default=None, description="""Optional ontology term reference""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor'], 'recommended': True} })
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
 
@@ -657,7 +668,7 @@ class DiseaseDescriptor(Descriptor):
     """
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
          'slot_usage': {'term': {'bindings': [{'binds_value_of': 'id',
-                                               'obligation_level': 'RECOMMENDED',
+                                               'obligation_level': 'REQUIRED',
                                                'range': 'DiseaseTerm'}],
                                  'description': 'Optional MONDO disease term reference',
                                  'name': 'term'}}})
@@ -682,9 +693,10 @@ class DiseaseDescriptor(Descriptor):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration']} })
+                       'ModelingConsideration'],
+         'recommended': True} })
     term: Optional[Term] = Field(default=None, description="""Optional MONDO disease term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
-                       'obligation_level': 'RECOMMENDED',
+                       'obligation_level': 'REQUIRED',
                        'range': 'DiseaseTerm'}],
          'domain_of': ['Descriptor'],
          'recommended': True} })
@@ -697,7 +709,7 @@ class PhenotypeDescriptor(Descriptor):
     """
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
          'slot_usage': {'term': {'bindings': [{'binds_value_of': 'id',
-                                               'obligation_level': 'RECOMMENDED',
+                                               'obligation_level': 'REQUIRED',
                                                'range': 'PhenotypeTerm'}],
                                  'description': 'Optional HP phenotype term reference',
                                  'name': 'term'}}})
@@ -722,9 +734,10 @@ class PhenotypeDescriptor(Descriptor):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration']} })
+                       'ModelingConsideration'],
+         'recommended': True} })
     term: Optional[Term] = Field(default=None, description="""Optional HP phenotype term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
-                       'obligation_level': 'RECOMMENDED',
+                       'obligation_level': 'REQUIRED',
                        'range': 'PhenotypeTerm'}],
          'domain_of': ['Descriptor'],
          'recommended': True} })
@@ -737,7 +750,7 @@ class TreatmentDescriptor(Descriptor):
     """
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
          'slot_usage': {'term': {'bindings': [{'binds_value_of': 'id',
-                                               'obligation_level': 'RECOMMENDED',
+                                               'obligation_level': 'REQUIRED',
                                                'range': 'TreatmentActionTerm'}],
                                  'description': 'Optional MAXO treatment term '
                                                 'reference',
@@ -763,9 +776,10 @@ class TreatmentDescriptor(Descriptor):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration']} })
+                       'ModelingConsideration'],
+         'recommended': True} })
     term: Optional[Term] = Field(default=None, description="""Optional MAXO treatment term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
-                       'obligation_level': 'RECOMMENDED',
+                       'obligation_level': 'REQUIRED',
                        'range': 'TreatmentActionTerm'}],
          'domain_of': ['Descriptor'],
          'recommended': True} })
@@ -782,7 +796,7 @@ class ExposureDescriptor(Descriptor):
                       'exposure conditions'],
          'from_schema': 'https://w3id.org/monarch-initiative/dismech',
          'slot_usage': {'term': {'bindings': [{'binds_value_of': 'id',
-                                               'obligation_level': 'RECOMMENDED',
+                                               'obligation_level': 'REQUIRED',
                                                'range': 'ExposureTerm'}],
                                  'description': 'Optional ECTO/XCO exposure term '
                                                 'reference',
@@ -808,9 +822,10 @@ class ExposureDescriptor(Descriptor):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration']} })
+                       'ModelingConsideration'],
+         'recommended': True} })
     term: Optional[Term] = Field(default=None, description="""Optional ECTO/XCO exposure term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
-                       'obligation_level': 'RECOMMENDED',
+                       'obligation_level': 'REQUIRED',
                        'range': 'ExposureTerm'}],
          'domain_of': ['Descriptor'],
          'recommended': True} })
@@ -825,7 +840,7 @@ class EnvironmentDescriptor(Descriptor):
                       'environmental features'],
          'from_schema': 'https://w3id.org/monarch-initiative/dismech',
          'slot_usage': {'term': {'bindings': [{'binds_value_of': 'id',
-                                               'obligation_level': 'RECOMMENDED',
+                                               'obligation_level': 'REQUIRED',
                                                'range': 'EnvironmentTerm'}],
                                  'description': 'Optional ENVO environment term '
                                                 'reference',
@@ -851,9 +866,10 @@ class EnvironmentDescriptor(Descriptor):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration']} })
+                       'ModelingConsideration'],
+         'recommended': True} })
     term: Optional[Term] = Field(default=None, description="""Optional ENVO environment term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
-                       'obligation_level': 'RECOMMENDED',
+                       'obligation_level': 'REQUIRED',
                        'range': 'EnvironmentTerm'}],
          'domain_of': ['Descriptor'],
          'recommended': True} })
@@ -901,7 +917,8 @@ class Subtype(ConfiguredBaseModel):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration']} })
+                       'ModelingConsideration'],
+         'recommended': True} })
     evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype',
                        'CausalEdge',
                        'Prevalence',
@@ -942,7 +959,9 @@ class EvidenceItem(ConfiguredBaseModel):
          'examples': [{'value': 'PMID:35533128'}],
          'implements': ['linkml:authoritative_reference']} })
     supports: Optional[EvidenceItemSupportEnum] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['EvidenceItem'], 'examples': [{'value': 'SUPPORT'}]} })
-    snippet: Optional[str] = Field(default=None, description="""An exact excerpt/quote from the referenced publication that supports or refutes the claim""", json_schema_extra = { "linkml_meta": {'domain_of': ['EvidenceItem'],
+    snippet: Optional[str] = Field(default=None, description="""An exact excerpt/quote from the referenced publication that supports or refutes the claim""", json_schema_extra = { "linkml_meta": {'comments': ['This is automatically validated by the '
+                      'linkml-reference-validator tool.'],
+         'domain_of': ['EvidenceItem'],
          'examples': [{'value': 'At the moment there is no healing therapy, so early '
                                 'kidney transplant is a fundamental tool to improve '
                                 'prognosis.'}],
@@ -980,7 +999,8 @@ class CausalEdge(ConfiguredBaseModel):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration']} })
+                       'ModelingConsideration'],
+         'recommended': True} })
     evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype',
                        'CausalEdge',
                        'Prevalence',
@@ -1184,7 +1204,8 @@ class EpidemiologyInfo(ConfiguredBaseModel):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration']} })
+                       'ModelingConsideration'],
+         'recommended': True} })
     minimum_value: Optional[float] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['EpidemiologyInfo']} })
     maximum_value: Optional[float] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['EpidemiologyInfo']} })
     mean_range: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['EpidemiologyInfo']} })
@@ -1271,7 +1292,8 @@ class Pathophysiology(ConfiguredBaseModel):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration']} })
+                       'ModelingConsideration'],
+         'recommended': True} })
     cell_types: Optional[list[CellTypeDescriptor]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology', 'Biochemical'],
          'examples': [{'value': '[{preferred_term: Macrophage}, {preferred_term: T '
                                 'Cell}]'}]} })
@@ -1405,7 +1427,8 @@ class Phenotype(ConfiguredBaseModel):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration']} })
+                       'ModelingConsideration'],
+         'recommended': True} })
     diagnostic: Optional[bool] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Phenotype']} })
     sequelae: Optional[list[CausalEdge]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Phenotype'],
          'examples': [{'value': '[{target: Diabetic Ketoacidosis}, {target: Chronic '
@@ -1723,7 +1746,8 @@ class Environmental(ConfiguredBaseModel):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration']} })
+                       'ModelingConsideration'],
+         'recommended': True} })
     chemicals: Optional[list[str]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Environmental'], 'examples': [{'value': "['Phenol']"}]} })
     synonyms: Optional[list[str]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology',
                        'Biochemical',
@@ -1794,7 +1818,8 @@ class Disease(ConfiguredBaseModel):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration']} })
+                       'ModelingConsideration'],
+         'recommended': True} })
     references: Optional[list[PublicationReference]] = Field(default=[], description="""Top-level list of references with their key findings for this disease""", json_schema_extra = { "linkml_meta": {'domain_of': ['Disease']} })
     category: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Phenotype', 'Disease', 'AnimalModel'],
          'examples': [{'value': 'Hematologic'}]} })
@@ -1894,7 +1919,8 @@ class Stage(ConfiguredBaseModel):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration']} })
+                       'ModelingConsideration'],
+         'recommended': True} })
     evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype',
                        'CausalEdge',
                        'Prevalence',
@@ -1983,7 +2009,8 @@ class AnimalModel(ConfiguredBaseModel):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration']} })
+                       'ModelingConsideration'],
+         'recommended': True} })
     associated_phenotypes: Optional[list[str]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['AnimalModel'],
          'examples': [{'value': "['Celiac Disease', 'Type 1 Diabetes', 'Autoimmune "
                                 "Thyroid Disease']"}]} })
@@ -2050,7 +2077,8 @@ class Treatment(ConfiguredBaseModel):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration']} })
+                       'ModelingConsideration'],
+         'recommended': True} })
     treatment_term: Optional[TreatmentDescriptor] = Field(default=None, description="""The MAXO term for this treatment/medical action""", json_schema_extra = { "linkml_meta": {'domain_of': ['Treatment']} })
     evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype',
                        'CausalEdge',
@@ -2170,7 +2198,8 @@ class InfectiousAgent(ConfiguredBaseModel):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration']} })
+                       'ModelingConsideration'],
+         'recommended': True} })
     has_subtypes: Optional[list[Subtype]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Disease', 'InfectiousAgent']} })
 
 
@@ -2215,7 +2244,8 @@ class Transmission(ConfiguredBaseModel):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration']} })
+                       'ModelingConsideration'],
+         'recommended': True} })
     evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype',
                        'CausalEdge',
                        'Prevalence',
@@ -2296,7 +2326,8 @@ class Assay(ConfiguredBaseModel):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration']} })
+                       'ModelingConsideration'],
+         'recommended': True} })
 
 
 class Diagnosis(ConfiguredBaseModel):
@@ -2380,7 +2411,8 @@ class Diagnosis(ConfiguredBaseModel):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration']} })
+                       'ModelingConsideration'],
+         'recommended': True} })
 
 
 class Inheritance(ConfiguredBaseModel):
@@ -2444,7 +2476,8 @@ class Inheritance(ConfiguredBaseModel):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration']} })
+                       'ModelingConsideration'],
+         'recommended': True} })
 
 
 class Variant(ConfiguredBaseModel):
@@ -2488,7 +2521,8 @@ class Variant(ConfiguredBaseModel):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration']} })
+                       'ModelingConsideration'],
+         'recommended': True} })
     gene: Optional[GeneDescriptor] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology', 'Variant'],
          'examples': [{'value': '{preferred_term: MEFV}'}]} })
     evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype',
@@ -2547,7 +2581,8 @@ class FunctionalEffect(ConfiguredBaseModel):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration']} })
+                       'ModelingConsideration'],
+         'recommended': True} })
     type: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Variant', 'FunctionalEffect']} })
 
 
@@ -2592,7 +2627,8 @@ class Mechanism(ConfiguredBaseModel):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration']} })
+                       'ModelingConsideration'],
+         'recommended': True} })
 
 
 class ModelingConsideration(ConfiguredBaseModel):
@@ -2636,7 +2672,8 @@ class ModelingConsideration(ConfiguredBaseModel):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration']} })
+                       'ModelingConsideration'],
+         'recommended': True} })
     evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype',
                        'CausalEdge',
                        'Prevalence',
