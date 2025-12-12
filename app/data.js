@@ -27,7 +27,13 @@ window.searchData = [
       "Vitreous Opacities",
       "Carpal Tunnel Syndrome",
       "Renal Dysfunction",
-      "Fatigue"
+      "Fatigue",
+      "Sensory Loss",
+      "Numbness and Tingling",
+      "Autonomic Dysfunction",
+      "Heart Failure",
+      "Arrhythmias",
+      "Orthostatic Hypotension"
     ],
     "phenotype_categories": [
       "Neurologic",
@@ -42,7 +48,13 @@ window.searchData = [
       "HP:0009830",
       "HP:0001638",
       "HP:0007710",
-      "HP:0012378"
+      "HP:0012378",
+      "HP:0003474",
+      "HP:0003401",
+      "HP:0012332",
+      "HP:0001635",
+      "HP:0011675",
+      "HP:0001278"
     ],
     "frequencies": [
       "FREQUENT",
@@ -68,7 +80,7 @@ window.searchData = [
     ],
     "source_file": "ATTR_Amyloidosis.yaml",
     "page_url": "../pages/disorders/ATTR_Amyloidosis.html",
-    "num_phenotypes": 7,
+    "num_phenotypes": 13,
     "num_pathophysiology": 2,
     "num_genes": 1,
     "num_treatments": 6
@@ -158,14 +170,18 @@ window.searchData = [
       "Muscle Weakness",
       "Weight Loss",
       "Hypotension",
-      "Salt Craving"
+      "Salt Craving",
+      "Hypoglycemia",
+      "Hyponatremia",
+      "Hyperkalemia"
     ],
     "phenotype_categories": [
       "Endocrine",
       "Gastrointestinal",
       "Musculoskeletal",
       "Systemic",
-      "Cardiovascular"
+      "Cardiovascular",
+      "Metabolic"
     ],
     "phenotype_ids": [
       "HP:0012378",
@@ -174,7 +190,10 @@ window.searchData = [
       "HP:0001324",
       "HP:0001824",
       "HP:0002615",
-      "HP:0030083"
+      "HP:0030083",
+      "HP:0001943",
+      "HP:0002902",
+      "HP:0002153"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -201,7 +220,7 @@ window.searchData = [
     ],
     "source_file": "Addisons_Disease.yaml",
     "page_url": "../pages/disorders/Addison's_Disease.html",
-    "num_phenotypes": 7,
+    "num_phenotypes": 10,
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 5
@@ -341,7 +360,9 @@ window.searchData = [
       "Thrombocytopenia",
       "Cardiac Valve Disease",
       "Livedo Reticularis",
-      "Migraine Headaches"
+      "Migraine Headaches",
+      "Pulmonary Embolism",
+      "Stroke"
     ],
     "phenotype_categories": [
       "Thrombosis",
@@ -356,7 +377,9 @@ window.searchData = [
       "HP:0001622",
       "HP:0001873",
       "HP:0100602",
-      "HP:0033505"
+      "HP:0033505",
+      "HP:0002204",
+      "HP:0001297"
     ],
     "frequencies": [
       "FREQUENT",
@@ -380,7 +403,7 @@ window.searchData = [
     ],
     "source_file": "Antiphospholipid_Syndrome.yaml",
     "page_url": "../pages/disorders/Antiphospholipid_Syndrome.html",
-    "num_phenotypes": 9,
+    "num_phenotypes": 11,
     "num_pathophysiology": 6,
     "num_genes": 2,
     "num_treatments": 0
@@ -508,13 +531,16 @@ window.searchData = [
       "Fatigue",
       "Exercise Intolerance",
       "Sleep Disturbance",
-      "Anxiety"
+      "Anxiety",
+      "Respiratory Distress",
+      "Reduced Exercise Tolerance"
     ],
     "phenotype_categories": [
       "Respiratory",
       "Systemic",
       "Activity",
-      "Sleep"
+      "Sleep",
+      "Cardiovascular"
     ],
     "phenotype_ids": [
       "HP:0030828",
@@ -524,7 +550,8 @@ window.searchData = [
       "HP:0012378",
       "HP:0003546",
       "HP:0002360",
-      "HP:0000739"
+      "HP:0000739",
+      "HP:0002098"
     ],
     "frequencies": [
       "FREQUENT",
@@ -558,7 +585,7 @@ window.searchData = [
     ],
     "source_file": "Asthma.yaml",
     "page_url": "../pages/disorders/Asthma.html",
-    "num_phenotypes": 10,
+    "num_phenotypes": 12,
     "num_pathophysiology": 4,
     "num_genes": 6,
     "num_treatments": 5
@@ -654,16 +681,21 @@ window.searchData = [
       "Lumbar Puncture",
       "CSF Culture",
       "Blood Culture",
-      "CT or MRI"
+      "CT or MRI",
+      "Seizures",
+      "Focal Neurological Deficits"
     ],
     "phenotype_categories": [
       "Neurological",
       "Systemic",
-      "Integumentary"
+      "Integumentary",
+      "Neurologic"
     ],
     "phenotype_ids": [
       "HP:0002315",
-      "HP:0001945"
+      "HP:0001945",
+      "HP:0001250",
+      "HP:0007340"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -682,7 +714,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Bacterial_meningitis.yaml",
     "page_url": "../pages/disorders/Bacterial_meningitis.html",
-    "num_phenotypes": 9,
+    "num_phenotypes": 11,
     "num_pathophysiology": 3,
     "num_genes": 0,
     "num_treatments": 5
@@ -700,7 +732,7 @@ window.searchData = [
       "BBS2",
       "Other BBS Subtypes"
     ],
-    "description": "Defects in the function of primary cilia due to mutations in BBS genes lead to a wide range of symptoms.",
+    "description": "Bardet-Biedl syndrome is a rare autosomal recessive ciliopathy characterized by rod-cone dystrophy leading to blindness, obesity, polydactyly, renal anomalies, learning difficulties, and hypogonadism. It results from mutations in genes encoding components of the BBSome, a protein complex essential for ciliary trafficking.",
     "pathophysiology": [
       "Ciliary Dysfunction"
     ],
@@ -719,11 +751,13 @@ window.searchData = [
       "Behavioral Abnormalities",
       "Dysmorphic Facial Features",
       "Congenital Heart Defects",
-      "Hirschsprung Disease"
+      "Hirschsprung Disease",
+      "Night Blindness",
+      "Progressive Vision Loss"
     ],
     "phenotype_categories": [
       "Ophthalmologic",
-      "Renal",
+      "Skeletal",
       "Obesity",
       "Developmental",
       "Genitourinary",
@@ -731,7 +765,8 @@ window.searchData = [
       "Behavioral",
       "Craniofacial",
       "Cardiovascular",
-      "Gastrointestinal"
+      "Gastrointestinal",
+      "Ocular"
     ],
     "phenotype_ids": [
       "HP:0000510",
@@ -739,7 +774,9 @@ window.searchData = [
       "HP:0001956",
       "HP:0001249",
       "HP:0001263",
-      "HP:0000135"
+      "HP:0000135",
+      "HP:0000662",
+      "HP:0000529"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -766,7 +803,7 @@ window.searchData = [
     ],
     "source_file": "Bardet-Biedl_Syndrome.yaml",
     "page_url": "../pages/disorders/Bardet-Biedl_Syndrome.html",
-    "num_phenotypes": 12,
+    "num_phenotypes": 14,
     "num_pathophysiology": 1,
     "num_genes": 3,
     "num_treatments": 5
@@ -905,20 +942,33 @@ window.searchData = [
       "Hypovolemic Shock",
       "Hypokalemia",
       "Metabolic Acidosis",
-      "Muscle Cramps"
+      "Muscle Cramps",
+      "Severe Dehydration",
+      "Shock",
+      "Sunken Eyes",
+      "Low Blood Pressure",
+      "Tachycardia",
+      "Acute Kidney Injury"
     ],
     "phenotype_categories": [
       "Gastrointestinal",
       "Systemic",
       "Electrolyte/Metabolic",
-      "Musculoskeletal"
+      "Musculoskeletal",
+      "Cardiovascular",
+      "Renal"
     ],
     "phenotype_ids": [
       "HP:0001944",
       "HP:0031274",
       "HP:0002900",
       "HP:0001942",
-      "HP:0003394"
+      "HP:0003394",
+      "HP:0031273",
+      "HP:0000490",
+      "HP:0002615",
+      "HP:0001649",
+      "HP:0001919"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -942,7 +992,7 @@ window.searchData = [
     ],
     "source_file": "Cholera.yaml",
     "page_url": "../pages/disorders/Cholera.html",
-    "num_phenotypes": 8,
+    "num_phenotypes": 14,
     "num_pathophysiology": 3,
     "num_genes": 0,
     "num_treatments": 5
@@ -991,11 +1041,15 @@ window.searchData = [
       "Barrel Chest",
       "Respiratory Failure",
       "Fatigue",
-      "Weight Loss"
+      "Weight Loss",
+      "Exercise Intolerance",
+      "Hypoxemia",
+      "Hypercapnia"
     ],
     "phenotype_categories": [
       "Respiratory",
-      "Systemic"
+      "Systemic",
+      "Cardiovascular"
     ],
     "phenotype_ids": [
       "HP:0002094",
@@ -1004,7 +1058,10 @@ window.searchData = [
       "HP:0030828",
       "HP:0002878",
       "HP:0012378",
-      "HP:0001824"
+      "HP:0001824",
+      "HP:0003546",
+      "HP:0012418",
+      "HP:0012416"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -1035,7 +1092,7 @@ window.searchData = [
     ],
     "source_file": "Chronic_Obstructive_Pulmonary_Disease.yaml",
     "page_url": "../pages/disorders/Chronic_Obstructive_Pulmonary_Disease.html",
-    "num_phenotypes": 8,
+    "num_phenotypes": 11,
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 8
@@ -1071,7 +1128,10 @@ window.searchData = [
       "Erythema Nodosum",
       "Uveitis",
       "Fatigue",
-      "Fever"
+      "Fever",
+      "Weight Loss",
+      "Malnutrition",
+      "Dehydration"
     ],
     "phenotype_categories": [
       "Gastrointestinal",
@@ -1088,7 +1148,10 @@ window.searchData = [
       "HP:0001369",
       "HP:0012219",
       "HP:0000554",
-      "HP:0001945"
+      "HP:0001945",
+      "HP:0001824",
+      "HP:0004395",
+      "HP:0001944"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -1119,7 +1182,7 @@ window.searchData = [
     ],
     "source_file": "Crohn_Disease.yaml",
     "page_url": "../pages/disorders/Crohn_Disease.html",
-    "num_phenotypes": 10,
+    "num_phenotypes": 13,
     "num_pathophysiology": 2,
     "num_genes": 3,
     "num_treatments": 6
@@ -1141,7 +1204,12 @@ window.searchData = [
       "Antibody-Dependent Enhancement (ADE)",
       "Endothelial Dysfunction",
       "Coagulopathy",
-      "Organ Involvement"
+      "Organ Involvement",
+      "Severe Dengue",
+      "Dengue Hemorrhagic Fever (DHF)",
+      "Dengue Shock Syndrome (DSS)",
+      "Vascular Leakage",
+      "Plasma Leakage"
     ],
     "cell_types": [
       "Dendritic Cell",
@@ -1192,7 +1260,13 @@ window.searchData = [
       "Hemorrhage",
       "Myocarditis",
       "Pleural Effusion",
-      "Shock"
+      "Shock",
+      "Acute Kidney Injury",
+      "Encephalitis",
+      "Hepatitis",
+      "Hemorrhagic Manifestations",
+      "Hemoconcentration",
+      "Neurological Complications"
     ],
     "phenotype_categories": [
       "Systemic",
@@ -1205,7 +1279,9 @@ window.searchData = [
       "Respiratory",
       "Cardiovascular",
       "Hepatic",
-      "Laboratory"
+      "Laboratory",
+      "Renal",
+      "Hematologic"
     ],
     "phenotype_ids": [
       "HP:0001945",
@@ -1223,7 +1299,12 @@ window.searchData = [
       "HP:0001892",
       "HP:0012819",
       "HP:0002202",
-      "HP:0031273"
+      "HP:0031273",
+      "HP:0001919",
+      "HP:0002383",
+      "HP:0012115",
+      "HP:0001899",
+      "HP:0000707"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -1248,8 +1329,8 @@ window.searchData = [
     ],
     "source_file": "Dengue.yaml",
     "page_url": "../pages/disorders/Dengue.html",
-    "num_phenotypes": 23,
-    "num_pathophysiology": 8,
+    "num_phenotypes": 29,
+    "num_pathophysiology": 13,
     "num_genes": 0,
     "num_treatments": 4
   },
@@ -1331,7 +1412,7 @@ window.searchData = [
       "Neurologic Disorder"
     ],
     "subtypes": [],
-    "description": "Mutations in the SCN1A gene cause dysfunction in sodium channels, leading to abnormal neuronal excitability.",
+    "description": "Dravet syndrome is a severe developmental and epileptic encephalopathy characterized by treatment-resistant seizures beginning in infancy, developmental regression, and cognitive impairment. It is primarily caused by de novo loss-of-function mutations in SCN1A, encoding the Nav1.1 voltage-gated sodium channel.",
     "pathophysiology": [
       "SCN1A Gene Mutation",
       "Neuronal Hyperexcitability"
@@ -1411,7 +1492,14 @@ window.searchData = [
       "Headache",
       "Abdominal Pain",
       "Thrombocytopenia",
-      "Hepatitis"
+      "Hepatitis",
+      "Hypovolemic Shock",
+      "Dehydration",
+      "Electrolyte Imbalances",
+      "Multiorgan Failure",
+      "Elevated Liver Enzymes",
+      "Impaired Liver Function",
+      "Increased Risk of Bleeding"
     ],
     "phenotype_categories": [
       "Systemic",
@@ -1420,7 +1508,8 @@ window.searchData = [
       "Musculoskeletal",
       "Neurologic",
       "Hematologic",
-      "Hepatic"
+      "Hepatic",
+      "Metabolic"
     ],
     "phenotype_ids": [
       "HP:0001945",
@@ -1432,7 +1521,12 @@ window.searchData = [
       "HP:0002315",
       "HP:0002027",
       "HP:0001873",
-      "HP:0012115"
+      "HP:0012115",
+      "HP:0031273",
+      "HP:0001944",
+      "HP:0003111",
+      "HP:0002910",
+      "HP:0001410"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -1454,7 +1548,7 @@ window.searchData = [
     ],
     "source_file": "Ebola_Virus_Disease_EVD.yaml",
     "page_url": "../pages/disorders/Ebola_Virus_Disease_EVD.html",
-    "num_phenotypes": 11,
+    "num_phenotypes": 18,
     "num_pathophysiology": 0,
     "num_genes": 0,
     "num_treatments": 3
@@ -1491,7 +1585,9 @@ window.searchData = [
       "Mitral Valve Prolapse",
       "Arterial Dissection and Rupture",
       "Gastroesophageal Reflux",
-      "Keratoconus"
+      "Keratoconus",
+      "Recurrent Joint Dislocations",
+      "Chronic Joint Pain"
     ],
     "phenotype_categories": [
       "Musculoskeletal",
@@ -1505,7 +1601,8 @@ window.searchData = [
       "HP:0001058",
       "HP:0000563",
       "HP:0001634",
-      "HP:0002020"
+      "HP:0002020",
+      "HP:0002829"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -1533,7 +1630,7 @@ window.searchData = [
     ],
     "source_file": "Ehlers-Danlos_Syndrome.yaml",
     "page_url": "../pages/disorders/Ehlers-Danlos_Syndrome.html",
-    "num_phenotypes": 9,
+    "num_phenotypes": 11,
     "num_pathophysiology": 3,
     "num_genes": 4,
     "num_treatments": 4
@@ -1568,7 +1665,9 @@ window.searchData = [
       "Gastroesophageal Reflux",
       "Myopia",
       "Blue Sclerae",
-      "Periodontal Disease"
+      "Periodontal Disease",
+      "Recurrent Joint Dislocations",
+      "Chronic Joint Pain"
     ],
     "phenotype_categories": [
       "Musculoskeletal",
@@ -1584,7 +1683,8 @@ window.searchData = [
       "HP:0002020",
       "HP:0000993",
       "HP:0000545",
-      "HP:0000592"
+      "HP:0000592",
+      "HP:0002829"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -1609,7 +1709,7 @@ window.searchData = [
     ],
     "source_file": "Ehlers-Danlos_Syndrome_COL5A1-related.yaml",
     "page_url": "../pages/disorders/Ehlers-Danlos_Syndrome,_COL5A1-related.html",
-    "num_phenotypes": 13,
+    "num_phenotypes": 15,
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 5
@@ -1692,10 +1792,11 @@ window.searchData = [
       "Congenital Disorder"
     ],
     "subtypes": [],
-    "description": "Mutations in FA genes impair the body's ability to repair DNA damage, leading to increased sensitivity to crosslinking agents and propensity for chromosomal instability.",
+    "description": "Fanconi anemia is a rare inherited bone marrow failure syndrome characterized by genomic instability, congenital abnormalities, progressive bone marrow failure, and increased susceptibility to malignancies. It results from biallelic mutations in genes encoding components of the Fanconi anemia DNA repair pathway.",
     "pathophysiology": [
       "DNA Repair Deficiency",
-      "Bone Marrow Failure"
+      "Bone Marrow Failure",
+      "Genomic Instability"
     ],
     "cell_types": [],
     "cell_type_ids": [],
@@ -1749,7 +1850,7 @@ window.searchData = [
     "source_file": "Fanconi_Anemia.yaml",
     "page_url": "../pages/disorders/Fanconi_Anemia.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 2,
+    "num_pathophysiology": 3,
     "num_genes": 3,
     "num_treatments": 5
   },
@@ -1778,19 +1879,26 @@ window.searchData = [
       "Neonatal Jaundice",
       "Favism",
       "Leukocyte Dysfunction",
-      "Pallor"
+      "Pallor",
+      "Fatigue",
+      "Jaundice",
+      "Shortness of Breath"
     ],
     "phenotype_categories": [
       "Hematologic",
       "Genitourinary",
       "Systemic",
-      "Dermatologic"
+      "Dermatologic",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0001878",
       "HP:0040319",
       "HP:0003265",
-      "HP:0000980"
+      "HP:0000980",
+      "HP:0012378",
+      "HP:0000952",
+      "HP:0002094"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -1816,7 +1924,7 @@ window.searchData = [
     ],
     "source_file": "Glucose-6-Phosphate_Dehydrogenase_G6PD_Deficiency.yaml",
     "page_url": "../pages/disorders/Glucose-6-Phosphate_Dehydrogenase_G6PD_Deficiency.html",
-    "num_phenotypes": 6,
+    "num_phenotypes": 9,
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 3
@@ -1853,7 +1961,11 @@ window.searchData = [
       "Tremor",
       "Anxiety",
       "Irritability",
-      "Pretibial Myxedema"
+      "Pretibial Myxedema",
+      "Weight Loss",
+      "Increased Appetite",
+      "Heat Intolerance",
+      "Sweating"
     ],
     "phenotype_categories": [
       "Endocrine",
@@ -1861,7 +1973,8 @@ window.searchData = [
       "Cardiovascular",
       "Musculoskeletal",
       "Psychiatric",
-      "Dermatologic"
+      "Dermatologic",
+      "Systemic"
     ],
     "phenotype_ids": [
       "HP:0000836",
@@ -1870,7 +1983,11 @@ window.searchData = [
       "HP:0001337",
       "HP:0000739",
       "HP:0000737",
-      "HP:0200028"
+      "HP:0200028",
+      "HP:0001824",
+      "HP:0002591",
+      "HP:0002046",
+      "HP:0000975"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -1899,7 +2016,7 @@ window.searchData = [
     ],
     "source_file": "Graves_Disease.yaml",
     "page_url": "../pages/disorders/Graves'_Disease.html",
-    "num_phenotypes": 8,
+    "num_phenotypes": 12,
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 5
@@ -2154,7 +2271,11 @@ window.searchData = [
       "Aortic Dissection",
       "Stroke",
       "Fatigue",
-      "Proteinuria"
+      "Proteinuria",
+      "Reduced Exercise Tolerance",
+      "Palpitations",
+      "Syncope",
+      "Heart Failure Exacerbations"
     ],
     "phenotype_categories": [
       "Cardiovascular",
@@ -2169,7 +2290,11 @@ window.searchData = [
       "HP:0012378",
       "HP:0002647",
       "HP:0001297",
-      "HP:0000093"
+      "HP:0000093",
+      "HP:0003546",
+      "HP:0001962",
+      "HP:0001279",
+      "HP:0001635"
     ],
     "frequencies": [
       "FREQUENT",
@@ -2193,7 +2318,7 @@ window.searchData = [
     ],
     "source_file": "Hypertensive_Heart_Disease.yaml",
     "page_url": "../pages/disorders/Hypertensive_Heart_Disease.html",
-    "num_phenotypes": 10,
+    "num_phenotypes": 14,
     "num_pathophysiology": 4,
     "num_genes": 0,
     "num_treatments": 6
@@ -2232,7 +2357,9 @@ window.searchData = [
       "Arrhythmias",
       "Arrhythmias",
       "Mitral Valve Regurgitation",
-      "Fatigue"
+      "Fatigue",
+      "Palpitations",
+      "Sudden Cardiac Death"
     ],
     "phenotype_categories": [
       "Cardiovascular",
@@ -2243,7 +2370,9 @@ window.searchData = [
       "HP:0002094",
       "HP:0001279",
       "HP:0011675",
-      "HP:0012378"
+      "HP:0012378",
+      "HP:0001962",
+      "HP:0001645"
     ],
     "frequencies": [
       "FREQUENT",
@@ -2269,7 +2398,7 @@ window.searchData = [
     ],
     "source_file": "Hypertrophic_Cardiomyopathy.yaml",
     "page_url": "../pages/disorders/Hypertrophic_Cardiomyopathy.html",
-    "num_phenotypes": 7,
+    "num_phenotypes": 9,
     "num_pathophysiology": 3,
     "num_genes": 3,
     "num_treatments": 5
@@ -2305,7 +2434,8 @@ window.searchData = [
       "Generalized Tonic-Clonic Seizures",
       "Mild Cognitive Impairment",
       "Photosensitivity",
-      "Developmental Delays"
+      "Developmental Delays",
+      "Impaired Visual Functioning During Episodes"
     ],
     "phenotype_categories": [
       "Neurologic",
@@ -2314,7 +2444,8 @@ window.searchData = [
     ],
     "phenotype_ids": [
       "HP:0011149",
-      "HP:0000992"
+      "HP:0000992",
+      "HP:0000572"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -2341,7 +2472,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Jeavons_Syndrome.yaml",
     "page_url": "../pages/disorders/Jeavons_Syndrome.html",
-    "num_phenotypes": 6,
+    "num_phenotypes": 7,
     "num_pathophysiology": 3,
     "num_genes": 3,
     "num_treatments": 6
@@ -2369,7 +2500,8 @@ window.searchData = [
       "Swelling of Hands and Feet",
       "Peeling Skin",
       "Red, Cracked Lips",
-      "Coronary Artery Aneurysms"
+      "Coronary Artery Aneurysms",
+      "Aneurysm Formation"
     ],
     "phenotype_categories": [
       "Systemic",
@@ -2382,7 +2514,8 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0001945",
       "HP:0000988",
-      "HP:0000509"
+      "HP:0000509",
+      "HP:0002617"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -2403,7 +2536,7 @@ window.searchData = [
     ],
     "source_file": "Kawasaki_Disease.yaml",
     "page_url": "../pages/disorders/Kawasaki_Disease.html",
-    "num_phenotypes": 7,
+    "num_phenotypes": 8,
     "num_pathophysiology": 2,
     "num_genes": 0,
     "num_treatments": 3
@@ -2504,7 +2637,9 @@ window.searchData = [
       "Urinary Tract Cancer",
       "Ovarian Cancer",
       "Sebaceous Adenomas",
-      "Immunodeficiency"
+      "Immunodeficiency",
+      "Bowel Obstruction",
+      "Metastatic Disease"
     ],
     "phenotype_categories": [
       "Gastrointestinal",
@@ -2515,7 +2650,9 @@ window.searchData = [
     ],
     "phenotype_ids": [
       "HP:0012126",
-      "HP:0002721"
+      "HP:0002721",
+      "HP:0005214",
+      "HP:0002664"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -2544,7 +2681,7 @@ window.searchData = [
     ],
     "source_file": "Lynch_Syndrome.yaml",
     "page_url": "../pages/disorders/Lynch_Syndrome.html",
-    "num_phenotypes": 9,
+    "num_phenotypes": 11,
     "num_pathophysiology": 3,
     "num_genes": 5,
     "num_treatments": 4
@@ -2557,7 +2694,7 @@ window.searchData = [
       "Connective Tissue Disorder"
     ],
     "subtypes": [],
-    "description": "Mutations in the FBN1 gene result in defective fibrillin-1 protein, which affects the elasticity and strength of connective tissues.",
+    "description": "Marfan syndrome is an autosomal dominant connective tissue disorder caused by mutations in FBN1, which encodes fibrillin-1. It affects multiple organ systems including the cardiovascular system (aortic root dilation and dissection), skeleton (tall stature, arachnodactyly, scoliosis), and eyes (ectopia lentis).",
     "pathophysiology": [
       "FBN1 Gene Mutation"
     ],
@@ -2570,7 +2707,8 @@ window.searchData = [
       "Arachnodactyly",
       "Ectopia Lentis",
       "Scoliosis",
-      "Pneumothorax"
+      "Pneumothorax",
+      "Aortic Dissection"
     ],
     "phenotype_categories": [
       "Cardiovascular",
@@ -2584,7 +2722,8 @@ window.searchData = [
       "HP:0001166",
       "HP:0001083",
       "HP:0002650",
-      "HP:0002107"
+      "HP:0002107",
+      "HP:0002647"
     ],
     "frequencies": [
       "FREQUENT",
@@ -2608,7 +2747,7 @@ window.searchData = [
     ],
     "source_file": "Marfan_Syndrome.yaml",
     "page_url": "../pages/disorders/Marfan_Syndrome.html",
-    "num_phenotypes": 6,
+    "num_phenotypes": 7,
     "num_pathophysiology": 1,
     "num_genes": 1,
     "num_treatments": 4
@@ -2625,7 +2764,9 @@ window.searchData = [
     "description": "Mutations in key genes such as BRAF and NRAS are commonly associated with the development of melanoma in congenital melanocytic nevi.",
     "pathophysiology": [
       "Genetic Mutations",
-      "UV Exposure"
+      "UV Exposure",
+      "DNA Damage",
+      "Uncontrolled Cell Growth"
     ],
     "cell_types": [],
     "cell_type_ids": [],
@@ -2669,7 +2810,7 @@ window.searchData = [
     "source_file": "Melanoma_in_Congenital_Melanocytic_Nevus.yaml",
     "page_url": "../pages/disorders/Melanoma_in_Congenital_Melanocytic_Nevus.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 2,
+    "num_pathophysiology": 4,
     "num_genes": 2,
     "num_treatments": 5
   },
@@ -2702,7 +2843,9 @@ window.searchData = [
       "Nausea",
       "Vomiting",
       "Sore Throat",
-      "Conjunctivitis"
+      "Conjunctivitis",
+      "Scarring",
+      "Secondary Infections"
     ],
     "phenotype_categories": [
       "Dermatologic",
@@ -2722,7 +2865,9 @@ window.searchData = [
       "HP:0012378",
       "HP:0002018",
       "HP:0002013",
-      "HP:0000509"
+      "HP:0000509",
+      "HP:0100699",
+      "HP:0002719"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -2745,7 +2890,7 @@ window.searchData = [
     ],
     "source_file": "Monkeypox.yaml",
     "page_url": "../pages/disorders/Monkeypox.html",
-    "num_phenotypes": 10,
+    "num_phenotypes": 12,
     "num_pathophysiology": 1,
     "num_genes": 1,
     "num_treatments": 4
@@ -2896,6 +3041,110 @@ window.searchData = [
     "num_treatments": 4
   },
   {
+    "name": "Myalgic Encephalomyelitis/Chronic Fatigue Syndrome",
+    "disease_id": "MONDO:0005404",
+    "category": "Complex",
+    "parents": [
+      "Neurological Disorder",
+      "Immune Disorder"
+    ],
+    "subtypes": [],
+    "description": "Exaggerated innate immune responses to microbial ligands, with exercise-triggered increases in proinflammatory signals, complement activation, and oxidative stress that contribute to post-exertional malaise.",
+    "pathophysiology": [
+      "Innate Immune Hyperreactivity",
+      "Natural Killer Cell Dysfunction",
+      "T-Cell Immunometabolic Dysfunction",
+      "Endothelial Dysfunction and Coagulopathy",
+      "TRPM3 Ion Channel Dysfunction",
+      "Neuroinflammation and Cerebral Hypoperfusion",
+      "Mitochondrial Dysfunction"
+    ],
+    "cell_types": [
+      "Natural Killer Cell",
+      "Monocyte",
+      "CD8+ T Cell",
+      "CD4+ T Cell",
+      "Endothelial Cell",
+      "Platelet"
+    ],
+    "cell_type_ids": [
+      "CL:0000623",
+      "CL:0000576",
+      "CL:0000625",
+      "CL:0000624",
+      "CL:0000115",
+      "CL:0000233"
+    ],
+    "biological_processes": [
+      "Innate Immune Response",
+      "Complement Activation",
+      "T Cell Activation",
+      "Glycolysis",
+      "Blood Coagulation",
+      "Platelet Activation",
+      "Calcium Ion Transmembrane Transport",
+      "Fatty Acid Beta-Oxidation",
+      "Response to Oxidative Stress"
+    ],
+    "phenotypes": [
+      "Post-Exertional Malaise",
+      "Fatigue",
+      "Cognitive Impairment",
+      "Orthostatic Intolerance",
+      "Sleep Disturbance",
+      "Myalgia",
+      "Headache",
+      "Recurrent Infections",
+      "Gastrointestinal Symptoms",
+      "Sensory Sensitivity"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Cardiovascular",
+      "Musculoskeletal",
+      "Immune",
+      "Gastrointestinal"
+    ],
+    "phenotype_ids": [
+      "HP:0030973",
+      "HP:0012378",
+      "HP:0100543",
+      "HP:0001278",
+      "HP:0002360",
+      "HP:0003326",
+      "HP:0002315"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "HLA-DRB1"
+    ],
+    "treatments": [
+      "Pacing",
+      "Symptomatic Treatment",
+      "Low-Dose Naltrexone"
+    ],
+    "environmental": [
+      "Viral Infections",
+      "SARS-CoV-2 Infection"
+    ],
+    "biochemical": [
+      "Natural Killer Cell Cytotoxicity",
+      "Inflammatory Cytokines",
+      "Oxidative Stress Markers"
+    ],
+    "source_file": "Myalgic_Encephalomyelitis_Chronic_Fatigue_Syndrome.yaml",
+    "page_url": "../pages/disorders/Myalgic_Encephalomyelitis_Chronic_Fatigue_Syndrome.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 3
+  },
+  {
     "name": "Nephronophthisis",
     "disease_id": "MONDO:0019005",
     "category": "Genetic",
@@ -2917,7 +3166,8 @@ window.searchData = [
       "Renal Cyst Formation",
       "Renal Insufficiency",
       "Extrarenal Manifestations",
-      "Progression and Severity"
+      "Progression and Severity",
+      "Abnormal Cell Proliferation"
     ],
     "cell_types": [],
     "cell_type_ids": [],
@@ -2929,7 +3179,11 @@ window.searchData = [
       "Retinitis Pigmentosa",
       "Growth Retardation",
       "Bone Deformities",
-      "Secondary Hyperparathyroidism"
+      "Secondary Hyperparathyroidism",
+      "Polyuria",
+      "Polydipsia",
+      "Electrolyte Imbalance",
+      "End-Stage Renal Disease"
     ],
     "phenotype_categories": [
       "Renal",
@@ -2938,13 +3192,19 @@ window.searchData = [
       "Ophthalmologic",
       "Developmental",
       "Musculoskeletal",
-      "Endocrine"
+      "Endocrine",
+      "Systemic",
+      "Metabolic"
     ],
     "phenotype_ids": [
       "HP:0000822",
       "HP:0000510",
       "HP:0001510",
-      "HP:0000867"
+      "HP:0000867",
+      "HP:0000103",
+      "HP:0001959",
+      "HP:0003111",
+      "HP:0003774"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -2970,8 +3230,8 @@ window.searchData = [
     ],
     "source_file": "Nephronophthisis.yaml",
     "page_url": "../pages/disorders/Nephronophthisis.html",
-    "num_phenotypes": 7,
-    "num_pathophysiology": 8,
+    "num_phenotypes": 11,
+    "num_pathophysiology": 9,
     "num_genes": 3,
     "num_treatments": 3
   },
@@ -3078,7 +3338,8 @@ window.searchData = [
       "Erythema Infectiosum (Fifth Disease)",
       "Transient Aplastic Crisis",
       "Arthropathy",
-      "Hydrops Fetalis"
+      "Hydrops Fetalis",
+      "Slapped Cheek Rash"
     ],
     "phenotype_categories": [
       "Dermatologic",
@@ -3088,7 +3349,8 @@ window.searchData = [
     ],
     "phenotype_ids": [
       "HP:0003040",
-      "HP:0001789"
+      "HP:0001789",
+      "HP:0025300"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -3110,7 +3372,7 @@ window.searchData = [
     ],
     "source_file": "Parvovirus_B19_Infection.yaml",
     "page_url": "../pages/disorders/Parvovirus_B19_Infection.html",
-    "num_phenotypes": 4,
+    "num_phenotypes": 5,
     "num_pathophysiology": 2,
     "num_genes": 0,
     "num_treatments": 2
@@ -3147,7 +3409,8 @@ window.searchData = [
       "Adrenal Insufficiency",
       "Chondrodysplasia Punctata",
       "Thrombocytopenia",
-      "Cardiomyopathy"
+      "Cardiomyopathy",
+      "Heart Failure"
     ],
     "phenotype_categories": [
       "Neurologic",
@@ -3158,7 +3421,8 @@ window.searchData = [
       "Endocrine",
       "Musculoskeletal",
       "Hematologic",
-      "Cardiac"
+      "Cardiac",
+      "Cardiovascular"
     ],
     "phenotype_ids": [
       "HP:0001252",
@@ -3168,7 +3432,8 @@ window.searchData = [
       "HP:0000365",
       "HP:0000846",
       "HP:0001873",
-      "HP:0001638"
+      "HP:0001638",
+      "HP:0001635"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -3196,7 +3461,7 @@ window.searchData = [
     ],
     "source_file": "Peroxisome_Biogenesis_Disorder.yaml",
     "page_url": "../pages/disorders/Peroxisome_Biogenesis_Disorder.html",
-    "num_phenotypes": 10,
+    "num_phenotypes": 11,
     "num_pathophysiology": 7,
     "num_genes": 3,
     "num_treatments": 4
@@ -3232,7 +3497,8 @@ window.searchData = [
       "Primitive Reflexes",
       "Executive Dysfunction",
       "Seizures",
-      "Weight Loss"
+      "Weight Loss",
+      "Loss of Social Awareness"
     ],
     "phenotype_categories": [
       "Neurologic",
@@ -3271,7 +3537,7 @@ window.searchData = [
     ],
     "source_file": "Pick_Disease.yaml",
     "page_url": "../pages/disorders/Pick_Disease.html",
-    "num_phenotypes": 9,
+    "num_phenotypes": 10,
     "num_pathophysiology": 4,
     "num_genes": 3,
     "num_treatments": 3
@@ -3301,7 +3567,10 @@ window.searchData = [
       "Chronic Otitis Media",
       "Hearing Loss",
       "Nasal Polyps",
-      "Situs Inversus Totalis"
+      "Situs Inversus Totalis",
+      "Chronic Respiratory Infections",
+      "Sinusitis",
+      "Otitis Media"
     ],
     "phenotype_categories": [
       "Respiratory",
@@ -3315,7 +3584,9 @@ window.searchData = [
       "HP:0002110",
       "HP:0000389",
       "HP:0000365",
-      "HP:0001696"
+      "HP:0001696",
+      "HP:0000246",
+      "HP:0000388"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -3342,7 +3613,7 @@ window.searchData = [
     ],
     "source_file": "Primary_Ciliary_Dyskinesia.yaml",
     "page_url": "../pages/disorders/Primary_Ciliary_Dyskinesia.html",
-    "num_phenotypes": 7,
+    "num_phenotypes": 10,
     "num_pathophysiology": 3,
     "num_genes": 2,
     "num_treatments": 6
@@ -3445,7 +3716,8 @@ window.searchData = [
       "Syncope",
       "Palpitations",
       "Fatigue",
-      "Edema"
+      "Edema",
+      "Reduced Exercise Tolerance"
     ],
     "phenotype_categories": [
       "Respiratory",
@@ -3458,7 +3730,8 @@ window.searchData = [
       "HP:0001279",
       "HP:0001962",
       "HP:0012378",
-      "HP:0000969"
+      "HP:0000969",
+      "HP:0003546"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -3481,7 +3754,7 @@ window.searchData = [
     ],
     "source_file": "Pulmonary_hypertension.yaml",
     "page_url": "../pages/disorders/Pulmonary_hypertension.html",
-    "num_phenotypes": 6,
+    "num_phenotypes": 7,
     "num_pathophysiology": 3,
     "num_genes": 0,
     "num_treatments": 5
@@ -3528,7 +3801,9 @@ window.searchData = [
       "Sicca Syndrome",
       "Scleritis",
       "Pericarditis",
-      "Felty's Syndrome"
+      "Felty's Syndrome",
+      "Joint Deformity",
+      "Reduced Mobility"
     ],
     "phenotype_categories": [
       "Musculoskeletal",
@@ -3542,7 +3817,9 @@ window.searchData = [
       "HP:0005197",
       "HP:0012378",
       "HP:0100532",
-      "HP:0001701"
+      "HP:0001701",
+      "HP:0001367",
+      "HP:0001288"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -3574,7 +3851,7 @@ window.searchData = [
     ],
     "source_file": "Rheumatoid_Arthritis.yaml",
     "page_url": "../pages/disorders/Rheumatoid_Arthritis.html",
-    "num_phenotypes": 11,
+    "num_phenotypes": 13,
     "num_pathophysiology": 4,
     "num_genes": 4,
     "num_treatments": 5
@@ -3974,7 +4251,8 @@ window.searchData = [
       "Hyperglycemia",
       "Impaired Glucose Utilization",
       "Increased Lipolysis",
-      "Chronic Complications"
+      "Chronic Complications",
+      "Diabetic Ketoacidosis (DKA)"
     ],
     "cell_types": [
       "Pancreatic Islet Beta Cell"
@@ -3994,21 +4272,45 @@ window.searchData = [
       "Diabetic Ketoacidosis",
       "Diabetic Retinopathy",
       "Diabetic Neuropathy",
-      "Diabetic Nephropathy"
+      "Diabetic Nephropathy",
+      "Glucosuria",
+      "Fatigue",
+      "Retinopathy",
+      "Neuropathy",
+      "Nephropathy",
+      "Cardiovascular Disease",
+      "Abdominal Pain",
+      "Vomiting",
+      "Rapid Breathing",
+      "Confusion"
     ],
     "phenotype_categories": [
       "Endocrine",
       "Systemic",
       "Ophthalmologic",
       "Neurologic",
-      "Renal"
+      "Renal",
+      "Ocular",
+      "Cardiovascular",
+      "Gastrointestinal",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0003074",
       "HP:0001824",
       "HP:0000103",
       "HP:0001959",
-      "HP:0001953"
+      "HP:0001953",
+      "HP:0003076",
+      "HP:0012378",
+      "HP:0000488",
+      "HP:0009830",
+      "HP:0000112",
+      "HP:0001626",
+      "HP:0002027",
+      "HP:0002013",
+      "HP:0002789",
+      "HP:0001289"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -4035,8 +4337,8 @@ window.searchData = [
     ],
     "source_file": "Type_I_Diabetes.yaml",
     "page_url": "../pages/disorders/Type_I_Diabetes.html",
-    "num_phenotypes": 8,
-    "num_pathophysiology": 8,
+    "num_phenotypes": 18,
+    "num_pathophysiology": 9,
     "num_genes": 3,
     "num_treatments": 3
   },
@@ -4074,7 +4376,8 @@ window.searchData = [
       "Premature Hair Whitening",
       "Associated Autoimmune Disorders",
       "Uveitis",
-      "Depression/Anxiety"
+      "Depression/Anxiety",
+      "Increased Sensitivity To Sunlight"
     ],
     "phenotype_categories": [
       "Dermatological",
@@ -4083,7 +4386,8 @@ window.searchData = [
       "Psychological"
     ],
     "phenotype_ids": [
-      "HP:0000554"
+      "HP:0000554",
+      "HP:0000992"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -4116,7 +4420,7 @@ window.searchData = [
     ],
     "source_file": "Vitiligo.yaml",
     "page_url": "../pages/disorders/Vitiligo.html",
-    "num_phenotypes": 5,
+    "num_phenotypes": 6,
     "num_pathophysiology": 4,
     "num_genes": 6,
     "num_treatments": 5

@@ -1,5 +1,5 @@
 # Auto generated from dismech.yaml by pythongen.py version: 0.0.1
-# Generation date: 2025-12-05T19:06:24
+# Generation date: 2025-12-09T22:19:15
 # Schema: dismech
 #
 # id: https://w3id.org/monarch-initiative/dismech
