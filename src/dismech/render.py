@@ -19,6 +19,7 @@ def curie_to_url(curie: str) -> str:
     prefix, local_id = curie.split(':', 1)
 
     url_patterns = {
+        # Ontology terms
         'HP': f'https://hpo.jax.org/browse/term/HP:{local_id}',
         'MONDO': f'https://monarchinitiative.org/disease/MONDO:{local_id}',
         'CL': f'https://www.ebi.ac.uk/ols4/ontologies/cl/classes/http%253A%252F%252Fpurl.obolibrary.org%252Fobo%252FCL_{local_id}',
@@ -28,6 +29,22 @@ def curie_to_url(curie: str) -> str:
         'PMID': f'https://pubmed.ncbi.nlm.nih.gov/{local_id}',
         'GENO': f'http://purl.obolibrary.org/obo/GENO_{local_id}',
         'MAXO': f'https://www.ebi.ac.uk/ols4/ontologies/maxo/classes/http%253A%252F%252Fpurl.obolibrary.org%252Fobo%252FMAXO_{local_id}',
+        'ECTO': f'https://www.ebi.ac.uk/ols4/ontologies/ecto/classes/http%253A%252F%252Fpurl.obolibrary.org%252Fobo%252FECTO_{local_id}',
+        'NCBITaxon': f'https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id={local_id}',
+        # Dataset repositories
+        'geo': f'https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc={local_id}',
+        'arrayexpress': f'https://www.ebi.ac.uk/biostudies/arrayexpress/studies/{local_id}',
+        'sra': f'https://www.ncbi.nlm.nih.gov/sra/{local_id}',
+        'dbgap': f'https://www.ncbi.nlm.nih.gov/projects/gap/cgi-bin/study.cgi?study_id={local_id}',
+        'pride': f'https://www.ebi.ac.uk/pride/archive/projects/{local_id}',
+        'metabolights': f'https://www.ebi.ac.uk/metabolights/{local_id}',
+        'hca': f'https://data.humancellatlas.org/explore/projects/{local_id}',
+        'gtex': f'https://gtexportal.org/home/datasets',
+        'encode': f'https://www.encodeproject.org/experiments/{local_id}',
+        'phenopacket-store': f'https://github.com/monarch-initiative/phenopacket-store/tree/main/notebooks/{local_id}',
+        'clinvar': f'https://www.ncbi.nlm.nih.gov/clinvar/variation/{local_id}',
+        # Gene identifiers
+        'HGNC': f'https://www.genenames.org/data/gene-symbol-report/#!/hgnc_id/HGNC:{local_id}',
     }
 
     if prefix in url_patterns:

@@ -98,10 +98,14 @@ linkml_meta = LinkMLMeta({'default_prefix': 'dismech',
                            'prefix_reference': 'http://purl.obolibrary.org/obo/GENO_'},
                   'GO': {'prefix_prefix': 'GO',
                          'prefix_reference': 'http://purl.obolibrary.org/obo/GO_'},
+                  'HGNC': {'prefix_prefix': 'HGNC',
+                           'prefix_reference': 'https://www.genenames.org/data/gene-symbol-report/#!/hgnc_id/'},
                   'HP': {'prefix_prefix': 'HP',
                          'prefix_reference': 'http://purl.obolibrary.org/obo/HP_'},
                   'MONDO': {'prefix_prefix': 'MONDO',
                             'prefix_reference': 'http://purl.obolibrary.org/obo/MONDO_'},
+                  'NCBITaxon': {'prefix_prefix': 'NCBITaxon',
+                                'prefix_reference': 'http://purl.obolibrary.org/obo/NCBITaxon_'},
                   'OBI': {'prefix_prefix': 'OBI',
                           'prefix_reference': 'http://purl.obolibrary.org/obo/OBI_'},
                   'PMID': {'prefix_prefix': 'PMID',
@@ -110,10 +114,32 @@ linkml_meta = LinkMLMeta({'default_prefix': 'dismech',
                              'prefix_reference': 'http://purl.obolibrary.org/obo/UBERON_'},
                   'XCO': {'prefix_prefix': 'XCO',
                           'prefix_reference': 'http://purl.obolibrary.org/obo/XCO_'},
+                  'arrayexpress': {'prefix_prefix': 'arrayexpress',
+                                   'prefix_reference': 'https://www.ebi.ac.uk/biostudies/arrayexpress/studies/'},
+                  'clinvar': {'prefix_prefix': 'clinvar',
+                              'prefix_reference': 'https://www.ncbi.nlm.nih.gov/clinvar/variation/'},
+                  'dbgap': {'prefix_prefix': 'dbgap',
+                            'prefix_reference': 'https://www.ncbi.nlm.nih.gov/projects/gap/cgi-bin/study.cgi?study_id='},
                   'dismech': {'prefix_prefix': 'dismech',
                               'prefix_reference': 'https://w3id.org/monarch-initiative/dismech/'},
+                  'encode': {'prefix_prefix': 'encode',
+                             'prefix_reference': 'https://www.encodeproject.org/experiments/'},
+                  'geo': {'prefix_prefix': 'geo',
+                          'prefix_reference': 'https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc='},
+                  'gtex': {'prefix_prefix': 'gtex',
+                           'prefix_reference': 'https://gtexportal.org/home/datasets/'},
+                  'hca': {'prefix_prefix': 'hca',
+                          'prefix_reference': 'https://data.humancellatlas.org/explore/projects/'},
                   'linkml': {'prefix_prefix': 'linkml',
-                             'prefix_reference': 'https://w3id.org/linkml/'}},
+                             'prefix_reference': 'https://w3id.org/linkml/'},
+                  'metabolights': {'prefix_prefix': 'metabolights',
+                                   'prefix_reference': 'https://www.ebi.ac.uk/metabolights/'},
+                  'phenopacket-store': {'prefix_prefix': 'phenopacket-store',
+                                        'prefix_reference': 'https://github.com/monarch-initiative/phenopacket-store/tree/main/notebooks/'},
+                  'pride': {'prefix_prefix': 'pride',
+                            'prefix_reference': 'https://www.ebi.ac.uk/pride/archive/projects/'},
+                  'sra': {'prefix_prefix': 'sra',
+                          'prefix_reference': 'https://www.ncbi.nlm.nih.gov/sra/'}},
      'see_also': ['https://monarch-initiative.github.io/dismech'],
      'source_file': 'src/dismech/schema/dismech.yaml',
      'title': 'Disorder Mechanisms Knowledge Base Schema',
@@ -333,6 +359,75 @@ class EnvironmentTerm(str):
     pass
 
 
+class OrganismTerm(str):
+    """
+    A term representing an organism from NCBITaxon
+    """
+    pass
+
+
+class DatasetTypeEnum(str, Enum):
+    """
+    Type of dataset or data resource
+    """
+    MICROARRAY = "MICROARRAY"
+    """
+    Gene expression microarray
+    """
+    BULK_RNA_SEQ = "BULK_RNA_SEQ"
+    """
+    Bulk RNA sequencing
+    """
+    SINGLE_CELL_RNA_SEQ = "SINGLE_CELL_RNA_SEQ"
+    """
+    Single-cell RNA sequencing
+    """
+    SPATIAL_TRANSCRIPTOMICS = "SPATIAL_TRANSCRIPTOMICS"
+    """
+    Spatially resolved transcriptomics
+    """
+    METHYLATION = "METHYLATION"
+    """
+    DNA methylation profiling
+    """
+    CHIP_SEQ = "CHIP_SEQ"
+    """
+    Chromatin immunoprecipitation sequencing
+    """
+    ATAC_SEQ = "ATAC_SEQ"
+    """
+    Assay for transposase-accessible chromatin sequencing
+    """
+    PROTEOMICS = "PROTEOMICS"
+    """
+    Protein expression profiling
+    """
+    METABOLOMICS = "METABOLOMICS"
+    """
+    Metabolite profiling
+    """
+    GWAS = "GWAS"
+    """
+    Genome-wide association study
+    """
+    WGS = "WGS"
+    """
+    Whole genome sequencing
+    """
+    WES = "WES"
+    """
+    Whole exome sequencing
+    """
+    PHENOPACKETS = "PHENOPACKETS"
+    """
+    GA4GH Phenopacket collection (case-level phenotype data)
+    """
+    VARIANT_DATABASE = "VARIANT_DATABASE"
+    """
+    Curated genetic variant collection
+    """
+
+
 
 class Term(ConfiguredBaseModel):
     """
@@ -354,6 +449,7 @@ class Descriptor(ConfiguredBaseModel):
 
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'Dataset',
                        'Subtype',
                        'CausalEdge',
                        'EpidemiologyInfo',
@@ -391,6 +487,7 @@ class CellTypeDescriptor(Descriptor):
 
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'Dataset',
                        'Subtype',
                        'CausalEdge',
                        'EpidemiologyInfo',
@@ -430,6 +527,7 @@ class BiologicalProcessDescriptor(Descriptor):
 
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'Dataset',
                        'Subtype',
                        'CausalEdge',
                        'EpidemiologyInfo',
@@ -465,6 +563,7 @@ class AnatomicalEntityDescriptor(Descriptor):
 
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'Dataset',
                        'Subtype',
                        'CausalEdge',
                        'EpidemiologyInfo',
@@ -500,6 +599,7 @@ class ChemicalEntityDescriptor(Descriptor):
 
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'Dataset',
                        'Subtype',
                        'CausalEdge',
                        'EpidemiologyInfo',
@@ -535,6 +635,7 @@ class GeneDescriptor(Descriptor):
 
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'Dataset',
                        'Subtype',
                        'CausalEdge',
                        'EpidemiologyInfo',
@@ -570,6 +671,7 @@ class CellularComponentDescriptor(Descriptor):
 
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'Dataset',
                        'Subtype',
                        'CausalEdge',
                        'EpidemiologyInfo',
@@ -604,6 +706,7 @@ class AssayDescriptor(Descriptor):
 
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'Dataset',
                        'Subtype',
                        'CausalEdge',
                        'EpidemiologyInfo',
@@ -638,6 +741,7 @@ class TriggerDescriptor(Descriptor):
 
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'Dataset',
                        'Subtype',
                        'CausalEdge',
                        'EpidemiologyInfo',
@@ -675,6 +779,7 @@ class DiseaseDescriptor(Descriptor):
 
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'Dataset',
                        'Subtype',
                        'CausalEdge',
                        'EpidemiologyInfo',
@@ -716,6 +821,7 @@ class PhenotypeDescriptor(Descriptor):
 
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'Dataset',
                        'Subtype',
                        'CausalEdge',
                        'EpidemiologyInfo',
@@ -758,6 +864,7 @@ class TreatmentDescriptor(Descriptor):
 
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'Dataset',
                        'Subtype',
                        'CausalEdge',
                        'EpidemiologyInfo',
@@ -804,6 +911,7 @@ class ExposureDescriptor(Descriptor):
 
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'Dataset',
                        'Subtype',
                        'CausalEdge',
                        'EpidemiologyInfo',
@@ -848,6 +956,7 @@ class EnvironmentDescriptor(Descriptor):
 
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'Dataset',
                        'Subtype',
                        'CausalEdge',
                        'EpidemiologyInfo',
@@ -876,6 +985,164 @@ class EnvironmentDescriptor(Descriptor):
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
 
 
+class OrganismDescriptor(Descriptor):
+    """
+    A descriptor for organisms, bindable to NCBITaxon
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'term': {'bindings': [{'binds_value_of': 'id',
+                                               'obligation_level': 'REQUIRED',
+                                               'range': 'OrganismTerm'}],
+                                 'description': 'NCBITaxon term reference',
+                                 'name': 'term'}}})
+
+    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
+    description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'Dataset',
+                       'Subtype',
+                       'CausalEdge',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AnimalModel',
+                       'Treatment',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'FunctionalEffect',
+                       'Mechanism',
+                       'ModelingConsideration'],
+         'recommended': True} })
+    term: Optional[Term] = Field(default=None, description="""NCBITaxon term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
+                       'obligation_level': 'REQUIRED',
+                       'range': 'OrganismTerm'}],
+         'domain_of': ['Descriptor'],
+         'recommended': True} })
+    modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
+
+
+class SampleTypeDescriptor(Descriptor):
+    """
+    A descriptor for biological sample types (tissue and/or cell type)
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
+
+    tissue_term: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""UBERON term for the tissue""", json_schema_extra = { "linkml_meta": {'domain_of': ['SampleTypeDescriptor']} })
+    cell_type_term: Optional[CellTypeDescriptor] = Field(default=None, description="""CL term for the cell type""", json_schema_extra = { "linkml_meta": {'domain_of': ['SampleTypeDescriptor']} })
+    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
+    description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'Dataset',
+                       'Subtype',
+                       'CausalEdge',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AnimalModel',
+                       'Treatment',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'FunctionalEffect',
+                       'Mechanism',
+                       'ModelingConsideration'],
+         'recommended': True} })
+    term: Optional[Term] = Field(default=None, description="""Optional structured ontology term reference""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor'], 'recommended': True} })
+    modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
+
+
+class Dataset(ConfiguredBaseModel):
+    """
+    A reference to a publicly available omics or phenotype dataset
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'comments': ['Supports GEO, ArrayExpress, SRA, dbGaP, GTEx, ENCODE, '
+                      'phenopacket-store, and other repositories'],
+         'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
+
+    accession: str = Field(default=..., description="""Dataset accession identifier as a CURIE (e.g., geo:GSE67472)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset']} })
+    title: Optional[str] = Field(default=None, description="""Title of the publication""", json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset', 'PublicationReference']} })
+    description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'Dataset',
+                       'Subtype',
+                       'CausalEdge',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AnimalModel',
+                       'Treatment',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'FunctionalEffect',
+                       'Mechanism',
+                       'ModelingConsideration'],
+         'recommended': True} })
+    organism: Optional[OrganismDescriptor] = Field(default=None, description="""The organism from which samples were derived""", json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset']} })
+    data_type: Optional[DatasetTypeEnum] = Field(default=None, description="""The type of omics or other data in the dataset""", json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset']} })
+    sample_types: Optional[list[SampleTypeDescriptor]] = Field(default=[], description="""Types of biological samples in the dataset""", json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset']} })
+    sample_count: Optional[int] = Field(default=None, description="""Total number of samples in the dataset""", json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset']} })
+    conditions: Optional[list[str]] = Field(default=[], description="""Experimental conditions or disease states represented""", json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset']} })
+    exposures: Optional[list[ExposureDescriptor]] = Field(default=[], description="""Environmental exposures studied in the dataset""", json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset']} })
+    genes: Optional[list[GeneDescriptor]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset', 'Pathophysiology', 'AnimalModel'],
+         'examples': [{'value': '[{preferred_term: HLA-DQ2}, {preferred_term: INS}]'}]} })
+    platform: Optional[str] = Field(default=None, description="""Sequencing or array platform used""", json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset']} })
+    publication: Optional[str] = Field(default=None, description="""Associated publication (PMID)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset']} })
+    evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
+                       'Subtype',
+                       'CausalEdge',
+                       'Prevalence',
+                       'ProgressionInfo',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'Genetic',
+                       'Environmental',
+                       'Stage',
+                       'AnimalModel',
+                       'Treatment',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'ModelingConsideration'],
+         'recommended': True} })
+    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
+                       'Prevalence',
+                       'ProgressionInfo',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'Genetic',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'Treatment',
+                       'Transmission',
+                       'Diagnosis'],
+         'examples': [{'value': 'Contagious stage where symptoms appear and the '
+                                'bacteria can be spread to others.'}]} })
+
+
 class Subtype(ConfiguredBaseModel):
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
 
@@ -899,6 +1166,7 @@ class Subtype(ConfiguredBaseModel):
                        'ModelingConsideration'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'Dataset',
                        'Subtype',
                        'CausalEdge',
                        'EpidemiologyInfo',
@@ -919,7 +1187,8 @@ class Subtype(ConfiguredBaseModel):
                        'Mechanism',
                        'ModelingConsideration'],
          'recommended': True} })
-    evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype',
+    evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
+                       'Subtype',
                        'CausalEdge',
                        'Prevalence',
                        'ProgressionInfo',
@@ -981,6 +1250,7 @@ class CausalEdge(ConfiguredBaseModel):
 
     target: str = Field(default=..., description="""The name of the target element in a causal relationship""", json_schema_extra = { "linkml_meta": {'domain_of': ['CausalEdge']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'Dataset',
                        'Subtype',
                        'CausalEdge',
                        'EpidemiologyInfo',
@@ -1001,7 +1271,8 @@ class CausalEdge(ConfiguredBaseModel):
                        'Mechanism',
                        'ModelingConsideration'],
          'recommended': True} })
-    evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype',
+    evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
+                       'Subtype',
                        'CausalEdge',
                        'Prevalence',
                        'ProgressionInfo',
@@ -1035,7 +1306,7 @@ class PublicationReference(ConfiguredBaseModel):
     reference: str = Field(default=..., description="""The authoritative reference (publication) for this evidence item""", json_schema_extra = { "linkml_meta": {'domain_of': ['EvidenceItem', 'PublicationReference'],
          'examples': [{'value': 'PMID:35533128'}],
          'implements': ['linkml:authoritative_reference']} })
-    title: Optional[str] = Field(default=None, description="""Title of the publication""", json_schema_extra = { "linkml_meta": {'domain_of': ['PublicationReference']} })
+    title: Optional[str] = Field(default=None, description="""Title of the publication""", json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset', 'PublicationReference']} })
     findings: Optional[list[Finding]] = Field(default=[], description="""Key findings or claims extracted from this reference""", json_schema_extra = { "linkml_meta": {'domain_of': ['PublicationReference']} })
 
 
@@ -1064,7 +1335,8 @@ class Prevalence(ConfiguredBaseModel):
                     {'description': 'for ranges', 'range': 'string'}],
          'domain_of': ['Prevalence'],
          'examples': [{'value': '0.1'}]} })
-    evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype',
+    evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
+                       'Subtype',
                        'CausalEdge',
                        'Prevalence',
                        'ProgressionInfo',
@@ -1084,7 +1356,8 @@ class Prevalence(ConfiguredBaseModel):
                        'Variant',
                        'ModelingConsideration'],
          'recommended': True} })
-    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Prevalence',
+    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
+                       'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -1113,7 +1386,8 @@ class ProgressionInfo(ConfiguredBaseModel):
          'examples': [{'value': 'Eyelid Myoclonia with Absences'}]} })
     age_range: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['ProgressionInfo'],
          'examples': [{'value': 'Childhood-Adolescence'}]} })
-    evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype',
+    evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
+                       'Subtype',
                        'CausalEdge',
                        'Prevalence',
                        'ProgressionInfo',
@@ -1144,7 +1418,8 @@ class ProgressionInfo(ConfiguredBaseModel):
                        'Treatment'],
          'examples': [{'value': 'Added an additional clinically relevant subtype.'}]} })
     incubation_years: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['ProgressionInfo'], 'examples': [{'value': '2-15'}]} })
-    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Prevalence',
+    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
+                       'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -1186,6 +1461,7 @@ class EpidemiologyInfo(ConfiguredBaseModel):
                        'ModelingConsideration'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'Dataset',
                        'Subtype',
                        'CausalEdge',
                        'EpidemiologyInfo',
@@ -1209,7 +1485,8 @@ class EpidemiologyInfo(ConfiguredBaseModel):
     minimum_value: Optional[float] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['EpidemiologyInfo']} })
     maximum_value: Optional[float] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['EpidemiologyInfo']} })
     mean_range: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['EpidemiologyInfo']} })
-    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Prevalence',
+    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
+                       'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -1229,7 +1506,8 @@ class EpidemiologyInfo(ConfiguredBaseModel):
                                 "'Autoimmune', 'Metabolic', 'Neoplastic', 'Traumatic', "
                                 "'Iatrogenic', 'Idiopathic']"}]} })
     unit: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['EpidemiologyInfo'], 'examples': [{'value': 'cm'}]} })
-    evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype',
+    evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
+                       'Subtype',
                        'CausalEdge',
                        'Prevalence',
                        'ProgressionInfo',
@@ -1274,6 +1552,7 @@ class Pathophysiology(ConfiguredBaseModel):
                        'ModelingConsideration'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'Dataset',
                        'Subtype',
                        'CausalEdge',
                        'EpidemiologyInfo',
@@ -1297,7 +1576,8 @@ class Pathophysiology(ConfiguredBaseModel):
     cell_types: Optional[list[CellTypeDescriptor]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology', 'Biochemical'],
          'examples': [{'value': '[{preferred_term: Macrophage}, {preferred_term: T '
                                 'Cell}]'}]} })
-    evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype',
+    evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
+                       'Subtype',
                        'CausalEdge',
                        'Prevalence',
                        'ProgressionInfo',
@@ -1345,7 +1625,7 @@ class Pathophysiology(ConfiguredBaseModel):
          'examples': [{'value': '[{preferred_term: Wnt Pathway}]'}]} })
     downstream: Optional[list[CausalEdge]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology'],
          'examples': [{'value': '[{target: Tissue Damage}]'}]} })
-    genes: Optional[list[GeneDescriptor]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology', 'AnimalModel'],
+    genes: Optional[list[GeneDescriptor]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset', 'Pathophysiology', 'AnimalModel'],
          'examples': [{'value': '[{preferred_term: HLA-DQ2}, {preferred_term: INS}]'}]} })
     subtypes: Optional[list[str]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology'],
          'examples': [{'value': "['DENV-1', 'DENV-2', 'DENV-3', 'DENV-4']"}]} })
@@ -1360,7 +1640,8 @@ class Pathophysiology(ConfiguredBaseModel):
     mechanisms: Optional[list[str]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology'],
          'examples': [{'value': "['Thrombocytopenia', 'Platelet Dysfunction', "
                                 "'Disseminated Intravascular Coagulation (DIC)']"}]} })
-    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Prevalence',
+    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
+                       'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -1409,6 +1690,7 @@ class Phenotype(ConfiguredBaseModel):
          'domain_of': ['Pathophysiology', 'Phenotype', 'Biochemical', 'Genetic'],
          'examples': [{'value': 'Occasional'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'Dataset',
                        'Subtype',
                        'CausalEdge',
                        'EpidemiologyInfo',
@@ -1433,7 +1715,8 @@ class Phenotype(ConfiguredBaseModel):
     sequelae: Optional[list[CausalEdge]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Phenotype'],
          'examples': [{'value': '[{target: Diabetic Ketoacidosis}, {target: Chronic '
                                 'Complications}]'}]} })
-    evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype',
+    evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
+                       'Subtype',
                        'CausalEdge',
                        'Prevalence',
                        'ProgressionInfo',
@@ -1465,7 +1748,8 @@ class Phenotype(ConfiguredBaseModel):
                        'Treatment'],
          'examples': [{'value': 'Added an additional clinically relevant subtype.'}]} })
     severity: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Phenotype'], 'examples': [{'value': 'Severe'}]} })
-    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Prevalence',
+    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
+                       'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -1512,7 +1796,8 @@ class Biochemical(ConfiguredBaseModel):
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     presence: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Biochemical', 'Genetic', 'Environmental', 'Diagnosis'],
          'examples': [{'value': 'Positive'}]} })
-    evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype',
+    evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
+                       'Subtype',
                        'CausalEdge',
                        'Prevalence',
                        'ProgressionInfo',
@@ -1536,7 +1821,8 @@ class Biochemical(ConfiguredBaseModel):
     frequency: Optional[Union[FrequencyEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'any_of': [{'range': 'FrequencyEnum'}, {'range': 'FrequencyQuantity'}],
          'domain_of': ['Pathophysiology', 'Phenotype', 'Biochemical', 'Genetic'],
          'examples': [{'value': 'Occasional'}]} })
-    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Prevalence',
+    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
+                       'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -1596,7 +1882,8 @@ class Genetic(ConfiguredBaseModel):
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     presence: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Biochemical', 'Genetic', 'Environmental', 'Diagnosis'],
          'examples': [{'value': 'Positive'}]} })
-    evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype',
+    evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
+                       'Subtype',
                        'CausalEdge',
                        'Prevalence',
                        'ProgressionInfo',
@@ -1642,7 +1929,8 @@ class Genetic(ConfiguredBaseModel):
          'domain_of': ['Genetic', 'Disease']} })
     features: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Genetic'],
          'examples': [{'value': 'DNA virus from the Orthopoxvirus genus'}]} })
-    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Prevalence',
+    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
+                       'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -1692,7 +1980,8 @@ class Environmental(ConfiguredBaseModel):
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     presence: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Biochemical', 'Genetic', 'Environmental', 'Diagnosis'],
          'examples': [{'value': 'Positive'}]} })
-    evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype',
+    evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
+                       'Subtype',
                        'CausalEdge',
                        'Prevalence',
                        'ProgressionInfo',
@@ -1712,7 +2001,8 @@ class Environmental(ConfiguredBaseModel):
                        'Variant',
                        'ModelingConsideration'],
          'recommended': True} })
-    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Prevalence',
+    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
+                       'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -1728,6 +2018,7 @@ class Environmental(ConfiguredBaseModel):
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'Dataset',
                        'Subtype',
                        'CausalEdge',
                        'EpidemiologyInfo',
@@ -1800,6 +2091,7 @@ class Disease(ConfiguredBaseModel):
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     disease_term: Optional[DiseaseDescriptor] = Field(default=None, description="""The MONDO disease term for this disease""", json_schema_extra = { "linkml_meta": {'domain_of': ['Disease']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'Dataset',
                        'Subtype',
                        'CausalEdge',
                        'EpidemiologyInfo',
@@ -1852,7 +2144,9 @@ class Disease(ConfiguredBaseModel):
     inheritance: Optional[list[Inheritance]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Genetic', 'Disease'],
          'examples': [{'value': 'Autosomal Dominant'}]} })
     animal_models: Optional[list[AnimalModel]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Disease']} })
-    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Prevalence',
+    datasets: Optional[list[Dataset]] = Field(default=[], description="""Publicly available datasets relevant to disease research""", json_schema_extra = { "linkml_meta": {'domain_of': ['Disease']} })
+    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
+                       'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -1901,6 +2195,7 @@ class Stage(ConfiguredBaseModel):
                        'ModelingConsideration'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'Dataset',
                        'Subtype',
                        'CausalEdge',
                        'EpidemiologyInfo',
@@ -1921,7 +2216,8 @@ class Stage(ConfiguredBaseModel):
                        'Mechanism',
                        'ModelingConsideration'],
          'recommended': True} })
-    evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype',
+    evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
+                       'Subtype',
                        'CausalEdge',
                        'Prevalence',
                        'ProgressionInfo',
@@ -1941,7 +2237,8 @@ class Stage(ConfiguredBaseModel):
                        'Variant',
                        'ModelingConsideration'],
          'recommended': True} })
-    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Prevalence',
+    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
+                       'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -1985,12 +2282,13 @@ class AnimalModel(ConfiguredBaseModel):
     species: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['AnimalModel'], 'examples': [{'value': 'Human'}]} })
     genotype: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['AnimalModel'], 'examples': [{'value': 'HLA-DQ2'}]} })
     background: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['AnimalModel']} })
-    genes: Optional[list[GeneDescriptor]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology', 'AnimalModel'],
+    genes: Optional[list[GeneDescriptor]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset', 'Pathophysiology', 'AnimalModel'],
          'examples': [{'value': '[{preferred_term: HLA-DQ2}, {preferred_term: INS}]'}]} })
     category: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Phenotype', 'Disease', 'AnimalModel'],
          'examples': [{'value': 'Hematologic'}]} })
     alleles: Optional[list[str]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['AnimalModel']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'Dataset',
                        'Subtype',
                        'CausalEdge',
                        'EpidemiologyInfo',
@@ -2014,7 +2312,8 @@ class AnimalModel(ConfiguredBaseModel):
     associated_phenotypes: Optional[list[str]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['AnimalModel'],
          'examples': [{'value': "['Celiac Disease', 'Type 1 Diabetes', 'Autoimmune "
                                 "Thyroid Disease']"}]} })
-    evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype',
+    evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
+                       'Subtype',
                        'CausalEdge',
                        'Prevalence',
                        'ProgressionInfo',
@@ -2059,6 +2358,7 @@ class Treatment(ConfiguredBaseModel):
                        'ModelingConsideration'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'Dataset',
                        'Subtype',
                        'CausalEdge',
                        'EpidemiologyInfo',
@@ -2080,7 +2380,8 @@ class Treatment(ConfiguredBaseModel):
                        'ModelingConsideration'],
          'recommended': True} })
     treatment_term: Optional[TreatmentDescriptor] = Field(default=None, description="""The MAXO term for this treatment/medical action""", json_schema_extra = { "linkml_meta": {'domain_of': ['Treatment']} })
-    evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype',
+    evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
+                       'Subtype',
                        'CausalEdge',
                        'Prevalence',
                        'ProgressionInfo',
@@ -2100,7 +2401,8 @@ class Treatment(ConfiguredBaseModel):
                        'Variant',
                        'ModelingConsideration'],
          'recommended': True} })
-    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Prevalence',
+    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
+                       'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -2159,7 +2461,8 @@ class InfectiousAgent(ConfiguredBaseModel):
                        'Mechanism',
                        'ModelingConsideration'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
-    evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype',
+    evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
+                       'Subtype',
                        'CausalEdge',
                        'Prevalence',
                        'ProgressionInfo',
@@ -2180,6 +2483,7 @@ class InfectiousAgent(ConfiguredBaseModel):
                        'ModelingConsideration'],
          'recommended': True} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'Dataset',
                        'Subtype',
                        'CausalEdge',
                        'EpidemiologyInfo',
@@ -2226,6 +2530,7 @@ class Transmission(ConfiguredBaseModel):
                        'ModelingConsideration'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'Dataset',
                        'Subtype',
                        'CausalEdge',
                        'EpidemiologyInfo',
@@ -2246,7 +2551,8 @@ class Transmission(ConfiguredBaseModel):
                        'Mechanism',
                        'ModelingConsideration'],
          'recommended': True} })
-    evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype',
+    evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
+                       'Subtype',
                        'CausalEdge',
                        'Prevalence',
                        'ProgressionInfo',
@@ -2266,7 +2572,8 @@ class Transmission(ConfiguredBaseModel):
                        'Variant',
                        'ModelingConsideration'],
          'recommended': True} })
-    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Prevalence',
+    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
+                       'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -2308,6 +2615,7 @@ class Assay(ConfiguredBaseModel):
                        'ModelingConsideration'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'Dataset',
                        'Subtype',
                        'CausalEdge',
                        'EpidemiologyInfo',
@@ -2354,7 +2662,8 @@ class Diagnosis(ConfiguredBaseModel):
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     presence: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Biochemical', 'Genetic', 'Environmental', 'Diagnosis'],
          'examples': [{'value': 'Positive'}]} })
-    evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype',
+    evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
+                       'Subtype',
                        'CausalEdge',
                        'Prevalence',
                        'ProgressionInfo',
@@ -2374,7 +2683,8 @@ class Diagnosis(ConfiguredBaseModel):
                        'Variant',
                        'ModelingConsideration'],
          'recommended': True} })
-    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Prevalence',
+    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
+                       'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -2393,6 +2703,7 @@ class Diagnosis(ConfiguredBaseModel):
          'examples': [{'value': 'Identifies MEFV mutations'}]} })
     markers: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Diagnosis'], 'examples': [{'value': 'CRP, ESR, SAA'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'Dataset',
                        'Subtype',
                        'CausalEdge',
                        'EpidemiologyInfo',
@@ -2437,7 +2748,8 @@ class Inheritance(ConfiguredBaseModel):
                        'Mechanism',
                        'ModelingConsideration'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
-    evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype',
+    evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
+                       'Subtype',
                        'CausalEdge',
                        'Prevalence',
                        'ProgressionInfo',
@@ -2458,6 +2770,7 @@ class Inheritance(ConfiguredBaseModel):
                        'ModelingConsideration'],
          'recommended': True} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'Dataset',
                        'Subtype',
                        'CausalEdge',
                        'EpidemiologyInfo',
@@ -2503,6 +2816,7 @@ class Variant(ConfiguredBaseModel):
                        'ModelingConsideration'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'Dataset',
                        'Subtype',
                        'CausalEdge',
                        'EpidemiologyInfo',
@@ -2525,7 +2839,8 @@ class Variant(ConfiguredBaseModel):
          'recommended': True} })
     gene: Optional[GeneDescriptor] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology', 'Variant'],
          'examples': [{'value': '{preferred_term: MEFV}'}]} })
-    evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype',
+    evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
+                       'Subtype',
                        'CausalEdge',
                        'Prevalence',
                        'ProgressionInfo',
@@ -2563,6 +2878,7 @@ class FunctionalEffect(ConfiguredBaseModel):
 
     function: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['FunctionalEffect']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'Dataset',
                        'Subtype',
                        'CausalEdge',
                        'EpidemiologyInfo',
@@ -2609,6 +2925,7 @@ class Mechanism(ConfiguredBaseModel):
                        'ModelingConsideration'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'Dataset',
                        'Subtype',
                        'CausalEdge',
                        'EpidemiologyInfo',
@@ -2654,6 +2971,7 @@ class ModelingConsideration(ConfiguredBaseModel):
                        'ModelingConsideration'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'Dataset',
                        'Subtype',
                        'CausalEdge',
                        'EpidemiologyInfo',
@@ -2674,7 +2992,8 @@ class ModelingConsideration(ConfiguredBaseModel):
                        'Mechanism',
                        'ModelingConsideration'],
          'recommended': True} })
-    evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype',
+    evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
+                       'Subtype',
                        'CausalEdge',
                        'Prevalence',
                        'ProgressionInfo',
@@ -2720,6 +3039,9 @@ PhenotypeDescriptor.model_rebuild()
 TreatmentDescriptor.model_rebuild()
 ExposureDescriptor.model_rebuild()
 EnvironmentDescriptor.model_rebuild()
+OrganismDescriptor.model_rebuild()
+SampleTypeDescriptor.model_rebuild()
+Dataset.model_rebuild()
 Subtype.model_rebuild()
 EvidenceItem.model_rebuild()
 CausalEdge.model_rebuild()

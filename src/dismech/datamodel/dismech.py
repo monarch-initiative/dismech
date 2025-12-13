@@ -1,5 +1,5 @@
 # Auto generated from dismech.yaml by pythongen.py version: 0.0.1
-# Generation date: 2025-12-09T22:19:15
+# Generation date: 2025-12-12T17:25:00
 # Schema: dismech
 #
 # id: https://w3id.org/monarch-initiative/dismech
@@ -70,14 +70,27 @@ ENVO = CurieNamespace('ENVO', 'http://purl.obolibrary.org/obo/ENVO_')
 EXO = CurieNamespace('ExO', 'http://purl.obolibrary.org/obo/ExO_')
 GENO = CurieNamespace('GENO', 'http://purl.obolibrary.org/obo/GENO_')
 GO = CurieNamespace('GO', 'http://purl.obolibrary.org/obo/GO_')
+HGNC = CurieNamespace('HGNC', 'https://www.genenames.org/data/gene-symbol-report/#!/hgnc_id/')
 HP = CurieNamespace('HP', 'http://purl.obolibrary.org/obo/HP_')
 MONDO = CurieNamespace('MONDO', 'http://purl.obolibrary.org/obo/MONDO_')
+NCBITAXON = CurieNamespace('NCBITaxon', 'http://purl.obolibrary.org/obo/NCBITaxon_')
 OBI = CurieNamespace('OBI', 'http://purl.obolibrary.org/obo/OBI_')
 PMID = CurieNamespace('PMID', 'http://www.ncbi.nlm.nih.gov/pubmed/')
 UBERON = CurieNamespace('UBERON', 'http://purl.obolibrary.org/obo/UBERON_')
 XCO = CurieNamespace('XCO', 'http://purl.obolibrary.org/obo/XCO_')
+ARRAYEXPRESS = CurieNamespace('arrayexpress', 'https://www.ebi.ac.uk/biostudies/arrayexpress/studies/')
+CLINVAR = CurieNamespace('clinvar', 'https://www.ncbi.nlm.nih.gov/clinvar/variation/')
+DBGAP = CurieNamespace('dbgap', 'https://www.ncbi.nlm.nih.gov/projects/gap/cgi-bin/study.cgi?study_id=')
 DISMECH = CurieNamespace('dismech', 'https://w3id.org/monarch-initiative/dismech/')
+ENCODE = CurieNamespace('encode', 'https://www.encodeproject.org/experiments/')
+GEO = CurieNamespace('geo', 'https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=')
+GTEX = CurieNamespace('gtex', 'https://gtexportal.org/home/datasets/')
+HCA = CurieNamespace('hca', 'https://data.humancellatlas.org/explore/projects/')
 LINKML = CurieNamespace('linkml', 'https://w3id.org/linkml/')
+METABOLIGHTS = CurieNamespace('metabolights', 'https://www.ebi.ac.uk/metabolights/')
+PHENOPACKET_STORE = CurieNamespace('phenopacket-store', 'https://github.com/monarch-initiative/phenopacket-store/tree/main/notebooks/')
+PRIDE = CurieNamespace('pride', 'https://www.ebi.ac.uk/pride/archive/projects/')
+SRA = CurieNamespace('sra', 'https://www.ncbi.nlm.nih.gov/sra/')
 XSD = CurieNamespace('xsd', 'http://www.w3.org/2001/XMLSchema#')
 DEFAULT_ = DISMECH
 
@@ -99,6 +112,10 @@ class FrequencyQuantity(String):
 
 # Class references
 class TermId(URIorCURIE):
+    pass
+
+
+class DatasetAccession(URIorCURIE):
     pass
 
 
@@ -525,6 +542,134 @@ class EnvironmentDescriptor(Descriptor):
     def __post_init__(self, *_: str, **kwargs: Any):
         if self.term is not None and not isinstance(self.term, Term):
             self.term = Term(**as_dict(self.term))
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class OrganismDescriptor(Descriptor):
+    """
+    A descriptor for organisms, bindable to NCBITaxon
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["OrganismDescriptor"]
+    class_class_curie: ClassVar[str] = "dismech:OrganismDescriptor"
+    class_name: ClassVar[str] = "OrganismDescriptor"
+    class_model_uri: ClassVar[URIRef] = DISMECH.OrganismDescriptor
+
+    preferred_term: str = None
+    term: Optional[Union[dict, Term]] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self.term is not None and not isinstance(self.term, Term):
+            self.term = Term(**as_dict(self.term))
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class SampleTypeDescriptor(Descriptor):
+    """
+    A descriptor for biological sample types (tissue and/or cell type)
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["SampleTypeDescriptor"]
+    class_class_curie: ClassVar[str] = "dismech:SampleTypeDescriptor"
+    class_name: ClassVar[str] = "SampleTypeDescriptor"
+    class_model_uri: ClassVar[URIRef] = DISMECH.SampleTypeDescriptor
+
+    preferred_term: str = None
+    tissue_term: Optional[Union[dict, AnatomicalEntityDescriptor]] = None
+    cell_type_term: Optional[Union[dict, CellTypeDescriptor]] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self.tissue_term is not None and not isinstance(self.tissue_term, AnatomicalEntityDescriptor):
+            self.tissue_term = AnatomicalEntityDescriptor(**as_dict(self.tissue_term))
+
+        if self.cell_type_term is not None and not isinstance(self.cell_type_term, CellTypeDescriptor):
+            self.cell_type_term = CellTypeDescriptor(**as_dict(self.cell_type_term))
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class Dataset(YAMLRoot):
+    """
+    A reference to a publicly available omics or phenotype dataset
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["Dataset"]
+    class_class_curie: ClassVar[str] = "dismech:Dataset"
+    class_name: ClassVar[str] = "Dataset"
+    class_model_uri: ClassVar[URIRef] = DISMECH.Dataset
+
+    accession: Union[str, DatasetAccession] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+    organism: Optional[Union[dict, OrganismDescriptor]] = None
+    data_type: Optional[Union[str, "DatasetTypeEnum"]] = None
+    sample_types: Optional[Union[Union[dict, SampleTypeDescriptor], list[Union[dict, SampleTypeDescriptor]]]] = empty_list()
+    sample_count: Optional[int] = None
+    conditions: Optional[Union[str, list[str]]] = empty_list()
+    exposures: Optional[Union[Union[dict, ExposureDescriptor], list[Union[dict, ExposureDescriptor]]]] = empty_list()
+    genes: Optional[Union[Union[dict, GeneDescriptor], list[Union[dict, GeneDescriptor]]]] = empty_list()
+    platform: Optional[str] = None
+    publication: Optional[Union[str, PMID]] = None
+    evidence: Optional[Union[Union[dict, "EvidenceItem"], list[Union[dict, "EvidenceItem"]]]] = empty_list()
+    notes: Optional[str] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.accession):
+            self.MissingRequiredField("accession")
+        if not isinstance(self.accession, DatasetAccession):
+            self.accession = DatasetAccession(self.accession)
+
+        if self.title is not None and not isinstance(self.title, str):
+            self.title = str(self.title)
+
+        if self.description is not None and not isinstance(self.description, str):
+            self.description = str(self.description)
+
+        if self.organism is not None and not isinstance(self.organism, OrganismDescriptor):
+            self.organism = OrganismDescriptor(**as_dict(self.organism))
+
+        if self.data_type is not None and not isinstance(self.data_type, DatasetTypeEnum):
+            self.data_type = DatasetTypeEnum(self.data_type)
+
+        if not isinstance(self.sample_types, list):
+            self.sample_types = [self.sample_types] if self.sample_types is not None else []
+        self.sample_types = [v if isinstance(v, SampleTypeDescriptor) else SampleTypeDescriptor(**as_dict(v)) for v in self.sample_types]
+
+        if self.sample_count is not None and not isinstance(self.sample_count, int):
+            self.sample_count = int(self.sample_count)
+
+        if not isinstance(self.conditions, list):
+            self.conditions = [self.conditions] if self.conditions is not None else []
+        self.conditions = [v if isinstance(v, str) else str(v) for v in self.conditions]
+
+        if not isinstance(self.exposures, list):
+            self.exposures = [self.exposures] if self.exposures is not None else []
+        self.exposures = [v if isinstance(v, ExposureDescriptor) else ExposureDescriptor(**as_dict(v)) for v in self.exposures]
+
+        if not isinstance(self.genes, list):
+            self.genes = [self.genes] if self.genes is not None else []
+        self.genes = [v if isinstance(v, GeneDescriptor) else GeneDescriptor(**as_dict(v)) for v in self.genes]
+
+        if self.platform is not None and not isinstance(self.platform, str):
+            self.platform = str(self.platform)
+
+        if self.publication is not None and not isinstance(self.publication, PMID):
+            self.publication = PMID(self.publication)
+
+        if not isinstance(self.evidence, list):
+            self.evidence = [self.evidence] if self.evidence is not None else []
+        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+
+        if self.notes is not None and not isinstance(self.notes, str):
+            self.notes = str(self.notes)
 
         super().__post_init__(**kwargs)
 
@@ -1243,6 +1388,7 @@ class Disease(YAMLRoot):
     synonyms: Optional[Union[str, list[str]]] = empty_list()
     inheritance: Optional[Union[dict[Union[str, InheritanceName], Union[dict, "Inheritance"]], list[Union[dict, "Inheritance"]]]] = empty_dict()
     animal_models: Optional[Union[Union[dict, "AnimalModel"], list[Union[dict, "AnimalModel"]]]] = empty_list()
+    datasets: Optional[Union[dict[Union[str, DatasetAccession], Union[dict, Dataset]], list[Union[dict, Dataset]]]] = empty_dict()
     notes: Optional[str] = None
     review_notes: Optional[str] = None
 
@@ -1316,6 +1462,8 @@ class Disease(YAMLRoot):
         if not isinstance(self.animal_models, list):
             self.animal_models = [self.animal_models] if self.animal_models is not None else []
         self.animal_models = [v if isinstance(v, AnimalModel) else AnimalModel(**as_dict(v)) for v in self.animal_models]
+
+        self._normalize_inlined_as_list(slot_name="datasets", slot_type=Dataset, key_name="accession", keyed=True)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -2062,6 +2210,67 @@ class EnvironmentTerm(EnumDefinitionImpl):
         description="A term representing an environmental context or setting (from ENVO)",
     )
 
+class OrganismTerm(EnumDefinitionImpl):
+    """
+    A term representing an organism from NCBITaxon
+    """
+    _defn = EnumDefinition(
+        name="OrganismTerm",
+        description="A term representing an organism from NCBITaxon",
+    )
+
+class DatasetTypeEnum(EnumDefinitionImpl):
+    """
+    Type of dataset or data resource
+    """
+    MICROARRAY = PermissibleValue(
+        text="MICROARRAY",
+        description="Gene expression microarray")
+    BULK_RNA_SEQ = PermissibleValue(
+        text="BULK_RNA_SEQ",
+        description="Bulk RNA sequencing")
+    SINGLE_CELL_RNA_SEQ = PermissibleValue(
+        text="SINGLE_CELL_RNA_SEQ",
+        description="Single-cell RNA sequencing")
+    SPATIAL_TRANSCRIPTOMICS = PermissibleValue(
+        text="SPATIAL_TRANSCRIPTOMICS",
+        description="Spatially resolved transcriptomics")
+    METHYLATION = PermissibleValue(
+        text="METHYLATION",
+        description="DNA methylation profiling")
+    CHIP_SEQ = PermissibleValue(
+        text="CHIP_SEQ",
+        description="Chromatin immunoprecipitation sequencing")
+    ATAC_SEQ = PermissibleValue(
+        text="ATAC_SEQ",
+        description="Assay for transposase-accessible chromatin sequencing")
+    PROTEOMICS = PermissibleValue(
+        text="PROTEOMICS",
+        description="Protein expression profiling")
+    METABOLOMICS = PermissibleValue(
+        text="METABOLOMICS",
+        description="Metabolite profiling")
+    GWAS = PermissibleValue(
+        text="GWAS",
+        description="Genome-wide association study")
+    WGS = PermissibleValue(
+        text="WGS",
+        description="Whole genome sequencing")
+    WES = PermissibleValue(
+        text="WES",
+        description="Whole exome sequencing")
+    PHENOPACKETS = PermissibleValue(
+        text="PHENOPACKETS",
+        description="GA4GH Phenopacket collection (case-level phenotype data)")
+    VARIANT_DATABASE = PermissibleValue(
+        text="VARIANT_DATABASE",
+        description="Curated genetic variant collection")
+
+    _defn = EnumDefinition(
+        name="DatasetTypeEnum",
+        description="Type of dataset or data resource",
+    )
+
 # Slots
 class slots:
     pass
@@ -2384,6 +2593,42 @@ slots.function = Slot(uri=DISMECH.function, name="function", curie=DISMECH.curie
 slots.target = Slot(uri=DISMECH.target, name="target", curie=DISMECH.curie('target'),
                    model_uri=DISMECH.target, domain=None, range=str)
 
+slots.accession = Slot(uri=DISMECH.accession, name="accession", curie=DISMECH.curie('accession'),
+                   model_uri=DISMECH.accession, domain=None, range=URIRef)
+
+slots.organism = Slot(uri=DISMECH.organism, name="organism", curie=DISMECH.curie('organism'),
+                   model_uri=DISMECH.organism, domain=None, range=Optional[Union[dict, OrganismDescriptor]])
+
+slots.data_type = Slot(uri=DISMECH.data_type, name="data_type", curie=DISMECH.curie('data_type'),
+                   model_uri=DISMECH.data_type, domain=None, range=Optional[Union[str, "DatasetTypeEnum"]])
+
+slots.sample_types = Slot(uri=DISMECH.sample_types, name="sample_types", curie=DISMECH.curie('sample_types'),
+                   model_uri=DISMECH.sample_types, domain=None, range=Optional[Union[Union[dict, SampleTypeDescriptor], list[Union[dict, SampleTypeDescriptor]]]])
+
+slots.sample_count = Slot(uri=DISMECH.sample_count, name="sample_count", curie=DISMECH.curie('sample_count'),
+                   model_uri=DISMECH.sample_count, domain=None, range=Optional[int])
+
+slots.conditions = Slot(uri=DISMECH.conditions, name="conditions", curie=DISMECH.curie('conditions'),
+                   model_uri=DISMECH.conditions, domain=None, range=Optional[Union[str, list[str]]])
+
+slots.exposures = Slot(uri=DISMECH.exposures, name="exposures", curie=DISMECH.curie('exposures'),
+                   model_uri=DISMECH.exposures, domain=None, range=Optional[Union[Union[dict, ExposureDescriptor], list[Union[dict, ExposureDescriptor]]]])
+
+slots.platform = Slot(uri=DISMECH.platform, name="platform", curie=DISMECH.curie('platform'),
+                   model_uri=DISMECH.platform, domain=None, range=Optional[str])
+
+slots.publication = Slot(uri=DISMECH.publication, name="publication", curie=DISMECH.curie('publication'),
+                   model_uri=DISMECH.publication, domain=None, range=Optional[Union[str, PMID]])
+
+slots.tissue_term = Slot(uri=DISMECH.tissue_term, name="tissue_term", curie=DISMECH.curie('tissue_term'),
+                   model_uri=DISMECH.tissue_term, domain=None, range=Optional[Union[dict, AnatomicalEntityDescriptor]])
+
+slots.cell_type_term = Slot(uri=DISMECH.cell_type_term, name="cell_type_term", curie=DISMECH.curie('cell_type_term'),
+                   model_uri=DISMECH.cell_type_term, domain=None, range=Optional[Union[dict, CellTypeDescriptor]])
+
+slots.datasets = Slot(uri=DISMECH.datasets, name="datasets", curie=DISMECH.curie('datasets'),
+                   model_uri=DISMECH.datasets, domain=None, range=Optional[Union[dict[Union[str, DatasetAccession], Union[dict, Dataset]], list[Union[dict, Dataset]]]])
+
 slots.CellTypeDescriptor_term = Slot(uri=DISMECH.term, name="CellTypeDescriptor_term", curie=DISMECH.curie('term'),
                    model_uri=DISMECH.CellTypeDescriptor_term, domain=CellTypeDescriptor, range=Optional[Union[dict, Term]])
 
@@ -2422,6 +2667,9 @@ slots.ExposureDescriptor_term = Slot(uri=DISMECH.term, name="ExposureDescriptor_
 
 slots.EnvironmentDescriptor_term = Slot(uri=DISMECH.term, name="EnvironmentDescriptor_term", curie=DISMECH.curie('term'),
                    model_uri=DISMECH.EnvironmentDescriptor_term, domain=EnvironmentDescriptor, range=Optional[Union[dict, Term]])
+
+slots.OrganismDescriptor_term = Slot(uri=DISMECH.term, name="OrganismDescriptor_term", curie=DISMECH.curie('term'),
+                   model_uri=DISMECH.OrganismDescriptor_term, domain=OrganismDescriptor, range=Optional[Union[dict, Term]])
 
 slots.PublicationReference_reference = Slot(uri=DISMECH.reference, name="PublicationReference_reference", curie=DISMECH.curie('reference'),
                    model_uri=DISMECH.PublicationReference_reference, domain=PublicationReference, range=Union[str, PublicationReferenceReference])

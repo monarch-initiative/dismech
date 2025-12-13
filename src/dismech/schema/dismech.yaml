@@ -25,6 +25,24 @@ prefixes:
   ENVO: http://purl.obolibrary.org/obo/ENVO_
   XCO: http://purl.obolibrary.org/obo/XCO_
   PMID: http://www.ncbi.nlm.nih.gov/pubmed/
+  # Dataset repositories - omics
+  geo: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=
+  arrayexpress: https://www.ebi.ac.uk/biostudies/arrayexpress/studies/
+  sra: https://www.ncbi.nlm.nih.gov/sra/
+  dbgap: https://www.ncbi.nlm.nih.gov/projects/gap/cgi-bin/study.cgi?study_id=
+  pride: https://www.ebi.ac.uk/pride/archive/projects/
+  metabolights: https://www.ebi.ac.uk/metabolights/
+  hca: https://data.humancellatlas.org/explore/projects/
+  gtex: https://gtexportal.org/home/datasets/
+  encode: https://www.encodeproject.org/experiments/
+  # Case-level phenotype collections
+  phenopacket-store: https://github.com/monarch-initiative/phenopacket-store/tree/main/notebooks/
+  # Genetic variation databases
+  clinvar: https://www.ncbi.nlm.nih.gov/clinvar/variation/
+  # Taxonomy
+  NCBITaxon: http://purl.obolibrary.org/obo/NCBITaxon_
+  # Gene identifiers
+  HGNC: https://www.genenames.org/data/gene-symbol-report/#!/hgnc_id/
 
 default_prefix: dismech
 
@@ -199,6 +217,45 @@ enums:
       is_direct: false
       relationship_types:
         - rdfs:subClassOf
+  OrganismTerm:
+    description: A term representing an organism from NCBITaxon
+    reachable_from:
+      source_nodes:
+        - NCBITaxon:1  ## root of taxonomy
+      is_direct: false
+      relationship_types:
+        - rdfs:subClassOf
+  DatasetTypeEnum:
+    description: Type of dataset or data resource
+    permissible_values:
+      MICROARRAY:
+        description: Gene expression microarray
+      BULK_RNA_SEQ:
+        description: Bulk RNA sequencing
+      SINGLE_CELL_RNA_SEQ:
+        description: Single-cell RNA sequencing
+      SPATIAL_TRANSCRIPTOMICS:
+        description: Spatially resolved transcriptomics
+      METHYLATION:
+        description: DNA methylation profiling
+      CHIP_SEQ:
+        description: Chromatin immunoprecipitation sequencing
+      ATAC_SEQ:
+        description: Assay for transposase-accessible chromatin sequencing
+      PROTEOMICS:
+        description: Protein expression profiling
+      METABOLOMICS:
+        description: Metabolite profiling
+      GWAS:
+        description: Genome-wide association study
+      WGS:
+        description: Whole genome sequencing
+      WES:
+        description: Whole exome sequencing
+      PHENOPACKETS:
+        description: GA4GH Phenopacket collection (case-level phenotype data)
+      VARIANT_DATABASE:
+        description: Curated genetic variant collection
 
 slots:
   name:
@@ -660,6 +717,54 @@ slots:
     description: The name of the target element in a causal relationship
     range: string
     required: true
+  # Dataset-related slots
+  accession:
+    description: Dataset accession identifier as a CURIE (e.g., geo:GSE67472)
+    range: uriorcurie
+    identifier: true
+  organism:
+    description: The organism from which samples were derived
+    range: OrganismDescriptor
+    inlined: true
+  data_type:
+    description: The type of omics or other data in the dataset
+    range: DatasetTypeEnum
+  sample_types:
+    description: Types of biological samples in the dataset
+    multivalued: true
+    range: SampleTypeDescriptor
+    inlined_as_list: true
+  sample_count:
+    description: Total number of samples in the dataset
+    range: integer
+  conditions:
+    description: Experimental conditions or disease states represented
+    multivalued: true
+    range: string
+  exposures:
+    description: Environmental exposures studied in the dataset
+    multivalued: true
+    range: ExposureDescriptor
+    inlined_as_list: true
+  platform:
+    description: Sequencing or array platform used
+    range: string
+  publication:
+    description: Associated publication (PMID)
+    range: PMID
+  tissue_term:
+    description: UBERON term for the tissue
+    range: AnatomicalEntityDescriptor
+    inlined: true
+  cell_type_term:
+    description: CL term for the cell type
+    range: CellTypeDescriptor
+    inlined: true
+  datasets:
+    description: Publicly available datasets relevant to disease research
+    multivalued: true
+    range: Dataset
+    inlined_as_list: true
 
 classes:
   Any:
@@ -803,6 +908,44 @@ classes:
           - binds_value_of: id
             range: EnvironmentTerm
             obligation_level: REQUIRED
+
+  OrganismDescriptor:
+    is_a: Descriptor
+    description: A descriptor for organisms, bindable to NCBITaxon
+    slot_usage:
+      term:
+        description: NCBITaxon term reference
+        bindings:
+          - binds_value_of: id
+            range: OrganismTerm
+            obligation_level: REQUIRED
+
+  SampleTypeDescriptor:
+    is_a: Descriptor
+    description: A descriptor for biological sample types (tissue and/or cell type)
+    slots:
+      - tissue_term
+      - cell_type_term
+
+  Dataset:
+    description: A reference to a publicly available omics or phenotype dataset
+    comments:
+      - Supports GEO, ArrayExpress, SRA, dbGaP, GTEx, ENCODE, phenopacket-store, and other repositories
+    slots:
+      - accession
+      - title
+      - description
+      - organism
+      - data_type
+      - sample_types
+      - sample_count
+      - conditions
+      - exposures
+      - genes
+      - platform
+      - publication
+      - evidence
+      - notes
 
   Subtype:
     slots:
@@ -980,6 +1123,7 @@ classes:
       - synonyms
       - inheritance
       - animal_models
+      - datasets
       - notes
       - review_notes
   Stage:
