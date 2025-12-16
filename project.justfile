@@ -4,22 +4,78 @@
 schema_path := "src/dismech/schema/dismech.yaml"
 kb_dir := "kb/disorders"
 
-# Validate all disorder YAML files against the schema
+# Validate all disorder YAML files (schema + terms + references)
+# Runs all validations and reports ALL errors at the end
 [group('QC')]
 validate-all:
     #!/usr/bin/env bash
-    set -e
+    just fix-references-cache
+    failed_files=()
     echo "Validating all disorder files..."
+    for f in {{kb_dir}}/*.yaml; do
+        echo "=== $(basename $f) ==="
+        errors=""
+        # Schema validation
+        if ! uv run linkml-validate --schema {{schema_path}} --target-class Disease "$f" 2>&1 | grep -q "No issues found"; then
+            errors+="  [SCHEMA] $(uv run linkml-validate --schema {{schema_path}} --target-class Disease "$f" 2>&1 | grep -v "^$")\n"
+        fi
+        # Term validation
+        term_output=$(uv run linkml-term-validator validate-data "$f" -s {{schema_path}} -t Disease --labels --no-dynamic-enums -c {{oak_config}} 2>&1)
+        if ! echo "$term_output" | grep -q "Validation passed"; then
+            errors+="  [TERMS] $term_output\n"
+        fi
+        # Reference validation
+        ref_output=$(uv run linkml-reference-validator validate data "$f" --schema {{schema_path}} --target-class Disease 2>&1)
+        if echo "$ref_output" | grep -q "\[ERROR\]"; then
+            errors+="  [REFERENCES]\n$(echo "$ref_output" | grep -A2 "\[ERROR\]")\n"
+        fi
+        if [ -n "$errors" ]; then
+            failed_files+=("$f")
+            echo -e "$errors"
+        else
+            echo "  ✓ OK"
+        fi
+    done
+    echo ""
+    echo "================================"
+    if [ ${#failed_files[@]} -eq 0 ]; then
+        echo "✓ All files validated successfully!"
+    else
+        echo "✗ ${#failed_files[@]} file(s) with errors:"
+        for f in "${failed_files[@]}"; do
+            echo "  - $f"
+        done
+        exit 1
+    fi
+
+# Full validation of a single disorder file (schema + terms + references)
+[group('QC')]
+validate file:
+    #!/usr/bin/env bash
+    set -e
+    echo "Schema validation..."
+    uv run linkml-validate --schema {{schema_path}} --target-class Disease {{file}}
+    echo "Term validation..."
+    uv run linkml-term-validator validate-data {{file}} -s {{schema_path}} -t Disease --labels --no-dynamic-enums -c {{oak_config}}
+    echo "Reference validation..."
+    just fix-references-cache
+    uv run linkml-reference-validator validate data {{file}} --schema {{schema_path}} --target-class Disease
+    echo "✓ All validations passed for {{file}}"
+
+# Schema-only validation (fast, structure check)
+[group('QC')]
+validate-schema file:
+    uv run linkml-validate --schema {{schema_path}} --target-class Disease {{file}}
+
+# Schema validation for all files
+[group('QC')]
+validate-schema-all:
+    #!/usr/bin/env bash
+    set -e
     for f in {{kb_dir}}/*.yaml; do
         echo "Validating: $f"
         uv run linkml-validate --schema {{schema_path}} --target-class Disease "$f"
     done
-    echo "All files validated successfully!"
-
-# Validate a single disorder file
-[group('QC')]
-validate file:
-    uv run linkml-validate --schema {{schema_path}} --target-class Disease {{file}}
 
 # Run term validation on schema (checks dynamic enum definitions)
 [group('QC')]
@@ -34,7 +90,7 @@ oak_config := "conf/oak_config.yaml"
 # Uses linkml-term-validator with recursive binding validation
 # Note: Requires local dev version from ../linkml-term-validator with recursive fix
 [group('QC')]
-validate-terms:
+validate-terms-all:
     #!/usr/bin/env bash
     set -e
     echo "Validating terms in all disorder files..."
@@ -46,7 +102,7 @@ validate-terms:
 
 # Validate terms in a single file
 [group('QC')]
-validate-terms-file file:
+validate-terms file:
     uv run linkml-term-validator validate-data {{file}} -s {{schema_path}} -t Disease --labels --no-dynamic-enums -c {{oak_config}}
 
 # Run legacy custom term validation (faster, but less thorough)
@@ -59,40 +115,40 @@ validate-terms-legacy:
 validate-graphs:
     uv run python -m dismech.graph --validate {{kb_dir}}
 
-# Run all QC checks
+# Run all QC checks (full validation on all files)
 [group('QC')]
-qc: validate-all validate-terms
+qc: validate-all
     @echo "All QC checks passed!"
 
 # Analyze recommended field compliance for all disorder files
 [group('QC')]
 compliance-all:
-    linkml-data-qc {{kb_dir}} -s {{schema_path}} -t Disease -f text
+    uv run linkml-data-qc {{kb_dir}} -s {{schema_path}} -t Disease -f text
 
 # Analyze compliance for a single file
 [group('QC')]
 compliance file:
-    linkml-data-qc {{file}} -s {{schema_path}} -t Disease -f text
+    uv run linkml-data-qc {{file}} -s {{schema_path}} -t Disease -f text
 
 # Generate compliance report as JSON
 [group('QC')]
 compliance-report:
-    linkml-data-qc {{kb_dir}} -s {{schema_path}} -t Disease -f json -o compliance_report.json
+    uv run linkml-data-qc {{kb_dir}} -s {{schema_path}} -t Disease -f json -o compliance_report.json
 
 # Generate compliance report as CSV
 [group('QC')]
 compliance-csv:
-    linkml-data-qc {{kb_dir}} -s {{schema_path}} -t Disease -f csv -o compliance_report.csv
+    uv run linkml-data-qc {{kb_dir}} -s {{schema_path}} -t Disease -f csv -o compliance_report.csv
 
 # Analyze compliance with config file (weighted scoring and thresholds)
 [group('QC')]
 compliance-weighted:
-    linkml-data-qc {{kb_dir}} -s {{schema_path}} -t Disease -c conf/qc_config.yaml -f text
+    uv run linkml-data-qc {{kb_dir}} -s {{schema_path}} -t Disease -c conf/qc_config.yaml -f text
 
 # Generate QC dashboard (HTML site with charts)
 [group('QC')]
 gen-dashboard:
-    linkml-data-qc {{kb_dir}} -s {{schema_path}} -t Disease -c conf/qc_config.yaml --dashboard-dir dashboard/
+    uv run linkml-data-qc {{kb_dir}} -s {{schema_path}} -t Disease -c conf/qc_config.yaml --dashboard-dir dashboard/
     @echo "Dashboard generated in dashboard/"
 
 # Validate snippet/reference pairs against PubMed (checks that quotes appear in cited papers)

@@ -148,10 +148,11 @@ enums:
       relationship_types:
         - rdfs:subClassOf
   PhenotypeTerm:
-    description: A term representing a phenotype
+    description: A term representing a phenotype or disease manifestation
     reachable_from:
       source_nodes:
         - HP:0000118  ## phenotypic abnormality
+        - MONDO:0000001  ## disease (for complications/comorbidities)
       is_direct: false
       relationship_types:
         - rdfs:subClassOf
@@ -208,12 +209,14 @@ enums:
       relationship_types:
         - rdfs:subClassOf
   EnvironmentTerm:
-    description: A term representing an environmental context or setting (from ENVO)
+    description: A term representing an environmental context, material, or feature (from ENVO)
     comments:
-      - ENVO (Environment Ontology) describes habitats, biomes, and environmental features
+      - ENVO (Environment Ontology) describes habitats, biomes, environmental features, and materials
     reachable_from:
       source_nodes:
-        - ENVO:01000254  ## environmental system
+        - ENVO:01000254  ## environmental system (ecosystems, biomes)
+        - ENVO:00010483  ## environmental material (water, soil, air, etc.)
+        - ENVO:01001886  ## landform (mountains, valleys, etc.)
       is_direct: false
       relationship_types:
         - rdfs:subClassOf
@@ -278,6 +281,21 @@ slots:
   modifier:
     description: Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)
     range: ModifierEnum
+  qualifiers:
+    description: >-
+      List of predicate-value pairs for formal post-composition. Allows OWL-like
+      expressivity with controlled predicates (e.g., RO relations) and values.
+    multivalued: true
+    range: Qualifier
+    inlined_as_list: true
+  predicate:
+    description: The relationship/predicate in a qualifier (e.g., RO:0002233 'has input')
+    range: Descriptor
+    inlined: true
+  value:
+    description: The value/filler in a qualifier
+    range: Descriptor
+    inlined: true
   id:
     description: Ontology term identifier (CURIE)
     range: uriorcurie
@@ -499,6 +517,23 @@ slots:
     description: The MAXO term for this treatment/medical action
     range: TreatmentDescriptor
     inlined: true
+  biomarker_term:
+    description: Ontology term for a biomarker (from NCIT, CHEBI, or LOINC)
+    range: Descriptor
+    inlined: true
+    comments:
+      - Biomarkers may come from multiple ontologies (NCIT for proteins, CHEBI for chemicals, LOINC for lab tests)
+  diagnosis_term:
+    description: The MAXO term for this diagnostic procedure
+    range: TreatmentDescriptor
+    inlined: true
+    comments:
+      - MAXO includes diagnostic procedures under medical actions
+      - Use qualifiers with UBERON terms to specify anatomical location (e.g., right heart catheterization)
+  subtype_term:
+    description: The MONDO term for a disease subtype
+    range: DiseaseDescriptor
+    inlined: true
   exposure_term:
     description: The ECTO/XCO term for this exposure event
     range: ExposureDescriptor
@@ -717,6 +752,13 @@ slots:
     description: The name of the target element in a causal relationship
     range: string
     required: true
+  target_phenotypes:
+    description: Names of phenotypes that this treatment addresses or targets
+    multivalued: true
+    range: string
+    comments:
+      - Should reference phenotype names defined in the same disease's phenotypes list
+      - Enables linking treatments to the symptoms/manifestations they aim to manage
   # Dataset-related slots
   accession:
     description: Dataset accession identifier as a CURIE (e.g., geo:GSE67472)
@@ -782,12 +824,33 @@ classes:
     abstract: true
     description: >-
       Base class for structured descriptors that allow a preferred term,
-      optional description, optional ontology term binding, and optional modifier.
+      optional description, optional ontology term binding, and optional modifier/qualifiers
+      for post-composition.
     slots:
       - preferred_term
       - description
       - term
       - modifier
+      - qualifiers
+    slot_usage:
+      description:
+        description: >-
+          A description of the descriptor. This may typically be redundant with the `term` object, but the
+          description is more human-readable and may be used to communicate nuances not captured by the
+          rigid standardization of the term object.
+
+  # Post-composition classes
+  Qualifier:
+    description: >-
+      A predicate-value pair for formal post-composition. Allows OWL-like
+      expressivity with controlled predicates and values, both as full Descriptors.
+    comments:
+      - Use for formal semantic relationships like "has_input some X"
+      - Both predicate and value are Descriptors, allowing recursive composition
+      - Predicate typically uses RO (Relation Ontology) terms
+    slots:
+      - predicate
+      - value
 
   CellTypeDescriptor:
     is_a: Descriptor
@@ -950,6 +1013,7 @@ classes:
   Subtype:
     slots:
       - name
+      - subtype_term
       - description
       - evidence
       - review_notes
@@ -1056,6 +1120,7 @@ classes:
   Biochemical:
     slots:
       - name
+      - biomarker_term
       - presence
       - evidence
       - specificity
@@ -1154,6 +1219,7 @@ classes:
       - name
       - description
       - treatment_term
+      - target_phenotypes
       - evidence
       - notes
       - context
@@ -1181,6 +1247,7 @@ classes:
   Diagnosis:
     slots:
       - name
+      - diagnosis_term
       - presence
       - evidence
       - notes
