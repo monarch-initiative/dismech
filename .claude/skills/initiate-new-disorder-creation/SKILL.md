@@ -26,7 +26,7 @@ This skill can also be consulted for ongoing curation of existing disorders.
 ### Step 1: Select Disorder Name and Verify Disorder Doesn't Exist
 
 Choose the clinically preferred name for the disorder, use title case (e.g. `Foo Bar Syndrome`).
-For file names, spaces will. be replaced by underscores, and characters such as apostrophes removed.
+For file names, spaces will be replaced by underscores, and characters such as apostrophes removed.
 
 ```bash
 ls kb/disorders/*yaml
