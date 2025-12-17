@@ -887,15 +887,18 @@ class PhenotypeDescriptor(Descriptor):
     qualifiers: Optional[list[Qualifier]] = Field(default=[], description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
 
 
-class TreatmentDescriptor(Descriptor):
+class MedicalActionDescriptor(Descriptor):
     """
-    A descriptor for treatments/medical actions, bindable to Medical Action Ontology (MAXO)
+    A descriptor for medical actions (treatments, diagnostics, procedures), bindable to Medical Action Ontology (MAXO)
     """
-    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'comments': ['MAXO includes both therapeutic interventions and diagnostic '
+                      'procedures',
+                      'Use for any medical action whether diagnostic or therapeutic'],
+         'from_schema': 'https://w3id.org/monarch-initiative/dismech',
          'slot_usage': {'term': {'bindings': [{'binds_value_of': 'id',
                                                'obligation_level': 'REQUIRED',
                                                'range': 'TreatmentActionTerm'}],
-                                 'description': 'Optional MAXO treatment term '
+                                 'description': 'Optional MAXO medical action term '
                                                 'reference',
                                  'name': 'term'}}})
 
@@ -922,7 +925,48 @@ class TreatmentDescriptor(Descriptor):
                        'Mechanism',
                        'ModelingConsideration'],
          'recommended': False} })
-    term: Optional[Term] = Field(default=None, description="""Optional MAXO treatment term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
+    term: Optional[Term] = Field(default=None, description="""Optional MAXO medical action term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
+                       'obligation_level': 'REQUIRED',
+                       'range': 'TreatmentActionTerm'}],
+         'domain_of': ['Descriptor'],
+         'recommended': True} })
+    modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
+    qualifiers: Optional[list[Qualifier]] = Field(default=[], description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
+
+
+class TreatmentDescriptor(MedicalActionDescriptor):
+    """
+    A descriptor for therapeutic interventions, bindable to Medical Action Ontology (MAXO)
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'comments': ['This is a specialized form of MedicalActionDescriptor for '
+                      'treatments',
+                      'Inherits all functionality from MedicalActionDescriptor'],
+         'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
+
+    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
+    description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'Dataset',
+                       'Subtype',
+                       'CausalEdge',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AnimalModel',
+                       'Treatment',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'FunctionalEffect',
+                       'Mechanism',
+                       'ModelingConsideration'],
+         'recommended': False} })
+    term: Optional[Term] = Field(default=None, description="""Optional MAXO medical action term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
                        'range': 'TreatmentActionTerm'}],
          'domain_of': ['Descriptor'],
@@ -2709,7 +2753,7 @@ class Diagnosis(ConfiguredBaseModel):
                        'Mechanism',
                        'ModelingConsideration'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
-    diagnosis_term: Optional[TreatmentDescriptor] = Field(default=None, description="""The MAXO term for this diagnostic procedure""", json_schema_extra = { "linkml_meta": {'comments': ['MAXO includes diagnostic procedures under medical actions',
+    diagnosis_term: Optional[MedicalActionDescriptor] = Field(default=None, description="""The MAXO term for this diagnostic procedure""", json_schema_extra = { "linkml_meta": {'comments': ['MAXO includes diagnostic procedures under medical actions',
                       'Use qualifiers with UBERON terms to specify anatomical location '
                       '(e.g., right heart catheterization)'],
          'domain_of': ['Diagnosis']} })
@@ -3084,6 +3128,7 @@ AssayDescriptor.model_rebuild()
 TriggerDescriptor.model_rebuild()
 DiseaseDescriptor.model_rebuild()
 PhenotypeDescriptor.model_rebuild()
+MedicalActionDescriptor.model_rebuild()
 TreatmentDescriptor.model_rebuild()
 ExposureDescriptor.model_rebuild()
 EnvironmentDescriptor.model_rebuild()
