@@ -284,7 +284,7 @@ class ChemicalEntityTerm(str):
 
 class PhenotypeTerm(str):
     """
-    A term representing a phenotype
+    A term representing a phenotype or disease manifestation
     """
     pass
 
@@ -354,7 +354,7 @@ class ExposureTerm(str):
 
 class EnvironmentTerm(str):
     """
-    A term representing an environmental context or setting (from ENVO)
+    A term representing an environmental context, material, or feature (from ENVO)
     """
     pass
 
@@ -443,12 +443,24 @@ class Term(ConfiguredBaseModel):
 
 class Descriptor(ConfiguredBaseModel):
     """
-    Base class for structured descriptors that allow a preferred term, optional description, optional ontology term binding, and optional modifier.
+    Base class for structured descriptors that allow a preferred term, optional description, optional ontology term binding, and optional modifier/qualifiers for post-composition.
     """
-    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'abstract': True, 'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'abstract': True,
+         'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'description': {'description': 'A description of the '
+                                                       'descriptor. This may typically '
+                                                       'be redundant with the `term` '
+                                                       'object, but the description is '
+                                                       'more human-readable and may be '
+                                                       'used to communicate nuances '
+                                                       'not captured by the rigid '
+                                                       'standardization of the term '
+                                                       'object.',
+                                        'name': 'description',
+                                        'recommended': False}}})
 
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
-    description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+    description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'Dataset',
                        'Subtype',
                        'CausalEdge',
@@ -469,9 +481,24 @@ class Descriptor(ConfiguredBaseModel):
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration'],
-         'recommended': True} })
+         'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""Optional structured ontology term reference""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor'], 'recommended': True} })
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
+    qualifiers: Optional[list[Qualifier]] = Field(default=[], description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
+
+
+class Qualifier(ConfiguredBaseModel):
+    """
+    A predicate-value pair for formal post-composition. Allows OWL-like expressivity with controlled predicates and values, both as full Descriptors.
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'comments': ['Use for formal semantic relationships like "has_input some X"',
+                      'Both predicate and value are Descriptors, allowing recursive '
+                      'composition',
+                      'Predicate typically uses RO (Relation Ontology) terms'],
+         'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
+
+    predicate: Optional[Descriptor] = Field(default=None, description="""The relationship/predicate in a qualifier (e.g., RO:0002233 'has input')""", json_schema_extra = { "linkml_meta": {'domain_of': ['Qualifier']} })
+    value: Optional[Descriptor] = Field(default=None, description="""The value/filler in a qualifier""", json_schema_extra = { "linkml_meta": {'domain_of': ['Qualifier']} })
 
 
 class CellTypeDescriptor(Descriptor):
@@ -486,7 +513,7 @@ class CellTypeDescriptor(Descriptor):
                                  'name': 'term'}}})
 
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
-    description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+    description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'Dataset',
                        'Subtype',
                        'CausalEdge',
@@ -507,13 +534,14 @@ class CellTypeDescriptor(Descriptor):
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration'],
-         'recommended': True} })
+         'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""Optional Cell Ontology term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
                        'range': 'CellTypeTerm'}],
          'domain_of': ['Descriptor'],
          'recommended': True} })
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
+    qualifiers: Optional[list[Qualifier]] = Field(default=[], description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
 
 
 class BiologicalProcessDescriptor(Descriptor):
@@ -526,7 +554,7 @@ class BiologicalProcessDescriptor(Descriptor):
                                  'name': 'term'}}})
 
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
-    description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+    description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'Dataset',
                        'Subtype',
                        'CausalEdge',
@@ -547,9 +575,10 @@ class BiologicalProcessDescriptor(Descriptor):
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration'],
-         'recommended': True} })
+         'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""Optional GO biological process term reference""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor'], 'recommended': True} })
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
+    qualifiers: Optional[list[Qualifier]] = Field(default=[], description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
 
 
 class AnatomicalEntityDescriptor(Descriptor):
@@ -562,7 +591,7 @@ class AnatomicalEntityDescriptor(Descriptor):
                                  'name': 'term'}}})
 
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
-    description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+    description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'Dataset',
                        'Subtype',
                        'CausalEdge',
@@ -583,9 +612,10 @@ class AnatomicalEntityDescriptor(Descriptor):
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration'],
-         'recommended': True} })
+         'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""Optional UBERON anatomical entity term reference""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor'], 'recommended': True} })
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
+    qualifiers: Optional[list[Qualifier]] = Field(default=[], description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
 
 
 class ChemicalEntityDescriptor(Descriptor):
@@ -598,7 +628,7 @@ class ChemicalEntityDescriptor(Descriptor):
                                  'name': 'term'}}})
 
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
-    description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+    description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'Dataset',
                        'Subtype',
                        'CausalEdge',
@@ -619,9 +649,10 @@ class ChemicalEntityDescriptor(Descriptor):
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration'],
-         'recommended': True} })
+         'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""Optional CHEBI chemical entity term reference""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor'], 'recommended': True} })
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
+    qualifiers: Optional[list[Qualifier]] = Field(default=[], description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
 
 
 class GeneDescriptor(Descriptor):
@@ -634,7 +665,7 @@ class GeneDescriptor(Descriptor):
                                  'name': 'term'}}})
 
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
-    description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+    description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'Dataset',
                        'Subtype',
                        'CausalEdge',
@@ -655,9 +686,10 @@ class GeneDescriptor(Descriptor):
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration'],
-         'recommended': True} })
+         'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""Optional gene database term reference (e.g., HGNC)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor'], 'recommended': True} })
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
+    qualifiers: Optional[list[Qualifier]] = Field(default=[], description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
 
 
 class CellularComponentDescriptor(Descriptor):
@@ -670,7 +702,7 @@ class CellularComponentDescriptor(Descriptor):
                                  'name': 'term'}}})
 
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
-    description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+    description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'Dataset',
                        'Subtype',
                        'CausalEdge',
@@ -691,9 +723,10 @@ class CellularComponentDescriptor(Descriptor):
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration'],
-         'recommended': True} })
+         'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""Optional GO cellular component term reference""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor'], 'recommended': True} })
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
+    qualifiers: Optional[list[Qualifier]] = Field(default=[], description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
 
 
 class AssayDescriptor(Descriptor):
@@ -705,7 +738,7 @@ class AssayDescriptor(Descriptor):
                                  'name': 'term'}}})
 
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
-    description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+    description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'Dataset',
                        'Subtype',
                        'CausalEdge',
@@ -726,9 +759,10 @@ class AssayDescriptor(Descriptor):
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration'],
-         'recommended': True} })
+         'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""Optional OBI assay term reference""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor'], 'recommended': True} })
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
+    qualifiers: Optional[list[Qualifier]] = Field(default=[], description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
 
 
 class TriggerDescriptor(Descriptor):
@@ -740,7 +774,7 @@ class TriggerDescriptor(Descriptor):
                                  'name': 'term'}}})
 
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
-    description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+    description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'Dataset',
                        'Subtype',
                        'CausalEdge',
@@ -761,9 +795,10 @@ class TriggerDescriptor(Descriptor):
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration'],
-         'recommended': True} })
+         'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""Optional ontology term reference""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor'], 'recommended': True} })
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
+    qualifiers: Optional[list[Qualifier]] = Field(default=[], description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
 
 
 class DiseaseDescriptor(Descriptor):
@@ -778,7 +813,7 @@ class DiseaseDescriptor(Descriptor):
                                  'name': 'term'}}})
 
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
-    description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+    description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'Dataset',
                        'Subtype',
                        'CausalEdge',
@@ -799,13 +834,14 @@ class DiseaseDescriptor(Descriptor):
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration'],
-         'recommended': True} })
+         'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""Optional MONDO disease term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
                        'range': 'DiseaseTerm'}],
          'domain_of': ['Descriptor'],
          'recommended': True} })
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
+    qualifiers: Optional[list[Qualifier]] = Field(default=[], description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
 
 
 class PhenotypeDescriptor(Descriptor):
@@ -820,7 +856,7 @@ class PhenotypeDescriptor(Descriptor):
                                  'name': 'term'}}})
 
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
-    description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+    description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'Dataset',
                        'Subtype',
                        'CausalEdge',
@@ -841,13 +877,14 @@ class PhenotypeDescriptor(Descriptor):
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration'],
-         'recommended': True} })
+         'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""Optional HP phenotype term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
                        'range': 'PhenotypeTerm'}],
          'domain_of': ['Descriptor'],
          'recommended': True} })
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
+    qualifiers: Optional[list[Qualifier]] = Field(default=[], description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
 
 
 class TreatmentDescriptor(Descriptor):
@@ -863,7 +900,7 @@ class TreatmentDescriptor(Descriptor):
                                  'name': 'term'}}})
 
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
-    description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+    description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'Dataset',
                        'Subtype',
                        'CausalEdge',
@@ -884,13 +921,14 @@ class TreatmentDescriptor(Descriptor):
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration'],
-         'recommended': True} })
+         'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""Optional MAXO treatment term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
                        'range': 'TreatmentActionTerm'}],
          'domain_of': ['Descriptor'],
          'recommended': True} })
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
+    qualifiers: Optional[list[Qualifier]] = Field(default=[], description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
 
 
 class ExposureDescriptor(Descriptor):
@@ -910,7 +948,7 @@ class ExposureDescriptor(Descriptor):
                                  'name': 'term'}}})
 
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
-    description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+    description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'Dataset',
                        'Subtype',
                        'CausalEdge',
@@ -931,13 +969,14 @@ class ExposureDescriptor(Descriptor):
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration'],
-         'recommended': True} })
+         'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""Optional ECTO/XCO exposure term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
                        'range': 'ExposureTerm'}],
          'domain_of': ['Descriptor'],
          'recommended': True} })
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
+    qualifiers: Optional[list[Qualifier]] = Field(default=[], description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
 
 
 class EnvironmentDescriptor(Descriptor):
@@ -955,7 +994,7 @@ class EnvironmentDescriptor(Descriptor):
                                  'name': 'term'}}})
 
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
-    description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+    description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'Dataset',
                        'Subtype',
                        'CausalEdge',
@@ -976,13 +1015,14 @@ class EnvironmentDescriptor(Descriptor):
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration'],
-         'recommended': True} })
+         'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""Optional ENVO environment term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
                        'range': 'EnvironmentTerm'}],
          'domain_of': ['Descriptor'],
          'recommended': True} })
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
+    qualifiers: Optional[list[Qualifier]] = Field(default=[], description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
 
 
 class OrganismDescriptor(Descriptor):
@@ -997,7 +1037,7 @@ class OrganismDescriptor(Descriptor):
                                  'name': 'term'}}})
 
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
-    description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+    description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'Dataset',
                        'Subtype',
                        'CausalEdge',
@@ -1018,13 +1058,14 @@ class OrganismDescriptor(Descriptor):
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration'],
-         'recommended': True} })
+         'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""NCBITaxon term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
                        'range': 'OrganismTerm'}],
          'domain_of': ['Descriptor'],
          'recommended': True} })
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
+    qualifiers: Optional[list[Qualifier]] = Field(default=[], description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
 
 
 class SampleTypeDescriptor(Descriptor):
@@ -1036,7 +1077,7 @@ class SampleTypeDescriptor(Descriptor):
     tissue_term: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""UBERON term for the tissue""", json_schema_extra = { "linkml_meta": {'domain_of': ['SampleTypeDescriptor']} })
     cell_type_term: Optional[CellTypeDescriptor] = Field(default=None, description="""CL term for the cell type""", json_schema_extra = { "linkml_meta": {'domain_of': ['SampleTypeDescriptor']} })
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
-    description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+    description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'Dataset',
                        'Subtype',
                        'CausalEdge',
@@ -1057,9 +1098,10 @@ class SampleTypeDescriptor(Descriptor):
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration'],
-         'recommended': True} })
+         'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""Optional structured ontology term reference""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor'], 'recommended': True} })
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
+    qualifiers: Optional[list[Qualifier]] = Field(default=[], description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
 
 
 class Dataset(ConfiguredBaseModel):
@@ -1068,11 +1110,22 @@ class Dataset(ConfiguredBaseModel):
     """
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'comments': ['Supports GEO, ArrayExpress, SRA, dbGaP, GTEx, ENCODE, '
                       'phenopacket-store, and other repositories'],
-         'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
+         'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'description': {'description': 'A description of the dataset. '
+                                                       'This may typically be '
+                                                       'redundant with the `title` '
+                                                       'slot, but the description is '
+                                                       'more human-readable and may be '
+                                                       'used to communicate nuances '
+                                                       'not captured by the rigid '
+                                                       'standardization of the title '
+                                                       'slot.',
+                                        'name': 'description',
+                                        'recommended': True}}})
 
     accession: str = Field(default=..., description="""Dataset accession identifier as a CURIE (e.g., geo:GSE67472)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset']} })
     title: Optional[str] = Field(default=None, description="""Title of the publication""", json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset', 'PublicationReference']} })
-    description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+    description: Optional[str] = Field(default=None, description="""A description of the dataset. This may typically be redundant with the `title` slot, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the title slot.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'Dataset',
                        'Subtype',
                        'CausalEdge',
@@ -1165,6 +1218,7 @@ class Subtype(ConfiguredBaseModel):
                        'Mechanism',
                        'ModelingConsideration'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
+    subtype_term: Optional[DiseaseDescriptor] = Field(default=None, description="""The MONDO term for a disease subtype""", json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'Dataset',
                        'Subtype',
@@ -1185,8 +1239,7 @@ class Subtype(ConfiguredBaseModel):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration'],
-         'recommended': True} })
+                       'ModelingConsideration']} })
     evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
                        'Subtype',
                        'CausalEdge',
@@ -1269,8 +1322,7 @@ class CausalEdge(ConfiguredBaseModel):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration'],
-         'recommended': True} })
+                       'ModelingConsideration']} })
     evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
                        'Subtype',
                        'CausalEdge',
@@ -1480,8 +1532,7 @@ class EpidemiologyInfo(ConfiguredBaseModel):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration'],
-         'recommended': True} })
+                       'ModelingConsideration']} })
     minimum_value: Optional[float] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['EpidemiologyInfo']} })
     maximum_value: Optional[float] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['EpidemiologyInfo']} })
     mean_range: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['EpidemiologyInfo']} })
@@ -1571,8 +1622,7 @@ class Pathophysiology(ConfiguredBaseModel):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration'],
-         'recommended': True} })
+                       'ModelingConsideration']} })
     cell_types: Optional[list[CellTypeDescriptor]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology', 'Biochemical'],
          'examples': [{'value': '[{preferred_term: Macrophage}, {preferred_term: T '
                                 'Cell}]'}]} })
@@ -1709,8 +1759,7 @@ class Phenotype(ConfiguredBaseModel):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration'],
-         'recommended': True} })
+                       'ModelingConsideration']} })
     diagnostic: Optional[bool] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Phenotype']} })
     sequelae: Optional[list[CausalEdge]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Phenotype'],
          'examples': [{'value': '[{target: Diabetic Ketoacidosis}, {target: Chronic '
@@ -1794,6 +1843,9 @@ class Biochemical(ConfiguredBaseModel):
                        'Mechanism',
                        'ModelingConsideration'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
+    biomarker_term: Optional[Descriptor] = Field(default=None, description="""Ontology term for a biomarker (from NCIT, CHEBI, or LOINC)""", json_schema_extra = { "linkml_meta": {'comments': ['Biomarkers may come from multiple ontologies (NCIT for '
+                      'proteins, CHEBI for chemicals, LOINC for lab tests)'],
+         'domain_of': ['Biochemical']} })
     presence: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Biochemical', 'Genetic', 'Environmental', 'Diagnosis'],
          'examples': [{'value': 'Positive'}]} })
     evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
@@ -2037,8 +2089,7 @@ class Environmental(ConfiguredBaseModel):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration'],
-         'recommended': True} })
+                       'ModelingConsideration']} })
     chemicals: Optional[list[str]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Environmental'], 'examples': [{'value': "['Phenol']"}]} })
     synonyms: Optional[list[str]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology',
                        'Biochemical',
@@ -2110,8 +2161,7 @@ class Disease(ConfiguredBaseModel):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration'],
-         'recommended': True} })
+                       'ModelingConsideration']} })
     references: Optional[list[PublicationReference]] = Field(default=[], description="""Top-level list of references with their key findings for this disease""", json_schema_extra = { "linkml_meta": {'domain_of': ['Disease']} })
     category: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Phenotype', 'Disease', 'AnimalModel'],
          'examples': [{'value': 'Hematologic'}]} })
@@ -2214,8 +2264,7 @@ class Stage(ConfiguredBaseModel):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration'],
-         'recommended': True} })
+                       'ModelingConsideration']} })
     evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
                        'Subtype',
                        'CausalEdge',
@@ -2307,8 +2356,7 @@ class AnimalModel(ConfiguredBaseModel):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration'],
-         'recommended': True} })
+                       'ModelingConsideration']} })
     associated_phenotypes: Optional[list[str]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['AnimalModel'],
          'examples': [{'value': "['Celiac Disease', 'Type 1 Diabetes', 'Autoimmune "
                                 "Thyroid Disease']"}]} })
@@ -2377,9 +2425,13 @@ class Treatment(ConfiguredBaseModel):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration'],
-         'recommended': True} })
+                       'ModelingConsideration']} })
     treatment_term: Optional[TreatmentDescriptor] = Field(default=None, description="""The MAXO term for this treatment/medical action""", json_schema_extra = { "linkml_meta": {'domain_of': ['Treatment']} })
+    target_phenotypes: Optional[list[str]] = Field(default=[], description="""Names of phenotypes that this treatment addresses or targets""", json_schema_extra = { "linkml_meta": {'comments': ["Should reference phenotype names defined in the same disease's "
+                      'phenotypes list',
+                      'Enables linking treatments to the symptoms/manifestations they '
+                      'aim to manage'],
+         'domain_of': ['Treatment']} })
     evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
                        'Subtype',
                        'CausalEdge',
@@ -2502,8 +2554,7 @@ class InfectiousAgent(ConfiguredBaseModel):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration'],
-         'recommended': True} })
+                       'ModelingConsideration']} })
     has_subtypes: Optional[list[Subtype]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Disease', 'InfectiousAgent']} })
 
 
@@ -2549,8 +2600,7 @@ class Transmission(ConfiguredBaseModel):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration'],
-         'recommended': True} })
+                       'ModelingConsideration']} })
     evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
                        'Subtype',
                        'CausalEdge',
@@ -2634,8 +2684,7 @@ class Assay(ConfiguredBaseModel):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration'],
-         'recommended': True} })
+                       'ModelingConsideration']} })
 
 
 class Diagnosis(ConfiguredBaseModel):
@@ -2660,6 +2709,10 @@ class Diagnosis(ConfiguredBaseModel):
                        'Mechanism',
                        'ModelingConsideration'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
+    diagnosis_term: Optional[TreatmentDescriptor] = Field(default=None, description="""The MAXO term for this diagnostic procedure""", json_schema_extra = { "linkml_meta": {'comments': ['MAXO includes diagnostic procedures under medical actions',
+                      'Use qualifiers with UBERON terms to specify anatomical location '
+                      '(e.g., right heart catheterization)'],
+         'domain_of': ['Diagnosis']} })
     presence: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Biochemical', 'Genetic', 'Environmental', 'Diagnosis'],
          'examples': [{'value': 'Positive'}]} })
     evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
@@ -2722,8 +2775,7 @@ class Diagnosis(ConfiguredBaseModel):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration'],
-         'recommended': True} })
+                       'ModelingConsideration']} })
 
 
 class Inheritance(ConfiguredBaseModel):
@@ -2789,8 +2841,7 @@ class Inheritance(ConfiguredBaseModel):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration'],
-         'recommended': True} })
+                       'ModelingConsideration']} })
 
 
 class Variant(ConfiguredBaseModel):
@@ -2835,8 +2886,7 @@ class Variant(ConfiguredBaseModel):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration'],
-         'recommended': True} })
+                       'ModelingConsideration']} })
     gene: Optional[GeneDescriptor] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology', 'Variant'],
          'examples': [{'value': '{preferred_term: MEFV}'}]} })
     evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
@@ -2897,8 +2947,7 @@ class FunctionalEffect(ConfiguredBaseModel):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration'],
-         'recommended': True} })
+                       'ModelingConsideration']} })
     type: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Variant', 'FunctionalEffect']} })
 
 
@@ -2944,8 +2993,7 @@ class Mechanism(ConfiguredBaseModel):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration'],
-         'recommended': True} })
+                       'ModelingConsideration']} })
 
 
 class ModelingConsideration(ConfiguredBaseModel):
@@ -2990,8 +3038,7 @@ class ModelingConsideration(ConfiguredBaseModel):
                        'Variant',
                        'FunctionalEffect',
                        'Mechanism',
-                       'ModelingConsideration'],
-         'recommended': True} })
+                       'ModelingConsideration']} })
     evidence: Optional[list[EvidenceItem]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
                        'Subtype',
                        'CausalEdge',
@@ -3026,6 +3073,7 @@ class DiseaseCollection(ConfiguredBaseModel):
 # see https://pydantic-docs.helpmanual.io/usage/models/#rebuilding-a-model
 Term.model_rebuild()
 Descriptor.model_rebuild()
+Qualifier.model_rebuild()
 CellTypeDescriptor.model_rebuild()
 BiologicalProcessDescriptor.model_rebuild()
 AnatomicalEntityDescriptor.model_rebuild()

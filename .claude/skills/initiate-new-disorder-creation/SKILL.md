@@ -2,10 +2,8 @@
 name: initiate-new-disorder-creation
 description: >
   Skill for initiating new disorder YAML files in the dismech knowledge base.
-  Use this skill when the user asks to create a new disorder entry. CRITICAL:
-  Before creating any new disorder file, at least one deep research query must
-  be performed using tools like falcon, cyberian, perplexity, or openai to gather
-  accurate pathophysiology information and prevent hallucination.
+  Use this skill when the user asks to create a new disorder entry. Also useful
+  for enhancing existing entries.
 ---
 
 # Initiate New Disorder Creation Skill
@@ -19,126 +17,110 @@ AI hallucinations by requiring deep research queries before file creation.
 ## When to Use
 
 - User asks to create a new disorder/disease entry
-- User wants to add a condition to the knowledge base
 - User names a disorder that doesn't exist in `kb/disorders/`
 
-## CRITICAL: Research-First Requirement
-
-**NEVER create a new disorder file without first performing at least one deep research query.**
-
-### Why Research First?
-
-1. **Prevents hallucination** of pathophysiology mechanisms
-2. **Ensures evidence-backed content** with real PMIDs
-3. **Captures accurate disease terminology** (MONDO terms, phenotypes)
-4. **Identifies correct cell types and biological processes**
-
-### Deep Research Tools
-
-Use at least ONE of these tools before creating any disorder file:
-
-| Tool | Best For | How to Use |
-|------|----------|------------|
-| **Falcon** | Comprehensive disease research | MCP tool: query disease pathophysiology |
-| **Cyberian** | Literature-focused research | MCP tool: search biomedical literature |
-| **Perplexity** | General research with citations | MCP tool or web search with citations |
-| **OpenAI** | Deep research mode | MCP tool: structured research query |
-
-### Recommended Research Queries
-
-Structure your research query to gather:
-
-```
-"Provide a comprehensive overview of [DISEASE NAME] pathophysiology including:
-1. Primary disease mechanisms
-2. Key cell types involved
-3. Biological processes affected
-4. Associated phenotypes/symptoms
-5. Known genetic factors
-6. Standard treatments
-7. Relevant PMID references from PubMed"
-```
+This skill can also be consulted for ongoing curation of existing disorders.
 
 ## Workflow
 
-### Step 1: Verify Disorder Doesn't Exist
+### Step 1: Select Disorder Name and Verify Disorder Doesn't Exist
+
+Choose the clinically preferred name for the disorder, use title case (e.g. `Foo Bar Syndrome`).
+For file names, spaces will. be replaced by underscores, and characters such as apostrophes removed.
 
 ```bash
-ls kb/disorders/ | grep -i "<disease_name>"
+ls kb/disorders/*yaml
 ```
-
 If it exists, edit the existing file instead of creating a new one.
 
-### Step 2: Perform Deep Research (REQUIRED)
+### Step 2: Create initial YAML file
 
-Execute at least one deep research query. Document what tool was used:
+Create an initial yaml file using the underscore form of the disease, e.g.
 
-```
-[RESEARCH LOG]
-Tool: <falcon/cyberian/perplexity/openai>
-Query: "<your research query>"
-Key findings:
-- Pathophysiology mechanisms: ...
-- Cell types: ...
-- Phenotypes: ...
-- PMIDs gathered: ...
-```
-
-### Step 3: Look Up Ontology Terms
-
-Before creating the file, look up required ontology terms using OAK:
-
-```bash
-# Disease term (MONDO)
-uv run runoak -i sqlite:obo:mondo info "l~<disease name>"
-
-# Phenotype terms (HPO)
-uv run runoak -i sqlite:obo:hp info "l~<phenotype>"
-
-# Cell types (CL)
-uv run runoak -i sqlite:obo:cl info "l~<cell type>"
-
-# Biological processes (GO)
-uv run runoak -i sqlite:obo:go info "l~<process>"
-
-# Treatment terms (MAXO)
-uv run runoak -i sqlite:obo:maxo search "<treatment>"
-```
-
-### Step 4: Create the File
-
-Create `kb/disorders/<Disease_Name>.yaml` with this template:
-
+kb/disorders/Foo_Bar.yaml:
 ```yaml
-name: <Disease Name>
-category: <Mendelian|Complex|Infectious|Other>
-parents:
-- <Parent Category>
-
+name: Foo Bar
+category: Complex
 disease_term:
-  preferred_term: <Disease Name>
   term:
-    id: MONDO:XXXXXXX
-    label: <exact MONDO label>
+    id: MONDO:nnnnnnn
+    label: foo bar  ## mondo name will follow OBO case conventions
+parents:
+  <yaml list of strings>
+has_subtypes:
+  <optional yaml list of Subtype objects>
+pathophysiology:
+  <yaml list of Pathophysiology objects>
+phenotypes:
+  <yaml list of Phenotype objects>
+biochemical:
+  <optional yaml list of Biochemical objects>
+genetic:
+  <optional yaml list of Genetic objects>
+environmental:
+  <optional yaml list of Environmental objects>
+treatments:
+  <optional yaml list of Treatment objects>
+datasets:
+```
 
-description: >
-  <Brief disease description from research>
+The objects must follow the LinkML schema in src/dismech/schema.
 
+It can be validated with `just validate kb/disorders/Foo_Bar.yaml`
+
+This first pass should use textbook knowledge about the disease: you will later refine this.
+
+### Step 3: Perform Deep Research (REQUIRED)
+
+Execute at least one deep research query. Always do this via the `just` command, do
+not perform your own deep research.
+
+Depending on user preference, use one or more of the following commands
+
+- `just research-disorder perplexity DISORDER_NAME`
+- `just research-disorder falcon DISORDER_NAME`
+- `just research-disorder openai DISORDER_NAME`
+- `just research-disorder cyberian DISORDER_NAME`
+
+Use the filesystem-friendly name here.
+
+On completion (may be several minutes, be patient), this will create a file here:
+
+`./research/DISORDER_NAME.md`
+
+You MUST read this before progressing.
+
+### Step 4: Enhance YAML file with evidence for assestions
+
+Use the results of deep research to enhance the yaml file, providing evidence for as many assertions as possible.
+
+Find the pubmed IDs or DOIs for the papers in the deep research and retrieve these:
+
+- `just fetch-reference PMID:nnnnnnn`
+- `just fetch-reference DOI:...`
+
+You can also find additional references relevant to individual assertions, on top of what is in the deep research.
+
+Then use this to provide snippets/excerpts and explanations for assertions. For example, for a phenotype assertion:
+
+```
 phenotypes:
 - name: <Phenotype Name>
   description: <Description from research>
-  frequency: <Common|Variable|Rare>
-  phenotype_term:
-    preferred_term: <Phenotype Name>
-    term:
-      id: HP:XXXXXXX
-      label: <exact HPO label>
   evidence:
   - reference: PMID:XXXXXXXX
-    supports: SUPPORT
+    supports: <SUPPORT | REFUTE | PARTIAL>
     snippet: "<Exact quote from abstract>"
     explanation: "<Why this supports the phenotype>"
+```
 
+The same generic `evidence` list schema is used for most types.
+
+### Step 5: Add term objects
+
+Add term objects using ontology term IDs; for example, for a `pathophsyiology` object, it might look like this:
+
+```
 pathophysiology:
 - name: <Mechanism Name>
   description: >
@@ -153,43 +135,51 @@ pathophysiology:
     term:
       id: GO:XXXXXXX
       label: <exact GO label>
-  evidence:
-  - reference: PMID:XXXXXXXX
-    supports: SUPPORT
-    snippet: "<Exact quote from abstract>"
-    explanation: "<Why this supports the mechanism>"
+```      
 
-treatments:
-- name: <Treatment Name>
-  description: <Treatment description>
-  treatment_term:
-    preferred_term: <Treatment>
-    term:
-      id: MAXO:XXXXXXX
-      label: <exact MAXO label>
-```
+Consult the LinkML schema to see what terms are appropriate for any given object type. These will be validated.
 
-### Step 5: Validate the New File
+You can use OAK commands to find relevant terms.
+
+General term search (use mondo for diseases)
 
 ```bash
-# Schema validation
+uv run runoak -i sqlite:obo:mondo info "l~<disease name>"
+```
+
+starts-with queries (use hp for phenotypes)
+
+```bash
+uv run runoak -i sqlite:obo:hp info "l^<phenotype>"
+```
+
+exact:
+
+```
+uv run runoak -i sqlite:obo:cl info CL:nnnnnnn
+```
+
+relationships (up and down):
+
+```
+uv run runoak -i sqlite:obo:go relationships --direction both GO:nnnnnnn
+```
+
+
+### Step 6: Final review and validation
+
+Strict validation check (adherence to schema, term and reference checks):
+
+```bash
 just validate kb/disorders/<Disease_Name>.yaml
-
-# Term validation (ontology IDs/labels)
-just validate-terms-file kb/disorders/<Disease_Name>.yaml
-
-# Reference validation (snippets match PMIDs)
-just validate-references kb/disorders/<Disease_Name>.yaml
-
-# Full QC
-just qc
 ```
 
-### Step 6: Generate HTML Page
+Compliance report (completeness, term and evidence coverage):
 
 ```bash
-uv run python -m dismech.render kb/disorders/<Disease_Name>.yaml
+just compliance kb/disorders/<Disease_Name>.yaml
 ```
+
 
 ## File Naming Convention
 
@@ -242,7 +232,8 @@ All evidence items MUST:
 
 ## Integration with Other Skills
 
-After creating the disorder file:
+Use all loaded skills, including:
+
 - Use **dismech-terms** to add additional ontology term bindings
 - Use **dismech-references** to validate/repair evidence items
 - Use **dismech-compliance** to check completeness and identify gaps

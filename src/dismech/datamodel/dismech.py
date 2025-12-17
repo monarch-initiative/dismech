@@ -1,5 +1,5 @@
 # Auto generated from dismech.yaml by pythongen.py version: 0.0.1
-# Generation date: 2025-12-12T17:25:00
+# Generation date: 2025-12-16T10:52:55
 # Schema: dismech
 #
 # id: https://w3id.org/monarch-initiative/dismech
@@ -228,7 +228,7 @@ class Term(YAMLRoot):
 class Descriptor(YAMLRoot):
     """
     Base class for structured descriptors that allow a preferred term, optional description, optional ontology term
-    binding, and optional modifier.
+    binding, and optional modifier/qualifiers for post-composition.
     """
     _inherited_slots: ClassVar[list[str]] = []
 
@@ -241,6 +241,7 @@ class Descriptor(YAMLRoot):
     description: Optional[str] = None
     term: Optional[Union[dict, Term]] = None
     modifier: Optional[Union[str, "ModifierEnum"]] = None
+    qualifiers: Optional[Union[Union[dict, "Qualifier"], list[Union[dict, "Qualifier"]]]] = empty_list()
 
     def __post_init__(self, *_: str, **kwargs: Any):
         if self._is_empty(self.preferred_term):
@@ -256,6 +257,36 @@ class Descriptor(YAMLRoot):
 
         if self.modifier is not None and not isinstance(self.modifier, ModifierEnum):
             self.modifier = ModifierEnum(self.modifier)
+
+        if not isinstance(self.qualifiers, list):
+            self.qualifiers = [self.qualifiers] if self.qualifiers is not None else []
+        self.qualifiers = [v if isinstance(v, Qualifier) else Qualifier(**as_dict(v)) for v in self.qualifiers]
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class Qualifier(YAMLRoot):
+    """
+    A predicate-value pair for formal post-composition. Allows OWL-like expressivity with controlled predicates and
+    values, both as full Descriptors.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["Qualifier"]
+    class_class_curie: ClassVar[str] = "dismech:Qualifier"
+    class_name: ClassVar[str] = "Qualifier"
+    class_model_uri: ClassVar[URIRef] = DISMECH.Qualifier
+
+    predicate: Optional[Union[dict, Descriptor]] = None
+    value: Optional[Union[dict, Descriptor]] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self.predicate is not None and not isinstance(self.predicate, Descriptor):
+            self.predicate = Descriptor(**as_dict(self.predicate))
+
+        if self.value is not None and not isinstance(self.value, Descriptor):
+            self.value = Descriptor(**as_dict(self.value))
 
         super().__post_init__(**kwargs)
 
@@ -684,6 +715,7 @@ class Subtype(YAMLRoot):
     class_model_uri: ClassVar[URIRef] = DISMECH.Subtype
 
     name: Union[str, SubtypeName] = None
+    subtype_term: Optional[Union[dict, DiseaseDescriptor]] = None
     description: Optional[str] = None
     evidence: Optional[Union[Union[dict, "EvidenceItem"], list[Union[dict, "EvidenceItem"]]]] = empty_list()
     review_notes: Optional[str] = None
@@ -695,6 +727,9 @@ class Subtype(YAMLRoot):
             self.MissingRequiredField("name")
         if not isinstance(self.name, SubtypeName):
             self.name = SubtypeName(self.name)
+
+        if self.subtype_term is not None and not isinstance(self.subtype_term, DiseaseDescriptor):
+            self.subtype_term = DiseaseDescriptor(**as_dict(self.subtype_term))
 
         if self.description is not None and not isinstance(self.description, str):
             self.description = str(self.description)
@@ -1170,6 +1205,7 @@ class Biochemical(YAMLRoot):
     class_model_uri: ClassVar[URIRef] = DISMECH.Biochemical
 
     name: Union[str, BiochemicalName] = None
+    biomarker_term: Optional[Union[dict, Descriptor]] = None
     presence: Optional[str] = None
     evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
     specificity: Optional[str] = None
@@ -1186,6 +1222,9 @@ class Biochemical(YAMLRoot):
             self.MissingRequiredField("name")
         if not isinstance(self.name, BiochemicalName):
             self.name = BiochemicalName(self.name)
+
+        if self.biomarker_term is not None and not isinstance(self.biomarker_term, Descriptor):
+            self.biomarker_term = Descriptor(**as_dict(self.biomarker_term))
 
         if self.presence is not None and not isinstance(self.presence, str):
             self.presence = str(self.presence)
@@ -1596,6 +1635,7 @@ class Treatment(YAMLRoot):
     name: Union[str, TreatmentName] = None
     description: Optional[str] = None
     treatment_term: Optional[Union[dict, TreatmentDescriptor]] = None
+    target_phenotypes: Optional[Union[str, list[str]]] = empty_list()
     evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
     notes: Optional[str] = None
     context: Optional[str] = None
@@ -1615,6 +1655,10 @@ class Treatment(YAMLRoot):
 
         if self.treatment_term is not None and not isinstance(self.treatment_term, TreatmentDescriptor):
             self.treatment_term = TreatmentDescriptor(**as_dict(self.treatment_term))
+
+        if not isinstance(self.target_phenotypes, list):
+            self.target_phenotypes = [self.target_phenotypes] if self.target_phenotypes is not None else []
+        self.target_phenotypes = [v if isinstance(v, str) else str(v) for v in self.target_phenotypes]
 
         if not isinstance(self.evidence, list):
             self.evidence = [self.evidence] if self.evidence is not None else []
@@ -1744,6 +1788,7 @@ class Diagnosis(YAMLRoot):
     class_model_uri: ClassVar[URIRef] = DISMECH.Diagnosis
 
     name: Union[str, DiagnosisName] = None
+    diagnosis_term: Optional[Union[dict, TreatmentDescriptor]] = None
     presence: Optional[str] = None
     evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
     notes: Optional[str] = None
@@ -1756,6 +1801,9 @@ class Diagnosis(YAMLRoot):
             self.MissingRequiredField("name")
         if not isinstance(self.name, DiagnosisName):
             self.name = DiagnosisName(self.name)
+
+        if self.diagnosis_term is not None and not isinstance(self.diagnosis_term, TreatmentDescriptor):
+            self.diagnosis_term = TreatmentDescriptor(**as_dict(self.diagnosis_term))
 
         if self.presence is not None and not isinstance(self.presence, str):
             self.presence = str(self.presence)
@@ -2113,11 +2161,11 @@ class ChemicalEntityTerm(EnumDefinitionImpl):
 
 class PhenotypeTerm(EnumDefinitionImpl):
     """
-    A term representing a phenotype
+    A term representing a phenotype or disease manifestation
     """
     _defn = EnumDefinition(
         name="PhenotypeTerm",
-        description="A term representing a phenotype",
+        description="A term representing a phenotype or disease manifestation",
     )
 
 class AnatomicalEntityTerm(EnumDefinitionImpl):
@@ -2203,11 +2251,11 @@ class ExposureTerm(EnumDefinitionImpl):
 
 class EnvironmentTerm(EnumDefinitionImpl):
     """
-    A term representing an environmental context or setting (from ENVO)
+    A term representing an environmental context, material, or feature (from ENVO)
     """
     _defn = EnumDefinition(
         name="EnvironmentTerm",
-        description="A term representing an environmental context or setting (from ENVO)",
+        description="A term representing an environmental context, material, or feature (from ENVO)",
     )
 
 class OrganismTerm(EnumDefinitionImpl):
@@ -2289,6 +2337,15 @@ slots.term = Slot(uri=DISMECH.term, name="term", curie=DISMECH.curie('term'),
 
 slots.modifier = Slot(uri=DISMECH.modifier, name="modifier", curie=DISMECH.curie('modifier'),
                    model_uri=DISMECH.modifier, domain=None, range=Optional[Union[str, "ModifierEnum"]])
+
+slots.qualifiers = Slot(uri=DISMECH.qualifiers, name="qualifiers", curie=DISMECH.curie('qualifiers'),
+                   model_uri=DISMECH.qualifiers, domain=None, range=Optional[Union[Union[dict, Qualifier], list[Union[dict, Qualifier]]]])
+
+slots.predicate = Slot(uri=DISMECH.predicate, name="predicate", curie=DISMECH.curie('predicate'),
+                   model_uri=DISMECH.predicate, domain=None, range=Optional[Union[dict, Descriptor]])
+
+slots.value = Slot(uri=DISMECH.value, name="value", curie=DISMECH.curie('value'),
+                   model_uri=DISMECH.value, domain=None, range=Optional[Union[dict, Descriptor]])
 
 slots.id = Slot(uri=DISMECH.id, name="id", curie=DISMECH.curie('id'),
                    model_uri=DISMECH.id, domain=None, range=URIRef)
@@ -2424,6 +2481,15 @@ slots.phenotype_term = Slot(uri=DISMECH.phenotype_term, name="phenotype_term", c
 
 slots.treatment_term = Slot(uri=DISMECH.treatment_term, name="treatment_term", curie=DISMECH.curie('treatment_term'),
                    model_uri=DISMECH.treatment_term, domain=None, range=Optional[Union[dict, TreatmentDescriptor]])
+
+slots.biomarker_term = Slot(uri=DISMECH.biomarker_term, name="biomarker_term", curie=DISMECH.curie('biomarker_term'),
+                   model_uri=DISMECH.biomarker_term, domain=None, range=Optional[Union[dict, Descriptor]])
+
+slots.diagnosis_term = Slot(uri=DISMECH.diagnosis_term, name="diagnosis_term", curie=DISMECH.curie('diagnosis_term'),
+                   model_uri=DISMECH.diagnosis_term, domain=None, range=Optional[Union[dict, TreatmentDescriptor]])
+
+slots.subtype_term = Slot(uri=DISMECH.subtype_term, name="subtype_term", curie=DISMECH.curie('subtype_term'),
+                   model_uri=DISMECH.subtype_term, domain=None, range=Optional[Union[dict, DiseaseDescriptor]])
 
 slots.exposure_term = Slot(uri=DISMECH.exposure_term, name="exposure_term", curie=DISMECH.curie('exposure_term'),
                    model_uri=DISMECH.exposure_term, domain=None, range=Optional[Union[dict, ExposureDescriptor]])
@@ -2593,6 +2659,9 @@ slots.function = Slot(uri=DISMECH.function, name="function", curie=DISMECH.curie
 slots.target = Slot(uri=DISMECH.target, name="target", curie=DISMECH.curie('target'),
                    model_uri=DISMECH.target, domain=None, range=str)
 
+slots.target_phenotypes = Slot(uri=DISMECH.target_phenotypes, name="target_phenotypes", curie=DISMECH.curie('target_phenotypes'),
+                   model_uri=DISMECH.target_phenotypes, domain=None, range=Optional[Union[str, list[str]]])
+
 slots.accession = Slot(uri=DISMECH.accession, name="accession", curie=DISMECH.curie('accession'),
                    model_uri=DISMECH.accession, domain=None, range=URIRef)
 
@@ -2628,6 +2697,9 @@ slots.cell_type_term = Slot(uri=DISMECH.cell_type_term, name="cell_type_term", c
 
 slots.datasets = Slot(uri=DISMECH.datasets, name="datasets", curie=DISMECH.curie('datasets'),
                    model_uri=DISMECH.datasets, domain=None, range=Optional[Union[dict[Union[str, DatasetAccession], Union[dict, Dataset]], list[Union[dict, Dataset]]]])
+
+slots.Descriptor_description = Slot(uri=DISMECH.description, name="Descriptor_description", curie=DISMECH.curie('description'),
+                   model_uri=DISMECH.Descriptor_description, domain=Descriptor, range=Optional[str])
 
 slots.CellTypeDescriptor_term = Slot(uri=DISMECH.term, name="CellTypeDescriptor_term", curie=DISMECH.curie('term'),
                    model_uri=DISMECH.CellTypeDescriptor_term, domain=CellTypeDescriptor, range=Optional[Union[dict, Term]])
@@ -2670,6 +2742,9 @@ slots.EnvironmentDescriptor_term = Slot(uri=DISMECH.term, name="EnvironmentDescr
 
 slots.OrganismDescriptor_term = Slot(uri=DISMECH.term, name="OrganismDescriptor_term", curie=DISMECH.curie('term'),
                    model_uri=DISMECH.OrganismDescriptor_term, domain=OrganismDescriptor, range=Optional[Union[dict, Term]])
+
+slots.Dataset_description = Slot(uri=DISMECH.description, name="Dataset_description", curie=DISMECH.curie('description'),
+                   model_uri=DISMECH.Dataset_description, domain=Dataset, range=Optional[str])
 
 slots.PublicationReference_reference = Slot(uri=DISMECH.reference, name="PublicationReference_reference", curie=DISMECH.curie('reference'),
                    model_uri=DISMECH.PublicationReference_reference, domain=PublicationReference, range=Union[str, PublicationReferenceReference])

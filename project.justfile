@@ -20,7 +20,7 @@ validate-all:
             errors+="  [SCHEMA] $(uv run linkml-validate --schema {{schema_path}} --target-class Disease "$f" 2>&1 | grep -v "^$")\n"
         fi
         # Term validation
-        term_output=$(uv run linkml-term-validator validate-data "$f" -s {{schema_path}} -t Disease --labels --no-dynamic-enums -c {{oak_config}} 2>&1)
+        term_output=$(uv run linkml-term-validator validate-data "$f" -s {{schema_path}} -t Disease --labels -c {{oak_config}} 2>&1)
         if ! echo "$term_output" | grep -q "Validation passed"; then
             errors+="  [TERMS] $term_output\n"
         fi
@@ -96,14 +96,14 @@ validate-terms-all:
     echo "Validating terms in all disorder files..."
     for f in {{kb_dir}}/*.yaml; do
         echo "Validating: $(basename $f)"
-        uv run linkml-term-validator validate-data "$f" -s {{schema_path}} -t Disease --labels --no-dynamic-enums -c {{oak_config}}
+        uv run linkml-term-validator validate-data "$f" -s {{schema_path}} -t Disease --labels -c {{oak_config}}
     done
     echo "✓ All terms valid!"
 
 # Validate terms in a single file
 [group('QC')]
 validate-terms file:
-    uv run linkml-term-validator validate-data {{file}} -s {{schema_path}} -t Disease --labels --no-dynamic-enums -c {{oak_config}}
+    uv run linkml-term-validator validate-data {{file}} -s {{schema_path}} -t Disease --labels -c {{oak_config}}
 
 # Run legacy custom term validation (faster, but less thorough)
 [group('QC')]
@@ -329,3 +329,8 @@ research-disorder provider disorder *args="":
 [group('Research')]
 research-providers:
     uv run deep-research-client providers
+
+# Fetch and cache a reference by PMID
+[group('Research')]
+fetch-reference pmid:
+    uv run linkml-reference-validator cache reference {{pmid}}
