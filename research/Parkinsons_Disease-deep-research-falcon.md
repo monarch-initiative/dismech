@@ -1,10 +1,10 @@
 ---
 provider: falcon
 model: Edison Scientific Literature
-cached: false
-start_time: '2025-12-17T18:30:11.241330'
-end_time: '2025-12-17T18:36:16.429486'
-duration_seconds: 365.19
+cached: true
+start_time: '2025-12-27T15:49:23.011991'
+end_time: '2025-12-27T15:49:23.013640'
+duration_seconds: 0.0
 template_file: templates/disease_pathophysiology_research.md
 template_variables:
   disease_name: Parkinson's Disease

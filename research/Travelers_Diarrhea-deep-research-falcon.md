@@ -1,10 +1,10 @@
 ---
 provider: falcon
 model: Edison Scientific Literature
-cached: false
-start_time: '2025-12-18T14:04:58.655989'
-end_time: '2025-12-18T14:14:30.562290'
-duration_seconds: 571.91
+cached: true
+start_time: '2025-12-27T14:55:21.635157'
+end_time: '2025-12-27T14:55:21.638259'
+duration_seconds: 0.0
 template_file: templates/disease_pathophysiology_research.md
 template_variables:
   disease_name: Traveler's Diarrhea

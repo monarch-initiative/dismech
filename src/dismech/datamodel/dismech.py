@@ -1,5 +1,5 @@
 # Auto generated from dismech.yaml by pythongen.py version: 0.0.1
-# Generation date: 2025-12-16T10:52:55
+# Generation date: 2025-12-22T08:42:00
 # Schema: dismech
 #
 # id: https://w3id.org/monarch-initiative/dismech
@@ -91,6 +91,7 @@ METABOLIGHTS = CurieNamespace('metabolights', 'https://www.ebi.ac.uk/metabolight
 PHENOPACKET_STORE = CurieNamespace('phenopacket-store', 'https://github.com/monarch-initiative/phenopacket-store/tree/main/notebooks/')
 PRIDE = CurieNamespace('pride', 'https://www.ebi.ac.uk/pride/archive/projects/')
 SRA = CurieNamespace('sra', 'https://www.ncbi.nlm.nih.gov/sra/')
+SYNAPSE = CurieNamespace('synapse', 'https://www.synapse.org/#!Synapse:')
 XSD = CurieNamespace('xsd', 'http://www.w3.org/2001/XMLSchema#')
 DEFAULT_ = DISMECH
 

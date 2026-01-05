@@ -1,10 +1,10 @@
 ---
 provider: falcon
 model: Edison Scientific Literature
-cached: false
-start_time: '2025-12-17T18:30:11.306948'
-end_time: '2025-12-17T18:38:21.178177'
-duration_seconds: 489.87
+cached: true
+start_time: '2025-12-27T15:42:47.594601'
+end_time: '2025-12-27T15:42:47.596374'
+duration_seconds: 0.0
 template_file: templates/disease_pathophysiology_research.md
 template_variables:
   disease_name: Type 2 Diabetes Mellitus

@@ -36,3 +36,19 @@ You can edit the project doc, but try and make this incremental. After the main 
 
 <previous session notes, generally don't edit unless this is a direct continuation>
 ---
+
+## Making PRs
+
+ONLY make PRs when asked.
+
+The general procedure is:
+
+1. ensure everything validates `just validate-all`
+2. make a branch
+3. commit diseases related to project, plus all references
+4. `gh pr create`
+
+if the user asks, build the static site and stats (`gen-dashboard`, `just
+deploy-browser `). Note it can be hard to disentangle derived
+files, but you should be OK if there are no other local updates
+besides the one for this project. But in general to be safe, we'll make derived files PR separately.

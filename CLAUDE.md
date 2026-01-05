@@ -7,7 +7,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 This is the **Disorder Mechanisms Knowledge Base (dismech)** - a LinkML-based knowledge base storing disease pathophysiology information. It combines:
 1. A LinkML schema defining the data model (`src/dismech/schema/dismech.yaml`)
 2. A knowledge base of disorder YAML files (`kb/disorders/*.yaml`)
-3. HTML rendering for browsable disorder pages (`pages/disorders/*.html`)
+3. Cached references (full texts if available, otherwise abstracts) (`./references_cache/`).
+4. Deep research results: (`.research/`)
+5. HTML rendering for browsable disorder pages (`pages/disorders/*.html`)
 
 ## Skills
 

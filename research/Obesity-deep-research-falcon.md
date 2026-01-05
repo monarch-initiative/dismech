@@ -1,10 +1,10 @@
 ---
 provider: falcon
 model: Edison Scientific Literature
-cached: false
-start_time: '2025-12-17T18:47:17.715937'
-end_time: '2025-12-17T18:57:17.110920'
-duration_seconds: 599.4
+cached: true
+start_time: '2025-12-27T15:46:32.105218'
+end_time: '2025-12-27T15:46:32.106784'
+duration_seconds: 0.0
 template_file: templates/disease_pathophysiology_research.md
 template_variables:
   disease_name: Obesity

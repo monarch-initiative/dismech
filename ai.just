@@ -43,7 +43,23 @@ gh-add-secrets:
   set_secret_if_exists "OPENAI_API_KEY"
   set_secret_if_exists "CBORG_API_KEY"
   set_secret_if_exists "CLAUDE_CODE_OAUTH_TOKEN"
+  set_secret_if_exists "PERPLEXITY_API_KEY"
+  set_secret_if_exists "FUTUREHOUSE_API_KEY"
+  set_secret_if_exists "EDISON_API_KEY"
 
 gh-invite-dragon-ai:
   gh api repos/:owner/:repo/collaborators/dragon-ai-agent --method PUT --field permission=write > /dev/null
+
+# AI Log Mining - extract provenance from Claude Code traces
+mine-logs:
+  uv run python -m ai_log_miner mine
+
+mine-logs-stats:
+  uv run python -m ai_log_miner stats
+
+mine-logs-initial-recent:
+  uv run python -m ai_log_miner mine --initial-and-recent
+
+mine-logs-apply:
+  uv run python -m ai_log_miner mine --apply --initial-and-recent
 

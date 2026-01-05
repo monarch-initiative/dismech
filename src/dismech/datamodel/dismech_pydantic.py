@@ -139,7 +139,9 @@ linkml_meta = LinkMLMeta({'default_prefix': 'dismech',
                   'pride': {'prefix_prefix': 'pride',
                             'prefix_reference': 'https://www.ebi.ac.uk/pride/archive/projects/'},
                   'sra': {'prefix_prefix': 'sra',
-                          'prefix_reference': 'https://www.ncbi.nlm.nih.gov/sra/'}},
+                          'prefix_reference': 'https://www.ncbi.nlm.nih.gov/sra/'},
+                  'synapse': {'prefix_prefix': 'synapse',
+                              'prefix_reference': 'https://www.synapse.org/#!Synapse:'}},
      'see_also': ['https://monarch-initiative.github.io/dismech'],
      'source_file': 'src/dismech/schema/dismech.yaml',
      'title': 'Disorder Mechanisms Knowledge Base Schema',
@@ -2194,7 +2196,7 @@ class Disease(ConfiguredBaseModel):
     inheritance: Optional[list[Inheritance]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Genetic', 'Disease'],
          'examples': [{'value': 'Autosomal Dominant'}]} })
     animal_models: Optional[list[AnimalModel]] = Field(default=[], json_schema_extra = { "linkml_meta": {'domain_of': ['Disease']} })
-    datasets: Optional[list[Dataset]] = Field(default=[], description="""Publicly available datasets relevant to disease research""", json_schema_extra = { "linkml_meta": {'domain_of': ['Disease']} })
+    datasets: Optional[list[Dataset]] = Field(default=[], description="""Publicly available datasets relevant to disease research""", json_schema_extra = { "linkml_meta": {'domain_of': ['Disease'], 'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
                        'Prevalence',
                        'ProgressionInfo',

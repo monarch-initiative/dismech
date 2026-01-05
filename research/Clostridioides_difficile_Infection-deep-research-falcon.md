@@ -1,10 +1,10 @@
 ---
 provider: falcon
 model: Edison Scientific Literature
-cached: false
-start_time: '2025-12-18T14:04:58.480682'
-end_time: '2025-12-18T14:14:30.796082'
-duration_seconds: 572.32
+cached: true
+start_time: '2025-12-27T14:48:54.701502'
+end_time: '2025-12-27T14:48:54.703204'
+duration_seconds: 0.0
 template_file: templates/disease_pathophysiology_research.md
 template_variables:
   disease_name: Clostridioides difficile Infection

@@ -31,6 +31,8 @@ def curie_to_url(curie: str) -> str:
         'MAXO': f'https://www.ebi.ac.uk/ols4/ontologies/maxo/classes/http%253A%252F%252Fpurl.obolibrary.org%252Fobo%252FMAXO_{local_id}',
         'ECTO': f'https://www.ebi.ac.uk/ols4/ontologies/ecto/classes/http%253A%252F%252Fpurl.obolibrary.org%252Fobo%252FECTO_{local_id}',
         'NCBITaxon': f'https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id={local_id}',
+        # Model repositories
+        'biomodels': f'https://www.ebi.ac.uk/biomodels/{local_id}',
         # Dataset repositories
         'geo': f'https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc={local_id}',
         'arrayexpress': f'https://www.ebi.ac.uk/biostudies/arrayexpress/studies/{local_id}',

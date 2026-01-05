@@ -35,6 +35,7 @@ prefixes:
   hca: https://data.humancellatlas.org/explore/projects/
   gtex: https://gtexportal.org/home/datasets/
   encode: https://www.encodeproject.org/experiments/
+  synapse: "https://www.synapse.org/#!Synapse:"
   # Case-level phenotype collections
   phenopacket-store: https://github.com/monarch-initiative/phenopacket-store/tree/main/notebooks/
   # Genetic variation databases
@@ -43,6 +44,10 @@ prefixes:
   NCBITaxon: http://purl.obolibrary.org/obo/NCBITaxon_
   # Gene identifiers
   HGNC: https://www.genenames.org/data/gene-symbol-report/#!/hgnc_id/
+  # Computational model repositories
+  bigg: https://bigg.ucsd.edu/models/
+  vmh: https://www.vmh.life/#human/
+  biomodels: https://www.ebi.ac.uk/biomodels/
 
 default_prefix: dismech
 
@@ -259,6 +264,37 @@ enums:
         description: GA4GH Phenopacket collection (case-level phenotype data)
       VARIANT_DATABASE:
         description: Curated genetic variant collection
+  CurationActionEnum:
+    description: Simple action types for curation audit trail
+    permissible_values:
+      CREATED:
+        description: Initial file creation
+      EDITED:
+        description: File modification
+
+  ComputationalModelTypeEnum:
+    description: Type of computational or in-silico model
+    permissible_values:
+      GENOME_SCALE_METABOLIC:
+        description: Genome-scale metabolic reconstruction (e.g., Recon3D, Harvey)
+      FLUX_BALANCE_ANALYSIS:
+        description: Constraint-based FBA model
+      KINETIC:
+        description: ODE-based kinetic model with rate equations
+      AGENT_BASED:
+        description: Agent-based simulation model
+      BOOLEAN_NETWORK:
+        description: Boolean gene regulatory network
+      PHYSIOLOGICAL:
+        description: Physiologically-based pharmacokinetic (PBPK) or organ model
+      DIGITAL_TWIN:
+        description: Patient-specific computational model
+      MACHINE_LEARNING:
+        description: ML/AI predictive model trained on disease data
+      PERTURBATION_PREDICTION:
+        description: Cell-based perturbation models (CRISPR screens, chemical perturbations) with gene expression readouts
+      FOUNDATION_MODEL:
+        description: Pre-trained single-cell foundation models (scGPT, Geneformer, scGenePT) for perturbation response prediction
 
 slots:
   name:
@@ -807,10 +843,76 @@ slots:
     multivalued: true
     range: Dataset
     inlined_as_list: true
+    recommended: true
+  curation_history:
+    description: Audit trail of AI-assisted curation events
+    multivalued: true
+    range: CurationEvent
+    inlined_as_list: true
+  curation_timestamp:
+    description: ISO 8601 timestamp of the curation event
+    range: datetime
+  curation_model:
+    description: Model identifier used for curation (e.g., claude-opus-4-5-20251101)
+    range: string
+  curation_action:
+    description: Type of curation action performed
+    range: CurationActionEnum
+  curation_description:
+    description: Human-readable description of changes made
+    range: string
+  # Computational model slots
+  model_type:
+    description: Type of computational model
+    range: ComputationalModelTypeEnum
+  repository_url:
+    description: URL to model repository (GitHub, BiGG, VMH, BioModels)
+    range: uri
+  model_id:
+    description: Identifier within the repository (e.g., Recon3D, BIOMD0000000123)
+    range: string
+  base_model:
+    description: Parent/base model this is derived from (e.g., Recon3D, Harvey 1.0)
+    range: string
+  model_software:
+    description: Software/toolbox for running the model (e.g., COBRApy, COBRA Toolbox)
+    range: string
+  model_format:
+    description: File format (e.g., SBML, MATLAB, JSON, ONNX)
+    range: string
+  perturbations:
+    description: Gene knockouts, reaction deletions, or parameter changes modeling the disease
+    multivalued: true
+    range: GeneDescriptor
+    inlined_as_list: true
+  computational_models:
+    description: Computational models (metabolic, mechanistic, ML, digital twins) for this disease
+    multivalued: true
+    range: ComputationalModel
+    inlined_as_list: true
 
 classes:
   Any:
     class_uri: linkml:Any
+
+  # Curation audit trail
+  CurationEvent:
+    description: A single curation event in the audit trail
+    slots:
+      - curation_timestamp
+      - curation_model
+      - curation_action
+      - curation_description
+    slot_usage:
+      curation_timestamp:
+        required: true
+        alias: timestamp
+      curation_model:
+        alias: model
+      curation_action:
+        alias: action
+      curation_description:
+        alias: description
 
   # Ontology term reference
   Term:
@@ -1018,6 +1120,25 @@ classes:
           rigid standardization of the title slot.
         recommended: true
 
+  ComputationalModel:
+    description: A computational or in-silico model relevant to understanding disease mechanisms
+    comments:
+      - Covers genome-scale metabolic models, FBA, kinetic models, digital twins, and ML models
+      - Perturbations track gene knockouts or parameter changes used to simulate the disease
+    slots:
+      - name
+      - description
+      - model_type
+      - repository_url
+      - model_id
+      - base_model
+      - perturbations
+      - model_software
+      - model_format
+      - publication
+      - evidence
+      - notes
+
   Subtype:
     slots:
       - name
@@ -1197,8 +1318,10 @@ classes:
       - inheritance
       - animal_models
       - datasets
+      - computational_models
       - notes
       - review_notes
+      - curation_history
   Stage:
     slots:
       - name

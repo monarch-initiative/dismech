@@ -1,10 +1,10 @@
 ---
 provider: falcon
 model: Edison Scientific Literature
-cached: false
-start_time: '2025-12-18T14:04:58.498335'
-end_time: '2025-12-18T14:13:29.074965'
-duration_seconds: 510.58
+cached: true
+start_time: '2025-12-27T14:54:39.090632'
+end_time: '2025-12-27T14:54:39.092210'
+duration_seconds: 0.0
 template_file: templates/disease_pathophysiology_research.md
 template_variables:
   disease_name: Small Intestinal Bacterial Overgrowth

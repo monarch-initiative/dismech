@@ -131,12 +131,7 @@ Watch for these red flags indicating AI-generated fake evidence:
 
 ## Cache Management
 
-Reference validator caches PubMed abstracts in `.refval_cache/`. If you encounter
-stale cache issues:
-
-```bash
-rm -rf .refval_cache/
-```
+Reference validator caches PubMed abstracts in `./references_cache/`.
 
 ### Cache File Format Issues
 
