@@ -80,6 +80,9 @@ prefixes:
   encode:
     prefix_prefix: encode
     prefix_reference: https://www.encodeproject.org/experiments/
+  synapse:
+    prefix_prefix: synapse
+    prefix_reference: 'https://www.synapse.org/#!Synapse:'
   phenopacket-store:
     prefix_prefix: phenopacket-store
     prefix_reference: https://github.com/monarch-initiative/phenopacket-store/tree/main/notebooks/
@@ -92,6 +95,15 @@ prefixes:
   HGNC:
     prefix_prefix: HGNC
     prefix_reference: https://www.genenames.org/data/gene-symbol-report/#!/hgnc_id/
+  bigg:
+    prefix_prefix: bigg
+    prefix_reference: https://bigg.ucsd.edu/models/
+  vmh:
+    prefix_prefix: vmh
+    prefix_reference: https://www.vmh.life/#human/
+  biomodels:
+    prefix_prefix: biomodels
+    prefix_reference: https://www.ebi.ac.uk/biomodels/
 default_prefix: dismech
 default_range: string
 types:
@@ -683,6 +695,56 @@ enums:
       VARIANT_DATABASE:
         text: VARIANT_DATABASE
         description: Curated genetic variant collection
+  CurationActionEnum:
+    name: CurationActionEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/CurationActionEnum
+    description: Simple action types for curation audit trail
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    permissible_values:
+      CREATED:
+        text: CREATED
+        description: Initial file creation
+      EDITED:
+        text: EDITED
+        description: File modification
+  ComputationalModelTypeEnum:
+    name: ComputationalModelTypeEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/ComputationalModelTypeEnum
+    description: Type of computational or in-silico model
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    permissible_values:
+      GENOME_SCALE_METABOLIC:
+        text: GENOME_SCALE_METABOLIC
+        description: Genome-scale metabolic reconstruction (e.g., Recon3D, Harvey)
+      FLUX_BALANCE_ANALYSIS:
+        text: FLUX_BALANCE_ANALYSIS
+        description: Constraint-based FBA model
+      KINETIC:
+        text: KINETIC
+        description: ODE-based kinetic model with rate equations
+      AGENT_BASED:
+        text: AGENT_BASED
+        description: Agent-based simulation model
+      BOOLEAN_NETWORK:
+        text: BOOLEAN_NETWORK
+        description: Boolean gene regulatory network
+      PHYSIOLOGICAL:
+        text: PHYSIOLOGICAL
+        description: Physiologically-based pharmacokinetic (PBPK) or organ model
+      DIGITAL_TWIN:
+        text: DIGITAL_TWIN
+        description: Patient-specific computational model
+      MACHINE_LEARNING:
+        text: MACHINE_LEARNING
+        description: ML/AI predictive model trained on disease data
+      PERTURBATION_PREDICTION:
+        text: PERTURBATION_PREDICTION
+        description: Cell-based perturbation models (CRISPR screens, chemical perturbations)
+          with gene expression readouts
+      FOUNDATION_MODEL:
+        text: FOUNDATION_MODEL
+        description: Pre-trained single-cell foundation models (scGPT, Geneformer,
+          scGenePT) for perturbation response prediction
 slots:
   name:
     name: name
@@ -694,6 +756,7 @@ slots:
     identifier: true
     owner: ModelingConsideration
     domain_of:
+    - ComputationalModel
     - Subtype
     - EpidemiologyInfo
     - Pathophysiology
@@ -723,6 +786,7 @@ slots:
     domain_of:
     - Descriptor
     - Dataset
+    - ComputationalModel
     - Subtype
     - CausalEdge
     - EpidemiologyInfo
@@ -849,6 +913,7 @@ slots:
     owner: ModelingConsideration
     domain_of:
     - Dataset
+    - ComputationalModel
     - Subtype
     - CausalEdge
     - Prevalence
@@ -1130,6 +1195,7 @@ slots:
     owner: Diagnosis
     domain_of:
     - Dataset
+    - ComputationalModel
     - Prevalence
     - ProgressionInfo
     - EpidemiologyInfo
@@ -2248,9 +2314,10 @@ slots:
     description: Associated publication (PMID)
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:publication
-    owner: Dataset
+    owner: ComputationalModel
     domain_of:
     - Dataset
+    - ComputationalModel
     range: PMID
   tissue_term:
     name: tissue_term
@@ -2286,9 +2353,167 @@ slots:
     domain_of:
     - Disease
     range: Dataset
+    recommended: true
     multivalued: true
     inlined: true
     inlined_as_list: true
+  curation_history:
+    name: curation_history
+    definition_uri: https://w3id.org/monarch-initiative/dismech/curation_history
+    description: Audit trail of AI-assisted curation events
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:curation_history
+    owner: Disease
+    domain_of:
+    - Disease
+    range: CurationEvent
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
+  curation_timestamp:
+    name: curation_timestamp
+    definition_uri: https://w3id.org/monarch-initiative/dismech/curation_timestamp
+    description: ISO 8601 timestamp of the curation event
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:curation_timestamp
+    owner: CurationEvent
+    domain_of:
+    - CurationEvent
+    range: datetime
+  curation_model:
+    name: curation_model
+    definition_uri: https://w3id.org/monarch-initiative/dismech/curation_model
+    description: Model identifier used for curation (e.g., claude-opus-4-5-20251101)
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:curation_model
+    owner: CurationEvent
+    domain_of:
+    - CurationEvent
+    range: string
+  curation_action:
+    name: curation_action
+    definition_uri: https://w3id.org/monarch-initiative/dismech/curation_action
+    description: Type of curation action performed
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:curation_action
+    owner: CurationEvent
+    domain_of:
+    - CurationEvent
+    range: CurationActionEnum
+  curation_description:
+    name: curation_description
+    definition_uri: https://w3id.org/monarch-initiative/dismech/curation_description
+    description: Human-readable description of changes made
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:curation_description
+    owner: CurationEvent
+    domain_of:
+    - CurationEvent
+    range: string
+  model_type:
+    name: model_type
+    definition_uri: https://w3id.org/monarch-initiative/dismech/model_type
+    description: Type of computational model
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:model_type
+    owner: ComputationalModel
+    domain_of:
+    - ComputationalModel
+    range: ComputationalModelTypeEnum
+  repository_url:
+    name: repository_url
+    definition_uri: https://w3id.org/monarch-initiative/dismech/repository_url
+    description: URL to model repository (GitHub, BiGG, VMH, BioModels)
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:repository_url
+    owner: ComputationalModel
+    domain_of:
+    - ComputationalModel
+    range: uri
+  model_id:
+    name: model_id
+    definition_uri: https://w3id.org/monarch-initiative/dismech/model_id
+    description: Identifier within the repository (e.g., Recon3D, BIOMD0000000123)
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:model_id
+    owner: ComputationalModel
+    domain_of:
+    - ComputationalModel
+    range: string
+  base_model:
+    name: base_model
+    definition_uri: https://w3id.org/monarch-initiative/dismech/base_model
+    description: Parent/base model this is derived from (e.g., Recon3D, Harvey 1.0)
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:base_model
+    owner: ComputationalModel
+    domain_of:
+    - ComputationalModel
+    range: string
+  model_software:
+    name: model_software
+    definition_uri: https://w3id.org/monarch-initiative/dismech/model_software
+    description: Software/toolbox for running the model (e.g., COBRApy, COBRA Toolbox)
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:model_software
+    owner: ComputationalModel
+    domain_of:
+    - ComputationalModel
+    range: string
+  model_format:
+    name: model_format
+    definition_uri: https://w3id.org/monarch-initiative/dismech/model_format
+    description: File format (e.g., SBML, MATLAB, JSON, ONNX)
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:model_format
+    owner: ComputationalModel
+    domain_of:
+    - ComputationalModel
+    range: string
+  perturbations:
+    name: perturbations
+    definition_uri: https://w3id.org/monarch-initiative/dismech/perturbations
+    description: Gene knockouts, reaction deletions, or parameter changes modeling
+      the disease
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:perturbations
+    owner: ComputationalModel
+    domain_of:
+    - ComputationalModel
+    range: GeneDescriptor
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
+  computational_models:
+    name: computational_models
+    definition_uri: https://w3id.org/monarch-initiative/dismech/computational_models
+    description: Computational models (metabolic, mechanistic, ML, digital twins)
+      for this disease
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:computational_models
+    owner: Disease
+    domain_of:
+    - Disease
+    range: ComputationalModel
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
+  CurationEvent_curation_timestamp:
+    name: CurationEvent_curation_timestamp
+    definition_uri: https://w3id.org/monarch-initiative/dismech/curation_timestamp
+    description: ISO 8601 timestamp of the curation event
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: curation_timestamp
+    domain: CurationEvent
+    slot_uri: dismech:curation_timestamp
+    alias: curation_timestamp
+    owner: CurationEvent
+    domain_of:
+    - CurationEvent
+    is_usage_slot: true
+    usage_slot_name: curation_timestamp
+    range: datetime
+    required: true
   Descriptor_description:
     name: Descriptor_description
     definition_uri: https://w3id.org/monarch-initiative/dismech/description
@@ -2650,6 +2875,21 @@ classes:
     mappings:
     - linkml:Any
     class_uri: linkml:Any
+  CurationEvent:
+    name: CurationEvent
+    definition_uri: https://w3id.org/monarch-initiative/dismech/CurationEvent
+    description: A single curation event in the audit trail
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slots:
+    - CurationEvent_curation_timestamp
+    - curation_model
+    - curation_action
+    - curation_description
+    slot_usage:
+      curation_timestamp:
+        name: curation_timestamp
+        required: true
+    class_uri: dismech:CurationEvent
   Term:
     name: Term
     definition_uri: https://w3id.org/monarch-initiative/dismech/Term
@@ -3032,6 +3272,31 @@ classes:
           of the title slot.
         recommended: true
     class_uri: dismech:Dataset
+  ComputationalModel:
+    name: ComputationalModel
+    definition_uri: https://w3id.org/monarch-initiative/dismech/ComputationalModel
+    description: A computational or in-silico model relevant to understanding disease
+      mechanisms
+    comments:
+    - Covers genome-scale metabolic models, FBA, kinetic models, digital twins, and
+      ML models
+    - Perturbations track gene knockouts or parameter changes used to simulate the
+      disease
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slots:
+    - name
+    - description
+    - model_type
+    - repository_url
+    - model_id
+    - base_model
+    - perturbations
+    - model_software
+    - model_format
+    - publication
+    - evidence
+    - notes
+    class_uri: dismech:ComputationalModel
   Subtype:
     name: Subtype
     definition_uri: https://w3id.org/monarch-initiative/dismech/Subtype
@@ -3266,8 +3531,10 @@ classes:
     - inheritance
     - animal_models
     - datasets
+    - computational_models
     - notes
     - review_notes
+    - curation_history
     class_uri: dismech:Disease
   Stage:
     name: Stage
@@ -3421,7 +3688,7 @@ classes:
     tree_root: true
 metamodel_version: 1.7.0
 source_file: dismech.yaml
-source_file_date: '2026-01-05T18:38:39'
-source_file_size: 34784
-generation_date: '2026-01-05T18:38:49'
+source_file_date: '2026-01-06T00:01:31'
+source_file_size: 38879
+generation_date: '2026-01-06T00:01:43'
 
