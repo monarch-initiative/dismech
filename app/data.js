@@ -4366,6 +4366,94 @@ window.searchData = [
     "num_treatments": 6
   },
   {
+    "name": "Fabry disease",
+    "disease_id": "MONDO:0010526",
+    "category": "Mendelian",
+    "parents": [
+      "Lysosomal storage diseases",
+      "X-linked genetic disorders"
+    ],
+    "subtypes": [],
+    "description": "Fabry disease is an X-linked lysosomal storage disorder caused by pathogenic variants in GLA that reduce or abolish \u03b1-galactosidase A activity, leading to lysosomal accumulation of glycosphingolipids, principally globotriaosylceramide (Gb3) and its deacylated derivative globotriaosylsphingosine (lyso-Gb3). Substrate accumulation initiates a network of cellular stress responses including endoplasmic reticulum stress, autophagy impairment, mitochondrial dysfunction, and activation of innate immune pathways, leading to progressive organ damage in kidney, heart, vasculature, and nervous system.\n",
+    "pathophysiology": [
+      "Lysosomal alpha-galactosidase A deficiency and Gb3 accumulation",
+      "Endoplasmic reticulum stress and unfolded protein response",
+      "Mitochondrial dysfunction and oxidative stress",
+      "Autophagy impairment",
+      "Innate immune activation and inflammation",
+      "Endothelial dysfunction and vascular remodeling",
+      "Fibrosis and extracellular matrix remodeling"
+    ],
+    "cell_types": [
+      "endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000115"
+    ],
+    "biological_processes": [
+      "glycosphingolipid metabolic process",
+      "lysosomal catabolic process",
+      "response to unfolded protein",
+      "NF-kappaB signaling pathway",
+      "reactive oxygen species metabolic process",
+      "regulation of mitochondrial membrane potential",
+      "autophagy",
+      "complement activation",
+      "inflammatory response",
+      "leukocyte adhesion to endothelial cells",
+      "extracellular matrix organization",
+      "transforming growth factor beta signaling pathway"
+    ],
+    "phenotypes": [
+      "Acrodystrophic neuropathic pain",
+      "Angiokeratomas",
+      "Proteinuria",
+      "Chronic kidney disease",
+      "Left ventricular hypertrophy",
+      "Cardiac arrhythmia",
+      "Stroke"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Cutaneous",
+      "Renal",
+      "Cardiac"
+    ],
+    "phenotype_ids": [
+      "HP:0012531",
+      "HP:0001014",
+      "HP:0000093",
+      "HP:0012622",
+      "HP:0001638",
+      "HP:0011675",
+      "HP:0001297"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "GLA gene mutations"
+    ],
+    "treatments": [
+      "Enzyme replacement therapy",
+      "Pharmacological chaperone therapy",
+      "Gene therapy",
+      "Supportive care"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Lyso-Gb3"
+    ],
+    "source_file": "Fabry_Disease.yaml",
+    "page_url": "../pages/disorders/Fabry_disease.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 4
+  },
+  {
     "name": "Familial Mediterranean Fever",
     "disease_id": "MONDO:0018088",
     "category": "Genetic",
