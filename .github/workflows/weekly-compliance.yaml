@@ -1,0 +1,76 @@
+---
+name: Weekly Compliance
+
+on:
+  schedule:
+    # Runs every Friday at 8:00 AM UTC (midnight PST, 3am EST)
+    - cron: '0 8 * * 5'
+  workflow_dispatch:
+    inputs:
+      num_files:
+        description: 'Number of poorly performing files to fix'
+        required: false
+        default: '5'
+        type: string
+
+jobs:
+  compliance-fixes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install just
+        run: |
+          uv tool install rust-just
+          uv sync
+
+      - name: Run Claude Compliance Fixes
+        uses: anthropics/claude-code-action@beta
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          mode: agent
+
+          direct_prompt: |
+            You are running as part of an automated CI workflow to improve the dismech knowledge base.
+
+            ## Your Task
+
+            Note: use the dismech-compliance skill to help you with this task.
+
+            1. **Get overall compliance report**: Run `just compliance-all` and look at per-file compliance
+
+            2. **Select ${{ inputs.num_files || '5' }} poorly performing files**: From the report, identify the disorder YAML files with the LOWEST weighted compliance scores.
+               Some randomness is fine, try for a common theme if possible. No need to over-analyze, gradual progression is the goal.
+
+            3. **For each selected file**:
+               a. Run `just compliance <file>` to get a detailed report
+               b. Identify the missing fields (e.g. terms; evidence; descriptions; etc.)
+               c. Use the dismech-terms skill to help you with this task.
+               d. Edit the YAML file to add the missing ontology term bindings
+               e. Run `just validate <file>` to ensure the changes are valid
+               f. Create a PR on a per-file basis.
+                  - Branch name: `weekly-compliance-YYYY-MM-DD-DISEASENAME`
+                  - Title: "🤖 Weekly Compliance Fixes (YYYY-MM-DD)"
+                  - Include a detailed report summary of what was changed in the PR body, what the original issue was, what was fixed, any any remaining issues.
+
+            ## Important Guidelines
+
+            - The goal is not to fix all compliance issues, which might be hard to do in one go. Incremental fixes are fine. We'll get to everything eventually.
+            - Only add ontology terms you can verify via OAK - never hallucinate IDs or labels
+            - Use the exact label returned by OAK for the `label` field
+            - Focus on high-weight fields first: disease_term, phenotype_term, cell_types, treatment_term
+
+          allowed_tools: "Read,Write,Edit,Glob,Grep,Bash,WebFetch,Task"
