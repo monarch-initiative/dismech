@@ -10908,6 +10908,64 @@ window.searchData = [
     "num_treatments": 5
   },
   {
+    "name": "Scurvy",
+    "disease_id": "MONDO:0009412",
+    "category": "Nutritional",
+    "parents": [
+      "Vitamin Deficiency Disease"
+    ],
+    "subtypes": [],
+    "description": "Vitamin C (ascorbic acid) is essential for hydroxylation of proline and lysine residues in collagen synthesis by prolyl and lysyl hydroxylases. Deficiency leads to inadequate hydroxyproline and hydroxylysine formation, preventing triple-helix stability and mature cross-links, resulting in defective collagen formation that affects connective tissues throughout the body.\n",
+    "pathophysiology": [
+      "Collagen Synthesis Impairment",
+      "Vascular Integrity Failure"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [],
+    "phenotypes": [
+      "Perifollicular Hemorrhages",
+      "Ecchymoses",
+      "Skin Discoloration",
+      "Gingival Bleeding",
+      "Arthralgias",
+      "Fatigue",
+      "Impaired Wound Healing"
+    ],
+    "phenotype_categories": [
+      "Dermatological",
+      "Oral",
+      "Musculoskeletal",
+      "Constitutional"
+    ],
+    "phenotype_ids": [
+      "HP:0000967",
+      "HP:0000978",
+      "HP:0000225",
+      "HP:0002829",
+      "HP:0012378",
+      "HP:0001058"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Vitamin C Supplementation"
+    ],
+    "environmental": [
+      "Vitamin C Deficiency"
+    ],
+    "biochemical": [],
+    "source_file": "Scurvy.yaml",
+    "page_url": "../pages/disorders/Scurvy.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 2,
+    "num_genes": 0,
+    "num_treatments": 1
+  },
+  {
     "name": "Sickle Cell Disease",
     "disease_id": "MONDO:0011382",
     "category": "Mendelian",
