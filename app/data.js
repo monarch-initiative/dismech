@@ -2887,7 +2887,11 @@ window.searchData = [
       "Fever"
     ],
     "phenotype_categories": [],
-    "phenotype_ids": [],
+    "phenotype_ids": [
+      "HP:0002014",
+      "HP:0002027",
+      "HP:0001945"
+    ],
     "frequencies": [],
     "genes": [],
     "treatments": [
