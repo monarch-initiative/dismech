@@ -2887,7 +2887,11 @@ window.searchData = [
       "Fever"
     ],
     "phenotype_categories": [],
-    "phenotype_ids": [],
+    "phenotype_ids": [
+      "HP:0002014",
+      "HP:0002027",
+      "HP:0001945"
+    ],
     "frequencies": [],
     "genes": [],
     "treatments": [
@@ -8078,6 +8082,67 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 8,
     "num_treatments": 5
+  },
+  {
+    "name": "Meniere's Disease",
+    "disease_id": "MONDO:0007972",
+    "category": "Complex",
+    "parents": [
+      "Inner Ear Diseases",
+      "Vestibular Disorders"
+    ],
+    "subtypes": [],
+    "description": "Meniere's disease is characterized by distension of the endolymphatic space (endolymphatic hydrops) due to impaired reabsorption of endolymph or excess production. This results in rupture of the membranous labyrinth and mixing of endolymph and perilymph, leading to vestibular and cochlear dysfunction.\n",
+    "pathophysiology": [
+      "Endolymphatic Hydrops",
+      "Ion Transport Dysfunction",
+      "Autoimmune and Inflammatory Mechanisms",
+      "Blood-Labyrinth Barrier Dysfunction and Oxidative Stress"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "potassium ion transport",
+      "sodium ion transport",
+      "water homeostasis",
+      "inflammatory response",
+      "NF-kB signaling",
+      "response to cytokine",
+      "response to oxidative stress"
+    ],
+    "phenotypes": [
+      "Episodic Vertigo",
+      "Sensorineural Hearing Loss",
+      "Tinnitus",
+      "Aural Fullness",
+      "Nausea and Vomiting"
+    ],
+    "phenotype_categories": [],
+    "phenotype_ids": [
+      "HP:0010532",
+      "HP:0008573",
+      "HP:0000360",
+      "HP:0031704",
+      "HP:0002017"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Low-Sodium Diet",
+      "Diuretic Therapy",
+      "Betahistine",
+      "Intratympanic Injections",
+      "Vestibular Rehabilitation",
+      "Endolymphatic Sac Surgery"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Menieres_Disease.yaml",
+    "page_url": "../pages/disorders/Meniere's_Disease.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 4,
+    "num_genes": 0,
+    "num_treatments": 6
   },
   {
     "name": "Migraine",
