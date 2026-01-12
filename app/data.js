@@ -645,6 +645,77 @@ window.searchData = [
     "num_treatments": 4
   },
   {
+    "name": "Alpha-1 Antitrypsin Deficiency",
+    "disease_id": "MONDO:0013282",
+    "category": "Mendelian",
+    "parents": [
+      "Genetic Lung Diseases",
+      "Hereditary Metabolic Diseases"
+    ],
+    "subtypes": [],
+    "description": "Alpha-1 antitrypsin (AAT) is the major inhibitor of neutrophil elastase in the lung. Deficiency of AAT leads to unopposed elastase activity, causing progressive destruction of alveolar walls and development of emphysema, particularly affecting the lower lobes.\n",
+    "pathophysiology": [
+      "Protease-Antiprotease Imbalance in Lung",
+      "Hepatic Protein Aggregation",
+      "Pulmonary Inflammation"
+    ],
+    "cell_types": [
+      "neutrophil",
+      "hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000775",
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "neutrophil degranulation",
+      "response to endoplasmic reticulum stress",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Emphysema",
+      "Chronic Obstructive Pulmonary Disease",
+      "Liver Cirrhosis",
+      "Hepatomegaly",
+      "Dyspnea",
+      "Wheezing",
+      "Panniculitis"
+    ],
+    "phenotype_categories": [
+      "Cutaneous"
+    ],
+    "phenotype_ids": [
+      "HP:0032967",
+      "HP:0002097",
+      "HP:0001394",
+      "HP:0002240",
+      "HP:0002094",
+      "HP:0030828",
+      "HP:0012490"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "RARE"
+    ],
+    "genes": [],
+    "treatments": [
+      "Alpha-1 Antitrypsin Augmentation Therapy",
+      "Smoking Cessation",
+      "Bronchodilators",
+      "Lung Transplantation",
+      "Liver Transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Alpha_1_Antitrypsin_Deficiency.yaml",
+    "page_url": "../pages/disorders/Alpha-1_Antitrypsin_Deficiency.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 3,
+    "num_genes": 0,
+    "num_treatments": 5
+  },
+  {
     "name": "Alzheimer's Disease",
     "disease_id": "MONDO:0004975",
     "category": "Complex",
