@@ -645,6 +645,77 @@ window.searchData = [
     "num_treatments": 4
   },
   {
+    "name": "Alpha-1 Antitrypsin Deficiency",
+    "disease_id": "MONDO:0013282",
+    "category": "Mendelian",
+    "parents": [
+      "Genetic Lung Diseases",
+      "Hereditary Metabolic Diseases"
+    ],
+    "subtypes": [],
+    "description": "Alpha-1 antitrypsin (AAT) is the major inhibitor of neutrophil elastase in the lung. Deficiency of AAT leads to unopposed elastase activity, causing progressive destruction of alveolar walls and development of emphysema, particularly affecting the lower lobes.\n",
+    "pathophysiology": [
+      "Protease-Antiprotease Imbalance in Lung",
+      "Hepatic Protein Aggregation",
+      "Pulmonary Inflammation"
+    ],
+    "cell_types": [
+      "neutrophil",
+      "hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000775",
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "neutrophil degranulation",
+      "response to endoplasmic reticulum stress",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Emphysema",
+      "Chronic Obstructive Pulmonary Disease",
+      "Liver Cirrhosis",
+      "Hepatomegaly",
+      "Dyspnea",
+      "Wheezing",
+      "Panniculitis"
+    ],
+    "phenotype_categories": [
+      "Cutaneous"
+    ],
+    "phenotype_ids": [
+      "HP:0032967",
+      "HP:0002097",
+      "HP:0001394",
+      "HP:0002240",
+      "HP:0002094",
+      "HP:0030828",
+      "HP:0012490"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "RARE"
+    ],
+    "genes": [],
+    "treatments": [
+      "Alpha-1 Antitrypsin Augmentation Therapy",
+      "Smoking Cessation",
+      "Bronchodilators",
+      "Lung Transplantation",
+      "Liver Transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Alpha_1_Antitrypsin_Deficiency.yaml",
+    "page_url": "../pages/disorders/Alpha-1_Antitrypsin_Deficiency.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 3,
+    "num_genes": 0,
+    "num_treatments": 5
+  },
+  {
     "name": "Alzheimer's Disease",
     "disease_id": "MONDO:0004975",
     "category": "Complex",
@@ -3120,6 +3191,75 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 6,
     "num_treatments": 9
+  },
+  {
+    "name": "Cronkhite-Canada syndrome",
+    "disease_id": "MONDO:0008283",
+    "category": "Complex",
+    "parents": [
+      "Gastrointestinal polyposis syndromes",
+      "Genetic disorders with cutaneous manifestations"
+    ],
+    "subtypes": [],
+    "description": "Cronkhite-Canada syndrome (CCS) is a rare, non-hereditary gastrointestinal polyposis syndrome characterized by the association of extensive hamartomatous polyps throughout the gastrointestinal tract with a distinctive cutaneous triad of alopecia, nail changes (onychodystrophy), and hyperpigmentation. The condition has significant gastrointestinal morbidity including protein-losing enteropathy, chronic diarrhea, and increased cancer risk. Although historically considered a relentlessly progressive disease with high mortality, modern advances in understanding and treatment with corticosteroids and immunomodulators have substantially improved prognosis and overall survival.\n",
+    "pathophysiology": [
+      "Hamartomatous polyp formation in the gastrointestinal tract",
+      "Autoimmune and IgG4-mediated inflammation",
+      "Epithelial barrier dysfunction and protein-losing enteropathy",
+      "Helicobacter pylori infection and dysbiosis"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "Epithelial cell proliferation",
+      "Epithelial cell morphogenesis",
+      "Plasma cell differentiation",
+      "Cytokine production",
+      "Tight junction",
+      "Defense response to bacterium"
+    ],
+    "phenotypes": [
+      "Gastrointestinal polyposis",
+      "Alopecia",
+      "Nail changes",
+      "Hyperpigmentation",
+      "Chronic diarrhea",
+      "Protein-losing enteropathy"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Cutaneous"
+    ],
+    "phenotype_ids": [
+      "HP:0004390",
+      "HP:0001596",
+      "HP:0008394",
+      "HP:0000953",
+      "HP:0002014",
+      "HP:0002243"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Corticosteroids",
+      "Immunosuppressive agents",
+      "Supportive care"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum albumin",
+      "Serum iron",
+      "Total serum protein"
+    ],
+    "source_file": "Cronkhite-Canada_syndrome.yaml",
+    "page_url": "../pages/disorders/Cronkhite-Canada_syndrome.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 4,
+    "num_genes": 0,
+    "num_treatments": 3
   },
   {
     "name": "Cushing's Syndrome",
