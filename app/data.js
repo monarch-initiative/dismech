@@ -11488,6 +11488,90 @@ window.searchData = [
     "num_treatments": 5
   },
   {
+    "name": "Sarcoidosis",
+    "disease_id": "MONDO:0019338",
+    "category": "Immune",
+    "parents": [
+      "Granulomatous Disease",
+      "Immune-Mediated Disease"
+    ],
+    "subtypes": [
+      "Pulmonary Sarcoidosis",
+      "Cardiac Sarcoidosis",
+      "Neurosarcoidosis",
+      "Cutaneous Sarcoidosis"
+    ],
+    "description": "Sarcoidosis is a multisystem inflammatory disease of unknown etiology characterized by the formation of non-caseating granulomas, most commonly affecting the lungs and lymph nodes. It predominantly affects adults aged 20-40 years, with higher incidence in African Americans and Northern Europeans. Clinical presentation ranges from asymptomatic to severe organ dysfunction. While many cases resolve spontaneously, chronic progressive disease occurs in a significant subset.\n",
+    "pathophysiology": [
+      "Granuloma Formation",
+      "Dysregulated Immune Response",
+      "Fibrosis"
+    ],
+    "cell_types": [
+      "epithelioid macrophage",
+      "CD4-positive helper T cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002150",
+      "CL:0000492"
+    ],
+    "biological_processes": [
+      "granuloma formation",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Mediastinal Lymphadenopathy",
+      "Dyspnea",
+      "Nonproductive Cough",
+      "Fatigue",
+      "Erythema Nodosum",
+      "Uveitis"
+    ],
+    "phenotype_categories": [
+      "Pulmonary",
+      "Constitutional",
+      "Dermatologic",
+      "Ophthalmologic"
+    ],
+    "phenotype_ids": [
+      "HP:0100721",
+      "HP:0002094",
+      "HP:0031246",
+      "HP:0012378",
+      "HP:0012219",
+      "HP:0000554"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "HLA-DRB1 Variants",
+      "BTNL2 Variants"
+    ],
+    "treatments": [
+      "Corticosteroid Therapy",
+      "Methotrexate",
+      "Anti-TNF Therapy"
+    ],
+    "environmental": [
+      "Occupational Exposures",
+      "Infectious Triggers"
+    ],
+    "biochemical": [
+      "Elevated ACE",
+      "Hypercalcemia",
+      "Elevated Inflammatory Markers"
+    ],
+    "source_file": "Sarcoidosis.yaml",
+    "page_url": "../pages/disorders/Sarcoidosis.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 3,
+    "num_genes": 2,
+    "num_treatments": 3
+  },
+  {
     "name": "Schizophrenia",
     "disease_id": "MONDO:0005090",
     "category": "Psychiatric",
