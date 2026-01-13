@@ -7839,6 +7839,105 @@ window.searchData = [
     "num_treatments": 8
   },
   {
+    "name": "Lyme Disease",
+    "disease_id": "MONDO:0019632",
+    "category": "Infectious",
+    "parents": [
+      "Bacterial Infection",
+      "Tick-Borne Disease"
+    ],
+    "subtypes": [
+      "Early Localized Lyme Disease",
+      "Early Disseminated Lyme Disease",
+      "Late Disseminated Lyme Disease",
+      "Post-Treatment Lyme Disease Syndrome"
+    ],
+    "description": "Lyme disease is a tick-borne infectious disease caused by Borrelia burgdorferi and related Borrelia species. It is the most common vector-borne disease in North America and Europe. The disease progresses through stages: early localized (erythema migrans), early disseminated (multiple erythema migrans, neurological, cardiac involvement), and late disseminated (arthritis, chronic neurological). Early antibiotic treatment is highly effective, while delayed treatment may lead to persistent symptoms.\n",
+    "pathophysiology": [
+      "Spirochete Invasion and Dissemination",
+      "Autoimmune Activation after Persistent Infection",
+      "Inflammatory Response and Tissue Damage"
+    ],
+    "cell_types": [
+      "endothelial cell",
+      "T cell",
+      "neutrophil",
+      "macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:0000115",
+      "CL:0000084",
+      "CL:0000775",
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "cell adhesion",
+      "immune system process",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Erythema Migrans",
+      "Fatigue",
+      "Arthralgia",
+      "Facial Palsy",
+      "Arthritis",
+      "Atrioventricular Block",
+      "Dementia (Reversible Neuroborreliosis)",
+      "Myelitis",
+      "Bullous Skin Lesions"
+    ],
+    "phenotype_categories": [
+      "Dermatologic",
+      "Constitutional",
+      "Musculoskeletal",
+      "Neurological",
+      "Cardiac"
+    ],
+    "phenotype_ids": [
+      "HP:0031180",
+      "HP:0012378",
+      "HP:0002829",
+      "HP:0010628",
+      "HP:0001369",
+      "HP:0001678",
+      "HP:0000726",
+      "HP:0012486",
+      "HP:0033804"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "RARE"
+    ],
+    "genes": [
+      "HLA-DR4"
+    ],
+    "treatments": [
+      "Oral Doxycycline",
+      "Oral Amoxicillin",
+      "Intravenous Ceftriaxone"
+    ],
+    "environmental": [
+      "Tick Exposure",
+      "Geographic Location",
+      "Seasonal Exposure",
+      "Outdoor Activities",
+      "Non-Ixodes Tick Exposure"
+    ],
+    "biochemical": [
+      "Anti-Borrelia Antibodies (IgM/IgG)",
+      "Elevated ESR/CRP",
+      "CSF Pleocytosis"
+    ],
+    "source_file": "Lyme_Disease.yaml",
+    "page_url": "../pages/disorders/Lyme_Disease.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 3
+  },
+  {
     "name": "Lynch Syndrome",
     "disease_id": "MONDO:0005835",
     "category": "",
