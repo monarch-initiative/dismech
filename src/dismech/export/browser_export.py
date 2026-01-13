@@ -39,7 +39,7 @@ class BrowserExporter:
             disease_id = disorder["disease_term"]["term"].get("id")
 
         # Subtypes
-        subtypes = [s.get("name", "") for s in disorder.get("has_subtypes", []) if s.get("name")]
+        subtypes = [s.get("name", "") for s in (disorder.get("has_subtypes") or []) if s.get("name")]
 
         # Pathophysiology
         pathophysiology_names = []
@@ -47,17 +47,17 @@ class BrowserExporter:
         cell_type_ids = []
         biological_processes = []
 
-        for patho in disorder.get("pathophysiology", []):
+        for patho in (disorder.get("pathophysiology") or []):
             if patho.get("name"):
                 pathophysiology_names.append(patho["name"])
-            for ct in patho.get("cell_types", []):
+            for ct in (patho.get("cell_types") or []):
                 ct_name = ct.get("preferred_term") or ct.get("term", {}).get("label", "")
                 if ct_name and ct_name not in cell_types:
                     cell_types.append(ct_name)
                 ct_id = ct.get("term", {}).get("id")
                 if ct_id and ct_id not in cell_type_ids:
                     cell_type_ids.append(ct_id)
-            for bp in patho.get("biological_processes", []):
+            for bp in (patho.get("biological_processes") or []):
                 bp_name = bp.get("preferred_term", "")
                 if bp_name and bp_name not in biological_processes:
                     biological_processes.append(bp_name)
@@ -68,7 +68,7 @@ class BrowserExporter:
         phenotype_ids = []
         frequencies = []
 
-        for pheno in disorder.get("phenotypes", []):
+        for pheno in (disorder.get("phenotypes") or []):
             if pheno.get("name"):
                 phenotype_names.append(pheno["name"])
             if pheno.get("category") and pheno["category"] not in phenotype_categories:
@@ -82,16 +82,16 @@ class BrowserExporter:
                     phenotype_ids.append(hp_id)
 
         # Genetic associations
-        genes = [g.get("name", "") for g in disorder.get("genetic", []) if g.get("name")]
+        genes = [g.get("name", "") for g in (disorder.get("genetic") or []) if g.get("name")]
 
         # Treatments
-        treatments = [t.get("name", "") for t in disorder.get("treatments", []) if t.get("name")]
+        treatments = [t.get("name", "") for t in (disorder.get("treatments") or []) if t.get("name")]
 
         # Environmental factors
-        environmental = [e.get("name", "") for e in disorder.get("environmental", []) if e.get("name")]
+        environmental = [e.get("name", "") for e in (disorder.get("environmental") or []) if e.get("name")]
 
         # Biochemical markers
-        biochemical = [b.get("name", "") for b in disorder.get("biochemical", []) if b.get("name")]
+        biochemical = [b.get("name", "") for b in (disorder.get("biochemical") or []) if b.get("name")]
 
         # Build description from various sources
         description = disorder.get("description", "")

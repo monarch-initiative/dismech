@@ -1,0 +1,123 @@
+---
+name: Generate Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'kb/disorders/*.yaml'
+      - 'src/dismech/templates/**'
+      - 'src/dismech/render.py'
+      - 'src/dismech/export.py'
+      - 'conf/qc_config.yaml'
+  workflow_dispatch:
+
+jobs:
+  generate-pages:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6.4.3
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5.6.0
+        with:
+          python-version: "3.13"
+
+      - name: Install just
+        run: uv tool install rust-just
+
+      - name: Install project
+        run: uv sync --dev
+
+      - name: Generate disorder HTML pages
+        run: just gen-pages
+
+      - name: Generate browser data
+        run: just gen-browser-data
+
+      - name: Generate compliance dashboard
+        run: just gen-dashboard
+
+      - name: Check for changes
+        id: check-changes
+        run: |
+          if git diff --quiet pages/ app/data.js dashboard/; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "Changed files:"
+            git diff --stat pages/ app/data.js dashboard/
+          fi
+
+      - name: Create Pull Request
+        if: steps.check-changes.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          BRANCH_NAME="generate-pages-$(date +%Y%m%d-%H%M%S)"
+          git checkout -b "$BRANCH_NAME"
+
+          git add pages/ app/data.js dashboard/
+
+          PAGE_COUNT=$(ls -1 pages/disorders/*.html 2>/dev/null | wc -l | tr -d ' ')
+          DISORDER_COUNT=$(ls -1 kb/disorders/*.yaml 2>/dev/null | wc -l | tr -d ' ')
+
+          git commit -m "$(cat <<EOF
+          Regenerate pages, app data, and compliance dashboard
+
+          - $PAGE_COUNT disorder HTML pages
+          - Browser app data.js
+          - Compliance dashboard
+
+          Triggered by changes to KB or templates.
+          EOF
+          )"
+
+          git push origin "$BRANCH_NAME"
+
+          gh pr create \
+            --title "📄 Regenerate pages and dashboard ($(date +%Y-%m-%d))" \
+            --body "$(cat <<EOF
+          ## Summary
+
+          Automated regeneration of static assets after KB or template changes.
+
+          ## Generated Assets
+
+          | Asset | Count/Status |
+          |-------|--------------|
+          | Disorder HTML pages | $PAGE_COUNT |
+          | Disorders in KB | $DISORDER_COUNT |
+          | Browser data.js | ✅ |
+          | Compliance dashboard | ✅ |
+
+          ## Trigger
+
+          This PR was triggered by changes to:
+          - \`kb/disorders/*.yaml\` - disorder data files
+          - \`src/dismech/templates/**\` - Jinja2 templates
+          - \`src/dismech/render.py\` - rendering code
+          - \`src/dismech/export.py\` - export code
+          - \`conf/qc_config.yaml\` - QC configuration
+
+          ## Review
+
+          - [ ] Spot-check a few HTML pages render correctly
+          - [ ] Verify dashboard loads and shows charts
+          EOF
+          )"

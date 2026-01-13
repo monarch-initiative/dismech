@@ -1,0 +1,102 @@
+---
+name: Weekly Compliance
+
+on:
+  schedule:
+    # Runs every Friday at 8:00 AM UTC (midnight PST, 3:00 AM EST)
+    - cron: '0 8 * * 5'
+  workflow_dispatch:
+    inputs:
+      num_files:
+        description: 'Number of poorly performing files to fix'
+        required: false
+        default: '5'
+        type: string
+
+      model:
+        description: "Claude model to use"
+        default: claude-opus-4-5-20251101
+        type: choice
+        options:
+          # Current models (4.5)
+          - claude-sonnet-4-5-20250929
+          - claude-haiku-4-5-20251001
+          - claude-opus-4-5-20251101
+          # Legacy models (4.x)
+          - claude-opus-4-1-20250805
+          - claude-sonnet-4-20250514
+          - claude-opus-4-20250514
+          # Legacy models (3.x)
+          - claude-3-7-sonnet-20250219
+          - claude-3-haiku-20240307
+
+jobs:
+  compliance-fixes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6.4.3
+
+      - name: Install python tools
+        run: |
+          uv sync
+
+      - name: Install just
+        run: |
+          uv tool install rust-just
+          uv sync
+
+      - name: Run Claude Compliance Fixes
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          mode: agent
+
+          claude_args: |
+            --dangerously-skip-permissions
+            --mcp-config '{"mcpServers": {"ols": {"command": "uvx", "args": ["ols-mcp"]}}}'
+            --model ${{ inputs.model }}
+
+          prompt: |
+            You are running as part of an automated CI workflow to improve the dismech knowledge base.
+
+            ## Your Task
+
+            Note: use the dismech-compliance skill to help you with this task.
+
+            1. **Get overall compliance report**: Run `just compliance-all` and look at per-file compliance
+
+            2. **Select ${{ inputs.num_files || '5' }} poorly performing files**: From the report, identify the disorder YAML files with the LOWEST weighted compliance scores.
+               Some randomness is fine, try for a common theme if possible. No need to over-analyze, gradual progression is the goal.
+
+            3. **For each selected file**:
+               - Run `just compliance <file>` to get a detailed report
+               - Identify the missing fields (e.g. terms; evidence; descriptions; etc.)
+               - Use the dismech-terms skill to help you with terms task.
+                  - avoid using terms that are too broad or are not good matches for the intended concept. better to be incomplete than incorrect
+               - conduct additional literature review as necessary.
+               - Edit the YAML file to add the missing ontology term bindings
+               - Run `just validate <file>` to ensure the changes are valid
+               - Create a PR on a per-file basis.
+                  - Branch name: `weekly-compliance-YYYY-MM-DD-DISEASENAME`
+                  - Title: "🤖 Weekly Compliance Fixes (YYYY-MM-DD)"
+                  - Include a detailed report summary of what was changed in the PR body, what the original issue was, what was fixed, and any remaining issues.
+
+            ## Important Guidelines
+
+            - The goal is not to fix all compliance issues, which might be hard to do in one go. Incremental fixes are fine. We'll get to everything eventually.
+            - Only add ontology terms you can verify via OAK - never hallucinate IDs or labels
+            - Use the exact label returned by OAK for the `label` field
+
