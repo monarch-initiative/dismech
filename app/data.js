@@ -645,6 +645,77 @@ window.searchData = [
     "num_treatments": 4
   },
   {
+    "name": "Alpha-1 Antitrypsin Deficiency",
+    "disease_id": "MONDO:0013282",
+    "category": "Mendelian",
+    "parents": [
+      "Genetic Lung Diseases",
+      "Hereditary Metabolic Diseases"
+    ],
+    "subtypes": [],
+    "description": "Alpha-1 antitrypsin (AAT) is the major inhibitor of neutrophil elastase in the lung. Deficiency of AAT leads to unopposed elastase activity, causing progressive destruction of alveolar walls and development of emphysema, particularly affecting the lower lobes.\n",
+    "pathophysiology": [
+      "Protease-Antiprotease Imbalance in Lung",
+      "Hepatic Protein Aggregation",
+      "Pulmonary Inflammation"
+    ],
+    "cell_types": [
+      "neutrophil",
+      "hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000775",
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "neutrophil degranulation",
+      "response to endoplasmic reticulum stress",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Emphysema",
+      "Chronic Obstructive Pulmonary Disease",
+      "Liver Cirrhosis",
+      "Hepatomegaly",
+      "Dyspnea",
+      "Wheezing",
+      "Panniculitis"
+    ],
+    "phenotype_categories": [
+      "Cutaneous"
+    ],
+    "phenotype_ids": [
+      "HP:0032967",
+      "HP:0002097",
+      "HP:0001394",
+      "HP:0002240",
+      "HP:0002094",
+      "HP:0030828",
+      "HP:0012490"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "RARE"
+    ],
+    "genes": [],
+    "treatments": [
+      "Alpha-1 Antitrypsin Augmentation Therapy",
+      "Smoking Cessation",
+      "Bronchodilators",
+      "Lung Transplantation",
+      "Liver Transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Alpha_1_Antitrypsin_Deficiency.yaml",
+    "page_url": "../pages/disorders/Alpha-1_Antitrypsin_Deficiency.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 3,
+    "num_genes": 0,
+    "num_treatments": 5
+  },
+  {
     "name": "Alzheimer's Disease",
     "disease_id": "MONDO:0004975",
     "category": "Complex",
@@ -3120,6 +3191,75 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 6,
     "num_treatments": 9
+  },
+  {
+    "name": "Cronkhite-Canada syndrome",
+    "disease_id": "MONDO:0008283",
+    "category": "Complex",
+    "parents": [
+      "Gastrointestinal polyposis syndromes",
+      "Genetic disorders with cutaneous manifestations"
+    ],
+    "subtypes": [],
+    "description": "Cronkhite-Canada syndrome (CCS) is a rare, non-hereditary gastrointestinal polyposis syndrome characterized by the association of extensive hamartomatous polyps throughout the gastrointestinal tract with a distinctive cutaneous triad of alopecia, nail changes (onychodystrophy), and hyperpigmentation. The condition has significant gastrointestinal morbidity including protein-losing enteropathy, chronic diarrhea, and increased cancer risk. Although historically considered a relentlessly progressive disease with high mortality, modern advances in understanding and treatment with corticosteroids and immunomodulators have substantially improved prognosis and overall survival.\n",
+    "pathophysiology": [
+      "Hamartomatous polyp formation in the gastrointestinal tract",
+      "Autoimmune and IgG4-mediated inflammation",
+      "Epithelial barrier dysfunction and protein-losing enteropathy",
+      "Helicobacter pylori infection and dysbiosis"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "Epithelial cell proliferation",
+      "Epithelial cell morphogenesis",
+      "Plasma cell differentiation",
+      "Cytokine production",
+      "Tight junction",
+      "Defense response to bacterium"
+    ],
+    "phenotypes": [
+      "Gastrointestinal polyposis",
+      "Alopecia",
+      "Nail changes",
+      "Hyperpigmentation",
+      "Chronic diarrhea",
+      "Protein-losing enteropathy"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Cutaneous"
+    ],
+    "phenotype_ids": [
+      "HP:0004390",
+      "HP:0001596",
+      "HP:0008394",
+      "HP:0000953",
+      "HP:0002014",
+      "HP:0002243"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Corticosteroids",
+      "Immunosuppressive agents",
+      "Supportive care"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum albumin",
+      "Serum iron",
+      "Total serum protein"
+    ],
+    "source_file": "Cronkhite-Canada_syndrome.yaml",
+    "page_url": "../pages/disorders/Cronkhite-Canada_syndrome.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 4,
+    "num_genes": 0,
+    "num_treatments": 3
   },
   {
     "name": "Cushing's Syndrome",
@@ -6237,6 +6377,76 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 3,
     "num_treatments": 8
+  },
+  {
+    "name": "Hemochromatosis",
+    "disease_id": "MONDO:0006507",
+    "category": "Mendelian",
+    "parents": [
+      "Iron Metabolism Disorders",
+      "Hereditary Metabolic Diseases"
+    ],
+    "subtypes": [],
+    "description": "Pathogenic HFE variants (most commonly C282Y homozygosity) blunt hepcidin induction, leaving circulating hepcidin inappropriately low relative to body iron stores.\n",
+    "pathophysiology": [
+      "HFE Loss Lowers Hepcidin",
+      "Low Hepcidin Leads to Ferroportin Hyperabsorption",
+      "Hepatic Iron Toxicity",
+      "Cardiac Iron Deposition",
+      "Pancreatic Iron Toxicity"
+    ],
+    "cell_types": [
+      "hepatocyte",
+      "cardiac muscle cell",
+      "type B pancreatic cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0000746",
+      "CL:0000169"
+    ],
+    "biological_processes": [
+      "iron ion homeostasis",
+      "iron ion transport",
+      "cellular response to oxidative stress"
+    ],
+    "phenotypes": [
+      "Hepatomegaly",
+      "Skin Hyperpigmentation",
+      "Diabetes Mellitus",
+      "Arthropathy",
+      "Cardiomyopathy",
+      "Hypogonadism",
+      "Fatigue"
+    ],
+    "phenotype_categories": [],
+    "phenotype_ids": [
+      "HP:0002240",
+      "HP:0007574",
+      "HP:0000819",
+      "HP:0003040",
+      "HP:0001638",
+      "HP:0000044",
+      "HP:0012378"
+    ],
+    "frequencies": [],
+    "genes": [
+      "HFE Mutations"
+    ],
+    "treatments": [
+      "Phlebotomy (Therapeutic Venesection)",
+      "Iron Chelation Therapy",
+      "Dietary Modification",
+      "Screening of Family Members"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hemochromatosis.yaml",
+    "page_url": "../pages/disorders/Hemochromatosis.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 4
   },
   {
     "name": "Hemophilia A",
@@ -10951,6 +11161,64 @@ window.searchData = [
     "num_treatments": 5
   },
   {
+    "name": "Retrograde Cricopharyngeus Dysfunction",
+    "disease_id": "MONDO:0100099",
+    "category": "Syndromic",
+    "parents": [
+      "Neuromuscular Disorder",
+      "Gastrointestinal Disorder"
+    ],
+    "subtypes": [],
+    "description": "A syndrome characterized by the inability to belch due to failure of the upper esophageal sphincter (cricopharyngeus muscle) to relax in response to retrograde esophageal gaseous distension. The associated symptom complex includes abdominal bloating, chest pain, gurgling noises in the chest, nausea, and excessive flatulence.",
+    "pathophysiology": [
+      "Failure of Upper Esophageal Sphincter Relaxation",
+      "Elevated Upper Esophageal Sphincter Basal Pressure"
+    ],
+    "cell_types": [
+      "muscle cell",
+      "sensory neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000187",
+      "CL:0000101"
+    ],
+    "biological_processes": [
+      "regulation of muscle contraction",
+      "skeletal muscle contraction",
+      "muscle contraction"
+    ],
+    "phenotypes": [
+      "Inability to Belch",
+      "Abdominal Distention",
+      "Chest Pain",
+      "Nausea",
+      "Gurgling Sounds"
+    ],
+    "phenotype_categories": [],
+    "phenotype_ids": [
+      "HP:0025031",
+      "HP:0003270",
+      "HP:0100749",
+      "HP:0002018"
+    ],
+    "frequencies": [
+      "Common",
+      "Variable"
+    ],
+    "genes": [],
+    "treatments": [
+      "Botulinum Toxin Injection"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Retrograde_Cricopharyngeus_Dysfunction.yaml",
+    "page_url": "../pages/disorders/Retrograde_Cricopharyngeus_Dysfunction.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 2,
+    "num_genes": 0,
+    "num_treatments": 1
+  },
+  {
     "name": "Rett Syndrome",
     "disease_id": "MONDO:0010726",
     "category": "Genetic",
@@ -11379,6 +11647,8 @@ window.searchData = [
     "num_pathophysiology": 2,
     "num_genes": 0,
     "num_treatments": 1
+  },
+  {
     "name": "Semicircular Canal Dehiscence Syndrome",
     "disease_id": "MONDO:0018484",
     "category": "Structural",
@@ -12332,7 +12602,11 @@ window.searchData = [
       "Nausea"
     ],
     "phenotype_categories": [],
-    "phenotype_ids": [],
+    "phenotype_ids": [
+      "HP:0002014",
+      "HP:0032155",
+      "HP:0002018"
+    ],
     "frequencies": [],
     "genes": [],
     "treatments": [
@@ -12782,6 +13056,72 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 4,
     "num_treatments": 8
+  },
+  {
+    "name": "Visual Snow Syndrome",
+    "disease_id": "MONDO:0018486",
+    "category": "Complex",
+    "parents": [
+      "Neurological Disease"
+    ],
+    "subtypes": [],
+    "description": "Visual snow syndrome is thought to involve cortical hyperexcitability, particularly in the lingual gyrus and other visual processing areas. Electrophysiological studies have revealed cortical hyperresponsivity in visual brain areas, and imaging studies demonstrated microstructural and functional connectivity alterations in multiple cortical and thalamic regions.\n",
+    "pathophysiology": [
+      "Visual Cortex Hyperexcitability",
+      "Thalamocortical Network Dysfunction"
+    ],
+    "cell_types": [
+      "cortical interneuron"
+    ],
+    "cell_type_ids": [
+      "CL:0008031"
+    ],
+    "biological_processes": [
+      "visual perception",
+      "synaptic transmission"
+    ],
+    "phenotypes": [
+      "Visual Snow",
+      "Palinopsia",
+      "Photophobia",
+      "Nyctalopia",
+      "Entoptic Phenomena",
+      "Photopsia",
+      "Tinnitus",
+      "Vitreous Floaters"
+    ],
+    "phenotype_categories": [
+      "Neurological"
+    ],
+    "phenotype_ids": [
+      "HP:0000613",
+      "HP:0000662",
+      "HP:0030786",
+      "HP:0000360",
+      "HP:0100832"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Lamotrigine",
+      "Tinted Lenses",
+      "Cognitive Behavioral Therapy",
+      "Benzodiazepines"
+    ],
+    "environmental": [
+      "Migraine Comorbidity",
+      "Anxiety and Depression"
+    ],
+    "biochemical": [],
+    "source_file": "Visual_Snow_Syndrome.yaml",
+    "page_url": "../pages/disorders/Visual_Snow_Syndrome.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 2,
+    "num_genes": 0,
+    "num_treatments": 4
   },
   {
     "name": "Vitiligo",
