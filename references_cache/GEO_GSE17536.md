@@ -1,0 +1,11 @@
+---
+reference_id: "GEO:GSE17536"
+title: Metastasis Gene Expression Profile Predicts Recurrence and Death in Colon Cancer Patients (Moffitt Samples)
+content_type: summary
+---
+
+# Metastasis Gene Expression Profile Predicts Recurrence and Death in Colon Cancer Patients (Moffitt Samples)
+
+## Content
+
+Background and Aims: Staging inadequately predicts metastatic risk in colon cancer patients. We used a gene expression profile derived from invasive murine colon cancer cells that were highly metastatic in an immunocompetent mouse model to identify colon cancer patients at risk for recurrence in a phase I, exploratory biomarker study. Methods: 55 colorectal cancer patients from Vanderbilt Medical Center (VMC) were used as the training dataset and 177 patients from the Moffitt Cancer Center were used as the independent dataset. The metastasis-associated gene expression profile developed from the mouse model was refined using comparative functional genomics in the VMC gene expression profiles to identify a 34-gene classifier associated with high risk of metastasis and death from colon cancer. A recurrence score derived from the biologically based classifier was tested in the Moffitt dataset. Results: A high score was significantly associated with increased risk of metastasis and death from colon cancer across all pathological stages and specifically in stage II and stage III patients. The recurrence score was shown to independently predict risk of cancer recurrence and death in both univariate and multivariate models. For example, among stage III patients, a high score translated to increased relative risk for cancer recurrence (hazard ratio = 4.7 (95% CI=1.566-14.05)). Furthermore, the recurrence score identified stage III patients whose five-year recurrence-free survival was >88% and for whom adjuvant chemotherapy did not provide improved survival. Conclusion: Our biologically based gene expression profile yielded a potentially useful classifier to predict cancer recurrence and death independently of conventional measures in colon cancer patients. Keywords: Functional genomics, metastatic colon cancer, mouse model, human colon cancer
