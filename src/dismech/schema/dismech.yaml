@@ -120,6 +120,15 @@ enums:
         description: Regulation is impaired (may be increased or decreased)
       ABSENT:
         description: Not occurring or not present
+  LateralityEnum:
+    description: Laterality qualifier for anatomical structures or procedures
+    permissible_values:
+      LEFT:
+        description: Left side of the body
+      RIGHT:
+        description: Right side of the body
+      BILATERAL:
+        description: Both sides of the body
   AssayTerm:
     description: A term representing an assay
     reachable_from:
@@ -318,6 +327,23 @@ slots:
   modifier:
     description: Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)
     range: ModifierEnum
+  located_in:
+    description: Anatomical location where this entity/process occurs or procedure is performed
+    range: AnatomicalEntityDescriptor
+    inlined: true
+  laterality:
+    description: Laterality qualifier (left, right, or bilateral)
+    range: LateralityEnum
+  therapeutic_agent:
+    description: >-
+      The drug, chemical, or therapeutic agent used in a treatment. Use when the MAXO term
+      is generic (e.g., pharmacotherapy) but specific drugs are involved.
+    range: ChemicalEntityDescriptor
+    inlined: true
+    multivalued: true
+    comments:
+      - Bind to CHEBI for specific chemicals/drugs
+      - Can also use NCIT for drug classes when CHEBI term unavailable
   qualifiers:
     description: >-
       List of predicate-value pairs for formal post-composition. Allows OWL-like
@@ -325,6 +351,7 @@ slots:
     multivalued: true
     range: Qualifier
     inlined_as_list: true
+    deprecated: Prefer explicit slots like located_in and laterality instead of generic qualifiers
   predicate:
     description: The relationship/predicate in a qualifier (e.g., RO:0002233 'has input')
     range: Descriptor
@@ -410,6 +437,8 @@ slots:
   title:
     description: Title of the publication
     range: string
+    implements:
+      - linkml:title
   subtype:
     examples:
       - value: Eyelid Myoclonia with Absences
@@ -810,6 +839,8 @@ slots:
     description: Dataset accession identifier as a CURIE (e.g., geo:GSE67472)
     range: uriorcurie
     identifier: true
+    implements:
+      - linkml:authoritative_reference
   organism:
     description: The organism from which samples were derived
     range: OrganismDescriptor
@@ -935,13 +966,15 @@ classes:
     abstract: true
     description: >-
       Base class for structured descriptors that allow a preferred term,
-      optional description, optional ontology term binding, and optional modifier/qualifiers
-      for post-composition.
+      optional description, optional ontology term binding, and post-composition
+      via modifier, located_in, and laterality slots.
     slots:
       - preferred_term
       - description
       - term
       - modifier
+      - located_in
+      - laterality
       - qualifiers
     slot_usage:
       description:
@@ -951,12 +984,14 @@ classes:
           rigid standardization of the term object.
         recommended: false
 
-  # Post-composition classes
+  # Post-composition classes (deprecated - use explicit slots instead)
   Qualifier:
     description: >-
       A predicate-value pair for formal post-composition. Allows OWL-like
       expressivity with controlled predicates and values, both as full Descriptors.
+    deprecated: Use explicit slots like located_in and laterality on Descriptor instead
     comments:
+      - DEPRECATED - prefer explicit slots (located_in, laterality) for better constraints
       - Use for formal semantic relationships like "has_input some X"
       - Both predicate and value are Descriptors, allowing recursive composition
       - Predicate typically uses RO (Relation Ontology) terms
@@ -1049,6 +1084,8 @@ classes:
   TreatmentDescriptor:
     is_a: Descriptor
     description: A descriptor for treatments/medical actions, bindable to Medical Action Ontology (MAXO)
+    slots:
+      - therapeutic_agent
     slot_usage:
       term:
         description: Optional MAXO treatment term reference
@@ -1056,6 +1093,13 @@ classes:
           - binds_value_of: id
             range: TreatmentActionTerm
             obligation_level: REQUIRED
+      therapeutic_agent:
+        description: >-
+          The drug(s) or chemical agent(s) used in this treatment. Use when the MAXO term
+          is generic (e.g., pharmacotherapy MAXO:0000058) but specific drugs are involved.
+        comments:
+          - Prefer CHEBI terms for specific drugs (e.g., CHEBI:15365 for aspirin)
+          - Use NCIT for drug classes when specific CHEBI term unavailable
 
   ExposureDescriptor:
     is_a: Descriptor
