@@ -7839,6 +7839,232 @@ window.searchData = [
     "num_treatments": 8
   },
   {
+    "name": "Long COVID",
+    "disease_id": "MONDO:0100233",
+    "category": "Complex",
+    "parents": [
+      "Post-viral syndrome",
+      "COVID-19 complications"
+    ],
+    "subtypes": [],
+    "description": "Long COVID, formally designated as Post-acute Sequelae of SARS-CoV-2 (PASC), is a complex, multisystem condition characterized by persistent symptoms following resolution of acute SARS-CoV-2 infection. The condition can develop following both mild and severe acute illness and affects an estimated 65 million individuals worldwide.\n",
+    "pathophysiology": [
+      "Viral Persistence",
+      "Systemic Immune Activation",
+      "T Cell Exhaustion and Tissue Trafficking",
+      "Endothelial Dysfunction and Microclots",
+      "Serotonin Depletion Mechanisms",
+      "Vagus-Hippocampal Signaling Impairment",
+      "Autonomic Nervous System Dysfunction",
+      "Impaired Mitochondrial Energy Production",
+      "Metabolic Shift and Oxidative Stress",
+      "Mast Cell Activation",
+      "Neuroinflammation"
+    ],
+    "cell_types": [
+      "intestinal epithelial cell",
+      "CD8-positive T cell",
+      "CD4-positive T cell",
+      "endothelial cell",
+      "platelet",
+      "mast cell",
+      "microglial cell",
+      "macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:0002563",
+      "CL:0000625",
+      "CL:0000624",
+      "CL:0000115",
+      "CL:0000233",
+      "CL:0000097",
+      "CL:0000129",
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "inflammatory response",
+      "JAK-STAT signaling",
+      "T cell migration",
+      "T cell activation",
+      "fibrinolysis",
+      "tryptophan transport",
+      "platelet activation",
+      "serotonin metabolic process",
+      "regulation of synaptic plasticity",
+      "memory",
+      "mast cell activation",
+      "oxidative phosphorylation",
+      "ATP biosynthetic process",
+      "glycolytic process",
+      "response to oxidative stress"
+    ],
+    "phenotypes": [
+      "Fatigue",
+      "Cognitive Impairment",
+      "Dyspnea",
+      "Post-exertional Malaise",
+      "Palpitations",
+      "Tachycardia",
+      "Chest Pain",
+      "Headache",
+      "Sleep Disturbance",
+      "Anxiety",
+      "Depression",
+      "Anosmia",
+      "Ageusia",
+      "Myalgia",
+      "Arthralgia",
+      "Orthostatic Tachycardia",
+      "Cough",
+      "Pulmonary Opacity",
+      "Insomnia",
+      "Diarrhea",
+      "Nausea"
+    ],
+    "phenotype_categories": [],
+    "phenotype_ids": [
+      "HP:0012378",
+      "HP:0002354",
+      "HP:0002094",
+      "HP:0030973",
+      "HP:0001962",
+      "HP:0001649",
+      "HP:0100749",
+      "HP:0002315",
+      "HP:0002360",
+      "HP:0000739",
+      "HP:0000716",
+      "HP:0000458",
+      "HP:0041051",
+      "HP:0003326",
+      "HP:0002829",
+      "HP:0012173",
+      "HP:0012735",
+      "HP:0031457",
+      "HP:0100785",
+      "HP:0002014",
+      "HP:0002018"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Pacing and Energy Management",
+      "Symptom-directed Pharmacotherapy",
+      "Rehabilitation Therapy",
+      "Antihistamine Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serotonin Deficiency",
+      "Elevated Inflammatory Cytokines"
+    ],
+    "source_file": "Long_COVID.yaml",
+    "page_url": "../pages/disorders/Long_COVID.html",
+    "num_phenotypes": 21,
+    "num_pathophysiology": 11,
+    "num_genes": 0,
+    "num_treatments": 4
+  },
+  {
+    "name": "Lyme Disease",
+    "disease_id": "MONDO:0019632",
+    "category": "Infectious",
+    "parents": [
+      "Bacterial Infection",
+      "Tick-Borne Disease"
+    ],
+    "subtypes": [
+      "Early Localized Lyme Disease",
+      "Early Disseminated Lyme Disease",
+      "Late Disseminated Lyme Disease",
+      "Post-Treatment Lyme Disease Syndrome"
+    ],
+    "description": "Lyme disease is a tick-borne infectious disease caused by Borrelia burgdorferi and related Borrelia species. It is the most common vector-borne disease in North America and Europe. The disease progresses through stages: early localized (erythema migrans), early disseminated (multiple erythema migrans, neurological, cardiac involvement), and late disseminated (arthritis, chronic neurological). Early antibiotic treatment is highly effective, while delayed treatment may lead to persistent symptoms.\n",
+    "pathophysiology": [
+      "Spirochete Invasion and Dissemination",
+      "Autoimmune Activation after Persistent Infection",
+      "Inflammatory Response and Tissue Damage"
+    ],
+    "cell_types": [
+      "endothelial cell",
+      "T cell",
+      "neutrophil",
+      "macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:0000115",
+      "CL:0000084",
+      "CL:0000775",
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "cell adhesion",
+      "immune system process",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Erythema Migrans",
+      "Fatigue",
+      "Arthralgia",
+      "Facial Palsy",
+      "Arthritis",
+      "Atrioventricular Block",
+      "Dementia (Reversible Neuroborreliosis)",
+      "Myelitis",
+      "Bullous Skin Lesions"
+    ],
+    "phenotype_categories": [
+      "Dermatologic",
+      "Constitutional",
+      "Musculoskeletal",
+      "Neurological",
+      "Cardiac"
+    ],
+    "phenotype_ids": [
+      "HP:0031180",
+      "HP:0012378",
+      "HP:0002829",
+      "HP:0010628",
+      "HP:0001369",
+      "HP:0001678",
+      "HP:0000726",
+      "HP:0012486",
+      "HP:0033804"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "RARE"
+    ],
+    "genes": [
+      "HLA-DR4"
+    ],
+    "treatments": [
+      "Oral Doxycycline",
+      "Oral Amoxicillin",
+      "Intravenous Ceftriaxone"
+    ],
+    "environmental": [
+      "Tick Exposure",
+      "Geographic Location",
+      "Seasonal Exposure",
+      "Outdoor Activities",
+      "Non-Ixodes Tick Exposure"
+    ],
+    "biochemical": [
+      "Anti-Borrelia Antibodies (IgM/IgG)",
+      "Elevated ESR/CRP",
+      "CSF Pleocytosis"
+    ],
+    "source_file": "Lyme_Disease.yaml",
+    "page_url": "../pages/disorders/Lyme_Disease.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 3
+  },
+  {
     "name": "Lynch Syndrome",
     "disease_id": "MONDO:0005835",
     "category": "",
@@ -10454,6 +10680,91 @@ window.searchData = [
     "num_treatments": 5
   },
   {
+    "name": "Polycystic Kidney Disease",
+    "disease_id": "MONDO:0020642",
+    "category": "Mendelian",
+    "parents": [
+      "Genetic Kidney Disease",
+      "Ciliopathy"
+    ],
+    "subtypes": [
+      "Autosomal Dominant PKD (ADPKD)",
+      "Autosomal Recessive PKD (ARPKD)"
+    ],
+    "description": "Polycystic kidney disease (PKD) is a genetic disorder characterized by the development of multiple fluid-filled cysts in the kidneys. The autosomal dominant form (ADPKD) is one of the most common inherited kidney diseases, affecting approximately 1 in 500-1000 people. ADPKD is caused by mutations in PKD1 or PKD2 genes and typically presents in adulthood with progressive renal enlargement, hypertension, and eventual kidney failure. Autosomal recessive PKD (ARPKD) is less common and typically presents in infancy or childhood.\n",
+    "pathophysiology": [
+      "Vasopressin/cAMP-Driven Cyst Expansion",
+      "Epithelial Proliferation and Kidney Enlargement",
+      "Ciliary Dysfunction",
+      "Fibrosis and Inflammation"
+    ],
+    "cell_types": [
+      "nephron tubule epithelial cell",
+      "macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:1000494",
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "cAMP/PKA signal transduction",
+      "regulation of cell proliferation",
+      "cilium organization",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Multiple Renal Cysts",
+      "Hypertension",
+      "Chronic Kidney Disease",
+      "Hepatic Cysts",
+      "Intracranial Aneurysm",
+      "Flank Pain"
+    ],
+    "phenotype_categories": [
+      "Renal",
+      "Cardiovascular",
+      "Hepatic",
+      "Vascular"
+    ],
+    "phenotype_ids": [
+      "HP:0005562",
+      "HP:0000822",
+      "HP:0012622",
+      "HP:0001407",
+      "HP:0007029",
+      "HP:0030157"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "PKD1 Mutations",
+      "PKD2 Mutations",
+      "PKHD1 Mutations"
+    ],
+    "treatments": [
+      "Tolvaptan",
+      "Blood Pressure Control",
+      "Renal Dialysis",
+      "Kidney Transplantation"
+    ],
+    "environmental": [
+      "Caffeine Consumption"
+    ],
+    "biochemical": [
+      "Elevated Creatinine",
+      "Decreased GFR"
+    ],
+    "source_file": "Polycystic_Kidney_Disease.yaml",
+    "page_url": "../pages/disorders/Polycystic_Kidney_Disease.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 4,
+    "num_genes": 3,
+    "num_treatments": 4
+  },
+  {
     "name": "Polycystic Ovary Syndrome",
     "disease_id": "MONDO:0008487",
     "category": "Complex",
@@ -12591,6 +12902,71 @@ window.searchData = [
     "num_pathophysiology": 2,
     "num_genes": 1,
     "num_treatments": 4
+  },
+  {
+    "name": "Tetanus",
+    "disease_id": "MONDO:0005526",
+    "category": "Infectious",
+    "parents": [
+      "Bacterial Infections",
+      "Neuromuscular Diseases"
+    ],
+    "subtypes": [],
+    "description": "Clostridium tetani produces tetanospasmin, a potent neurotoxin that is transported retrogradely along motor neurons to the spinal cord. The toxin blocks the release of inhibitory neurotransmitters (GABA and glycine) from presynaptic terminals in the spinal cord, leading to unopposed muscle contraction and characteristic spasms.\n",
+    "pathophysiology": [
+      "Tetanus Toxin (Tetanospasmin) Action",
+      "Autonomic Nervous System Dysfunction",
+      "Wound Colonization"
+    ],
+    "cell_types": [
+      "motor neuron",
+      "noradrenergic neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000100",
+      "CL:0008025"
+    ],
+    "biological_processes": [
+      "synaptic transmission, GABAergic",
+      "synaptic transmission, glycinergic",
+      "negative regulation of neurotransmitter secretion",
+      "synaptic transmission, noradrenergic"
+    ],
+    "phenotypes": [
+      "Trismus (Lockjaw)",
+      "Generalized Muscle Rigidity",
+      "Opisthotonus",
+      "Reflex Spasms",
+      "Dysphagia",
+      "Respiratory Failure"
+    ],
+    "phenotype_categories": [],
+    "phenotype_ids": [
+      "HP:0000211",
+      "HP:0002063",
+      "HP:0002179",
+      "HP:0003394",
+      "HP:0002015",
+      "HP:0002878"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Tetanus Immunoglobulin (TIG)",
+      "Wound Debridement",
+      "Antibiotic Therapy",
+      "Muscle Relaxants and Sedation",
+      "Supportive Care",
+      "Active Immunization"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Tetanus.yaml",
+    "page_url": "../pages/disorders/Tetanus.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 3,
+    "num_genes": 0,
+    "num_treatments": 6
   },
   {
     "name": "Transient Neonatal Pustular Melanosis",
