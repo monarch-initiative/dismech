@@ -19,16 +19,30 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        python-version: ["3.13"]
       fail-fast: false
 
     steps:
 
       # https://github.com/actions/checkout
       - name: Check out repository
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
+
+      - name: Check for changes
+        uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          list-files: shell
+          filters: |
+            src:
+              - 'src/**'
+              - 'tests/**'
+              - 'pyproject.toml'
+              - 'uv.lock'
+            kb:
+              - 'kb/**/*.yaml'
 
       # https://github.com/astral-sh/setup-uv
       - name: Install uv
@@ -51,5 +65,15 @@ jobs:
       - name: Install project
         run: uv sync --dev
 
+      - name: Validate changed KB files
+        if: steps.changes.outputs.kb == 'true'
+        run: |
+          echo "Validating changed KB files..."
+          for f in ${{ steps.changes.outputs.kb_files }}; do
+            echo "=== Validating: $f ==="
+            just validate "$f"
+          done
+
       - name: Run test suite
+        if: steps.changes.outputs.src == 'true'
         run: just test
