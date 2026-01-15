@@ -14,7 +14,11 @@ from koza import KozaTransform
 from biolink_model.datamodel.pydanticmodel_v2 import (
     AgentTypeEnum,
     Association,
+    ChemicalOrDrugOrTreatmentToDiseaseOrPhenotypicFeatureAssociation,
+    DiseaseOrPhenotypicFeatureToLocationAssociation,
     DiseaseToPhenotypicFeatureAssociation,
+    ExposureEventToOutcomeAssociation,
+    GeneToDiseaseAssociation,
     KnowledgeLevelEnum,
 )
 
@@ -126,7 +130,7 @@ def cell_type_to_edge(disease_id: str, cell_type: dict[str, Any]) -> Association
     )
 
 
-def location_to_edge(disease_id: str, location: dict[str, Any]) -> Association | None:
+def location_to_edge(disease_id: str, location: dict[str, Any]) -> DiseaseOrPhenotypicFeatureToLocationAssociation | None:
     """
     Convert a location entry to a KGX edge.
 
@@ -135,14 +139,14 @@ def location_to_edge(disease_id: str, location: dict[str, Any]) -> Association |
         location: A location dict from pathophysiology[].locations[]
 
     Returns:
-        Association or None if term.id is missing
+        DiseaseOrPhenotypicFeatureToLocationAssociation or None if term.id is missing
     """
     term_id = _get_term_id(location, ["term", "id"])
     if not term_id:
         return None
 
     predicate = "biolink:disease_has_location"
-    return Association(
+    return DiseaseOrPhenotypicFeatureToLocationAssociation(
         id=_make_edge_id(disease_id, predicate, term_id),
         subject=disease_id,
         predicate=predicate,
@@ -195,7 +199,7 @@ def biological_process_to_edge(disease_id: str, process: dict[str, Any]) -> Asso
     )
 
 
-def treatment_to_edge(disease_id: str, treatment: dict[str, Any]) -> Association | None:
+def treatment_to_edge(disease_id: str, treatment: dict[str, Any]) -> ChemicalOrDrugOrTreatmentToDiseaseOrPhenotypicFeatureAssociation | None:
     """
     Convert a treatment entry to a KGX edge.
 
@@ -208,14 +212,14 @@ def treatment_to_edge(disease_id: str, treatment: dict[str, Any]) -> Association
         treatment: A treatment dict from treatments[]
 
     Returns:
-        Association or None if treatment_term.term.id is missing
+        ChemicalOrDrugOrTreatmentToDiseaseOrPhenotypicFeatureAssociation or None if treatment_term.term.id is missing
     """
     treatment_id = _get_term_id(treatment, ["treatment_term", "term", "id"])
     if not treatment_id:
         return None
 
     predicate = "biolink:treats_or_applied_or_studied_to_treat"
-    return Association(
+    return ChemicalOrDrugOrTreatmentToDiseaseOrPhenotypicFeatureAssociation(
         id=_make_edge_id(treatment_id, predicate, disease_id),
         subject=treatment_id,
         predicate=predicate,
@@ -226,7 +230,7 @@ def treatment_to_edge(disease_id: str, treatment: dict[str, Any]) -> Association
     )
 
 
-def gene_to_edge(disease_id: str, gene: dict[str, Any]) -> Association | None:
+def gene_to_edge(disease_id: str, gene: dict[str, Any]) -> GeneToDiseaseAssociation | None:
     """
     Convert a genetic association entry to a KGX edge.
 
@@ -238,7 +242,7 @@ def gene_to_edge(disease_id: str, gene: dict[str, Any]) -> Association | None:
         gene: A gene dict from genetic[]
 
     Returns:
-        Association or None if name is missing
+        GeneToDiseaseAssociation or None if name is missing
     """
     gene_name = gene.get("name") if gene else None
     if not gene_name:
@@ -248,7 +252,7 @@ def gene_to_edge(disease_id: str, gene: dict[str, Any]) -> Association | None:
     gene_id = f"HGNC.SYMBOL:{gene_name}"
     predicate = "biolink:gene_associated_with_condition"
 
-    return Association(
+    return GeneToDiseaseAssociation(
         id=_make_edge_id(gene_id, predicate, disease_id),
         subject=gene_id,
         predicate=predicate,
@@ -259,25 +263,26 @@ def gene_to_edge(disease_id: str, gene: dict[str, Any]) -> Association | None:
     )
 
 
-def exposure_to_edge(disease_id: str, environmental: dict[str, Any]) -> Association | None:
+def exposure_to_edge(disease_id: str, environmental: dict[str, Any]) -> ExposureEventToOutcomeAssociation | None:
     """
     Convert an environmental exposure entry to a KGX edge.
 
     Exposure → Disease using contributes_to (risk factor relationship).
+    Uses ExposureEventToOutcomeAssociation since Disease is-a Outcome in Biolink.
 
     Args:
         disease_id: The disease term ID
         environmental: An environmental dict from environmental[]
 
     Returns:
-        Association or None if exposure_term.term.id is missing
+        ExposureEventToOutcomeAssociation or None if exposure_term.term.id is missing
     """
     exposure_id = _get_term_id(environmental, ["exposure_term", "term", "id"])
     if not exposure_id:
         return None
 
     predicate = "biolink:contributes_to"
-    return Association(
+    return ExposureEventToOutcomeAssociation(
         id=_make_edge_id(exposure_id, predicate, disease_id),
         subject=exposure_id,
         predicate=predicate,

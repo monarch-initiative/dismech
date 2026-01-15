@@ -1,12 +1,20 @@
 """Tests for KGX edge exporter."""
 
 import pytest
-from biolink_model.datamodel.pydanticmodel_v2 import Association
+from biolink_model.datamodel.pydanticmodel_v2 import (
+    Association,
+    ChemicalOrDrugOrTreatmentToDiseaseOrPhenotypicFeatureAssociation,
+    DiseaseOrPhenotypicFeatureToLocationAssociation,
+    DiseaseToPhenotypicFeatureAssociation,
+    ExposureEventToOutcomeAssociation,
+    GeneToDiseaseAssociation,
+)
 
 from dismech.export.kgx_export import (
     KNOWLEDGE_SOURCE,
     biological_process_to_edge,
     cell_type_to_edge,
+    exposure_to_edge,
     gene_to_edge,
     location_to_edge,
     phenotype_to_edge,
@@ -28,7 +36,7 @@ class TestPhenotypeToEdge:
             },
         }
         edge = phenotype_to_edge("MONDO:0004979", phenotype)
-        assert isinstance(edge, Association)
+        assert isinstance(edge, DiseaseToPhenotypicFeatureAssociation)
         assert edge.subject == "MONDO:0004979"
         assert edge.predicate == "biolink:has_phenotype"
         assert edge.object == "HP:0030828"
@@ -88,7 +96,7 @@ class TestLocationToEdge:
             "term": {"id": "UBERON:0000947", "label": "aorta"},
         }
         edge = location_to_edge("MONDO:0007947", location)
-        assert isinstance(edge, Association)
+        assert isinstance(edge, DiseaseOrPhenotypicFeatureToLocationAssociation)
         assert edge.subject == "MONDO:0007947"
         assert edge.predicate == "biolink:disease_has_location"
         assert edge.object == "UBERON:0000947"
@@ -135,7 +143,7 @@ class TestTreatmentToEdge:
             },
         }
         edge = treatment_to_edge("MONDO:0004979", treatment)
-        assert isinstance(edge, Association)
+        assert isinstance(edge, ChemicalOrDrugOrTreatmentToDiseaseOrPhenotypicFeatureAssociation)
         # Treatment is subject, disease is object
         assert edge.subject == "MAXO:0000312"
         assert edge.predicate == "biolink:treats_or_applied_or_studied_to_treat"
@@ -162,7 +170,7 @@ class TestGeneToEdge:
         """Test with a complete gene entry."""
         gene = {"name": "IL4", "association": "Associated"}
         edge = gene_to_edge("MONDO:0004979", gene)
-        assert isinstance(edge, Association)
+        assert isinstance(edge, GeneToDiseaseAssociation)
         assert edge.subject == "HGNC.SYMBOL:IL4"
         assert edge.predicate == "biolink:gene_associated_with_condition"
         assert edge.object == "MONDO:0004979"
@@ -181,6 +189,39 @@ class TestGeneToEdge:
         """Test with empty gene name."""
         gene = {"name": "", "association": "Associated"}
         assert gene_to_edge("MONDO:0004979", gene) is None
+
+
+class TestExposureToEdge:
+    """Tests for exposure_to_edge function."""
+
+    def test_valid_exposure(self):
+        """Test with a complete exposure entry."""
+        environmental = {
+            "name": "Tobacco Smoke",
+            "exposure_term": {
+                "preferred_term": "exposure to tobacco smoking",
+                "term": {"id": "ECTO:6000029", "label": "exposure to tobacco smoking"},
+            },
+        }
+        edge = exposure_to_edge("MONDO:0004979", environmental)
+        assert isinstance(edge, ExposureEventToOutcomeAssociation)
+        # Exposure is subject, disease is object
+        assert edge.subject == "ECTO:6000029"
+        assert edge.predicate == "biolink:contributes_to"
+        assert edge.object == "MONDO:0004979"
+        assert edge.primary_knowledge_source == KNOWLEDGE_SOURCE
+
+    def test_missing_exposure_term(self):
+        """Test with missing exposure_term."""
+        environmental = {"name": "Tobacco Smoke"}
+        assert exposure_to_edge("MONDO:0004979", environmental) is None
+
+    def test_missing_term_id(self):
+        """Test with exposure_term but no term.id."""
+        environmental = {
+            "exposure_term": {"preferred_term": "exposure to tobacco smoking"}
+        }
+        assert exposure_to_edge("MONDO:0004979", environmental) is None
 
 
 class TestTransform:
