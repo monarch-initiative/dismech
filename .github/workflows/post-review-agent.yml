@@ -1,0 +1,243 @@
+name: Post Review Agent
+
+# This workflow scans recent PRs for editorial review comments and takes action:
+# 1. Creates suggested changes (one-click accept) for simple fixes
+# 2. Replies in comment threads with recommendations/questions
+# 3. Creates issues for larger multi-disorder tasks
+
+
+on:
+  # Run daily at 8am UTC
+  schedule:
+    - cron: "0 8 * * *"
+
+  # Allow manual trigger with configurable options
+  workflow_dispatch:
+    inputs:
+      days_back:
+        description: 'Number of days back to scan PRs'
+        required: false
+        default: '7'
+        type: string
+      dry_run:
+        description: 'Dry run mode (no actual changes)'
+        required: false
+        default: 'false'
+        type: boolean
+      pr_number:
+        description: 'Specific PR number to process (optional, leave empty for all recent PRs)'
+        required: false
+        type: string
+      model:
+        description: "Claude model to use"
+        default: claude-opus-4-5-20251101
+        type: choice
+        options:
+          # Current models (4.5)
+          - claude-sonnet-4-5-20250929
+          - claude-haiku-4-5-20251001
+          - claude-opus-4-5-20251101
+          # Legacy models (4.x)
+          - claude-opus-4-1-20250805
+          - claude-sonnet-4-20250514
+          - claude-opus-4-20250514
+          # Legacy models (3.x)
+          - claude-3-7-sonnet-20250219
+          - claude-3-haiku-20240307
+
+jobs:
+  editorial-review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install python tools
+        run: |
+          uv sync
+
+      - name: Install just
+        run: |
+          uv tool install rust-just
+          uv sync
+
+      - name: Run Editorial Review Bot
+        id: editorial-bot
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          show_full_output: true
+          
+
+          # CLI arguments for model config, tools, and MCP
+          claude_args: |
+            --dangerously-skip-permissions
+            --mcp-config '{"mcpServers": {"ols": {"command": "uvx", "args": ["ols-mcp"]}}}'
+            --model ${{ inputs.model }}
+
+          prompt: |
+            # Editorial Review Bot Task
+
+            You are an editorial review bot for the Disorder Mechanisms Knowledge Base (dismech).
+            Your job is to scan recent PRs for reviewer comments and take appropriate action.
+
+            ## Configuration
+
+            - Days back to scan: ${{ inputs.days_back || '7' }}
+            - Dry run mode: ${{ inputs.dry_run || 'false' }}
+            - Specific PR number: ${{ inputs.pr_number || 'all recent' }}
+
+            ## Step 1: Gather PR Review Comments
+
+            Use `gh pr list` to find recent open PRs. Filter by date if needed (focus on PRs
+            from the last week or so). For each PR, fetch review comments using:
+
+            ```bash
+            gh api repos/${{ github.repository }}/pulls/NUMBER/comments
+            ```
+
+            Also get review-level comments (from submitted reviews):
+
+            ```bash
+            gh api repos/${{ github.repository }}/pulls/NUMBER/reviews
+            ```
+
+            Filter for comments that have substantive feedback (not just approvals).
+
+            ## Step 2: Analyze Each Comment
+
+            For each review comment, determine:
+
+            1. **Is this from an editorial reviewer?** (not the PR author, not a bot)
+            2. **Has this comment already been addressed?** (check if there's a reply, or if a suggested change was accepted)
+            3. **What type of action is needed?**
+
+            ## Step 3: Decision Logic
+
+            For each unaddressed editorial comment, choose ONE of these actions:
+
+            ### Action A: Suggested Change (for simple, localized fixes)
+            Use when:
+            - Comment points out a typo, formatting issue, or simple correction
+            - Adding or fixing individual terms, as suggested by the reviewer
+            - Fix is contained to 1-15 lines in a single file
+
+            When making changes that involve biological, clinical, or modeling judgment,
+            be sure to follow full CLAUDE.md instructions and to invoke the relevant subagents, and appropriate skills.
+            Be proactive in searching for and checking terms, use the dismech-term skills proactively.
+
+            Note sometimes legacy review comments will say "such and such a problem can be solved in a future pass".
+            You should be proactive and make easy fixes rather than waiting on future passes.
+
+            To create a suggested change, first get the HEAD SHA:
+            ```bash
+            gh pr view PR_NUMBER --json headRefOid --jq '.headRefOid'
+            ```
+
+            Then create the comment with a suggestion block:
+            ```bash
+            gh api repos/${{ github.repository }}/pulls/PR_NUMBER/comments \
+              -f body='```suggestion
+            corrected line content here
+            ```
+            Explanation of the fix.' \
+              -f commit_id='HEAD_SHA' \
+              -f path='FILE_PATH' \
+              -f line=LINE_NUMBER \
+              -f side='RIGHT'
+            ```
+
+            IMPORTANT: if you are unable to post you changes, then you must report the error and
+            end here. I will fix the config for you.
+
+            ### Action B: Reply in Thread (for clarifications)
+            Use when:
+            - Comment asks a question that needs answering
+            - You have recommendations but no specific code change
+            - More discussion is needed before making changes
+            - The fix requires PR author's judgment
+
+            To reply to an existing comment:
+            ```bash
+            gh api repos/${{ github.repository }}/pulls/PR_NUMBER/comments \
+              -f body='Your response here' \
+              -F in_reply_to=ORIGINAL_COMMENT_ID
+            ```
+
+            IMPORTANT: avoid posting pointless verbiage or just to agree with the reviewer.
+            It is better to be silent than just a "I agree" type comment.
+
+            ### Action C: Create Issue (for larger cross-cutting tasks)
+            Use when:
+            - Comment identifies a pattern that affects multiple disorders
+            - Fix would require changes to 3+ files
+            - Comment suggests a schema or tooling change
+            - Issue would benefit from broader discussion
+
+            Before creating, check for existing issues:
+            ```bash
+            gh issue list --search "keyword from comment" --json number,title
+            ```
+
+            To create:
+            ```bash
+            gh issue create \
+              --title "Editorial: [descriptive title]" \
+              --body "## Origin
+            From review comment on PR #XX by @user:
+            > original comment quote
+
+            ## Scope
+            List of affected disorders/files...
+
+            ## Proposed Action
+            ..." \
+              --label "editorial,enhancement"
+            ```
+
+            ## Step 4: Report Summary
+
+            After processing all comments, provide a summary:
+
+            ```markdown
+            ## Editorial Review Bot Summary
+
+            **PRs Scanned:** X
+            **Comments Analyzed:** Y
+            **Actions Taken:**
+            - Suggested changes created: A
+            - Thread replies posted: B
+            - Issues created: C
+            - Already addressed (skipped): D
+
+            Important: Post this summary as a comment on the PR
+
+            ### Details
+
+            | PR | Comment | Action | Link |
+            |---|---|---|---|
+            | #123 | typo in phenotype | Suggested change | [link] |
+            | #124 | unclear evidence | Thread reply | [link] |
+            ```
+
+            ## Important Guidelines
+
+            1. **Be conservative** - when in doubt, reply in thread rather than making changes
+            2. **Preserve author intent** - suggestions should fix issues without changing meaning
+            3. **Check existing issues** - don't create duplicates
+            4. **Explain your reasoning** - all actions should include clear explanations
+            5. **Dry run mode** - if enabled, report what you WOULD do without actually doing it
+
+            Now begin by scanning the PRs and processing review comments.
