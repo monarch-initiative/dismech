@@ -42,6 +42,52 @@ MODIFIER_TO_DIRECTION = {
 }
 
 
+def _format_evidence(
+    evidence_items: list[dict[str, Any]] | None, indirect: bool = False
+) -> tuple[list[str], list[str]]:
+    """
+    Format evidence items for KGX export.
+
+    Each evidence item is formatted as a concatenated string that preserves
+    the PMID, support status, snippet, and explanation together.
+
+    Args:
+        evidence_items: List of evidence dicts from dismech
+        indirect: If True, flag as inherited from parent mechanism
+
+    Returns:
+        Tuple of (publications list, supporting_text list)
+
+    Note:
+        The `supporting_text` field is not currently available on biolink
+        Association classes (only on TextMiningStudyResult). For MVP, we
+        return the formatted strings but they may not be usable until
+        biolink model is updated. The `publications` list is always usable.
+    """
+    publications = []
+    supporting_text = []
+
+    for e in evidence_items or []:
+        ref = e.get("reference", "")
+        if ref:
+            publications.append(ref)
+
+        # Build concatenated supporting text
+        # Format: [PMID:xxx] [INDIRECT EVIDENCE] [SUPPORT] snippet --- Explanation: explanation
+        supports = e.get("supports", "SUPPORT")
+        snippet = e.get("snippet", "")
+        explanation = e.get("explanation", "")
+
+        if snippet:
+            indirect_flag = "[INDIRECT EVIDENCE] " if indirect else ""
+            text = f"[{ref}] {indirect_flag}[{supports}] {snippet}"
+            if explanation:
+                text += f" --- Explanation: {explanation}"
+            supporting_text.append(text)
+
+    return publications, supporting_text
+
+
 def _make_edge_id(subject: str, predicate: str, obj: str) -> str:
     """Generate a deterministic edge ID from subject, predicate, object."""
     # Use uuid5 with a namespace to create deterministic IDs
@@ -90,6 +136,10 @@ def phenotype_to_edge(disease_id: str, phenotype: dict[str, Any]) -> DiseaseToPh
     frequency = phenotype.get("frequency")
     frequency_qualifier = FREQUENCY_TO_HP.get(frequency) if frequency else None
 
+    # Format evidence (direct - attached to phenotype)
+    # Note: supporting_text not yet available on biolink Association classes
+    publications, _supporting_text = _format_evidence(phenotype.get("evidence"), indirect=False)
+
     predicate = "biolink:has_phenotype"
     return DiseaseToPhenotypicFeatureAssociation(
         id=_make_edge_id(disease_id, predicate, term_id),
@@ -97,19 +147,23 @@ def phenotype_to_edge(disease_id: str, phenotype: dict[str, Any]) -> DiseaseToPh
         predicate=predicate,
         object=term_id,
         frequency_qualifier=frequency_qualifier,
+        publications=publications if publications else None,
         primary_knowledge_source=KNOWLEDGE_SOURCE,
         knowledge_level=KnowledgeLevelEnum.knowledge_assertion,
         agent_type=AgentTypeEnum.manual_validation_of_automated_agent,
     )
 
 
-def cell_type_to_edge(disease_id: str, cell_type: dict[str, Any]) -> Association | None:
+def cell_type_to_edge(
+    disease_id: str, cell_type: dict[str, Any], parent_evidence: list[dict[str, Any]] | None = None
+) -> Association | None:
     """
     Convert a cell type entry to a KGX edge.
 
     Args:
         disease_id: The disease term ID
         cell_type: A cell type dict from pathophysiology[].cell_types[]
+        parent_evidence: Evidence from parent pathophysiology mechanism (indirect)
 
     Returns:
         Association or None if term.id is missing
@@ -118,25 +172,33 @@ def cell_type_to_edge(disease_id: str, cell_type: dict[str, Any]) -> Association
     if not term_id:
         return None
 
+    # Format evidence (indirect - inherited from parent mechanism)
+    # Note: supporting_text not yet available on biolink Association classes
+    publications, _supporting_text = _format_evidence(parent_evidence, indirect=True)
+
     predicate = "biolink:has_participant"
     return Association(
         id=_make_edge_id(disease_id, predicate, term_id),
         subject=disease_id,
         predicate=predicate,
         object=term_id,
+        publications=publications if publications else None,
         primary_knowledge_source=KNOWLEDGE_SOURCE,
         knowledge_level=KnowledgeLevelEnum.knowledge_assertion,
         agent_type=AgentTypeEnum.manual_validation_of_automated_agent,
     )
 
 
-def location_to_edge(disease_id: str, location: dict[str, Any]) -> DiseaseOrPhenotypicFeatureToLocationAssociation | None:
+def location_to_edge(
+    disease_id: str, location: dict[str, Any], parent_evidence: list[dict[str, Any]] | None = None
+) -> DiseaseOrPhenotypicFeatureToLocationAssociation | None:
     """
     Convert a location entry to a KGX edge.
 
     Args:
         disease_id: The disease term ID
         location: A location dict from pathophysiology[].locations[]
+        parent_evidence: Evidence from parent pathophysiology mechanism (indirect)
 
     Returns:
         DiseaseOrPhenotypicFeatureToLocationAssociation or None if term.id is missing
@@ -145,19 +207,26 @@ def location_to_edge(disease_id: str, location: dict[str, Any]) -> DiseaseOrPhen
     if not term_id:
         return None
 
+    # Format evidence (indirect - inherited from parent mechanism)
+    # Note: supporting_text not yet available on biolink Association classes
+    publications, _supporting_text = _format_evidence(parent_evidence, indirect=True)
+
     predicate = "biolink:disease_has_location"
     return DiseaseOrPhenotypicFeatureToLocationAssociation(
         id=_make_edge_id(disease_id, predicate, term_id),
         subject=disease_id,
         predicate=predicate,
         object=term_id,
+        publications=publications if publications else None,
         primary_knowledge_source=KNOWLEDGE_SOURCE,
         knowledge_level=KnowledgeLevelEnum.knowledge_assertion,
         agent_type=AgentTypeEnum.manual_validation_of_automated_agent,
     )
 
 
-def biological_process_to_edge(disease_id: str, process: dict[str, Any]) -> Association | None:
+def biological_process_to_edge(
+    disease_id: str, process: dict[str, Any], parent_evidence: list[dict[str, Any]] | None = None
+) -> Association | None:
     """
     Convert a biological process entry to a KGX edge.
 
@@ -168,6 +237,7 @@ def biological_process_to_edge(disease_id: str, process: dict[str, Any]) -> Asso
     Args:
         disease_id: The disease term ID
         process: A process dict from pathophysiology[].biological_processes[]
+        parent_evidence: Evidence from parent pathophysiology mechanism (indirect)
 
     Returns:
         Association or None if term.id is missing
@@ -182,6 +252,10 @@ def biological_process_to_edge(disease_id: str, process: dict[str, Any]) -> Asso
     modifier = process.get("modifier")
     direction = MODIFIER_TO_DIRECTION.get(modifier) if modifier else None
 
+    # Format evidence (indirect - inherited from parent mechanism)
+    # Note: supporting_text not yet available on biolink Association classes
+    publications, _supporting_text = _format_evidence(parent_evidence, indirect=True)
+
     predicate = "biolink:affects"
     qualifiers = []
     if direction:
@@ -193,6 +267,7 @@ def biological_process_to_edge(disease_id: str, process: dict[str, Any]) -> Asso
         predicate=predicate,
         object=term_id,
         qualifiers=qualifiers if qualifiers else None,
+        publications=publications if publications else None,
         primary_knowledge_source=KNOWLEDGE_SOURCE,
         knowledge_level=KnowledgeLevelEnum.knowledge_assertion,
         agent_type=AgentTypeEnum.manual_validation_of_automated_agent,
@@ -218,12 +293,17 @@ def treatment_to_edge(disease_id: str, treatment: dict[str, Any]) -> ChemicalOrD
     if not treatment_id:
         return None
 
+    # Format evidence (direct - attached to treatment)
+    # Note: supporting_text not yet available on biolink Association classes
+    publications, _supporting_text = _format_evidence(treatment.get("evidence"), indirect=False)
+
     predicate = "biolink:treats_or_applied_or_studied_to_treat"
     return ChemicalOrDrugOrTreatmentToDiseaseOrPhenotypicFeatureAssociation(
         id=_make_edge_id(treatment_id, predicate, disease_id),
         subject=treatment_id,
         predicate=predicate,
         object=disease_id,
+        publications=publications if publications else None,
         primary_knowledge_source=KNOWLEDGE_SOURCE,
         knowledge_level=KnowledgeLevelEnum.knowledge_assertion,
         agent_type=AgentTypeEnum.manual_validation_of_automated_agent,
@@ -252,11 +332,16 @@ def gene_to_edge(disease_id: str, gene: dict[str, Any]) -> GeneToDiseaseAssociat
     gene_id = f"HGNC.SYMBOL:{gene_name}"
     predicate = "biolink:gene_associated_with_condition"
 
+    # Format evidence (direct - attached to genetic entry)
+    # Note: supporting_text not yet available on biolink Association classes
+    publications, _supporting_text = _format_evidence(gene.get("evidence"), indirect=False)
+
     return GeneToDiseaseAssociation(
         id=_make_edge_id(gene_id, predicate, disease_id),
         subject=gene_id,
         predicate=predicate,
         object=disease_id,
+        publications=publications if publications else None,
         primary_knowledge_source=KNOWLEDGE_SOURCE,
         knowledge_level=KnowledgeLevelEnum.knowledge_assertion,
         agent_type=AgentTypeEnum.manual_validation_of_automated_agent,
@@ -281,12 +366,17 @@ def exposure_to_edge(disease_id: str, environmental: dict[str, Any]) -> Exposure
     if not exposure_id:
         return None
 
+    # Format evidence (direct - attached to environmental entry)
+    # Note: supporting_text not yet available on biolink Association classes
+    publications, _supporting_text = _format_evidence(environmental.get("evidence"), indirect=False)
+
     predicate = "biolink:contributes_to"
     return ExposureEventToOutcomeAssociation(
         id=_make_edge_id(exposure_id, predicate, disease_id),
         subject=exposure_id,
         predicate=predicate,
         object=disease_id,
+        publications=publications if publications else None,
         primary_knowledge_source=KNOWLEDGE_SOURCE,
         knowledge_level=KnowledgeLevelEnum.knowledge_assertion,
         agent_type=AgentTypeEnum.manual_validation_of_automated_agent,
@@ -319,21 +409,24 @@ def transform(record: dict[str, Any]) -> Iterator[Association]:
 
     # Extract edges from pathophysiology
     for patho in record.get("pathophysiology") or []:
-        # Cell types
+        # Get parent evidence for indirect attribution to children
+        parent_evidence = patho.get("evidence")
+
+        # Cell types (indirect evidence from parent mechanism)
         for cell_type in patho.get("cell_types") or []:
-            edge = cell_type_to_edge(disease_id, cell_type)
+            edge = cell_type_to_edge(disease_id, cell_type, parent_evidence)
             if edge:
                 yield edge
 
-        # Locations
+        # Locations (indirect evidence from parent mechanism)
         for location in patho.get("locations") or []:
-            edge = location_to_edge(disease_id, location)
+            edge = location_to_edge(disease_id, location, parent_evidence)
             if edge:
                 yield edge
 
-        # Biological processes
+        # Biological processes (indirect evidence from parent mechanism)
         for process in patho.get("biological_processes") or []:
-            edge = biological_process_to_edge(disease_id, process)
+            edge = biological_process_to_edge(disease_id, process, parent_evidence)
             if edge:
                 yield edge
 
