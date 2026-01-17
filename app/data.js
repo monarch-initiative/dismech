@@ -10850,6 +10850,56 @@ window.searchData = [
     "num_treatments": 5
   },
   {
+    "name": "Polycystic echinococcosis",
+    "disease_id": "MONDO:0000288",
+    "category": "Infectious Disease",
+    "parents": [
+      "Echinococcosis",
+      "Liver disorder",
+      "Digestive system infectious disorder"
+    ],
+    "subtypes": [],
+    "description": "Polycystic echinococcosis is a zoonotic helminth infection caused by the larval stage of Echinococcus vogeli, producing multilocular hydatid cysts that typically involve the liver and can infiltrate adjacent organs.",
+    "pathophysiology": [
+      "Hepatic metacestode implantation",
+      "Daughter cyst proliferation and matrix remodeling",
+      "Mass effect and local invasion"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "extracellular matrix organization"
+    ],
+    "phenotypes": [
+      "Polycystic hepatic lesion",
+      "Hepatic abscess complication",
+      "Thoracic abscess from hepatic fistula"
+    ],
+    "phenotype_categories": [],
+    "phenotype_ids": [
+      "HP:0001407",
+      "HP:0100523",
+      "HP:0025044"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Albendazole therapy",
+      "Radical hepatic resection"
+    ],
+    "environmental": [
+      "Bush dog\u2013paca sylvatic cycle and domestic dog bridging",
+      "Climate stability and hunting patterns driving spillover"
+    ],
+    "biochemical": [],
+    "source_file": "Polycystic_Echinococcosis.yaml",
+    "page_url": "../pages/disorders/Polycystic_echinococcosis.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 3,
+    "num_genes": 0,
+    "num_treatments": 2
+  },
+  {
     "name": "Polycystic Kidney Disease",
     "disease_id": "MONDO:0020642",
     "category": "Mendelian",
