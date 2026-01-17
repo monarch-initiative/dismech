@@ -133,6 +133,44 @@ Use OAK to search for MAXO terms:
 uv run runoak -i sqlite:obo:maxo search "physical therapy"
 ```
 
+### Clinical Trials
+
+Clinical trials can be added to disease entries with evidence validated against ClinicalTrials.gov:
+
+```yaml
+clinical_trials:
+- name: NCT05813288
+  phase: Phase III
+  status: Completed
+  description: Brief description of the trial's objective and approach
+  target_phenotypes:
+    - preferred_term: Wheezing
+      term:
+        id: HP:0030828
+        label: Wheezing
+    - preferred_term: Breathlessness
+      term:
+        id: HP:0002094
+        label: Dyspnea
+  evidence:
+    - reference: clinicaltrials:NCT05813288
+      supports: SUPPORT
+      snippet: "Exact quote from the trial summary"
+      explanation: "Why this trial is relevant to the disease"
+```
+
+**Fetching trial data:**
+```bash
+just fetch-reference NCT05813288  # Caches trial data from ClinicalTrials.gov API
+```
+
+**Key fields:**
+- `name`: NCT identifier (e.g., NCT05813288)
+- `phase`: Trial phase (Phase I, II, III, IV)
+- `status`: Recruitment status (Recruiting, Completed, Terminated, Active not recruiting)
+- `target_phenotypes`: Phenotypes addressed by the trial (with HP ontology terms)
+- `evidence`: Evidence items validated against ClinicalTrials.gov
+
 ## Testing
 
 Tests are in `tests/test_data.py`:
