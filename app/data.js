@@ -1355,6 +1355,82 @@ window.searchData = [
     "num_treatments": 7
   },
   {
+    "name": "Auto-Brewery Syndrome",
+    "disease_id": "MONDO:0971031",
+    "category": "Complex",
+    "parents": [
+      "Gastrointestinal disorders",
+      "Metabolic disorders"
+    ],
+    "subtypes": [],
+    "description": "Auto-brewery syndrome (ABS), also known as gut fermentation syndrome or endogenous ethanol fermentation, is a rare condition where intoxicating quantities of ethanol are produced through endogenous fermentation of carbohydrates within the gastrointestinal tract by fungi or bacteria, leading to symptoms of alcohol intoxication without alcohol consumption.\n",
+    "pathophysiology": [
+      "Fungal Gut Fermentation",
+      "Bacterial Fermentation by Klebsiella",
+      "Impaired Hepatic Ethanol Clearance"
+    ],
+    "cell_types": [
+      "Enterocyte",
+      "Hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000584",
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "Fermentation",
+      "Ethanol Metabolic Process"
+    ],
+    "phenotypes": [
+      "Alcohol Intoxication Symptoms",
+      "Dysarthria",
+      "Gait Disturbance",
+      "Confusion",
+      "Memory Impairment",
+      "Abdominal Distention",
+      "Vomiting",
+      "Seizures"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Gastrointestinal"
+    ],
+    "phenotype_ids": [
+      "HP:0001251",
+      "HP:0001260",
+      "HP:0001288",
+      "HP:0001289",
+      "HP:0002354",
+      "HP:0003270",
+      "HP:0002013",
+      "HP:0001250"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Antifungal Therapy",
+      "Low Carbohydrate Diet",
+      "Probiotic Therapy",
+      "Fecal Microbiota Transplantation"
+    ],
+    "environmental": [
+      "High Carbohydrate Diet",
+      "Prior Antibiotic Use",
+      "Gastrointestinal Anatomical Abnormalities"
+    ],
+    "biochemical": [],
+    "source_file": "Auto-Brewery_Syndrome.yaml",
+    "page_url": "../pages/disorders/Auto-Brewery_Syndrome.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 3,
+    "num_genes": 0,
+    "num_treatments": 4
+  },
+  {
     "name": "Autoimmune Hemolytic Anemia",
     "disease_id": "MONDO:0020108",
     "category": "Autoimmune",
@@ -10848,6 +10924,56 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 3,
     "num_treatments": 5
+  },
+  {
+    "name": "Polycystic echinococcosis",
+    "disease_id": "MONDO:0000288",
+    "category": "Infectious Disease",
+    "parents": [
+      "Echinococcosis",
+      "Liver disorder",
+      "Digestive system infectious disorder"
+    ],
+    "subtypes": [],
+    "description": "Polycystic echinococcosis is a zoonotic helminth infection caused by the larval stage of Echinococcus vogeli, producing multilocular hydatid cysts that typically involve the liver and can infiltrate adjacent organs.",
+    "pathophysiology": [
+      "Hepatic metacestode implantation",
+      "Daughter cyst proliferation and matrix remodeling",
+      "Mass effect and local invasion"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "extracellular matrix organization"
+    ],
+    "phenotypes": [
+      "Polycystic hepatic lesion",
+      "Hepatic abscess complication",
+      "Thoracic abscess from hepatic fistula"
+    ],
+    "phenotype_categories": [],
+    "phenotype_ids": [
+      "HP:0001407",
+      "HP:0100523",
+      "HP:0025044"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Albendazole therapy",
+      "Radical hepatic resection"
+    ],
+    "environmental": [
+      "Bush dog\u2013paca sylvatic cycle and domestic dog bridging",
+      "Climate stability and hunting patterns driving spillover"
+    ],
+    "biochemical": [],
+    "source_file": "Polycystic_Echinococcosis.yaml",
+    "page_url": "../pages/disorders/Polycystic_echinococcosis.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 3,
+    "num_genes": 0,
+    "num_treatments": 2
   },
   {
     "name": "Polycystic Kidney Disease",
