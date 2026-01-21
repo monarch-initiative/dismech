@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT07061847
+reference_id: "clinicaltrials:NCT07061847"
 title: Bilateral Middle Meningeal Artery Lidocaine Infusion for Chronic Debilitating Migraines
 content_type: summary
 ---
