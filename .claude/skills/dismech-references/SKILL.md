@@ -12,8 +12,9 @@ description: >
 ## Overview
 
 Validate and repair evidence references in the dismech disorder knowledge base. This ensures
-that quoted snippets actually appear in the cited PubMed abstracts, preventing fabricated
-or misquoted evidence from entering the knowledge base.
+that quoted snippets actually appear in the cited sources, preventing fabricated or misquoted
+evidence from entering the knowledge base. The tool supports both PubMed references (PMID)
+and ClinicalTrials.gov data (NCT identifiers).
 
 ## When to Use
 
@@ -29,11 +30,16 @@ All evidence items follow this YAML structure:
 
 ```yaml
 evidence:
-  - reference: PMID:12345678
+  - reference: PMID:12345678  # or clinicaltrials:NCT05813288
     supports: SUPPORT  # SUPPORT, REFUTE, PARTIAL, NO_EVIDENCE, WRONG_STATEMENT
-    snippet: "Exact quoted text from the abstract"
+    snippet: "Exact quoted text from the abstract or trial summary"
     explanation: "Why this evidence supports/refutes the claim"
 ```
+
+### Reference Types
+
+- **PMID**: PubMed references (e.g., `PMID:12345678`) - validated against PubMed abstracts
+- **clinicaltrials**: ClinicalTrials.gov references (e.g., `clinicaltrials:NCT05813288`) - validated against ClinicalTrials.gov API via linkml-reference-validator
 
 ### Support Classifications
 
@@ -95,9 +101,24 @@ uv run linkml-reference-validator repair data kb/disorders/Cholera.yaml \
 The `--fix-threshold 0.80` means snippets with 80%+ similarity to the actual abstract
 text will be automatically corrected.
 
+## Fetching Clinical Trial References
+
+Use the `just fetch-reference` command to cache trial data from ClinicalTrials.gov:
+
+```bash
+just fetch-reference NCT05813288
+```
+
+This will:
+1. Fetch the trial data from ClinicalTrials.gov API
+2. Cache it as markdown in `references_cache/clinicaltrials_NCT05813288.md`
+3. Make the snippet text available for validation
+
+The cached file contains the trial title, status, and summary that you can quote from.
+
 ## Common Error Patterns
 
-### 1. Snippet Not Found in Abstract
+### 1. Snippet Not Found in Abstract/Trial Data
 ```
 ERROR: Snippet not found in reference PMID:12345678
   Snippet: "The patient showed symptoms..."
@@ -215,12 +236,45 @@ The evidence structure is defined in `src/dismech/schema/dismech.yaml`:
 EvidenceItem:
   attributes:
     reference:
-      description: PMID or DOI reference
-      pattern: "^PMID:\\d+$|^DOI:.*$"
+      description: PMID, DOI, or ClinicalTrials.gov reference
+      pattern: "^PMID:\\d+$|^DOI:.*$|^clinicaltrials:NCT\\d+$"
     supports:
       range: SupportType
     snippet:
       description: Quoted text from the reference
     explanation:
       description: Why this evidence supports/refutes the claim
+```
+
+### Clinical Trials Integration
+
+The `ClinicalTrial` class in the schema supports:
+- **name**: NCT identifier or trial name
+- **phase**: Trial phase (Phase I, II, III, IV)
+- **status**: Recruitment/trial status (Recruiting, Completed, Terminated, etc.)
+- **description**: Summary of the trial
+- **target_phenotypes**: Phenotypes the trial addresses (as PhenotypeDescriptor objects with HP ontology terms)
+- **evidence**: Evidence items validated against ClinicalTrials.gov
+
+Example clinical trial entry with ontology-linked phenotypes:
+```yaml
+clinical_trials:
+- name: NCT05813288
+  phase: Phase III
+  status: Completed
+  description: Study of dexpramipexole in severe eosinophilic asthma
+  target_phenotypes:
+    - preferred_term: Wheezing
+      term:
+        id: HP:0030828
+        label: Wheezing
+    - preferred_term: Breathlessness
+      term:
+        id: HP:0002094
+        label: Dyspnea
+  evidence:
+  - reference: clinicaltrials:NCT05813288
+    supports: SUPPORT
+    snippet: "The objective of this clinical study is to investigate the safety, tolerability, and efficacy of dexpramipexole in participants with inadequately controlled severe eosinophilic asthma."
+    explanation: "This trial directly evaluates a therapeutic approach for severe eosinophilic asthma"
 ```

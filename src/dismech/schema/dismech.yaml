@@ -38,6 +38,8 @@ prefixes:
   synapse: "https://www.synapse.org/#!Synapse:"
   # Case-level phenotype collections
   phenopacket-store: https://github.com/monarch-initiative/phenopacket-store/tree/main/notebooks/
+  # Clinical trials
+  clinicaltrials: https://clinicaltrials.gov/study/
   # Genetic variation databases
   clinvar: https://www.ncbi.nlm.nih.gov/clinvar/variation/
   # Taxonomy
@@ -120,6 +122,15 @@ enums:
         description: Regulation is impaired (may be increased or decreased)
       ABSENT:
         description: Not occurring or not present
+  LateralityEnum:
+    description: Laterality qualifier for anatomical structures or procedures
+    permissible_values:
+      LEFT:
+        description: Left side of the body
+      RIGHT:
+        description: Right side of the body
+      BILATERAL:
+        description: Both sides of the body
   AssayTerm:
     description: A term representing an assay
     reachable_from:
@@ -230,6 +241,7 @@ enums:
     reachable_from:
       source_nodes:
         - NCBITaxon:1  ## root of taxonomy
+        - NCBITaxon:10239 ## viruses (may not always be accessible from root)
       is_direct: false
       relationship_types:
         - rdfs:subClassOf
@@ -271,6 +283,42 @@ enums:
         description: Initial file creation
       EDITED:
         description: File modification
+
+  ClinicalTrialPhaseEnum:
+    description: Clinical trial phase categories per FDA/NIH standards
+    permissible_values:
+      PHASE_I:
+        description: Phase I - Initial safety and dosage assessment in small group (20-100 participants)
+      PHASE_II:
+        description: Phase II - Efficacy and side effects assessment in larger group (100-500 participants)
+      PHASE_III:
+        description: Phase III - Efficacy confirmation and monitoring in large population (1000-5000 participants)
+      PHASE_IV:
+        description: Phase IV - Post-market surveillance and additional benefits/risks studies
+      NOT_APPLICABLE:
+        description: Trial does not follow standard FDA phase classification (e.g., observational, device studies)
+
+  ClinicalTrialStatusEnum:
+    description: Clinical trial recruitment and status categories per ClinicalTrials.gov
+    permissible_values:
+      RECRUITING:
+        description: Currently enrolling participants
+      NOT_RECRUITING:
+        description: Not currently enrolling but may in the future
+      ACTIVE_NOT_RECRUITING:
+        description: Actively recruiting previously enrolled participants (closed to new enrollment)
+      COMPLETED:
+        description: Trial data collection and analysis completed
+      ENROLLING_BY_INVITATION:
+        description: Enrollment restricted to invited participants only
+      SUSPENDED:
+        description: Temporarily halted pending review or administrative action
+      TERMINATED:
+        description: Stopped before completion, may include safety or efficacy concerns
+      WITHDRAWN:
+        description: Closed before enrollment began (never enrolled participants)
+      UNKNOWN:
+        description: Status unknown or not provided
 
   ComputationalModelTypeEnum:
     description: Type of computational or in-silico model
@@ -317,6 +365,23 @@ slots:
   modifier:
     description: Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)
     range: ModifierEnum
+  located_in:
+    description: Anatomical location where this entity/process occurs or procedure is performed
+    range: AnatomicalEntityDescriptor
+    inlined: true
+  laterality:
+    description: Laterality qualifier (left, right, or bilateral)
+    range: LateralityEnum
+  therapeutic_agent:
+    description: >-
+      The drug, chemical, or therapeutic agent used in a treatment. Use when the MAXO term
+      is generic (e.g., pharmacotherapy) but specific drugs are involved.
+    range: ChemicalEntityDescriptor
+    inlined: true
+    multivalued: true
+    comments:
+      - Bind to CHEBI for specific chemicals/drugs
+      - Can also use NCIT for drug classes when CHEBI term unavailable
   qualifiers:
     description: >-
       List of predicate-value pairs for formal post-composition. Allows OWL-like
@@ -324,6 +389,7 @@ slots:
     multivalued: true
     range: Qualifier
     inlined_as_list: true
+    deprecated: Prefer explicit slots like located_in and laterality instead of generic qualifiers
   predicate:
     description: The relationship/predicate in a qualifier (e.g., RO:0002233 'has input')
     range: Descriptor
@@ -409,6 +475,8 @@ slots:
   title:
     description: Title of the publication
     range: string
+    implements:
+      - linkml:title
   subtype:
     examples:
       - value: Eyelid Myoclonia with Absences
@@ -430,6 +498,13 @@ slots:
     examples:
       - value: Active TB
     range: PhaseTerm
+  status:
+    description: Status or state of a clinical trial or other process
+    examples:
+      - value: Recruiting
+      - value: Completed
+      - value: Terminated
+    range: string
   age_range:
     examples:
       - value: Childhood-Adolescence
@@ -574,6 +649,10 @@ slots:
   subtype_term:
     description: The MONDO term for a disease subtype
     range: DiseaseDescriptor
+    inlined: true
+  infectious_agent_term:
+    description: The NCBITaxon term for this infectious agent
+    range: OrganismDescriptor
     inlined: true
   exposure_term:
     description: The ECTO/XCO term for this exposure event
@@ -794,17 +873,21 @@ slots:
     range: string
     required: true
   target_phenotypes:
-    description: Names of phenotypes that this treatment addresses or targets
+    description: Phenotypes that this treatment or trial addresses or targets
     multivalued: true
-    range: string
+    range: PhenotypeDescriptor
+    inlined_as_list: true
     comments:
       - Should reference phenotype names defined in the same disease's phenotypes list
-      - Enables linking treatments to the symptoms/manifestations they aim to manage
+      - Enables linking treatments/trials to the symptoms/manifestations they aim to manage
+      - Each phenotype can include ontology term references (HP)
   # Dataset-related slots
   accession:
     description: Dataset accession identifier as a CURIE (e.g., geo:GSE67472)
     range: uriorcurie
     identifier: true
+    implements:
+      - linkml:authoritative_reference
   organism:
     description: The organism from which samples were derived
     range: OrganismDescriptor
@@ -849,6 +932,12 @@ slots:
     range: Dataset
     inlined_as_list: true
     recommended: true
+  clinical_trials:
+    description: Clinical trials relevant to disease treatment and research
+    multivalued: true
+    range: ClinicalTrial
+    inlined_as_list: true
+    recommended: false
   curation_history:
     description: Audit trail of AI-assisted curation events
     multivalued: true
@@ -930,13 +1019,15 @@ classes:
     abstract: true
     description: >-
       Base class for structured descriptors that allow a preferred term,
-      optional description, optional ontology term binding, and optional modifier/qualifiers
-      for post-composition.
+      optional description, optional ontology term binding, and post-composition
+      via modifier, located_in, and laterality slots.
     slots:
       - preferred_term
       - description
       - term
       - modifier
+      - located_in
+      - laterality
       - qualifiers
     slot_usage:
       description:
@@ -946,12 +1037,14 @@ classes:
           rigid standardization of the term object.
         recommended: false
 
-  # Post-composition classes
+  # Post-composition classes (deprecated - use explicit slots instead)
   Qualifier:
     description: >-
       A predicate-value pair for formal post-composition. Allows OWL-like
       expressivity with controlled predicates and values, both as full Descriptors.
+    deprecated: Use explicit slots like located_in and laterality on Descriptor instead
     comments:
+      - DEPRECATED - prefer explicit slots (located_in, laterality) for better constraints
       - Use for formal semantic relationships like "has_input some X"
       - Both predicate and value are Descriptors, allowing recursive composition
       - Predicate typically uses RO (Relation Ontology) terms
@@ -1044,6 +1137,8 @@ classes:
   TreatmentDescriptor:
     is_a: Descriptor
     description: A descriptor for treatments/medical actions, bindable to Medical Action Ontology (MAXO)
+    slots:
+      - therapeutic_agent
     slot_usage:
       term:
         description: Optional MAXO treatment term reference
@@ -1051,6 +1146,13 @@ classes:
           - binds_value_of: id
             range: TreatmentActionTerm
             obligation_level: REQUIRED
+      therapeutic_agent:
+        description: >-
+          The drug(s) or chemical agent(s) used in this treatment. Use when the MAXO term
+          is generic (e.g., pharmacotherapy MAXO:0000058) but specific drugs are involved.
+        comments:
+          - Prefer CHEBI terms for specific drugs (e.g., CHEBI:15365 for aspirin)
+          - Use NCIT for drug classes when specific CHEBI term unavailable
 
   ExposureDescriptor:
     is_a: Descriptor
@@ -1123,6 +1225,40 @@ classes:
           description is more human-readable and may be used to communicate nuances not captured by the
           rigid standardization of the title slot.
         recommended: true
+
+  ClinicalTrial:
+    description: A clinical trial relevant to treatment or research of a disease
+    comments:
+      - Uses NCT identifiers from ClinicalTrials.gov
+      - Evidence and supporting text can be validated via linkml-reference-validator against ClinicalTrials.gov API
+    slots:
+      - name
+      - description
+      - phase
+      - status
+      - evidence
+      - target_phenotypes
+      - notes
+      - review_notes
+    slot_usage:
+      name:
+        description: NCT identifier (e.g., NCT00000001) or trial name
+        identifier: false
+      description:
+        description: >-
+          Brief summary or key details of the clinical trial
+        recommended: true
+      phase:
+        range: ClinicalTrialPhaseEnum
+        description: Trial phase (Phase I, Phase II, Phase III, Phase IV, or Not Applicable)
+        recommended: true
+      status:
+        range: ClinicalTrialStatusEnum
+        description: Recruitment or trial status (e.g., Recruiting, Completed, Terminated, Active not recruiting)
+        recommended: true
+      evidence:
+        description: Supporting evidence with snippets from trial documentation
+        recommended: false
 
   ComputationalModel:
     description: A computational or in-silico model relevant to understanding disease mechanisms
@@ -1348,6 +1484,7 @@ classes:
       - inheritance
       - animal_models
       - datasets
+      - clinical_trials
       - computational_models
       - notes
       - review_notes
@@ -1391,6 +1528,7 @@ classes:
   InfectiousAgent:
     slots:
       - name
+      - infectious_agent_term
       - evidence
       - description
       - has_subtypes
