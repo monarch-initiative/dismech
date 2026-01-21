@@ -9035,6 +9035,87 @@ window.searchData = [
     "num_treatments": 5
   },
   {
+    "name": "Melkersson-Rosenthal syndrome",
+    "disease_id": "MONDO:0007969",
+    "category": "Genetic",
+    "parents": [
+      "Granulomatous disease",
+      "Autoinflammatory syndrome"
+    ],
+    "subtypes": [],
+    "description": "Melkersson-Rosenthal syndrome is characterized by non-caseating granulomatous inflammation of orofacial tissues with epithelioid macrophages, multinucleated giant cells, and perivascular/perineural lymphocytic infiltration. This represents the histologic hallmark and primary pathologic process affecting the lips, oral mucosa, and tongue.\n",
+    "pathophysiology": [
+      "Non-caseating granulomatous inflammation with epithelioid histiocytes",
+      "Dysregulated Th1/Th17 cytokine signaling with IL-12/23 and TNF-\u03b1 involvement",
+      "Lymphatic dysfunction with intralymphatic histiocytosis and persistent edema"
+    ],
+    "cell_types": [
+      "epithelioid macrophage",
+      "T lymphocyte",
+      "endothelial cell of lymphatic vessel"
+    ],
+    "cell_type_ids": [
+      "CL:0002150",
+      "CL:0000084",
+      "CL:0002138"
+    ],
+    "biological_processes": [
+      "granuloma formation",
+      "leukocyte migration",
+      "response to tumor necrosis factor",
+      "interferon-gamma-mediated signaling pathway",
+      "lymphatic vessel development"
+    ],
+    "phenotypes": [
+      "Recurrent facial edema",
+      "Facial paralysis",
+      "Lingual swelling and macroglossia",
+      "Migraine"
+    ],
+    "phenotype_categories": [
+      "Facial",
+      "Neurological",
+      "Oral"
+    ],
+    "phenotype_ids": [
+      "HP:0000282",
+      "HP:0007209",
+      "HP:0000158",
+      "HP:0002076"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "RARE"
+    ],
+    "genes": [
+      "TNF-\u03b1 pathway involvement",
+      "IFN-\u03b3 pathway involvement in autoimmune/allergic context",
+      "IL-12/IL-23 signaling pathway",
+      "SCN1A variants in rare phenotypes"
+    ],
+    "treatments": [
+      "Intralesional corticosteroid injection",
+      "Systemic corticosteroids",
+      "Anti-TNF therapy (infliximab)",
+      "Anti-IL-12/23 therapy (ustekinumab)",
+      "Supportive care"
+    ],
+    "environmental": [
+      "Immune and allergic triggers"
+    ],
+    "biochemical": [
+      "TNF-\u03b1 elevation",
+      "Interferon-gamma (IFN-\u03b3) elevation",
+      "IL-12 and IL-23"
+    ],
+    "source_file": "Melkersson_Rosenthal_syndrome.yaml",
+    "page_url": "../pages/disorders/Melkersson-Rosenthal_syndrome.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 3,
+    "num_genes": 4,
+    "num_treatments": 5
+  },
+  {
     "name": "Meniere's Disease",
     "disease_id": "MONDO:0007972",
     "category": "Complex",
