@@ -86,6 +86,9 @@ prefixes:
   phenopacket-store:
     prefix_prefix: phenopacket-store
     prefix_reference: https://github.com/monarch-initiative/phenopacket-store/tree/main/notebooks/
+  clinicaltrials:
+    prefix_prefix: clinicaltrials
+    prefix_reference: https://clinicaltrials.gov/study/
   clinvar:
     prefix_prefix: clinvar
     prefix_reference: https://www.ncbi.nlm.nih.gov/clinvar/variation/
@@ -723,6 +726,66 @@ enums:
       EDITED:
         text: EDITED
         description: File modification
+  ClinicalTrialPhaseEnum:
+    name: ClinicalTrialPhaseEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/ClinicalTrialPhaseEnum
+    description: Clinical trial phase categories per FDA/NIH standards
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    permissible_values:
+      PHASE_I:
+        text: PHASE_I
+        description: Phase I - Initial safety and dosage assessment in small group
+          (20-100 participants)
+      PHASE_II:
+        text: PHASE_II
+        description: Phase II - Efficacy and side effects assessment in larger group
+          (100-500 participants)
+      PHASE_III:
+        text: PHASE_III
+        description: Phase III - Efficacy confirmation and monitoring in large population
+          (1000-5000 participants)
+      PHASE_IV:
+        text: PHASE_IV
+        description: Phase IV - Post-market surveillance and additional benefits/risks
+          studies
+      NOT_APPLICABLE:
+        text: NOT_APPLICABLE
+        description: Trial does not follow standard FDA phase classification (e.g.,
+          observational, device studies)
+  ClinicalTrialStatusEnum:
+    name: ClinicalTrialStatusEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/ClinicalTrialStatusEnum
+    description: Clinical trial recruitment and status categories per ClinicalTrials.gov
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    permissible_values:
+      RECRUITING:
+        text: RECRUITING
+        description: Currently enrolling participants
+      NOT_RECRUITING:
+        text: NOT_RECRUITING
+        description: Not currently enrolling but may in the future
+      ACTIVE_NOT_RECRUITING:
+        text: ACTIVE_NOT_RECRUITING
+        description: Actively recruiting previously enrolled participants (closed
+          to new enrollment)
+      COMPLETED:
+        text: COMPLETED
+        description: Trial data collection and analysis completed
+      ENROLLING_BY_INVITATION:
+        text: ENROLLING_BY_INVITATION
+        description: Enrollment restricted to invited participants only
+      SUSPENDED:
+        text: SUSPENDED
+        description: Temporarily halted pending review or administrative action
+      TERMINATED:
+        text: TERMINATED
+        description: Stopped before completion, may include safety or efficacy concerns
+      WITHDRAWN:
+        text: WITHDRAWN
+        description: Closed before enrollment began (never enrolled participants)
+      UNKNOWN:
+        text: UNKNOWN
+        description: Status unknown or not provided
   ComputationalModelTypeEnum:
     name: ComputationalModelTypeEnum
     definition_uri: https://w3id.org/monarch-initiative/dismech/ComputationalModelTypeEnum
@@ -772,6 +835,7 @@ slots:
     identifier: true
     owner: ModelingConsideration
     domain_of:
+    - ClinicalTrial
     - ComputationalModel
     - DifferentialDiagnosis
     - Subtype
@@ -803,6 +867,7 @@ slots:
     domain_of:
     - Descriptor
     - Dataset
+    - ClinicalTrial
     - ComputationalModel
     - DifferentialDiagnosis
     - Subtype
@@ -974,6 +1039,7 @@ slots:
     owner: ModelingConsideration
     domain_of:
     - Dataset
+    - ClinicalTrial
     - ComputationalModel
     - DifferentialDiagnosis
     - Subtype
@@ -1021,6 +1087,7 @@ slots:
     slot_uri: dismech:review_notes
     owner: Treatment
     domain_of:
+    - ClinicalTrial
     - Subtype
     - ProgressionInfo
     - Phenotype
@@ -1225,8 +1292,23 @@ slots:
     slot_uri: dismech:phase
     owner: ProgressionInfo
     domain_of:
+    - ClinicalTrial
     - ProgressionInfo
     range: PhaseTerm
+  status:
+    name: status
+    definition_uri: https://w3id.org/monarch-initiative/dismech/status
+    description: Status or state of a clinical trial or other process
+    examples:
+    - value: Recruiting
+    - value: Completed
+    - value: Terminated
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:status
+    owner: ClinicalTrial
+    domain_of:
+    - ClinicalTrial
+    range: string
   age_range:
     name: age_range
     definition_uri: https://w3id.org/monarch-initiative/dismech/age_range
@@ -1271,6 +1353,7 @@ slots:
     owner: Diagnosis
     domain_of:
     - Dataset
+    - ClinicalTrial
     - ComputationalModel
     - DifferentialDiagnosis
     - Prevalence
@@ -2297,17 +2380,22 @@ slots:
   target_phenotypes:
     name: target_phenotypes
     definition_uri: https://w3id.org/monarch-initiative/dismech/target_phenotypes
-    description: Names of phenotypes that this treatment addresses or targets
+    description: Phenotypes that this treatment or trial addresses or targets
     comments:
     - Should reference phenotype names defined in the same disease's phenotypes list
-    - Enables linking treatments to the symptoms/manifestations they aim to manage
+    - Enables linking treatments/trials to the symptoms/manifestations they aim to
+      manage
+    - Each phenotype can include ontology term references (HP)
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:target_phenotypes
     owner: Treatment
     domain_of:
+    - ClinicalTrial
     - Treatment
-    range: string
+    range: PhenotypeDescriptor
     multivalued: true
+    inlined: true
+    inlined_as_list: true
   accession:
     name: accession
     definition_uri: https://w3id.org/monarch-initiative/dismech/accession
@@ -2447,6 +2535,20 @@ slots:
     - Disease
     range: Dataset
     recommended: true
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
+  clinical_trials:
+    name: clinical_trials
+    definition_uri: https://w3id.org/monarch-initiative/dismech/clinical_trials
+    description: Clinical trials relevant to disease treatment and research
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:clinical_trials
+    owner: Disease
+    domain_of:
+    - Disease
+    range: ClinicalTrial
+    recommended: false
     multivalued: true
     inlined: true
     inlined_as_list: true
@@ -2976,6 +3078,99 @@ slots:
     usage_slot_name: description
     range: string
     recommended: true
+  ClinicalTrial_name:
+    name: ClinicalTrial_name
+    definition_uri: https://w3id.org/monarch-initiative/dismech/name
+    description: NCT identifier (e.g., NCT00000001) or trial name
+    examples:
+    - value: Adolescent Nephronophthisis
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: name
+    domain: ClinicalTrial
+    slot_uri: dismech:name
+    identifier: true
+    alias: name
+    owner: ClinicalTrial
+    domain_of:
+    - ClinicalTrial
+    is_usage_slot: true
+    usage_slot_name: name
+    range: string
+    required: true
+  ClinicalTrial_description:
+    name: ClinicalTrial_description
+    definition_uri: https://w3id.org/monarch-initiative/dismech/description
+    description: Brief summary or key details of the clinical trial
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: description
+    domain: ClinicalTrial
+    slot_uri: dismech:description
+    alias: description
+    owner: ClinicalTrial
+    domain_of:
+    - ClinicalTrial
+    is_usage_slot: true
+    usage_slot_name: description
+    range: string
+    recommended: true
+  ClinicalTrial_phase:
+    name: ClinicalTrial_phase
+    definition_uri: https://w3id.org/monarch-initiative/dismech/phase
+    description: Trial phase (Phase I, Phase II, Phase III, Phase IV, or Not Applicable)
+    examples:
+    - value: Active TB
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: phase
+    domain: ClinicalTrial
+    slot_uri: dismech:phase
+    alias: phase
+    owner: ClinicalTrial
+    domain_of:
+    - ClinicalTrial
+    is_usage_slot: true
+    usage_slot_name: phase
+    range: ClinicalTrialPhaseEnum
+    recommended: true
+  ClinicalTrial_status:
+    name: ClinicalTrial_status
+    definition_uri: https://w3id.org/monarch-initiative/dismech/status
+    description: Recruitment or trial status (e.g., Recruiting, Completed, Terminated,
+      Active not recruiting)
+    examples:
+    - value: Recruiting
+    - value: Completed
+    - value: Terminated
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: status
+    domain: ClinicalTrial
+    slot_uri: dismech:status
+    alias: status
+    owner: ClinicalTrial
+    domain_of:
+    - ClinicalTrial
+    is_usage_slot: true
+    usage_slot_name: status
+    range: ClinicalTrialStatusEnum
+    recommended: true
+  ClinicalTrial_evidence:
+    name: ClinicalTrial_evidence
+    definition_uri: https://w3id.org/monarch-initiative/dismech/evidence
+    description: Supporting evidence with snippets from trial documentation
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: evidence
+    domain: ClinicalTrial
+    slot_uri: dismech:evidence
+    alias: evidence
+    owner: ClinicalTrial
+    domain_of:
+    - ClinicalTrial
+    is_usage_slot: true
+    usage_slot_name: evidence
+    range: EvidenceItem
+    recommended: true
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
   DifferentialDiagnosis_description:
     name: DifferentialDiagnosis_description
     definition_uri: https://w3id.org/monarch-initiative/dismech/description
@@ -3496,6 +3691,49 @@ classes:
           of the title slot.
         recommended: true
     class_uri: dismech:Dataset
+  ClinicalTrial:
+    name: ClinicalTrial
+    definition_uri: https://w3id.org/monarch-initiative/dismech/ClinicalTrial
+    description: A clinical trial relevant to treatment or research of a disease
+    comments:
+    - Uses NCT identifiers from ClinicalTrials.gov
+    - Evidence and supporting text can be validated via linkml-reference-validator
+      against ClinicalTrials.gov API
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slots:
+    - ClinicalTrial_name
+    - ClinicalTrial_description
+    - ClinicalTrial_phase
+    - ClinicalTrial_status
+    - ClinicalTrial_evidence
+    - target_phenotypes
+    - notes
+    - review_notes
+    slot_usage:
+      name:
+        name: name
+        description: NCT identifier (e.g., NCT00000001) or trial name
+        identifier: false
+      description:
+        name: description
+        description: Brief summary or key details of the clinical trial
+        recommended: true
+      phase:
+        name: phase
+        description: Trial phase (Phase I, Phase II, Phase III, Phase IV, or Not Applicable)
+        range: ClinicalTrialPhaseEnum
+        recommended: true
+      status:
+        name: status
+        description: Recruitment or trial status (e.g., Recruiting, Completed, Terminated,
+          Active not recruiting)
+        range: ClinicalTrialStatusEnum
+        recommended: true
+      evidence:
+        name: evidence
+        description: Supporting evidence with snippets from trial documentation
+        recommended: false
+    class_uri: dismech:ClinicalTrial
   ComputationalModel:
     name: ComputationalModel
     definition_uri: https://w3id.org/monarch-initiative/dismech/ComputationalModel
@@ -3787,6 +4025,7 @@ classes:
     - inheritance
     - animal_models
     - datasets
+    - clinical_trials
     - computational_models
     - notes
     - review_notes
@@ -3945,7 +4184,7 @@ classes:
     tree_root: true
 metamodel_version: 1.7.0
 source_file: dismech.yaml
-source_file_date: '2026-01-21T06:27:09'
-source_file_size: 42461
-generation_date: '2026-01-21T06:27:21'
+source_file_date: '2026-01-21T19:38:46'
+source_file_size: 45954
+generation_date: '2026-01-21T19:39:02'
 
