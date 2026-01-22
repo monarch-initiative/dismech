@@ -292,7 +292,7 @@ gen-all: gen-browser-data gen-pages
 
 # Generate KGX edges from disorder knowledge base
 [group('Export')]
-kgx-export:
+export-kgx:
     mkdir -p output/kgx
     uv run koza transform src/dismech/export/kgx_export.py -i 'kb/disorders/*.yaml' -o output/kgx -f jsonl
 
