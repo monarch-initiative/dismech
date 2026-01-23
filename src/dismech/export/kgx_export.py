@@ -57,12 +57,6 @@ def _format_evidence(
 
     Returns:
         Tuple of (publications list, supporting_text list)
-
-    Note:
-        The `supporting_text` field is not currently available on biolink
-        Association classes (only on TextMiningStudyResult). For MVP, we
-        return the formatted strings but they may not be usable until
-        biolink model is updated. The `publications` list is always usable.
     """
     publications = []
     supporting_text = []
@@ -137,8 +131,7 @@ def phenotype_to_edge(disease_id: str, phenotype: dict[str, Any]) -> DiseaseToPh
     frequency_qualifier = FREQUENCY_TO_HP.get(frequency) if frequency else None
 
     # Format evidence (direct - attached to phenotype)
-    # Note: supporting_text not yet available on biolink Association classes
-    publications, _supporting_text = _format_evidence(phenotype.get("evidence"), indirect=False)
+    publications, supporting_text = _format_evidence(phenotype.get("evidence"), indirect=False)
 
     predicate = "biolink:has_phenotype"
     return DiseaseToPhenotypicFeatureAssociation(
@@ -148,6 +141,7 @@ def phenotype_to_edge(disease_id: str, phenotype: dict[str, Any]) -> DiseaseToPh
         object=term_id,
         frequency_qualifier=frequency_qualifier,
         publications=publications if publications else None,
+        supporting_text=supporting_text if supporting_text else None,
         primary_knowledge_source=KNOWLEDGE_SOURCE,
         knowledge_level=KnowledgeLevelEnum.knowledge_assertion,
         agent_type=AgentTypeEnum.manual_validation_of_automated_agent,
@@ -173,8 +167,7 @@ def cell_type_to_edge(
         return None
 
     # Format evidence (indirect - inherited from parent mechanism)
-    # Note: supporting_text not yet available on biolink Association classes
-    publications, _supporting_text = _format_evidence(parent_evidence, indirect=True)
+    publications, supporting_text = _format_evidence(parent_evidence, indirect=True)
 
     predicate = "biolink:has_participant"
     return Association(
@@ -183,6 +176,7 @@ def cell_type_to_edge(
         predicate=predicate,
         object=term_id,
         publications=publications if publications else None,
+        supporting_text=supporting_text if supporting_text else None,
         primary_knowledge_source=KNOWLEDGE_SOURCE,
         knowledge_level=KnowledgeLevelEnum.knowledge_assertion,
         agent_type=AgentTypeEnum.manual_validation_of_automated_agent,
@@ -208,8 +202,7 @@ def location_to_edge(
         return None
 
     # Format evidence (indirect - inherited from parent mechanism)
-    # Note: supporting_text not yet available on biolink Association classes
-    publications, _supporting_text = _format_evidence(parent_evidence, indirect=True)
+    publications, supporting_text = _format_evidence(parent_evidence, indirect=True)
 
     predicate = "biolink:disease_has_location"
     return DiseaseOrPhenotypicFeatureToLocationAssociation(
@@ -218,6 +211,7 @@ def location_to_edge(
         predicate=predicate,
         object=term_id,
         publications=publications if publications else None,
+        supporting_text=supporting_text if supporting_text else None,
         primary_knowledge_source=KNOWLEDGE_SOURCE,
         knowledge_level=KnowledgeLevelEnum.knowledge_assertion,
         agent_type=AgentTypeEnum.manual_validation_of_automated_agent,
@@ -253,8 +247,7 @@ def biological_process_to_edge(
     direction = MODIFIER_TO_DIRECTION.get(modifier) if modifier else None
 
     # Format evidence (indirect - inherited from parent mechanism)
-    # Note: supporting_text not yet available on biolink Association classes
-    publications, _supporting_text = _format_evidence(parent_evidence, indirect=True)
+    publications, supporting_text = _format_evidence(parent_evidence, indirect=True)
 
     predicate = "biolink:affects"
     qualifiers = []
@@ -268,6 +261,7 @@ def biological_process_to_edge(
         object=term_id,
         qualifiers=qualifiers if qualifiers else None,
         publications=publications if publications else None,
+        supporting_text=supporting_text if supporting_text else None,
         primary_knowledge_source=KNOWLEDGE_SOURCE,
         knowledge_level=KnowledgeLevelEnum.knowledge_assertion,
         agent_type=AgentTypeEnum.manual_validation_of_automated_agent,
@@ -294,8 +288,7 @@ def treatment_to_edge(disease_id: str, treatment: dict[str, Any]) -> ChemicalOrD
         return None
 
     # Format evidence (direct - attached to treatment)
-    # Note: supporting_text not yet available on biolink Association classes
-    publications, _supporting_text = _format_evidence(treatment.get("evidence"), indirect=False)
+    publications, supporting_text = _format_evidence(treatment.get("evidence"), indirect=False)
 
     predicate = "biolink:treats_or_applied_or_studied_to_treat"
     return ChemicalOrDrugOrTreatmentToDiseaseOrPhenotypicFeatureAssociation(
@@ -304,6 +297,7 @@ def treatment_to_edge(disease_id: str, treatment: dict[str, Any]) -> ChemicalOrD
         predicate=predicate,
         object=disease_id,
         publications=publications if publications else None,
+        supporting_text=supporting_text if supporting_text else None,
         primary_knowledge_source=KNOWLEDGE_SOURCE,
         knowledge_level=KnowledgeLevelEnum.knowledge_assertion,
         agent_type=AgentTypeEnum.manual_validation_of_automated_agent,
@@ -333,8 +327,7 @@ def gene_to_edge(disease_id: str, gene: dict[str, Any]) -> GeneToDiseaseAssociat
     predicate = "biolink:gene_associated_with_condition"
 
     # Format evidence (direct - attached to genetic entry)
-    # Note: supporting_text not yet available on biolink Association classes
-    publications, _supporting_text = _format_evidence(gene.get("evidence"), indirect=False)
+    publications, supporting_text = _format_evidence(gene.get("evidence"), indirect=False)
 
     return GeneToDiseaseAssociation(
         id=_make_edge_id(gene_id, predicate, disease_id),
@@ -342,6 +335,7 @@ def gene_to_edge(disease_id: str, gene: dict[str, Any]) -> GeneToDiseaseAssociat
         predicate=predicate,
         object=disease_id,
         publications=publications if publications else None,
+        supporting_text=supporting_text if supporting_text else None,
         primary_knowledge_source=KNOWLEDGE_SOURCE,
         knowledge_level=KnowledgeLevelEnum.knowledge_assertion,
         agent_type=AgentTypeEnum.manual_validation_of_automated_agent,
@@ -367,8 +361,7 @@ def exposure_to_edge(disease_id: str, environmental: dict[str, Any]) -> Exposure
         return None
 
     # Format evidence (direct - attached to environmental entry)
-    # Note: supporting_text not yet available on biolink Association classes
-    publications, _supporting_text = _format_evidence(environmental.get("evidence"), indirect=False)
+    publications, supporting_text = _format_evidence(environmental.get("evidence"), indirect=False)
 
     predicate = "biolink:contributes_to"
     return ExposureEventToOutcomeAssociation(
@@ -377,6 +370,7 @@ def exposure_to_edge(disease_id: str, environmental: dict[str, Any]) -> Exposure
         predicate=predicate,
         object=disease_id,
         publications=publications if publications else None,
+        supporting_text=supporting_text if supporting_text else None,
         primary_knowledge_source=KNOWLEDGE_SOURCE,
         knowledge_level=KnowledgeLevelEnum.knowledge_assertion,
         agent_type=AgentTypeEnum.manual_validation_of_automated_agent,
