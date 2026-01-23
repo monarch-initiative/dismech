@@ -288,6 +288,14 @@ gen-page file:
 gen-all: gen-browser-data gen-pages
     @echo "Generated browser and $(ls -1 pages/disorders/*.html | wc -l | tr -d ' ') disorder pages"
 
+# ============== KGX Export ==============
+
+# Generate KGX edges from disorder knowledge base
+[group('Export')]
+export-kgx:
+    mkdir -p output/kgx
+    uv run koza transform src/dismech/export/kgx_export.py -i 'kb/disorders/*.yaml' -o output/kgx -f jsonl
+
 # ============== Deep Research ==============
 
 # Directory for deep research outputs
