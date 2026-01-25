@@ -193,12 +193,15 @@ window.searchData = [
       "Pilosebaceous unit disorder"
     ],
     "subtypes": [],
-    "description": "Abnormal keratinization of the follicular epithelium leads to obstruction of the pilosebaceous duct, forming microcomedones that progress to open or closed comedones.\n",
+    "description": "Dysregulated keratinocyte differentiation and desquamation within the follicular epithelium promotes retention hyperkeratosis.\n",
     "pathophysiology": [
-      "Follicular hyperkeratinization",
-      "Sebaceous gland hyperactivity",
-      "Cutibacterium acnes colonization",
-      "Inflammatory cascade"
+      "Follicular keratinization",
+      "Microcomedone formation",
+      "Sebum overproduction",
+      "Sebum compositional change",
+      "C. acnes follicular colonization",
+      "Inflammasome activation",
+      "Cytokine-driven inflammation"
     ],
     "cell_types": [
       "keratinocyte",
@@ -230,34 +233,52 @@ window.searchData = [
       "HP:0030350",
       "HP:0200039",
       "HP:0033188",
+      "HP:0000953",
       "HP:0001075"
     ],
     "frequencies": [],
     "genes": [
-      "Polygenic susceptibility"
+      "Polygenic susceptibility",
+      "Candidate gene families",
+      "RETN-420C>G and IL6-572G>C polymorphisms",
+      "TNFR2 M196R and TLR2 Arg753Gln polymorphisms"
     ],
     "treatments": [
       "Topical retinoids",
+      "Trifarotene",
       "Benzoyl peroxide",
       "Topical antibiotics",
+      "Clindamycin/adapalene/benzoyl peroxide gel",
       "Oral antibiotics",
       "Oral isotretinoin",
-      "Hormonal therapy"
+      "Hormonal therapy",
+      "Chemical peels",
+      "Azelaic acid peel",
+      "Chemical peels for acne scarring",
+      "Ablative fractional CO2 laser",
+      "Post-laser antioxidant serum",
+      "Blue light therapy",
+      "Visible light therapy",
+      "Photodynamic therapy",
+      "Nd:YAG laser and intralesional PRP",
+      "1726 nm laser therapy"
     ],
     "environmental": [
       "Diet",
-      "Stress"
+      "Stress",
+      "Air pollution and climate stressors"
     ],
     "biochemical": [
       "Androgens",
-      "Sebum lipids"
+      "Sebum lipids",
+      "IL-17"
     ],
     "source_file": "Acne_Vulgaris.yaml",
     "page_url": "../pages/disorders/Acne_Vulgaris.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 4,
-    "num_genes": 1,
-    "num_treatments": 6
+    "num_pathophysiology": 7,
+    "num_genes": 4,
+    "num_treatments": 18
   },
   {
     "name": "Acquired Immunodeficiency Syndrome",
@@ -10802,6 +10823,92 @@ window.searchData = [
     "num_pathophysiology": 12,
     "num_genes": 5,
     "num_treatments": 6
+  },
+  {
+    "name": "Pars Planitis",
+    "disease_id": "MONDO:0011644",
+    "category": "Complex",
+    "parents": [
+      "Inflammatory Disorder",
+      "Ophthalmic Disorder"
+    ],
+    "subtypes": [
+      "Idiopathic Pars Planitis",
+      "Secondary Pars Planitis"
+    ],
+    "description": "Pars planitis shows a T cell-driven autoimmune response within the vitreous and pars plana.",
+    "pathophysiology": [
+      "Autoimmune T-Cell Predominant Inflammation",
+      "Vitreous Cell Infiltration",
+      "Snowbank Formation at Pars Plana",
+      "Peripheral Retinal Vasculitis and Sheathing",
+      "Macular Thickening from Blood-Retinal Barrier Breakdown"
+    ],
+    "cell_types": [
+      "T cell",
+      "Astrocyte",
+      "Endothelial cell of vascular tree"
+    ],
+    "cell_type_ids": [
+      "CL:0000084",
+      "CL:0000127",
+      "CL:0002139"
+    ],
+    "biological_processes": [
+      "Adaptive immune response",
+      "Inflammatory response",
+      "Extracellular matrix organization",
+      "Regulation of vascular permeability"
+    ],
+    "phenotypes": [
+      "Blurred Vision",
+      "Floaters",
+      "Visual Impairment",
+      "Vitreous Opacities",
+      "Macular Edema",
+      "Optic Disc Swelling",
+      "Retinal Pigmentation Abnormality (Bone Spicules)"
+    ],
+    "phenotype_categories": [
+      "Sensory",
+      "Ocular"
+    ],
+    "phenotype_ids": [
+      "HP:0000622",
+      "HP:0100832",
+      "HP:0000505",
+      "HP:0004327",
+      "HP:0040049",
+      "HP:0001085",
+      "HP:0007703"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "RARE"
+    ],
+    "genes": [
+      "HLA-DR15",
+      "HLA-B51"
+    ],
+    "treatments": [
+      "Corticosteroids",
+      "Immunosuppressive Agents",
+      "Biological Therapy",
+      "Pars Plana Vitrectomy"
+    ],
+    "environmental": [
+      "Arboviral Infection (Chikungunya)",
+      "Systemic Infection Exclusion"
+    ],
+    "biochemical": [],
+    "source_file": "Pars_Planitis.yaml",
+    "page_url": "../pages/disorders/Pars_Planitis.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 5,
+    "num_genes": 2,
+    "num_treatments": 4
   },
   {
     "name": "Parvovirus B19 Infection",
