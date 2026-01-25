@@ -185,6 +185,102 @@ window.searchData = [
     "num_treatments": 1
   },
   {
+    "name": "Acne Vulgaris",
+    "disease_id": "MONDO:0011438",
+    "category": "Complex",
+    "parents": [
+      "Inflammatory skin disease",
+      "Pilosebaceous unit disorder"
+    ],
+    "subtypes": [],
+    "description": "Dysregulated keratinocyte differentiation and desquamation within the follicular epithelium promotes retention hyperkeratosis.\n",
+    "pathophysiology": [
+      "Follicular keratinization",
+      "Microcomedone formation",
+      "Sebum overproduction",
+      "Sebum compositional change",
+      "C. acnes follicular colonization",
+      "Inflammasome activation",
+      "Cytokine-driven inflammation"
+    ],
+    "cell_types": [
+      "keratinocyte",
+      "sebocyte",
+      "macrophage",
+      "neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000312",
+      "CL:0000317",
+      "CL:0000235",
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "lipid metabolism",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Comedones",
+      "Inflammatory papules",
+      "Pustules",
+      "Nodules and cysts",
+      "Post-inflammatory hyperpigmentation",
+      "Scarring"
+    ],
+    "phenotype_categories": [],
+    "phenotype_ids": [
+      "HP:0040137",
+      "HP:0030350",
+      "HP:0200039",
+      "HP:0033188",
+      "HP:0000953",
+      "HP:0001075"
+    ],
+    "frequencies": [],
+    "genes": [
+      "Polygenic susceptibility",
+      "Candidate gene families",
+      "RETN-420C>G and IL6-572G>C polymorphisms",
+      "TNFR2 M196R and TLR2 Arg753Gln polymorphisms"
+    ],
+    "treatments": [
+      "Topical retinoids",
+      "Trifarotene",
+      "Benzoyl peroxide",
+      "Topical antibiotics",
+      "Clindamycin/adapalene/benzoyl peroxide gel",
+      "Oral antibiotics",
+      "Oral isotretinoin",
+      "Hormonal therapy",
+      "Chemical peels",
+      "Azelaic acid peel",
+      "Chemical peels for acne scarring",
+      "Ablative fractional CO2 laser",
+      "Post-laser antioxidant serum",
+      "Blue light therapy",
+      "Visible light therapy",
+      "Photodynamic therapy",
+      "Nd:YAG laser and intralesional PRP",
+      "1726 nm laser therapy"
+    ],
+    "environmental": [
+      "Diet",
+      "Stress",
+      "Air pollution and climate stressors"
+    ],
+    "biochemical": [
+      "Androgens",
+      "Sebum lipids",
+      "IL-17"
+    ],
+    "source_file": "Acne_Vulgaris.yaml",
+    "page_url": "../pages/disorders/Acne_Vulgaris.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 7,
+    "num_genes": 4,
+    "num_treatments": 18
+  },
+  {
     "name": "Acquired Immunodeficiency Syndrome",
     "disease_id": "MONDO:0012268",
     "category": "",
@@ -1355,6 +1451,82 @@ window.searchData = [
     "num_treatments": 7
   },
   {
+    "name": "Auto-Brewery Syndrome",
+    "disease_id": "MONDO:0971031",
+    "category": "Complex",
+    "parents": [
+      "Gastrointestinal disorders",
+      "Metabolic disorders"
+    ],
+    "subtypes": [],
+    "description": "Auto-brewery syndrome (ABS), also known as gut fermentation syndrome or endogenous ethanol fermentation, is a rare condition where intoxicating quantities of ethanol are produced through endogenous fermentation of carbohydrates within the gastrointestinal tract by fungi or bacteria, leading to symptoms of alcohol intoxication without alcohol consumption.\n",
+    "pathophysiology": [
+      "Fungal Gut Fermentation",
+      "Bacterial Fermentation by Klebsiella",
+      "Impaired Hepatic Ethanol Clearance"
+    ],
+    "cell_types": [
+      "Enterocyte",
+      "Hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000584",
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "Fermentation",
+      "Ethanol Metabolic Process"
+    ],
+    "phenotypes": [
+      "Alcohol Intoxication Symptoms",
+      "Dysarthria",
+      "Gait Disturbance",
+      "Confusion",
+      "Memory Impairment",
+      "Abdominal Distention",
+      "Vomiting",
+      "Seizures"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Gastrointestinal"
+    ],
+    "phenotype_ids": [
+      "HP:0001251",
+      "HP:0001260",
+      "HP:0001288",
+      "HP:0001289",
+      "HP:0002354",
+      "HP:0003270",
+      "HP:0002013",
+      "HP:0001250"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Antifungal Therapy",
+      "Low Carbohydrate Diet",
+      "Probiotic Therapy",
+      "Fecal Microbiota Transplantation"
+    ],
+    "environmental": [
+      "High Carbohydrate Diet",
+      "Prior Antibiotic Use",
+      "Gastrointestinal Anatomical Abnormalities"
+    ],
+    "biochemical": [],
+    "source_file": "Auto-Brewery_Syndrome.yaml",
+    "page_url": "../pages/disorders/Auto-Brewery_Syndrome.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 3,
+    "num_genes": 0,
+    "num_treatments": 4
+  },
+  {
     "name": "Autoimmune Hemolytic Anemia",
     "disease_id": "MONDO:0020108",
     "category": "Autoimmune",
@@ -1615,7 +1787,14 @@ window.searchData = [
       "neutrophil",
       "macrophage"
     ],
-    "cell_type_ids": [],
+    "cell_type_ids": [
+      "CL:2000044",
+      "CL:0000706",
+      "CL:0000129",
+      "CL:0000127",
+      "CL:0000775",
+      "CL:0000235"
+    ],
     "biological_processes": [
       "inflammatory response",
       "innate immune response",
@@ -1637,10 +1816,6 @@ window.searchData = [
       "Hearing Loss",
       "Hydrocephalus",
       "Petechial Rash",
-      "Lumbar Puncture",
-      "CSF Culture",
-      "Blood Culture",
-      "CT or MRI",
       "Seizures",
       "Focal Neurological Deficits"
     ],
@@ -1657,7 +1832,7 @@ window.searchData = [
       "HP:0000365",
       "HP:0000238",
       "HP:0001250",
-      "HP:0007340"
+      "HP:0001268"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -1676,7 +1851,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Bacterial_meningitis.yaml",
     "page_url": "../pages/disorders/Bacterial_meningitis.html",
-    "num_phenotypes": 14,
+    "num_phenotypes": 10,
     "num_pathophysiology": 6,
     "num_genes": 0,
     "num_treatments": 5
@@ -3095,6 +3270,104 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 0,
     "num_treatments": 5
+  },
+  {
+    "name": "Collagenous Sprue",
+    "disease_id": "MONDO:0044092",
+    "category": "Complex",
+    "parents": [
+      "Enteropathy",
+      "Malabsorption disorder"
+    ],
+    "subtypes": [],
+    "description": "Collagenous sprue is initiated by mucosal immune activation characterized by increased intraepithelial lymphocytes (IELs), particularly CD8+ T cells, and lamina propria inflammation with plasma cells and eosinophils. IL-15 and TNF-\u03b1 signaling drive this T cell-mediated immune response, leading to epithelial cell apoptosis, crypt hyperplasia, and villous atrophy. This immune activation is not associated with celiac serology despite overlapping histologic features with celiac disease.\n",
+    "pathophysiology": [
+      "Mucosal immune activation with intraepithelial lymphocytosis",
+      "Epithelial barrier dysfunction and tight junction disruption",
+      "Subepithelial collagen deposition and fibrotic remodeling"
+    ],
+    "cell_types": [
+      "intraepithelial lymphocyte",
+      "plasma cell",
+      "eosinophil",
+      "myofibroblast",
+      "capillary endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002496",
+      "CL:0000786",
+      "CL:0000041",
+      "CL:0000186",
+      "CL:0002144"
+    ],
+    "biological_processes": [
+      "T cell mediated immune response",
+      "response to cytokine",
+      "cell junction organization",
+      "epithelial cell differentiation",
+      "positive regulation of collagen biosynthetic process",
+      "extracellular matrix organization"
+    ],
+    "phenotypes": [
+      "Chronic watery diarrhea",
+      "Weight loss",
+      "Abdominal pain",
+      "Malabsorption",
+      "Protein-losing enteropathy",
+      "Anemia",
+      "Hypoalbuminemia"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Systemic",
+      "Hematologic",
+      "Metabolic"
+    ],
+    "phenotype_ids": [
+      "HP:0002028",
+      "HP:0001824",
+      "HP:0002027",
+      "HP:0002024",
+      "HP:0002243",
+      "HP:0001903",
+      "HP:0003073"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "HLA-DQA1",
+      "TGFB1",
+      "MMP1",
+      "MMP9",
+      "TIMP1",
+      "TJP1"
+    ],
+    "treatments": [
+      "Corticosteroids (Budesonide)",
+      "Thiopurines (Azathioprine/6-Thioguanine)",
+      "Anti-TNF-\u03b1 Therapy",
+      "Calcineurin Inhibitors (Tacrolimus)",
+      "Medication discontinuation (Olmesartan withdrawal)",
+      "Nutritional support and supplementation"
+    ],
+    "environmental": [
+      "Medications (Angiotensin II Receptor Blockers)",
+      "Medications (Proton Pump Inhibitors and NSAIDs)"
+    ],
+    "biochemical": [
+      "Serum albumin",
+      "Hemoglobin/Hematocrit",
+      "Serum iron",
+      "Tissue transglutaminase (tTG) antibodies"
+    ],
+    "source_file": "Collagenous_Sprue.yaml",
+    "page_url": "../pages/disorders/Collagenous_Sprue.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 3,
+    "num_genes": 6,
+    "num_treatments": 6
   },
   {
     "name": "Coronary Artery Disease",
@@ -7909,6 +8182,87 @@ window.searchData = [
     "num_treatments": 5
   },
   {
+    "name": "Lane Hamilton Syndrome",
+    "disease_id": "MONDO:0800124",
+    "category": "Complex",
+    "parents": [
+      "Pulmonary disease",
+      "Autoimmune disease"
+    ],
+    "subtypes": [],
+    "description": "Lane Hamilton Syndrome begins with celiac disease, an autoimmune condition triggered by gluten ingestion in genetically predisposed individuals. Gluten exposure activates intestinal immune responses with increased intraepithelial lymphocytes, villous atrophy, and crypt hyperplasia in the small intestine, particularly the duodenum. This localized intestinal autoimmunity generates systemic immune activation and circulating autoantibodies, including anti-tissue transglutaminase (anti-tTG) and anti-endomysial antibodies.\n",
+    "pathophysiology": [
+      "Gluten-triggered intestinal autoimmunity in celiac disease",
+      "Immune-mediated increase in pulmonary capillary permeability",
+      "Alveolar hemorrhage and hemosiderin accumulation",
+      "Iron and heme-driven oxidative injury and chronic remodeling"
+    ],
+    "cell_types": [
+      "T lymphocyte",
+      "capillary endothelial cell",
+      "eosinophil",
+      "basophil",
+      "alveolar macrophage",
+      "pulmonary alveolar type 2 cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000084",
+      "CL:0002144",
+      "CL:0000041",
+      "CL:0000767",
+      "CL:0000583",
+      "CL:0002063"
+    ],
+    "biological_processes": [
+      "antigen processing and presentation",
+      "immune response",
+      "regulation of vascular permeability",
+      "inflammatory response",
+      "heme catabolic process",
+      "iron ion homeostasis",
+      "response to oxidative stress",
+      "epithelium regeneration",
+      "reactive oxygen species metabolic process"
+    ],
+    "phenotypes": [
+      "Diffuse alveolar hemorrhage",
+      "Hemoptysis",
+      "Iron-deficiency anemia",
+      "Dyspnea",
+      "Ground-glass opacities on chest imaging",
+      "Malabsorption"
+    ],
+    "phenotype_categories": [],
+    "phenotype_ids": [
+      "HP:0025420",
+      "HP:0002105",
+      "HP:0001891",
+      "HP:0002094"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Gluten-free diet",
+      "Corticosteroids",
+      "Immunosuppressive therapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum Iron",
+      "Serum Ferritin",
+      "Hemoglobin/Hematocrit",
+      "Tissue Transglutaminase (tTG) Antibodies",
+      "Anti-endomysial Antibodies",
+      "Hemosiderin-laden Macrophages"
+    ],
+    "source_file": "Lane_Hamilton_Syndrome.yaml",
+    "page_url": "../pages/disorders/Lane_Hamilton_Syndrome.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 4,
+    "num_genes": 0,
+    "num_treatments": 3
+  },
+  {
     "name": "Liver Cirrhosis",
     "disease_id": "MONDO:0005155",
     "category": "Complex",
@@ -8134,6 +8488,83 @@ window.searchData = [
     "num_pathophysiology": 11,
     "num_genes": 0,
     "num_treatments": 4
+  },
+  {
+    "name": "Ludwig's Angina",
+    "disease_id": "MONDO:0006576",
+    "category": "Infectious",
+    "parents": [
+      "Infectious Disorder"
+    ],
+    "subtypes": [],
+    "description": "Dental infection of a mandibular tooth provides the odontogenic nidus that seeds deeper spaces.",
+    "pathophysiology": [
+      "Odontogenic Source Infection (Mandibular Molar)",
+      "Polymicrobial Cellulitis of Mouth Floor",
+      "Cervical Fascial Spread Across Submandibular-Sublingual Spaces",
+      "Descending Necrotizing Mediastinitis Extension",
+      "Tongue Elevation and Airway Narrowing from Floor Edema"
+    ],
+    "cell_types": [
+      "Neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "Response to bacterium",
+      "Inflammatory response",
+      "Regulation of vascular permeability"
+    ],
+    "phenotypes": [
+      "Stridor",
+      "Dyspnea",
+      "Trismus",
+      "Fever",
+      "Anterior Neck Swelling",
+      "Facial Nerve Palsy"
+    ],
+    "phenotype_categories": [
+      "Respiratory",
+      "Neuromusculoskeletal",
+      "Constitutional",
+      "Oropharyngeal",
+      "Neurological"
+    ],
+    "phenotype_ids": [
+      "HP:0010307",
+      "HP:0002094",
+      "HP:0000211",
+      "HP:0001945",
+      "HP:6000176",
+      "HP:0010628"
+    ],
+    "frequencies": [
+      "OCCASIONAL",
+      "FREQUENT",
+      "VERY_FREQUENT",
+      "RARE"
+    ],
+    "genes": [],
+    "treatments": [
+      "Airway Protection (Tracheostomy or Secured Airway)",
+      "Broad-Spectrum Intravenous Antibiotics",
+      "Surgical Drainage and Odontogenic Source Control"
+    ],
+    "environmental": [
+      "Poor Dentition or Oral Hygiene",
+      "Diabetes Mellitus",
+      "Recent Third Molar Extraction",
+      "Recent Influenza Infection",
+      "Low Socioeconomic Status or Unemployment"
+    ],
+    "biochemical": [],
+    "source_file": "Ludwigs_Angina.yaml",
+    "page_url": "../pages/disorders/Ludwig's_Angina.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 3
   },
   {
     "name": "Lyme Disease",
@@ -8777,6 +9208,87 @@ window.searchData = [
     "num_phenotypes": 8,
     "num_pathophysiology": 5,
     "num_genes": 8,
+    "num_treatments": 5
+  },
+  {
+    "name": "Melkersson-Rosenthal syndrome",
+    "disease_id": "MONDO:0007969",
+    "category": "Genetic",
+    "parents": [
+      "Granulomatous disease",
+      "Autoinflammatory syndrome"
+    ],
+    "subtypes": [],
+    "description": "Melkersson-Rosenthal syndrome is characterized by non-caseating granulomatous inflammation of orofacial tissues with epithelioid macrophages, multinucleated giant cells, and perivascular/perineural lymphocytic infiltration. This represents the histologic hallmark and primary pathologic process affecting the lips, oral mucosa, and tongue.\n",
+    "pathophysiology": [
+      "Non-caseating granulomatous inflammation with epithelioid histiocytes",
+      "Dysregulated Th1/Th17 cytokine signaling with IL-12/23 and TNF-\u03b1 involvement",
+      "Lymphatic dysfunction with intralymphatic histiocytosis and persistent edema"
+    ],
+    "cell_types": [
+      "epithelioid macrophage",
+      "T lymphocyte",
+      "endothelial cell of lymphatic vessel"
+    ],
+    "cell_type_ids": [
+      "CL:0002150",
+      "CL:0000084",
+      "CL:0002138"
+    ],
+    "biological_processes": [
+      "granuloma formation",
+      "leukocyte migration",
+      "response to tumor necrosis factor",
+      "interferon-gamma-mediated signaling pathway",
+      "lymphatic vessel development"
+    ],
+    "phenotypes": [
+      "Recurrent facial edema",
+      "Facial paralysis",
+      "Lingual swelling and macroglossia",
+      "Migraine"
+    ],
+    "phenotype_categories": [
+      "Facial",
+      "Neurological",
+      "Oral"
+    ],
+    "phenotype_ids": [
+      "HP:0000282",
+      "HP:0007209",
+      "HP:0000158",
+      "HP:0002076"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "RARE"
+    ],
+    "genes": [
+      "TNF-\u03b1 pathway involvement",
+      "IFN-\u03b3 pathway involvement in autoimmune/allergic context",
+      "IL-12/IL-23 signaling pathway",
+      "SCN1A variants in rare phenotypes"
+    ],
+    "treatments": [
+      "Intralesional corticosteroid injection",
+      "Systemic corticosteroids",
+      "Anti-TNF therapy (infliximab)",
+      "Anti-IL-12/23 therapy (ustekinumab)",
+      "Supportive care"
+    ],
+    "environmental": [
+      "Immune and allergic triggers"
+    ],
+    "biochemical": [
+      "TNF-\u03b1 elevation",
+      "Interferon-gamma (IFN-\u03b3) elevation",
+      "IL-12 and IL-23"
+    ],
+    "source_file": "Melkersson_Rosenthal_syndrome.yaml",
+    "page_url": "../pages/disorders/Melkersson-Rosenthal_syndrome.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 3,
+    "num_genes": 4,
     "num_treatments": 5
   },
   {
@@ -11148,6 +11660,75 @@ window.searchData = [
     "num_treatments": 4
   },
   {
+    "name": "Pouchitis",
+    "disease_id": "MONDO:0005312",
+    "category": "Complex",
+    "parents": [
+      "Inflammatory Bowel Disease",
+      "Postoperative Complications"
+    ],
+    "subtypes": [],
+    "description": "Altered gut microbiome composition in the ileal pouch, with decreased microbial diversity and shifts toward pathogenic bacterial species. The pouch environment lacks normal colonic bacteria and experiences reduced butyrate-producing bacteria, leading to an imbalanced microbial ecosystem that triggers inflammation.\n",
+    "pathophysiology": [
+      "Bacterial Dysbiosis",
+      "Mucosal Immune Dysregulation",
+      "Epithelial Barrier Dysfunction",
+      "NOD2 Genetic Susceptibility"
+    ],
+    "cell_types": [
+      "neutrophil",
+      "dendritic cell",
+      "T cell",
+      "intestinal epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000775",
+      "CL:0000451",
+      "CL:0000084",
+      "CL:0002563"
+    ],
+    "biological_processes": [
+      "inflammatory response",
+      "cytokine production",
+      "bicellular tight junction assembly"
+    ],
+    "phenotypes": [
+      "Increased Stool Frequency",
+      "Abdominal Pain",
+      "Rectal Bleeding",
+      "Urgency",
+      "Fever"
+    ],
+    "phenotype_categories": [],
+    "phenotype_ids": [
+      "HP:0002014",
+      "HP:0002027",
+      "HP:0002573",
+      "HP:0012701",
+      "HP:0001945"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Antibiotic Therapy",
+      "Probiotic Therapy",
+      "Anti-inflammatory Medications",
+      "Immunosuppressive Therapy"
+    ],
+    "environmental": [
+      "Prior Ulcerative Colitis",
+      "Surgical Factors",
+      "NSAID Use"
+    ],
+    "biochemical": [],
+    "source_file": "Pouchitis.yaml",
+    "page_url": "../pages/disorders/Pouchitis.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 4,
+    "num_genes": 0,
+    "num_treatments": 4
+  },
+  {
     "name": "Primary Biliary Cholangitis",
     "disease_id": "MONDO:0005388",
     "category": "Autoimmune",
@@ -12339,6 +12920,99 @@ window.searchData = [
     "num_treatments": 3
   },
   {
+    "name": "Shigellosis",
+    "disease_id": "MONDO:0019345",
+    "category": "Infectious",
+    "parents": [
+      "Bacillary dysentery",
+      "Bacterial enteritis"
+    ],
+    "subtypes": [],
+    "description": "Shigella uses a plasmid-encoded Type III secretion system (T3SS/mxi-spa) to deliver bacterial effector proteins directly into host cells. The translocon proteins IpaB and IpaC assemble a funnel-shaped pore in target membranes through which the injectisome docks and delivers effectors. IpaC activates small GTPases and actin nucleation to promote bacterial uptake. IpaB mediates phagosomal membrane disruption and directly activates caspase-1 in macrophages, triggering pyroptotic cell death. This allows bacterial escape from the phagolysosome into the cytosol, where Shigella replicates and spreads.\n",
+    "pathophysiology": [
+      "Type III secretion system-mediated invasion and vacuolar escape",
+      "Actin-based motility and cell-to-cell spread",
+      "Inflammasome sensing and pyroptotic inflammation",
+      "Bacterial toxin production and endothelial damage",
+      "Intestinal barrier dysfunction and increased permeability"
+    ],
+    "cell_types": [
+      "enterocyte",
+      "macrophage",
+      "neutrophil",
+      "blood vessel endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000584",
+      "CL:0000235",
+      "CL:0000775",
+      "CL:0000071"
+    ],
+    "biological_processes": [
+      "type III protein secretion system",
+      "pyroptosis",
+      "apoptotic process",
+      "actin filament polymerization",
+      "regulation of cell shape",
+      "inflammasome complex",
+      "inflammatory response to bacterium",
+      "translation",
+      "tight junction assembly",
+      "ion transport"
+    ],
+    "phenotypes": [
+      "Diarrhea",
+      "Bloody diarrhea",
+      "Abdominal pain",
+      "Fever",
+      "Dehydration"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Systemic"
+    ],
+    "phenotype_ids": [
+      "HP:0002014",
+      "HP:0025085",
+      "HP:0002027",
+      "HP:0001945",
+      "HP:0001944"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "NLRC4 (NOD-like receptor family CARD domain-containing 4)",
+      "NLRP3 (NLR family pyrin domain containing 3)",
+      "CASP1 (Caspase-1)",
+      "GSDMD (Gasdermin D)",
+      "CASP4 and CASP5 (Non-canonical inflammasome caspases)",
+      "TLR1 and TLR2 (Toll-like receptors)",
+      "Lewis blood group antigens (ABO/Lewis glycosylation)"
+    ],
+    "treatments": [
+      "Antibiotic therapy",
+      "Oral rehydration therapy",
+      "Fluid and electrolyte replacement"
+    ],
+    "environmental": [
+      "Contaminated water or food",
+      "Poor sanitation and hygiene"
+    ],
+    "biochemical": [
+      "Inflammatory cytokines (IL-1\u03b2, IL-18, IL-8)",
+      "Lipopolysaccharide (LPS)",
+      "Electrolyte abnormalities (sodium, potassium, chloride)"
+    ],
+    "source_file": "Shigellosis.yaml",
+    "page_url": "../pages/disorders/Shigellosis.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 5,
+    "num_genes": 7,
+    "num_treatments": 3
+  },
+  {
     "name": "Sickle Cell Disease",
     "disease_id": "MONDO:0011382",
     "category": "Mendelian",
@@ -13269,9 +13943,11 @@ window.searchData = [
       "Travel-related infections"
     ],
     "subtypes": [],
-    "description": "Most commonly caused by enterotoxigenic Escherichia coli (ETEC), which produces heat-labile and heat-stable enterotoxins that stimulate intestinal fluid secretion. Other pathogens include Campylobacter, Salmonella, and Shigella.\n",
+    "description": "Travelers ingest enteric pathogens through unsafe food and water, initiating diarrheal illness.",
     "pathophysiology": [
-      "Enterotoxigenic bacterial infection"
+      "Ingestion of contaminated food or water during travel",
+      "ETEC adherence via colonization factors",
+      "Enterotoxin-driven secretory diarrhea"
     ],
     "cell_types": [],
     "cell_type_ids": [],
@@ -13284,7 +13960,7 @@ window.searchData = [
     "phenotype_categories": [],
     "phenotype_ids": [
       "HP:0002014",
-      "HP:0032155",
+      "HP:0002027",
       "HP:0002018"
     ],
     "frequencies": [],
@@ -13292,16 +13968,23 @@ window.searchData = [
     "treatments": [
       "Oral rehydration therapy",
       "Loperamide",
-      "Fluoroquinolone antibiotics"
+      "Fluoroquinolone antibiotics",
+      "Rifaximin",
+      "Bismuth subsalicylate",
+      "Probiotic prophylaxis",
+      "Education on safe food and water practices",
+      "Rifaximin prophylaxis"
     ],
-    "environmental": [],
+    "environmental": [
+      "High-risk travel with contaminated food and water exposure"
+    ],
     "biochemical": [],
     "source_file": "Travelers_Diarrhea.yaml",
     "page_url": "../pages/disorders/Traveler's_Diarrhea.html",
     "num_phenotypes": 3,
-    "num_pathophysiology": 1,
+    "num_pathophysiology": 3,
     "num_genes": 0,
-    "num_treatments": 3
+    "num_treatments": 8
   },
   {
     "name": "Tuberculosis",

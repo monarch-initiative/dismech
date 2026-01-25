@@ -38,6 +38,8 @@ prefixes:
   synapse: "https://www.synapse.org/#!Synapse:"
   # Case-level phenotype collections
   phenopacket-store: https://github.com/monarch-initiative/phenopacket-store/tree/main/notebooks/
+  # Clinical trials
+  clinicaltrials: https://clinicaltrials.gov/study/
   # Genetic variation databases
   clinvar: https://www.ncbi.nlm.nih.gov/clinvar/variation/
   # Taxonomy
@@ -282,6 +284,42 @@ enums:
       EDITED:
         description: File modification
 
+  ClinicalTrialPhaseEnum:
+    description: Clinical trial phase categories per FDA/NIH standards
+    permissible_values:
+      PHASE_I:
+        description: Phase I - Initial safety and dosage assessment in small group (20-100 participants)
+      PHASE_II:
+        description: Phase II - Efficacy and side effects assessment in larger group (100-500 participants)
+      PHASE_III:
+        description: Phase III - Efficacy confirmation and monitoring in large population (1000-5000 participants)
+      PHASE_IV:
+        description: Phase IV - Post-market surveillance and additional benefits/risks studies
+      NOT_APPLICABLE:
+        description: Trial does not follow standard FDA phase classification (e.g., observational, device studies)
+
+  ClinicalTrialStatusEnum:
+    description: Clinical trial recruitment and status categories per ClinicalTrials.gov
+    permissible_values:
+      RECRUITING:
+        description: Currently enrolling participants
+      NOT_RECRUITING:
+        description: Not currently enrolling but may in the future
+      ACTIVE_NOT_RECRUITING:
+        description: Actively recruiting previously enrolled participants (closed to new enrollment)
+      COMPLETED:
+        description: Trial data collection and analysis completed
+      ENROLLING_BY_INVITATION:
+        description: Enrollment restricted to invited participants only
+      SUSPENDED:
+        description: Temporarily halted pending review or administrative action
+      TERMINATED:
+        description: Stopped before completion, may include safety or efficacy concerns
+      WITHDRAWN:
+        description: Closed before enrollment began (never enrolled participants)
+      UNKNOWN:
+        description: Status unknown or not provided
+
   ComputationalModelTypeEnum:
     description: Type of computational or in-silico model
     permissible_values:
@@ -460,6 +498,13 @@ slots:
     examples:
       - value: Active TB
     range: PhaseTerm
+  status:
+    description: Status or state of a clinical trial or other process
+    examples:
+      - value: Recruiting
+      - value: Completed
+      - value: Terminated
+    range: string
   age_range:
     examples:
       - value: Childhood-Adolescence
@@ -828,12 +873,14 @@ slots:
     range: string
     required: true
   target_phenotypes:
-    description: Names of phenotypes that this treatment addresses or targets
+    description: Phenotypes that this treatment or trial addresses or targets
     multivalued: true
-    range: string
+    range: PhenotypeDescriptor
+    inlined_as_list: true
     comments:
       - Should reference phenotype names defined in the same disease's phenotypes list
-      - Enables linking treatments to the symptoms/manifestations they aim to manage
+      - Enables linking treatments/trials to the symptoms/manifestations they aim to manage
+      - Each phenotype can include ontology term references (HP)
   # Dataset-related slots
   accession:
     description: Dataset accession identifier as a CURIE (e.g., geo:GSE67472)
@@ -885,6 +932,12 @@ slots:
     range: Dataset
     inlined_as_list: true
     recommended: true
+  clinical_trials:
+    description: Clinical trials relevant to disease treatment and research
+    multivalued: true
+    range: ClinicalTrial
+    inlined_as_list: true
+    recommended: false
   curation_history:
     description: Audit trail of AI-assisted curation events
     multivalued: true
@@ -1173,6 +1226,40 @@ classes:
           rigid standardization of the title slot.
         recommended: true
 
+  ClinicalTrial:
+    description: A clinical trial relevant to treatment or research of a disease
+    comments:
+      - Uses NCT identifiers from ClinicalTrials.gov
+      - Evidence and supporting text can be validated via linkml-reference-validator against ClinicalTrials.gov API
+    slots:
+      - name
+      - description
+      - phase
+      - status
+      - evidence
+      - target_phenotypes
+      - notes
+      - review_notes
+    slot_usage:
+      name:
+        description: NCT identifier (e.g., NCT00000001) or trial name
+        identifier: false
+      description:
+        description: >-
+          Brief summary or key details of the clinical trial
+        recommended: true
+      phase:
+        range: ClinicalTrialPhaseEnum
+        description: Trial phase (Phase I, Phase II, Phase III, Phase IV, or Not Applicable)
+        recommended: true
+      status:
+        range: ClinicalTrialStatusEnum
+        description: Recruitment or trial status (e.g., Recruiting, Completed, Terminated, Active not recruiting)
+        recommended: true
+      evidence:
+        description: Supporting evidence with snippets from trial documentation
+        recommended: false
+
   ComputationalModel:
     description: A computational or in-silico model relevant to understanding disease mechanisms
     comments:
@@ -1397,6 +1484,7 @@ classes:
       - inheritance
       - animal_models
       - datasets
+      - clinical_trials
       - computational_models
       - notes
       - review_notes

@@ -52,7 +52,7 @@ def test_disorder_has_required_fields(filepath):
 
 @pytest.mark.parametrize("filepath", DISORDER_FILES)
 def test_evidence_items_have_references(filepath):
-    """Test that evidence items have PMID references."""
+    """Test that evidence items have PMID or DOI references."""
     with open(filepath) as f:
         data = yaml.safe_load(f)
 
@@ -64,8 +64,8 @@ def test_evidence_items_have_references(filepath):
         for i, item in enumerate(evidence_list):
             if not item.get("reference"):
                 errors.append(f"{path}[{i}]: missing reference")
-            elif not item["reference"].startswith("PMID:"):
-                errors.append(f"{path}[{i}]: reference should start with PMID: got {item['reference']}")
+            elif not (item["reference"].startswith("PMID:") or item["reference"].startswith("DOI:")):
+                errors.append(f"{path}[{i}]: reference should start with PMID: or DOI: got {item['reference']}")
         return errors
 
     all_errors = []
