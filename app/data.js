@@ -185,6 +185,81 @@ window.searchData = [
     "num_treatments": 1
   },
   {
+    "name": "Acne Vulgaris",
+    "disease_id": "MONDO:0011438",
+    "category": "Complex",
+    "parents": [
+      "Inflammatory skin disease",
+      "Pilosebaceous unit disorder"
+    ],
+    "subtypes": [],
+    "description": "Abnormal keratinization of the follicular epithelium leads to obstruction of the pilosebaceous duct, forming microcomedones that progress to open or closed comedones.\n",
+    "pathophysiology": [
+      "Follicular hyperkeratinization",
+      "Sebaceous gland hyperactivity",
+      "Cutibacterium acnes colonization",
+      "Inflammatory cascade"
+    ],
+    "cell_types": [
+      "keratinocyte",
+      "sebocyte",
+      "macrophage",
+      "neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000312",
+      "CL:0000317",
+      "CL:0000235",
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "lipid metabolism",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Comedones",
+      "Inflammatory papules",
+      "Pustules",
+      "Nodules and cysts",
+      "Post-inflammatory hyperpigmentation",
+      "Scarring"
+    ],
+    "phenotype_categories": [],
+    "phenotype_ids": [
+      "HP:0040137",
+      "HP:0030350",
+      "HP:0200039",
+      "HP:0033188",
+      "HP:0001075"
+    ],
+    "frequencies": [],
+    "genes": [
+      "Polygenic susceptibility"
+    ],
+    "treatments": [
+      "Topical retinoids",
+      "Benzoyl peroxide",
+      "Topical antibiotics",
+      "Oral antibiotics",
+      "Oral isotretinoin",
+      "Hormonal therapy"
+    ],
+    "environmental": [
+      "Diet",
+      "Stress"
+    ],
+    "biochemical": [
+      "Androgens",
+      "Sebum lipids"
+    ],
+    "source_file": "Acne_Vulgaris.yaml",
+    "page_url": "../pages/disorders/Acne_Vulgaris.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 6
+  },
+  {
     "name": "Acquired Immunodeficiency Syndrome",
     "disease_id": "MONDO:0012268",
     "category": "",
