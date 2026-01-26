@@ -174,6 +174,7 @@
                 <select id="space-select">
                     <option value="pathophysiology">Pathophysiology</option>
                     <option value="phenotypes">Phenotypes</option>
+                    <option value="treatments">Treatments</option>
                 </select>
             </div>
 
@@ -197,6 +198,14 @@
             <div class="control-group">
                 <label>Search</label>
                 <input type="text" id="search-box" class="search-box" placeholder="Filter disorders...">
+            </div>
+
+            <div class="control-group">
+                <label>Display Options</label>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="show-labels">
+                    <label for="show-labels">Show disease names</label>
+                </div>
             </div>
 
             <div class="control-group">
@@ -243,6 +252,7 @@
         let currentColorField = '_group';
         let visibleGroups = new Set();
         let searchTerm = '';
+        let showLabels = false;
 
         function loadData() {
             if (typeof window.EMBEDDING_DATA === 'undefined') {
@@ -276,6 +286,11 @@
 
             document.getElementById('search-box').addEventListener('input', (e) => {
                 searchTerm = e.target.value.toLowerCase();
+                updatePlot();
+            });
+
+            document.getElementById('show-labels').addEventListener('change', (e) => {
+                showLabels = e.target.checked;
                 updatePlot();
             });
 
@@ -399,22 +414,33 @@
             }
 
             // Create traces
-            const traces = Object.entries(groups).map(([colorVal, d]) => ({
-                x: d.x,
-                y: d.y,
-                text: d.text,
-                customdata: d.names,
-                mode: 'markers',
-                type: 'scatter',
-                name: colorVal,
-                marker: {
-                    size: 10,
-                    color: colorMap[colorVal],
-                    opacity: 0.8,
-                    line: { width: 0.5, color: 'white' }
-                },
-                hovertemplate: '%{text}<extra></extra>'
-            }));
+            const traces = Object.entries(groups).map(([colorVal, d]) => {
+                const trace = {
+                    x: d.x,
+                    y: d.y,
+                    text: d.text,
+                    customdata: d.names,
+                    mode: showLabels ? 'markers+text' : 'markers',
+                    type: 'scatter',
+                    name: colorVal,
+                    marker: {
+                        size: 10,
+                        color: colorMap[colorVal],
+                        opacity: 0.8,
+                        line: { width: 0.5, color: 'white' }
+                    },
+                    hovertemplate: '%{text}<extra></extra>'
+                };
+                if (showLabels) {
+                    trace.textposition = 'top center';
+                    trace.textfont = { size: 9, color: '#333' };
+                    // Use names for labels instead of hover text
+                    trace.text = d.names;
+                    trace.hovertext = d.text;
+                    trace.hovertemplate = '%{hovertext}<extra></extra>';
+                }
+                return trace;
+            });
 
             // Update stats
             const totalVisible = traces.reduce((sum, t) => sum + t.x.length, 0);

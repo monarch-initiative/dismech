@@ -241,6 +241,25 @@ count-disorders:
     @echo -n "Number of disorders: "
     @ls -1 {{kb_dir}}/*.yaml 2>/dev/null | wc -l
 
+# Run ai-blame annotation on all disorder YAML files
+[group('AI')]
+ai-blame-annotate-all:
+    #!/usr/bin/env bash
+    set +e
+    failures=0
+    for f in {{kb_dir}}/*.yaml; do
+        echo "Annotating: $f"
+        if ! uvx ai-blame annotate "$f"; then
+            echo "  ! Failed: $f"
+            failures=$((failures + 1))
+        fi
+    done
+    if [ "$failures" -gt 0 ]; then
+        echo "Completed with $failures failures (ignored)."
+    else
+        echo "Completed without errors."
+    fi
+
 # Lint the schema
 [group('QC')]
 lint-schema:
@@ -518,3 +537,14 @@ embed-app:
 embed-serve:
     @echo "Starting local server at http://localhost:8001/app/embeddings/"
     uv run python -m http.server 8001
+
+# Rebuild everything for the embedding explorer app (run when YAML files change)
+# Requires OPENAI_API_KEY for embedding generation
+[group('Analysis')]
+embed-all:
+    @echo "=== Rebuilding embedding explorer ==="
+    @echo "Step 1: Re-indexing embeddings (this calls OpenAI API)..."
+    just embed-index-grouped
+    @echo "Step 2: Generating app data..."
+    just embed-app-data
+    @echo "=== Done! Open app/embeddings/index.html ==="

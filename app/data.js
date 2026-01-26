@@ -1,5 +1,154 @@
 window.searchData = [
   {
+    "name": "ALK-Rearranged Non-Small Cell Lung Cancer",
+    "disease_id": "MONDO:0005061",
+    "category": "",
+    "parents": [
+      "non-small cell lung carcinoma"
+    ],
+    "subtypes": [
+      "EML4-ALK NSCLC",
+      "Non-EML4 ALK Fusion NSCLC"
+    ],
+    "description": "ALK-rearranged non-small cell lung cancer (NSCLC) is a molecularly-defined lung cancer subtype driven by chromosomal rearrangements involving the anaplastic lymphoma kinase (ALK) gene. ALK fusions occur in approximately 3-7% of NSCLC, most commonly EML4-ALK resulting from an inversion on chromosome 2. ALK-positive NSCLC occurs predominantly in younger patients with minimal or no smoking history. Multiple generations of highly effective ALK tyrosine kinase inhibitors have transformed this disease from rapidly fatal to chronic manageable condition.",
+    "pathophysiology": [
+      "ALK Gene Rearrangement",
+      "Constitutive ALK Signaling",
+      "Oncogene Addiction",
+      "ALK TKI Resistance"
+    ],
+    "cell_types": [
+      "type II pneumocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0002063"
+    ],
+    "biological_processes": [
+      "protein kinase activity",
+      "MAPK cascade",
+      "phosphatidylinositol 3-kinase signaling",
+      "JAK-STAT cascade",
+      "cell population proliferation",
+      "response to drug"
+    ],
+    "phenotypes": [
+      "Lung Adenocarcinoma",
+      "Young Age at Diagnosis",
+      "Never/Light Smoker",
+      "Brain Metastases"
+    ],
+    "phenotype_categories": [
+      "Neoplastic",
+      "Clinical"
+    ],
+    "phenotype_ids": [
+      "HP:0030078",
+      "HP:0100526",
+      "HP:0004375"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "ALK",
+      "EML4"
+    ],
+    "treatments": [
+      "Alectinib",
+      "Lorlatinib",
+      "Brigatinib",
+      "Crizotinib",
+      "Chemotherapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "ALK Testing"
+    ],
+    "source_file": "ALK_Rearranged_NSCLC.yaml",
+    "page_url": "../pages/disorders/ALK-Rearranged_Non-Small_Cell_Lung_Cancer.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 4,
+    "num_genes": 2,
+    "num_treatments": 5
+  },
+  {
+    "name": "Acute Promyelocytic Leukemia, PML-RARA",
+    "disease_id": "MONDO:0012883",
+    "category": "",
+    "parents": [
+      "acute myeloid leukemia"
+    ],
+    "subtypes": [],
+    "description": "Acute promyelocytic leukemia (APL) with PML-RARA is a distinct subtype of acute myeloid leukemia characterized by the t(15;17)(q24;q21) translocation creating the PML-RARA fusion oncogene. This fusion blocks myeloid differentiation at the promyelocyte stage and confers sensitivity to differentiation therapy with all-trans retinoic acid (ATRA) and arsenic trioxide (ATO). APL was historically the most fatal AML subtype due to severe coagulopathy, but is now the most curable, with ATRA plus ATO achieving greater than 90% cure rates without conventional chemotherapy. APL represents the paradigm of differentiation therapy in cancer.",
+    "pathophysiology": [
+      "PML-RARA Fusion Oncogene Formation",
+      "Transcriptional Repression of Differentiation Genes",
+      "PML Nuclear Body Disruption",
+      "Impaired Tumor Suppression",
+      "Promyelocyte Accumulation",
+      "Coagulopathy"
+    ],
+    "cell_types": [
+      "promyelocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000836"
+    ],
+    "biological_processes": [
+      "myeloid cell differentiation",
+      "granulocyte differentiation",
+      "apoptotic process",
+      "cell cycle checkpoint signaling",
+      "blood coagulation"
+    ],
+    "phenotypes": [
+      "Pancytopenia",
+      "Disseminated Intravascular Coagulation",
+      "Abnormal Bleeding",
+      "Fatigue",
+      "Recurrent Infections"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Bleeding",
+      "Constitutional",
+      "Infectious"
+    ],
+    "phenotype_ids": [
+      "HP:0001876",
+      "HP:0005521",
+      "HP:0001892",
+      "HP:0012378",
+      "HP:0002719"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "PML-RARA Fusion",
+      "FLT3-ITD"
+    ],
+    "treatments": [
+      "All-Trans Retinoic Acid (ATRA)",
+      "Arsenic Trioxide (ATO)",
+      "ATRA plus Arsenic Trioxide Combination",
+      "Chemotherapy-Based Regimens",
+      "Supportive Care for Coagulopathy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Coagulation Studies",
+      "PML-RARA Fusion Detection"
+    ],
+    "source_file": "APL_PML_RARA.yaml",
+    "page_url": "../pages/disorders/Acute_Promyelocytic_Leukemia,_PML-RARA.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 6,
+    "num_genes": 2,
+    "num_treatments": 5
+  },
+  {
     "name": "ATTR_Amyloidosis",
     "disease_id": "MONDO:0007100",
     "category": "Genetic",
@@ -389,6 +538,179 @@ window.searchData = [
     "num_treatments": 5
   },
   {
+    "name": "Adult T-Cell Leukemia/Lymphoma",
+    "disease_id": "MONDO:0019471",
+    "category": "",
+    "parents": [
+      "T-cell leukemia",
+      "T-cell lymphoma"
+    ],
+    "subtypes": [
+      "Acute ATLL",
+      "Lymphoma Type ATLL",
+      "Chronic ATLL",
+      "Smoldering ATLL"
+    ],
+    "description": "Adult T-cell leukemia/lymphoma (ATLL) is an aggressive peripheral T-cell neoplasm caused by Human T-lymphotropic Virus type 1 (HTLV-1) infection. The disease develops in approximately 2-5% of HTLV-1 carriers after a prolonged latency of decades. ATLL is endemic in southwestern Japan, the Caribbean, parts of South America, and sub-Saharan Africa. The HTLV-1 Tax oncoprotein is the primary driver of transformation, activating NF-kappaB and CREB pathways, inducing genomic instability, and impairing DNA repair. ATLL cells characteristically display a CD4+CD25+ regulatory T-cell phenotype with flower-shaped nuclear morphology.",
+    "pathophysiology": [
+      "HTLV-1 Infection and Tax Oncoprotein Expression",
+      "Tax-Mediated NF-kappaB Activation",
+      "Genomic Instability and Accumulation of Mutations",
+      "Apoptosis Resistance",
+      "Uncontrolled T-Cell Proliferation"
+    ],
+    "cell_types": [
+      "T cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000084"
+    ],
+    "biological_processes": [
+      "viral transcription",
+      "positive regulation of NF-kappaB transcription factor activity",
+      "DNA damage response",
+      "apoptotic process",
+      "cell population proliferation"
+    ],
+    "phenotypes": [
+      "Leukocytosis",
+      "Lymphadenopathy",
+      "Hypercalcemia",
+      "Skin Lesions",
+      "Hepatomegaly",
+      "Splenomegaly",
+      "Opportunistic Infections"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Lymphatic",
+      "Metabolic",
+      "Dermatologic",
+      "Abdominal",
+      "Infectious"
+    ],
+    "phenotype_ids": [
+      "HP:0001974",
+      "HP:0002716",
+      "HP:0003072",
+      "HP:0011121",
+      "HP:0002240",
+      "HP:0001744",
+      "HP:0002719"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "HTLV-1 Tax",
+      "HTLV-1 HBZ",
+      "TP53",
+      "CCR4"
+    ],
+    "treatments": [
+      "Chemotherapy",
+      "Mogamulizumab",
+      "Allogeneic Stem Cell Transplantation",
+      "Interferon-alpha and Zidovudine"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "HTLV-1 Antibodies",
+      "HTLV-1 Proviral Load",
+      "Soluble IL-2 Receptor (sIL-2R)"
+    ],
+    "source_file": "Adult_T_Cell_Leukemia_Lymphoma.yaml",
+    "page_url": "../pages/disorders/Adult_T-Cell_Leukemia_Lymphoma.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 5,
+    "num_genes": 4,
+    "num_treatments": 4
+  },
+  {
+    "name": "Aflatoxin-Related Hepatocellular Carcinoma",
+    "disease_id": "MONDO:0007256",
+    "category": "",
+    "parents": [
+      "hepatocellular carcinoma"
+    ],
+    "subtypes": [],
+    "description": "Aflatoxin-related hepatocellular carcinoma (HCC) is a form of liver cancer strongly associated with dietary exposure to aflatoxin B1 (AFB1), a mycotoxin produced by Aspergillus fungi that contaminate stored grains and nuts in tropical regions. Aflatoxin exposure synergizes dramatically with chronic hepatitis B virus (HBV) infection, increasing HCC risk approximately 60-fold compared to either factor alone. The molecular signature of aflatoxin-related HCC is the TP53 R249S mutation, resulting from AFB1-DNA adduct formation at codon 249. This disease exemplifies gene-environment interaction in cancer etiology and is most prevalent in sub-Saharan Africa and Southeast Asia where both aflatoxin exposure and HBV infection are endemic.",
+    "pathophysiology": [
+      "Aflatoxin B1 Metabolic Activation",
+      "TP53 R249S Hotspot Mutation",
+      "HBV-Aflatoxin Synergistic Interaction",
+      "Loss of Cell Cycle Checkpoint Control",
+      "Apoptosis Resistance",
+      "Uncontrolled Hepatocyte Proliferation"
+    ],
+    "cell_types": [
+      "hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "DNA damage response",
+      "cell population proliferation",
+      "cell cycle checkpoint signaling",
+      "apoptotic process"
+    ],
+    "phenotypes": [
+      "Abdominal Pain",
+      "Weight Loss",
+      "Hepatomegaly",
+      "Fatigue",
+      "Jaundice",
+      "Ascites"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Constitutional",
+      "Abdominal",
+      "Hepatic"
+    ],
+    "phenotype_ids": [
+      "HP:0002027",
+      "HP:0001824",
+      "HP:0002240",
+      "HP:0012378",
+      "HP:0000952",
+      "HP:0001541"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "TP53",
+      "CTNNB1",
+      "TERT Promoter"
+    ],
+    "treatments": [
+      "Surgical Resection",
+      "Liver Transplantation",
+      "Locoregional Therapy",
+      "Systemic Therapy",
+      "Aflatoxin Exposure Prevention"
+    ],
+    "environmental": [
+      "Aflatoxin B1 Exposure"
+    ],
+    "biochemical": [
+      "Alpha-Fetoprotein (AFP)",
+      "Aflatoxin-Albumin Adducts",
+      "Urinary Aflatoxin Metabolites"
+    ],
+    "source_file": "Aflatoxin_Related_HCC.yaml",
+    "page_url": "../pages/disorders/Aflatoxin-Related_Hepatocellular_Carcinoma.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 6,
+    "num_genes": 3,
+    "num_treatments": 5
+  },
+  {
     "name": "Age-Related Macular Degeneration",
     "disease_id": "MONDO:0005150",
     "category": "Complex",
@@ -714,6 +1036,80 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 0,
     "num_treatments": 5
+  },
+  {
+    "name": "Alveolar Rhabdomyosarcoma",
+    "disease_id": "MONDO:0009994",
+    "category": "",
+    "parents": [
+      "rhabdomyosarcoma"
+    ],
+    "subtypes": [
+      "PAX3-FOXO1 Fusion-Positive",
+      "PAX7-FOXO1 Fusion-Positive",
+      "Fusion-Negative Alveolar Rhabdomyosarcoma"
+    ],
+    "description": "Alveolar rhabdomyosarcoma (ARMS) is an aggressive pediatric soft tissue sarcoma characterized by skeletal muscle differentiation and distinctive chromosomal translocations involving PAX3 or PAX7 fused to FOXO1. The PAX3-FOXO1 fusion, resulting from t(2;13)(q35;q14), is present in approximately 55% of cases and confers a worse prognosis. PAX7-FOXO1 from t(1;13)(p36;q14) occurs in about 22% of cases with somewhat better outcomes. Approximately 20% are fusion-negative and behave more like embryonal rhabdomyosarcoma. The PAX-FOXO1 fusion proteins function as aberrant transcription factors driving myogenic differentiation arrest and proliferation.",
+    "pathophysiology": [
+      "PAX-FOXO1 Fusion Oncogene",
+      "Blocked Myogenic Differentiation",
+      "Aberrant Cell Proliferation"
+    ],
+    "cell_types": [
+      "skeletal muscle myoblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000515"
+    ],
+    "biological_processes": [
+      "positive regulation of transcription by RNA polymerase II",
+      "cell differentiation",
+      "cell population proliferation"
+    ],
+    "phenotypes": [
+      "Soft Tissue Mass",
+      "Proptosis",
+      "Weight Loss",
+      "Metastatic Disease"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Ophthalmologic",
+      "Constitutional",
+      "Systemic"
+    ],
+    "phenotype_ids": [
+      "HP:0031459",
+      "HP:0000520",
+      "HP:0001824",
+      "HP:0002664"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [
+      "PAX3-FOXO1 Fusion",
+      "PAX7-FOXO1 Fusion",
+      "MYCN Amplification"
+    ],
+    "treatments": [
+      "Multi-Agent Chemotherapy",
+      "Surgical Resection",
+      "Radiation Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "PAX-FOXO1 Fusion Detection",
+      "Myogenic Markers"
+    ],
+    "source_file": "Alveolar_Rhabdomyosarcoma.yaml",
+    "page_url": "../pages/disorders/Alveolar_Rhabdomyosarcoma.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 3,
+    "num_genes": 3,
+    "num_treatments": 3
   },
   {
     "name": "Alzheimer's Disease",
@@ -1145,6 +1541,91 @@ window.searchData = [
     "num_pathophysiology": 2,
     "num_genes": 4,
     "num_treatments": 3
+  },
+  {
+    "name": "Arsenic-Related Cancers",
+    "disease_id": "MONDO:0005096",
+    "category": "",
+    "parents": [
+      "carcinoma"
+    ],
+    "subtypes": [],
+    "description": "Arsenic-related cancers comprise a spectrum of malignancies caused by chronic exposure to inorganic arsenic, a Group 1 human carcinogen. The primary sites affected include skin (squamous cell and basal cell carcinomas), lung, and urinary bladder. Arsenic exposure occurs through contaminated drinking water, occupational exposure (mining, smelting), and certain traditional medicines. The carcinogenic mechanisms involve oxidative stress, epigenetic alterations, genomic instability, and impaired DNA repair without direct DNA adduct formation. Arsenic-related skin cancers are preceded by characteristic premalignant lesions including palmar/plantar keratoses and Bowen disease. Endemic regions include Bangladesh, West Bengal, Taiwan, Chile, and Argentina where groundwater contamination affects millions.",
+    "pathophysiology": [
+      "Arsenic Uptake and Metabolism",
+      "Oxidative Stress and DNA Damage",
+      "Epigenetic Dysregulation",
+      "Impaired DNA Repair",
+      "Tumor Suppressor Gene Silencing",
+      "Genomic Instability",
+      "Uncontrolled Cell Proliferation"
+    ],
+    "cell_types": [
+      "hepatocyte",
+      "epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0000066"
+    ],
+    "biological_processes": [
+      "DNA damage response",
+      "DNA methylation",
+      "DNA repair",
+      "cell cycle checkpoint signaling",
+      "signal transduction",
+      "cell population proliferation"
+    ],
+    "phenotypes": [
+      "Palmoplantar Hyperkeratosis",
+      "Skin Hyperpigmentation",
+      "Skin Cancer",
+      "Lung Cancer",
+      "Bladder Cancer",
+      "Blackfoot Disease"
+    ],
+    "phenotype_categories": [
+      "Dermatologic",
+      "Pulmonary",
+      "Urologic",
+      "Peripheral Vascular"
+    ],
+    "phenotype_ids": [
+      "HP:0000962",
+      "HP:0000953",
+      "HP:0002664",
+      "HP:0004950"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "AS3MT",
+      "GSTO1/GSTO2",
+      "TP53"
+    ],
+    "treatments": [
+      "Exposure Cessation",
+      "Surgical Excision",
+      "Topical Therapy",
+      "Systemic Cancer Treatment",
+      "Surveillance"
+    ],
+    "environmental": [
+      "Arsenic Exposure"
+    ],
+    "biochemical": [
+      "Urinary Arsenic",
+      "Hair and Nail Arsenic"
+    ],
+    "source_file": "Arsenic_Related_Cancers.yaml",
+    "page_url": "../pages/disorders/Arsenic-Related_Cancers.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 7,
+    "num_genes": 3,
+    "num_treatments": 5
   },
   {
     "name": "Asthma",
@@ -1590,6 +2071,349 @@ window.searchData = [
     "num_treatments": 4
   },
   {
+    "name": "BRAF-Mutant Papillary Thyroid Cancer",
+    "disease_id": "MONDO:0005075",
+    "category": "",
+    "parents": [
+      "thyroid carcinoma"
+    ],
+    "subtypes": [
+      "BRAF V600E-Mutant PTC",
+      "BRAF V600K and Other BRAF Mutations"
+    ],
+    "description": "BRAF-mutant papillary thyroid cancer (PTC) is a molecularly-defined subset of differentiated thyroid cancer harboring activating BRAF mutations, most commonly BRAF V600E. This mutation occurs in approximately 40-60% of papillary thyroid carcinomas and is associated with aggressive clinicopathological features including extrathyroidal extension, lymph node metastasis, and radioiodine refractoriness. The identification of BRAF V600E as a driver oncogene led to development of targeted therapy with BRAF inhibitors (dabrafenib) in combination with MEK inhibitors (trametinib) for radioiodine-refractory disease, providing effective options beyond traditional cytotoxic therapy.",
+    "pathophysiology": [
+      "BRAF V600E Constitutive Activation",
+      "MEK-ERK Pathway Hyperactivation",
+      "Thyroid Dedifferentiation"
+    ],
+    "cell_types": [
+      "thyroid follicular cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002258"
+    ],
+    "biological_processes": [
+      "MAPK cascade",
+      "signal transduction",
+      "cell differentiation"
+    ],
+    "phenotypes": [
+      "Thyroid Nodule",
+      "Cervical Lymphadenopathy",
+      "Fatigue"
+    ],
+    "phenotype_categories": [
+      "Endocrine",
+      "Systemic",
+      "Constitutional"
+    ],
+    "phenotype_ids": [
+      "HP:0002890",
+      "HP:0002716",
+      "HP:0012378"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "BRAF"
+    ],
+    "treatments": [
+      "Thyroidectomy",
+      "Radioiodine Therapy",
+      "Dabrafenib Plus Trametinib",
+      "Lenvatinib or Sorafenib"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Thyroglobulin",
+      "BRAF V600E Mutation Testing"
+    ],
+    "source_file": "BRAF_Mutant_Thyroid_Cancer.yaml",
+    "page_url": "../pages/disorders/BRAF-Mutant_Papillary_Thyroid_Cancer.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 4
+  },
+  {
+    "name": "BRAF V600E-Mutant Colorectal Cancer",
+    "disease_id": "MONDO:0005575",
+    "category": "",
+    "parents": [
+      "colorectal adenocarcinoma"
+    ],
+    "subtypes": [
+      "MSI-H BRAF V600E CRC",
+      "MSS BRAF V600E CRC"
+    ],
+    "description": "BRAF V600E-mutant colorectal cancer is a molecularly defined subtype representing approximately 8-12% of all colorectal cancers. The V600E mutation causes constitutive activation of BRAF kinase, driving the MAPK signaling pathway independent of upstream RAS signaling. This subtype has historically been associated with poor prognosis, chemotherapy resistance, and limited treatment options. The combination of encorafenib (BRAF inhibitor) and cetuximab (anti-EGFR) has transformed outcomes for these patients by addressing the feedback reactivation that limits single-agent BRAF inhibitor efficacy seen in melanoma.",
+    "pathophysiology": [
+      "BRAF V600E Constitutive Activation",
+      "Uncontrolled MAPK Pathway Signaling",
+      "Enhanced Cell Proliferation",
+      "EGFR Feedback Reactivation"
+    ],
+    "cell_types": [
+      "colon epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0011108"
+    ],
+    "biological_processes": [
+      "MAPK cascade",
+      "cell population proliferation",
+      "signal transduction",
+      "ERBB signaling pathway"
+    ],
+    "phenotypes": [
+      "Colon Cancer",
+      "Abdominal Pain",
+      "Anemia",
+      "Weight Loss",
+      "Fatigue"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Hematologic",
+      "Constitutional"
+    ],
+    "phenotype_ids": [
+      "HP:0003003",
+      "HP:0002027",
+      "HP:0001903",
+      "HP:0001824",
+      "HP:0012378"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "BRAF V600E",
+      "PIK3CA",
+      "PTEN"
+    ],
+    "treatments": [
+      "Encorafenib plus Cetuximab",
+      "Encorafenib plus Cetuximab plus Binimetinib",
+      "FOLFOXIRI plus Bevacizumab",
+      "Surgical Resection"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "BRAF V600E Mutation Detection",
+      "MSI/MMR Testing"
+    ],
+    "source_file": "BRAF_V600E_Mutant_Colorectal_Cancer.yaml",
+    "page_url": "../pages/disorders/BRAF_V600E-Mutant_Colorectal_Cancer.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 4,
+    "num_genes": 3,
+    "num_treatments": 4
+  },
+  {
+    "name": "BRAF V600E-Mutant Non-Small Cell Lung Cancer",
+    "disease_id": "MONDO:0005061",
+    "category": "",
+    "parents": [
+      "non-small cell lung carcinoma"
+    ],
+    "subtypes": [
+      "BRAF V600E Adenocarcinoma",
+      "BRAF Non-V600 Mutant NSCLC"
+    ],
+    "description": "BRAF V600E-mutant non-small cell lung cancer (NSCLC) is a molecularly-defined lung cancer subtype driven by the BRAF V600E activating mutation. BRAF V600E occurs in approximately 1-2% of NSCLC and represents about half of all BRAF mutations in lung cancer. The V600E mutation causes constitutive activation of the RAF-MEK-ERK pathway independent of upstream RAS signaling. The combination of dabrafenib (BRAF inhibitor) plus trametinib (MEK inhibitor) provides effective targeted therapy, analogous to treatment of BRAF V600E melanoma.",
+    "pathophysiology": [
+      "BRAF V600E Oncogenic Mutation",
+      "Constitutive MAPK Pathway Activation",
+      "Cell Proliferation and Survival",
+      "BRAF/MEK Inhibitor Resistance"
+    ],
+    "cell_types": [
+      "type II pneumocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0002063"
+    ],
+    "biological_processes": [
+      "protein kinase activity",
+      "MAPK cascade",
+      "cell population proliferation",
+      "response to drug"
+    ],
+    "phenotypes": [
+      "Lung Adenocarcinoma",
+      "Variable Smoking History",
+      "Female Predominance",
+      "Brain Metastases"
+    ],
+    "phenotype_categories": [
+      "Neoplastic",
+      "Clinical"
+    ],
+    "phenotype_ids": [
+      "HP:0030078",
+      "HP:0100526",
+      "HP:0004375"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "BRAF"
+    ],
+    "treatments": [
+      "Dabrafenib plus Trametinib",
+      "Dabrafenib Monotherapy",
+      "Encorafenib plus Binimetinib",
+      "Immunotherapy",
+      "Chemotherapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "BRAF Mutation Testing"
+    ],
+    "source_file": "BRAF_V600E_Mutant_NSCLC.yaml",
+    "page_url": "../pages/disorders/BRAF_V600E-Mutant_Non-Small_Cell_Lung_Cancer.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 5
+  },
+  {
+    "name": "BRAF V600 Mutant Melanoma",
+    "disease_id": "MONDO:0005012",
+    "category": "",
+    "parents": [
+      "cutaneous melanoma"
+    ],
+    "subtypes": [],
+    "description": "BRAF V600-mutant melanoma is a molecular subtype of cutaneous melanoma characterized by activating mutations in the BRAF oncogene, most commonly V600E (substitution of valine for glutamic acid at codon 600), with V600K being the second most common variant. These mutations result in constitutive activation of the BRAF kinase and downstream MAPK/ERK signaling pathway, driving uncontrolled melanocyte proliferation. BRAF V600 mutations occur in approximately 40-50% of cutaneous melanomas and are associated with intermittent sun exposure, younger patient age, and superficial spreading histology. This molecular subtype is paradigmatic for oncogene-targeted therapy, as the combination of BRAF and MEK inhibitors (dabrafenib plus trametinib) has transformed outcomes for patients with advanced disease.",
+    "pathophysiology": [
+      "BRAF V600 Oncogenic Mutation",
+      "Constitutive MAPK Pathway Activation",
+      "Uncontrolled Melanocyte Proliferation",
+      "Apoptosis Resistance"
+    ],
+    "cell_types": [
+      "melanocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000148"
+    ],
+    "biological_processes": [
+      "MAPK cascade",
+      "signal transduction",
+      "cell population proliferation",
+      "apoptotic process"
+    ],
+    "phenotypes": [
+      "Cutaneous Melanoma",
+      "Pigmented Skin Lesion"
+    ],
+    "phenotype_categories": [
+      "Dermatologic"
+    ],
+    "phenotype_ids": [
+      "HP:0012056",
+      "HP:0008069"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "BRAF V600E",
+      "BRAF V600K"
+    ],
+    "treatments": [
+      "Dabrafenib plus Trametinib",
+      "Vemurafenib plus Cobimetinib",
+      "Encorafenib plus Binimetinib",
+      "Immune Checkpoint Inhibitors"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "BRAF_V600_Mutant_Melanoma.yaml",
+    "page_url": "../pages/disorders/BRAF_V600_Mutant_Melanoma.html",
+    "num_phenotypes": 2,
+    "num_pathophysiology": 4,
+    "num_genes": 2,
+    "num_treatments": 4
+  },
+  {
+    "name": "BRCA-Mutant Prostate Cancer",
+    "disease_id": "MONDO:0008315",
+    "category": "",
+    "parents": [
+      "prostate cancer"
+    ],
+    "subtypes": [
+      "BRCA2-Mutant Prostate Cancer",
+      "BRCA1-Mutant Prostate Cancer"
+    ],
+    "description": "BRCA-mutant prostate cancer is a molecularly-defined subset of prostate adenocarcinoma harboring germline or somatic mutations in BRCA1 or BRCA2 genes, which encode critical homologous recombination repair (HRR) proteins. BRCA2 mutations occur in approximately 5-7% of metastatic castration-resistant prostate cancer (mCRPC) and are associated with more aggressive disease, earlier onset, and increased metastatic potential. The identification of HRR deficiency as an actionable target led to approval of PARP inhibitors olaparib and rucaparib for BRCA-mutated mCRPC, representing a paradigm shift in precision oncology for prostate cancer.",
+    "pathophysiology": [
+      "Homologous Recombination Repair Deficiency",
+      "Genomic Instability",
+      "Synthetic Lethality with PARP Inhibition"
+    ],
+    "cell_types": [
+      "prostate gland cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002231"
+    ],
+    "biological_processes": [
+      "double-strand break repair via homologous recombination",
+      "DNA repair",
+      "single-strand break repair"
+    ],
+    "phenotypes": [
+      "Lower Urinary Tract Symptoms",
+      "Bone Pain",
+      "Fatigue"
+    ],
+    "phenotype_categories": [
+      "Genitourinary",
+      "Musculoskeletal",
+      "Constitutional"
+    ],
+    "phenotype_ids": [
+      "HP:0000079",
+      "HP:0002653",
+      "HP:0012378"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [
+      "BRCA2",
+      "BRCA1"
+    ],
+    "treatments": [
+      "Olaparib",
+      "Rucaparib",
+      "Platinum Chemotherapy",
+      "Androgen Deprivation Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "PSA (Prostate-Specific Antigen)"
+    ],
+    "source_file": "BRCA_Mutant_Prostate_Cancer.yaml",
+    "page_url": "../pages/disorders/BRCA-Mutant_Prostate_Cancer.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 3,
+    "num_genes": 2,
+    "num_treatments": 4
+  },
+  {
     "name": "Bacterial meningitis",
     "disease_id": "MONDO:0006670",
     "category": "Infectious Disease",
@@ -1784,6 +2608,75 @@ window.searchData = [
     "page_url": "../pages/disorders/Bardet-Biedl_Syndrome.html",
     "num_phenotypes": 15,
     "num_pathophysiology": 4,
+    "num_genes": 3,
+    "num_treatments": 6
+  },
+  {
+    "name": "Basal Cell Carcinoma",
+    "disease_id": "MONDO:0005341",
+    "category": "",
+    "parents": [
+      "skin carcinoma"
+    ],
+    "subtypes": [
+      "Nodular Basal Cell Carcinoma",
+      "Superficial Basal Cell Carcinoma",
+      "Morpheaform (Sclerosing) Basal Cell Carcinoma",
+      "Infiltrative Basal Cell Carcinoma"
+    ],
+    "description": "Basal cell carcinoma (BCC) is the most common human malignancy, arising from basal cells of the epidermis and hair follicles. The majority of BCCs are driven by aberrant activation of the Hedgehog (Hh) signaling pathway, most commonly through loss-of-function mutations in PTCH1 (the Hedgehog receptor that normally inhibits Smoothened) or less frequently through activating mutations in SMO (Smoothened). UV radiation is the primary environmental risk factor, with BCCs occurring predominantly on sun-exposed skin. While locally invasive and destructive, BCC rarely metastasizes. Surgical excision is curative for most BCCs, but advanced or metastatic disease can be treated with Hedgehog pathway inhibitors such as vismodegib and sonidegib.",
+    "pathophysiology": [
+      "PTCH1 Loss of Function",
+      "SMO Activating Mutations",
+      "Constitutive Hedgehog Pathway Activation",
+      "GLI Transcription Factor Activation",
+      "Uncontrolled Basal Cell Proliferation"
+    ],
+    "cell_types": [
+      "basal cell of epidermis"
+    ],
+    "cell_type_ids": [
+      "CL:0002187"
+    ],
+    "biological_processes": [
+      "smoothened signaling pathway",
+      "cell population proliferation"
+    ],
+    "phenotypes": [
+      "Basal Cell Carcinoma",
+      "Skin Neoplasm"
+    ],
+    "phenotype_categories": [
+      "Dermatologic"
+    ],
+    "phenotype_ids": [
+      "HP:0002671",
+      "HP:0008069"
+    ],
+    "frequencies": [
+      "OBLIGATE"
+    ],
+    "genes": [
+      "PTCH1",
+      "SMO",
+      "TP53"
+    ],
+    "treatments": [
+      "Surgical Excision",
+      "Vismodegib",
+      "Sonidegib",
+      "Radiation Therapy",
+      "Topical Therapy",
+      "Immune Checkpoint Inhibitors"
+    ],
+    "environmental": [
+      "Ultraviolet Radiation"
+    ],
+    "biochemical": [],
+    "source_file": "Basal_Cell_Carcinoma.yaml",
+    "page_url": "../pages/disorders/Basal_Cell_Carcinoma.html",
+    "num_phenotypes": 2,
+    "num_pathophysiology": 5,
     "num_genes": 3,
     "num_treatments": 6
   },
@@ -2206,6 +3099,88 @@ window.searchData = [
     "num_treatments": 6
   },
   {
+    "name": "Burkitt Lymphoma",
+    "disease_id": "MONDO:0007243",
+    "category": "",
+    "parents": [
+      "non-Hodgkin lymphoma"
+    ],
+    "subtypes": [
+      "Endemic Burkitt Lymphoma",
+      "Sporadic Burkitt Lymphoma",
+      "Immunodeficiency-Associated Burkitt Lymphoma"
+    ],
+    "description": "Burkitt lymphoma is a highly aggressive B-cell non-Hodgkin lymphoma characterized by MYC oncogene translocation, typically t(8;14)(q24;q32) involving the immunoglobulin heavy chain locus. Three clinical variants exist: endemic (African), sporadic, and immunodeficiency-associated. Endemic Burkitt lymphoma is strongly associated with Epstein-Barr virus (EBV) infection and commonly presents as jaw tumors in children in malaria-endemic regions. The disease exemplifies the role of MYC dysregulation in driving uncontrolled cell proliferation, with one of the fastest doubling times of any human cancer.",
+    "pathophysiology": [
+      "MYC Translocation and Oncogene Activation",
+      "Uncontrolled B-Cell Proliferation",
+      "Apoptosis Resistance",
+      "High-Grade Malignancy with Rapid Tumor Growth"
+    ],
+    "cell_types": [
+      "B cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000236"
+    ],
+    "biological_processes": [
+      "positive regulation of transcription by RNA polymerase II",
+      "cell population proliferation",
+      "apoptotic process"
+    ],
+    "phenotypes": [
+      "Abdominal Mass",
+      "Jaw Mass",
+      "Lymphadenopathy",
+      "Weight Loss",
+      "Fatigue",
+      "Hepatomegaly",
+      "Splenomegaly"
+    ],
+    "phenotype_categories": [
+      "Abdominal",
+      "Head and Neck",
+      "Lymphatic",
+      "Constitutional"
+    ],
+    "phenotype_ids": [
+      "HP:0003270",
+      "HP:0000277",
+      "HP:0002716",
+      "HP:0001824",
+      "HP:0012378",
+      "HP:0002240",
+      "HP:0001744"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "MYC",
+      "TP53",
+      "ID3",
+      "TCF3"
+    ],
+    "treatments": [
+      "Intensive Chemotherapy",
+      "Rituximab",
+      "Tumor Lysis Syndrome Prophylaxis"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Elevated Lactate Dehydrogenase (LDH)",
+      "Uric Acid Elevation"
+    ],
+    "source_file": "Burkitt_Lymphoma.yaml",
+    "page_url": "../pages/disorders/Burkitt_Lymphoma.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 4,
+    "num_genes": 4,
+    "num_treatments": 3
+  },
+  {
     "name": "CHIME_syndrome",
     "disease_id": "MONDO:0010221",
     "category": "Genetic",
@@ -2553,6 +3528,83 @@ window.searchData = [
     "num_treatments": 5
   },
   {
+    "name": "Cervical Cancer",
+    "disease_id": "MONDO:0002974",
+    "category": "",
+    "parents": [
+      "uterine cancer"
+    ],
+    "subtypes": [
+      "Squamous Cell Carcinoma",
+      "Adenocarcinoma",
+      "Adenosquamous Carcinoma"
+    ],
+    "description": "Cervical cancer is a malignancy arising from the epithelium of the uterine cervix, with the vast majority (greater than 95%) caused by persistent infection with high-risk human papillomavirus (HPV), primarily types 16 and 18. The viral oncoproteins E6 and E7 drive carcinogenesis by inactivating the tumor suppressors p53 and pRB, respectively. Cervical cancer is preventable through HPV vaccination and detectable at preinvasive stages through screening, making it a model for infection-driven cancer prevention.",
+    "pathophysiology": [
+      "E6 Oncoprotein-Mediated p53 Degradation",
+      "E7 Oncoprotein-Mediated pRB Inactivation",
+      "HPV Genome Integration",
+      "Cervical Intraepithelial Neoplasia Progression"
+    ],
+    "cell_types": [
+      "epithelial cell of cervix"
+    ],
+    "cell_type_ids": [
+      "CL:0002535"
+    ],
+    "biological_processes": [
+      "proteasome-mediated ubiquitin-dependent protein catabolic process",
+      "apoptotic process",
+      "G1/S transition of mitotic cell cycle",
+      "cell cycle checkpoint signaling",
+      "viral DNA integration into host DNA",
+      "cell population proliferation"
+    ],
+    "phenotypes": [
+      "Abnormal Vaginal Bleeding",
+      "Vaginal Discharge",
+      "Pelvic Pain",
+      "Urinary Symptoms"
+    ],
+    "phenotype_categories": [
+      "Gynecologic",
+      "Pelvic",
+      "Urinary"
+    ],
+    "phenotype_ids": [
+      "HP:0100608",
+      "HP:0002027",
+      "HP:0000790"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "TP53",
+      "PIK3CA"
+    ],
+    "treatments": [
+      "HPV Vaccination",
+      "Cone Biopsy/LEEP",
+      "Radical Hysterectomy",
+      "Chemoradiation",
+      "Pembrolizumab"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "HPV DNA Testing",
+      "p16 Immunohistochemistry"
+    ],
+    "source_file": "Cervical_Cancer.yaml",
+    "page_url": "../pages/disorders/Cervical_Cancer.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 4,
+    "num_genes": 2,
+    "num_treatments": 5
+  },
+  {
     "name": "Cholera",
     "disease_id": "MONDO:0015766",
     "category": "Infectious Disease",
@@ -2823,6 +3875,180 @@ window.searchData = [
     "num_treatments": 8
   },
   {
+    "name": "Chronic Lymphocytic Leukemia",
+    "disease_id": "MONDO:0004948",
+    "category": "",
+    "parents": [
+      "B-cell neoplasm"
+    ],
+    "subtypes": [
+      "IGHV Mutated CLL",
+      "IGHV Unmutated CLL"
+    ],
+    "description": "Chronic lymphocytic leukemia (CLL) is the most common leukemia in Western countries, characterized by clonal expansion of mature-appearing CD5+ B lymphocytes in blood, bone marrow, and lymphoid tissues. The clinical course is highly variable, ranging from indolent disease requiring no treatment to aggressive forms. Prognosis is stratified by IGHV mutation status, cytogenetics (del(17p), del(11q), del(13q)), and TP53 mutations. Treatment has been revolutionized by BTK inhibitors (ibrutinib, acalabrutinib) and BCL2 inhibitors (venetoclax), enabling chemotherapy-free regimens with deep remissions.",
+    "pathophysiology": [
+      "B-cell Receptor Signaling Dysregulation",
+      "BTK Pathway Activation",
+      "Microenvironmental Survival Signals",
+      "NF-kB Activation and Survival",
+      "CLL Cell Accumulation"
+    ],
+    "cell_types": [
+      "mature B cell",
+      "B cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000785",
+      "CL:0000236"
+    ],
+    "biological_processes": [
+      "B cell activation",
+      "signal transduction",
+      "apoptotic process"
+    ],
+    "phenotypes": [
+      "Lymphoproliferative Disorder",
+      "Lymphadenopathy",
+      "Splenomegaly",
+      "Anemia",
+      "Thrombocytopenia",
+      "Recurrent Infections",
+      "Night Sweats",
+      "Weight Loss"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Lymphatic",
+      "Abdominal",
+      "Infectious",
+      "Constitutional"
+    ],
+    "phenotype_ids": [
+      "HP:0005523",
+      "HP:0002716",
+      "HP:0001744",
+      "HP:0001903",
+      "HP:0001873",
+      "HP:0002719",
+      "HP:0030166",
+      "HP:0001824"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "TP53 Mutation/del(17p)",
+      "del(11q)/ATM",
+      "del(13q)",
+      "IGHV"
+    ],
+    "treatments": [
+      "Ibrutinib",
+      "Acalabrutinib",
+      "Venetoclax plus Obinutuzumab",
+      "Chemoimmunotherapy (FCR)",
+      "Watch and Wait"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Flow Cytometry Immunophenotyping",
+      "IGHV Mutation Analysis"
+    ],
+    "source_file": "Chronic_Lymphocytic_Leukemia.yaml",
+    "page_url": "../pages/disorders/Chronic_Lymphocytic_Leukemia.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 5,
+    "num_genes": 4,
+    "num_treatments": 5
+  },
+  {
+    "name": "Chronic Myeloid Leukemia, BCR-ABL1 Positive",
+    "disease_id": "MONDO:0011996",
+    "category": "",
+    "parents": [
+      "myeloid leukemia"
+    ],
+    "subtypes": [],
+    "description": "Chronic myeloid leukemia (CML), BCR-ABL1 positive, is a myeloproliferative neoplasm characterized by the Philadelphia chromosome, resulting from a reciprocal translocation t(9;22)(q34;q11) that creates the BCR-ABL1 fusion gene. The constitutively active BCR-ABL1 tyrosine kinase drives uncontrolled myeloid cell proliferation. CML is the paradigmatic example of oncogene addiction and targeted therapy success, with tyrosine kinase inhibitors transforming it from a fatal disease to a manageable chronic condition. This entry covers BCR-ABL1 positive CML, which represents approximately 95% of all CML cases.",
+    "pathophysiology": [
+      "BCR-ABL1 Fusion Oncogene Formation",
+      "Constitutive Tyrosine Kinase Activation",
+      "Uncontrolled Myeloid Proliferation",
+      "Apoptosis Resistance",
+      "Genomic Instability and Disease Progression"
+    ],
+    "cell_types": [
+      "hematopoietic stem cell",
+      "myeloid cell",
+      "granulocyte",
+      "myeloid progenitor cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000037",
+      "CL:0000763",
+      "CL:0000094",
+      "CL:0000049"
+    ],
+    "biological_processes": [
+      "protein phosphorylation",
+      "protein tyrosine kinase activity",
+      "signal transduction",
+      "myeloid cell homeostasis",
+      "apoptotic process",
+      "DNA repair"
+    ],
+    "phenotypes": [
+      "Leukocytosis",
+      "Basophilia",
+      "Thrombocytosis",
+      "Anemia",
+      "Fatigue",
+      "Splenomegaly",
+      "Hepatomegaly"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Constitutional",
+      "Abdominal"
+    ],
+    "phenotype_ids": [
+      "HP:0001974",
+      "HP:0031807",
+      "HP:0001894",
+      "HP:0001903",
+      "HP:0012378",
+      "HP:0001744",
+      "HP:0002240"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "BCR-ABL1"
+    ],
+    "treatments": [
+      "Imatinib",
+      "Dasatinib",
+      "Nilotinib",
+      "Ponatinib",
+      "Allogeneic Stem Cell Transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Philadelphia Chromosome Detection",
+      "BCR-ABL1 Fusion Transcript"
+    ],
+    "source_file": "Chronic_Myeloid_Leukemia.yaml",
+    "page_url": "../pages/disorders/Chronic_Myeloid_Leukemia,_BCR-ABL1_Positive.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 5
+  },
+  {
     "name": "Chronic_Obstructive_Pulmonary_Disease",
     "disease_id": "MONDO:0005002",
     "category": "Complex",
@@ -3046,6 +4272,153 @@ window.searchData = [
     "num_treatments": 8
   },
   {
+    "name": "Clear Cell Renal Cell Carcinoma",
+    "disease_id": "MONDO:0005005",
+    "category": "",
+    "parents": [
+      "renal cell carcinoma"
+    ],
+    "subtypes": [
+      "VHL-associated ccRCC",
+      "Sporadic ccRCC"
+    ],
+    "description": "Clear cell renal cell carcinoma (ccRCC) is the most common subtype of kidney cancer, characterized by biallelic inactivation of the VHL tumor suppressor gene in over 90% of cases. VHL loss stabilizes hypoxia-inducible factors (HIF-1\u03b1 and HIF-2\u03b1), driving expression of angiogenic and growth-promoting genes including VEGF, PDGF, and TGF-\u03b1. This molecular understanding led to development of VEGF/VEGFR inhibitors and the more recent HIF-2\u03b1 inhibitor belzutifan, representing a paradigm shift toward targeting the root cause of the disease.",
+    "pathophysiology": [
+      "VHL Tumor Suppressor Inactivation",
+      "HIF-2\u03b1 Stabilization",
+      "VEGF-Driven Angiogenesis",
+      "Growth Factor Pathway Activation",
+      "Epigenetic Dysregulation"
+    ],
+    "cell_types": [
+      "kidney epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002518"
+    ],
+    "biological_processes": [
+      "cellular response to hypoxia",
+      "proteasome-mediated ubiquitin-dependent protein catabolic process",
+      "protein stabilization",
+      "angiogenesis",
+      "vascular endothelial growth factor receptor signaling pathway",
+      "cell population proliferation",
+      "chromatin remodeling"
+    ],
+    "phenotypes": [
+      "Renal Mass",
+      "Hematuria",
+      "Fatigue",
+      "Weight Loss",
+      "Metastatic Disease"
+    ],
+    "phenotype_categories": [
+      "Genitourinary",
+      "Constitutional",
+      "Systemic"
+    ],
+    "phenotype_ids": [
+      "HP:0009726",
+      "HP:0000790",
+      "HP:0012378",
+      "HP:0001824",
+      "HP:0002664"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "VHL",
+      "PBRM1",
+      "BAP1"
+    ],
+    "treatments": [
+      "Nephrectomy",
+      "VEGFR Tyrosine Kinase Inhibitors",
+      "Belzutifan",
+      "Immune Checkpoint Inhibitors"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "HIF-2\u03b1 Pathway Activation"
+    ],
+    "source_file": "Clear_Cell_Renal_Cell_Carcinoma.yaml",
+    "page_url": "../pages/disorders/Clear_Cell_Renal_Cell_Carcinoma.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 5,
+    "num_genes": 3,
+    "num_treatments": 4
+  },
+  {
+    "name": "Clear Cell Sarcoma",
+    "disease_id": "MONDO:0002926",
+    "category": "",
+    "parents": [
+      "soft tissue sarcoma"
+    ],
+    "subtypes": [
+      "Classic Clear Cell Sarcoma",
+      "Clear Cell Sarcoma of the Gastrointestinal Tract"
+    ],
+    "description": "Clear cell sarcoma (CCS), also known as melanoma of soft parts, is a rare translocation-driven soft tissue sarcoma characterized by the EWSR1-ATF1 or EWSR1-CREB1 fusion genes. Despite its name and melanocytic differentiation with expression of melanin and melanocytic markers, CCS is genetically and clinically distinct from cutaneous melanoma. The EWSR1-ATF1 fusion activates MITF, the master regulator of melanocyte development, explaining the melanocytic phenotype. CCS typically affects young adults and arises in deep soft tissues of the extremities, often associated with tendons and aponeuroses. It has a propensity for lymph node metastasis and poor long-term outcomes.",
+    "pathophysiology": [
+      "EWSR1-ATF1 Fusion Oncogene",
+      "MITF Activation",
+      "Melanocytic Differentiation"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "positive regulation of transcription by RNA polymerase II",
+      "regulation of gene expression",
+      "cell differentiation"
+    ],
+    "phenotypes": [
+      "Soft Tissue Mass",
+      "Localized Pain",
+      "Lymph Node Involvement",
+      "Weight Loss"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Systemic",
+      "Constitutional"
+    ],
+    "phenotype_ids": [
+      "HP:0031459",
+      "HP:0002653",
+      "HP:0002664",
+      "HP:0001824"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "EWSR1-ATF1 Fusion"
+    ],
+    "treatments": [
+      "Wide Surgical Resection",
+      "Sentinel Lymph Node Biopsy",
+      "Radiation Therapy",
+      "Systemic Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "EWSR1-ATF1 Fusion Detection",
+      "Melanocytic Markers"
+    ],
+    "source_file": "Clear_Cell_Sarcoma.yaml",
+    "page_url": "../pages/disorders/Clear_Cell_Sarcoma.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 4
+  },
+  {
     "name": "Clostridioides difficile Infection",
     "disease_id": "MONDO:0000705",
     "category": "Infectious",
@@ -3054,16 +4427,28 @@ window.searchData = [
       "Healthcare-associated infections"
     ],
     "subtypes": [],
-    "description": "Broad-spectrum antibiotic exposure disrupts gut flora, permitting C. difficile spores to germinate and colonize the colon.",
+    "description": "Broad-spectrum antibiotics (especially fluoroquinolones, clindamycin, cephalosporins) cause indiscriminate killing of gut commensals, dramatically reducing microbial diversity and biomass. This creates ecological opportunity for C. difficile colonization.\n",
     "pathophysiology": [
-      "Microbiota disruption enables colonization",
-      "Toxin-mediated epithelial injury",
-      "Pseudomembranous colitis with fluid secretion"
+      "Antibiotic-Induced Microbial Depletion",
+      "Loss of Colonization Resistance",
+      "Loss of Secondary Bile Acid Production",
+      "C. difficile Germination and Expansion",
+      "Toxin Production (TcdA/TcdB)",
+      "Epithelial Cell Death and Barrier Disruption",
+      "Neutrophil Recruitment and Inflammation",
+      "Pseudomembranous Colitis"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "Colonic Epithelial Cell",
+      "Neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0011108",
+      "CL:0000775"
+    ],
     "biological_processes": [
-      "inflammatory response"
+      "Pathogenesis",
+      "Inflammatory Response"
     ],
     "phenotypes": [
       "Diarrhea",
@@ -3092,9 +4477,90 @@ window.searchData = [
     "source_file": "Clostridioides_difficile_Infection.yaml",
     "page_url": "../pages/disorders/Clostridioides_difficile_Infection.html",
     "num_phenotypes": 3,
-    "num_pathophysiology": 3,
+    "num_pathophysiology": 8,
     "num_genes": 0,
     "num_treatments": 5
+  },
+  {
+    "name": "Acute Myeloid Leukemia, Core Binding Factor",
+    "disease_id": "MONDO:0015166",
+    "category": "",
+    "parents": [
+      "acute myeloid leukemia"
+    ],
+    "subtypes": [
+      "AML with t(8;21)(q22;q22) RUNX1-RUNX1T1",
+      "AML with inv(16)(p13.1q22) or t(16;16) CBFB-MYH11"
+    ],
+    "description": "Core binding factor (CBF) acute myeloid leukemia encompasses two favorable-risk AML subtypes defined by chromosomal abnormalities affecting the CBF transcription factor complex: t(8;21)(q22;q22) creating RUNX1-RUNX1T1 fusion, and inv(16)(p13.1q22) or t(16;16)(p13.1;q22) creating CBFB-MYH11 fusion. CBF is essential for definitive hematopoiesis, and these fusion proteins act as dominant-negative inhibitors of normal CBF function, blocking myeloid differentiation. CBF-AML represents 15-20% of adult AML and has favorable prognosis with intensive chemotherapy, particularly with high-dose cytarabine consolidation.",
+    "pathophysiology": [
+      "CBF Transcription Factor Complex Disruption",
+      "Differentiation Block at Myeloid Stage",
+      "Self-Renewal Maintenance",
+      "Leukemic Blast Accumulation"
+    ],
+    "cell_types": [
+      "myeloid progenitor cell",
+      "myeloblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000049",
+      "CL:0000835"
+    ],
+    "biological_processes": [
+      "myeloid cell differentiation",
+      "granulocyte differentiation",
+      "cell population proliferation"
+    ],
+    "phenotypes": [
+      "Anemia",
+      "Thrombocytopenia",
+      "Leukocytosis",
+      "Fatigue",
+      "Recurrent Infections",
+      "Hepatomegaly"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Constitutional",
+      "Infectious",
+      "Abdominal"
+    ],
+    "phenotype_ids": [
+      "HP:0001903",
+      "HP:0001873",
+      "HP:0001974",
+      "HP:0012378",
+      "HP:0002719",
+      "HP:0002240"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "RUNX1-RUNX1T1 Fusion",
+      "CBFB-MYH11 Fusion",
+      "KIT"
+    ],
+    "treatments": [
+      "Intensive Chemotherapy (7+3) with High-Dose Cytarabine Consolidation",
+      "Gemtuzumab Ozogamicin",
+      "MRD-Guided Therapy",
+      "Allogeneic Stem Cell Transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Cytogenetic Analysis",
+      "Molecular Fusion Detection"
+    ],
+    "source_file": "Core_Binding_Factor_AML.yaml",
+    "page_url": "../pages/disorders/Acute_Myeloid_Leukemia,_Core_Binding_Factor.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 4,
+    "num_genes": 3,
+    "num_treatments": 4
   },
   {
     "name": "Coronary Artery Disease",
@@ -3757,6 +5223,69 @@ window.searchData = [
     "num_treatments": 4
   },
   {
+    "name": "Dermatofibrosarcoma Protuberans",
+    "disease_id": "MONDO:0011934",
+    "category": "",
+    "parents": [
+      "skin neoplasm"
+    ],
+    "subtypes": [
+      "Classic DFSP",
+      "Fibrosarcomatous DFSP",
+      "Pigmented DFSP (Bednar Tumor)"
+    ],
+    "description": "Dermatofibrosarcoma protuberans (DFSP) is a rare, locally aggressive fibroblastic tumor of the dermis and subcutaneous tissue characterized by the COL1A1-PDGFB fusion gene. This translocation, typically t(17;22)(q22;q13), results in constitutive PDGF-BB expression driving autocrine PDGFR-beta signaling. DFSP exemplifies the success of targeted therapy in fusion-driven cancers, as the PDGFR inhibitor imatinib is highly effective for unresectable or metastatic disease. While locally aggressive with high recurrence rates after incomplete excision, DFSP rarely metastasizes. Wide local excision with Mohs micrographic surgery achieves the best local control. DFSP occurs in adults of all ages, most commonly on the trunk.",
+    "pathophysiology": [
+      "COL1A1-PDGFB Fusion Oncogene",
+      "Autocrine PDGFR Signaling",
+      "Sustained Proliferation"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "positive regulation of transcription by RNA polymerase II",
+      "cell population proliferation",
+      "MAPK cascade"
+    ],
+    "phenotypes": [
+      "Skin Nodule",
+      "Soft Tissue Mass",
+      "Local Recurrence"
+    ],
+    "phenotype_categories": [
+      "Dermatologic",
+      "Systemic"
+    ],
+    "phenotype_ids": [
+      "HP:0200036",
+      "HP:0031459",
+      "HP:0002664"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "COL1A1-PDGFB Fusion"
+    ],
+    "treatments": [
+      "Wide Local Excision",
+      "Imatinib Targeted Therapy",
+      "Radiation Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "COL1A1-PDGFB Fusion Detection",
+      "CD34 Expression"
+    ],
+    "source_file": "Dermatofibrosarcoma_Protuberans.yaml",
+    "page_url": "../pages/disorders/Dermatofibrosarcoma_Protuberans.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 3
+  },
+  {
     "name": "Dermatomyositis",
     "disease_id": "MONDO:0016367",
     "category": "Autoimmune",
@@ -3837,6 +5366,75 @@ window.searchData = [
     "num_treatments": 5
   },
   {
+    "name": "Desmoplastic Small Round Cell Tumor",
+    "disease_id": "MONDO:0019373",
+    "category": "",
+    "parents": [
+      "small round cell tumor"
+    ],
+    "subtypes": [
+      "Intra-Abdominal DSRCT",
+      "Extra-Abdominal DSRCT"
+    ],
+    "description": "Desmoplastic small round cell tumor (DSRCT) is a highly aggressive mesenchymal malignancy characterized by the pathognomonic EWSR1-WT1 fusion gene resulting from t(11;22)(p13;q12). This fusion combines the transcriptional activation domain of EWSR1 with the DNA-binding zinc fingers of WT1, creating an aberrant transcription factor. DSRCT predominantly affects adolescent and young adult males, typically presenting with diffuse peritoneal involvement and bulky abdominal masses. Despite aggressive multimodal treatment, prognosis remains poor with 5-year survival rates under 20%. The unique biology of DSRCT reflects its hybrid phenotype with expression of epithelial, mesenchymal, and neural markers.",
+    "pathophysiology": [
+      "EWSR1-WT1 Fusion Oncogene",
+      "PDGFA Activation",
+      "Multiphenotypic Differentiation"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "positive regulation of transcription by RNA polymerase II",
+      "cell population proliferation",
+      "cell differentiation"
+    ],
+    "phenotypes": [
+      "Abdominal Mass",
+      "Ascites",
+      "Weight Loss",
+      "Fever",
+      "Metastatic Disease"
+    ],
+    "phenotype_categories": [
+      "Abdominal",
+      "Gastrointestinal",
+      "Constitutional",
+      "Systemic"
+    ],
+    "phenotype_ids": [
+      "HP:0031500",
+      "HP:0001541",
+      "HP:0001824",
+      "HP:0001945",
+      "HP:0002664"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "EWSR1-WT1 Fusion"
+    ],
+    "treatments": [
+      "Multi-Agent Chemotherapy",
+      "Cytoreductive Surgery",
+      "Radiation Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "EWSR1-WT1 Fusion Detection",
+      "Multiphenotypic Markers"
+    ],
+    "source_file": "Desmoplastic_Small_Round_Cell_Tumor.yaml",
+    "page_url": "../pages/disorders/Desmoplastic_Small_Round_Cell_Tumor.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 3
+  },
+  {
     "name": "Dieulafoy Lesion",
     "disease_id": "MONDO:0001427",
     "category": "Acquired",
@@ -3888,6 +5486,94 @@ window.searchData = [
     "num_pathophysiology": 2,
     "num_genes": 0,
     "num_treatments": 3
+  },
+  {
+    "name": "Diffuse Large B-Cell Lymphoma",
+    "disease_id": "MONDO:0018905",
+    "category": "",
+    "parents": [
+      "B-cell non-Hodgkin lymphoma"
+    ],
+    "subtypes": [
+      "Germinal Center B-cell (GCB) Type",
+      "Activated B-cell (ABC) Type",
+      "High-Grade B-cell Lymphoma with MYC and BCL2 Rearrangements"
+    ],
+    "description": "Diffuse large B-cell lymphoma (DLBCL) is the most common non-Hodgkin lymphoma, representing 30-40% of cases. It is characterized by diffuse proliferation of large B-lymphoid cells and is clinically aggressive but potentially curable with immunochemotherapy. Gene expression profiling identifies two major molecular subtypes: germinal center B-cell (GCB) type with better prognosis and activated B-cell (ABC) type with inferior outcomes. MYC, BCL2, and BCL6 rearrangements define high-grade \"double-hit\" or \"triple-hit\" lymphomas with aggressive behavior. R-CHOP (rituximab, cyclophosphamide, doxorubicin, vincristine, prednisone) remains standard frontline therapy, with novel approaches for relapsed disease.",
+    "pathophysiology": [
+      "Germinal Center B-cell Origin",
+      "BCL2 Overexpression and Apoptosis Resistance",
+      "MYC-Driven Proliferation",
+      "NF-kB Constitutive Activation",
+      "Lymphoma Cell Accumulation"
+    ],
+    "cell_types": [
+      "centrocyte",
+      "centroblast",
+      "B cell"
+    ],
+    "cell_type_ids": [
+      "CL:0009111",
+      "CL:0009112",
+      "CL:0000236"
+    ],
+    "biological_processes": [
+      "apoptotic process",
+      "cell population proliferation",
+      "signal transduction"
+    ],
+    "phenotypes": [
+      "Lymphadenopathy",
+      "Night Sweats",
+      "Weight Loss",
+      "Fatigue",
+      "Splenomegaly",
+      "Anemia"
+    ],
+    "phenotype_categories": [
+      "Lymphatic",
+      "Constitutional",
+      "Abdominal",
+      "Hematologic"
+    ],
+    "phenotype_ids": [
+      "HP:0002716",
+      "HP:0030166",
+      "HP:0001824",
+      "HP:0012378",
+      "HP:0001744",
+      "HP:0001903"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "BCL2 Translocation",
+      "MYC Rearrangement",
+      "MYD88 L265P Mutation",
+      "BCL6 Rearrangement"
+    ],
+    "treatments": [
+      "R-CHOP Immunochemotherapy",
+      "Polatuzumab Vedotin plus R-CHP",
+      "Intensive Chemotherapy for Double-Hit Lymphoma",
+      "CAR-T Cell Therapy",
+      "Autologous Stem Cell Transplantation",
+      "Radiation Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Tissue Biopsy and Immunohistochemistry",
+      "FISH for Translocations"
+    ],
+    "source_file": "Diffuse_Large_B_Cell_Lymphoma.yaml",
+    "page_url": "../pages/disorders/Diffuse_Large_B-Cell_Lymphoma.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 5,
+    "num_genes": 4,
+    "num_treatments": 6
   },
   {
     "name": "Down_syndrome",
@@ -4155,6 +5841,230 @@ window.searchData = [
     "num_pathophysiology": 2,
     "num_genes": 1,
     "num_treatments": 5
+  },
+  {
+    "name": "EBV-Associated Gastric Cancer",
+    "disease_id": "MONDO:0001056",
+    "category": "",
+    "parents": [
+      "gastric cancer"
+    ],
+    "subtypes": [],
+    "description": "Epstein-Barr virus (EBV)-associated gastric cancer is a distinct molecular subtype of gastric adenocarcinoma characterized by clonal EBV infection of tumor cells, extreme CpG island methylator phenotype (CIMP-high), frequent PIK3CA mutations, and JAK2/PD-L1/PD-L2 amplifications. EBV-positive gastric cancers comprise approximately 9% of all gastric cancers worldwide and show unique features including prominent lymphoid infiltration, better prognosis than other subtypes, and potential responsiveness to immune checkpoint inhibitors. The viral oncoproteins LMP1, LMP2A, and EBNA1 drive epigenetic reprogramming and survival signaling in infected epithelial cells.",
+    "pathophysiology": [
+      "EBV Latent Infection of Gastric Epithelium",
+      "Epigenetic Reprogramming and CIMP-High Phenotype",
+      "PI3K-AKT Pathway Activation",
+      "Tumor Suppressor Gene Silencing",
+      "Uncontrolled Cell Proliferation"
+    ],
+    "cell_types": [
+      "epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000066"
+    ],
+    "biological_processes": [
+      "viral transcription",
+      "DNA methylation",
+      "signal transduction",
+      "cell cycle checkpoint signaling",
+      "cell population proliferation"
+    ],
+    "phenotypes": [
+      "Abdominal Pain",
+      "Weight Loss",
+      "Fatigue",
+      "Anemia",
+      "Hepatomegaly",
+      "Lymphadenopathy"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Constitutional",
+      "Hematologic",
+      "Abdominal",
+      "Lymphatic"
+    ],
+    "phenotype_ids": [
+      "HP:0002027",
+      "HP:0001824",
+      "HP:0012378",
+      "HP:0001903",
+      "HP:0002240",
+      "HP:0002716"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "PIK3CA",
+      "ARID1A",
+      "CDKN2A"
+    ],
+    "treatments": [
+      "Surgical Resection",
+      "Chemotherapy",
+      "Immune Checkpoint Inhibitors"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "EBV-Encoded Small RNAs (EBERs)",
+      "PD-L1/PD-L2 Expression"
+    ],
+    "source_file": "EBV_Associated_Gastric_Cancer.yaml",
+    "page_url": "../pages/disorders/EBV-Associated_Gastric_Cancer.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 5,
+    "num_genes": 3,
+    "num_treatments": 3
+  },
+  {
+    "name": "EGFR-Mutant Non-Small Cell Lung Cancer",
+    "disease_id": "MONDO:0005061",
+    "category": "",
+    "parents": [
+      "non-small cell lung carcinoma"
+    ],
+    "subtypes": [
+      "EGFR Exon 19 Deletion NSCLC",
+      "EGFR L858R Mutant NSCLC",
+      "EGFR Exon 20 Insertion NSCLC",
+      "EGFR T790M Resistance NSCLC"
+    ],
+    "description": "EGFR-mutant non-small cell lung cancer (NSCLC) is a molecularly-defined lung cancer subtype driven by activating mutations in the epidermal growth factor receptor (EGFR) gene. EGFR mutations occur in approximately 10-15% of NSCLC in Western populations and 40-50% in East Asian populations. Common mutations include exon 19 deletions and L858R point mutation (exon 21), which together account for ~85% of EGFR mutations and confer sensitivity to EGFR tyrosine kinase inhibitors (TKIs). EGFR-mutant NSCLC represents a paradigm for precision oncology in solid tumors, with multiple generations of targeted therapy and well-characterized resistance mechanisms.",
+    "pathophysiology": [
+      "EGFR Oncogenic Mutations",
+      "Constitutive EGFR Signaling",
+      "Oncogene Addiction",
+      "TKI Resistance Mechanisms"
+    ],
+    "cell_types": [
+      "type II pneumocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0002063"
+    ],
+    "biological_processes": [
+      "epidermal growth factor receptor signaling pathway",
+      "MAPK cascade",
+      "phosphatidylinositol 3-kinase signaling",
+      "cell population proliferation",
+      "response to drug"
+    ],
+    "phenotypes": [
+      "Lung Adenocarcinoma",
+      "Never/Light Smoker Association",
+      "Female and Asian Predominance",
+      "Brain Metastases"
+    ],
+    "phenotype_categories": [
+      "Neoplastic",
+      "Clinical",
+      "Demographic"
+    ],
+    "phenotype_ids": [
+      "HP:0030078",
+      "HP:0100526",
+      "HP:0004375"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "EGFR"
+    ],
+    "treatments": [
+      "Osimertinib",
+      "Erlotinib",
+      "Gefitinib",
+      "Amivantamab",
+      "Chemotherapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "EGFR Mutation Testing"
+    ],
+    "source_file": "EGFR_Mutant_NSCLC.yaml",
+    "page_url": "../pages/disorders/EGFR-Mutant_Non-Small_Cell_Lung_Cancer.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 5
+  },
+  {
+    "name": "ER-Positive Breast Cancer",
+    "disease_id": "MONDO:0021116",
+    "category": "",
+    "parents": [
+      "breast carcinoma"
+    ],
+    "subtypes": [
+      "Luminal A Breast Cancer",
+      "Luminal B Breast Cancer"
+    ],
+    "description": "Estrogen receptor-positive (ER+) breast cancer is the most common molecularly-defined subtype of breast cancer, representing approximately 70-80% of cases. It is characterized by expression of estrogen receptor alpha (ER\u03b1), which drives tumor growth in response to estrogen. ER+ breast cancer encompasses the luminal A and luminal B intrinsic subtypes, with generally favorable prognosis especially for luminal A tumors. Treatment centers on endocrine therapy to block estrogen signaling, with CDK4/6 inhibitors revolutionizing treatment of metastatic disease.",
+    "pathophysiology": [
+      "Estrogen Receptor Activation",
+      "Estrogen-Driven Transcription",
+      "Cell Cycle Progression"
+    ],
+    "cell_types": [
+      "luminal epithelial cell of mammary gland"
+    ],
+    "cell_type_ids": [
+      "CL:0002326"
+    ],
+    "biological_processes": [
+      "intracellular estrogen receptor signaling pathway",
+      "positive regulation of transcription by RNA polymerase II",
+      "G1/S transition of mitotic cell cycle",
+      "cell population proliferation"
+    ],
+    "phenotypes": [
+      "Breast Carcinoma",
+      "Estrogen Receptor Expression",
+      "Late Recurrence Pattern"
+    ],
+    "phenotype_categories": [
+      "Neoplastic",
+      "Molecular",
+      "Clinical"
+    ],
+    "phenotype_ids": [
+      "HP:0003002",
+      "HP:0002664"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT"
+    ],
+    "genes": [
+      "ESR1",
+      "PIK3CA",
+      "CCND1"
+    ],
+    "treatments": [
+      "Aromatase Inhibitors",
+      "Tamoxifen",
+      "CDK4/6 Inhibitors",
+      "Fulvestrant",
+      "Alpelisib",
+      "Elacestrant"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Estrogen and Progesterone Receptor Testing",
+      "Genomic Assays"
+    ],
+    "source_file": "ER_Positive_Breast_Cancer.yaml",
+    "page_url": "../pages/disorders/ER-Positive_Breast_Cancer.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 3,
+    "num_genes": 3,
+    "num_treatments": 6
   },
   {
     "name": "Ebola Virus Disease (EVD)",
@@ -4472,6 +6382,79 @@ window.searchData = [
     "num_treatments": 5
   },
   {
+    "name": "Embryonal Rhabdomyosarcoma",
+    "disease_id": "MONDO:0009993",
+    "category": "",
+    "parents": [
+      "rhabdomyosarcoma"
+    ],
+    "subtypes": [
+      "Botryoid Embryonal Rhabdomyosarcoma",
+      "Spindle Cell Embryonal Rhabdomyosarcoma",
+      "Anaplastic Embryonal Rhabdomyosarcoma"
+    ],
+    "description": "Embryonal rhabdomyosarcoma (ERMS) is the most common subtype of rhabdomyosarcoma, accounting for approximately 60-70% of cases. It typically affects children under 10 years of age with favorable primary sites including orbit, head and neck, and genitourinary tract. ERMS is characterized by loss of heterozygosity at 11p15, the locus containing IGF2 and other imprinted genes. Unlike alveolar rhabdomyosarcoma, ERMS lacks characteristic fusion genes and instead harbors a variety of mutations in RAS pathway genes. ERMS generally has a better prognosis than fusion-positive alveolar rhabdomyosarcoma, with 5-year survival rates exceeding 70% for localized disease.",
+    "pathophysiology": [
+      "Loss of Heterozygosity at 11p15",
+      "IGF2 Overexpression",
+      "RAS Pathway Activation"
+    ],
+    "cell_types": [
+      "skeletal muscle myoblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000515"
+    ],
+    "biological_processes": [
+      "cell population proliferation",
+      "regulation of cell population proliferation",
+      "MAPK cascade"
+    ],
+    "phenotypes": [
+      "Soft Tissue Mass",
+      "Proptosis",
+      "Hematuria",
+      "Weight Loss"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Ophthalmologic",
+      "Genitourinary",
+      "Constitutional"
+    ],
+    "phenotype_ids": [
+      "HP:0031459",
+      "HP:0000520",
+      "HP:0000790",
+      "HP:0001824"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "Loss of Heterozygosity at 11p15",
+      "RAS Pathway Mutations",
+      "TP53 Mutations"
+    ],
+    "treatments": [
+      "Multi-Agent Chemotherapy",
+      "Surgical Resection",
+      "Radiation Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Myogenic Markers"
+    ],
+    "source_file": "Embryonal_Rhabdomyosarcoma.yaml",
+    "page_url": "../pages/disorders/Embryonal_Rhabdomyosarcoma.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 3,
+    "num_genes": 3,
+    "num_treatments": 3
+  },
+  {
     "name": "Endometriosis",
     "disease_id": "MONDO:0005133",
     "category": "Complex",
@@ -4743,6 +6726,379 @@ window.searchData = [
     "num_treatments": 6
   },
   {
+    "name": "Essential Thrombocythemia",
+    "disease_id": "MONDO:0005029",
+    "category": "",
+    "parents": [
+      "myeloproliferative neoplasm"
+    ],
+    "subtypes": [],
+    "description": "Essential thrombocythemia (ET) is a clonal myeloproliferative neoplasm characterized by sustained megakaryocyte proliferation leading to elevated platelet counts. Driver mutations include JAK2 V617F (approximately 55%), CALR (25%), and MPL (3%), with 15% being triple-negative. ET has the most indolent course among classic myeloproliferative neoplasms with near-normal life expectancy in younger patients, though it carries risks of thrombosis, hemorrhage, and transformation to myelofibrosis or acute leukemia. Treatment focuses on thrombosis prevention with aspirin and cytoreduction in high-risk patients using hydroxyurea, anagrelide, or interferon.",
+    "pathophysiology": [
+      "JAK-STAT Pathway Hyperactivation",
+      "Enhanced Megakaryopoiesis",
+      "Platelet Dysfunction and Thrombosis Risk"
+    ],
+    "cell_types": [
+      "megakaryocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000556"
+    ],
+    "biological_processes": [
+      "JAK-STAT signaling pathway",
+      "megakaryocyte differentiation",
+      "platelet activation"
+    ],
+    "phenotypes": [
+      "Thrombocytosis",
+      "Thrombosis",
+      "Headache",
+      "Erythromelalgia",
+      "Splenomegaly",
+      "Fatigue"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Vascular",
+      "Neurological",
+      "Peripheral",
+      "Abdominal",
+      "Constitutional"
+    ],
+    "phenotype_ids": [
+      "HP:0001894",
+      "HP:0001977",
+      "HP:0002315",
+      "HP:0001155",
+      "HP:0001744",
+      "HP:0012378"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "JAK2",
+      "CALR",
+      "MPL"
+    ],
+    "treatments": [
+      "Low-Dose Aspirin",
+      "Hydroxyurea",
+      "Anagrelide",
+      "Interferon-alpha"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Complete Blood Count",
+      "Bone Marrow Biopsy"
+    ],
+    "source_file": "Essential_Thrombocythemia.yaml",
+    "page_url": "../pages/disorders/Essential_Thrombocythemia.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 3,
+    "num_genes": 3,
+    "num_treatments": 4
+  },
+  {
+    "name": "Ewing Sarcoma",
+    "disease_id": "MONDO:0012817",
+    "category": "",
+    "parents": [
+      "bone sarcoma"
+    ],
+    "subtypes": [
+      "Osseous Ewing Sarcoma",
+      "Extraosseous Ewing Sarcoma"
+    ],
+    "description": "Ewing sarcoma is an aggressive pediatric bone and soft tissue malignancy characterized by the pathognomonic EWS-FLI1 fusion gene, present in approximately 85% of cases. This translocation t(11;22)(q24;q12) creates a chimeric transcription factor that aberrantly activates genes driving proliferation and blocks differentiation. The EWS-FLI1 fusion is both diagnostic and represents a compelling but challenging therapeutic target. Ewing sarcoma exemplifies the concept of fusion oncogene-driven cancer with a single genetic driver.",
+    "pathophysiology": [
+      "EWS-FLI1 Fusion Oncogene",
+      "Aberrant Transcriptional Regulation",
+      "Blocked Differentiation"
+    ],
+    "cell_types": [
+      "mesenchymal stem cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000134"
+    ],
+    "biological_processes": [
+      "positive regulation of transcription by RNA polymerase II",
+      "regulation of gene expression",
+      "cell differentiation"
+    ],
+    "phenotypes": [
+      "Bone Pain",
+      "Soft Tissue Mass",
+      "Fever",
+      "Weight Loss",
+      "Metastatic Disease"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Constitutional",
+      "Systemic"
+    ],
+    "phenotype_ids": [
+      "HP:0002653",
+      "HP:0031459",
+      "HP:0001945",
+      "HP:0001824",
+      "HP:0002664"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [
+      "EWS-FLI1 Fusion"
+    ],
+    "treatments": [
+      "Neoadjuvant Chemotherapy",
+      "Surgical Resection",
+      "Radiation Therapy",
+      "Adjuvant Chemotherapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "EWS-FLI1 Fusion Detection"
+    ],
+    "source_file": "Ewing_Sarcoma.yaml",
+    "page_url": "../pages/disorders/Ewing_Sarcoma.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 4
+  },
+  {
+    "name": "FGFR-Altered Cholangiocarcinoma",
+    "disease_id": "MONDO:0003210",
+    "category": "",
+    "parents": [
+      "intrahepatic cholangiocarcinoma"
+    ],
+    "subtypes": [],
+    "description": "FGFR-altered cholangiocarcinoma is a molecularly defined subtype of intrahepatic cholangiocarcinoma characterized by fibroblast growth factor receptor (FGFR) alterations, primarily FGFR2 fusions or rearrangements. FGFR2 fusions occur in approximately 10-15% of intrahepatic cholangiocarcinomas and represent actionable targets. Multiple fusion partners have been identified, with BICC1, PPHLN1, and AHCYL1 being most common. FGFR inhibitors pemigatinib, futibatinib, and infigratinib have demonstrated significant activity in FGFR2 fusion-positive cholangiocarcinoma, establishing these as standard therapies for this molecularly defined subset.",
+    "pathophysiology": [
+      "FGFR2 Fusion and Constitutive Activation",
+      "MAPK Pathway Activation",
+      "PI3K-AKT Pathway Activation",
+      "PLCgamma-PKC Pathway Activation",
+      "Enhanced Cell Proliferation"
+    ],
+    "cell_types": [
+      "intrahepatic cholangiocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0002538"
+    ],
+    "biological_processes": [
+      "fibroblast growth factor receptor signaling pathway",
+      "MAPK cascade",
+      "phosphatidylinositol 3-kinase signaling",
+      "cell population proliferation"
+    ],
+    "phenotypes": [
+      "Hepatomegaly",
+      "Jaundice",
+      "Abdominal Pain",
+      "Weight Loss",
+      "Fatigue",
+      "Nausea"
+    ],
+    "phenotype_categories": [
+      "Hepatic",
+      "Gastrointestinal",
+      "Constitutional"
+    ],
+    "phenotype_ids": [
+      "HP:0002240",
+      "HP:0000952",
+      "HP:0002027",
+      "HP:0001824",
+      "HP:0012378",
+      "HP:0002018"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "FGFR2 Fusions",
+      "FGFR2 Mutations/Amplifications",
+      "FGFR Resistance Mutations"
+    ],
+    "treatments": [
+      "Pemigatinib",
+      "Futibatinib",
+      "Infigratinib",
+      "Gemcitabine plus Cisplatin",
+      "Gemcitabine plus Cisplatin plus Durvalumab",
+      "Surgical Resection"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "CA 19-9",
+      "Serum Phosphate",
+      "Liver Function Tests"
+    ],
+    "source_file": "FGFR_Altered_Cholangiocarcinoma.yaml",
+    "page_url": "../pages/disorders/FGFR-Altered_Cholangiocarcinoma.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 5,
+    "num_genes": 3,
+    "num_treatments": 6
+  },
+  {
+    "name": "FGFR-Altered Urothelial Carcinoma",
+    "disease_id": "MONDO:0040679",
+    "category": "",
+    "parents": [
+      "urothelial carcinoma"
+    ],
+    "subtypes": [
+      "FGFR3-Mutant Urothelial Carcinoma",
+      "FGFR2/3-Fusion Positive Urothelial Carcinoma"
+    ],
+    "description": "FGFR-altered urothelial carcinoma is a molecularly-defined subset of bladder and upper urinary tract cancers harboring activating alterations in fibroblast growth factor receptors, most commonly FGFR3. FGFR3 mutations occur in approximately 15-20% of advanced urothelial carcinomas and are enriched in luminal-papillary subtypes. FGFR3 fusions, including FGFR3-TACC3, occur in a smaller subset. These alterations drive constitutive receptor activation and downstream RAS-MAPK and PI3K-AKT signaling. The identification of FGFR as an oncogenic driver led to development of erdafitinib, the first FDA-approved targeted therapy for metastatic urothelial carcinoma.",
+    "pathophysiology": [
+      "FGFR3 Constitutive Activation",
+      "RAS-MAPK Pathway Activation",
+      "PI3K-AKT Pathway Activation"
+    ],
+    "cell_types": [
+      "epithelial cell of urethra"
+    ],
+    "cell_type_ids": [
+      "CL:1000296"
+    ],
+    "biological_processes": [
+      "fibroblast growth factor receptor signaling pathway",
+      "MAPK cascade",
+      "phosphatidylinositol 3-kinase signaling"
+    ],
+    "phenotypes": [
+      "Hematuria",
+      "Dysuria",
+      "Fatigue"
+    ],
+    "phenotype_categories": [
+      "Genitourinary",
+      "Systemic"
+    ],
+    "phenotype_ids": [
+      "HP:0000790",
+      "HP:0100518",
+      "HP:0012378"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "FGFR3"
+    ],
+    "treatments": [
+      "Erdafitinib",
+      "Platinum-Based Chemotherapy",
+      "Immune Checkpoint Inhibitors"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "FGFR3 Mutation Testing"
+    ],
+    "source_file": "FGFR_Altered_Urothelial_Carcinoma.yaml",
+    "page_url": "../pages/disorders/FGFR-Altered_Urothelial_Carcinoma.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 3
+  },
+  {
+    "name": "Acute Myeloid Leukemia, FLT3-Mutated",
+    "disease_id": "MONDO:0100415",
+    "category": "",
+    "parents": [
+      "acute myeloid leukemia"
+    ],
+    "subtypes": [
+      "FLT3-ITD Mutated AML",
+      "FLT3-TKD Mutated AML"
+    ],
+    "description": "FLT3-mutated acute myeloid leukemia (AML) is characterized by activating mutations in the FMS-like tyrosine kinase 3 (FLT3) receptor, occurring in approximately 30% of newly diagnosed AML cases. The two main mutation types are internal tandem duplications (ITD) in the juxtamembrane domain (25%) and tyrosine kinase domain (TKD) point mutations (7-10%). FLT3-ITD mutations confer an adverse prognosis with high relapse rates, while FLT3-TKD mutations have intermediate prognostic impact. The development of FLT3 inhibitors (midostaurin, gilteritinib) has significantly improved outcomes for these patients, representing a key example of precision medicine in AML.",
+    "pathophysiology": [
+      "FLT3 Receptor Constitutive Activation",
+      "STAT5 Hyperactivation",
+      "RAS-MAPK Pathway Activation",
+      "Apoptosis Resistance",
+      "Uncontrolled Myeloblast Proliferation"
+    ],
+    "cell_types": [
+      "myeloblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000835"
+    ],
+    "biological_processes": [
+      "protein tyrosine kinase activity",
+      "signal transduction",
+      "cell population proliferation",
+      "apoptotic process",
+      "myeloid cell differentiation"
+    ],
+    "phenotypes": [
+      "Leukocytosis",
+      "Anemia",
+      "Thrombocytopenia",
+      "Fatigue",
+      "Recurrent Infections",
+      "Abnormal Bleeding"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Constitutional",
+      "Infectious",
+      "Bleeding"
+    ],
+    "phenotype_ids": [
+      "HP:0001974",
+      "HP:0001903",
+      "HP:0001873",
+      "HP:0012378",
+      "HP:0002719",
+      "HP:0001892"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "FLT3-ITD",
+      "FLT3-TKD"
+    ],
+    "treatments": [
+      "Midostaurin",
+      "Gilteritinib",
+      "Intensive Chemotherapy (7+3)",
+      "Allogeneic Stem Cell Transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "FLT3-ITD Detection",
+      "FLT3-TKD Mutation Analysis"
+    ],
+    "source_file": "FLT3_Mutant_AML.yaml",
+    "page_url": "../pages/disorders/Acute_Myeloid_Leukemia,_FLT3-Mutated.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 5,
+    "num_genes": 2,
+    "num_treatments": 4
+  },
+  {
     "name": "Fabry disease",
     "disease_id": "MONDO:0010526",
     "category": "Mendelian",
@@ -4827,6 +7183,83 @@ window.searchData = [
     "page_url": "../pages/disorders/Fabry_disease.html",
     "num_phenotypes": 7,
     "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 4
+  },
+  {
+    "name": "Familial Adenomatous Polyposis",
+    "disease_id": "MONDO:0021056",
+    "category": "",
+    "parents": [
+      "hereditary cancer-predisposing syndrome"
+    ],
+    "subtypes": [
+      "Classic FAP",
+      "Attenuated FAP (AFAP)",
+      "Gardner Syndrome"
+    ],
+    "description": "Familial adenomatous polyposis (FAP) is an autosomal dominant hereditary cancer syndrome caused by germline pathogenic variants in the APC tumor suppressor gene. It is characterized by the development of hundreds to thousands of adenomatous polyps in the colon and rectum, with virtually 100% lifetime risk of colorectal cancer if untreated. FAP exemplifies the adenoma-carcinoma sequence and the role of Wnt/\u03b2-catenin pathway dysregulation in colorectal tumorigenesis. Extracolonic manifestations include desmoid tumors, duodenal adenomas, osteomas (Gardner syndrome), and congenital hypertrophy of the retinal pigment epithelium (CHRPE).",
+    "pathophysiology": [
+      "APC Tumor Suppressor Loss",
+      "Wnt/\u03b2-Catenin Pathway Activation",
+      "Uncontrolled Intestinal Epithelial Proliferation",
+      "Adenoma Formation",
+      "Colorectal Cancer Progression"
+    ],
+    "cell_types": [
+      "intestinal epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002563"
+    ],
+    "biological_processes": [
+      "Wnt signaling pathway",
+      "cell population proliferation"
+    ],
+    "phenotypes": [
+      "Colorectal Polyposis",
+      "Colorectal Cancer",
+      "Duodenal Adenomas",
+      "Desmoid Tumors",
+      "Osteomas",
+      "Congenital Hypertrophy of the Retinal Pigment Epithelium (CHRPE)"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Neoplastic",
+      "Musculoskeletal",
+      "Ophthalmologic"
+    ],
+    "phenotype_ids": [
+      "HP:0030255",
+      "HP:0003003",
+      "HP:0030256",
+      "HP:6001034",
+      "HP:0100246",
+      "HP:0007703"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "APC"
+    ],
+    "treatments": [
+      "Prophylactic Colectomy",
+      "Endoscopic Surveillance",
+      "Genetic Counseling",
+      "Chemoprevention"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "APC Genetic Testing"
+    ],
+    "source_file": "Familial_Adenomatous_Polyposis.yaml",
+    "page_url": "../pages/disorders/Familial_Adenomatous_Polyposis.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 4
   },
@@ -5362,6 +7795,90 @@ window.searchData = [
     "num_treatments": 2
   },
   {
+    "name": "Gastric Cancer H. pylori Associated",
+    "disease_id": "MONDO:0004950",
+    "category": "",
+    "parents": [
+      "gastric carcinoma"
+    ],
+    "subtypes": [
+      "Intestinal-Type Adenocarcinoma",
+      "Diffuse-Type Adenocarcinoma"
+    ],
+    "description": "Helicobacter pylori-associated gastric cancer represents the majority of gastric adenocarcinomas worldwide. H. pylori is classified as a Class I carcinogen by the IARC, with chronic infection driving a cascade from gastritis to atrophic gastritis, intestinal metaplasia, dysplasia, and ultimately carcinoma (the Correa cascade). Both intestinal and diffuse histologic types can arise in the setting of H. pylori infection, though intestinal-type adenocarcinoma follows the classic progression pathway. H. pylori eradication can reduce gastric cancer risk, particularly when performed before development of premalignant lesions.",
+    "pathophysiology": [
+      "CagA-Mediated Oncogenic Signaling",
+      "VacA-Induced Cellular Damage",
+      "Chronic Inflammation (Correa Cascade)",
+      "CDH1/E-cadherin Inactivation"
+    ],
+    "cell_types": [
+      "epithelial cell of stomach"
+    ],
+    "cell_type_ids": [
+      "CL:0002178"
+    ],
+    "biological_processes": [
+      "cell population proliferation",
+      "apoptotic process",
+      "cellular response to cytotoxic stimulus",
+      "inflammatory response",
+      "response to oxidative stress",
+      "cell-cell adhesion"
+    ],
+    "phenotypes": [
+      "Abdominal Pain",
+      "Early Satiety",
+      "Weight Loss",
+      "Nausea",
+      "Dysphagia",
+      "Gastrointestinal Bleeding",
+      "Anorexia"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Constitutional"
+    ],
+    "phenotype_ids": [
+      "HP:0002027",
+      "HP:0033842",
+      "HP:0001824",
+      "HP:0002018",
+      "HP:0002015",
+      "HP:0002239",
+      "HP:0002039"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "CDH1",
+      "TP53",
+      "RHOA",
+      "ARID1A"
+    ],
+    "treatments": [
+      "H. pylori Eradication",
+      "Surgical Resection",
+      "Perioperative Chemotherapy",
+      "Trastuzumab",
+      "Immune Checkpoint Inhibition"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "H. pylori Testing",
+      "Serum Pepsinogen"
+    ],
+    "source_file": "Gastric_Cancer_H_pylori_Associated.yaml",
+    "page_url": "../pages/disorders/Gastric_Cancer_H._pylori_Associated.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 4,
+    "num_genes": 4,
+    "num_treatments": 5
+  },
+  {
     "name": "Gastroesophageal Reflux Disease",
     "disease_id": "MONDO:0007186",
     "category": "Complex",
@@ -5440,6 +7957,83 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 2,
     "num_treatments": 6
+  },
+  {
+    "name": "Gastrointestinal Stromal Tumor",
+    "disease_id": "MONDO:0011719",
+    "category": "",
+    "parents": [
+      "gastrointestinal neoplasm"
+    ],
+    "subtypes": [
+      "KIT-mutant GIST",
+      "PDGFRA-mutant GIST",
+      "Wild-type GIST"
+    ],
+    "description": "Gastrointestinal stromal tumor (GIST) is the most common mesenchymal neoplasm of the gastrointestinal tract, arising from the interstitial cells of Cajal or their precursors. GISTs are characterized by activating mutations in KIT (85%) or PDGFRA (10%) receptor tyrosine kinases, which drive constitutive kinase activation and tumor growth. The identification of these driver mutations revolutionized treatment, with imatinib demonstrating dramatic responses and establishing GIST as a paradigm for targeted therapy in solid tumors.",
+    "pathophysiology": [
+      "KIT Receptor Tyrosine Kinase Activation",
+      "PDGFRA Receptor Activation",
+      "RAS-MAPK Pathway Activation",
+      "PI3K-AKT Pathway Activation"
+    ],
+    "cell_types": [
+      "interstitial cell of Cajal"
+    ],
+    "cell_type_ids": [
+      "CL:0002088"
+    ],
+    "biological_processes": [
+      "receptor signaling protein tyrosine kinase activity",
+      "signal transduction",
+      "platelet-derived growth factor receptor signaling pathway",
+      "MAPK cascade",
+      "phosphatidylinositol 3-kinase signaling"
+    ],
+    "phenotypes": [
+      "Abdominal Mass",
+      "Gastrointestinal Bleeding",
+      "Bowel Obstruction",
+      "Fatigue",
+      "Weight Loss"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Constitutional"
+    ],
+    "phenotype_ids": [
+      "HP:0002027",
+      "HP:0002239",
+      "HP:0005214",
+      "HP:0012378",
+      "HP:0001824"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "KIT",
+      "PDGFRA"
+    ],
+    "treatments": [
+      "Imatinib",
+      "Sunitinib",
+      "Avapritinib",
+      "Surgical Resection"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "KIT (CD117) Immunohistochemistry",
+      "Molecular Genotyping"
+    ],
+    "source_file": "Gastrointestinal_Stromal_Tumor.yaml",
+    "page_url": "../pages/disorders/Gastrointestinal_Stromal_Tumor.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 4,
+    "num_genes": 2,
+    "num_treatments": 4
   },
   {
     "name": "Gaucher Disease",
@@ -5768,6 +8362,90 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 4,
     "num_treatments": 8
+  },
+  {
+    "name": "Glioblastoma, IDH-Wildtype",
+    "disease_id": "MONDO:0850335",
+    "category": "",
+    "parents": [
+      "diffuse glioma"
+    ],
+    "subtypes": [
+      "Giant Cell Glioblastoma",
+      "Gliosarcoma",
+      "Epithelioid Glioblastoma"
+    ],
+    "description": "Glioblastoma, IDH-wildtype, is the most common and aggressive primary malignant brain tumor in adults. Under WHO 2021 classification, this molecularly defined entity requires absence of IDH1/2 mutations and presence of at least one of three molecular features: TERT promoter mutation, EGFR amplification, or combined gain of chromosome 7 and loss of chromosome 10 (+7/-10). These tumors are characterized by rapid growth, extensive infiltration, florid microvascular proliferation, and necrosis. Despite multimodal therapy, prognosis remains poor with median survival of 14-16 months. Key molecular alterations include TERT promoter mutations (80%), EGFR amplification (40-50%), PTEN loss, and homozygous CDKN2A deletion.",
+    "pathophysiology": [
+      "TERT Promoter Activation",
+      "Chromosome 7 Gain and Chromosome 10 Loss",
+      "EGFR/MET Pathway Activation",
+      "PTEN Tumor Suppressor Loss",
+      "PI3K/AKT/mTOR Pathway Hyperactivation",
+      "Unlimited Replicative Potential",
+      "Uncontrolled Cell Proliferation"
+    ],
+    "cell_types": [
+      "astrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000127"
+    ],
+    "biological_processes": [
+      "telomere maintenance via telomerase",
+      "chromosome organization",
+      "MAPK cascade",
+      "phosphatidylinositol 3-kinase signaling",
+      "negative regulation of phosphatidylinositol 3-kinase signaling",
+      "cell population proliferation",
+      "apoptotic process"
+    ],
+    "phenotypes": [
+      "Headache",
+      "Seizure",
+      "Cognitive Impairment",
+      "Focal Neurological Deficit",
+      "Personality Changes"
+    ],
+    "phenotype_categories": [
+      "Neurological"
+    ],
+    "phenotype_ids": [
+      "HP:0002315",
+      "HP:0001250",
+      "HP:0100543",
+      "HP:0001269",
+      "HP:0000751"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "TERT",
+      "EGFR",
+      "PTEN",
+      "CDKN2A/CDKN2B",
+      "TP53",
+      "NF1"
+    ],
+    "treatments": [
+      "Maximal Safe Resection",
+      "Radiation Therapy",
+      "Temozolomide Chemotherapy",
+      "Tumor Treating Fields (TTFields)",
+      "Bevacizumab"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "MGMT Promoter Methylation"
+    ],
+    "source_file": "Glioblastoma_IDH_Wildtype.yaml",
+    "page_url": "../pages/disorders/Glioblastoma,_IDH-Wildtype.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 7,
+    "num_genes": 6,
+    "num_treatments": 5
   },
   {
     "name": "Glucose-6-Phosphate Dehydrogenase (G6PD) Deficiency",
@@ -6276,6 +8954,304 @@ window.searchData = [
     "num_treatments": 4
   },
   {
+    "name": "Diffuse Midline Glioma, H3 K27-Altered",
+    "disease_id": "MONDO:1060171",
+    "category": "",
+    "parents": [
+      "diffuse glioma"
+    ],
+    "subtypes": [
+      "Diffuse Intrinsic Pontine Glioma (DIPG)",
+      "Thalamic H3 K27M-Mutant Glioma",
+      "Spinal Cord H3 K27M-Mutant Glioma"
+    ],
+    "description": "Diffuse midline glioma, H3 K27-altered, is a highly aggressive CNS tumor predominantly affecting children and young adults, arising in midline structures including the pons (diffuse intrinsic pontine glioma/DIPG), thalamus, and spinal cord. WHO 2021 classification defines this entity by the presence of H3 K27M mutation (in H3F3A or HIST1H3B/C) or H3 K27 trimethylation loss through other mechanisms (e.g., EZHIP overexpression). The H3 K27M mutation acts as a dominant negative, inhibiting PRC2-mediated H3K27 trimethylation and causing global epigenetic dysregulation. The tumor is universally WHO grade 4, and the infiltrative location typically precludes surgical resection. Prognosis is extremely poor with median survival of 9-11 months for DIPG.",
+    "pathophysiology": [
+      "H3 K27M Oncohistone Mutation",
+      "PRC2 Complex Inhibition and H3K27me3 Loss",
+      "Epigenetic Derepression and Aberrant Gene Activation",
+      "Loss of Glial Differentiation"
+    ],
+    "cell_types": [
+      "astrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000127"
+    ],
+    "biological_processes": [
+      "histone H3-K27 methylation",
+      "negative regulation of gene expression, epigenetic",
+      "gene expression",
+      "cell population proliferation",
+      "glial cell differentiation"
+    ],
+    "phenotypes": [
+      "Cranial Nerve Palsy",
+      "Ataxia",
+      "Long Tract Signs",
+      "Headache",
+      "Diplopia"
+    ],
+    "phenotype_categories": [
+      "Neurological"
+    ],
+    "phenotype_ids": [
+      "HP:0006824",
+      "HP:0001251",
+      "HP:0001269",
+      "HP:0002315",
+      "HP:0000651"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "H3F3A",
+      "HIST1H3B/HIST1H3C",
+      "ACVR1",
+      "TP53",
+      "PPM1D",
+      "PDGFRA",
+      "EZHIP"
+    ],
+    "treatments": [
+      "Radiation Therapy",
+      "Corticosteroids",
+      "ONC201 (DRD2 Antagonist)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "H3_K27_Altered_Diffuse_Midline_Glioma.yaml",
+    "page_url": "../pages/disorders/Diffuse_Midline_Glioma,_H3_K27-Altered.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 4,
+    "num_genes": 7,
+    "num_treatments": 3
+  },
+  {
+    "name": "HER2-Positive Breast Cancer",
+    "disease_id": "MONDO:0006244",
+    "category": "",
+    "parents": [
+      "breast carcinoma"
+    ],
+    "subtypes": [],
+    "description": "HER2-positive breast cancer is a molecularly-defined subtype of breast cancer characterized by amplification or overexpression of the ERBB2 (HER2/neu) gene, encoding a receptor tyrosine kinase. HER2 amplification occurs in approximately 15-20% of breast cancers and historically conferred poor prognosis before the advent of HER2-targeted therapies. The development of trastuzumab revolutionized treatment and established HER2+ breast cancer as a paradigm for targeted therapy in solid tumors. Modern treatment includes multiple HER2-targeted agents including monoclonal antibodies, tyrosine kinase inhibitors, and antibody-drug conjugates.",
+    "pathophysiology": [
+      "ERBB2 Gene Amplification",
+      "Constitutive Receptor Activation",
+      "Downstream Oncogenic Signaling",
+      "Uncontrolled Proliferation"
+    ],
+    "cell_types": [
+      "luminal epithelial cell of mammary gland"
+    ],
+    "cell_type_ids": [
+      "CL:0002326"
+    ],
+    "biological_processes": [
+      "ERBB2 signaling pathway",
+      "transmembrane receptor protein tyrosine kinase signaling pathway",
+      "phosphatidylinositol 3-kinase signaling",
+      "MAPK cascade",
+      "cell population proliferation"
+    ],
+    "phenotypes": [
+      "Breast Carcinoma",
+      "High Grade Tumor",
+      "HER2 Overexpression"
+    ],
+    "phenotype_categories": [
+      "Neoplastic",
+      "Histopathologic",
+      "Molecular"
+    ],
+    "phenotype_ids": [
+      "HP:0003002",
+      "HP:0002664"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "ERBB2",
+      "PIK3CA"
+    ],
+    "treatments": [
+      "Trastuzumab",
+      "Pertuzumab",
+      "Trastuzumab Deruxtecan (T-DXd)",
+      "Tucatinib",
+      "Neratinib"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "HER2 Testing (IHC and FISH)"
+    ],
+    "source_file": "HER2_Positive_Breast_Cancer.yaml",
+    "page_url": "../pages/disorders/HER2-Positive_Breast_Cancer.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 4,
+    "num_genes": 2,
+    "num_treatments": 5
+  },
+  {
+    "name": "HER2-Positive Colorectal Cancer",
+    "disease_id": "MONDO:0005575",
+    "category": "",
+    "parents": [
+      "colorectal adenocarcinoma"
+    ],
+    "subtypes": [],
+    "description": "HER2-positive colorectal cancer is a molecularly defined subtype characterized by ERBB2 (HER2) amplification or overexpression, occurring in approximately 3-5% of metastatic colorectal cancers. HER2 amplification is enriched in RAS/BRAF wild-type tumors and represents an emerging actionable target. Unlike breast and gastric cancer, HER2-positive CRC responds modestly to single-agent HER2-targeted therapy, but combination approaches with HER2-directed agents and anti-EGFR therapy or dual HER2 blockade have shown promising activity. HER2 amplification may also be a mechanism of acquired resistance to anti-EGFR therapy.",
+    "pathophysiology": [
+      "ERBB2 (HER2) Amplification and Overexpression",
+      "MAPK Pathway Activation",
+      "PI3K-AKT Pathway Activation",
+      "Enhanced Cell Proliferation"
+    ],
+    "cell_types": [
+      "colon epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0011108"
+    ],
+    "biological_processes": [
+      "ERBB2 signaling pathway",
+      "MAPK cascade",
+      "phosphatidylinositol 3-kinase signaling",
+      "cell population proliferation"
+    ],
+    "phenotypes": [
+      "Colon Cancer",
+      "Abdominal Pain",
+      "Hematochezia",
+      "Anemia",
+      "Weight Loss"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Hematologic",
+      "Constitutional"
+    ],
+    "phenotype_ids": [
+      "HP:0003003",
+      "HP:0002027",
+      "HP:0002573",
+      "HP:0001903",
+      "HP:0001824"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "ERBB2 (HER2)",
+      "ERBB2 Activating Mutations",
+      "RAS/BRAF Wild-Type"
+    ],
+    "treatments": [
+      "Trastuzumab plus Lapatinib",
+      "Trastuzumab plus Pertuzumab",
+      "Trastuzumab Deruxtecan (T-DXd)",
+      "Tucatinib plus Trastuzumab",
+      "Surgical Resection"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "HER2 Immunohistochemistry",
+      "HER2 FISH/ISH",
+      "Next-Generation Sequencing"
+    ],
+    "source_file": "HER2_Positive_Colorectal_Cancer.yaml",
+    "page_url": "../pages/disorders/HER2-Positive_Colorectal_Cancer.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 4,
+    "num_genes": 3,
+    "num_treatments": 5
+  },
+  {
+    "name": "HER2-Positive Gastric Cancer",
+    "disease_id": "MONDO:0001056",
+    "category": "",
+    "parents": [
+      "gastric adenocarcinoma"
+    ],
+    "subtypes": [],
+    "description": "HER2-positive gastric cancer is a molecularly defined subtype characterized by ERBB2 (HER2) amplification or overexpression, occurring in approximately 15-20% of gastric and gastroesophageal junction adenocarcinomas. HER2 positivity is enriched in intestinal-type tumors and those at the gastroesophageal junction. Trastuzumab combined with chemotherapy was the first targeted therapy to improve survival in gastric cancer (ToGA trial). More recently, trastuzumab deruxtecan (T-DXd) has demonstrated remarkable activity, establishing a new standard of care for HER2-positive gastric cancer.",
+    "pathophysiology": [
+      "ERBB2 (HER2) Amplification and Overexpression",
+      "MAPK Pathway Activation",
+      "PI3K-AKT Pathway Activation",
+      "Enhanced Proliferation and Tumor Growth"
+    ],
+    "cell_types": [
+      "epithelial cell of stomach"
+    ],
+    "cell_type_ids": [
+      "CL:0002178"
+    ],
+    "biological_processes": [
+      "ERBB2 signaling pathway",
+      "MAPK cascade",
+      "phosphatidylinositol 3-kinase signaling",
+      "cell population proliferation"
+    ],
+    "phenotypes": [
+      "Abdominal Pain",
+      "Dysphagia",
+      "Nausea",
+      "Gastrointestinal Hemorrhage",
+      "Weight Loss",
+      "Anemia",
+      "Fatigue"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Constitutional",
+      "Hematologic"
+    ],
+    "phenotype_ids": [
+      "HP:0002027",
+      "HP:0002015",
+      "HP:0002018",
+      "HP:0002239",
+      "HP:0001824",
+      "HP:0001903",
+      "HP:0012378"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "ERBB2 (HER2)",
+      "TP53",
+      "PIK3CA"
+    ],
+    "treatments": [
+      "Trastuzumab plus Chemotherapy",
+      "Trastuzumab Deruxtecan (T-DXd)",
+      "Trastuzumab plus Pembrolizumab plus Chemotherapy",
+      "Ramucirumab plus Paclitaxel",
+      "Surgical Resection"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "HER2 Immunohistochemistry",
+      "HER2 In Situ Hybridization"
+    ],
+    "source_file": "HER2_Positive_Gastric_Cancer.yaml",
+    "page_url": "../pages/disorders/HER2-Positive_Gastric_Cancer.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 4,
+    "num_genes": 3,
+    "num_treatments": 5
+  },
+  {
     "name": "HIDEA_Syndrome",
     "disease_id": "MONDO:0032780",
     "category": "Genetic",
@@ -6370,6 +9346,174 @@ window.searchData = [
     "num_phenotypes": 13,
     "num_pathophysiology": 4,
     "num_genes": 1,
+    "num_treatments": 4
+  },
+  {
+    "name": "HPV-Negative Head and Neck Cancer",
+    "disease_id": "MONDO:0010150",
+    "category": "",
+    "parents": [
+      "head and neck squamous cell carcinoma"
+    ],
+    "subtypes": [
+      "Oral Cavity Squamous Cell Carcinoma",
+      "Laryngeal Squamous Cell Carcinoma",
+      "Hypopharyngeal Squamous Cell Carcinoma"
+    ],
+    "description": "HPV-negative head and neck squamous cell carcinoma (HNSCC) is the classical form of head and neck cancer, strongly associated with tobacco and alcohol use. It is genetically characterized by TP53 mutations (greater than 80%), CDKN2A inactivation, and frequent EGFR amplification or overexpression. HPV-negative HNSCC has a worse prognosis than HPV-positive disease, with 5-year survival rates of 40-50% for locally advanced tumors. The disease commonly affects the oral cavity, larynx, and hypopharynx.",
+    "pathophysiology": [
+      "TP53 Mutation and Inactivation",
+      "CDKN2A/p16 Inactivation",
+      "EGFR Overexpression and Signaling",
+      "NOTCH1 Inactivation"
+    ],
+    "cell_types": [
+      "squamous epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000076"
+    ],
+    "biological_processes": [
+      "cell cycle checkpoint signaling",
+      "apoptotic process",
+      "negative regulation of G1/S transition",
+      "epidermal growth factor receptor signaling pathway",
+      "Notch signaling pathway"
+    ],
+    "phenotypes": [
+      "Oral Lesion",
+      "Neck Mass",
+      "Dysphagia",
+      "Hoarseness",
+      "Odynophagia",
+      "Weight Loss",
+      "Otalgia"
+    ],
+    "phenotype_categories": [
+      "Head and Neck",
+      "Constitutional",
+      "Ear"
+    ],
+    "phenotype_ids": [
+      "HP:0000155",
+      "HP:0002716",
+      "HP:0002015",
+      "HP:0001609",
+      "HP:0032043",
+      "HP:0001824",
+      "HP:0030766"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "TP53",
+      "CDKN2A",
+      "PIK3CA",
+      "NOTCH1",
+      "EGFR"
+    ],
+    "treatments": [
+      "Surgical Resection",
+      "Definitive Chemoradiation",
+      "Cetuximab",
+      "Immunotherapy"
+    ],
+    "environmental": [
+      "Tobacco Smoking",
+      "Alcohol Consumption"
+    ],
+    "biochemical": [
+      "p16 Immunohistochemistry",
+      "EGFR Expression"
+    ],
+    "source_file": "HPV_Negative_Head_and_Neck_Cancer.yaml",
+    "page_url": "../pages/disorders/HPV-Negative_Head_and_Neck_Cancer.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 4,
+    "num_genes": 5,
+    "num_treatments": 4
+  },
+  {
+    "name": "HPV-Positive Head and Neck Cancer",
+    "disease_id": "MONDO:0044926",
+    "category": "",
+    "parents": [
+      "head and neck squamous cell carcinoma"
+    ],
+    "subtypes": [
+      "Tonsillar Squamous Cell Carcinoma",
+      "Base of Tongue Squamous Cell Carcinoma"
+    ],
+    "description": "HPV-positive head and neck squamous cell carcinoma (HNSCC) is a distinct clinical and molecular entity driven by high-risk human papillomavirus infection, primarily HPV-16. It predominantly affects the oropharynx (tonsils and base of tongue) and has increased dramatically in incidence over recent decades, particularly in younger patients. HPV-positive HNSCC has a markedly better prognosis than HPV-negative disease, with 5-year survival rates exceeding 80% in non-smoking patients. The oncogenic mechanisms parallel those of cervical cancer, with E6 and E7 oncoproteins inactivating p53 and pRB, respectively.",
+    "pathophysiology": [
+      "E6-Mediated p53 Degradation",
+      "E7-Mediated pRB Inactivation",
+      "Viral Oncogene Integration",
+      "Immune Evasion"
+    ],
+    "cell_types": [
+      "squamous epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000076"
+    ],
+    "biological_processes": [
+      "proteasome-mediated ubiquitin-dependent protein catabolic process",
+      "apoptotic process",
+      "G1/S transition of mitotic cell cycle",
+      "cell cycle checkpoint signaling",
+      "viral DNA integration into host DNA",
+      "negative regulation of T cell mediated immunity"
+    ],
+    "phenotypes": [
+      "Neck Mass",
+      "Dysphagia",
+      "Odynophagia",
+      "Sore Throat",
+      "Hoarseness",
+      "Weight Loss"
+    ],
+    "phenotype_categories": [
+      "Head and Neck",
+      "Constitutional"
+    ],
+    "phenotype_ids": [
+      "HP:0002716",
+      "HP:0002015",
+      "HP:0032043",
+      "HP:0025439",
+      "HP:0001609",
+      "HP:0001824"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "TP53",
+      "PIK3CA",
+      "CDKN2A"
+    ],
+    "treatments": [
+      "Definitive Chemoradiation",
+      "Transoral Robotic Surgery",
+      "Immunotherapy",
+      "HPV Vaccination"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "p16 Immunohistochemistry",
+      "HPV DNA/RNA Testing"
+    ],
+    "source_file": "HPV_Positive_Head_and_Neck_Cancer.yaml",
+    "page_url": "../pages/disorders/HPV-Positive_Head_and_Neck_Cancer.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 4,
+    "num_genes": 3,
     "num_treatments": 4
   },
   {
@@ -6878,6 +10022,170 @@ window.searchData = [
     "num_treatments": 3
   },
   {
+    "name": "Hepatocellular Carcinoma",
+    "disease_id": "MONDO:0007256",
+    "category": "",
+    "parents": [
+      "liver carcinoma"
+    ],
+    "subtypes": [
+      "Viral Hepatitis-Associated HCC",
+      "Alcohol-Related HCC",
+      "MASLD-Associated HCC",
+      "Fibrolamellar HCC"
+    ],
+    "description": "Hepatocellular carcinoma (HCC) is the most common primary liver malignancy, typically arising in the setting of chronic liver disease and cirrhosis. Major risk factors include chronic hepatitis B or C infection, alcohol-related liver disease, and metabolic dysfunction-associated steatotic liver disease (MASLD/NAFLD). HCC pathogenesis involves multiple molecular pathways including WNT/beta-catenin, TP53, telomere maintenance, and chromatin remodeling. The combination of atezolizumab (anti-PD-L1) plus bevacizumab (anti-VEGF) has established immunotherapy as first-line treatment for advanced HCC, based on the IMbrave150 trial.",
+    "pathophysiology": [
+      "Chronic Liver Injury and Cirrhosis",
+      "Telomere Dysfunction and Genomic Instability",
+      "Accumulation of Driver Mutations",
+      "WNT/Beta-Catenin Pathway Activation",
+      "TP53 Pathway Inactivation",
+      "Enhanced Hepatocyte Proliferation",
+      "Angiogenesis and VEGF Signaling"
+    ],
+    "cell_types": [
+      "hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "telomere maintenance",
+      "DNA repair",
+      "Wnt signaling pathway",
+      "apoptotic process",
+      "cell population proliferation",
+      "angiogenesis"
+    ],
+    "phenotypes": [
+      "Hepatomegaly",
+      "Ascites",
+      "Jaundice",
+      "Abdominal Pain",
+      "Weight Loss",
+      "Fatigue",
+      "Nausea"
+    ],
+    "phenotype_categories": [
+      "Hepatic",
+      "Gastrointestinal",
+      "Constitutional"
+    ],
+    "phenotype_ids": [
+      "HP:0002240",
+      "HP:0001541",
+      "HP:0000952",
+      "HP:0002027",
+      "HP:0001824",
+      "HP:0012378",
+      "HP:0002018"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "TERT Promoter",
+      "TP53",
+      "CTNNB1",
+      "AXIN1",
+      "ARID1A"
+    ],
+    "treatments": [
+      "Atezolizumab plus Bevacizumab",
+      "Durvalumab plus Tremelimumab",
+      "Sorafenib",
+      "Lenvatinib",
+      "Surgical Resection",
+      "Liver Transplantation",
+      "Transarterial Chemoembolization (TACE)",
+      "Radiofrequency/Microwave Ablation"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Alpha-Fetoprotein (AFP)",
+      "Liver Function Tests",
+      "PIVKA-II (DCP)"
+    ],
+    "source_file": "Hepatocellular_Carcinoma.yaml",
+    "page_url": "../pages/disorders/Hepatocellular_Carcinoma.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 7,
+    "num_genes": 5,
+    "num_treatments": 8
+  },
+  {
+    "name": "Hereditary Breast and Ovarian Cancer Syndrome",
+    "disease_id": "MONDO:0011450",
+    "category": "",
+    "parents": [
+      "hereditary cancer-predisposing syndrome"
+    ],
+    "subtypes": [
+      "BRCA1-Associated HBOC",
+      "BRCA2-Associated HBOC"
+    ],
+    "description": "Hereditary breast and ovarian cancer syndrome (HBOC) is an autosomal dominant hereditary cancer syndrome caused by germline pathogenic variants in the BRCA1 or BRCA2 tumor suppressor genes. It is characterized by significantly elevated lifetime risks of breast cancer (up to 70-80%) and ovarian cancer (up to 40-50%), as well as increased risks of pancreatic, prostate, and other cancers. HBOC exemplifies the role of DNA double-strand break repair deficiency in tumorigenesis and the therapeutic exploitation of homologous recombination deficiency through PARP inhibitor synthetic lethality.",
+    "pathophysiology": [
+      "BRCA1/2 Tumor Suppressor Loss",
+      "Homologous Recombination Deficiency",
+      "Genomic Instability",
+      "Tumor Development"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "DNA repair",
+      "homologous recombination",
+      "regulation of DNA damage checkpoint",
+      "cell population proliferation"
+    ],
+    "phenotypes": [
+      "Breast Cancer",
+      "Ovarian Cancer",
+      "Pancreatic Cancer",
+      "Prostate Cancer",
+      "Male Breast Cancer"
+    ],
+    "phenotype_categories": [
+      "Neoplastic"
+    ],
+    "phenotype_ids": [
+      "HP:0003002",
+      "HP:0025318",
+      "HP:0006725",
+      "HP:0012125"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "BRCA1",
+      "BRCA2"
+    ],
+    "treatments": [
+      "Risk-Reducing Mastectomy",
+      "Risk-Reducing Salpingo-Oophorectomy",
+      "PARP Inhibitors",
+      "Enhanced Surveillance",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "BRCA1/2 Genetic Testing",
+      "Homologous Recombination Deficiency Testing"
+    ],
+    "source_file": "Hereditary_Breast_and_Ovarian_Cancer_Syndrome.yaml",
+    "page_url": "../pages/disorders/Hereditary_Breast_and_Ovarian_Cancer_Syndrome.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 4,
+    "num_genes": 2,
+    "num_treatments": 5
+  },
+  {
     "name": "Hirschsprung Disease",
     "disease_id": "MONDO:0018309",
     "category": "Genetic",
@@ -7353,6 +10661,308 @@ window.searchData = [
     "num_treatments": 5
   },
   {
+    "name": "Acute Myeloid Leukemia, IDH-Mutated",
+    "disease_id": "MONDO:0018874",
+    "category": "",
+    "parents": [
+      "acute myeloid leukemia"
+    ],
+    "subtypes": [
+      "IDH1-Mutated AML",
+      "IDH2-Mutated AML"
+    ],
+    "description": "IDH-mutated acute myeloid leukemia is characterized by mutations in isocitrate dehydrogenase genes IDH1 (6-10% of AML) or IDH2 (8-12% of AML). These mutations confer neomorphic enzymatic activity, producing the oncometabolite 2-hydroxyglutarate (2-HG) instead of alpha-ketoglutarate. Elevated 2-HG inhibits alpha-ketoglutarate- dependent dioxygenases, causing epigenetic dysregulation and differentiation block. The development of targeted IDH inhibitors (ivosidenib for IDH1, enasidenib for IDH2) represents a paradigm of metabolic-targeted cancer therapy, inducing differentiation rather than cytotoxicity.",
+    "pathophysiology": [
+      "IDH Neomorphic Enzyme Activity",
+      "2-HG Accumulation and Dioxygenase Inhibition",
+      "DNA Hypermethylation",
+      "Histone Methylation Dysregulation",
+      "Differentiation Block"
+    ],
+    "cell_types": [
+      "myeloblast",
+      "myeloid cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000835",
+      "CL:0000763"
+    ],
+    "biological_processes": [
+      "DNA demethylation",
+      "myeloid cell differentiation",
+      "histone demethylation"
+    ],
+    "phenotypes": [
+      "Anemia",
+      "Thrombocytopenia",
+      "Leukocytosis",
+      "Fatigue",
+      "Recurrent Infections"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Constitutional",
+      "Infectious"
+    ],
+    "phenotype_ids": [
+      "HP:0001903",
+      "HP:0001873",
+      "HP:0001974",
+      "HP:0012378",
+      "HP:0002719"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "IDH1",
+      "IDH2"
+    ],
+    "treatments": [
+      "Ivosidenib",
+      "Enasidenib",
+      "Venetoclax plus Azacitidine",
+      "Intensive Chemotherapy (7+3)",
+      "Allogeneic Stem Cell Transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "2-Hydroxyglutarate Levels",
+      "IDH1/IDH2 Mutation Testing"
+    ],
+    "source_file": "IDH_Mutant_AML.yaml",
+    "page_url": "../pages/disorders/Acute_Myeloid_Leukemia,_IDH-Mutated.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 5,
+    "num_genes": 2,
+    "num_treatments": 5
+  },
+  {
+    "name": "IDH-Mutant Astrocytoma",
+    "disease_id": "MONDO:0956994",
+    "category": "",
+    "parents": [
+      "diffuse glioma"
+    ],
+    "subtypes": [
+      "IDH-Mutant Astrocytoma Grade 2",
+      "IDH-Mutant Astrocytoma Grade 3",
+      "IDH-Mutant Astrocytoma Grade 4"
+    ],
+    "description": "IDH-mutant astrocytoma is a diffuse glioma defined by mutations in isocitrate dehydrogenase 1 or 2 (IDH1/IDH2) and the absence of 1p/19q codeletion. Under the WHO 2021 classification, this molecularly defined entity encompasses tumors previously classified as diffuse astrocytoma (grade 2), anaplastic astrocytoma (grade 3), and astrocytic glioblastoma (grade 4). IDH mutations result in neomorphic enzyme activity producing D-2-hydroxyglutarate (2-HG), an oncometabolite that inhibits alpha-ketoglutarate-dependent dioxygenases, leading to global DNA hypermethylation (G-CIMP phenotype) and impaired cellular differentiation. Prognosis is significantly better than IDH-wildtype glioblastoma.",
+    "pathophysiology": [
+      "IDH1/2 Neomorphic Mutation",
+      "2-HG Accumulation and Epigenetic Dysregulation",
+      "Blocked Glial Differentiation"
+    ],
+    "cell_types": [
+      "astrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000127"
+    ],
+    "biological_processes": [
+      "tricarboxylic acid cycle",
+      "DNA methylation",
+      "cell differentiation",
+      "glial cell differentiation"
+    ],
+    "phenotypes": [
+      "Seizures",
+      "Headache",
+      "Cognitive Impairment",
+      "Focal Neurological Deficit"
+    ],
+    "phenotype_categories": [
+      "Neurological"
+    ],
+    "phenotype_ids": [
+      "HP:0001250",
+      "HP:0002315",
+      "HP:0100543",
+      "HP:0007367"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "IDH1",
+      "IDH2",
+      "TP53",
+      "ATRX",
+      "CDKN2A"
+    ],
+    "treatments": [
+      "Maximal Safe Resection",
+      "Radiation Therapy",
+      "Temozolomide Chemotherapy",
+      "Vorasidenib (IDH1/2 Inhibitor)"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "2-Hydroxyglutarate (2-HG)"
+    ],
+    "source_file": "IDH_Mutant_Astrocytoma.yaml",
+    "page_url": "../pages/disorders/IDH-Mutant_Astrocytoma.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 3,
+    "num_genes": 5,
+    "num_treatments": 4
+  },
+  {
+    "name": "IDH-Mutant Cholangiocarcinoma",
+    "disease_id": "MONDO:0003210",
+    "category": "",
+    "parents": [
+      "intrahepatic cholangiocarcinoma"
+    ],
+    "subtypes": [],
+    "description": "IDH-mutant cholangiocarcinoma is a molecularly defined subtype of intrahepatic cholangiocarcinoma characterized by mutations in isocitrate dehydrogenase 1 or 2 (IDH1/2). IDH mutations occur in approximately 15-20% of intrahepatic cholangiocarcinomas and cause production of the oncometabolite 2-hydroxyglutarate (2-HG), which inhibits alpha-ketoglutarate-dependent dioxygenases and leads to widespread epigenetic dysregulation. IDH-mutant cholangiocarcinomas have distinct clinical features including younger age at onset and better prognosis compared to IDH wild-type tumors. Ivosidenib, a selective IDH1 inhibitor, demonstrated improved progression-free survival in the ClarIDHy trial, establishing it as standard therapy for IDH1-mutant cholangiocarcinoma.",
+    "pathophysiology": [
+      "IDH1/2 Neomorphic Mutation",
+      "2-HG Accumulation and Dioxygenase Inhibition",
+      "Epigenetic Dysregulation and DNA Hypermethylation",
+      "Histone Methylation Alterations",
+      "Differentiation Block and Tumor Growth"
+    ],
+    "cell_types": [
+      "cholangiocyte"
+    ],
+    "cell_type_ids": [
+      "CL:1000488"
+    ],
+    "biological_processes": [
+      "isocitrate dehydrogenase (NADP+) activity",
+      "DNA methylation",
+      "cell population proliferation"
+    ],
+    "phenotypes": [
+      "Hepatomegaly",
+      "Jaundice",
+      "Abdominal Pain",
+      "Weight Loss",
+      "Fatigue",
+      "Nausea"
+    ],
+    "phenotype_categories": [
+      "Hepatic",
+      "Gastrointestinal",
+      "Constitutional"
+    ],
+    "phenotype_ids": [
+      "HP:0002240",
+      "HP:0000952",
+      "HP:0002027",
+      "HP:0001824",
+      "HP:0012378",
+      "HP:0002018"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "IDH1",
+      "IDH2",
+      "ARID1A",
+      "BAP1"
+    ],
+    "treatments": [
+      "Ivosidenib",
+      "Gemcitabine plus Cisplatin",
+      "Gemcitabine plus Cisplatin plus Durvalumab",
+      "Surgical Resection"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum 2-HG",
+      "CA 19-9",
+      "Liver Function Tests"
+    ],
+    "source_file": "IDH_Mutant_Cholangiocarcinoma.yaml",
+    "page_url": "../pages/disorders/IDH-Mutant_Cholangiocarcinoma.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 5,
+    "num_genes": 4,
+    "num_treatments": 4
+  },
+  {
+    "name": "IDH-Mutant and 1p/19q-Codeleted Oligodendroglioma",
+    "disease_id": "MONDO:0859592",
+    "category": "",
+    "parents": [
+      "diffuse glioma"
+    ],
+    "subtypes": [
+      "Oligodendroglioma Grade 2",
+      "Oligodendroglioma Grade 3 (Anaplastic)"
+    ],
+    "description": "Oligodendroglioma, IDH-mutant and 1p/19q-codeleted, is a diffuse glioma defined by the combination of IDH1/IDH2 mutation and whole-arm codeletion of chromosomes 1p and 19q. This molecular signature is the result of an unbalanced translocation t(1;19) (q10;p10) and is associated with distinct biology, excellent chemosensitivity, and favorable prognosis. The 1p/19q codeletion is mutually exclusive with TP53 and ATRX mutations, serving as a key diagnostic discriminator from IDH-mutant astrocytoma. These tumors are exquisitely sensitive to alkylating chemotherapy, particularly procarbazine-CCNU-vincristine (PCV) combination, with long-term survival even for anaplastic tumors.",
+    "pathophysiology": [
+      "IDH1/2 Neomorphic Mutation",
+      "1p/19q Codeletion",
+      "G-CIMP Hypermethylation Phenotype",
+      "CIC/FUBP1 Tumor Suppressor Loss",
+      "Oligodendroglial Tumorigenesis"
+    ],
+    "cell_types": [
+      "oligodendrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000128"
+    ],
+    "biological_processes": [
+      "tricarboxylic acid cycle",
+      "chromosome organization",
+      "DNA methylation",
+      "negative regulation of cell population proliferation",
+      "cell population proliferation"
+    ],
+    "phenotypes": [
+      "Seizures",
+      "Headache",
+      "Cognitive Impairment"
+    ],
+    "phenotype_categories": [
+      "Neurological"
+    ],
+    "phenotype_ids": [
+      "HP:0001250",
+      "HP:0002315",
+      "HP:0100543"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "IDH1",
+      "IDH2",
+      "CIC",
+      "FUBP1",
+      "TERT",
+      "NOTCH1"
+    ],
+    "treatments": [
+      "Maximal Safe Resection",
+      "Radiation Therapy",
+      "PCV Chemotherapy",
+      "Temozolomide Chemotherapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "2-Hydroxyglutarate (2-HG)"
+    ],
+    "source_file": "IDH_Mutant_Oligodendroglioma.yaml",
+    "page_url": "../pages/disorders/IDH-Mutant_and_1p_19q-Codeleted_Oligodendroglioma.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 5,
+    "num_genes": 6,
+    "num_treatments": 4
+  },
+  {
     "name": "IgA Nephropathy",
     "disease_id": "MONDO:0005342",
     "category": "Autoimmune",
@@ -7669,6 +11279,229 @@ window.searchData = [
     "num_treatments": 6
   },
   {
+    "name": "KIT Mutant Melanoma",
+    "disease_id": "MONDO:0003865",
+    "category": "",
+    "parents": [
+      "melanoma"
+    ],
+    "subtypes": [
+      "Acral KIT-Mutant Melanoma",
+      "Mucosal KIT-Mutant Melanoma"
+    ],
+    "description": "KIT-mutant melanoma is a molecular subtype occurring predominantly in acral, mucosal, and chronically sun-damaged melanomas, characterized by activating mutations or amplifications of the KIT receptor tyrosine kinase gene. KIT mutations occur in approximately 15-20% of acral melanomas, 20-35% of mucosal melanomas, and 15-20% of melanomas arising on chronically sun-damaged skin, but are rare in common cutaneous melanomas. KIT signaling activates both MAPK and PI3K pathways, driving melanocyte proliferation and survival. KIT-mutant melanoma can be treated with imatinib and other KIT inhibitors, though responses are variable depending on mutation type, with exon 11 and 13 mutations showing better responses than amplification alone.",
+    "pathophysiology": [
+      "KIT Receptor Tyrosine Kinase Activation",
+      "MAPK Pathway Activation",
+      "PI3K-AKT Pathway Activation",
+      "Uncontrolled Melanocyte Proliferation",
+      "Cell Survival and Anti-Apoptosis"
+    ],
+    "cell_types": [
+      "melanocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000148"
+    ],
+    "biological_processes": [
+      "signal transduction",
+      "MAPK cascade",
+      "cell population proliferation",
+      "apoptotic process"
+    ],
+    "phenotypes": [
+      "Acral Lentiginous Melanoma",
+      "Cutaneous Melanoma"
+    ],
+    "phenotype_categories": [
+      "Dermatologic"
+    ],
+    "phenotype_ids": [
+      "HP:0012060",
+      "HP:0012056"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [
+      "KIT Exon 11 Mutations",
+      "KIT Exon 13 Mutations (K642E)",
+      "KIT Exon 17 Mutations (D820Y)",
+      "KIT Amplification"
+    ],
+    "treatments": [
+      "Imatinib",
+      "Nilotinib",
+      "Dasatinib",
+      "Immune Checkpoint Inhibitors"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "KIT_Mutant_Melanoma.yaml",
+    "page_url": "../pages/disorders/KIT_Mutant_Melanoma.html",
+    "num_phenotypes": 2,
+    "num_pathophysiology": 5,
+    "num_genes": 4,
+    "num_treatments": 4
+  },
+  {
+    "name": "KRAS G12C-Mutant Non-Small Cell Lung Cancer",
+    "disease_id": "MONDO:0005061",
+    "category": "",
+    "parents": [
+      "non-small cell lung carcinoma"
+    ],
+    "subtypes": [
+      "KRAS G12C Adenocarcinoma",
+      "KRAS G12C with STK11/LKB1 Co-mutation",
+      "KRAS G12C with KEAP1 Co-mutation"
+    ],
+    "description": "KRAS G12C-mutant non-small cell lung cancer (NSCLC) is a molecularly-defined lung cancer subtype driven by the KRAS G12C point mutation. This mutation accounts for approximately 13% of NSCLC and was historically considered undruggable until the development of covalent KRAS G12C inhibitors. The G12C mutation substitutes cysteine for glycine at codon 12, creating a unique druggable pocket in the GDP-bound inactive state. Sotorasib and adagrasib represent the first approved targeted therapies for KRAS-mutant cancers, a breakthrough after decades of failed attempts to target RAS.",
+    "pathophysiology": [
+      "KRAS G12C Oncogenic Mutation",
+      "Constitutive RAS Signaling",
+      "Cell Proliferation and Survival",
+      "KRAS G12C Inhibitor Resistance"
+    ],
+    "cell_types": [
+      "type II pneumocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0002063"
+    ],
+    "biological_processes": [
+      "small GTPase mediated signal transduction",
+      "MAPK cascade",
+      "phosphatidylinositol 3-kinase signaling",
+      "cell population proliferation",
+      "response to drug"
+    ],
+    "phenotypes": [
+      "Lung Adenocarcinoma",
+      "Smoking Association",
+      "Brain Metastases"
+    ],
+    "phenotype_categories": [
+      "Neoplastic",
+      "Clinical"
+    ],
+    "phenotype_ids": [
+      "HP:0030078",
+      "HP:0100526",
+      "HP:0004375"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "KRAS",
+      "STK11",
+      "KEAP1"
+    ],
+    "treatments": [
+      "Sotorasib",
+      "Adagrasib",
+      "KRAS G12C Inhibitor Combinations",
+      "Immunotherapy",
+      "Chemotherapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "KRAS Mutation Testing"
+    ],
+    "source_file": "KRAS_G12C_Mutant_NSCLC.yaml",
+    "page_url": "../pages/disorders/KRAS_G12C-Mutant_Non-Small_Cell_Lung_Cancer.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 4,
+    "num_genes": 3,
+    "num_treatments": 5
+  },
+  {
+    "name": "Kaposi Sarcoma",
+    "disease_id": "MONDO:0005055",
+    "category": "",
+    "parents": [
+      "sarcoma"
+    ],
+    "subtypes": [
+      "Classic Kaposi Sarcoma",
+      "Endemic Kaposi Sarcoma",
+      "Iatrogenic Kaposi Sarcoma",
+      "AIDS-Associated Kaposi Sarcoma"
+    ],
+    "description": "Kaposi sarcoma (KS) is a vascular neoplasm caused by Human Herpesvirus 8 (HHV-8), also known as Kaposi sarcoma-associated herpesvirus (KSHV). The tumor arises from infected endothelial cells that acquire a spindle cell morphology. Four clinical variants exist: classic (Mediterranean), endemic (African), iatrogenic (transplant- associated), and epidemic (AIDS-associated). HHV-8 viral oncoproteins including vGPCR, vFLIP, vCyclin, and LANA drive oncogenesis through activation of NF-kappaB, PI3K-AKT, and MAPK signaling pathways. The disease is characterized by multifocal red-purple vascular lesions of skin and viscera.",
+    "pathophysiology": [
+      "HHV-8 Latent Infection of Endothelial Cells",
+      "vFLIP-Mediated NF-kappaB Activation",
+      "vCyclin-Mediated Cell Cycle Dysregulation",
+      "vGPCR-Mediated Angiogenic Signaling",
+      "Apoptosis Resistance and Cell Survival",
+      "Uncontrolled Cell Proliferation",
+      "Angiogenic Proliferation"
+    ],
+    "cell_types": [
+      "endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000115"
+    ],
+    "biological_processes": [
+      "viral transcription",
+      "positive regulation of NF-kappaB transcription factor activity",
+      "G1/S transition of mitotic cell cycle",
+      "signal transduction",
+      "apoptotic process",
+      "cell population proliferation",
+      "angiogenesis"
+    ],
+    "phenotypes": [
+      "Cutaneous Lesions",
+      "Lymphedema",
+      "Lymphadenopathy",
+      "GI Involvement",
+      "Pulmonary Involvement"
+    ],
+    "phenotype_categories": [
+      "Dermatologic",
+      "Lymphatic",
+      "Gastrointestinal",
+      "Pulmonary"
+    ],
+    "phenotype_ids": [
+      "HP:0000953",
+      "HP:0001004",
+      "HP:0002716",
+      "HP:0002239",
+      "HP:0002094"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "HHV-8 Viral Oncogenes"
+    ],
+    "treatments": [
+      "Antiretroviral Therapy",
+      "Chemotherapy",
+      "Local Therapy",
+      "Reduction of Immunosuppression"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "HHV-8 Viral Load",
+      "LANA Immunohistochemistry"
+    ],
+    "source_file": "Kaposi_Sarcoma.yaml",
+    "page_url": "../pages/disorders/Kaposi_Sarcoma.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 4
+  },
+  {
     "name": "Kawasaki Disease",
     "disease_id": "MONDO:0012727",
     "category": "Pediatric Condition",
@@ -7907,6 +11740,83 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 7,
     "num_treatments": 5
+  },
+  {
+    "name": "Li-Fraumeni Syndrome",
+    "disease_id": "MONDO:0018875",
+    "category": "",
+    "parents": [
+      "hereditary cancer-predisposing syndrome"
+    ],
+    "subtypes": [
+      "Classic Li-Fraumeni Syndrome",
+      "Li-Fraumeni-Like Syndrome"
+    ],
+    "description": "Li-Fraumeni syndrome (LFS) is an autosomal dominant cancer predisposition syndrome caused by germline pathogenic variants in the TP53 tumor suppressor gene. It is characterized by a dramatically increased lifetime risk of multiple cancers, including soft tissue sarcomas, osteosarcomas, breast cancer, brain tumors, adrenocortical carcinoma, and leukemias. LFS exemplifies the two-hit hypothesis: patients inherit one mutant TP53 allele and somatic loss of the remaining wild-type allele initiates tumorigenesis. The syndrome demonstrates remarkable phenotypic variability, with some carriers developing multiple primary cancers while others remain cancer-free.",
+    "pathophysiology": [
+      "TP53 Tumor Suppressor Loss",
+      "Loss of DNA Damage Response",
+      "Loss of Cell Cycle Checkpoint Control",
+      "Impaired Apoptosis",
+      "Genomic Instability",
+      "Tumor Development"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "signal transduction by p53 class mediator",
+      "DNA damage response, signal transduction by p53 class mediator",
+      "G1/S transition of mitotic cell cycle",
+      "intrinsic apoptotic signaling pathway by p53 class mediator",
+      "apoptotic process",
+      "DNA repair",
+      "cell population proliferation"
+    ],
+    "phenotypes": [
+      "Soft Tissue Sarcoma",
+      "Osteosarcoma",
+      "Breast Cancer",
+      "Adrenocortical Carcinoma",
+      "Central Nervous System Tumors",
+      "Leukemia",
+      "Multiple Primary Cancers"
+    ],
+    "phenotype_categories": [
+      "Neoplastic"
+    ],
+    "phenotype_ids": [
+      "HP:0030448",
+      "HP:0002669",
+      "HP:0003002",
+      "HP:0006744",
+      "HP:0100836",
+      "HP:0002488",
+      "HP:0002664"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "TP53"
+    ],
+    "treatments": [
+      "Cancer Surveillance Protocol",
+      "Risk-Reducing Mastectomy",
+      "Genetic Counseling",
+      "Radiation Avoidance"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "TP53 Genetic Testing"
+    ],
+    "source_file": "Li-Fraumeni_Syndrome.yaml",
+    "page_url": "../pages/disorders/Li-Fraumeni_Syndrome.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 4
   },
   {
     "name": "Liver Cirrhosis",
@@ -8328,6 +12238,233 @@ window.searchData = [
     "num_treatments": 4
   },
   {
+    "name": "MET Exon 14 Skipping Non-Small Cell Lung Cancer",
+    "disease_id": "MONDO:0005061",
+    "category": "",
+    "parents": [
+      "non-small cell lung carcinoma"
+    ],
+    "subtypes": [
+      "METex14 Splice Site Mutation",
+      "METex14 Whole Exon Deletion",
+      "METex14 with MET Amplification"
+    ],
+    "description": "MET exon 14 skipping non-small cell lung cancer (NSCLC) is a molecularly-defined lung cancer subtype driven by splice site mutations that cause exon 14 skipping in the MET receptor tyrosine kinase. MET exon 14 (METex14) alterations occur in approximately 3-4% of NSCLC and are more common in older patients. Exon 14 encodes a juxtamembrane domain containing a CBL binding site required for receptor ubiquitination and degradation. Skipping this exon leads to prolonged MET signaling. Capmatinib and tepotinib are selective MET inhibitors approved for this indication.",
+    "pathophysiology": [
+      "MET Exon 14 Splice Mutations",
+      "Prolonged MET Signaling",
+      "Cell Proliferation and Migration",
+      "MET Inhibitor Resistance"
+    ],
+    "cell_types": [
+      "type II pneumocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0002063"
+    ],
+    "biological_processes": [
+      "transmembrane receptor protein tyrosine kinase signaling pathway",
+      "MAPK cascade",
+      "phosphatidylinositol 3-kinase signaling",
+      "cell population proliferation",
+      "response to drug"
+    ],
+    "phenotypes": [
+      "Lung Adenocarcinoma",
+      "Older Age at Diagnosis",
+      "Variable Smoking History",
+      "Brain Metastases"
+    ],
+    "phenotype_categories": [
+      "Neoplastic",
+      "Clinical"
+    ],
+    "phenotype_ids": [
+      "HP:0030078",
+      "HP:0100526",
+      "HP:0004375"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "MET"
+    ],
+    "treatments": [
+      "Capmatinib",
+      "Tepotinib",
+      "Crizotinib",
+      "Immunotherapy",
+      "Chemotherapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "MET Exon 14 Testing"
+    ],
+    "source_file": "MET_Exon_14_Skipping_NSCLC.yaml",
+    "page_url": "../pages/disorders/MET_Exon_14_Skipping_Non-Small_Cell_Lung_Cancer.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 5
+  },
+  {
+    "name": "MSI-High Colorectal Cancer",
+    "disease_id": "MONDO:0005575",
+    "category": "",
+    "parents": [
+      "colorectal adenocarcinoma"
+    ],
+    "subtypes": [
+      "Lynch Syndrome-Associated MSI-H CRC",
+      "Sporadic MSI-H CRC"
+    ],
+    "description": "Microsatellite instability-high (MSI-H) colorectal cancer is a molecularly defined subtype characterized by deficient DNA mismatch repair (dMMR), resulting in hypermutation and high tumor mutational burden (TMB). This occurs through germline mutations in MMR genes (Lynch syndrome) or sporadic MLH1 promoter hypermethylation. MSI-H tumors have distinct clinical features including proximal colon predominance, mucinous histology, and tumor-infiltrating lymphocytes. The high neoantigen load makes these tumors exquisitely sensitive to immune checkpoint inhibitors, with pembrolizumab now approved as first-line therapy for metastatic MSI-H colorectal cancer.",
+    "pathophysiology": [
+      "DNA Mismatch Repair Deficiency",
+      "Microsatellite Instability",
+      "Hypermutation and High TMB",
+      "Frameshift Mutations in Tumor Suppressors",
+      "Neoantigen-Driven Immune Response",
+      "PD-L1 Upregulation and Immune Evasion"
+    ],
+    "cell_types": [
+      "colon epithelial cell",
+      "CD8-positive, alpha-beta T cell"
+    ],
+    "cell_type_ids": [
+      "CL:0011108",
+      "CL:0000625"
+    ],
+    "biological_processes": [
+      "mismatch repair",
+      "cell population proliferation",
+      "T cell mediated cytotoxicity"
+    ],
+    "phenotypes": [
+      "Colon Cancer",
+      "Abdominal Pain",
+      "Hematochezia",
+      "Anemia",
+      "Weight Loss"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Hematologic",
+      "Constitutional"
+    ],
+    "phenotype_ids": [
+      "HP:0003003",
+      "HP:0002027",
+      "HP:0002573",
+      "HP:0001903",
+      "HP:0001824"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "MLH1",
+      "MSH2",
+      "MSH6",
+      "PMS2",
+      "BRAF V600E"
+    ],
+    "treatments": [
+      "Pembrolizumab",
+      "Nivolumab plus Ipilimumab",
+      "Dostarlimab",
+      "Surgical Resection"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "MSI Testing",
+      "MMR Immunohistochemistry",
+      "Tumor Mutational Burden"
+    ],
+    "source_file": "MSI_High_Colorectal_Cancer.yaml",
+    "page_url": "../pages/disorders/MSI-High_Colorectal_Cancer.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 6,
+    "num_genes": 5,
+    "num_treatments": 4
+  },
+  {
+    "name": "MSI-High Endometrial Cancer",
+    "disease_id": "MONDO:0011962",
+    "category": "",
+    "parents": [
+      "endometrial cancer"
+    ],
+    "subtypes": [
+      "Lynch Syndrome-Associated Endometrial Cancer",
+      "Sporadic MSI-H Endometrial Cancer"
+    ],
+    "description": "MSI-high endometrial cancer is a molecularly-defined subset of endometrial carcinoma characterized by deficient mismatch repair (dMMR) and high microsatellite instability (MSI-H). This phenotype occurs in approximately 25-30% of endometrial cancers and may arise from germline MMR gene mutations (Lynch syndrome) or somatic MLH1 promoter hypermethylation. MSI-H tumors have hypermutated genomes generating neoantigens that make them highly responsive to immune checkpoint inhibition. The combination of pembrolizumab plus lenvatinib has transformed treatment of advanced MSI-H endometrial cancer.",
+    "pathophysiology": [
+      "Mismatch Repair Deficiency",
+      "Microsatellite Instability",
+      "Hypermutation and Neoantigen Generation"
+    ],
+    "cell_types": [
+      "endometrial epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002149"
+    ],
+    "biological_processes": [
+      "mismatch repair",
+      "DNA repair",
+      "immune response"
+    ],
+    "phenotypes": [
+      "Abnormal Uterine Bleeding",
+      "Fatigue",
+      "Pelvic Pain"
+    ],
+    "phenotype_categories": [
+      "Gynecologic",
+      "Constitutional",
+      "Abdominal"
+    ],
+    "phenotype_ids": [
+      "HP:0000132",
+      "HP:0012378",
+      "HP:0034267"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "MLH1",
+      "MSH2",
+      "MSH6",
+      "PMS2"
+    ],
+    "treatments": [
+      "Pembrolizumab Plus Lenvatinib",
+      "Pembrolizumab Monotherapy",
+      "Dostarlimab",
+      "Hysterectomy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "MMR Protein Expression by IHC",
+      "MSI Testing"
+    ],
+    "source_file": "MSI_High_Endometrial_Cancer.yaml",
+    "page_url": "../pages/disorders/MSI-High_Endometrial_Cancer.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 3,
+    "num_genes": 4,
+    "num_treatments": 4
+  },
+  {
     "name": "Major Depressive Disorder",
     "disease_id": "MONDO:0002009",
     "category": "Complex",
@@ -8426,6 +12563,173 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 4,
     "num_treatments": 7
+  },
+  {
+    "name": "Malignant Mesothelioma",
+    "disease_id": "MONDO:0006292",
+    "category": "",
+    "parents": [
+      "mesothelial neoplasm"
+    ],
+    "subtypes": [
+      "Epithelioid Mesothelioma",
+      "Sarcomatoid Mesothelioma",
+      "Biphasic Mesothelioma"
+    ],
+    "description": "Malignant mesothelioma is an aggressive cancer arising from mesothelial cells lining the pleural, peritoneal, or pericardial cavities. It is strongly associated with asbestos exposure, with a long latency period of 20-50 years between exposure and disease onset. The disease is characterized by diffuse growth along serosal surfaces, making complete surgical resection difficult. Germline BAP1 mutations define a hereditary cancer syndrome with increased susceptibility to mesothelioma, uveal melanoma, and other malignancies.",
+    "pathophysiology": [
+      "Asbestos-Induced Mesothelial Injury",
+      "BAP1 Tumor Suppressor Inactivation",
+      "NF2/Merlin Inactivation",
+      "CDKN2A/p16 Loss"
+    ],
+    "cell_types": [
+      "mesothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000077"
+    ],
+    "biological_processes": [
+      "inflammatory response",
+      "response to oxidative stress",
+      "histone deubiquitination",
+      "DNA damage response",
+      "Hippo signaling",
+      "negative regulation of G1/S transition"
+    ],
+    "phenotypes": [
+      "Dyspnea",
+      "Pleural Effusion",
+      "Chest Pain",
+      "Weight Loss",
+      "Fatigue"
+    ],
+    "phenotype_categories": [
+      "Pulmonary",
+      "Thoracic",
+      "Constitutional"
+    ],
+    "phenotype_ids": [
+      "HP:0002094",
+      "HP:0002202",
+      "HP:0100749",
+      "HP:0001824",
+      "HP:0012378"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "BAP1",
+      "NF2",
+      "CDKN2A"
+    ],
+    "treatments": [
+      "Platinum-Based Chemotherapy",
+      "Immune Checkpoint Inhibition",
+      "Surgical Resection",
+      "Radiation Therapy"
+    ],
+    "environmental": [
+      "Asbestos Exposure"
+    ],
+    "biochemical": [
+      "Mesothelin",
+      "BAP1 Immunohistochemistry"
+    ],
+    "source_file": "Malignant_Mesothelioma.yaml",
+    "page_url": "../pages/disorders/Malignant_Mesothelioma.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 4,
+    "num_genes": 3,
+    "num_treatments": 4
+  },
+  {
+    "name": "Mantle Cell Lymphoma",
+    "disease_id": "MONDO:0018876",
+    "category": "",
+    "parents": [
+      "B-cell non-Hodgkin lymphoma"
+    ],
+    "subtypes": [
+      "Classical Mantle Cell Lymphoma",
+      "Leukemic Non-Nodal Mantle Cell Lymphoma",
+      "Blastoid Mantle Cell Lymphoma"
+    ],
+    "description": "Mantle cell lymphoma (MCL) is an aggressive B-cell non-Hodgkin lymphoma characterized by the t(11;14)(q13;q32) translocation, which juxtaposes the CCND1 (cyclin D1) gene with the immunoglobulin heavy chain enhancer, leading to constitutive cyclin D1 overexpression. MCL typically presents at advanced stage with lymphadenopathy, bone marrow involvement, and frequently gastrointestinal tract infiltration. While historically considered incurable with median survival of 3-5 years, outcomes have improved with BTK inhibitors (ibrutinib, acalabrutinib), high-dose therapy with stem cell transplant in younger patients, and emerging therapies including CAR-T cells.",
+    "pathophysiology": [
+      "CCND1 Translocation and Cyclin D1 Overexpression",
+      "Cell Cycle Dysregulation",
+      "BTK and BCR Signaling Dependence",
+      "NF-kB Activation",
+      "Uncontrolled B-cell Proliferation"
+    ],
+    "cell_types": [
+      "B cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000236"
+    ],
+    "biological_processes": [
+      "G1/S transition of mitotic cell cycle",
+      "cell population proliferation",
+      "B cell activation",
+      "apoptotic process"
+    ],
+    "phenotypes": [
+      "Generalized Lymphadenopathy",
+      "Splenomegaly",
+      "Gastrointestinal Involvement",
+      "Night Sweats",
+      "Weight Loss",
+      "Fatigue",
+      "Anemia"
+    ],
+    "phenotype_categories": [
+      "Lymphatic",
+      "Abdominal",
+      "Gastrointestinal",
+      "Constitutional",
+      "Hematologic"
+    ],
+    "phenotype_ids": [
+      "HP:0008940",
+      "HP:0001744",
+      "HP:0007378",
+      "HP:0030166",
+      "HP:0001824",
+      "HP:0012378",
+      "HP:0001903"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "CCND1/IGH Translocation",
+      "TP53 Mutation",
+      "ATM Mutation/Deletion"
+    ],
+    "treatments": [
+      "Ibrutinib",
+      "Acalabrutinib",
+      "Intensive Chemotherapy with ASCT",
+      "Bendamustine-Rituximab",
+      "CAR-T Cell Therapy",
+      "Venetoclax"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Cyclin D1 Expression",
+      "Flow Cytometry Immunophenotyping"
+    ],
+    "source_file": "Mantle_Cell_Lymphoma.yaml",
+    "page_url": "../pages/disorders/Mantle_Cell_Lymphoma.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 5,
+    "num_genes": 3,
+    "num_treatments": 6
   },
   {
     "name": "Maple Syrup Urine Disease",
@@ -8694,6 +12998,218 @@ window.searchData = [
     "num_treatments": 2
   },
   {
+    "name": "Medullary Thyroid Carcinoma",
+    "disease_id": "MONDO:0015277",
+    "category": "",
+    "parents": [
+      "thyroid carcinoma"
+    ],
+    "subtypes": [
+      "Hereditary MTC (MEN2A)",
+      "Hereditary MTC (MEN2B)",
+      "Sporadic MTC"
+    ],
+    "description": "Medullary thyroid carcinoma (MTC) is a neuroendocrine malignancy arising from the parafollicular C-cells of the thyroid gland. Approximately 25% of cases are hereditary, caused by germline RET proto-oncogene mutations in MEN2A, MEN2B, or familial MTC syndromes. Sporadic MTC also frequently harbors somatic RET mutations. MTC secretes calcitonin and carcinoembryonic antigen (CEA), providing useful biomarkers. The identification of RET as the driver oncogene led to development of selective RET inhibitors like selpercatinib and pralsetinib.",
+    "pathophysiology": [
+      "RET Proto-Oncogene Activation",
+      "RAS-MAPK Pathway Activation",
+      "PI3K-AKT Pathway Activation"
+    ],
+    "cell_types": [
+      "parafollicular cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000570"
+    ],
+    "biological_processes": [
+      "receptor signaling protein tyrosine kinase activity",
+      "MAPK cascade",
+      "phosphatidylinositol 3-kinase signaling"
+    ],
+    "phenotypes": [
+      "Thyroid Nodule",
+      "Diarrhea",
+      "Lymph Node Metastasis"
+    ],
+    "phenotype_categories": [
+      "Endocrine",
+      "Constitutional",
+      "Systemic"
+    ],
+    "phenotype_ids": [
+      "HP:0002890",
+      "HP:0002014",
+      "HP:0002716"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "RET"
+    ],
+    "treatments": [
+      "Thyroidectomy",
+      "Selpercatinib",
+      "Pralsetinib",
+      "Vandetanib/Cabozantinib"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum Calcitonin",
+      "Serum CEA"
+    ],
+    "source_file": "Medullary_Thyroid_Carcinoma.yaml",
+    "page_url": "../pages/disorders/Medullary_Thyroid_Carcinoma.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 4
+  },
+  {
+    "name": "Medulloblastoma, SHH-Activated",
+    "disease_id": "MONDO:0850197",
+    "category": "",
+    "parents": [
+      "medulloblastoma"
+    ],
+    "subtypes": [
+      "SHH-Activated, TP53-Wildtype Medulloblastoma",
+      "SHH-Activated, TP53-Mutant Medulloblastoma"
+    ],
+    "description": "Medulloblastoma, SHH-activated, is a molecularly defined subgroup of medulloblastoma characterized by activation of the Sonic Hedgehog (SHH) signaling pathway. This subgroup represents approximately 30% of medulloblastomas and shows a bimodal age distribution, occurring in infants (<3 years) and adults (>16 years) more than children. SHH-activated tumors arise from cerebellar granule neuron precursors in the external granule layer and can result from mutations in PTCH1, SMO, SUFU, or GLI2, as well as MYCN or GLI2 amplification. Under WHO 2021 classification, this subgroup is further stratified by TP53 mutation status: SHH-activated and TP53-mutant tumors have significantly worse prognosis than TP53-wildtype tumors. SHH pathway inhibitors (vismodegib, sonidegib) show activity but resistance develops.",
+    "pathophysiology": [
+      "SHH Pathway Activation",
+      "GLI Transcription Factor Activation",
+      "Cerebellar Granule Cell Proliferation"
+    ],
+    "cell_types": [
+      "cerebellar granule cell"
+    ],
+    "cell_type_ids": [
+      "CL:0001031"
+    ],
+    "biological_processes": [
+      "smoothened signaling pathway",
+      "positive regulation of gene expression",
+      "cell population proliferation",
+      "cerebellum development"
+    ],
+    "phenotypes": [
+      "Headache",
+      "Ataxia",
+      "Nausea and Vomiting",
+      "Macrocephaly"
+    ],
+    "phenotype_categories": [
+      "Neurological"
+    ],
+    "phenotype_ids": [
+      "HP:0002315",
+      "HP:0001251",
+      "HP:0002013",
+      "HP:0000256"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "PTCH1",
+      "SMO",
+      "SUFU",
+      "GLI2",
+      "MYCN",
+      "TP53",
+      "TERT"
+    ],
+    "treatments": [
+      "Surgical Resection",
+      "Craniospinal Irradiation",
+      "Chemotherapy",
+      "SHH Pathway Inhibitors (Vismodegib/Sonidegib)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Medulloblastoma_SHH_Activated.yaml",
+    "page_url": "../pages/disorders/Medulloblastoma,_SHH-Activated.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 3,
+    "num_genes": 7,
+    "num_treatments": 4
+  },
+  {
+    "name": "Medulloblastoma, WNT-Activated",
+    "disease_id": "MONDO:0850196",
+    "category": "",
+    "parents": [
+      "medulloblastoma"
+    ],
+    "subtypes": [
+      "WNT-Activated Medulloblastoma with CTNNB1 Mutation",
+      "WNT-Activated Medulloblastoma with APC Mutation"
+    ],
+    "description": "Medulloblastoma, WNT-activated, is a molecularly defined subgroup of medulloblastoma characterized by activation of the WNT/beta-catenin signaling pathway, typically through somatic CTNNB1 (beta-catenin) exon 3 mutations or germline APC mutations. This subgroup represents approximately 10% of medulloblastomas and has the most favorable prognosis of all molecular subgroups, with >95% long-term survival. WNT-activated tumors arise from lower rhombic lip progenitors, have classic histology, and are characterized by nuclear beta-catenin accumulation, monosomy 6, and expression of WNT target genes including DKK1 and AXIN2. Treatment de-escalation trials are exploring reduced-intensity therapy to minimize long-term toxicity.",
+    "pathophysiology": [
+      "WNT/Beta-Catenin Pathway Activation",
+      "Nuclear Beta-Catenin Accumulation",
+      "WNT Target Gene Activation",
+      "Cell Proliferation and Tumor Formation"
+    ],
+    "cell_types": [
+      "cerebellar granule cell"
+    ],
+    "cell_type_ids": [
+      "CL:0001031"
+    ],
+    "biological_processes": [
+      "Wnt signaling pathway",
+      "canonical Wnt signaling pathway",
+      "positive regulation of gene expression",
+      "cell population proliferation"
+    ],
+    "phenotypes": [
+      "Headache",
+      "Ataxia",
+      "Nausea and Vomiting",
+      "Papilledema"
+    ],
+    "phenotype_categories": [
+      "Neurological"
+    ],
+    "phenotype_ids": [
+      "HP:0002315",
+      "HP:0001251",
+      "HP:0002013",
+      "HP:0001085"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "CTNNB1",
+      "APC",
+      "DDX3X",
+      "SMARCA4",
+      "TP53",
+      "Monosomy 6"
+    ],
+    "treatments": [
+      "Surgical Resection",
+      "Craniospinal Irradiation",
+      "Chemotherapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Medulloblastoma_WNT_Activated.yaml",
+    "page_url": "../pages/disorders/Medulloblastoma,_WNT-Activated.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 4,
+    "num_genes": 6,
+    "num_treatments": 3
+  },
+  {
     "name": "Melanoma_in_Congenital_Melanocytic_Nevus",
     "disease_id": "MONDO:0850110",
     "category": "Skin Cancer",
@@ -8839,6 +13355,73 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 0,
     "num_treatments": 6
+  },
+  {
+    "name": "Merkel Cell Carcinoma",
+    "disease_id": "MONDO:0019210",
+    "category": "",
+    "parents": [
+      "skin carcinoma",
+      "neuroendocrine carcinoma"
+    ],
+    "subtypes": [
+      "MCPyV-Positive Merkel Cell Carcinoma",
+      "MCPyV-Negative Merkel Cell Carcinoma"
+    ],
+    "description": "Merkel cell carcinoma (MCC) is a rare, aggressive neuroendocrine carcinoma of the skin arising from Merkel cells, specialized mechanoreceptor cells in the basal epidermis. MCC has two distinct etiologies: approximately 80% of cases are caused by clonal integration of Merkel cell polyomavirus (MCPyV) with expression of viral T antigens, while the remaining 20% are virus-negative and driven by UV-induced mutations resulting in high tumor mutational burden. MCC is highly aggressive with significant metastatic potential, but also immunogenic. Immune checkpoint inhibitors (avelumab, pembrolizumab) have transformed treatment of advanced MCC, with response rates of 50-70% and durable responses in many patients.",
+    "pathophysiology": [
+      "Viral T Antigen Oncogenesis",
+      "RB1 Pathway Inactivation",
+      "UV-Induced Mutagenesis",
+      "Uncontrolled Merkel Cell Proliferation"
+    ],
+    "cell_types": [
+      "Merkel cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000242"
+    ],
+    "biological_processes": [
+      "cell population proliferation"
+    ],
+    "phenotypes": [
+      "Neuroendocrine Neoplasm",
+      "Cutaneous Nodule"
+    ],
+    "phenotype_categories": [
+      "Dermatologic"
+    ],
+    "phenotype_ids": [
+      "HP:0100634",
+      "HP:0008069"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "MCPyV T Antigens",
+      "RB1",
+      "TP53"
+    ],
+    "treatments": [
+      "Avelumab",
+      "Pembrolizumab",
+      "Surgical Excision",
+      "Radiation Therapy",
+      "Chemotherapy"
+    ],
+    "environmental": [
+      "Ultraviolet Radiation",
+      "Immunosuppression"
+    ],
+    "biochemical": [],
+    "source_file": "Merkel_Cell_Carcinoma.yaml",
+    "page_url": "../pages/disorders/Merkel_Cell_Carcinoma.html",
+    "num_phenotypes": 2,
+    "num_pathophysiology": 4,
+    "num_genes": 3,
+    "num_treatments": 5
   },
   {
     "name": "Migraine",
@@ -9127,6 +13710,88 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 9,
     "num_treatments": 6
+  },
+  {
+    "name": "Multiple Endocrine Neoplasia Type 2",
+    "disease_id": "MONDO:0019003",
+    "category": "",
+    "parents": [
+      "hereditary cancer-predisposing syndrome"
+    ],
+    "subtypes": [
+      "MEN2A",
+      "MEN2B",
+      "Familial Medullary Thyroid Carcinoma (FMTC)"
+    ],
+    "description": "Multiple endocrine neoplasia type 2 (MEN2) is an autosomal dominant hereditary cancer syndrome caused by germline activating mutations in the RET proto-oncogene. It is characterized by medullary thyroid carcinoma (MTC), pheochromocytoma, and depending on the subtype, primary hyperparathyroidism or mucosal neuromas with marfanoid habitus. MEN2 exemplifies oncogenic gain-of-function mutations in receptor tyrosine kinases and demonstrates genotype-phenotype correlations that guide the timing of prophylactic thyroidectomy and surveillance protocols.",
+    "pathophysiology": [
+      "RET Oncogene Activation",
+      "Downstream Signaling Cascade Activation",
+      "Neuroendocrine Cell Transformation",
+      "Tumor Development"
+    ],
+    "cell_types": [
+      "parafollicular cell",
+      "chromaffin cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000570",
+      "CL:0000166"
+    ],
+    "biological_processes": [
+      "transmembrane receptor protein tyrosine kinase signaling pathway",
+      "MAPK cascade",
+      "phosphatidylinositol 3-kinase signaling",
+      "cell population proliferation"
+    ],
+    "phenotypes": [
+      "Medullary Thyroid Carcinoma",
+      "Pheochromocytoma",
+      "Primary Hyperparathyroidism",
+      "Mucosal Neuromas",
+      "Intestinal Ganglioneuromatosis",
+      "Marfanoid Habitus"
+    ],
+    "phenotype_categories": [
+      "Neoplastic",
+      "Endocrine",
+      "Neurologic",
+      "Gastrointestinal",
+      "Skeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0002865",
+      "HP:0002666",
+      "HP:0000843",
+      "HP:0003005",
+      "HP:0001166"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "RET"
+    ],
+    "treatments": [
+      "Prophylactic Thyroidectomy",
+      "RET Kinase Inhibitors",
+      "Surveillance Protocol",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum Calcitonin",
+      "Plasma Metanephrines",
+      "RET Genetic Testing"
+    ],
+    "source_file": "Multiple_Endocrine_Neoplasia_Type_2.yaml",
+    "page_url": "../pages/disorders/Multiple_Endocrine_Neoplasia_Type_2.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 4
   },
   {
     "name": "Multiple Sclerosis",
@@ -9556,6 +14221,202 @@ window.searchData = [
     "num_treatments": 9
   },
   {
+    "name": "Acute Myeloid Leukemia, NPM1-Mutated",
+    "disease_id": "MONDO:0044923",
+    "category": "",
+    "parents": [
+      "acute myeloid leukemia"
+    ],
+    "subtypes": [],
+    "description": "NPM1-mutated acute myeloid leukemia is characterized by mutations in the nucleophosmin 1 gene, occurring in approximately 30% of adult AML cases and representing the most common genetic abnormality in AML. NPM1 mutations cause aberrant cytoplasmic localization of the normally nucleolar protein, disrupting its tumor suppressor functions. In the absence of adverse cytogenetics or FLT3-ITD with high allelic ratio, NPM1-mutated AML is classified as favorable risk with good response to intensive chemotherapy and favorable overall survival. NPM1 mutation status also serves as a sensitive marker for minimal residual disease monitoring.",
+    "pathophysiology": [
+      "NPM1 Cytoplasmic Mislocalization",
+      "ARF-p53 Pathway Disruption",
+      "HOX Gene Dysregulation",
+      "Impaired Tumor Suppression",
+      "Differentiation Block"
+    ],
+    "cell_types": [
+      "myeloblast",
+      "myeloid cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000835",
+      "CL:0000763"
+    ],
+    "biological_processes": [
+      "apoptotic process",
+      "myeloid cell differentiation",
+      "cell cycle checkpoint signaling"
+    ],
+    "phenotypes": [
+      "Leukocytosis",
+      "Anemia",
+      "Thrombocytopenia",
+      "Fatigue",
+      "Recurrent Infections"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Constitutional",
+      "Infectious"
+    ],
+    "phenotype_ids": [
+      "HP:0001974",
+      "HP:0001903",
+      "HP:0001873",
+      "HP:0012378",
+      "HP:0002719"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "NPM1"
+    ],
+    "treatments": [
+      "Intensive Chemotherapy (7+3)",
+      "Venetoclax plus Azacitidine",
+      "Allogeneic Stem Cell Transplantation",
+      "MRD-Guided Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "NPM1 Mutation Analysis",
+      "Immunohistochemistry for Cytoplasmic NPM1"
+    ],
+    "source_file": "NPM1_Mutant_AML.yaml",
+    "page_url": "../pages/disorders/Acute_Myeloid_Leukemia,_NPM1-Mutated.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 4
+  },
+  {
+    "name": "NRAS Mutant Melanoma",
+    "disease_id": "MONDO:0005012",
+    "category": "",
+    "parents": [
+      "cutaneous melanoma"
+    ],
+    "subtypes": [],
+    "description": "NRAS-mutant melanoma is a molecular subtype of cutaneous melanoma characterized by activating mutations in the NRAS oncogene, occurring in approximately 15-25% of cutaneous melanomas. The most common mutations affect codon 61 (Q61R, Q61K, Q61L), with codons 12 and 13 affected less frequently. NRAS mutations result in constitutive GTP-bound active state and persistent activation of both MAPK and PI3K signaling pathways. NRAS-mutant melanomas are associated with chronic sun damage, older patient age, thicker primary tumors, and poorer prognosis compared to BRAF-mutant disease. Unlike BRAF-mutant melanoma, direct RAS inhibition has proven challenging, though MEK inhibitors show some activity and combination strategies are under investigation.",
+    "pathophysiology": [
+      "NRAS Q61 Oncogenic Mutation",
+      "Dual MAPK and PI3K Pathway Activation",
+      "Uncontrolled Melanocyte Proliferation",
+      "Enhanced Cell Survival"
+    ],
+    "cell_types": [
+      "melanocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000148"
+    ],
+    "biological_processes": [
+      "signal transduction",
+      "MAPK cascade",
+      "cell population proliferation",
+      "apoptotic process"
+    ],
+    "phenotypes": [
+      "Cutaneous Melanoma",
+      "Pigmented Skin Lesion"
+    ],
+    "phenotype_categories": [
+      "Dermatologic"
+    ],
+    "phenotype_ids": [
+      "HP:0012056",
+      "HP:0008069"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "NRAS Q61R",
+      "NRAS Q61K",
+      "NRAS Q61L"
+    ],
+    "treatments": [
+      "MEK Inhibitors",
+      "Immune Checkpoint Inhibitors",
+      "Combination Targeted Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "NRAS_Mutant_Melanoma.yaml",
+    "page_url": "../pages/disorders/NRAS_Mutant_Melanoma.html",
+    "num_phenotypes": 2,
+    "num_pathophysiology": 4,
+    "num_genes": 3,
+    "num_treatments": 3
+  },
+  {
+    "name": "NTRK Fusion-Positive Cancer",
+    "disease_id": "MONDO:0700215",
+    "category": "",
+    "parents": [
+      "neoplasm"
+    ],
+    "subtypes": [
+      "NTRK1 Fusion-Positive Cancer",
+      "NTRK2 Fusion-Positive Cancer",
+      "NTRK3 Fusion-Positive Cancer"
+    ],
+    "description": "NTRK fusion-positive cancer is a tumor-agnostic molecular diagnosis defined by chromosomal rearrangements involving NTRK1, NTRK2, or NTRK3 genes encoding neurotrophic tyrosine receptor kinases (TRK). These fusions create constitutively active chimeric proteins that drive oncogenesis across diverse tumor types. NTRK fusions occur at varying frequencies: very common in secretory breast carcinoma and infantile fibrosarcoma (>90%), but rare (<1%) in common solid tumors. The development of TRK inhibitors larotrectinib and entrectinib represents a paradigm shift in oncology, providing highly effective tumor-agnostic targeted therapy based solely on the presence of NTRK fusions regardless of tumor histology or site of origin.",
+    "pathophysiology": [
+      "NTRK Gene Fusion and Constitutive TRK Activation",
+      "RAS-MAPK Pathway Activation",
+      "PI3K-AKT Pathway Activation"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "protein tyrosine kinase activity",
+      "MAPK cascade",
+      "phosphatidylinositol 3-kinase signaling"
+    ],
+    "phenotypes": [
+      "Tumor Growth",
+      "Fatigue"
+    ],
+    "phenotype_categories": [
+      "General",
+      "Constitutional"
+    ],
+    "phenotype_ids": [
+      "HP:0002664",
+      "HP:0012378"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "NTRK1",
+      "NTRK2",
+      "NTRK3"
+    ],
+    "treatments": [
+      "Larotrectinib",
+      "Entrectinib",
+      "Repotrectinib"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "NTRK Fusion Detection"
+    ],
+    "source_file": "NTRK_Fusion_Positive_Cancer.yaml",
+    "page_url": "../pages/disorders/NTRK_Fusion-Positive_Cancer.html",
+    "num_phenotypes": 2,
+    "num_pathophysiology": 3,
+    "num_genes": 3,
+    "num_treatments": 3
+  },
+  {
     "name": "Narcolepsy",
     "disease_id": "MONDO:0021107",
     "category": "Neurological",
@@ -9634,6 +14495,89 @@ window.searchData = [
     "num_pathophysiology": 2,
     "num_genes": 3,
     "num_treatments": 7
+  },
+  {
+    "name": "Nasopharyngeal Carcinoma",
+    "disease_id": "MONDO:0015459",
+    "category": "",
+    "parents": [
+      "pharyngeal carcinoma"
+    ],
+    "subtypes": [
+      "Non-keratinizing Carcinoma",
+      "Keratinizing Squamous Cell Carcinoma"
+    ],
+    "description": "Nasopharyngeal carcinoma (NPC) is a unique head and neck malignancy arising from the epithelium of the nasopharynx, with a distinctive epidemiologic and etiologic profile. It is strongly associated with Epstein-Barr virus (EBV) infection, which is present in nearly 100% of non-keratinizing NPC. The disease shows remarkable geographic variation, with high incidence in southern China, Southeast Asia, and among Inuit populations. NPC is highly radiosensitive and chemosensitive, with good cure rates for locoregional disease but poor prognosis for distant metastases.",
+    "pathophysiology": [
+      "EBV Latent Membrane Protein 1 (LMP1) Signaling",
+      "LMP2A-Mediated B Cell Receptor Mimicry",
+      "EBNA1-Mediated Viral Maintenance",
+      "Host Genetic Susceptibility",
+      "Immune Evasion"
+    ],
+    "cell_types": [
+      "squamous epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000076"
+    ],
+    "biological_processes": [
+      "NF-kappaB signaling",
+      "cell population proliferation",
+      "phosphatidylinositol 3-kinase signaling",
+      "viral genome replication",
+      "negative regulation of T cell mediated immunity"
+    ],
+    "phenotypes": [
+      "Cervical Lymphadenopathy",
+      "Nasal Obstruction",
+      "Hearing Loss",
+      "Epistaxis",
+      "Cranial Nerve Involvement",
+      "Headache"
+    ],
+    "phenotype_categories": [
+      "Head and Neck",
+      "Nasal",
+      "Otologic",
+      "Neurologic"
+    ],
+    "phenotype_ids": [
+      "HP:0002716",
+      "HP:0001742",
+      "HP:0000405",
+      "HP:0000421",
+      "HP:0006824",
+      "HP:0002315"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "HLA-A",
+      "TP53",
+      "CDKN2A",
+      "NF-kB Pathway Alterations"
+    ],
+    "treatments": [
+      "Intensity-Modulated Radiation Therapy",
+      "Concurrent Chemoradiation",
+      "Induction Chemotherapy",
+      "Immunotherapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "EBV DNA (Plasma)",
+      "EBV-Encoded RNA (EBERs) In Situ Hybridization"
+    ],
+    "source_file": "Nasopharyngeal_Carcinoma.yaml",
+    "page_url": "../pages/disorders/Nasopharyngeal_Carcinoma.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 5,
+    "num_genes": 4,
+    "num_treatments": 4
   },
   {
     "name": "Nephronophthisis",
@@ -9735,6 +14679,171 @@ window.searchData = [
     "num_pathophysiology": 11,
     "num_genes": 5,
     "num_treatments": 3
+  },
+  {
+    "name": "Neuroblastoma",
+    "disease_id": "MONDO:0005072",
+    "category": "",
+    "parents": [
+      "neuroblastic tumor"
+    ],
+    "subtypes": [
+      "MYCN-Amplified Neuroblastoma",
+      "Stage 4S Neuroblastoma",
+      "High-Risk Neuroblastoma"
+    ],
+    "description": "Neuroblastoma is the most common extracranial solid tumor of childhood, arising from neural crest-derived sympathetic nervous system precursors. It demonstrates remarkable clinical heterogeneity, ranging from spontaneous regression in infants to highly aggressive metastatic disease in older children. MYCN amplification, present in approximately 20% of cases, is the most powerful adverse prognostic marker and drives aggressive tumor behavior. Risk stratification based on age, stage, histology, MYCN status, and ploidy guides treatment intensity. Low-risk neuroblastoma may require only observation, while high-risk disease requires intensive multimodal therapy with immunotherapy.",
+    "pathophysiology": [
+      "Neural Crest Developmental Arrest",
+      "MYCN-Driven Proliferation",
+      "ALK Signaling Activation"
+    ],
+    "cell_types": [
+      "neural crest derived neuroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0002676"
+    ],
+    "biological_processes": [
+      "cell differentiation",
+      "cell population proliferation",
+      "MAPK cascade"
+    ],
+    "phenotypes": [
+      "Abdominal Mass",
+      "Hypertension",
+      "Fever",
+      "Weight Loss",
+      "Proptosis",
+      "Bone Pain",
+      "Diarrhea"
+    ],
+    "phenotype_categories": [
+      "Abdominal",
+      "Cardiovascular",
+      "Constitutional",
+      "Ophthalmologic",
+      "Musculoskeletal",
+      "Gastrointestinal"
+    ],
+    "phenotype_ids": [
+      "HP:0031500",
+      "HP:0000822",
+      "HP:0001945",
+      "HP:0001824",
+      "HP:0000520",
+      "HP:0002653",
+      "HP:0002014"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [
+      "MYCN Amplification",
+      "ALK Mutations",
+      "Segmental Chromosomal Aberrations"
+    ],
+    "treatments": [
+      "Risk-Adapted Chemotherapy",
+      "Surgical Resection",
+      "Autologous Stem Cell Transplant",
+      "Radiation Therapy",
+      "Anti-GD2 Immunotherapy",
+      "Isotretinoin (Retinoic Acid)"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Catecholamine Metabolites",
+      "Neuron-Specific Enolase"
+    ],
+    "source_file": "Neuroblastoma.yaml",
+    "page_url": "../pages/disorders/Neuroblastoma.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 3,
+    "num_genes": 3,
+    "num_treatments": 6
+  },
+  {
+    "name": "Neurofibromatosis Type 1",
+    "disease_id": "MONDO:0018975",
+    "category": "",
+    "parents": [
+      "hereditary cancer-predisposing syndrome"
+    ],
+    "subtypes": [],
+    "description": "Neurofibromatosis type 1 (NF1) is an autosomal dominant tumor predisposition syndrome caused by germline pathogenic variants in the NF1 tumor suppressor gene encoding neurofibromin. It is characterized by cafe-au-lait macules, neurofibromas, Lisch nodules, skeletal abnormalities, and increased risk of malignancy including optic pathway gliomas and malignant peripheral nerve sheath tumors (MPNST). NF1 exemplifies the RASopathy spectrum, with neurofibromin functioning as a RAS-GAP that normally negatively regulates RAS-MAPK signaling.",
+    "pathophysiology": [
+      "NF1 Tumor Suppressor Loss",
+      "RAS-MAPK Pathway Hyperactivation",
+      "Uncontrolled Neural Crest Cell Proliferation",
+      "Tumor Development"
+    ],
+    "cell_types": [
+      "Schwann cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002573"
+    ],
+    "biological_processes": [
+      "regulation of Ras protein signal transduction",
+      "Ras protein signal transduction",
+      "MAPK cascade",
+      "cell population proliferation"
+    ],
+    "phenotypes": [
+      "Cafe-au-lait Macules",
+      "Cutaneous Neurofibromas",
+      "Plexiform Neurofibromas",
+      "Lisch Nodules",
+      "Optic Pathway Glioma",
+      "Malignant Peripheral Nerve Sheath Tumor",
+      "Scoliosis",
+      "Learning Difficulties"
+    ],
+    "phenotype_categories": [
+      "Dermatologic",
+      "Neoplastic",
+      "Ophthalmologic",
+      "Skeletal",
+      "Neurologic"
+    ],
+    "phenotype_ids": [
+      "HP:0007565",
+      "HP:0001067",
+      "HP:0009732",
+      "HP:0009737",
+      "HP:0009734",
+      "HP:0100697",
+      "HP:0002650",
+      "HP:0001249"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "NF1"
+    ],
+    "treatments": [
+      "MEK Inhibitors",
+      "Surgical Management",
+      "Surveillance Protocol",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "NF1 Genetic Testing"
+    ],
+    "source_file": "Neurofibromatosis_Type_1.yaml",
+    "page_url": "../pages/disorders/Neurofibromatosis_Type_1.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 4
   },
   {
     "name": "Non-Small Cell Lung Cancer",
@@ -10193,6 +15302,71 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 4,
     "num_treatments": 7
+  },
+  {
+    "name": "PIK3CA-Mutant Breast Cancer",
+    "disease_id": "MONDO:0004989",
+    "category": "",
+    "parents": [
+      "breast carcinoma"
+    ],
+    "subtypes": [],
+    "description": "PIK3CA-mutant breast cancer is a molecularly-defined subset of breast cancer characterized by activating mutations in the PIK3CA gene, which encodes the p110\u03b1 catalytic subunit of phosphatidylinositol 3-kinase (PI3K). PIK3CA mutations occur in approximately 40% of ER-positive breast cancers and 10-20% of other subtypes, making it one of the most frequently mutated oncogenes in breast cancer. Hotspot mutations (E545K, H1047R) constitutively activate the PI3K-AKT-mTOR signaling pathway. FDA approval of the PI3K inhibitor alpelisib established PIK3CA mutation as a predictive biomarker for targeted therapy.",
+    "pathophysiology": [
+      "PIK3CA Oncogenic Mutations",
+      "Constitutive PI3K-AKT Pathway Activation",
+      "mTOR Pathway Activation",
+      "Cell Survival and Proliferation",
+      "Endocrine Resistance"
+    ],
+    "cell_types": [
+      "luminal epithelial cell of mammary gland"
+    ],
+    "cell_type_ids": [
+      "CL:0002326"
+    ],
+    "biological_processes": [
+      "phosphatidylinositol 3-kinase signaling",
+      "phosphatidylinositol-mediated signaling",
+      "protein kinase B signaling",
+      "TOR signaling",
+      "negative regulation of apoptotic process",
+      "cell population proliferation",
+      "intracellular estrogen receptor signaling pathway"
+    ],
+    "phenotypes": [
+      "Breast Carcinoma",
+      "PIK3CA Mutation"
+    ],
+    "phenotype_categories": [
+      "Neoplastic",
+      "Molecular"
+    ],
+    "phenotype_ids": [
+      "HP:0003002",
+      "HP:0002664"
+    ],
+    "frequencies": [
+      "OBLIGATE"
+    ],
+    "genes": [
+      "PIK3CA"
+    ],
+    "treatments": [
+      "Alpelisib",
+      "Endocrine Therapy Plus CDK4/6 Inhibitors",
+      "Capivasertib"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "PIK3CA Mutation Testing"
+    ],
+    "source_file": "PIK3CA_Mutant_Breast_Cancer.yaml",
+    "page_url": "../pages/disorders/PIK3CA-Mutant_Breast_Cancer.html",
+    "num_phenotypes": 2,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 3
   },
   {
     "name": "Parkinson's Disease",
@@ -10676,6 +15850,84 @@ window.searchData = [
     "num_treatments": 4
   },
   {
+    "name": "Philadelphia Chromosome-Positive Acute Lymphoblastic Leukemia",
+    "disease_id": "MONDO:0004947",
+    "category": "",
+    "parents": [
+      "B-cell acute lymphoblastic leukemia"
+    ],
+    "subtypes": [],
+    "description": "Philadelphia chromosome-positive acute lymphoblastic leukemia (Ph+ ALL) is characterized by the t(9;22)(q34;q11) translocation creating the BCR-ABL1 fusion oncogene, occurring in 20-30% of adult ALL and 3-5% of pediatric ALL. The constitutively active BCR-ABL1 tyrosine kinase drives leukemic transformation of B-lymphoid progenitors. Historically carrying a dismal prognosis, the addition of tyrosine kinase inhibitors (imatinib, dasatinib, ponatinib) to chemotherapy has transformed outcomes, with cure rates now approaching those of Ph-negative ALL when combined with allogeneic stem cell transplantation.",
+    "pathophysiology": [
+      "BCR-ABL1 Fusion Oncogene in Lymphoid Progenitors",
+      "Constitutive Signaling Pathway Activation",
+      "B-lymphoid Differentiation Block",
+      "Apoptosis Resistance",
+      "Lymphoblast Accumulation"
+    ],
+    "cell_types": [
+      "B-lymphoblast"
+    ],
+    "cell_type_ids": [
+      "CL:0017006"
+    ],
+    "biological_processes": [
+      "protein tyrosine kinase activity",
+      "signal transduction",
+      "B cell differentiation",
+      "apoptotic process"
+    ],
+    "phenotypes": [
+      "Pancytopenia",
+      "Leukocytosis",
+      "Fatigue",
+      "Lymphadenopathy",
+      "Splenomegaly",
+      "Recurrent Infections"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Constitutional",
+      "Lymphatic",
+      "Abdominal",
+      "Infectious"
+    ],
+    "phenotype_ids": [
+      "HP:0001876",
+      "HP:0001974",
+      "HP:0012378",
+      "HP:0002716",
+      "HP:0001744",
+      "HP:0002719"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "BCR-ABL1 Fusion",
+      "IKZF1 Deletion"
+    ],
+    "treatments": [
+      "Tyrosine Kinase Inhibitor plus Chemotherapy",
+      "Ponatinib",
+      "Blinatumomab",
+      "Allogeneic Stem Cell Transplantation",
+      "CAR-T Cell Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "BCR-ABL1 Fusion Detection",
+      "Immunophenotyping"
+    ],
+    "source_file": "Ph_Positive_ALL.yaml",
+    "page_url": "../pages/disorders/Philadelphia_Chromosome-Positive_Acute_Lymphoblastic_Leukemia.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 5,
+    "num_genes": 2,
+    "num_treatments": 5
+  },
+  {
     "name": "Phenylketonuria",
     "disease_id": "MONDO:0009861",
     "category": "Genetic",
@@ -10753,6 +16005,84 @@ window.searchData = [
     "num_phenotypes": 7,
     "num_pathophysiology": 3,
     "num_genes": 1,
+    "num_treatments": 5
+  },
+  {
+    "name": "Pheochromocytoma and Paraganglioma",
+    "disease_id": "MONDO:0035540",
+    "category": "",
+    "parents": [
+      "neuroendocrine tumor"
+    ],
+    "subtypes": [
+      "Pheochromocytoma",
+      "Sympathetic Paraganglioma",
+      "Parasympathetic Paraganglioma"
+    ],
+    "description": "Pheochromocytoma and paraganglioma (PPGL) are rare neuroendocrine tumors arising from chromaffin cells of the adrenal medulla (pheochromocytoma) or extra-adrenal sympathetic and parasympathetic ganglia (paraganglioma). Approximately 40% of PPGLs are hereditary, caused by germline mutations in over 20 susceptibility genes including SDHx subunits (SDHA, SDHB, SDHC, SDHD), VHL, RET, NF1, MAX, and TMEM127. PPGLs may be catecholamine-secreting, causing paroxysmal hypertension, headaches, sweating, and palpitations. Understanding the genetic basis has enabled surveillance, early detection, and emerging targeted therapies for this heterogeneous tumor group.",
+    "pathophysiology": [
+      "Succinate Dehydrogenase Complex Dysfunction",
+      "Pseudohypoxia and HIF Activation",
+      "RET Proto-Oncogene Activation",
+      "Catecholamine Hypersecretion"
+    ],
+    "cell_types": [
+      "chromaffin cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000166"
+    ],
+    "biological_processes": [
+      "succinate dehydrogenase activity",
+      "response to hypoxia",
+      "receptor signaling protein tyrosine kinase activity",
+      "catecholamine biosynthetic process"
+    ],
+    "phenotypes": [
+      "Hypertension",
+      "Headache",
+      "Palpitations",
+      "Diaphoresis"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Neurological",
+      "Constitutional"
+    ],
+    "phenotype_ids": [
+      "HP:0000822",
+      "HP:0002315",
+      "HP:0001962",
+      "HP:0000975"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "SDHB",
+      "SDHD",
+      "VHL",
+      "RET",
+      "NF1"
+    ],
+    "treatments": [
+      "Surgical Resection",
+      "Alpha-Adrenergic Blockade",
+      "MIBG Therapy",
+      "Temozolomide",
+      "Sunitinib"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Plasma Metanephrines",
+      "Urinary Catecholamines and Metanephrines"
+    ],
+    "source_file": "Pheochromocytoma_Paraganglioma.yaml",
+    "page_url": "../pages/disorders/Pheochromocytoma_and_Paraganglioma.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 4,
+    "num_genes": 5,
     "num_treatments": 5
   },
   {
@@ -10848,6 +16178,56 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 3,
     "num_treatments": 5
+  },
+  {
+    "name": "Polycystic echinococcosis",
+    "disease_id": "MONDO:0000288",
+    "category": "Infectious Disease",
+    "parents": [
+      "Echinococcosis",
+      "Liver disorder",
+      "Digestive system infectious disorder"
+    ],
+    "subtypes": [],
+    "description": "Polycystic echinococcosis is a zoonotic helminth infection caused by the larval stage of Echinococcus vogeli, producing multilocular hydatid cysts that typically involve the liver and can infiltrate adjacent organs.",
+    "pathophysiology": [
+      "Hepatic metacestode implantation",
+      "Daughter cyst proliferation and matrix remodeling",
+      "Mass effect and local invasion"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "extracellular matrix organization"
+    ],
+    "phenotypes": [
+      "Polycystic hepatic lesion",
+      "Hepatic abscess complication",
+      "Thoracic abscess from hepatic fistula"
+    ],
+    "phenotype_categories": [],
+    "phenotype_ids": [
+      "HP:0001407",
+      "HP:0100523",
+      "HP:0025044"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Albendazole therapy",
+      "Radical hepatic resection"
+    ],
+    "environmental": [
+      "Bush dog\u2013paca sylvatic cycle and domestic dog bridging",
+      "Climate stability and hunting patterns driving spillover"
+    ],
+    "biochemical": [],
+    "source_file": "Polycystic_Echinococcosis.yaml",
+    "page_url": "../pages/disorders/Polycystic_echinococcosis.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 3,
+    "num_genes": 0,
+    "num_treatments": 2
   },
   {
     "name": "Polycystic Kidney Disease",
@@ -11016,6 +16396,83 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 4,
     "num_treatments": 6
+  },
+  {
+    "name": "Polycythemia Vera",
+    "disease_id": "MONDO:0009891",
+    "category": "",
+    "parents": [
+      "myeloproliferative neoplasm"
+    ],
+    "subtypes": [],
+    "description": "Polycythemia vera (PV) is a clonal myeloproliferative neoplasm characterized by uncontrolled erythrocyte production leading to elevated red blood cell mass, often accompanied by increased white blood cells and platelets. The JAK2 V617F mutation is present in approximately 95% of PV cases, with JAK2 exon 12 mutations accounting for most remaining cases. This mutation causes constitutive activation of JAK-STAT signaling, driving erythropoietin-independent erythroid proliferation. PV carries increased risk of thrombosis, the major cause of morbidity and mortality, and can progress to myelofibrosis or acute leukemia. JAK inhibitor ruxolitinib provides targeted therapy for inadequately controlled PV.",
+    "pathophysiology": [
+      "JAK2 V617F Constitutive Activation",
+      "STAT5 Hyperactivation",
+      "Erythropoietin-Independent Erythropoiesis",
+      "Hyperviscosity and Thrombosis Risk"
+    ],
+    "cell_types": [
+      "erythroid progenitor cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000038"
+    ],
+    "biological_processes": [
+      "protein tyrosine kinase activity",
+      "JAK-STAT signaling pathway",
+      "erythrocyte differentiation",
+      "blood coagulation"
+    ],
+    "phenotypes": [
+      "Polycythemia",
+      "Thrombocytosis",
+      "Leukocytosis",
+      "Aquagenic Pruritus",
+      "Headache",
+      "Splenomegaly",
+      "Fatigue"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Constitutional",
+      "Neurological",
+      "Abdominal"
+    ],
+    "phenotype_ids": [
+      "HP:0001901",
+      "HP:0001894",
+      "HP:0001974",
+      "HP:0000989",
+      "HP:0002315",
+      "HP:0001744",
+      "HP:0012378"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "JAK2"
+    ],
+    "treatments": [
+      "Therapeutic Phlebotomy",
+      "Low-Dose Aspirin",
+      "Hydroxyurea",
+      "Ruxolitinib",
+      "Interferon-alpha"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum Erythropoietin",
+      "JAK2 V617F Mutation"
+    ],
+    "source_file": "Polycythemia_Vera.yaml",
+    "page_url": "../pages/disorders/Polycythemia_Vera.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 5
   },
   {
     "name": "Polymyositis",
@@ -11276,6 +16733,85 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 12,
     "num_treatments": 6
+  },
+  {
+    "name": "Primary Myelofibrosis",
+    "disease_id": "MONDO:0009692",
+    "category": "",
+    "parents": [
+      "myeloproliferative neoplasm"
+    ],
+    "subtypes": [],
+    "description": "Primary myelofibrosis (PMF) is a clonal myeloproliferative neoplasm characterized by bone marrow fibrosis, abnormal megakaryocyte proliferation, extramedullary hematopoiesis, and progressive cytopenias. Driver mutations include JAK2 V617F (approximately 60%), CALR (25%), and MPL (5%), with 10% being triple-negative. Additional mutations in epigenetic regulators (ASXL1, TET2, EZH2) and splicing factors contribute to disease heterogeneity and prognosis. PMF causes marked splenomegaly, constitutional symptoms, and carries risk of transformation to acute myeloid leukemia. JAK inhibitors like ruxolitinib and fedratinib provide symptom control, while allogeneic stem cell transplantation remains the only curative option.",
+    "pathophysiology": [
+      "JAK-STAT Pathway Hyperactivation",
+      "Abnormal Megakaryopoiesis",
+      "Cytokine-Mediated Marrow Fibrosis",
+      "Extramedullary Hematopoiesis"
+    ],
+    "cell_types": [
+      "megakaryocyte",
+      "hematopoietic stem cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000556",
+      "CL:0000037"
+    ],
+    "biological_processes": [
+      "JAK-STAT signaling pathway",
+      "megakaryocyte differentiation",
+      "extracellular matrix organization",
+      "hematopoiesis"
+    ],
+    "phenotypes": [
+      "Splenomegaly",
+      "Anemia",
+      "Fatigue",
+      "Cachexia",
+      "Thrombocytopenia",
+      "Hepatomegaly"
+    ],
+    "phenotype_categories": [
+      "Abdominal",
+      "Hematologic",
+      "Constitutional"
+    ],
+    "phenotype_ids": [
+      "HP:0001744",
+      "HP:0001903",
+      "HP:0012378",
+      "HP:0004325",
+      "HP:0001873",
+      "HP:0002240"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "JAK2",
+      "CALR",
+      "MPL",
+      "ASXL1"
+    ],
+    "treatments": [
+      "Ruxolitinib",
+      "Fedratinib",
+      "Allogeneic Stem Cell Transplantation",
+      "Hydroxyurea",
+      "Anagrelide"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Lactate Dehydrogenase (LDH)",
+      "Peripheral Blood Smear"
+    ],
+    "source_file": "Primary_Myelofibrosis.yaml",
+    "page_url": "../pages/disorders/Primary_Myelofibrosis.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 4,
+    "num_genes": 4,
+    "num_treatments": 5
   },
   {
     "name": "Primary Sclerosing Cholangitis",
@@ -11640,6 +17176,296 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 9,
     "num_treatments": 5
+  },
+  {
+    "name": "RET Fusion-Positive Thyroid Cancer",
+    "disease_id": "MONDO:0005075",
+    "category": "",
+    "parents": [
+      "thyroid carcinoma"
+    ],
+    "subtypes": [
+      "RET/PTC1 (CCDC6-RET)",
+      "RET/PTC3 (NCOA4-RET)",
+      "Other RET Fusions"
+    ],
+    "description": "RET fusion-positive thyroid cancer is a molecularly-defined subset of papillary thyroid carcinoma (PTC) harboring chromosomal rearrangements involving the RET proto-oncogene. These fusions occur in approximately 10-20% of papillary thyroid cancers and are particularly enriched in radiation-induced thyroid cancer. The RET kinase domain is fused to various partners that provide dimerization domains, leading to constitutive receptor activation. Unlike RET point mutations in medullary thyroid cancer, RET fusions arise in thyroid follicular cells and cause papillary histology. Highly selective RET inhibitors selpercatinib and pralsetinib provide effective targeted therapy for RET fusion-positive thyroid cancer.",
+    "pathophysiology": [
+      "RET Fusion and Constitutive Kinase Activation",
+      "RAS-MAPK Pathway Activation",
+      "PI3K-AKT Pathway Activation"
+    ],
+    "cell_types": [
+      "thyroid follicular cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002258"
+    ],
+    "biological_processes": [
+      "receptor signaling protein tyrosine kinase activity",
+      "MAPK cascade",
+      "phosphatidylinositol 3-kinase signaling"
+    ],
+    "phenotypes": [
+      "Thyroid Nodule",
+      "Cervical Lymphadenopathy",
+      "Fatigue"
+    ],
+    "phenotype_categories": [
+      "Endocrine",
+      "Systemic",
+      "Constitutional"
+    ],
+    "phenotype_ids": [
+      "HP:0002890",
+      "HP:0002716",
+      "HP:0012378"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "RET"
+    ],
+    "treatments": [
+      "Thyroidectomy",
+      "Radioiodine Therapy",
+      "Selpercatinib",
+      "Pralsetinib",
+      "Lenvatinib or Sorafenib"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Thyroglobulin",
+      "RET Fusion Testing"
+    ],
+    "source_file": "RET_Fusion_Thyroid_Cancer.yaml",
+    "page_url": "../pages/disorders/RET_Fusion-Positive_Thyroid_Cancer.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 5
+  },
+  {
+    "name": "RET-Rearranged Non-Small Cell Lung Cancer",
+    "disease_id": "MONDO:0005061",
+    "category": "",
+    "parents": [
+      "non-small cell lung carcinoma"
+    ],
+    "subtypes": [
+      "KIF5B-RET NSCLC",
+      "CCDC6-RET NSCLC",
+      "NCOA4-RET NSCLC"
+    ],
+    "description": "RET-rearranged non-small cell lung cancer (NSCLC) is a molecularly-defined lung cancer subtype driven by chromosomal rearrangements involving the RET proto-oncogene. RET fusions occur in approximately 1-2% of NSCLC and result in constitutive activation of the RET receptor tyrosine kinase. Like ALK and ROS1 fusions, RET-positive NSCLC occurs predominantly in younger patients with minimal smoking history. Selpercatinib and pralsetinib are highly selective RET inhibitors that have transformed outcomes for patients with RET-driven cancers.",
+    "pathophysiology": [
+      "RET Gene Rearrangement",
+      "Constitutive RET Signaling",
+      "Oncogene Addiction",
+      "RET Inhibitor Resistance"
+    ],
+    "cell_types": [
+      "type II pneumocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0002063"
+    ],
+    "biological_processes": [
+      "protein kinase activity",
+      "MAPK cascade",
+      "phosphatidylinositol 3-kinase signaling",
+      "cell population proliferation",
+      "response to drug"
+    ],
+    "phenotypes": [
+      "Lung Adenocarcinoma",
+      "Young Age at Diagnosis",
+      "Never/Light Smoker",
+      "Brain Metastases"
+    ],
+    "phenotype_categories": [
+      "Neoplastic",
+      "Clinical"
+    ],
+    "phenotype_ids": [
+      "HP:0030078",
+      "HP:0100526",
+      "HP:0004375"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "RET",
+      "KIF5B"
+    ],
+    "treatments": [
+      "Selpercatinib",
+      "Pralsetinib",
+      "Cabozantinib",
+      "Immunotherapy",
+      "Chemotherapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "RET Testing"
+    ],
+    "source_file": "RET_Rearranged_NSCLC.yaml",
+    "page_url": "../pages/disorders/RET-Rearranged_Non-Small_Cell_Lung_Cancer.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 4,
+    "num_genes": 2,
+    "num_treatments": 5
+  },
+  {
+    "name": "ROS1-Rearranged Non-Small Cell Lung Cancer",
+    "disease_id": "MONDO:0005061",
+    "category": "",
+    "parents": [
+      "non-small cell lung carcinoma"
+    ],
+    "subtypes": [
+      "CD74-ROS1 NSCLC",
+      "EZR-ROS1 NSCLC",
+      "SDC4-ROS1 NSCLC"
+    ],
+    "description": "ROS1-rearranged non-small cell lung cancer (NSCLC) is a molecularly-defined lung cancer subtype driven by chromosomal rearrangements involving the ROS1 proto-oncogene. ROS1 fusions occur in approximately 1-2% of NSCLC and share clinical and molecular similarities with ALK-rearranged tumors. Like ALK, ROS1 is a receptor tyrosine kinase that becomes constitutively activated when fused to various partner genes. ROS1-positive NSCLC occurs predominantly in younger patients with minimal or no smoking history and responds to ALK/ROS1 inhibitors such as crizotinib, entrectinib, and lorlatinib.",
+    "pathophysiology": [
+      "ROS1 Gene Rearrangement",
+      "Constitutive ROS1 Signaling",
+      "Oncogene Addiction",
+      "ROS1 Inhibitor Resistance"
+    ],
+    "cell_types": [
+      "type II pneumocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0002063"
+    ],
+    "biological_processes": [
+      "protein kinase activity",
+      "MAPK cascade",
+      "phosphatidylinositol 3-kinase signaling",
+      "JAK-STAT cascade",
+      "cell population proliferation",
+      "response to drug"
+    ],
+    "phenotypes": [
+      "Lung Adenocarcinoma",
+      "Young Age at Diagnosis",
+      "Never/Light Smoker",
+      "Brain Metastases"
+    ],
+    "phenotype_categories": [
+      "Neoplastic",
+      "Clinical"
+    ],
+    "phenotype_ids": [
+      "HP:0030078",
+      "HP:0100526",
+      "HP:0004375"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "ROS1",
+      "CD74"
+    ],
+    "treatments": [
+      "Crizotinib",
+      "Entrectinib",
+      "Lorlatinib",
+      "Repotrectinib",
+      "Chemotherapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "ROS1 Testing"
+    ],
+    "source_file": "ROS1_Rearranged_NSCLC.yaml",
+    "page_url": "../pages/disorders/ROS1-Rearranged_Non-Small_Cell_Lung_Cancer.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 4,
+    "num_genes": 2,
+    "num_treatments": 5
+  },
+  {
+    "name": "Retinoblastoma",
+    "disease_id": "MONDO:0008380",
+    "category": "",
+    "parents": [
+      "retinal cancer"
+    ],
+    "subtypes": [
+      "Hereditary Retinoblastoma",
+      "Sporadic Retinoblastoma"
+    ],
+    "description": "Retinoblastoma is a rare pediatric malignancy arising from the nuclear layer of the retina, representing the paradigmatic example of the two-hit hypothesis of tumor suppressor gene inactivation. Biallelic loss of RB1 function is required for tumorigenesis. In hereditary cases (40%), a germline RB1 mutation is inherited and a somatic second hit occurs, leading to bilateral/multifocal tumors and increased risk of secondary malignancies. In sporadic cases (60%), both RB1 alleles are inactivated somatically in a single retinal cell.",
+    "pathophysiology": [
+      "RB1 Tumor Suppressor Inactivation",
+      "Loss of Cell Cycle Checkpoint Control",
+      "Uncontrolled Retinal Cell Proliferation"
+    ],
+    "cell_types": [
+      "retinal progenitor cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002672"
+    ],
+    "biological_processes": [
+      "G1/S transition of mitotic cell cycle",
+      "cell cycle checkpoint signaling",
+      "positive regulation of transcription by RNA polymerase II",
+      "cell population proliferation"
+    ],
+    "phenotypes": [
+      "Leukocoria",
+      "Strabismus",
+      "Decreased Visual Acuity",
+      "Ocular Pain",
+      "Secondary Malignancies"
+    ],
+    "phenotype_categories": [
+      "Ocular",
+      "Systemic"
+    ],
+    "phenotype_ids": [
+      "HP:0000555",
+      "HP:0000486",
+      "HP:0007663",
+      "HP:0200026",
+      "HP:0002664"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "RB1"
+    ],
+    "treatments": [
+      "Focal Therapy (Laser/Cryotherapy)",
+      "Chemotherapy",
+      "Enucleation",
+      "External Beam Radiation"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "RB1 Genetic Testing"
+    ],
+    "source_file": "Retinoblastoma.yaml",
+    "page_url": "../pages/disorders/Retinoblastoma.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 4
   },
   {
     "name": "Retrograde Cricopharyngeus Dysfunction",
@@ -12470,6 +18296,87 @@ window.searchData = [
     "num_treatments": 4
   },
   {
+    "name": "Small Cell Lung Cancer",
+    "disease_id": "MONDO:0008433",
+    "category": "",
+    "parents": [
+      "lung neoplasm"
+    ],
+    "subtypes": [
+      "Limited-Stage SCLC",
+      "Extensive-Stage SCLC",
+      "SCLC-A (ASCL1-high)",
+      "SCLC-N (NEUROD1-high)",
+      "SCLC-P (POU2F3-high)",
+      "SCLC-Y (YAP1-high)"
+    ],
+    "description": "Small cell lung cancer (SCLC) is a highly aggressive neuroendocrine lung malignancy characterized by rapid growth, early metastasis, and initial chemosensitivity followed by near-universal relapse. SCLC accounts for approximately 13-15% of lung cancers and is strongly associated with tobacco smoking. Molecularly, SCLC is defined by near-universal inactivation of both TP53 and RB1 tumor suppressors, leading to loss of cell cycle checkpoints and genomic instability. Unlike NSCLC, SCLC lacks actionable driver mutations and is treated primarily with chemotherapy plus immunotherapy. Despite high initial response rates, long-term survival remains poor.",
+    "pathophysiology": [
+      "TP53 Inactivation",
+      "RB1 Inactivation",
+      "Loss of Cell Cycle Checkpoints",
+      "Genomic Instability",
+      "Neuroendocrine Differentiation"
+    ],
+    "cell_types": [
+      "type II pneumocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0002063"
+    ],
+    "biological_processes": [
+      "DNA damage response, signal transduction by p53 class mediator",
+      "negative regulation of G1/S transition of mitotic cell cycle",
+      "cell population proliferation",
+      "DNA repair",
+      "neuron differentiation"
+    ],
+    "phenotypes": [
+      "Lung Neoplasm",
+      "Smoking Association",
+      "Brain Metastases",
+      "Paraneoplastic Syndromes"
+    ],
+    "phenotype_categories": [
+      "Neoplastic",
+      "Clinical"
+    ],
+    "phenotype_ids": [
+      "HP:0100526",
+      "HP:0004375"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "TP53",
+      "RB1",
+      "MYC",
+      "NOTCH"
+    ],
+    "treatments": [
+      "Platinum-Etoposide Chemotherapy",
+      "Atezolizumab (with Chemotherapy)",
+      "Durvalumab (with Chemotherapy)",
+      "Thoracic Radiation",
+      "Prophylactic Cranial Irradiation",
+      "Lurbinectedin",
+      "Topotecan"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Neuroendocrine Markers"
+    ],
+    "source_file": "Small_Cell_Lung_Cancer.yaml",
+    "page_url": "../pages/disorders/Small_Cell_Lung_Cancer.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 5,
+    "num_genes": 4,
+    "num_treatments": 7
+  },
+  {
     "name": "Small Intestinal Bacterial Overgrowth",
     "disease_id": "MONDO:0400000",
     "category": "Complex",
@@ -12688,6 +18595,73 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 4
+  },
+  {
+    "name": "Synovial Sarcoma",
+    "disease_id": "MONDO:0010434",
+    "category": "",
+    "parents": [
+      "soft tissue sarcoma"
+    ],
+    "subtypes": [
+      "Biphasic Synovial Sarcoma",
+      "Monophasic Synovial Sarcoma",
+      "Poorly Differentiated Synovial Sarcoma"
+    ],
+    "description": "Synovial sarcoma is a translocation-driven soft tissue sarcoma characterized by the pathognomonic SS18-SSX fusion gene, present in virtually all cases. Despite its name, synovial sarcoma does not arise from synovial tissue and the cell of origin remains uncertain. It typically affects adolescents and young adults, with peak incidence in the third decade. Common sites include the extremities, particularly around large joints, but it can occur anywhere including head, neck, and trunk. The SS18-SSX fusion disrupts chromatin remodeling through interaction with the SWI/SNF complex, leading to epigenetic reprogramming that drives oncogenesis.",
+    "pathophysiology": [
+      "SS18-SSX Fusion Oncogene",
+      "BAF Complex Disruption",
+      "Epigenetic Reprogramming"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "chromatin remodeling",
+      "regulation of gene expression",
+      "apoptotic process"
+    ],
+    "phenotypes": [
+      "Soft Tissue Mass",
+      "Localized Pain",
+      "Weight Loss",
+      "Metastatic Disease"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Constitutional",
+      "Systemic"
+    ],
+    "phenotype_ids": [
+      "HP:0031459",
+      "HP:0002653",
+      "HP:0001824",
+      "HP:0002664"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "SS18-SSX Fusion"
+    ],
+    "treatments": [
+      "Surgical Resection",
+      "Radiation Therapy",
+      "Chemotherapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "SS18-SSX Fusion Detection",
+      "TLE1 Immunohistochemistry"
+    ],
+    "source_file": "Synovial_Sarcoma.yaml",
+    "page_url": "../pages/disorders/Synovial_Sarcoma.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 3
   },
   {
     "name": "Systemic Lupus Erythematosus",
@@ -13254,6 +19228,77 @@ window.searchData = [
     "num_treatments": 3
   },
   {
+    "name": "Triple-Negative Breast Cancer",
+    "disease_id": "MONDO:0005494",
+    "category": "",
+    "parents": [
+      "breast carcinoma"
+    ],
+    "subtypes": [
+      "Basal-like TNBC",
+      "Mesenchymal TNBC",
+      "Luminal Androgen Receptor (LAR) TNBC",
+      "Immunomodulatory TNBC"
+    ],
+    "description": "Triple-negative breast cancer (TNBC) is a molecularly-defined subtype of breast cancer characterized by the absence of estrogen receptor (ER), progesterone receptor (PR), and HER2 expression. TNBC represents approximately 10-20% of breast cancers and is clinically aggressive with higher rates of recurrence and visceral/brain metastases. TNBC is molecularly heterogeneous, encompassing several intrinsic subtypes including basal-like, mesenchymal, and immunomodulatory. Treatment relies on chemotherapy and increasingly immunotherapy, as hormonal and HER2-targeted therapies are ineffective by definition.",
+    "pathophysiology": [
+      "Loss of Hormone Receptor Signaling",
+      "Alternative Oncogenic Pathways",
+      "DNA Repair Deficiency",
+      "Aggressive Tumor Behavior"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "estrogen receptor signaling pathway",
+      "epidermal growth factor receptor signaling pathway",
+      "phosphatidylinositol 3-kinase signaling",
+      "homologous recombination",
+      "cell population proliferation"
+    ],
+    "phenotypes": [
+      "Breast Carcinoma",
+      "Early Visceral Metastases",
+      "Triple-Negative Phenotype"
+    ],
+    "phenotype_categories": [
+      "Neoplastic",
+      "Clinical",
+      "Molecular"
+    ],
+    "phenotype_ids": [
+      "HP:0003002",
+      "HP:0002664"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT"
+    ],
+    "genes": [
+      "TP53",
+      "BRCA1",
+      "PIK3CA"
+    ],
+    "treatments": [
+      "Neoadjuvant Chemotherapy",
+      "Pembrolizumab Plus Chemotherapy",
+      "PARP Inhibitors",
+      "Sacituzumab Govitecan",
+      "Platinum Chemotherapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Hormone Receptor and HER2 Testing",
+      "BRCA1/2 Testing"
+    ],
+    "source_file": "Triple_Negative_Breast_Cancer.yaml",
+    "page_url": "../pages/disorders/Triple-Negative_Breast_Cancer.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 4,
+    "num_genes": 3,
+    "num_treatments": 5
+  },
+  {
     "name": "Tuberculosis",
     "disease_id": "MONDO:0018076",
     "category": "Infectious Disease",
@@ -13610,7 +19655,12 @@ window.searchData = [
       "Mucosal Inflammation",
       "Dysregulated Immune Response",
       "Epithelial Barrier Dysfunction",
-      "Microbiome Dysbiosis",
+      "Loss of Microbial Diversity",
+      "Loss of Keystone SCFA Producers",
+      "Pathobiont Expansion",
+      "Decreased Butyrate Production",
+      "Impaired Colonocyte Energy Metabolism",
+      "Increased Microbial Community Instability",
       "NLRP3 Inflammasome-Mediated Pyroptosis"
     ],
     "cell_types": [
@@ -13624,6 +19674,8 @@ window.searchData = [
     "biological_processes": [
       "Inflammatory Response",
       "Epithelial Barrier Function",
+      "Microbiome Community Dynamics",
+      "Short-chain Fatty Acid Metabolism",
       "Pyroptosis"
     ],
     "phenotypes": [
@@ -13683,9 +19735,78 @@ window.searchData = [
     "source_file": "Ulcerative_Colitis.yaml",
     "page_url": "../pages/disorders/Ulcerative_Colitis.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 10,
     "num_genes": 4,
     "num_treatments": 8
+  },
+  {
+    "name": "Uveal Melanoma",
+    "disease_id": "MONDO:0006486",
+    "category": "",
+    "parents": [
+      "ocular melanoma"
+    ],
+    "subtypes": [
+      "Choroidal Melanoma",
+      "Ciliary Body Melanoma",
+      "Iris Melanoma"
+    ],
+    "description": "Uveal melanoma is the most common primary intraocular malignancy in adults, arising from melanocytes of the uveal tract (iris, ciliary body, and choroid). Unlike cutaneous melanoma, uveal melanoma is characterized by distinct driver mutations, with GNAQ or GNA11 mutations present in approximately 85% of cases, activating the Gq/11-PKC-MAPK signaling axis. BAP1 mutations are the most significant prognostic factor, associated with metastatic disease. Uveal melanoma has a propensity for hepatic metastasis, with approximately 50% of patients eventually developing liver metastases despite successful treatment of the primary tumor. Tebentafusp, a bispecific T-cell engager targeting gp100, represents the first systemic therapy to improve overall survival in metastatic uveal melanoma.",
+    "pathophysiology": [
+      "GNAQ/GNA11 Oncogenic Mutations",
+      "PKC-MAPK Pathway Activation",
+      "Uncontrolled Uveal Melanocyte Proliferation",
+      "BAP1 Loss and Metastatic Progression"
+    ],
+    "cell_types": [
+      "melanocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000148"
+    ],
+    "biological_processes": [
+      "signal transduction",
+      "MAPK cascade",
+      "cell population proliferation"
+    ],
+    "phenotypes": [
+      "Uveal Melanoma",
+      "Decreased Visual Acuity",
+      "Visual Field Defect"
+    ],
+    "phenotype_categories": [
+      "Ocular"
+    ],
+    "phenotype_ids": [
+      "HP:0007716",
+      "HP:0007663",
+      "HP:0001123"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT"
+    ],
+    "genes": [
+      "GNAQ Q209",
+      "GNA11 Q209",
+      "BAP1",
+      "SF3B1",
+      "EIF1AX"
+    ],
+    "treatments": [
+      "Tebentafusp",
+      "Plaque Brachytherapy",
+      "Enucleation",
+      "Immune Checkpoint Inhibitors"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Uveal_Melanoma.yaml",
+    "page_url": "../pages/disorders/Uveal_Melanoma.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 4,
+    "num_genes": 5,
+    "num_treatments": 4
   },
   {
     "name": "Visual Snow Syndrome",
@@ -13856,6 +19977,88 @@ window.searchData = [
     "num_treatments": 6
   },
   {
+    "name": "Von Hippel-Lindau Disease",
+    "disease_id": "MONDO:0008667",
+    "category": "",
+    "parents": [
+      "hereditary cancer-predisposing syndrome"
+    ],
+    "subtypes": [
+      "VHL Type 1",
+      "VHL Type 2A",
+      "VHL Type 2B",
+      "VHL Type 2C"
+    ],
+    "description": "Von Hippel-Lindau (VHL) disease is an autosomal dominant hereditary cancer syndrome caused by germline pathogenic variants in the VHL tumor suppressor gene. It is characterized by the development of highly vascularized tumors including clear cell renal cell carcinoma, hemangioblastomas of the CNS and retina, pheochromocytomas, and pancreatic neuroendocrine tumors. VHL disease exemplifies the two-hit hypothesis for tumor suppressor genes and the role of hypoxia signaling dysregulation in tumorigenesis through constitutive HIF activation.",
+    "pathophysiology": [
+      "VHL Tumor Suppressor Loss",
+      "Loss of HIF Degradation",
+      "Constitutive HIF Activation",
+      "VEGF Overexpression and Angiogenesis",
+      "Growth Factor and Metabolic Reprogramming",
+      "Tumor Development"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "cellular response to hypoxia",
+      "proteasome-mediated ubiquitin-dependent protein catabolic process",
+      "response to hypoxia",
+      "vascular endothelial growth factor signaling pathway",
+      "angiogenesis",
+      "cellular glucose homeostasis",
+      "cell population proliferation"
+    ],
+    "phenotypes": [
+      "Clear Cell Renal Cell Carcinoma",
+      "Cerebellar Hemangioblastoma",
+      "Retinal Hemangioblastoma",
+      "Pheochromocytoma",
+      "Pancreatic Neuroendocrine Tumor",
+      "Renal Cysts",
+      "Pancreatic Cysts"
+    ],
+    "phenotype_categories": [
+      "Neoplastic",
+      "Renal",
+      "Pancreatic"
+    ],
+    "phenotype_ids": [
+      "HP:0006770",
+      "HP:0010797",
+      "HP:0009711",
+      "HP:0002666",
+      "HP:0100634",
+      "HP:0000107",
+      "HP:0001737"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "VHL"
+    ],
+    "treatments": [
+      "Surveillance Protocol",
+      "Nephron-Sparing Surgery",
+      "Belzutifan",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "VHL Genetic Testing",
+      "Plasma Metanephrines"
+    ],
+    "source_file": "Von_Hippel-Lindau_Disease.yaml",
+    "page_url": "../pages/disorders/Von_Hippel-Lindau_Disease.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 4
+  },
+  {
     "name": "Whipple Disease",
     "disease_id": "MONDO:0005116",
     "category": "Infectious",
@@ -13930,6 +20133,82 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 0,
     "num_treatments": 2
+  },
+  {
+    "name": "Wilms Tumor",
+    "disease_id": "MONDO:0006058",
+    "category": "",
+    "parents": [
+      "kidney neoplasm"
+    ],
+    "subtypes": [
+      "Favorable Histology Wilms Tumor",
+      "Anaplastic Wilms Tumor",
+      "Bilateral Wilms Tumor"
+    ],
+    "description": "Wilms tumor (nephroblastoma) is the most common pediatric kidney malignancy, typically affecting children under 5 years of age. It exemplifies the concept of developmental cancer, arising from persistent embryonic renal blastemal cells that fail to undergo normal differentiation. Multiple genes are implicated including WT1, WTX (AMER1), and CTNNB1, which together regulate kidney development and Wnt signaling. Wilms tumor is one of the great successes of pediatric oncology, with cure rates exceeding 90% for favorable histology tumors through a combination of surgery, chemotherapy, and risk-adapted radiation. Anaplastic histology confers worse prognosis.",
+    "pathophysiology": [
+      "WT1 Inactivation",
+      "WTX/CTNNB1 Wnt Pathway Activation",
+      "Blocked Nephron Differentiation"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "cell differentiation",
+      "Wnt signaling pathway",
+      "cell population proliferation"
+    ],
+    "phenotypes": [
+      "Abdominal Mass",
+      "Hematuria",
+      "Hypertension",
+      "Fever",
+      "Aniridia",
+      "Hemihypertrophy"
+    ],
+    "phenotype_categories": [
+      "Abdominal",
+      "Genitourinary",
+      "Cardiovascular",
+      "Constitutional",
+      "Ophthalmologic",
+      "Growth"
+    ],
+    "phenotype_ids": [
+      "HP:0031500",
+      "HP:0000790",
+      "HP:0000822",
+      "HP:0001945",
+      "HP:0000526",
+      "HP:0001528"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "WT1 Mutations",
+      "CTNNB1 Mutations",
+      "WTX (AMER1) Mutations",
+      "Loss of 11p15 Imprinting"
+    ],
+    "treatments": [
+      "Surgical Resection",
+      "Chemotherapy",
+      "Radiation Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Histopathology"
+    ],
+    "source_file": "Wilms_Tumor.yaml",
+    "page_url": "../pages/disorders/Wilms_Tumor.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 3,
+    "num_genes": 4,
+    "num_treatments": 3
   },
   {
     "name": "Wilson Disease",

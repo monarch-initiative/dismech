@@ -22,6 +22,7 @@ from linkml_store.index.implementations.llm_indexer import LLMIndexer
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 PATHO_TEMPLATE = TEMPLATES_DIR / "embed_patho.j2"
 PHENO_TEMPLATE = TEMPLATES_DIR / "embed_pheno.j2"
+TREAT_TEMPLATE = TEMPLATES_DIR / "embed_treat.j2"
 
 def compute_group_field(
     disorder: dict,
@@ -146,10 +147,30 @@ class DisorderEmbedder:
         coll.index_objects(rows, "pheno_index")
         print(f"Indexed {len(rows)} disorders in phenotype space")
 
+    def index_treatments(self, disorders: list[dict], recreate: bool = False) -> None:
+        """Index disorders by treatment content."""
+        coll = self.db.create_collection("treatments", recreate_if_exists=recreate)
+
+        if recreate or coll.find().num_rows == 0:
+            coll.insert(disorders)
+
+        cache_db = str(self._cache_dir / "treat_cache.db")
+        indexer = LLMIndexer(
+            name="treat_index",
+            cached_embeddings_database=cache_db,
+            text_template=TREAT_TEMPLATE.read_text(),
+            text_template_syntax="jinja2",
+        )
+        coll.attach_indexer(indexer)
+        rows = coll.find().rows
+        coll.index_objects(rows, "treat_index")
+        print(f"Indexed {len(rows)} disorders in treatment space")
+
     def index_all(self, disorders: list[dict], recreate: bool = False) -> None:
-        """Index disorders in both pathophysiology and phenotype spaces."""
+        """Index disorders in pathophysiology, phenotype, and treatment spaces."""
         self.index_pathophysiology(disorders, recreate=recreate)
         self.index_phenotypes(disorders, recreate=recreate)
+        self.index_treatments(disorders, recreate=recreate)
 
     def search(self, query: str, space: str = "pathophysiology", limit: int = 10) -> list[dict]:
         """Semantic search for similar disorders."""
@@ -210,7 +231,12 @@ class DisorderEmbedder:
         """
         import duckdb
 
-        cache_file = "patho_cache.db" if space == "pathophysiology" else "pheno_cache.db"
+        cache_files = {
+            "pathophysiology": "patho_cache.db",
+            "phenotypes": "pheno_cache.db",
+            "treatments": "treat_cache.db",
+        }
+        cache_file = cache_files.get(space, "patho_cache.db")
         cache_path = self._cache_dir / cache_file
 
         if not cache_path.exists():
@@ -247,7 +273,7 @@ class DisorderEmbedder:
         import numpy as np
 
         if spaces is None:
-            spaces = ["pathophysiology", "phenotypes"]
+            spaces = ["pathophysiology", "phenotypes", "treatments"]
 
         result = {}
 
@@ -614,7 +640,7 @@ Examples:
     search_parser = subparsers.add_parser("search", help="Semantic search for disorders")
     search_parser.add_argument("query", help="Search query")
     search_parser.add_argument("--space", "-s", default="pathophysiology",
-                              choices=["pathophysiology", "phenotypes"],
+                              choices=["pathophysiology", "phenotypes", "treatments"],
                               help="Embedding space to search")
     search_parser.add_argument("--limit", "-n", type=int, default=10, help="Max results")
     search_parser.add_argument("--db", default="cache/embeddings/disorders.duckdb", help="Database path")
@@ -623,7 +649,7 @@ Examples:
     similar_parser = subparsers.add_parser("similar", help="Find disorders similar to a specific one")
     similar_parser.add_argument("disorder", help="Disorder name")
     similar_parser.add_argument("--space", "-s", default="pathophysiology",
-                               choices=["pathophysiology", "phenotypes"],
+                               choices=["pathophysiology", "phenotypes", "treatments"],
                                help="Embedding space")
     similar_parser.add_argument("--limit", "-n", type=int, default=10, help="Max results")
     similar_parser.add_argument("--db", default="cache/embeddings/disorders.duckdb", help="Database path")
@@ -638,14 +664,14 @@ Examples:
     export_parser.add_argument("--output", "-o", default="cache/embeddings/similarities.csv",
                               help="Output CSV file")
     export_parser.add_argument("--space", "-s", default="pathophysiology",
-                              choices=["pathophysiology", "phenotypes"],
+                              choices=["pathophysiology", "phenotypes", "treatments"],
                               help="Embedding space")
     export_parser.add_argument("--db", default="cache/embeddings/disorders.duckdb", help="Database path")
 
     # Plot command (matplotlib - static)
     plot_parser = subparsers.add_parser("plot", help="Plot disorders in 2D embedding space (static)")
     plot_parser.add_argument("--space", "-s", default="pathophysiology",
-                            choices=["pathophysiology", "phenotypes"],
+                            choices=["pathophysiology", "phenotypes", "treatments"],
                             help="Embedding space to plot")
     plot_parser.add_argument("--method", "-m", default="umap",
                             choices=["umap", "tsne"],
@@ -657,7 +683,7 @@ Examples:
     # Plotly command (interactive HTML)
     plotly_parser = subparsers.add_parser("plotly", help="Interactive Plotly plot in 2D embedding space")
     plotly_parser.add_argument("--space", "-s", default="pathophysiology",
-                              choices=["pathophysiology", "phenotypes"],
+                              choices=["pathophysiology", "phenotypes", "treatments"],
                               help="Embedding space to plot")
     plotly_parser.add_argument("--method", "-m", default="umap",
                               choices=["umap", "tsne"],
