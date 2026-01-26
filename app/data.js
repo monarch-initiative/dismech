@@ -17358,6 +17358,87 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "Peutz-Jeghers polyp",
+    "disease_id": "MONDO:0006365",
+    "category": "Genetic",
+    "parents": [
+      "Hamartomatous polyp",
+      "Hereditary cancer syndrome"
+    ],
+    "subtypes": [],
+    "description": "Germline loss-of-function variants in STK11 (LKB1) disrupt tumor suppressor signaling and drive hamartomatous polyp formation throughout the GI tract.\n",
+    "pathophysiology": [
+      "STK11 loss-of-function signaling disruption",
+      "mTORC1 pathway hyperactivation",
+      "Arborizing smooth muscle core formation"
+    ],
+    "cell_types": [
+      "intestinal smooth muscle cell",
+      "enterocyte",
+      "smooth muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002504",
+      "CL:0000584",
+      "CL:0000192"
+    ],
+    "biological_processes": [
+      "signal transduction",
+      "cell proliferation",
+      "mTORC1 signaling",
+      "smooth muscle cell differentiation",
+      "tissue morphogenesis"
+    ],
+    "phenotypes": [
+      "Small intestinal polyposis",
+      "Gastrointestinal hemorrhage",
+      "Abdominal pain",
+      "Abnormal pigmentation of oral mucosa",
+      "Abnormal lip pigmentation",
+      "Increased cancer risk"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Dermatologic",
+      "Systemic"
+    ],
+    "phenotype_ids": [
+      "HP:0030256",
+      "HP:0002239",
+      "HP:0002027",
+      "HP:0100669",
+      "HP:0032453",
+      "HP:0002664"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "STK11 (Serine/threonine kinase 11, also called LKB1)",
+      "PTEN (Phosphatase and tensin homolog)"
+    ],
+    "treatments": [
+      "Endoscopic polypectomy",
+      "Surgical resection",
+      "Genetic counseling"
+    ],
+    "environmental": [
+      "Polyp intussusception risk"
+    ],
+    "biochemical": [
+      "Butyric acid"
+    ],
+    "source_file": "Peutz_Jeghers_polyp.yaml",
+    "page_url": "../pages/disorders/Peutz-Jeghers_polyp.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 3,
+    "num_genes": 2,
+    "num_treatments": 3,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Philadelphia Chromosome-Positive Acute Lymphoblastic Leukemia",
     "disease_id": "MONDO:0004947",
     "category": "",
