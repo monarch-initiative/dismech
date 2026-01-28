@@ -7637,6 +7637,74 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "FICUS syndrome",
+    "disease_id": null,
+    "category": "Psychiatric",
+    "parents": [
+      "Psychiatric Disease"
+    ],
+    "subtypes": [],
+    "description": "This entry describes the psychiatric PICS-F concept in ICU family members. Note: MONDO:0978296 refers to a genetic dysmorphology syndrome (OMIM 621193), not the PICS-F condition described here.\n",
+    "pathophysiology": [],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [],
+    "phenotypes": [
+      "Anxiety symptoms",
+      "Depressive symptoms",
+      "Posttraumatic stress symptoms",
+      "Anger",
+      "Agitation",
+      "Avoidance of stimuli associated with traumatic event",
+      "Abnormal fear-induced behavior",
+      "Sleep disturbance",
+      "Fatigue",
+      "Memory impairment",
+      "Recurrent, involuntary, and intrusive distressing memories",
+      "Hopelessness",
+      "Diminished health-related quality of life",
+      "Pain"
+    ],
+    "phenotype_categories": [
+      "Psychiatric",
+      "Systemic",
+      "Neurological"
+    ],
+    "phenotype_ids": [
+      "HP:0000739",
+      "HP:0000716",
+      "HP:0033676",
+      "HP:0031473",
+      "HP:0000713",
+      "HP:0032942",
+      "HP:0100852",
+      "HP:0002360",
+      "HP:0012378",
+      "HP:0002354",
+      "HP:0032937",
+      "HP:5200271",
+      "HP:0033665",
+      "HP:0012531"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Family support intervention"
+    ],
+    "environmental": [
+      "ICU admission exposure and family stressor"
+    ],
+    "biochemical": [],
+    "source_file": "FICUS_syndrome.yaml",
+    "page_url": "../pages/disorders/FICUS_syndrome.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 0,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Acute Myeloid Leukemia, FLT3-Mutated",
     "disease_id": "MONDO:0100415",
     "category": "",
