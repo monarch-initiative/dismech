@@ -20080,6 +20080,85 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Sengers syndrome",
+    "disease_id": "MONDO:0008922",
+    "category": "Mendelian",
+    "parents": [],
+    "subtypes": [],
+    "description": "Loss of functional AGK impairs lipid signaling activity attributed to mitochondrial acylglycerol kinase.\n",
+    "pathophysiology": [
+      "AGK loss of function disrupts lipid signaling",
+      "TIM22 complex assembly defect",
+      "Reduced TIM22-mediated import of inner-membrane carrier proteins",
+      "Impaired mitochondrial one-carbon metabolism",
+      "Disrupted mitochondrial phospholipid metabolism",
+      "Oxidative phosphorylation deficiency"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "phosphatidic acid metabolic process",
+      "protein insertion into mitochondrial inner membrane",
+      "one-carbon metabolic process",
+      "phospholipid metabolic process",
+      "oxidative phosphorylation"
+    ],
+    "phenotypes": [
+      "Hypertrophic cardiomyopathy",
+      "Developmental cataract",
+      "Myopathy",
+      "Lactic acidosis",
+      "Congestive heart failure",
+      "Aplasia of the ovary"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Ophthalmologic",
+      "Neuromuscular",
+      "Metabolic",
+      "Genitourinary"
+    ],
+    "phenotype_ids": [
+      "HP:0001639",
+      "HP:0000519",
+      "HP:0003198",
+      "HP:0003128",
+      "HP:0001635",
+      "HP:0010463"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "AGK"
+    ],
+    "treatments": [
+      "Coenzyme Q10 supplementation",
+      "Carnitine supplementation",
+      "B vitamin supplementation",
+      "ACE inhibitor therapy",
+      "Cardiac transplantation",
+      "Diuretic therapy",
+      "Levosimendan infusion"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Lactate",
+      "N-terminal pro-brain natriuretic peptide (NT-proBNP)",
+      "3-hydroxybutyrate"
+    ],
+    "source_file": "Sengers_syndrome.yaml",
+    "page_url": "../pages/disorders/Sengers_syndrome.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 7,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Shigellosis",
     "disease_id": "MONDO:0019345",
     "category": "Infectious",
