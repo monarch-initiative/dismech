@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT04316767
+reference_id: "clinicaltrials:NCT04316767"
 title: "Smartphone Delivery of Cognitive Behavioral Therapy for Post-intensive Care Syndrome-Family: A Pilot Study"
 content_type: summary
 ---

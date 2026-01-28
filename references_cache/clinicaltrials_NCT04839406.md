@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT04839406
+reference_id: "clinicaltrials:NCT04839406"
 title: The Caregiver Pathway - An Intervention to Support Caregivers of Critically Ill Patients
 content_type: summary
 ---
