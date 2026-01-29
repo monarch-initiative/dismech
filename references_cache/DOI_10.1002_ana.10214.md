@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/ana.10214
+reference_id: "DOI:10.1002/ana.10214"
 title: Adenine nucleotide translocator 1 deficiency associated with Sengers syndrome
 authors:
 - Eric Z. Jordens
