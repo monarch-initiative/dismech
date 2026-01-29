@@ -8,6 +8,12 @@ see_also:
 
 imports:
   - linkml:types
+  - classifications/icdo_morphology
+  - classifications/harrisons_chapters
+  - classifications/lysosomal_storage
+  - classifications/mechanistic_nosology
+  - classifications/iuis_immunodeficiency
+  - classifications/channelopathies
 
 prefixes:
   linkml: https://w3id.org/linkml/
@@ -19,6 +25,8 @@ prefixes:
   UBERON: http://purl.obolibrary.org/obo/UBERON_
   CL: http://purl.obolibrary.org/obo/CL_
   MONDO: http://purl.obolibrary.org/obo/MONDO_
+  NCIT: http://purl.obolibrary.org/obo/NCIT_
+  OPL: http://purl.obolibrary.org/obo/OPL_
   GENO: http://purl.obolibrary.org/obo/GENO_
   ECTO: http://purl.obolibrary.org/obo/ECTO_
   ExO: http://purl.obolibrary.org/obo/ExO_
@@ -73,6 +81,19 @@ enums:
         description: NO_EVIDENCE
       PARTIAL:
         description: PARTIAL
+  EvidenceSourceEnum:
+    description: The provenance/source of the evidence item
+    permissible_values:
+      HUMAN_CLINICAL:
+        description: Human clinical observations (patients, cohorts, case reports, clinical trials, epidemiology)
+      MODEL_ORGANISM:
+        description: In vivo animal evidence (mouse, zebrafish, primate, veterinary case series including dog/cat/horse, other non-human animal models etc.)
+      IN_VITRO:
+        description: In vitro or ex vivo assays (cell culture, organoids, tissue slices, biochemical assays)
+      COMPUTATIONAL:
+        description: In silico/modeling studies (simulation, docking, ML predictions, network inference) even when using clinical data inputs
+      OTHER:
+        description: Evidence not fitting the above (e.g., expert consensus without data, image atlases without cohort context)
   FrequencyEnum:
     description: The frequency of an event or phenomenon
     permissible_values:
@@ -188,19 +209,78 @@ enums:
       is_direct: false
       relationship_types:
         - rdfs:subClassOf
+  RegimenTerm:
+    description: A term representing a treatment regimen (from NCIT)
+    reachable_from:
+      source_nodes:
+        - NCIT:C15697  ## Treatment Regimen
+      is_direct: false
+      relationship_types:
+        - rdfs:subClassOf
   GeographyTerm:
     description: A place or location
   PhaseTerm:
     description: A phase or stage
+  LifeCycleStageTerm:
+    description: A parasite life cycle stage term (from OPL)
+    reachable_from:
+      source_nodes:
+        - UBERON:0000105  ## life cycle stage
+      is_direct: false
+      relationship_types:
+        - rdfs:subClassOf
   TriggerTerm:
     description: A trigger
   GeneTerm:
-    description: A gene
+    description: A gene term from HGNC
+    comments:
+      - Uses HGNC gene nomenclature committee identifiers
+      - Validation requires exact label match with HGNC database
   CellTypeTerm:
     description: A cell type
     reachable_from:
       source_nodes:
         - CL:0000000  ## cell
+      is_direct: false
+      relationship_types:
+        - rdfs:subClassOf
+  BiomarkerTerm:
+    description: >-
+      A biomarker term from NCIT. Includes proteins, gene products, fusion products,
+      and other molecular markers. No hierarchy constraint - validates term exists
+      and label matches.
+    comments:
+      - NCIT biomarkers span multiple hierarchies (proteins, genes, fusions, hormones)
+      - Validation checks term exists in NCIT with correct label
+  GeneProductTerm:
+    description: >-
+      A gene product term from NCIT. Includes proteins, fusion proteins, oncoproteins,
+      and other gene products involved in disease mechanisms.
+    reachable_from:
+      source_nodes:
+        - NCIT:C26548  ## Gene Product
+      is_direct: false
+      relationship_types:
+        - rdfs:subClassOf
+  HistopathologyFindingTerm:
+    description: >-
+      A histopathologic finding term from NCIT. Includes morphologic findings,
+      architectural patterns, growth patterns, cellular features, and grading.
+      Rooted at NCIT:C35867 (Morphologic Finding) and NCIT:C18000 (Histologic Grade).
+    comments:
+      - NCIT:C35867 Morphologic Finding - architectural patterns, dysplasia, necrosis, etc.
+      - NCIT:C18000 Histologic Grade - Fuhrman, Nottingham, WHO grades, etc.
+      - Also includes HP terms for rosettes (HP:0031925-HP:0031930)
+    reachable_from:
+      source_nodes:
+        - NCIT:C35867  ## Morphologic Finding
+        - NCIT:C18000  ## Histologic Grade
+        - NCIT:C4741   ## Neoplasm by Morphology
+        - NCIT:C7062   ## Neoplasm by Special Category
+        - NCIT:C36289  ## Hematopoietic System Finding (for blast findings)
+        - NCIT:C19955  ## Myeloproliferation (e.g., megakaryocyte proliferation)
+        - NCIT:C188218 ## Neuroendocrine Tumor (PCC/PGL histopathology)
+        - HP:0025461   ## Abnormal cell morphology (for rosettes, inclusion bodies)
       is_direct: false
       relationship_types:
         - rdfs:subClassOf
@@ -441,6 +521,10 @@ slots:
     examples:
       - value: SUPPORT
     range: EvidenceItemSupportEnum
+  evidence_source:
+    description: Origin of the evidence item (human clinical, model organism, in vitro, or computational)
+    range: EvidenceSourceEnum
+    recommended: false
   snippet:
     description: An exact excerpt/quote from the referenced publication that supports or refutes the claim
     examples:
@@ -609,6 +693,15 @@ slots:
     multivalued: true
     range: ChemicalEntityDescriptor
     inlined_as_list: true
+  gene_products:
+    description: >-
+      Gene products (proteins, fusion proteins, oncoproteins) involved in this
+      pathophysiology mechanism. Use NCIT terms for specific proteins.
+    examples:
+      - value: '[{preferred_term: BCR-ABL1 fusion protein, term: {id: NCIT:C16325, label: BCR/ABL1 Fusion Protein}}]'
+    multivalued: true
+    range: GeneProductDescriptor
+    inlined_as_list: true
   triggers:
     examples:
       - value: '[{preferred_term: Viral Infections}]'
@@ -629,16 +722,32 @@ slots:
     description: The HP term for this phenotype
     range: PhenotypeDescriptor
     inlined: true
+  gene_term:
+    description: The HGNC term for this gene
+    range: GeneDescriptor
+    inlined: true
   treatment_term:
     description: The MAXO term for this treatment/medical action
     range: TreatmentDescriptor
     inlined: true
+  regimen_term:
+    description: The NCIT term for this treatment regimen
+    range: RegimenDescriptor
+    inlined: true
   biomarker_term:
-    description: Ontology term for a biomarker (from NCIT, CHEBI, or LOINC)
-    range: Descriptor
+    description: Ontology term for a biomarker (from NCIT)
+    range: BiomarkerDescriptor
     inlined: true
     comments:
-      - Biomarkers may come from multiple ontologies (NCIT for proteins, CHEBI for chemicals, LOINC for lab tests)
+      - Use NCIT terms for biomarkers (proteins, genes, fusion products)
+      - NCIT:C16342 (Biomarker) is the root class for validation
+  finding_term:
+    description: Ontology term for a histopathologic finding (from NCIT or HP)
+    range: HistopathologyFindingDescriptor
+    inlined: true
+    comments:
+      - Use NCIT terms from Morphologic Finding (C35867) or Histologic Grade (C18000)
+      - Use HP terms for rosettes and cell morphology abnormalities (HP:0025461 descendants)
   diagnosis_term:
     description: The MAXO term for this diagnostic procedure
     range: TreatmentDescriptor
@@ -657,6 +766,10 @@ slots:
   exposure_term:
     description: The ECTO/XCO term for this exposure event
     range: ExposureDescriptor
+    inlined: true
+  life_cycle_stage_term:
+    description: The OPL term for this agent life cycle stage
+    range: LifeCycleStageDescriptor
     inlined: true
   environment_context:
     description: The ENVO term for the environmental context/setting
@@ -772,6 +885,18 @@ slots:
     multivalued: true
     inlined_as_list: true
     range: Phenotype
+  histopathology:
+    description: >-
+      Histopathologic findings including microscopic morphology, architectural patterns,
+      cellular features, growth patterns, and histologic grading.
+    multivalued: true
+    inlined_as_list: true
+    range: HistopathologyFinding
+    comments:
+      - Separate from phenotypes as these are tissue-level microscopic observations
+      - Use NCIT Morphologic Finding (C35867) or Histologic Grade (C18000) terms
+      - For cancer: includes grade, differentiation, growth patterns, necrosis
+      - For other diseases: may include architectural changes, cellular infiltrates
   biochemical:
     multivalued: true
     inlined_as_list: true
@@ -795,10 +920,26 @@ slots:
     range: InfectiousAgent
     multivalued: true
     inlined_as_list: true
+  agent_life_cycle:
+    range: AgentLifeCycle
   transmission:
     multivalued: true
     inlined_as_list: true
     range: Transmission
+  life_cycle_stages:
+    multivalued: true
+    inlined_as_list: true
+    range: AgentLifeCycleStage
+  hosts:
+    multivalued: true
+    range: HostDescriptor
+    inlined_as_list: true
+    comments:
+      - Use NCBITaxon terms for host organisms
+      - Use the role slot to indicate definitive, intermediate, reservoir, or accidental host
+  vectors:
+    multivalued: true
+    range: string
   diagnosis:
     multivalued: true
     inlined_as_list: true
@@ -984,6 +1125,40 @@ slots:
     multivalued: true
     range: ComputationalModel
     inlined_as_list: true
+  classifications:
+    description: Classification assignments for this disease from various nosologies
+    range: DiseaseClassifications
+    inlined: true
+  # Classification assignment slots
+  icdo_morphology:
+    description: ICD-O morphology classification (for neoplastic diseases)
+    range: ICDOMorphologyAssignment
+    inlined: true
+  harrisons_chapter:
+    description: Harrison's internal medicine chapter classification
+    range: HarrisonsChapterAssignment
+    inlined: true
+    multivalued: true
+  lysosomal_storage_category:
+    description: Lysosomal storage disease biochemical classification
+    range: LysosomalStorageAssignment
+    inlined: true
+  mechanistic_category:
+    description: Mechanistic/pathway-based disease classification
+    range: MechanisticNosologyAssignment
+    inlined: true
+    multivalued: true
+  iuis_category:
+    description: IUIS primary immunodeficiency classification
+    range: IUISAssignment
+    inlined: true
+  channelopathy_category:
+    description: Channelopathy organ system classification
+    range: ChannelopathyAssignment
+    inlined: true
+  classification_value:
+    description: The classification value assigned
+    range: string
   differential_diagnoses:
     description: Differential diagnoses - similar diseases that must be ruled out
     multivalued: true
@@ -1090,6 +1265,10 @@ classes:
     slot_usage:
       term:
         description: Optional gene database term reference (e.g., HGNC)
+        bindings:
+          - binds_value_of: id
+            range: GeneTerm
+            obligation_level: REQUIRED
 
   CellularComponentDescriptor:
     is_a: Descriptor
@@ -1123,6 +1302,59 @@ classes:
             range: DiseaseTerm
             obligation_level: REQUIRED
 
+  BiomarkerDescriptor:
+    is_a: Descriptor
+    description: A descriptor for biomarkers, bindable to NCIT
+    slot_usage:
+      term:
+        description: NCIT biomarker term reference
+        bindings:
+          - binds_value_of: id
+            range: BiomarkerTerm
+            obligation_level: REQUIRED
+
+  GeneProductDescriptor:
+    is_a: Descriptor
+    description: >-
+      A descriptor for gene products (proteins, fusion proteins, oncoproteins),
+      bindable to NCIT Gene Product hierarchy (NCIT:C26548)
+    slot_usage:
+      term:
+        description: NCIT gene product term reference
+        bindings:
+          - binds_value_of: id
+            range: GeneProductTerm
+            obligation_level: REQUIRED
+
+  HistopathologyFindingDescriptor:
+    is_a: Descriptor
+    description: >-
+      A descriptor for histopathologic findings, bindable to NCIT Morphologic Finding
+      (C35867), Histologic Grade (C18000), or HP Abnormal cell morphology (HP:0025461)
+    comments:
+      - Use for architectural patterns (spindle cell, epithelioid, nested, etc.)
+      - Use for differentiation status (well/poorly differentiated)
+      - Use for specific findings (rosettes, necrosis, mitotic activity)
+      - Use for histologic grades when applicable
+    slot_usage:
+      term:
+        description: NCIT or HP histopathology finding term reference
+        bindings:
+          - binds_value_of: id
+            range: HistopathologyFindingTerm
+            obligation_level: REQUIRED
+
+  LifeCycleStageDescriptor:
+    is_a: Descriptor
+    description: A descriptor for parasite life cycle stages, bindable to OPL
+    slot_usage:
+      term:
+        description: OPL life cycle stage term reference
+        bindings:
+          - binds_value_of: id
+            range: LifeCycleStageTerm
+            obligation_level: REQUIRED
+
   PhenotypeDescriptor:
     is_a: Descriptor
     description: A descriptor for phenotypes, bindable to Human Phenotype Ontology (HP)
@@ -1153,6 +1385,17 @@ classes:
         comments:
           - Prefer CHEBI terms for specific drugs (e.g., CHEBI:15365 for aspirin)
           - Use NCIT for drug classes when specific CHEBI term unavailable
+
+  RegimenDescriptor:
+    is_a: Descriptor
+    description: A descriptor for treatment regimens, bindable to NCIT
+    slot_usage:
+      term:
+        description: Optional NCIT regimen term reference
+        bindings:
+          - binds_value_of: id
+            range: RegimenTerm
+            obligation_level: REQUIRED
 
   ExposureDescriptor:
     is_a: Descriptor
@@ -1191,6 +1434,14 @@ classes:
           - binds_value_of: id
             range: OrganismTerm
             obligation_level: REQUIRED
+
+  HostDescriptor:
+    is_a: OrganismDescriptor
+    description: A descriptor for hosts in an infectious agent life cycle
+    slots:
+      - role
+    comments:
+      - Use role for definitive, intermediate, reservoir, accidental, or paratenic host
 
   SampleTypeDescriptor:
     is_a: Descriptor
@@ -1317,6 +1568,7 @@ classes:
     slots:
       - reference
       - supports
+      - evidence_source
       - snippet
       - explanation
   CausalEdge:
@@ -1391,6 +1643,7 @@ classes:
       - subtypes
       - cellular_components
       - chemical_entities
+      - gene_products
       - triggers
       - assays
       - mechanisms
@@ -1425,9 +1678,44 @@ classes:
       - cell_types
       - assays
       - synonyms
+  HistopathologyFinding:
+    description: >-
+      A histopathologic finding from microscopic examination of tissue. Includes
+      morphologic features, architectural patterns, cellular characteristics,
+      growth patterns, and histologic grading.
+    comments:
+      - For cancers: tumor grade, differentiation, growth patterns, necrosis, rosettes
+      - For other diseases: inflammatory infiltrates, architectural distortion, fibrosis
+      - Separate from phenotypes as these are microscopic observations requiring biopsy
+    slots:
+      - name
+      - finding_term
+      - description
+      - frequency
+      - diagnostic
+      - evidence
+      - notes
+      - context
+      - subtype
+    slot_usage:
+      name:
+        description: Name of the histopathologic finding
+        examples:
+          - value: Flexner-Wintersteiner Rosettes
+          - value: Spindle Cell Morphology
+          - value: High Grade (Fuhrman Grade 3-4)
+      description:
+        description: Detailed description of the finding and its clinical significance
+      frequency:
+        description: How frequently this finding is observed in the disease
+      diagnostic:
+        description: Whether this finding is pathognomonic or highly diagnostic
+      context:
+        description: Context in which this finding is observed (e.g., specific subtype)
   Genetic:
     slots:
       - name
+      - gene_term
       - presence
       - evidence
       - association
@@ -1467,6 +1755,7 @@ classes:
       - progression
       - pathophysiology
       - phenotypes
+      - histopathology
       - biochemical
       - stages
       - genetic
@@ -1475,6 +1764,7 @@ classes:
       - treatments
       - categories
       - infectious_agent
+      - agent_life_cycle
       - transmission
       - modeling_considerations
       - epidemiology
@@ -1486,6 +1776,7 @@ classes:
       - datasets
       - clinical_trials
       - computational_models
+      - classifications
       - notes
       - review_notes
       - curation_history
@@ -1501,6 +1792,25 @@ classes:
       - examples
       - pathophysiology
       - substages
+  AgentLifeCycle:
+    slots:
+      - description
+      - life_cycle_stages
+      - hosts
+      - vectors
+      - evidence
+      - notes
+      - context
+      - review_notes
+  AgentLifeCycleStage:
+    slots:
+      - name
+      - life_cycle_stage_term
+      - description
+      - evidence
+      - notes
+      - context
+      - review_notes
   AnimalModel:
     slots:
       - species
@@ -1517,6 +1827,7 @@ classes:
       - name
       - description
       - treatment_term
+      - regimen_term
       - target_phenotypes
       - evidence
       - notes
@@ -1584,6 +1895,84 @@ classes:
       - name
       - description
       - evidence
+  # Classification assignment classes
+  ClassificationAssignment:
+    abstract: true
+    description: Base class for classification assignments with evidence
+    slots:
+      - evidence
+      - notes
+
+  ICDOMorphologyAssignment:
+    is_a: ClassificationAssignment
+    description: ICD-O morphology classification assignment for neoplastic diseases
+    slots:
+      - classification_value
+    slot_usage:
+      classification_value:
+        range: ICDOMorphologyEnum
+        required: true
+
+  HarrisonsChapterAssignment:
+    is_a: ClassificationAssignment
+    description: Harrison's internal medicine chapter classification assignment
+    slots:
+      - classification_value
+    slot_usage:
+      classification_value:
+        range: HarrisonsChapterEnum
+        required: true
+
+  LysosomalStorageAssignment:
+    is_a: ClassificationAssignment
+    description: Lysosomal storage disease biochemical classification assignment
+    slots:
+      - classification_value
+    slot_usage:
+      classification_value:
+        range: LysosomalStorageEnum
+        required: true
+
+  MechanisticNosologyAssignment:
+    is_a: ClassificationAssignment
+    description: Mechanistic/pathway-based disease classification assignment
+    slots:
+      - classification_value
+    slot_usage:
+      classification_value:
+        range: MechanisticNosologyEnum
+        required: true
+
+  IUISAssignment:
+    is_a: ClassificationAssignment
+    description: IUIS primary immunodeficiency classification assignment
+    slots:
+      - classification_value
+    slot_usage:
+      classification_value:
+        range: IUISCategoryEnum
+        required: true
+
+  ChannelopathyAssignment:
+    is_a: ClassificationAssignment
+    description: Channelopathy organ system classification assignment
+    slots:
+      - classification_value
+    slot_usage:
+      classification_value:
+        range: ChannelopathyOrganSystemEnum
+        required: true
+
+  DiseaseClassifications:
+    description: Container for all classification assignments for a disease
+    slots:
+      - icdo_morphology
+      - harrisons_chapter
+      - lysosomal_storage_category
+      - mechanistic_category
+      - iuis_category
+      - channelopathy_category
+
   DiseaseCollection:
     slots:
       - diseases

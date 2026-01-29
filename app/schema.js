@@ -53,6 +53,16 @@ window.searchSchema = {
       "field": "biochemical",
       "label": "Biochemical Markers",
       "type": "array"
+    },
+    {
+      "field": "causal_graph_edges",
+      "label": "Causal Graph Edges",
+      "type": "string"
+    },
+    {
+      "field": "causal_graph_longest_path",
+      "label": "Longest Causal Path",
+      "type": "string"
     }
   ],
   "displayFields": [

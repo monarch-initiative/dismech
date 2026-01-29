@@ -241,6 +241,25 @@ count-disorders:
     @echo -n "Number of disorders: "
     @ls -1 {{kb_dir}}/*.yaml 2>/dev/null | wc -l
 
+# Run ai-blame annotation on all disorder YAML files
+[group('AI')]
+ai-blame-annotate-all:
+    #!/usr/bin/env bash
+    set +e
+    failures=0
+    for f in {{kb_dir}}/*.yaml; do
+        echo "Annotating: $f"
+        if ! uvx ai-blame annotate "$f"; then
+            echo "  ! Failed: $f"
+            failures=$((failures + 1))
+        fi
+    done
+    if [ "$failures" -gt 0 ]; then
+        echo "Completed with $failures failures (ignored)."
+    else
+        echo "Completed without errors."
+    fi
+
 # Lint the schema
 [group('QC')]
 lint-schema:
@@ -342,3 +361,198 @@ research-providers:
 [group('Research')]
 fetch-reference pmid:
     uv run linkml-reference-validator cache reference {{pmid}}
+
+# ============== Classification Schemas ==============
+
+classifications_dir := "src/dismech/schema/classifications"
+
+# Validate all classification schemas (checks ontology term meanings)
+[group('QC')]
+validate-classifications:
+    #!/usr/bin/env bash
+    set -e
+    echo "Validating classification schemas..."
+    for f in {{classifications_dir}}/*.yaml; do
+        echo "Validating: $(basename $f)"
+        uv run linkml-term-validator validate-schema "$f" -c {{oak_config}}
+    done
+    echo "✓ All classification schemas valid!"
+
+# Validate a single classification schema
+[group('QC')]
+validate-classification file:
+    uv run linkml-term-validator validate-schema {{file}} -c {{oak_config}}
+
+# ============== Embedding Analysis ==============
+
+embed_dir := "cache/embeddings"
+
+# Default groups for parent-based categorization (based on actual parent values in KB)
+default_parent_groups := "Autoimmune Disease,Cardiovascular Disease,Gastrointestinal Disease,Neurological Disease,Neurodegenerative Disease,Respiratory Disease,Metabolic Disease,Bacterial Infection,Musculoskeletal Disease,Liver Disease"
+
+# Index all disorders with embeddings (requires OPENAI_API_KEY)
+# Install deps first: uv sync --group embeddings
+[group('Analysis')]
+embed-index:
+    uv run python -m dismech.embed index --output {{embed_dir}}
+
+# Index with parent-based grouping (for visualization)
+[group('Analysis')]
+embed-index-grouped:
+    uv run python -m dismech.embed index --output {{embed_dir}} --recreate \
+        --group-by parents \
+        --groups "{{default_parent_groups}}"
+
+# Index with custom grouping
+[group('Analysis')]
+embed-index-custom group_by groups:
+    uv run python -m dismech.embed index --output {{embed_dir}} --recreate \
+        --group-by {{group_by}} \
+        --groups "{{groups}}"
+
+# Reindex all disorders (recreate from scratch)
+[group('Analysis')]
+embed-reindex:
+    uv run python -m dismech.embed index --output {{embed_dir}} --recreate
+
+# Search for disorders similar to a query in pathophysiology space
+[group('Analysis')]
+embed-search query:
+    uv run python -m dismech.embed search "{{query}}" --space pathophysiology
+
+# Search in phenotype space
+[group('Analysis')]
+embed-search-pheno query:
+    uv run python -m dismech.embed search "{{query}}" --space phenotypes
+
+# Find disorders similar to a specific disorder
+[group('Analysis')]
+embed-similar disorder:
+    uv run python -m dismech.embed similar "{{disorder}}"
+
+# Find similar disorders in phenotype space
+[group('Analysis')]
+embed-similar-pheno disorder:
+    uv run python -m dismech.embed similar "{{disorder}}" --space phenotypes
+
+# Compare pathophysiology vs phenotype similarity correlation
+[group('Analysis')]
+embed-compare:
+    uv run python -m dismech.embed compare --output {{embed_dir}}/correlation.json
+
+# Export pathophysiology similarity matrix to CSV
+[group('Analysis')]
+embed-export:
+    uv run python -m dismech.embed export --output {{embed_dir}}/patho_similarities.csv --space pathophysiology
+
+# Export phenotype similarity matrix to CSV
+[group('Analysis')]
+embed-export-pheno:
+    uv run python -m dismech.embed export --output {{embed_dir}}/pheno_similarities.csv --space phenotypes
+
+# Export both similarity matrices
+[group('Analysis')]
+embed-export-all: embed-export embed-export-pheno
+    @echo "Exported similarity matrices to {{embed_dir}}/"
+
+# Interactive UMAP/TSNE plot with proper color coding (uses dismech.embed plotly)
+# This handles categorical colors correctly unlike linkml-store's plot command
+[group('Analysis')]
+embed-plotly method="umap" color_field="_group":
+    uv run python -m dismech.embed plotly \
+        --space pathophysiology \
+        --method {{method}} \
+        --color-field {{color_field}} \
+        --output {{embed_dir}}/patho_{{method}}_{{color_field}}.html
+    @echo "Plot saved to {{embed_dir}}/patho_{{method}}_{{color_field}}.html"
+
+# Interactive UMAP plot using linkml-store (has bug with categorical colors)
+# Use color_field="_group" after running embed-index-grouped
+[group('Analysis')]
+embed-plot method="umap" color_field="_group":
+    uv run linkml-store -d {{embed_dir}}/disorders.duckdb plot multi-collection-embeddings \
+        -c pathophysiology \
+        -i patho_index \
+        -m {{method}} \
+        --color-field {{color_field}} \
+        --hover-fields name,_group,category,parents \
+        --width 1400 \
+        --height 1000 \
+        --n-neighbors 15 \
+        --limit-per-collection 500 \
+        -o {{embed_dir}}/patho_{{method}}.html
+    @echo "Plot saved to {{embed_dir}}/patho_{{method}}.html"
+
+# Interactive phenotype space plot with proper color coding
+[group('Analysis')]
+embed-plotly-pheno method="umap" color_field="_group":
+    uv run python -m dismech.embed plotly \
+        --space phenotypes \
+        --method {{method}} \
+        --color-field {{color_field}} \
+        --output {{embed_dir}}/pheno_{{method}}_{{color_field}}.html
+    @echo "Plot saved to {{embed_dir}}/pheno_{{method}}_{{color_field}}.html"
+
+# Interactive UMAP plot for phenotype space using linkml-store
+[group('Analysis')]
+embed-plot-pheno method="umap" color_field="_group":
+    uv run linkml-store -d {{embed_dir}}/disorders.duckdb plot multi-collection-embeddings \
+        -c phenotypes \
+        -i pheno_index \
+        -m {{method}} \
+        --color-field {{color_field}} \
+        --hover-fields name,_group,category \
+        --width 1400 \
+        --height 1000 \
+        --n-neighbors 15 \
+        --limit-per-collection 500 \
+        -o {{embed_dir}}/pheno_{{method}}.html
+    @echo "Plot saved to {{embed_dir}}/pheno_{{method}}.html"
+
+# Plot both spaces side by side
+[group('Analysis')]
+embed-plot-both method="umap" color_field="_group":
+    uv run linkml-store -d {{embed_dir}}/disorders.duckdb plot multi-collection-embeddings \
+        -c pathophysiology,phenotypes \
+        -m {{method}} \
+        --color-field {{color_field}} \
+        --hover-fields name,_group,category \
+        --width 1600 \
+        --height 1000 \
+        --n-neighbors 15 \
+        --limit-per-collection 500 \
+        -o {{embed_dir}}/combined_{{method}}.html
+    @echo "Plot saved to {{embed_dir}}/combined_{{method}}.html"
+
+# Open the interactive plot in browser (uses the properly color-coded version)
+[group('Analysis')]
+embed-view color_field="_group":
+    open {{embed_dir}}/patho_umap_{{color_field}}.html
+
+# Generate data for the embedding explorer app (requires embeddings to be indexed first)
+[group('Analysis')]
+embed-app-data:
+    uv run python -m dismech.embed app-data --output app/embeddings/data.js
+    @echo "App data generated at app/embeddings/data.js"
+
+# Open the embedding explorer app in browser
+[group('Analysis')]
+embed-app:
+    open app/embeddings/index.html
+
+# Serve the embedding explorer app locally (with live reload)
+[group('Analysis')]
+embed-serve:
+    @echo "Starting local server at http://localhost:8001/app/embeddings/"
+    uv run python -m http.server 8001
+
+# Rebuild everything for the embedding explorer app (run when YAML files change)
+# Requires OPENAI_API_KEY for embedding generation
+[group('Analysis')]
+embed-all:
+    @echo "=== Rebuilding embedding explorer ==="
+    @echo "Step 1: Re-indexing embeddings (this calls OpenAI API)..."
+    just embed-index-grouped
+    @echo "Step 2: Generating app data..."
+    just embed-app-data
+    @echo "=== Done! Open app/embeddings/index.html ==="

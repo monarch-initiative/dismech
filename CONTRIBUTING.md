@@ -51,6 +51,40 @@ To understand the curation guidelines:
    just qc
    ```
 
+## Regenerating Site Content
+
+After making changes to `kb/disorders/*.yaml` files, regenerate the static site:
+
+### Browser App & HTML Pages
+
+```bash
+just gen-all
+```
+
+This updates:
+- `app/data.js` - Main browser app data
+- `pages/disorders/*.html` - Individual disorder pages
+
+### Embedding Explorer
+
+The embedding explorer (`app/embeddings/`) visualizes disorders in semantic space. **One command rebuilds everything:**
+
+```bash
+just embed-all
+```
+
+This:
+1. Re-indexes embeddings via OpenAI API (requires `OPENAI_API_KEY`)
+2. Computes UMAP/t-SNE coordinates
+3. Generates `app/embeddings/data.js`
+
+**When to run:** After adding new disorders or making significant content changes.
+
+**View the explorer:**
+```bash
+open app/embeddings/index.html
+```
+
 ## What to Contribute
 
 ### High-Value Contributions

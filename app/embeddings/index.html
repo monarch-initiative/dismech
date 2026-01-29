@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Disorder Embedding Explorer</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <script src="data.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+        }
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 500;
+        }
+        .header a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        .header a:hover {
+            text-decoration: underline;
+        }
+        .container {
+            display: flex;
+            height: calc(100vh - 60px);
+        }
+        .sidebar {
+            width: 280px;
+            background: white;
+            border-right: 1px solid #ddd;
+            padding: 1rem;
+            overflow-y: auto;
+        }
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        #plot {
+            flex: 1;
+        }
+        .control-group {
+            margin-bottom: 1.5rem;
+        }
+        .control-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #555;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        select {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.95rem;
+            background: white;
+        }
+        select:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        .checkbox-group {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            padding: 0.5rem;
+        }
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.3rem 0;
+        }
+        .checkbox-item input {
+            cursor: pointer;
+        }
+        .checkbox-item label {
+            font-weight: normal;
+            text-transform: none;
+            letter-spacing: normal;
+            font-size: 0.9rem;
+            cursor: pointer;
+            flex: 1;
+        }
+        .checkbox-item .count {
+            color: #888;
+            font-size: 0.8rem;
+        }
+        .color-swatch {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            display: inline-block;
+        }
+        .btn-group {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        .btn {
+            padding: 0.3rem 0.6rem;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+        .btn:hover {
+            background: #f0f0f0;
+        }
+        .stats {
+            background: #ecf0f1;
+            padding: 0.75rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+        .stats-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.2rem 0;
+        }
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            font-size: 1.2rem;
+            color: #888;
+        }
+        .search-box {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.95rem;
+            margin-bottom: 0.5rem;
+        }
+        .search-box:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Disorder Embedding Explorer</h1>
+        <a href="../index.html">&larr; Back to Browser</a>
+    </div>
+    <div class="container">
+        <div class="sidebar">
+            <div class="control-group">
+                <label>Embedding Space</label>
+                <select id="space-select">
+                    <option value="pathophysiology">Pathophysiology</option>
+                    <option value="phenotypes">Phenotypes</option>
+                    <option value="treatments">Treatments</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>Reduction Method</label>
+                <select id="method-select">
+                    <option value="umap">UMAP</option>
+                    <option value="tsne">t-SNE</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>Color By</label>
+                <select id="color-select">
+                    <option value="_group">Group</option>
+                    <option value="category">Category</option>
+                    <option value="parents">Parents (first)</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>Search</label>
+                <input type="text" id="search-box" class="search-box" placeholder="Filter disorders...">
+            </div>
+
+            <div class="control-group">
+                <label>Display Options</label>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="show-labels">
+                    <label for="show-labels">Show disease names</label>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Filter by Color</label>
+                <div class="btn-group">
+                    <button class="btn" id="select-all">All</button>
+                    <button class="btn" id="select-none">None</button>
+                </div>
+                <div class="checkbox-group" id="color-filters"></div>
+            </div>
+
+            <div class="control-group">
+                <label>Statistics</label>
+                <div class="stats" id="stats">
+                    <div class="stats-row">
+                        <span>Disorders:</span>
+                        <span id="stat-total">-</span>
+                    </div>
+                    <div class="stats-row">
+                        <span>Visible:</span>
+                        <span id="stat-visible">-</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="main">
+            <div id="plot">
+                <div class="loading">Loading embeddings...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Color palette (Plotly qualitative)
+        const COLORS = [
+            '#636EFA', '#EF553B', '#00CC96', '#AB63FA', '#FFA15A',
+            '#19D3F3', '#FF6692', '#B6E880', '#FF97FF', '#FECB52',
+            '#1F77B4', '#FF7F0E', '#2CA02C', '#D62728', '#9467BD'
+        ];
+
+        let data = null;
+        let currentSpace = 'pathophysiology';
+        let currentMethod = 'umap';
+        let currentColorField = '_group';
+        let visibleGroups = new Set();
+        let searchTerm = '';
+        let showLabels = false;
+
+        function loadData() {
+            if (typeof window.EMBEDDING_DATA === 'undefined') {
+                document.getElementById('plot').innerHTML =
+                    `<div class="loading">No embedding data found.<br><br>
+                     Run: <code>just embed-app-data</code> to generate data.js</div>`;
+                return;
+            }
+            data = window.EMBEDDING_DATA;
+            initializeApp();
+        }
+
+        function initializeApp() {
+            // Set up event listeners
+            document.getElementById('space-select').addEventListener('change', (e) => {
+                currentSpace = e.target.value;
+                updateColorFilters();
+                updatePlot();
+            });
+
+            document.getElementById('method-select').addEventListener('change', (e) => {
+                currentMethod = e.target.value;
+                updatePlot();
+            });
+
+            document.getElementById('color-select').addEventListener('change', (e) => {
+                currentColorField = e.target.value;
+                updateColorFilters();
+                updatePlot();
+            });
+
+            document.getElementById('search-box').addEventListener('input', (e) => {
+                searchTerm = e.target.value.toLowerCase();
+                updatePlot();
+            });
+
+            document.getElementById('show-labels').addEventListener('change', (e) => {
+                showLabels = e.target.checked;
+                updatePlot();
+            });
+
+            document.getElementById('select-all').addEventListener('click', () => {
+                visibleGroups = new Set(getUniqueColorValues());
+                updateCheckboxes();
+                updatePlot();
+            });
+
+            document.getElementById('select-none').addEventListener('click', () => {
+                visibleGroups.clear();
+                updateCheckboxes();
+                updatePlot();
+            });
+
+            updateColorFilters();
+            updatePlot();
+        }
+
+        function getColorValue(metadata, field) {
+            if (field === 'parents') {
+                const parents = metadata.parents;
+                return (parents && parents.length > 0) ? parents[0] : 'Unknown';
+            }
+            return metadata[field] || 'Unknown';
+        }
+
+        function getUniqueColorValues() {
+            const spaceData = data[currentSpace];
+            const values = new Set();
+            for (const meta of spaceData.metadata) {
+                values.add(getColorValue(meta, currentColorField));
+            }
+            return Array.from(values).sort();
+        }
+
+        function updateColorFilters() {
+            const container = document.getElementById('color-filters');
+            const values = getUniqueColorValues();
+
+            // Count items per value
+            const spaceData = data[currentSpace];
+            const counts = {};
+            for (const meta of spaceData.metadata) {
+                const val = getColorValue(meta, currentColorField);
+                counts[val] = (counts[val] || 0) + 1;
+            }
+
+            // Initialize visible groups to all
+            visibleGroups = new Set(values);
+
+            // Build color map
+            const colorMap = {};
+            values.forEach((val, i) => {
+                colorMap[val] = COLORS[i % COLORS.length];
+            });
+
+            container.innerHTML = values.map((val, i) => `
+                <div class="checkbox-item">
+                    <input type="checkbox" id="filter-${i}" value="${val}" checked>
+                    <span class="color-swatch" style="background: ${colorMap[val]}"></span>
+                    <label for="filter-${i}">${val}</label>
+                    <span class="count">${counts[val]}</span>
+                </div>
+            `).join('');
+
+            // Add event listeners to checkboxes
+            container.querySelectorAll('input').forEach(checkbox => {
+                checkbox.addEventListener('change', (e) => {
+                    if (e.target.checked) {
+                        visibleGroups.add(e.target.value);
+                    } else {
+                        visibleGroups.delete(e.target.value);
+                    }
+                    updatePlot();
+                });
+            });
+        }
+
+        function updateCheckboxes() {
+            const container = document.getElementById('color-filters');
+            container.querySelectorAll('input').forEach(checkbox => {
+                checkbox.checked = visibleGroups.has(checkbox.value);
+            });
+        }
+
+        function updatePlot() {
+            const spaceData = data[currentSpace];
+            const coords = spaceData[currentMethod];
+            const metadata = spaceData.metadata;
+
+            // Build color map
+            const uniqueValues = getUniqueColorValues();
+            const colorMap = {};
+            uniqueValues.forEach((val, i) => {
+                colorMap[val] = COLORS[i % COLORS.length];
+            });
+
+            // Group data by color value
+            const groups = {};
+            for (let i = 0; i < metadata.length; i++) {
+                const meta = metadata[i];
+                const colorVal = getColorValue(meta, currentColorField);
+
+                // Apply filters
+                if (!visibleGroups.has(colorVal)) continue;
+                if (searchTerm && !meta.name.toLowerCase().includes(searchTerm)) continue;
+
+                if (!groups[colorVal]) {
+                    groups[colorVal] = { x: [], y: [], text: [], names: [] };
+                }
+                groups[colorVal].x.push(coords[i][0]);
+                groups[colorVal].y.push(coords[i][1]);
+                groups[colorVal].names.push(meta.name);
+                groups[colorVal].text.push(
+                    `<b>${meta.name}</b><br>` +
+                    `Category: ${meta.category}<br>` +
+                    `Parents: ${(meta.parents || []).join(', ') || 'None'}<br>` +
+                    `Group: ${meta._group}`
+                );
+            }
+
+            // Create traces
+            const traces = Object.entries(groups).map(([colorVal, d]) => {
+                const trace = {
+                    x: d.x,
+                    y: d.y,
+                    text: d.text,
+                    customdata: d.names,
+                    mode: showLabels ? 'markers+text' : 'markers',
+                    type: 'scatter',
+                    name: colorVal,
+                    marker: {
+                        size: 10,
+                        color: colorMap[colorVal],
+                        opacity: 0.8,
+                        line: { width: 0.5, color: 'white' }
+                    },
+                    hovertemplate: '%{text}<extra></extra>'
+                };
+                if (showLabels) {
+                    trace.textposition = 'top center';
+                    trace.textfont = { size: 9, color: '#333' };
+                    // Use names for labels instead of hover text
+                    trace.text = d.names;
+                    trace.hovertext = d.text;
+                    trace.hovertemplate = '%{hovertext}<extra></extra>';
+                }
+                return trace;
+            });
+
+            // Update stats
+            const totalVisible = traces.reduce((sum, t) => sum + t.x.length, 0);
+            document.getElementById('stat-total').textContent = metadata.length;
+            document.getElementById('stat-visible').textContent = totalVisible;
+
+            const layout = {
+                title: `${currentSpace.charAt(0).toUpperCase() + currentSpace.slice(1)} Space (${currentMethod.toUpperCase()})`,
+                hovermode: 'closest',
+                xaxis: { title: `${currentMethod.toUpperCase()} 1`, zeroline: false },
+                yaxis: { title: `${currentMethod.toUpperCase()} 2`, zeroline: false },
+                legend: { orientation: 'v', x: 1.02, y: 1 },
+                margin: { l: 60, r: 150, t: 50, b: 60 }
+            };
+
+            const config = {
+                responsive: true,
+                displayModeBar: true,
+                modeBarButtonsToRemove: ['lasso2d', 'select2d']
+            };
+
+            Plotly.newPlot('plot', traces, layout, config);
+
+            // Add click handler to open disorder page
+            document.getElementById('plot').on('plotly_click', function(eventData) {
+                const point = eventData.points[0];
+                const name = point.customdata;
+                const filename = name.replace(/[^a-zA-Z0-9]/g, '_') + '.html';
+                window.open(`../../pages/disorders/${filename}`, '_blank');
+            });
+        }
+
+        // Load data on page load
+        loadData();
+    </script>
+</body>
+</html>

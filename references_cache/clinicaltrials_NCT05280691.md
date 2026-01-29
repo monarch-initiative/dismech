@@ -1,0 +1,15 @@
+---
+reference_id: clinicaltrials:NCT05280691
+title: "A Multi-center, Cluster Randomized Superiority Trial of a Guideline-based Family Support Intervention in Intensive Care Units"
+content_type: summary
+---
+
+# A Multi-center, Cluster Randomized Superiority Trial of a Guideline-based Family Support Intervention in Intensive Care Units
+
+## Content
+
+Background: Family members of critically ill patients face considerable uncertainty and distress during their close other's intensive care unit (ICU) stay, with about 20-60% of family members experiencing post-traumatic distress post-ICU. Guidelines recommend structured family inclusion, communication, and support, but the existing evidence base around protocolized family support interventions is modest and requires substantiation.
+
+Methods: To test the clinical effectiveness and explore the implementation of a multicomponent, nurse-led family support intervention in ICUs, the investigators will undertake a parallel, cluster-randomized, controlled, multicenter superiority hybrid-type 1 trial. The trial will include eight clusters (ICUs) per study arm, with a projected total sample size of 896 family members of adult, critically ill patients treated in the German-speaking part of Switzerland. The trial targets family members of critically ill patients with an expected ICU stay of 48 hours or longer. Families in the control arm will receive usual care. Families in the intervention arm, in addition to usual care, will receive a family support intervention consisting of specialist nurse support along the patient pathway at defined time-points, including follow-up care, and nurse-coordinated liaison and structured, interprofessional communication by the ICU team. The primary study endpoint is quality of family care, operationalized as family members' satisfaction with ICU care at discharge. Secondary endpoints include quality of communication and nurse support, family management of critical illness (functioning, resilience), and family members' mental health (well-being, psychological distress) measured at admission, discharge, and after three, six, and twelve months. Data of all participants, regardless of protocol adherence, will be analyzed using linear mixed-effects models, with the individual participant as the unit of inference.
+
+Discussion: The FICUS trial will establish the effectiveness of the family support intervention and generate knowledge of its implementability. Both types of evidence are necessary to determine whether the intervention works as intended in clinical practice and whether an effective intervention could be scaled-up to other ICUs. The study findings will make a significant contribution to the current body of knowledge on effective ICU care that promotes family participation and well-being.

@@ -11,6 +11,77 @@ from typing import Any
 
 import yaml
 
+from dismech.graph import build_causal_graph
+
+
+def _build_adjacency(edges: list[tuple[str, str]]) -> tuple[dict[str, list[str]], set[str]]:
+    adj: dict[str, list[str]] = {}
+    nodes: set[str] = set()
+    for source, target in edges:
+        nodes.add(source)
+        nodes.add(target)
+        adj.setdefault(source, []).append(target)
+    for node in nodes:
+        adj.setdefault(node, [])
+    return adj, nodes
+
+
+def _topological_order(adj: dict[str, list[str]], nodes: set[str]) -> list[str] | None:
+    indegree = {node: 0 for node in nodes}
+    for source, targets in adj.items():
+        for target in targets:
+            indegree[target] += 1
+
+    queue = [node for node, degree in indegree.items() if degree == 0]
+    order: list[str] = []
+
+    while queue:
+        node = queue.pop()
+        order.append(node)
+        for target in adj.get(node, []):
+            indegree[target] -= 1
+            if indegree[target] == 0:
+                queue.append(target)
+
+    if len(order) != len(nodes):
+        return None
+    return order
+
+
+def _longest_simple_path_length(adj: dict[str, list[str]], nodes: set[str]) -> int:
+    def dfs(node: str, visited: set[str]) -> int:
+        visited.add(node)
+        best = 0
+        for target in adj.get(node, []):
+            if target not in visited:
+                best = max(best, 1 + dfs(target, visited))
+        visited.remove(node)
+        return best
+
+    best = 0
+    for node in nodes:
+        best = max(best, dfs(node, set()))
+    return best
+
+
+def _longest_path_length(edges: list[tuple[str, str]]) -> int:
+    if not edges:
+        return 0
+
+    adj, nodes = _build_adjacency(edges)
+    order = _topological_order(adj, nodes)
+    if order is None:
+        return _longest_simple_path_length(adj, nodes)
+
+    distances = {node: 0 for node in nodes}
+    for node in order:
+        for target in adj.get(node, []):
+            candidate = distances[node] + 1
+            if candidate > distances[target]:
+                distances[target] = candidate
+
+    return max(distances.values()) if distances else 0
+
 
 def slugify(name: str) -> str:
     """Convert a disorder name to a filename-safe slug."""
@@ -102,6 +173,10 @@ class BrowserExporter:
                     description = p["description"]
                     break
 
+        graph = build_causal_graph(disorder)
+        causal_edges = len(graph.edges)
+        causal_longest_path = _longest_path_length([(edge.source, edge.target) for edge in graph.edges])
+
         return {
             "name": name,
             "disease_id": disease_id,
@@ -128,6 +203,8 @@ class BrowserExporter:
             "num_pathophysiology": len(pathophysiology_names),
             "num_genes": len(genes),
             "num_treatments": len(treatments),
+            "causal_graph_edges": str(causal_edges),
+            "causal_graph_longest_path": str(causal_longest_path),
         }
 
     def export_to_json(self, disorder_files: list[Path], output_path: Path) -> None:
