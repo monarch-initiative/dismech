@@ -18768,6 +18768,119 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Proteus syndrome",
+    "disease_id": "MONDO:0008318",
+    "category": "Mendelian",
+    "parents": [],
+    "subtypes": [],
+    "description": "Proteus syndrome is caused by a post-zygotic activating AKT1 p.E17K variant present in a mosaic subset of cells.\n",
+    "pathophysiology": [
+      "Somatic AKT1 p.E17K activation in mosaic cell clones",
+      "Elevated PI3K/AKT signaling in AKT1-mutant cells",
+      "Increased pAKT signaling in AKT1-mutant lesion cells",
+      "Non-cell-autonomous pAKT activation in adjacent cells",
+      "AKT overactivation induces excessive vasculogenesis",
+      "Mural cell dysfunction destabilizes vascular connections"
+    ],
+    "cell_types": [
+      "endothelial cell",
+      "pericyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000115",
+      "CL:0000669"
+    ],
+    "biological_processes": [
+      "phosphatidylinositol 3-kinase/protein kinase B signal transduction",
+      "protein phosphorylation",
+      "cell-cell signaling",
+      "vasculogenesis",
+      "angiogenesis",
+      "extracellular matrix organization"
+    ],
+    "phenotypes": [
+      "Overgrowth",
+      "Asymmetric growth",
+      "Venous malformation",
+      "Cerebriform connective tissue nevus",
+      "Epidermal nevus",
+      "Capillary malformation",
+      "Varicose veins",
+      "Pain",
+      "Scoliosis",
+      "Emphysema",
+      "Multiple pulmonary cysts",
+      "Deep vein thrombosis",
+      "Pulmonary embolism",
+      "Lipoma",
+      "Limbal dermoid",
+      "Cataract",
+      "Nystagmus",
+      "Myopia",
+      "Optic disc drusen",
+      "Proptosis",
+      "Visual impairment",
+      "Neoplasm"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Growth",
+      "Cardiovascular",
+      "Dermatologic",
+      "Neurologic",
+      "Respiratory",
+      "Ophthalmologic",
+      "Oncologic"
+    ],
+    "phenotype_ids": [
+      "HP:0001548",
+      "HP:0100555",
+      "HP:0012721",
+      "HP:6000009",
+      "HP:0010816",
+      "HP:0025104",
+      "HP:0002619",
+      "HP:0012531",
+      "HP:0002650",
+      "HP:0002097",
+      "HP:0005948",
+      "HP:0002625",
+      "HP:0002204",
+      "HP:0012032",
+      "HP:0001140",
+      "HP:0000518",
+      "HP:0000639",
+      "HP:0000545",
+      "HP:0012426",
+      "HP:0000520",
+      "HP:0000505",
+      "HP:0002664"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "AKT1"
+    ],
+    "treatments": [
+      "AKT inhibitor (miransertib/ARQ 092)",
+      "Surgical intervention"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Proteus_syndrome.yaml",
+    "page_url": "../pages/disorders/Proteus_syndrome.html",
+    "num_phenotypes": 22,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Psoriasis",
     "disease_id": "MONDO:0005083",
     "category": "Complex",
