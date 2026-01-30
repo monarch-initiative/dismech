@@ -20470,6 +20470,61 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Silent Sinus Syndrome",
+    "disease_id": "MONDO:0019108",
+    "category": "Complex",
+    "parents": [
+      "Maxillary Sinus Disease",
+      "Orbital Disease"
+    ],
+    "subtypes": [],
+    "description": "Obstruction of the maxillary sinus ostium leads to impaired ventilation and drainage, creating negative intrasinus pressure. The complete obstruction results in gas resorption similar to middle ear atelectasis due to Eustachian tube dysfunction.",
+    "pathophysiology": [
+      "Ostiomeatal Complex Obstruction",
+      "Maxillary Sinus Atelectasis",
+      "Orbital Floor Resorption and Descent"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [],
+    "phenotypes": [
+      "Enophthalmos",
+      "Hypoglobus",
+      "Facial Asymmetry",
+      "Diplopia",
+      "Superior Sulcus Deformity"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic",
+      "Craniofacial"
+    ],
+    "phenotype_ids": [
+      "HP:0000490",
+      "HP:0000324",
+      "HP:0000651"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Functional Endoscopic Sinus Surgery",
+      "Orbital Floor Reconstruction"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Silent_Sinus_Syndrome.yaml",
+    "page_url": "../pages/disorders/Silent_Sinus_Syndrome.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 3,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "2"
+  },
+  {
     "name": "Sjogren's Syndrome",
     "disease_id": "MONDO:0010030",
     "category": "Autoimmune",
