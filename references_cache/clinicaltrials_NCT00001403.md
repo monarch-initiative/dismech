@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT00001403
+reference_id: "clinicaltrials:NCT00001403"
 title: The Phenotype and Etiology of Proteus Syndrome
 content_type: summary
 ---
