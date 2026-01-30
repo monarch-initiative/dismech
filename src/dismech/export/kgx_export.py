@@ -82,12 +82,9 @@ def _format_evidence(
     return publications, supporting_text
 
 
-def _make_edge_id(subject: str, predicate: str, obj: str) -> str:
-    """Generate a deterministic edge ID from subject, predicate, object."""
-    # Use uuid5 with a namespace to create deterministic IDs
-    namespace = uuid.UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")  # URL namespace
-    edge_string = f"{subject}|{predicate}|{obj}"
-    return f"urn:uuid:{uuid.uuid5(namespace, edge_string)}"
+def _make_edge_id() -> str:
+    """Generate a unique edge ID."""
+    return f"urn:uuid:{uuid.uuid4()}"
 
 
 def _get_term_id(obj: dict[str, Any] | None, path: list[str]) -> str | None:
@@ -135,7 +132,7 @@ def phenotype_to_edge(disease_id: str, phenotype: dict[str, Any]) -> DiseaseToPh
 
     predicate = "biolink:has_phenotype"
     return DiseaseToPhenotypicFeatureAssociation(
-        id=_make_edge_id(disease_id, predicate, term_id),
+        id=_make_edge_id(),
         subject=disease_id,
         predicate=predicate,
         object=term_id,
@@ -171,7 +168,7 @@ def cell_type_to_edge(
 
     predicate = "biolink:has_participant"
     return Association(
-        id=_make_edge_id(disease_id, predicate, term_id),
+        id=_make_edge_id(),
         subject=disease_id,
         predicate=predicate,
         object=term_id,
@@ -206,7 +203,7 @@ def location_to_edge(
 
     predicate = "biolink:disease_has_location"
     return DiseaseOrPhenotypicFeatureToLocationAssociation(
-        id=_make_edge_id(disease_id, predicate, term_id),
+        id=_make_edge_id(),
         subject=disease_id,
         predicate=predicate,
         object=term_id,
@@ -255,7 +252,7 @@ def biological_process_to_edge(
         qualifiers.append(f"direction:{direction}")
 
     return Association(
-        id=_make_edge_id(disease_id, predicate, term_id),
+        id=_make_edge_id(),
         subject=disease_id,
         predicate=predicate,
         object=term_id,
@@ -292,7 +289,7 @@ def treatment_to_edge(disease_id: str, treatment: dict[str, Any]) -> ChemicalOrD
 
     predicate = "biolink:treats_or_applied_or_studied_to_treat"
     return ChemicalOrDrugOrTreatmentToDiseaseOrPhenotypicFeatureAssociation(
-        id=_make_edge_id(treatment_id, predicate, disease_id),
+        id=_make_edge_id(),
         subject=treatment_id,
         predicate=predicate,
         object=disease_id,
@@ -330,7 +327,7 @@ def gene_to_edge(disease_id: str, gene: dict[str, Any]) -> GeneToDiseaseAssociat
     publications, supporting_text = _format_evidence(gene.get("evidence"), indirect=False)
 
     return GeneToDiseaseAssociation(
-        id=_make_edge_id(gene_id, predicate, disease_id),
+        id=_make_edge_id(),
         subject=gene_id,
         predicate=predicate,
         object=disease_id,
@@ -365,7 +362,7 @@ def exposure_to_edge(disease_id: str, environmental: dict[str, Any]) -> Exposure
 
     predicate = "biolink:contributes_to"
     return ExposureEventToOutcomeAssociation(
-        id=_make_edge_id(exposure_id, predicate, disease_id),
+        id=_make_edge_id(),
         subject=exposure_id,
         predicate=predicate,
         object=disease_id,
