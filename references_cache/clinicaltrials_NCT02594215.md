@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT02594215
+reference_id: "clinicaltrials:NCT02594215"
 title: Phase 1 Dose Finding Trial of MK-7075 in Children and Adults With Proteus Syndrome
 content_type: summary
 ---

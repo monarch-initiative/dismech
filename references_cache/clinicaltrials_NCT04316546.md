@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT04316546
+reference_id: "clinicaltrials:NCT04316546"
 title: A Multi-Cohort Phase 2 Dose-Escalation Study of MK-7075 (Miransertib) in Proteus Syndrome
 content_type: summary
 ---
