@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT04980872
+reference_id: "clinicaltrials:NCT04980872"
 title: "A Multicenter, Open-label, Phase 2, Extension Trial to Study the Long-term Safety in Participants With PROS or Proteus Syndrome Who Are Currently Being Treated With Miransertib in Other Studies"
 content_type: summary
 ---
