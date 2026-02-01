@@ -3298,6 +3298,104 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Bird Fancier's Lung",
+    "disease_id": "MONDO:0005668",
+    "category": "Respiratory Disease",
+    "parents": [
+      "Respiratory Disease",
+      "Inflammatory Lung Disease"
+    ],
+    "subtypes": [
+      "Recurrent chronic bird fancier's lung",
+      "Insidious chronic bird fancier's lung"
+    ],
+    "description": "Immune-mediated interstitial lung disease caused by repeated inhalation of avian proteins, leading to inflammatory and sometimes fibrotic lung injury.",
+    "pathophysiology": [
+      "Exposure to Avian Proteins",
+      "Expansion of Resident Monocytes and Interstitial Macrophages",
+      "Reduction of Inflammatory Monocytes and Alveolar Macrophages",
+      "Th1/Th2 to Th2/Th17 Cytokine Shift",
+      "Bird Antigen-Driven Humoral Response",
+      "Species-Specific Bird Antigen Panels",
+      "Classical Monocyte Enrichment",
+      "Monocyte-to-SPP1hi Macrophage Differentiation",
+      "Cytotoxic T Cell Program with Profibrotic Signaling",
+      "MMP14-High Macrophage Profibrotic Activity",
+      "TLR2 and NF-\u03baB Regulation of MMP14 and Exosome Secretion"
+    ],
+    "cell_types": [
+      "monocyte",
+      "macrophage",
+      "dendritic cell",
+      "alveolar macrophage",
+      "T cell",
+      "B cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000576",
+      "CL:0000235",
+      "CL:0000451",
+      "CL:0000583",
+      "CL:0000084",
+      "CL:0000236"
+    ],
+    "biological_processes": [
+      "T cell activation",
+      "B cell activation",
+      "antigen processing and presentation",
+      "chemokine-mediated signaling pathway",
+      "extracellular matrix organization"
+    ],
+    "phenotypes": [
+      "Dyspnea",
+      "Cough",
+      "Pulmonary Fibrosis",
+      "Hypoxemia",
+      "Fatigue",
+      "Fever"
+    ],
+    "phenotype_categories": [
+      "Respiratory",
+      "Constitutional"
+    ],
+    "phenotype_ids": [
+      "HP:0002094",
+      "HP:0012735",
+      "HP:0002206",
+      "HP:0012418",
+      "HP:0012378",
+      "HP:0001945"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "MUC5B",
+      "TOLLIP"
+    ],
+    "treatments": [
+      "Prednisone and Azathioprine",
+      "Mycophenolate Mofetil or Azathioprine",
+      "Pirfenidone",
+      "Nintedanib"
+    ],
+    "environmental": [
+      "Bird Antigen Exposure"
+    ],
+    "biochemical": [
+      "Bird antigen-specific IgG/IgA antibodies"
+    ],
+    "source_file": "Bird_Fanciers_Lung.yaml",
+    "page_url": "../pages/disorders/Bird_Fancier's_Lung.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 11,
+    "num_genes": 2,
+    "num_treatments": 4,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Bronchiectasis",
     "disease_id": "MONDO:0004822",
     "category": "Respiratory Disease",
@@ -16241,6 +16339,83 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "3",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Neuromyelitis Optica Spectrum Disorder",
+    "disease_id": "MONDO:0019100",
+    "category": "Neurological Disorder",
+    "parents": [
+      "Autoimmune Disorder",
+      "Demyelinating Disease"
+    ],
+    "subtypes": [
+      "AQP4-IgG Seropositive NMOSD",
+      "MOG-IgG Associated Disease",
+      "Seronegative NMOSD"
+    ],
+    "description": "Anti-AQP4 (NMO-IgG) antibodies bind to aquaporin-4 water channels predominantly expressed on astrocyte end-feet at the blood-brain barrier. This initiates complement-dependent cytotoxicity leading to astrocyte death, secondary oligodendrocyte damage, demyelination, and neuronal injury.\n",
+    "pathophysiology": [
+      "Aquaporin-4 Autoimmunity",
+      "Complement-Mediated Astrocyte Destruction",
+      "Blood-Brain Barrier Disruption",
+      "Secondary Demyelination"
+    ],
+    "cell_types": [
+      "astrocyte",
+      "neutrophil",
+      "eosinophil",
+      "oligodendrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000127",
+      "CL:0000775",
+      "CL:0000771",
+      "CL:0000128"
+    ],
+    "biological_processes": [
+      "complement activation",
+      "complement activation, classical pathway",
+      "myelination"
+    ],
+    "phenotypes": [
+      "Optic Neuritis",
+      "Longitudinally Extensive Transverse Myelitis",
+      "Area Postrema Syndrome",
+      "Acute Brainstem Syndrome",
+      "Diencephalic Syndrome"
+    ],
+    "phenotype_categories": [],
+    "phenotype_ids": [
+      "HP:0100653",
+      "HP:0012486",
+      "HP:0002017"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "HLA-DRB1*03:01"
+    ],
+    "treatments": [
+      "Acute Attack Treatment - Corticosteroids",
+      "Acute Attack Treatment - Plasma Exchange",
+      "Rituximab",
+      "Eculizumab",
+      "Inebilizumab",
+      "Satralizumab"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Neuromyelitis_Optica_Spectrum_Disorder.yaml",
+    "page_url": "../pages/disorders/Neuromyelitis_Optica_Spectrum_Disorder.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
   },
   {
     "name": "Noma",
