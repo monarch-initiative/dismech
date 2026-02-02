@@ -519,6 +519,8 @@ enums:
         description: Disease Trajectories (CSH/Austria)
       COHD:
         description: Columbia Open Health Data (COHD)
+      LITERATURE:
+        description: Published literature source
       OTHER:
         description: Other or unspecified source
 
@@ -529,6 +531,8 @@ enums:
         description: EHR-derived temporal comorbidity/trajectory signal
       EHR_COHORT_ASSOCIATION:
         description: EHR-derived cohort association (non-temporal)
+      LITERATURE_ASSOCIATION:
+        description: Association reported in the literature
       COMPUTATIONAL_INFERENCE:
         description: Computational inference or enrichment
       OTHER:
@@ -546,6 +550,42 @@ enums:
       UNKNOWN:
         description: Unknown or not specified
 
+  ConditionCompositionEnum:
+    description: Composition type for a composite condition descriptor
+    permissible_values:
+      SINGLE:
+        description: Single condition (default)
+      UNION:
+        description: Union of multiple component conditions
+      CATEGORY:
+        description: Category code encompassing multiple conditions
+      OVERLAPS:
+        description: Overlapping condition set (non-exhaustive)
+      SUBSET_OF:
+        description: Subset of a broader condition group
+      OTHER:
+        description: Other or unspecified composition
+
+  AssociationMetricTypeEnum:
+    description: Type of association metric
+    permissible_values:
+      OR:
+        description: Odds ratio
+      AOR:
+        description: Adjusted odds ratio
+      RR:
+        description: Relative risk
+      HR:
+        description: Hazard ratio
+      PREVALENCE:
+        description: Prevalence proportion
+      INCIDENCE_RATE:
+        description: Incidence rate
+      IRR:
+        description: Incidence rate ratio
+      OTHER:
+        description: Other or unspecified metric
+
 slots:
   name:
     examples:
@@ -553,7 +593,7 @@ slots:
     identifier: true
     range: string
   slug:
-    description: Canonical slug identifier (Title_Case_With_Underscores)
+    description: Canonical slug identifier (Title_Case_With_Underscores) for leaf conditions
     range: string
   description:
     range: string
@@ -670,7 +710,7 @@ slots:
     range: PublicationReference
     inlined_as_list: true
   findings:
-    description: Key findings or claims extracted from this reference
+    description: Key findings or claims extracted from this source (publication or dataset)
     multivalued: true
     range: Finding
     inlined_as_list: true
@@ -1407,6 +1447,14 @@ slots:
   directionality:
     description: Direction of a comorbidity/trajectory association
     range: ComorbidityDirectionEnum
+  composition:
+    description: Composition type for a composite condition descriptor
+    range: ConditionCompositionEnum
+  components:
+    description: Component conditions that make up a composite descriptor
+    multivalued: true
+    range: ConditionDescriptor
+    inlined_as_list: true
   association_signals:
     description: Association signals from EHR, registry, or computational sources
     multivalued: true
@@ -1420,7 +1468,7 @@ slots:
   hypotheses:
     description: Mechanistic or causal hypotheses about the association
     multivalued: true
-    range: MechanisticHypothesis
+    range: ComorbidityHypothesis
     inlined_as_list: true
   shared_upstream_hypotheses:
     description: Suspected upstream conditions that may explain both A and B
@@ -1434,6 +1482,9 @@ slots:
     description: Demographic stratification for an association signal
     range: Demographics
     inlined: true
+  mapping_notes:
+    description: Notes on code-to-concept mapping decisions for this signal
+    range: string
   sex:
     description: Sex-specific stratum, if applicable
     range: string
@@ -1451,9 +1502,13 @@ slots:
     multivalued: true
     range: AssociationMetric
     inlined_as_list: true
+  statistics:
+    description: Statistical summary for an association signal
+    range: AssociationStatistics
+    inlined: true
   metric_type:
     description: Metric type (e.g., OR, RR, HR)
-    range: string
+    range: AssociationMetricTypeEnum
   metric_value:
     description: Metric value
     range: float
@@ -1789,6 +1844,7 @@ classes:
       - genes
       - platform
       - publication
+      - findings
       - evidence
       - notes
     slot_usage:
@@ -1838,6 +1894,7 @@ classes:
     comments:
       - Covers genome-scale metabolic models, FBA, kinetic models, digital twins, and ML models
       - Perturbations track gene knockouts or parameter changes used to simulate the disease
+      - Findings capture key predictions or insights the model can generate
     slots:
       - name
       - description
@@ -1849,6 +1906,7 @@ classes:
       - model_software
       - model_format
       - publication
+      - findings
       - evidence
       - notes
 
@@ -1911,10 +1969,11 @@ classes:
         identifier: true
         required: true
   Finding:
-    description: A key finding or claim extracted from a publication
+    description: A key finding or claim extracted from a source (publication or dataset)
     slots:
       - statement
       - supporting_text
+      - evidence
   Prevalence:
     slots:
       - subtype
@@ -2414,9 +2473,12 @@ classes:
       - preferred_term
       - description
       - term
+      - composition
+      - components
     slot_usage:
       slug:
-        required: true
+        required: false
+        description: Use for leaf conditions; omit when using composition/components
       term:
         description: Optional MONDO disease term reference
         bindings:
@@ -2439,7 +2501,6 @@ classes:
       - literature_evidence
       - hypotheses
       - shared_upstream_hypotheses
-      - pathophysiology
       - phenotypes
       - notes
       - curation_status
@@ -2455,11 +2516,13 @@ classes:
       - signal_disorder_b_id
       - population
       - demographics
+      - mapping_notes
       - directionality
       - a_before_b
       - b_before_a
       - same_time
       - metrics
+      - statistics
       - go_enrichment
       - evidence
       - notes
@@ -2489,6 +2552,13 @@ classes:
       - fdr
       - notes
 
+  AssociationStatistics:
+    description: Statistical summary with evidence for an association signal.
+    slots:
+      - metrics
+      - evidence
+      - notes
+
   GOEnrichment:
     description: GO enrichment results for an association signal.
     slots:
@@ -2505,11 +2575,14 @@ classes:
       - overlap
       - combined_score
 
-  MechanisticHypothesis:
-    description: Mechanistic or causal hypothesis about a comorbidity association.
+  ComorbidityHypothesis:
+    description: >-
+      Mechanistic hypothesis for a comorbidity association, with rich text and
+      embedded evidence plus atomic pathophysiology elements.
     slots:
       - description
       - evidence
+      - pathophysiology
 
   UpstreamConditionHypothesis:
     description: Hypothesized upstream condition that may explain both A and B.
