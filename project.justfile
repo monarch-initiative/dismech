@@ -3,6 +3,7 @@
 # Default schema path
 schema_path := "src/dismech/schema/dismech.yaml"
 kb_dir := "kb/disorders"
+comorbidity_dir := "kb/comorbidities"
 
 # Validate all disorder YAML files (schema + terms + references)
 # Runs all validations and reports ALL errors at the end
@@ -13,6 +14,9 @@ validate-all:
     failed_files=()
     echo "Validating all disorder files..."
     for f in {{kb_dir}}/*.yaml; do
+        if [[ "$f" == *.history.yaml ]]; then
+            continue
+        fi
         echo "=== $(basename $f) ==="
         errors=""
         # Schema validation
@@ -76,6 +80,87 @@ validate-schema-all:
         echo "Validating: $f"
         uv run linkml-validate --schema {{schema_path}} --target-class Disease "$f"
     done
+
+# Schema validation for all comorbidity YAML files
+[group('QC')]
+validate-comorbidities:
+    #!/usr/bin/env bash
+    set -e
+    shopt -s nullglob
+    files=({{comorbidity_dir}}/*.yaml)
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "No comorbidity files found in {{comorbidity_dir}}"
+        exit 0
+    fi
+    for f in "${files[@]}"; do
+        echo "Validating comorbidity: $f"
+        uv run linkml-validate --schema {{schema_path}} --target-class ComorbidityAssociation "$f"
+    done
+
+# Full validation of a single comorbidity file (schema + terms + references)
+[group('QC')]
+validate-comorbidity file:
+    #!/usr/bin/env bash
+    set -e
+    echo "Schema validation..."
+    uv run linkml-validate --schema {{schema_path}} --target-class ComorbidityAssociation {{file}}
+    echo "Term validation..."
+    uv run linkml-term-validator validate-data {{file}} -s {{schema_path}} -t ComorbidityAssociation --labels --no-dynamic-enums -c {{oak_config}}
+    echo "Reference validation..."
+    just fix-references-cache
+    uv run linkml-reference-validator validate data {{file}} --schema {{schema_path}} --target-class ComorbidityAssociation
+    echo "✓ All validations passed for {{file}}"
+
+# Full validation of all comorbidity YAML files (schema + terms + references)
+[group('QC')]
+validate-comorbidities-all:
+    #!/usr/bin/env bash
+    shopt -s nullglob
+    files=({{comorbidity_dir}}/*.yaml)
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "No comorbidity files found in {{comorbidity_dir}}"
+        exit 0
+    fi
+    just fix-references-cache
+    failed_files=()
+    echo "Validating all comorbidity files..."
+    for f in "${files[@]}"; do
+        echo "=== $(basename $f) ==="
+        errors=""
+        # Schema validation
+        if ! uv run linkml-validate --schema {{schema_path}} --target-class ComorbidityAssociation "$f" 2>&1 | grep -q "No issues found"; then
+            errors+="  [SCHEMA] $(uv run linkml-validate --schema {{schema_path}} --target-class ComorbidityAssociation "$f" 2>&1 | grep -v "^$")\n"
+        fi
+        # Term validation
+        term_output=$(uv run linkml-term-validator validate-data "$f" -s {{schema_path}} -t ComorbidityAssociation --labels -c {{oak_config}} 2>&1 || true)
+        if ! echo "$term_output" | grep -q "Validation passed"; then
+            errors+="  [TERMS] $term_output\n"
+        fi
+        # Reference validation
+        ref_output=$(uv run linkml-reference-validator validate data "$f" --schema {{schema_path}} --target-class ComorbidityAssociation 2>&1 || true)
+        if echo "$ref_output" | grep -q "\[ERROR\]"; then
+            errors+="  [REFERENCES]\n$(echo "$ref_output" | grep -A2 "\[ERROR\]")\n"
+        elif ! echo "$ref_output" | grep -q "All validations passed"; then
+            errors+="  [REFERENCES] $ref_output\n"
+        fi
+        if [ -n "$errors" ]; then
+            failed_files+=("$f")
+            echo -e "$errors"
+        else
+            echo "  ✓ OK"
+        fi
+    done
+    echo ""
+    echo "================================"
+    if [ ${#failed_files[@]} -eq 0 ]; then
+        echo "✓ All comorbidity files validated successfully!"
+    else
+        echo "✗ ${#failed_files[@]} comorbidity file(s) with errors:"
+        for f in "${failed_files[@]}"; do
+            echo "  - $f"
+        done
+        exit 1
+    fi
 
 # Run term validation on schema (checks dynamic enum definitions)
 [group('QC')]
@@ -302,6 +387,11 @@ gen-pages:
 gen-page file:
     uv run python -m dismech.render {{file}}
 
+# Generate a single comorbidity page
+[group('Pages')]
+gen-comorbidity-page file:
+    uv run python -m dismech.render --comorbidity {{file}}
+
 # Generate all pages and browser data
 [group('Pages')]
 gen-all: gen-browser-data gen-pages
@@ -348,6 +438,100 @@ research-disorder provider disorder *args="":
         --var "mondo_id=" \
         --var "category=$category" \
         $provider_arg \
+        --output "$output_file" \
+        --separate-citations "$output_file.citations.md" \
+        {{args}}
+
+# Deep research on a comorbidity using specified provider
+# Examples:
+#   just research-comorbidity perplexity com_Type_2_Diabetes_Mellitus__Lichen_Simplex_Chronicus__Prurigo_Nodularis
+#   just research-comorbidity openai com_Type_2_Diabetes_Mellitus__Lichen_Simplex_Chronicus__Prurigo_Nodularis --model gpt-4o
+[group('Research')]
+research-comorbidity provider comorbidity *args="":
+	#!/usr/bin/env bash
+	set -e
+	mkdir -p {{research_dir}}
+	yaml_file="{{comorbidity_dir}}/{{comorbidity}}.yaml"
+	if [ ! -f "$yaml_file" ]; then
+	    echo "Error: Comorbidity file not found: $yaml_file"
+	    ls -1 {{comorbidity_dir}}/*.yaml | xargs -I {} basename {} .yaml | head -20
+	    exit 1
+	fi
+	tmpfile="$(mktemp)"
+	uv run python - <<-'PY' > "$tmpfile"
+	import yaml
+	from pathlib import Path
+
+	data = yaml.safe_load(Path("{{comorbidity_dir}}/{{comorbidity}}.yaml").read_text())
+
+	def fmt_label(d):
+	    slug = d.get("slug")
+	    if slug:
+	        return slug.replace("_", " ")
+	    comp = d.get("composition")
+	    comps = d.get("components", []) or []
+	    comp_slugs = [c.get("slug", "") for c in comps if c.get("slug")]
+	    if comp and comp_slugs:
+	        return f"{comp.title()} of " + ", ".join(comp_slugs)
+	    return "UNKNOWN"
+
+	disease_a = data.get("disease_a", {}) or {}
+	disease_b = data.get("disease_b", {}) or {}
+
+	disease_a_label = fmt_label(disease_a)
+	disease_b_label = fmt_label(disease_b)
+
+	disease_a_slug = disease_a.get("slug", "")
+	disease_b_slug = disease_b.get("slug", "")
+
+	components = disease_b.get("components", []) or []
+	component_slugs = [c.get("slug", "") for c in components if c.get("slug")]
+	disease_b_components = ", ".join(component_slugs)
+	disease_b_composition = disease_b.get("composition", "")
+
+	print("\\t".join([disease_a_label, disease_b_label, disease_a_slug, disease_b_slug, disease_b_components, disease_b_composition]))
+	PY
+	IFS=$'\\t' read -r disease_a_label disease_b_label disease_a_slug disease_b_slug disease_b_components disease_b_composition < "$tmpfile"
+	rm -f "$tmpfile"
+	output_file="{{research_dir}}/{{comorbidity}}-deep-research-{{provider}}.md"
+	echo "Researching: $disease_a_label ↔ $disease_b_label ({{provider}}) -> $output_file"
+	provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
+	uv run deep-research-client research \
+	    --template {{templates_dir}}/comorbidity_deep_research.md.j2 \
+	    --var "disease_a_label=$disease_a_label" \
+	    --var "disease_b_label=$disease_b_label" \
+	    --var "disease_a_slug=$disease_a_slug" \
+	    --var "disease_b_slug=$disease_b_slug" \
+	    --var "disease_b_components=$disease_b_components" \
+	    --var "disease_b_composition=$disease_b_composition" \
+	    $provider_arg \
+	    --output "$output_file" \
+	    --separate-citations "$output_file.citations.md" \
+	    {{args}}
+
+# Deep research on a disorder using cyberian with codex agent
+[group('Research')]
+research-disorder-cyberian-codex disorder *args="":
+    #!/usr/bin/env bash
+    set -e
+    mkdir -p {{research_dir}}
+    yaml_file="{{kb_dir}}/{{disorder}}.yaml"
+    if [ ! -f "$yaml_file" ]; then
+        echo "Error: Disorder file not found: $yaml_file"
+        ls -1 {{kb_dir}}/*.yaml | xargs -I {} basename {} .yaml | head -20
+        exit 1
+    fi
+    disease_name=$(grep "^name:" "$yaml_file" | head -1 | sed 's/name: *//' | tr '_' ' ')
+    category=$(grep "^category:" "$yaml_file" | head -1 | sed 's/category: *//' || echo "")
+    output_file="{{research_dir}}/{{disorder}}-deep-research-cyberian-codex.md"
+    echo "Researching: $disease_name (cyberian-codex) -> $output_file"
+    uv run deep-research-client research \
+        --template {{templates_dir}}/disease_pathophysiology_research.md \
+        --var "disease_name=$disease_name" \
+        --var "mondo_id=" \
+        --var "category=$category" \
+        --provider cyberian \
+        --param agent_type=codex \
         --output "$output_file" \
         --separate-citations "$output_file.citations.md" \
         {{args}}

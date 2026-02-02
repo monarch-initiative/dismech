@@ -41,8 +41,11 @@ jobs:
               - 'tests/**'
               - 'pyproject.toml'
               - 'uv.lock'
-            kb:
-              - 'kb/**/*.yaml'
+            kb_disorders:
+              - 'kb/disorders/**/*.yaml'
+              - '!kb/disorders/**/*.history.yaml'
+            kb_comorbidities:
+              - 'kb/comorbidities/**/*.yaml'
 
       # https://github.com/astral-sh/setup-uv
       - name: Install uv
@@ -65,13 +68,30 @@ jobs:
       - name: Install project
         run: uv sync --dev
 
-      - name: Validate changed KB files
-        if: steps.changes.outputs.kb == 'true'
+      - name: Validate changed disorder KB files
+        if: steps.changes.outputs.kb_disorders == 'true'
         run: |
-          echo "Validating changed KB files..."
-          for f in ${{ steps.changes.outputs.kb_files }}; do
-            echo "=== Validating: $f ==="
-            just validate "$f"
+          echo "Validating changed disorder KB files..."
+          for f in ${{ steps.changes.outputs.kb_disorders_files }}; do
+            if [[ "$f" == kb/disorders/* && "$f" == *.yaml && "$f" != *.history.yaml ]]; then
+              echo "=== Validating disorder: $f ==="
+              just validate "$f"
+            else
+              echo "Skipping non-disorder file: $f"
+            fi
+          done
+
+      - name: Validate changed comorbidity KB files
+        if: steps.changes.outputs.kb_comorbidities == 'true'
+        run: |
+          echo "Validating changed comorbidity KB files..."
+          for f in ${{ steps.changes.outputs.kb_comorbidities_files }}; do
+            if [[ "$f" == kb/comorbidities/* && "$f" == *.yaml ]]; then
+              echo "=== Validating comorbidity: $f ==="
+              just validate-comorbidity "$f"
+            else
+              echo "Skipping non-comorbidity file: $f"
+            fi
           done
 
       - name: Run test suite

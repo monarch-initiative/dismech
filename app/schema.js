@@ -2,6 +2,7 @@ window.searchSchema = {
   "title": "Disorder Mechanisms Browser",
   "description": "Browse disease pathophysiology, phenotypes, and mechanisms",
   "searchPlaceholder": "Search disorders...",
+  "recordIdField": "disease_id",
   "searchableFields": [
     "name",
     "description",
@@ -70,7 +71,10 @@ window.searchSchema = {
       "field": "name",
       "label": "Disorder",
       "type": "string",
-      "primary": true
+      "primary": true,
+      "decorators": [
+        { "type": "thumbs", "field": "name_quality" }
+      ]
     },
     {
       "field": "disease_id",
@@ -118,7 +122,45 @@ window.searchSchema = {
       "type": "url",
       "urlPrefix": "https://github.com/monarch-initiative/dismech/blob/main/kb/disorders/"
     }
-  ]
+  ],
+  "curationFields": [
+    {
+      "field": "mechanism_confidence",
+      "label": "Mechanism Confidence",
+      "type": "rating",
+      "min": 1,
+      "max": 5
+    },
+    {
+      "field": "evidence_strength",
+      "label": "Evidence Strength",
+      "type": "enum",
+      "choices": ["low", "medium", "high"]
+    },
+    {
+      "field": "needs_followup",
+      "label": "Needs Follow-up",
+      "type": "boolean"
+    },
+    {
+      "field": "curation_notes",
+      "label": "Curation Notes",
+      "type": "textarea"
+    }
+  ],
+  "curation": {
+    "layout": "inline",
+    "sections": [
+      {
+        "label": "Quick Review",
+        "fields": ["mechanism_confidence", "evidence_strength", "needs_followup"]
+      },
+      {
+        "label": "Notes",
+        "fields": ["curation_notes"]
+      }
+    ]
+  }
 };
 
 window.dispatchEvent(new Event('searchSchemaReady'));

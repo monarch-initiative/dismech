@@ -25,6 +25,8 @@ prefixes:
   UBERON: http://purl.obolibrary.org/obo/UBERON_
   CL: http://purl.obolibrary.org/obo/CL_
   MONDO: http://purl.obolibrary.org/obo/MONDO_
+  ICD10CM: http://purl.obolibrary.org/obo/ICD10CM_
+  icd11f: http://purl.obolibrary.org/obo/icd11f_
   NCIT: http://purl.obolibrary.org/obo/NCIT_
   OPL: http://purl.obolibrary.org/obo/OPL_
   GENO: http://purl.obolibrary.org/obo/GENO_
@@ -32,6 +34,8 @@ prefixes:
   ExO: http://purl.obolibrary.org/obo/ExO_
   ENVO: http://purl.obolibrary.org/obo/ENVO_
   XCO: http://purl.obolibrary.org/obo/XCO_
+  skos: http://www.w3.org/2004/02/skos/core#
+  xsd: http://www.w3.org/2001/XMLSchema#
   PMID: http://www.ncbi.nlm.nih.gov/pubmed/
   # Dataset repositories - omics
   geo: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=
@@ -63,9 +67,11 @@ default_prefix: dismech
 
 types:
   PMID:
-    typeof: string
+    base: str
+    uri: xsd:string
   FrequencyQuantity:
-    typeof: string
+    base: str
+    uri: xsd:string
 
 enums:
   EvidenceItemSupportEnum:
@@ -94,6 +100,28 @@ enums:
         description: In silico/modeling studies (simulation, docking, ML predictions, network inference) even when using clinical data inputs
       OTHER:
         description: Evidence not fitting the above (e.g., expert consensus without data, image atlases without cohort context)
+  DefinitionTypeEnum:
+    description: The type of definition or criteria set
+    permissible_values:
+      DIAGNOSTIC_CRITERIA:
+        description: Published diagnostic criteria (clinical/serologic/imaging)
+      PHENOTYPE_ALGORITHM:
+        description: Algorithmic phenotype definition (e.g., PheKB-style)
+      CASE_DEFINITION:
+        description: Case definition for surveillance or reporting
+      OTHER:
+        description: Other definition type
+  MappingConsistencyEnum:
+    description: Consistency of a mapping relative to another reference source
+    permissible_values:
+      CONSISTENT:
+        description: Mapping is consistent with the reference source
+      INCONSISTENT:
+        description: Mapping conflicts with the reference source
+      MISSING:
+        description: Mapping is missing from the reference source
+      UNKNOWN:
+        description: Consistency not assessed or unclear
   FrequencyEnum:
     description: The frequency of an event or phenomenon
     permissible_values:
@@ -292,6 +320,43 @@ enums:
       is_direct: false
       relationship_types:
         - rdfs:subClassOf
+  ICD10CMTerm:
+    description: An ICD-10-CM diagnosis code
+    reachable_from:
+      source_nodes:
+        - ICD10CM:A00-B99   ## Certain infectious and parasitic diseases
+        - ICD10CM:C00-D49   ## Neoplasms
+        - ICD10CM:D50-D89   ## Diseases of the blood and immune mechanism
+        - ICD10CM:E00-E89   ## Endocrine, nutritional and metabolic diseases
+        - ICD10CM:F01-F99   ## Mental, Behavioral and Neurodevelopmental disorders
+        - ICD10CM:G00-G99   ## Diseases of the nervous system
+        - ICD10CM:H00-H59   ## Diseases of the eye and adnexa
+        - ICD10CM:H60-H95   ## Diseases of the ear and mastoid process
+        - ICD10CM:I00-I99   ## Diseases of the circulatory system
+        - ICD10CM:J00-J99   ## Diseases of the respiratory system
+        - ICD10CM:K00-K95   ## Diseases of the digestive system
+        - ICD10CM:L00-L99   ## Diseases of the skin and subcutaneous tissue
+        - ICD10CM:M00-M99   ## Diseases of the musculoskeletal system and connective tissue
+        - ICD10CM:N00-N99   ## Diseases of the genitourinary system
+        - ICD10CM:O00-O9A   ## Pregnancy, childbirth and the puerperium
+        - ICD10CM:P00-P96   ## Certain conditions originating in the perinatal period
+        - ICD10CM:Q00-Q99   ## Congenital malformations, deformations and chromosomal abnormalities
+        - ICD10CM:R00-R99   ## Symptoms, signs and abnormal clinical findings
+        - ICD10CM:S00-T88   ## Injury, poisoning and other consequences
+        - ICD10CM:U00-U85   ## Codes for special purposes
+        - ICD10CM:V00-Y99   ## External causes of morbidity
+        - ICD10CM:Z00-Z99   ## Factors influencing health status
+      is_direct: false
+      relationship_types:
+        - rdfs:subClassOf
+  ICD11FTerm:
+    description: An ICD-11 Foundation diagnosis code
+    reachable_from:
+      source_nodes:
+        - icd11f:455013390  ## ICD Category
+      is_direct: false
+      relationship_types:
+        - rdfs:subClassOf
   ExposureTerm:
     description: A term representing an exposure event (from ECTO or XCO)
     comments:
@@ -424,11 +489,114 @@ enums:
       FOUNDATION_MODEL:
         description: Pre-trained single-cell foundation models (scGPT, Geneformer, scGenePT) for perturbation response prediction
 
+  ComorbidityDirectionEnum:
+    description: Directionality of a comorbidity/trajectory association
+    permissible_values:
+      A_BEFORE_B:
+        description: A precedes B
+      B_BEFORE_A:
+        description: B precedes A
+      BIDIRECTIONAL:
+        description: Evidence supports both directions
+      SAME_TIME:
+        description: Co-incident or same-time association
+      UNKNOWN:
+        description: Directionality is unknown or not established
+
+  CurationStatusEnum:
+    description: Curation workflow status for an association
+    permissible_values:
+      CANDIDATE:
+        description: Prioritized for curation
+      IN_PROGRESS:
+        description: Curation in progress
+      CURATED:
+        description: Curated with literature-backed evidence
+      DEFERRED:
+        description: Deferred or deprioritized
+
+  AssociationSignalSourceEnum:
+    description: Source of an association signal
+    permissible_values:
+      DISEASE_TRAJECTORIES:
+        description: Disease Trajectories (CSH/Austria)
+      COHD:
+        description: Columbia Open Health Data (COHD)
+      LITERATURE:
+        description: Published literature source
+      OTHER:
+        description: Other or unspecified source
+
+  AssociationSignalMethodEnum:
+    description: Method used to derive an association signal
+    permissible_values:
+      EHR_TEMPORAL_COMORBIDITY:
+        description: EHR-derived temporal comorbidity/trajectory signal
+      EHR_COHORT_ASSOCIATION:
+        description: EHR-derived cohort association (non-temporal)
+      LITERATURE_ASSOCIATION:
+        description: Association reported in the literature
+      COMPUTATIONAL_INFERENCE:
+        description: Computational inference or enrichment
+      OTHER:
+        description: Other or unspecified method
+
+  SexEnum:
+    description: Sex-specific stratum
+    permissible_values:
+      MALE:
+        description: Male
+      FEMALE:
+        description: Female
+      OTHER:
+        description: Other or nonbinary
+      UNKNOWN:
+        description: Unknown or not specified
+
+  ConditionCompositionEnum:
+    description: Composition type for a composite condition descriptor
+    permissible_values:
+      SINGLE:
+        description: Single condition (default)
+      UNION:
+        description: Union of multiple component conditions
+      CATEGORY:
+        description: Category code encompassing multiple conditions
+      OVERLAPS:
+        description: Overlapping condition set (non-exhaustive)
+      SUBSET_OF:
+        description: Subset of a broader condition group
+      OTHER:
+        description: Other or unspecified composition
+
+  AssociationMetricTypeEnum:
+    description: Type of association metric
+    permissible_values:
+      OR:
+        description: Odds ratio
+      AOR:
+        description: Adjusted odds ratio
+      RR:
+        description: Relative risk
+      HR:
+        description: Hazard ratio
+      PREVALENCE:
+        description: Prevalence proportion
+      INCIDENCE_RATE:
+        description: Incidence rate
+      IRR:
+        description: Incidence rate ratio
+      OTHER:
+        description: Other or unspecified metric
+
 slots:
   name:
     examples:
       - value: Adolescent Nephronophthisis
     identifier: true
+    range: string
+  slug:
+    description: Canonical slug identifier (Title_Case_With_Underscores) for leaf conditions
     range: string
   description:
     range: string
@@ -545,7 +713,7 @@ slots:
     range: PublicationReference
     inlined_as_list: true
   findings:
-    description: Key findings or claims extracted from this reference
+    description: Key findings or claims extracted from this source (publication or dataset)
     multivalued: true
     range: Finding
     inlined_as_list: true
@@ -566,6 +734,7 @@ slots:
       - value: Eyelid Myoclonia with Absences
     range: string
   population:
+    description: Population or cohort description (e.g., for prevalence or association signals)
     examples:
       - value: Global
     range: string
@@ -590,6 +759,7 @@ slots:
       - value: Terminated
     range: string
   age_range:
+    description: Age range or stratification, if applicable
     examples:
       - value: Childhood-Adolescence
     range: string
@@ -1129,6 +1299,15 @@ slots:
     description: Classification assignments for this disease from various nosologies
     range: DiseaseClassifications
     inlined: true
+  definitions:
+    description: Definitions or diagnostic criteria for this disease
+    multivalued: true
+    range: Definition
+    inlined_as_list: true
+  mappings:
+    description: External identifier mappings for this disease (SSSOM-inspired)
+    range: DiseaseMappings
+    inlined: true
   # Classification assignment slots
   icdo_morphology:
     description: ICD-O morphology classification (for neoplastic diseases)
@@ -1159,12 +1338,213 @@ slots:
   classification_value:
     description: The classification value assigned
     range: string
+  icd10cm_mappings:
+    description: ICD-10-CM code mappings for this disease
+    multivalued: true
+    range: ICD10CMMapping
+    inlined_as_list: true
+  icd11f_mappings:
+    description: ICD-11 Foundation code mappings for this disease
+    multivalued: true
+    range: ICD11FMapping
+    inlined_as_list: true
+  mondo_mappings:
+    description: MONDO disease ontology mappings for this disease
+    multivalued: true
+    range: MondoMapping
+    inlined_as_list: true
+  mapping_predicate:
+    description: Relationship between this disease and the mapped term (e.g., skos:exactMatch)
+    range: uriorcurie
+  mapping_source:
+    description: Source of the mapping (e.g., MONDO, ICD-10-CM, manual curation)
+    range: string
+  mapping_justification:
+    description: Brief rationale or justification for the mapping
+    range: string
+  definition_type:
+    description: The type of definition or criteria set
+    range: DefinitionTypeEnum
+  criteria_sets:
+    description: Named criteria groupings within a definition
+    multivalued: true
+    range: CriteriaSet
+    inlined_as_list: true
+  scope:
+    description: Scope or population for which the definition applies (e.g., adults, pediatrics)
+    range: string
+  inclusion_criteria:
+    description: Inclusion criteria for a definition or criteria set
+    multivalued: true
+    range: CriteriaItem
+    inlined_as_list: true
+  exclusion_criteria:
+    description: Exclusion criteria for a definition or criteria set
+    multivalued: true
+    range: CriteriaItem
+    inlined_as_list: true
+  core_clinical_characteristics:
+    description: Core clinical characteristics used in a criteria set
+    multivalued: true
+    range: CriteriaItem
+    inlined_as_list: true
+  imaging_requirements:
+    description: Imaging requirements used in a criteria set
+    multivalued: true
+    range: CriteriaItem
+    inlined_as_list: true
+  laboratory_requirements:
+    description: Laboratory or serologic requirements used in a criteria set
+    multivalued: true
+    range: CriteriaItem
+    inlined_as_list: true
+  additional_requirements:
+    description: Additional requirements used in a criteria set
+    multivalued: true
+    range: CriteriaItem
+    inlined_as_list: true
+  minimum_required:
+    description: Minimum number of criteria required in this criteria set
+    range: integer
+  consistency:
+    description: Consistency assertions for this mapping against other sources
+    multivalued: true
+    range: MappingConsistency
+    inlined_as_list: true
+  consistent:
+    description: Consistency status for a mapping relative to a reference source
+    range: MappingConsistencyEnum
   differential_diagnoses:
     description: Differential diagnoses - similar diseases that must be ruled out
     multivalued: true
     range: DifferentialDiagnosis
     inlined_as_list: true
     recommended: false
+  disease_a:
+    description: First disease in a comorbidity pair
+    range: ConditionDescriptor
+    inlined: true
+  disease_b:
+    description: Second disease in a comorbidity pair
+    range: ConditionDescriptor
+    inlined: true
+  upstream_disorder:
+    description: Upstream disorder referenced in a hypothesis
+    range: ConditionDescriptor
+    inlined: true
+  source:
+    description: Source dataset or provenance label
+    range: string
+  signal_disorder_a_id:
+    description: Original identifier for disorder A in this signal (CURIE, e.g., ICD10:E12)
+    range: uriorcurie
+  signal_disorder_b_id:
+    description: Original identifier for disorder B in this signal (CURIE, e.g., ICD10:L28)
+    range: uriorcurie
+  code_system:
+    description: Code system used for a condition reference (e.g., ICD-10, OMOP, MONDO)
+    range: string
+  code:
+    description: Code within the specified code system
+    range: string
+  directionality:
+    description: Direction of a comorbidity/trajectory association
+    range: ComorbidityDirectionEnum
+  composition:
+    description: Composition type for a composite condition descriptor
+    range: ConditionCompositionEnum
+  components:
+    description: Component conditions that make up a composite descriptor
+    multivalued: true
+    range: ConditionDescriptor
+    inlined_as_list: true
+  association_signals:
+    description: Association signals from EHR, registry, or computational sources
+    multivalued: true
+    range: AssociationSignal
+    inlined_as_list: true
+  literature_evidence:
+    description: Literature-based evidence items for this association
+    multivalued: true
+    range: EvidenceItem
+    inlined_as_list: true
+  hypotheses:
+    description: Mechanistic or causal hypotheses about the association
+    multivalued: true
+    range: ComorbidityHypothesis
+    inlined_as_list: true
+  shared_upstream_hypotheses:
+    description: Suspected upstream conditions that may explain both A and B
+    multivalued: true
+    range: UpstreamConditionHypothesis
+    inlined_as_list: true
+  curation_status:
+    description: Curation workflow status
+    range: CurationStatusEnum
+  demographics:
+    description: Demographic stratification for an association signal
+    range: Demographics
+    inlined: true
+  mapping_notes:
+    description: Notes on code-to-concept mapping decisions for this signal
+    range: string
+  sex:
+    description: Sex-specific stratum, if applicable
+    range: string
+  a_before_b:
+    description: Probability or fraction of A before B in an EHR signal
+    range: float
+  b_before_a:
+    description: Probability or fraction of B before A in an EHR signal
+    range: float
+  same_time:
+    description: Probability or fraction of A and B occurring in the same time window
+    range: float
+  metrics:
+    description: Quantitative association metrics
+    multivalued: true
+    range: AssociationMetric
+    inlined_as_list: true
+  statistics:
+    description: Statistical summary for an association signal
+    range: AssociationStatistics
+    inlined: true
+  metric_type:
+    description: Metric type (e.g., OR, RR, HR)
+    range: AssociationMetricTypeEnum
+  metric_value:
+    description: Metric value
+    range: float
+  metric_ci_lower:
+    description: Lower confidence interval bound
+    range: float
+  metric_ci_upper:
+    description: Upper confidence interval bound
+    range: float
+  p_value:
+    description: P-value for an association or enrichment
+    range: float
+  fdr:
+    description: FDR-adjusted p-value for an association or enrichment
+    range: float
+  go_terms:
+    description: GO term enrichment results
+    multivalued: true
+    range: GOEnrichmentTerm
+    inlined_as_list: true
+  go_enrichment:
+    description: GO enrichment results associated with a signal
+    range: GOEnrichment
+    inlined: true
+  combined_score:
+    description: Combined score used by an enrichment method
+    range: float
+  overlap:
+    description: Overlap fraction for an enrichment term
+    range: float
+  method:
+    description: Method or pipeline name
+    range: string
 
 classes:
   Any:
@@ -1467,6 +1847,7 @@ classes:
       - genes
       - platform
       - publication
+      - findings
       - evidence
       - notes
     slot_usage:
@@ -1516,6 +1897,7 @@ classes:
     comments:
       - Covers genome-scale metabolic models, FBA, kinetic models, digital twins, and ML models
       - Perturbations track gene knockouts or parameter changes used to simulate the disease
+      - Findings capture key predictions or insights the model can generate
     slots:
       - name
       - description
@@ -1527,6 +1909,7 @@ classes:
       - model_software
       - model_format
       - publication
+      - findings
       - evidence
       - notes
 
@@ -1589,10 +1972,11 @@ classes:
         identifier: true
         required: true
   Finding:
-    description: A key finding or claim extracted from a publication
+    description: A key finding or claim extracted from a source (publication or dataset)
     slots:
       - statement
       - supporting_text
+      - evidence
   Prevalence:
     slots:
       - subtype
@@ -1777,6 +2161,8 @@ classes:
       - clinical_trials
       - computational_models
       - classifications
+      - definitions
+      - mappings
       - notes
       - review_notes
       - curation_history
@@ -1972,6 +2358,241 @@ classes:
       - mechanistic_category
       - iuis_category
       - channelopathy_category
+
+  Definition:
+    description: A diagnostic or phenotype definition for the disease
+    slots:
+      - name
+      - definition_type
+      - description
+      - scope
+      - criteria_sets
+      - inclusion_criteria
+      - exclusion_criteria
+      - evidence
+      - notes
+    slot_usage:
+      name:
+        required: true
+      definition_type:
+        required: true
+
+  CriteriaSet:
+    description: A named criteria grouping within a definition
+    slots:
+      - name
+      - description
+      - scope
+      - minimum_required
+      - core_clinical_characteristics
+      - inclusion_criteria
+      - exclusion_criteria
+      - imaging_requirements
+      - laboratory_requirements
+      - additional_requirements
+      - evidence
+      - notes
+    slot_usage:
+      name:
+        required: true
+
+  CriteriaItem:
+    is_a: Descriptor
+    description: A criterion element (clinical feature, test result, imaging requirement)
+
+  TermMapping:
+    description: Mapping from this disease entry to an external term or code
+    slots:
+      - term
+      - mapping_predicate
+      - mapping_source
+      - mapping_justification
+      - consistency
+      - notes
+    slot_usage:
+      term:
+        required: true
+      mapping_predicate:
+        required: true
+
+  ICD10CMMapping:
+    is_a: TermMapping
+    description: ICD-10-CM diagnosis code mapping
+    slot_usage:
+      term:
+        bindings:
+          - binds_value_of: id
+            range: ICD10CMTerm
+            obligation_level: REQUIRED
+
+  ICD11FMapping:
+    is_a: TermMapping
+    description: ICD-11 Foundation diagnosis code mapping
+    slot_usage:
+      term:
+        bindings:
+          - binds_value_of: id
+            range: ICD11FTerm
+            obligation_level: REQUIRED
+
+  MondoMapping:
+    is_a: TermMapping
+    description: MONDO disease ontology mapping
+    slot_usage:
+      term:
+        bindings:
+          - binds_value_of: id
+            range: DiseaseTerm
+            obligation_level: REQUIRED
+
+  MappingConsistency:
+    description: Consistency assertion for a mapping relative to another source
+    slots:
+      - reference
+      - consistent
+      - notes
+    slot_usage:
+      reference:
+        description: Reference source used to assess consistency (e.g., MONDO)
+        range: string
+        required: true
+      consistent:
+        required: true
+
+  DiseaseMappings:
+    description: Container for external identifier mappings for a disease
+    slots:
+      - icd10cm_mappings
+      - icd11f_mappings
+      - mondo_mappings
+
+  ConditionDescriptor:
+    is_a: Descriptor
+    description: >-
+      A descriptor for a condition or disease, optionally bound to MONDO. External
+      coding identifiers (ICD-10, OMOP, SNOMED, etc.) are captured on association signals.
+    slots:
+      - slug
+      - preferred_term
+      - description
+      - term
+      - composition
+      - components
+    slot_usage:
+      slug:
+        required: false
+        description: Use for leaf conditions; omit when using composition/components
+      term:
+        description: Optional MONDO disease term reference
+        bindings:
+          - binds_value_of: id
+            range: DiseaseTerm
+            obligation_level: OPTIONAL
+      preferred_term:
+        required: false
+
+  ComorbidityAssociation:
+    description: >-
+      An association between two conditions, including directionality, evidence,
+      and computational characterizations.
+    slots:
+      - name
+      - disease_a
+      - disease_b
+      - directionality
+      - association_signals
+      - literature_evidence
+      - hypotheses
+      - shared_upstream_hypotheses
+      - phenotypes
+      - notes
+      - curation_status
+
+  AssociationSignal:
+    description: >-
+      An association signal from EHR, registry, or computational sources,
+      optionally stratified by sex, age, or cohort.
+    slots:
+      - source
+      - method
+      - signal_disorder_a_id
+      - signal_disorder_b_id
+      - population
+      - demographics
+      - mapping_notes
+      - directionality
+      - a_before_b
+      - b_before_a
+      - same_time
+      - metrics
+      - statistics
+      - go_enrichment
+      - evidence
+      - notes
+    slot_usage:
+      source:
+        range: AssociationSignalSourceEnum
+      method:
+        range: AssociationSignalMethodEnum
+
+  Demographics:
+    description: Demographic stratification for an association signal
+    slots:
+      - sex
+      - age_range
+    slot_usage:
+      sex:
+        range: SexEnum
+
+  AssociationMetric:
+    description: Quantitative association metric and its uncertainty.
+    slots:
+      - metric_type
+      - metric_value
+      - metric_ci_lower
+      - metric_ci_upper
+      - p_value
+      - fdr
+      - notes
+
+  AssociationStatistics:
+    description: Statistical summary with evidence for an association signal.
+    slots:
+      - metrics
+      - evidence
+      - notes
+
+  GOEnrichment:
+    description: GO enrichment results for an association signal.
+    slots:
+      - method
+      - description
+      - go_terms
+
+  GOEnrichmentTerm:
+    description: GO term enrichment result with statistical metrics.
+    slots:
+      - term
+      - p_value
+      - fdr
+      - overlap
+      - combined_score
+
+  ComorbidityHypothesis:
+    description: >-
+      Mechanistic hypothesis for a comorbidity association, with rich text and
+      embedded evidence plus atomic pathophysiology elements.
+    slots:
+      - description
+      - evidence
+      - pathophysiology
+
+  UpstreamConditionHypothesis:
+    description: Hypothesized upstream condition that may explain both A and B.
+    slots:
+      - upstream_disorder
+      - description
+      - evidence
 
   DiseaseCollection:
     slots:
