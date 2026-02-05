@@ -377,10 +377,11 @@ deploy-browser: gen-browser-data
     @echo "Browser app ready at app/index.html"
     @echo "Data generated with $(ls -1 {{kb_dir}}/*.yaml | wc -l | tr -d ' ') disorders"
 
-# Generate individual HTML pages for all disorders
+# Generate individual HTML pages for all disorders and comorbidities
 [group('Pages')]
 gen-pages:
     uv run python -m dismech.render --all
+    @echo "Generated $(ls -1 pages/disorders/*.html 2>/dev/null | wc -l | tr -d ' ') disorder pages and $(ls -1 pages/comorbidities/*.html 2>/dev/null | wc -l | tr -d ' ') comorbidity pages"
 
 # Generate a single disorder page
 [group('Pages')]
@@ -392,10 +393,15 @@ gen-page file:
 gen-comorbidity-page file:
     uv run python -m dismech.render --comorbidity {{file}}
 
+# Generate all comorbidity pages
+[group('Pages')]
+gen-comorbidity-pages:
+    uv run python -m dismech.render --comorbidity {{comorbidity_dir}}
+
 # Generate all pages and browser data
 [group('Pages')]
 gen-all: gen-browser-data gen-pages
-    @echo "Generated browser and $(ls -1 pages/disorders/*.html | wc -l | tr -d ' ') disorder pages"
+    @echo "Generated browser data, disorder pages, and comorbidity pages"
 
 # ============== KGX Export ==============
 
@@ -541,10 +547,15 @@ research-disorder-cyberian-codex disorder *args="":
 research-providers:
     uv run deep-research-client providers
 
-# Fetch and cache a reference by PMID
+# Fetch and cache a reference by ID
+# This may be a PMID, DOI, or other supported identifier
 [group('Research')]
-fetch-reference pmid:
-    uv run linkml-reference-validator cache reference {{pmid}}
+fetch-reference +identifiers:
+    #!/usr/bin/env bash
+    for identifier in {{identifiers}}; do
+        echo "Fetching reference: $identifier"
+        uv run linkml-reference-validator cache reference "$identifier"
+    done
 
 # ============== Classification Schemas ==============
 
@@ -607,8 +618,8 @@ default_parent_groups := "Autoimmune Disease,Cardiovascular Disease,Gastrointest
 # Index all disorders with embeddings (requires OPENAI_API_KEY)
 # Install deps first: uv sync --group embeddings
 [group('Analysis')]
-embed-index:
-    uv run python -m dismech.embed index --output {{embed_dir}}
+embed-index recreate="":
+    uv run python -m dismech.embed index --output {{embed_dir}} {{ if recreate != "" { "--recreate" } else { "" } }}
 
 # Index with parent-based grouping (for visualization)
 [group('Analysis')]
@@ -629,25 +640,15 @@ embed-index-custom group_by groups:
 embed-reindex:
     uv run python -m dismech.embed index --output {{embed_dir}} --recreate
 
-# Search for disorders similar to a query in pathophysiology space
+# Semantic search for disorders matching a query
 [group('Analysis')]
-embed-search query:
-    uv run python -m dismech.embed search "{{query}}" --space pathophysiology
-
-# Search in phenotype space
-[group('Analysis')]
-embed-search-pheno query:
-    uv run python -m dismech.embed search "{{query}}" --space phenotypes
+embed-search query space="pathophysiology":
+    uv run python -m dismech.embed search "{{query}}" --space {{space}}
 
 # Find disorders similar to a specific disorder
 [group('Analysis')]
-embed-similar disorder:
-    uv run python -m dismech.embed similar "{{disorder}}"
-
-# Find similar disorders in phenotype space
-[group('Analysis')]
-embed-similar-pheno disorder:
-    uv run python -m dismech.embed similar "{{disorder}}" --space phenotypes
+embed-similar disorder space="pathophysiology":
+    uv run python -m dismech.embed similar "{{disorder}}" --space {{space}}
 
 # Compare pathophysiology vs phenotype similarity correlation
 [group('Analysis')]
@@ -770,3 +771,31 @@ embed-all:
     @echo "Step 2: Generating app data..."
     just embed-app-data
     @echo "=== Done! Open app/embeddings/index.html ==="
+
+# Index individual pathophysiology mechanisms (for mechanism comparison browser)
+[group('Analysis')]
+embed-index-mechanisms:
+    uv run python -m dismech.embed index-mechanisms --output {{embed_dir}} --recreate \
+        --group-by parents \
+        --groups "{{default_parent_groups}}"
+
+# Export data for mechanisms comparison browser
+[group('Analysis')]
+embed-mechanisms-data:
+    uv run python -m dismech.embed mechanisms-data --output app/embeddings/mechanisms_data.js
+
+# Open mechanisms comparison browser
+[group('Analysis')]
+embed-mechanisms-app:
+    @echo "Open app/embeddings/mechanisms.html in your browser"
+    @echo "Or start server: just embed-serve"
+
+# Rebuild mechanisms browser (index + export data)
+[group('Analysis')]
+embed-mechanisms-all:
+    @echo "=== Building mechanism comparison browser ==="
+    @echo "Step 1: Indexing individual mechanisms..."
+    just embed-index-mechanisms
+    @echo "Step 2: Generating browser data..."
+    just embed-mechanisms-data
+    @echo "=== Done! Open app/embeddings/mechanisms.html ==="

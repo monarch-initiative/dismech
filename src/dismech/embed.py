@@ -23,6 +23,8 @@ TEMPLATES_DIR = Path(__file__).parent / "templates"
 PATHO_TEMPLATE = TEMPLATES_DIR / "embed_patho.j2"
 PHENO_TEMPLATE = TEMPLATES_DIR / "embed_pheno.j2"
 TREAT_TEMPLATE = TEMPLATES_DIR / "embed_treat.j2"
+CELLS_TEMPLATE = TEMPLATES_DIR / "embed_cells.j2"
+MECHANISM_TEMPLATE = TEMPLATES_DIR / "embed_mechanism.j2"
 
 def compute_group_field(
     disorder: dict,
@@ -65,6 +67,19 @@ def compute_group_field(
     return other_label
 
 
+def _serialize_datetimes(obj):
+    """Recursively convert datetime objects to ISO format strings."""
+    from datetime import date, datetime
+
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    elif isinstance(obj, dict):
+        return {k: _serialize_datetimes(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [_serialize_datetimes(item) for item in obj]
+    return obj
+
+
 def load_disorders(
     kb_dir: Path = Path("kb/disorders"),
     group_by: str | None = None,
@@ -83,8 +98,12 @@ def load_disorders(
     """
     disorders = []
     for yaml_path in sorted(kb_dir.glob("*.yaml")):
+        # Skip history files
+        if yaml_path.name.endswith(".history.yaml"):
+            continue
         with open(yaml_path) as f:
             disorder = yaml.safe_load(f)
+            disorder = _serialize_datetimes(disorder)
             disorder["_source_file"] = yaml_path.name
 
             # Add computed group field if specified
@@ -93,6 +112,31 @@ def load_disorders(
 
             disorders.append(disorder)
     return disorders
+
+
+def extract_mechanisms(disorders: list[dict]) -> list[dict]:
+    """
+    Extract individual pathophysiology mechanisms from disorders.
+
+    Each mechanism becomes its own entry with disease context.
+
+    Returns:
+        List of mechanism dicts with disease_name, mechanism, and _group fields
+    """
+    mechanisms = []
+    for disorder in disorders:
+        disease_name = disorder.get("name", "")
+        if not disease_name:
+            continue
+        group = disorder.get("_group", "Other")
+        for mechanism in disorder.get("pathophysiology", []):
+            mechanisms.append({
+                "disease_name": disease_name,
+                "mechanism": mechanism,
+                "_group": group,
+                "_mechanism_name": mechanism.get("name", "Unknown"),
+            })
+    return mechanisms
 
 
 class DisorderEmbedder:
@@ -107,8 +151,18 @@ class DisorderEmbedder:
         self.db = self.client.attach_database(handle, alias="disorders")
         self._cache_dir = self.db_path.parent
 
+    def _clear_cache(self, cache_name: str) -> None:
+        """Delete embedding cache file if it exists."""
+        cache_path = self._cache_dir / cache_name
+        if cache_path.exists():
+            cache_path.unlink()
+            print(f"  Cleared cache: {cache_name}")
+
     def index_pathophysiology(self, disorders: list[dict], recreate: bool = False) -> None:
         """Index disorders by pathophysiology content."""
+        if recreate:
+            self._clear_cache("patho_cache.db")
+
         coll = self.db.create_collection("pathophysiology", recreate_if_exists=recreate)
 
         # Only insert if collection is empty or recreating
@@ -124,12 +178,15 @@ class DisorderEmbedder:
         )
         coll.attach_indexer(indexer)
         # Index all objects in the collection
-        rows = coll.find().rows
+        rows = coll.find(limit=10000).rows
         coll.index_objects(rows, "patho_index")
         print(f"Indexed {len(rows)} disorders in pathophysiology space")
 
     def index_phenotypes(self, disorders: list[dict], recreate: bool = False) -> None:
         """Index disorders by phenotype content."""
+        if recreate:
+            self._clear_cache("pheno_cache.db")
+
         coll = self.db.create_collection("phenotypes", recreate_if_exists=recreate)
 
         if recreate or coll.find().num_rows == 0:
@@ -143,12 +200,15 @@ class DisorderEmbedder:
             text_template_syntax="jinja2",
         )
         coll.attach_indexer(indexer)
-        rows = coll.find().rows
+        rows = coll.find(limit=10000).rows
         coll.index_objects(rows, "pheno_index")
         print(f"Indexed {len(rows)} disorders in phenotype space")
 
     def index_treatments(self, disorders: list[dict], recreate: bool = False) -> None:
         """Index disorders by treatment content."""
+        if recreate:
+            self._clear_cache("treat_cache.db")
+
         coll = self.db.create_collection("treatments", recreate_if_exists=recreate)
 
         if recreate or coll.find().num_rows == 0:
@@ -162,15 +222,64 @@ class DisorderEmbedder:
             text_template_syntax="jinja2",
         )
         coll.attach_indexer(indexer)
-        rows = coll.find().rows
+        rows = coll.find(limit=10000).rows
         coll.index_objects(rows, "treat_index")
         print(f"Indexed {len(rows)} disorders in treatment space")
 
+    def index_celltypes(self, disorders: list[dict], recreate: bool = False) -> None:
+        """Index disorders by cell types and anatomy content."""
+        if recreate:
+            self._clear_cache("cells_cache.db")
+
+        coll = self.db.create_collection("celltypes", recreate_if_exists=recreate)
+
+        if recreate or coll.find().num_rows == 0:
+            coll.insert(disorders)
+
+        cache_db = str(self._cache_dir / "cells_cache.db")
+        indexer = LLMIndexer(
+            name="cells_index",
+            cached_embeddings_database=cache_db,
+            text_template=CELLS_TEMPLATE.read_text(),
+            text_template_syntax="jinja2",
+        )
+        coll.attach_indexer(indexer)
+        rows = coll.find(limit=10000).rows
+        coll.index_objects(rows, "cells_index")
+        print(f"Indexed {len(rows)} disorders in cell types/anatomy space")
+
+    def index_mechanisms(self, mechanisms: list[dict], recreate: bool = False) -> None:
+        """Index individual pathophysiology mechanisms.
+
+        Unlike other index methods, this takes mechanism entries (not full disorders).
+        Use extract_mechanisms() to prepare the input.
+        """
+        if recreate:
+            self._clear_cache("mechanisms_cache.db")
+
+        coll = self.db.create_collection("mechanisms", recreate_if_exists=recreate)
+
+        if recreate or coll.find().num_rows == 0:
+            coll.insert(mechanisms)
+
+        cache_db = str(self._cache_dir / "mechanisms_cache.db")
+        indexer = LLMIndexer(
+            name="mechanisms_index",
+            cached_embeddings_database=cache_db,
+            text_template=MECHANISM_TEMPLATE.read_text(),
+            text_template_syntax="jinja2",
+        )
+        coll.attach_indexer(indexer)
+        rows = coll.find(limit=10000).rows
+        coll.index_objects(rows, "mechanisms_index")
+        print(f"Indexed {len(rows)} individual mechanisms")
+
     def index_all(self, disorders: list[dict], recreate: bool = False) -> None:
-        """Index disorders in pathophysiology, phenotype, and treatment spaces."""
+        """Index disorders in all embedding spaces."""
         self.index_pathophysiology(disorders, recreate=recreate)
         self.index_phenotypes(disorders, recreate=recreate)
         self.index_treatments(disorders, recreate=recreate)
+        self.index_celltypes(disorders, recreate=recreate)
 
     def search(self, query: str, space: str = "pathophysiology", limit: int = 10) -> list[dict]:
         """Semantic search for similar disorders."""
@@ -195,7 +304,7 @@ class DisorderEmbedder:
         matches = coll.find({"name": disorder_name}).rows
         if not matches:
             # Try partial match
-            all_disorders = coll.find().rows
+            all_disorders = coll.find(limit=10000).rows
             for d in all_disorders:
                 if disorder_name.lower() in d.get("name", "").lower():
                     matches = [d]
@@ -235,6 +344,7 @@ class DisorderEmbedder:
             "pathophysiology": "patho_cache.db",
             "phenotypes": "pheno_cache.db",
             "treatments": "treat_cache.db",
+            "celltypes": "cells_cache.db",
         }
         cache_file = cache_files.get(space, "patho_cache.db")
         cache_path = self._cache_dir / cache_file
@@ -273,7 +383,7 @@ class DisorderEmbedder:
         import numpy as np
 
         if spaces is None:
-            spaces = ["pathophysiology", "phenotypes", "treatments"]
+            spaces = ["pathophysiology", "phenotypes", "treatments", "celltypes"]
 
         result = {}
 
@@ -301,7 +411,7 @@ class DisorderEmbedder:
 
             # Get metadata from collection
             coll = self.db.get_collection(space)
-            disorders = coll.find().rows
+            disorders = coll.find(limit=10000).rows
             name_to_disorder = {d.get("name", ""): d for d in disorders}
 
             # Build metadata list aligned with coordinates
@@ -333,10 +443,102 @@ class DisorderEmbedder:
 
         print(f"Exported app data to {output_path}")
 
+    def export_mechanisms_data(self, output_path: Path) -> None:
+        """Export mechanism-level embedding data for the mechanisms browser.
+
+        Creates a JS file with individual mechanism embeddings for comparing
+        pathophysiology across diseases.
+        """
+        import numpy as np
+
+        print("Processing mechanisms space...")
+
+        # Get embeddings from mechanisms cache
+        cache_path = self._cache_dir / "mechanisms_cache.db"
+        if not cache_path.exists():
+            raise FileNotFoundError(
+                f"Mechanisms cache not found: {cache_path}. "
+                "Run 'just embed-index-mechanisms' first."
+            )
+
+        import duckdb
+        conn = duckdb.connect(str(cache_path), read_only=True)
+        rows = conn.execute("SELECT text, embedding FROM all_embeddings").fetchall()
+        conn.close()
+
+        # Parse mechanism info from embedded text
+        embeddings = []
+        text_to_idx = {}
+        for i, (text, embedding) in enumerate(rows):
+            embeddings.append(list(embedding))
+            text_to_idx[text] = i
+
+        X = np.array(embeddings)
+        print(f"  Loaded {len(embeddings)} mechanism embeddings")
+
+        # Compute UMAP
+        print("  Computing UMAP...")
+        from umap import UMAP
+        n_neighbors = min(15, len(embeddings) - 1)
+        umap_reducer = UMAP(n_components=2, random_state=42, metric="cosine", n_neighbors=n_neighbors)
+        umap_coords = umap_reducer.fit_transform(X)
+
+        # Compute t-SNE
+        print("  Computing t-SNE...")
+        from sklearn.manifold import TSNE
+        perplexity = min(30, len(embeddings) - 1)
+        tsne_reducer = TSNE(n_components=2, random_state=42, metric="cosine", perplexity=perplexity)
+        tsne_coords = tsne_reducer.fit_transform(X)
+
+        # Get metadata from collection (use large limit to get all rows)
+        coll = self.db.get_collection("mechanisms")
+        mechanism_rows = coll.find(limit=10000).rows
+
+        # Build points list with metadata
+        from jinja2 import Template
+        template = Template(MECHANISM_TEMPLATE.read_text())
+
+        points = []
+        diseases = set()
+        for mech in mechanism_rows:
+            # Render the same text that was embedded to find the right coordinates
+            text = template.render(**mech)
+            idx = text_to_idx.get(text)
+            if idx is None:
+                continue
+
+            disease_name = mech.get("disease_name", "Unknown")
+            mechanism_name = mech.get("_mechanism_name", "Unknown")
+            diseases.add(disease_name)
+
+            points.append({
+                "disease": disease_name,
+                "mechanism": mechanism_name,
+                "group": mech.get("_group", "Other"),
+                "umap": umap_coords[idx].tolist(),
+                "tsne": tsne_coords[idx].tolist(),
+            })
+
+        result = {
+            "points": points,
+            "diseases": sorted(diseases),
+        }
+
+        # Write as JavaScript module
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(output_path, "w") as f:
+            f.write("// Auto-generated mechanism embedding data - do not edit\n")
+            f.write("// Generated with: just embed-mechanisms-data\n")
+            f.write("window.MECHANISM_DATA = ")
+            json.dump(result, f)
+            f.write(";\n")
+
+        print(f"Exported {len(points)} mechanisms from {len(diseases)} diseases to {output_path}")
+
     def compute_similarity_matrix(self, space: str = "pathophysiology") -> dict:
         """Compute pairwise similarity matrix for all disorders."""
         coll = self.db.get_collection(space)
-        disorders = coll.find().rows
+        disorders = coll.find(limit=10000).rows
 
         matrix = {}
         for disorder in disorders:
@@ -452,7 +654,7 @@ class DisorderEmbedder:
 
         # Get metadata for coloring and hover
         coll = self.db.get_collection(space)
-        disorders = coll.find().rows
+        disorders = coll.find(limit=10000).rows
         name_to_disorder = {d.get("name", ""): d for d in disorders}
 
         # Build dataframe for plotly
@@ -543,7 +745,7 @@ class DisorderEmbedder:
 
         # Get categories for coloring
         coll = self.db.get_collection(space)
-        disorders = coll.find().rows
+        disorders = coll.find(limit=10000).rows
         name_to_category = {d.get("name", ""): (d.get("category") or "Unknown") for d in disorders}
         categories = [name_to_category.get(name) or "Unknown" for name in names]
 
@@ -640,7 +842,7 @@ Examples:
     search_parser = subparsers.add_parser("search", help="Semantic search for disorders")
     search_parser.add_argument("query", help="Search query")
     search_parser.add_argument("--space", "-s", default="pathophysiology",
-                              choices=["pathophysiology", "phenotypes", "treatments"],
+                              choices=["pathophysiology", "phenotypes", "treatments", "celltypes"],
                               help="Embedding space to search")
     search_parser.add_argument("--limit", "-n", type=int, default=10, help="Max results")
     search_parser.add_argument("--db", default="cache/embeddings/disorders.duckdb", help="Database path")
@@ -649,7 +851,7 @@ Examples:
     similar_parser = subparsers.add_parser("similar", help="Find disorders similar to a specific one")
     similar_parser.add_argument("disorder", help="Disorder name")
     similar_parser.add_argument("--space", "-s", default="pathophysiology",
-                               choices=["pathophysiology", "phenotypes", "treatments"],
+                               choices=["pathophysiology", "phenotypes", "treatments", "celltypes"],
                                help="Embedding space")
     similar_parser.add_argument("--limit", "-n", type=int, default=10, help="Max results")
     similar_parser.add_argument("--db", default="cache/embeddings/disorders.duckdb", help="Database path")
@@ -664,14 +866,14 @@ Examples:
     export_parser.add_argument("--output", "-o", default="cache/embeddings/similarities.csv",
                               help="Output CSV file")
     export_parser.add_argument("--space", "-s", default="pathophysiology",
-                              choices=["pathophysiology", "phenotypes", "treatments"],
+                              choices=["pathophysiology", "phenotypes", "treatments", "celltypes"],
                               help="Embedding space")
     export_parser.add_argument("--db", default="cache/embeddings/disorders.duckdb", help="Database path")
 
     # Plot command (matplotlib - static)
     plot_parser = subparsers.add_parser("plot", help="Plot disorders in 2D embedding space (static)")
     plot_parser.add_argument("--space", "-s", default="pathophysiology",
-                            choices=["pathophysiology", "phenotypes", "treatments"],
+                            choices=["pathophysiology", "phenotypes", "treatments", "celltypes"],
                             help="Embedding space to plot")
     plot_parser.add_argument("--method", "-m", default="umap",
                             choices=["umap", "tsne"],
@@ -683,7 +885,7 @@ Examples:
     # Plotly command (interactive HTML)
     plotly_parser = subparsers.add_parser("plotly", help="Interactive Plotly plot in 2D embedding space")
     plotly_parser.add_argument("--space", "-s", default="pathophysiology",
-                              choices=["pathophysiology", "phenotypes", "treatments"],
+                              choices=["pathophysiology", "phenotypes", "treatments", "celltypes"],
                               help="Embedding space to plot")
     plotly_parser.add_argument("--method", "-m", default="umap",
                               choices=["umap", "tsne"],
@@ -699,6 +901,22 @@ Examples:
     appdata_parser.add_argument("--output", "-o", default="app/embeddings/data.js",
                                help="Output JS file")
     appdata_parser.add_argument("--db", default="cache/embeddings/disorders.duckdb", help="Database path")
+
+    # Index mechanisms command
+    mech_index_parser = subparsers.add_parser("index-mechanisms",
+                                               help="Index individual pathophysiology mechanisms")
+    mech_index_parser.add_argument("--output", "-o", default="cache/embeddings", help="Output directory")
+    mech_index_parser.add_argument("--kb-dir", default="kb/disorders", help="Knowledge base directory")
+    mech_index_parser.add_argument("--recreate", action="store_true", help="Recreate from scratch")
+    mech_index_parser.add_argument("--group-by", help="Field to use for grouping")
+    mech_index_parser.add_argument("--groups", help="Comma-separated list of values to highlight")
+
+    # Export mechanisms data command
+    mech_data_parser = subparsers.add_parser("mechanisms-data",
+                                              help="Export data for mechanisms browser")
+    mech_data_parser.add_argument("--output", "-o", default="app/embeddings/mechanisms_data.js",
+                                  help="Output JS file")
+    mech_data_parser.add_argument("--db", default="cache/embeddings/disorders.duckdb", help="Database path")
 
     args = parser.parse_args()
 
@@ -787,6 +1005,26 @@ Examples:
     elif args.command == "app-data":
         embedder = DisorderEmbedder(args.db)
         embedder.export_app_data(Path(args.output))
+
+    elif args.command == "index-mechanisms":
+        output_dir = Path(args.output)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        db_path = output_dir / "disorders.duckdb"
+
+        # Parse grouping options
+        group_by = args.group_by
+        groups = [g.strip() for g in args.groups.split(",")] if args.groups else None
+
+        disorders = load_disorders(Path(args.kb_dir), group_by=group_by, groups=groups)
+        mechanisms = extract_mechanisms(disorders)
+        print(f"Extracted {len(mechanisms)} mechanisms from {len(disorders)} disorders")
+
+        embedder = DisorderEmbedder(str(db_path))
+        embedder.index_mechanisms(mechanisms, recreate=args.recreate)
+
+    elif args.command == "mechanisms-data":
+        embedder = DisorderEmbedder(args.db)
+        embedder.export_mechanisms_data(Path(args.output))
 
 
 if __name__ == "__main__":

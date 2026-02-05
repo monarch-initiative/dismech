@@ -99,6 +99,10 @@ Find the pubmed IDs or DOIs for the papers in the deep research and retrieve the
 - `just fetch-reference PMID:nnnnnnn`
 - `just fetch-reference DOI:...`
 
+The `just fetch-reference` command can accept multiple identifiers of different types, such as:
+
+- `just fetch-reference PMID:nnnnnnn DOI:nn.nnnn`
+
 You can also find additional references relevant to individual assertions, on top of what is in the deep research.
 
 Then use this to provide snippets/excerpts and explanations for assertions. For example, for a phenotype assertion:
