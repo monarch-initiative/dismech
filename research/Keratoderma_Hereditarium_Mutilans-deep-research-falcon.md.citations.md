@@ -3,13 +3,13 @@
 **Query:** # Disease Pathophysiology Research Template
 
 ## Target Disease
-- **Disease Name:** Wilson Disease
+- **Disease Name:** Keratoderma Hereditarium Mutilans
 - **MONDO ID:**  (if available)
-- **Category:** Genetic
+- **Category:** Mendelian
 
 ## Research Objectives
 
-Please provide a comprehensive research report on the pathophysiology of **Wilson Disease**.
+Please provide a comprehensive research report on the pathophysiology of **Keratoderma Hereditarium Mutilans**.
 Focus on the molecular and cellular mechanisms underlying disease progression.
 
 ### Required Information
@@ -59,36 +59,22 @@ Structure your response as a narrative that could be used to populate a disease 
 - Evidence items with PMIDs
 
 **Provider:** falcon
-**Generated:** 2026-02-04T07:44:51.602068
+**Generated:** 2026-02-04T17:32:10.918652
 
-1. wootonkee2023therapeuticimplicationsof pages 1-2
-2. teschke2024wilsondiseasecoppermediated pages 3-5
-3. gromadzka2024theroleof pages 5-8
-4. stremmel2025theroleof pages 1-2
-5. petruzzelli2025copperinhuman pages 30-35
-6. manchia2024theroleof pages 7-8
-7. stremmel2025theroleof pages 8-8
-8. manchia2024theroleof pages 14-15
-9. and
-10. https://doi.org/10.1016/j.pharmthera.2023.108529
-11. https://doi.org/10.3390/ijms25094753
-12. https://doi.org/10.3390/ijms25147545
-13. https://doi.org/10.1093/braincomms/fcae329
-14. https://doi.org/10.3389/fmed.2025.1673283
-15. https://doi.org/10.1016/j.pharmthera.2023.108529;
-16. https://doi.org/10.1152/physiol.00032.2025
-17. https://doi.org/10.3390/ijms25126487
-18. https://doi.org/10.3390/ijms25094753;
-19. https://doi.org/10.1152/physiol.00032.2025;
-20. https://doi.org/10.3389/fmed.2025.1673283;
-21. https://doi.org/10.3390/ijms25147545;
-22. https://doi.org/10.1038/s41467-024-47001-4
-23. https://doi.org/10.1186/s12974-024-03178-5
-24. https://doi.org/10.3390/cells13141214;
-25. https://doi.org/10.1186/s12974-024-03178-5;
-26. https://doi.org/10.1016/j.pharmthera.2023.108529,
-27. https://doi.org/10.3390/ijms25094753,
-28. https://doi.org/10.3390/ijms25147545,
-29. https://doi.org/10.3389/fmed.2025.1673283,
-30. https://doi.org/10.1152/physiol.00032.2025,
-31. https://doi.org/10.3390/ijms25126487,
+1. garciavega2021connexinsandthe pages 4-6
+2. garciavega2021connexinsandthe pages 13-14
+3. schmuth2007ichthyosisupdatetowards pages 5-6
+4. govender2023palmoplantarkeratodermapseudoainhum pages 2-4
+5. maestrini1999amissensemutation pages 1-2
+6. schmuth2007ichthyosisupdatetowards pages 14-15
+7. maestrini1999amissensemutation pages 6-6
+8. sethuraman2019hereditarypalmoplantarkeratoderma pages 4-5
+9. https://doi.org/10.3390/biology10010059
+10. https://doi.org/10.1016/j.yadr.2007.07.011
+11. https://doi.org/10.1177/2050313x231204197
+12. https://doi.org/10.1093/hmg/8.7.1237
+13. https://doi.org/10.1093/hmg/8.7.1237,
+14. https://doi.org/10.4103/idoj.idoj\_367\_18,
+15. https://doi.org/10.3390/biology10010059,
+16. https://doi.org/10.1177/2050313x231204197,
+17. https://doi.org/10.1016/j.yadr.2007.07.011,

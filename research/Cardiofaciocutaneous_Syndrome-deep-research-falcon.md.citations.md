@@ -3,13 +3,13 @@
 **Query:** # Disease Pathophysiology Research Template
 
 ## Target Disease
-- **Disease Name:** Wilson Disease
+- **Disease Name:** Cardiofaciocutaneous Syndrome
 - **MONDO ID:**  (if available)
-- **Category:** Genetic
+- **Category:** Mendelian
 
 ## Research Objectives
 
-Please provide a comprehensive research report on the pathophysiology of **Wilson Disease**.
+Please provide a comprehensive research report on the pathophysiology of **Cardiofaciocutaneous Syndrome**.
 Focus on the molecular and cellular mechanisms underlying disease progression.
 
 ### Required Information
@@ -59,36 +59,22 @@ Structure your response as a narrative that could be used to populate a disease 
 - Evidence items with PMIDs
 
 **Provider:** falcon
-**Generated:** 2026-02-04T07:44:51.602068
+**Generated:** 2026-02-04T22:39:57.804118
 
-1. wootonkee2023therapeuticimplicationsof pages 1-2
-2. teschke2024wilsondiseasecoppermediated pages 3-5
-3. gromadzka2024theroleof pages 5-8
-4. stremmel2025theroleof pages 1-2
-5. petruzzelli2025copperinhuman pages 30-35
-6. manchia2024theroleof pages 7-8
-7. stremmel2025theroleof pages 8-8
-8. manchia2024theroleof pages 14-15
-9. and
-10. https://doi.org/10.1016/j.pharmthera.2023.108529
-11. https://doi.org/10.3390/ijms25094753
-12. https://doi.org/10.3390/ijms25147545
-13. https://doi.org/10.1093/braincomms/fcae329
-14. https://doi.org/10.3389/fmed.2025.1673283
-15. https://doi.org/10.1016/j.pharmthera.2023.108529;
-16. https://doi.org/10.1152/physiol.00032.2025
-17. https://doi.org/10.3390/ijms25126487
-18. https://doi.org/10.3390/ijms25094753;
-19. https://doi.org/10.1152/physiol.00032.2025;
-20. https://doi.org/10.3389/fmed.2025.1673283;
-21. https://doi.org/10.3390/ijms25147545;
-22. https://doi.org/10.1038/s41467-024-47001-4
-23. https://doi.org/10.1186/s12974-024-03178-5
-24. https://doi.org/10.3390/cells13141214;
-25. https://doi.org/10.1186/s12974-024-03178-5;
-26. https://doi.org/10.1016/j.pharmthera.2023.108529,
-27. https://doi.org/10.3390/ijms25094753,
-28. https://doi.org/10.3390/ijms25147545,
-29. https://doi.org/10.3389/fmed.2025.1673283,
-30. https://doi.org/10.1152/physiol.00032.2025,
-31. https://doi.org/10.3390/ijms25126487,
+1. bess2025aliteraturereview pages 9-13
+2. scorrano2023thecardiofaciocutaneoussyndrome pages 8-10
+3. scorrano2023thecardiofaciocutaneoussyndrome pages 3-5
+4. jelin2023obstetricalandneonatal pages 1-1
+5. majo2025cardiofaciocutaneoussyndromeand pages 11-11
+6. scorrano2023thecardiofaciocutaneoussyndrome pages 1-2
+7. jelin2023obstetricalandneonatal pages 2-2
+8. scorrano2023thecardiofaciocutaneoussyndrome pages 2-3
+9. https://doi.org/10.1002/ajmg.a.63020
+10. https://doi.org/10.1101/2024.08.09.24311751
+11. https://doi.org/10.3390/genes14122111
+12. https://doi.org/10.3389/fimmu.2025.1598896
+13. https://doi.org/10.3390/children11111342
+14. https://doi.org/10.3390/genes14122111,
+15. https://doi.org/10.1002/ajmg.a.63020,
+16. https://doi.org/10.1101/2024.08.09.24311751,
+17. https://doi.org/10.3389/fimmu.2025.1598896,

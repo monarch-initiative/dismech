@@ -3,13 +3,13 @@
 **Query:** # Disease Pathophysiology Research Template
 
 ## Target Disease
-- **Disease Name:** Wilson Disease
+- **Disease Name:** Costello Syndrome
 - **MONDO ID:**  (if available)
-- **Category:** Genetic
+- **Category:** Mendelian
 
 ## Research Objectives
 
-Please provide a comprehensive research report on the pathophysiology of **Wilson Disease**.
+Please provide a comprehensive research report on the pathophysiology of **Costello Syndrome**.
 Focus on the molecular and cellular mechanisms underlying disease progression.
 
 ### Required Information
@@ -59,36 +59,20 @@ Structure your response as a narrative that could be used to populate a disease 
 - Evidence items with PMIDs
 
 **Provider:** falcon
-**Generated:** 2026-02-04T07:44:51.602068
+**Generated:** 2026-02-04T22:39:26.011659
 
-1. wootonkee2023therapeuticimplicationsof pages 1-2
-2. teschke2024wilsondiseasecoppermediated pages 3-5
-3. gromadzka2024theroleof pages 5-8
-4. stremmel2025theroleof pages 1-2
-5. petruzzelli2025copperinhuman pages 30-35
-6. manchia2024theroleof pages 7-8
-7. stremmel2025theroleof pages 8-8
-8. manchia2024theroleof pages 14-15
-9. and
-10. https://doi.org/10.1016/j.pharmthera.2023.108529
-11. https://doi.org/10.3390/ijms25094753
-12. https://doi.org/10.3390/ijms25147545
-13. https://doi.org/10.1093/braincomms/fcae329
-14. https://doi.org/10.3389/fmed.2025.1673283
-15. https://doi.org/10.1016/j.pharmthera.2023.108529;
-16. https://doi.org/10.1152/physiol.00032.2025
-17. https://doi.org/10.3390/ijms25126487
-18. https://doi.org/10.3390/ijms25094753;
-19. https://doi.org/10.1152/physiol.00032.2025;
-20. https://doi.org/10.3389/fmed.2025.1673283;
-21. https://doi.org/10.3390/ijms25147545;
-22. https://doi.org/10.1038/s41467-024-47001-4
-23. https://doi.org/10.1186/s12974-024-03178-5
-24. https://doi.org/10.3390/cells13141214;
-25. https://doi.org/10.1186/s12974-024-03178-5;
-26. https://doi.org/10.1016/j.pharmthera.2023.108529,
-27. https://doi.org/10.3390/ijms25094753,
-28. https://doi.org/10.3390/ijms25147545,
-29. https://doi.org/10.3389/fmed.2025.1673283,
-30. https://doi.org/10.1152/physiol.00032.2025,
-31. https://doi.org/10.3390/ijms25126487,
+1. rodriguez2024hrasmutantcardiomyocyte pages 1-3
+2. rodriguez2024hrasmutantcardiomyocyte pages 3-5
+3. gripp2023hrasrelatedcostellosyndrome pages 31-33
+4. faienza2024cardiacphenotypeand pages 7-8
+5. gripp2023hrasrelatedcostellosyndrome pages 1-4
+6. faienza2024cardiacphenotypeand pages 2-4
+7. gripp2023hrasrelatedcostellosyndrome pages 6-8
+8. gripp2023hrasrelatedcostellosyndrome pages 13-14
+9. atrial-like cardiomyocytes
+10. https://doi.org/10.1161/circep.123.012022;
+11. https://doi.org/10.3390/genes15081015;
+12. https://doi.org/10.1161/circep.123.012022
+13. https://doi.org/10.3390/genes15081015
+14. https://doi.org/10.3390/genes15081015,
+15. https://doi.org/10.1161/circep.123.012022,
