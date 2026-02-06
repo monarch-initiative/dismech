@@ -193,35 +193,35 @@ Disorders of increased bone density.
 - [x] Thanatophoric Dysplasia Type II - Created 2026-01-30
 - [x] SADDAN - Created 2026-01-30
 
-## Tier 2: Type II Collagenopathies (0/6)
-- [ ] Achondrogenesis Type II
-- [ ] Hypochondrogenesis
-- [ ] Spondyloepiphyseal Dysplasia Congenita
-- [ ] Kniest Dysplasia
-- [ ] Stickler Syndrome Type I
-- [ ] SEMD Strudwick Type
+## Tier 2: Type II Collagenopathies (6/6) ✓
+- [x] Achondrogenesis Type II - Created 2026-02-04, 76.7% compliance
+- [x] Hypochondrogenesis - Created 2026-02-04, 75.0% compliance
+- [x] Spondyloepiphyseal Dysplasia Congenita - Created 2026-02-04, 69.4% compliance
+- [x] Kniest Dysplasia - Created 2026-02-04, 69.7% compliance
+- [x] Stickler Syndrome Type 1 - Created 2026-02-04, 71.0% compliance
+- [x] SEMD Strudwick Type - Created 2026-02-04, 69.7% compliance
 
-## Tier 3: Other FGFR Craniosynostosis (0/6)
-- [ ] Apert Syndrome
-- [ ] Crouzon Syndrome
-- [ ] Pfeiffer Syndrome
-- [ ] Muenke Syndrome
-- [ ] Crouzon with Acanthosis Nigricans
-- [ ] Jackson-Weiss Syndrome
+## Tier 3: Other FGFR Craniosynostosis (6/6) ✓
+- [x] Jackson-Weiss Syndrome - Created 2026-02-04, 86.4% compliance
+- [x] Muenke Syndrome - Created 2026-02-04, 85.7% compliance
+- [x] Pfeiffer Syndrome - Created 2026-02-04, 79.2% compliance
+- [x] Crouzon Syndrome - Created 2026-02-04, 77.3% compliance
+- [x] Apert Syndrome - Created 2026-02-04, 71.9% compliance
+- [x] Crouzon with Acanthosis Nigricans - Created 2026-02-04, 69.6% compliance
 
-## Tier 4: Osteogenesis Imperfecta (0/6)
-- [ ] OI Type I (mild)
-- [ ] OI Type II (perinatal lethal)
-- [ ] OI Type III (severe progressive)
-- [ ] OI Type IV (moderate)
-- [ ] OI Type V (IFITM5)
-- [ ] Recessive OI (CRTAP/P3H1)
+## Tier 4: Osteogenesis Imperfecta (6/6) ✓
+- [x] OI Type I - Created 2026-02-04, 65.4% compliance
+- [x] OI Type II - Created 2026-02-04, 62.5% compliance
+- [x] OI Type III - Created 2026-02-04, 56.2% compliance
+- [x] OI Type IV - Created 2026-02-04, 57.7% compliance
+- [x] OI Type V - Created 2026-02-04, 60.7% compliance
+- [x] OI Type VII (CRTAP) - Created 2026-02-04, 56.7% compliance
 
-## Tier 5: RASopathies (0/4)
-- [ ] Noonan Syndrome
-- [ ] Costello Syndrome
-- [ ] Cardiofaciocutaneous Syndrome
-- [ ] Neurofibromatosis Type 1 (skeletal focus)
+## Tier 5: RASopathies (4/4) ✓
+- [x] Noonan Syndrome - Already in KB, 68.3% compliance
+- [x] Costello Syndrome - Created 2026-02-04, 63.9% compliance (enhanced with deep research)
+- [x] Cardiofaciocutaneous Syndrome - Created 2026-02-04, 68.4% compliance (enhanced with deep research)
+- [x] Neurofibromatosis Type 1 - Already in KB, 51.2% compliance
 
 ## Tier 6: TGF-β/BMP Pathway (1/5)
 - [ ] Loeys-Dietz Syndrome
@@ -259,9 +259,9 @@ Disorders of increased bone density.
 
 ## Progress Summary
 - **Total planned**: 51 skeletal dysplasias
-- **Already in KB**: 1 (FOP)
-- **Completed**: 5/50 (10%)
-- **Remaining**: 45
+- **Already in KB**: 4 (FOP, Noonan, NF1, reused for Tier 5)
+- **Completed**: 27/51 (53%)
+- **Remaining**: 24
 
 ### Priority Rationale
 1. **Tier 1 (FGFR3)**: Therapeutically most relevant - vosoritide approved, infigratinib in trials
@@ -271,6 +271,111 @@ Disorders of increased bone density.
 5. **Tier 5-10**: Ordered by therapeutic relevance and mechanistic clarity
 
 # NOTES
+
+## 2026-02-04 (Tier 5 Curation Session)
+
+**Tier 5 Complete - All 4 RASopathies with skeletal features covered:**
+
+1. **Noonan Syndrome** (MONDO:0018997) - Already in KB, 68.3% compliance
+   - PTPN11, SOS1, RAF1, RIT1 mutations in RAS-MAPK pathway
+   - Short stature, pectus deformities, CHD, developmental delay
+
+2. **Costello Syndrome** (HRAS, MONDO:0009026) - 63.9% compliance
+   - HRAS G12S mutations (~80%), constitutive RAS activation
+   - Key refs: PMID:16443854 (Kerr 2006 genotype-phenotype), PMID:38415356 (Rodriguez 2024 MAT mechanism)
+   - ~17% lifetime malignancy risk, G12A genotype-cancer correlation
+   - Added: Multifocal atrial tachycardia phenotype (50% prevalence)
+   - Added: Atrial cardiomyocyte pacemaker-nodal reprogramming mechanism
+
+3. **Cardiofaciocutaneous Syndrome** (BRAF/MEK, MONDO:0015280) - 68.4% compliance
+   - BRAF (~81%), MEK1 (~14%), MEK2 (~5%) mutations
+   - Key refs: PMID:16439621 (Rodriguez-Viciana 2006 discovery), PMID:38136934 (Scorrano 2023 review), PMID:36308388 (Jelin 2023 prenatal)
+   - Most severe cognitive impairment in RASopathy spectrum
+   - Added: Seizures phenotype with gene-specific frequencies (57% BRAF, 61% MEK1, 30% MEK2)
+   - Added: Polyhydramnios as prenatal manifestation
+   - Added: MEK inhibitor therapy evidence from zebrafish models
+
+4. **Neurofibromatosis Type 1** (NF1, MONDO:0007902) - Already in KB, 51.2% compliance
+   - NF1 loss → RAS-MAPK hyperactivation
+   - Skeletal: scoliosis, tibial pseudarthrosis, sphenoid dysplasia
+
+All files pass schema + term + reference validation.
+
+---
+
+## 2026-02-04 (Tier 4 Curation Session)
+
+**Tier 4 Complete - All 6 Osteogenesis Imperfecta spectrum disorders curated:**
+
+1. **OI Type I** (mild, MONDO:0008146) - 65.4% compliance
+   - COL1A1 haploinsufficiency mechanism (null mutations → 50% collagen)
+   - Key refs: PMID:1353940 (Willing 1992), PMID:23529829 (Ben Amor 2013)
+   - Blue sclerae, near-normal stature (-1.1 Z-score), hearing loss
+
+2. **OI Type II** (perinatal lethal, MONDO:0008147) - 62.5% compliance
+   - Dominant-negative glycine substitutions in Gly-X-Y repeat
+   - Key ref: PMID:7643358 (Cole & Dalgleish 1995 review)
+   - 7% recurrence risk due to gonadal mosaicism
+
+3. **OI Type III** (severe progressive, MONDO:0009804) - 56.2% compliance
+   - Most severe non-lethal form, progressive deformity
+   - Key ref: PMID:7643358 (genotype-phenotype correlation)
+
+4. **OI Type IV** (moderate, MONDO:0008148) - 57.7% compliance
+   - Intermediate severity, normal sclerae distinguishing from type I
+   - Key ref: PMID:7643358
+
+5. **OI Type V** (IFITM5, MONDO:0012591) - 60.7% compliance
+   - Single recurrent c.-14C>T mutation adds MALEP to N-terminus
+   - Key ref: PMID:22863190 (Cho 2012 discovery paper)
+   - Hyperplastic callus, radioulnar synostosis pathognomonic
+
+6. **OI Type VII** (CRTAP, MONDO:0012536) - 56.7% compliance
+   - Autosomal recessive, prolyl 3-hydroxylation deficiency
+   - Key ref: PMID:17055431 (Morello 2006 Cell paper)
+   - Rhizomelia distinguishes from dominant OI
+
+All 6 files pass schema + term validation.
+
+---
+
+## 2026-02-04 (Tier 2 Curation Session)
+
+**Tier 2 Complete - All 6 Type II Collagenopathies (COL2A1 spectrum) curated:**
+
+1. **Achondrogenesis Type II** (lethal, MONDO:0008702) - 76.7% compliance
+   - Severe end of spectrum, glycine substitutions in Gly-X-Y repeat
+   - Key refs: PMID:7829510 (collagen replacement), PMID:10745044 (phenotypic continuum)
+   - Documents complete absence of type II collagen, replacement by types I/III
+
+2. **Hypochondrogenesis** (usually lethal, MONDO:0019669) - 75.0% compliance
+   - Intermediate severity between ACG2 and SEDC
+   - Key refs: PMID:6641761 (original description), PMID:2572591 (Gly943Ser mutation)
+   - Added ER stress and chondrocyte apoptosis pathway (PMID:25187577)
+
+3. **Spondyloepiphyseal Dysplasia Congenita** (MONDO:0008471) - 69.4% compliance
+   - Short-trunk dwarfism, myopia, hearing loss, odontoid hypoplasia
+   - Key refs: PMID:1971141 (landmark COL2A1 linkage), PMID:7550321 (spectrum)
+   - Added cleft palate phenotype with evidence (PMID:11878179)
+
+4. **Kniest Dysplasia** (MONDO:0007987) - 69.7% compliance
+   - Dumbbell-shaped bones, enlarged joints, "Swiss cheese" cartilage
+   - Key refs: PMID:8723084 (histopathology), PMID:7981752 (exon-skipping mutations)
+   - Characteristically caused by exon-skipping/in-frame deletions
+
+5. **Stickler Syndrome Type 1** (MONDO:0007160) - 71.0% compliance
+   - Mildest form, haploinsufficiency mechanism
+   - Key refs: PMID:20179744 (100-patient series), PMID:17675240 (prophylaxis efficacy)
+   - Membranous vitreous pathognomonic, 73%→8% RD reduction with cryotherapy
+
+6. **SEMD Strudwick Type** (MONDO:0008476) - 69.7% compliance
+   - Distinguished by "dappled" metaphyseal changes
+   - Key refs: PMID:7550321 (biochemical characterization), PMID:12925722 (Gly262Asp)
+   - Added early-onset osteoarthritis phenotype
+
+All 6 files pass schema + term + reference validation.
+
+---
 
 ## 2026-01-30 (Tier 1 Curation Session)
 
