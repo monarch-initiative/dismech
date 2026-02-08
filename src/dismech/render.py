@@ -324,7 +324,7 @@ def _get_oak_adapter(adapter_str: str):
         return None
 
 
-def _compact_hierarchy_path(path: list[str], max_nodes: int = 6) -> list[Optional[str]]:
+def _compact_hierarchy_path(path: list[str | None], max_nodes: int = 6) -> list[str | None]:
     if len(path) <= max_nodes:
         return path
     head = path[:2]
@@ -332,7 +332,7 @@ def _compact_hierarchy_path(path: list[str], max_nodes: int = 6) -> list[Optiona
     return head + [None] + tail
 
 
-def _build_hierarchy_path(adapter, term_id: str, root_id: str) -> list[str]:
+def _build_hierarchy_path(adapter, term_id: str, root_id: str) -> list[Optional[str]]:
     path: list[str] = []
     current = term_id
     visited = set()
