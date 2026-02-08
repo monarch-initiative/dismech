@@ -206,7 +206,8 @@ def render_disorder(
     if output_path is None:
         output_dir = Path('pages/disorders')
         output_dir.mkdir(parents=True, exist_ok=True)
-        output_path = output_dir / f'{slugify(disorder["name"])}.html'
+        disorder_name = disorder.get("name") or yaml_path.stem
+        output_path = output_dir / f'{slugify(disorder_name)}.html'
 
     # Write output
     output_path.write_text(html)
@@ -266,7 +267,8 @@ def render_comorbidity(
     if output_path is None:
         output_dir = Path('pages/comorbidities')
         output_dir.mkdir(parents=True, exist_ok=True)
-        output_path = output_dir / f'{yaml_path.stem}.html'
+        comorbidity_name = comorbidity.get("name") or yaml_path.stem
+        output_path = output_dir / f'{slugify(comorbidity_name)}.html'
 
     output_path.write_text(html)
     return output_path
