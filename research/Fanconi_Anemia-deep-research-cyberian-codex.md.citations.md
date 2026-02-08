@@ -58,34 +58,41 @@ Structure your response as a narrative that could be used to populate a disease 
 - Chemical entities (CHEBI terms)
 - Evidence items with PMIDs
 
-**Provider:** falcon
-**Generated:** 2026-02-08T09:54:22.187587
+**Provider:** cyberian
+**Generated:** 2026-02-08T10:19:52.670309
 
-1. shah2024dualroleof pages 1-2
-2. kovuru2024deregulatedproteinhomeostasis pages 10-11
-3. longerich2014stressanddna pages 4-5
-4. longerich2014stressanddna pages 7-8
-5. fang2025comprehensivereviewon pages 1-3
-6. repczynska2024newinsightsinto pages 9-13
-7. liu2025inheritedpredispositionsto pages 13-15
-8. xu2024crosstalkbetweendna pages 7-9
-9. repczynska2024newinsightsinto pages 13-17
-10. FANCV
-11. https://doi.org/10.1182/blood-2014-04-526293;
-12. https://doi.org/10.1093/pnasnexus/pgae242;
-13. https://doi.org/10.1182/blood-2013-06-507962;
-14. https://doi.org/10.3390/ijms252111619;
-15. https://doi.org/10.1146/annurev-pathmechdis-111523-023420;
-16. https://doi.org/10.1186/s13023-025-03896-w;
-17. https://doi.org/10.1038/s41467-024-46159-1;
-18. https://doi.org/10.1038/s41467-024-50861-5;
-19. https://doi.org/10.3390/cells13090733;
-20. https://doi.org/10.1182/blood-2014-04-526293,
-21. https://doi.org/10.1093/pnasnexus/pgae242,
-22. https://doi.org/10.1182/blood-2013-06-507962,
-23. https://doi.org/10.3390/ijms252111619,
-24. https://doi.org/10.1146/annurev-pathmechdis-111523-023420,
-25. https://doi.org/10.1186/s13023-025-03896-w,
-26. https://doi.org/10.1038/s41467-024-46159-1,
-27. https://doi.org/10.1038/s41467-024-50861-5,
-28. https://doi.org/10.3390/cells13090733,
+1. alpi-2015-ube2t-deficiency-fulltext.html
+2. alpi-2015-ube2t-deficiency-fulltext.md
+3. alpi-2015-ube2t-deficiency-summary.md
+4. fang-2025-fanconi-review-fulltext.html
+5. fang-2025-fanconi-review-fulltext.md
+6. fang-2025-fanconi-review-fulltext.txt
+7. fang-2025-fanconi-review-paper.pdf
+8. fang-2025-fanconi-review-summary.md
+9. garaycoechea-2018-aldehydes-hsc-fulltext.html
+10. garaycoechea-2018-aldehydes-hsc-fulltext.md
+11. garaycoechea-2018-aldehydes-hsc-summary.md
+12. joo-2011-id2-structure-fulltext.html
+13. joo-2011-id2-structure-fulltext.md
+14. joo-2011-id2-structure-summary.md
+15. kim-2012-genesdev-icls-fulltext.html
+16. kim-2012-genesdev-icls-fulltext.md
+17. kim-2012-genesdev-icls-summary.md
+18. kottemann-2013-slx4-fulltext.html
+19. kottemann-2013-slx4-fulltext.md
+20. kottemann-2013-slx4-summary.md
+21. machida-2007-ube2t-chromatin-fulltext.html
+22. machida-2007-ube2t-chromatin-fulltext.md
+23. machida-2007-ube2t-chromatin-summary.md
+24. mackay-2010-fanconi-expanded-fulltext.html
+25. mackay-2010-fanconi-expanded-fulltext.md
+26. mackay-2010-fanconi-expanded-summary.md
+27. mackay-2013-fan1-nuclease-fulltext.html
+28. mackay-2013-fan1-nuclease-fulltext.md
+29. mackay-2013-fan1-nuclease-summary.md
+30. rajan-2016-id2-recruitment-fulltext.html
+31. rajan-2016-id2-recruitment-fulltext.md
+32. rajan-2016-id2-recruitment-summary.md
+33. yamamoto-2011-slx4-icls-fulltext.html
+34. yamamoto-2011-slx4-icls-fulltext.md
+35. yamamoto-2011-slx4-icls-summary.md

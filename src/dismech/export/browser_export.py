@@ -10,8 +10,69 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from oaklib import get_adapter
 
 from dismech.graph import build_causal_graph
+
+# Direct children of HP:0000118 (Phenotypic abnormality) — the broad phenotype categories.
+# Keys match PhenotypeCategoryEnum permissible_value keys in the schema.
+HPO_TOP_LEVEL_CATEGORIES: dict[str, str] = {
+    "HP:0001871": "Blood",
+    "HP:0000769": "Breast",
+    "HP:0001626": "Cardiovascular",
+    "HP:0025031": "Digestive",
+    "HP:0000598": "Ear",
+    "HP:0000818": "Endocrine",
+    "HP:0000478": "Eye",
+    "HP:0000119": "Genitourinary",
+    "HP:0000152": "Head and Neck",
+    "HP:0002715": "Immune",
+    "HP:0001574": "Integument",
+    "HP:0040064": "Limbs",
+    "HP:0001939": "Metabolism",
+    "HP:0033127": "Musculoskeletal",
+    "HP:0000707": "Nervous System",
+    "HP:0001197": "Prenatal and Birth",
+    "HP:0002086": "Respiratory",
+    "HP:0045027": "Thoracic Cavity",
+    "HP:0001608": "Voice",
+    "HP:0025354": "Cellular",
+    "HP:0025142": "Constitutional",
+    "HP:0001507": "Growth",
+    "HP:0002664": "Neoplasm",
+}
+_HPO_TOP_LEVEL_IDS = set(HPO_TOP_LEVEL_CATEGORIES.keys())
+
+
+class HPOCategoryResolver:
+    """Resolve HP term IDs to their broad top-level phenotype categories."""
+
+    def __init__(self):
+        self._adapter = None
+        self._cache: dict[str, list[str]] = {}
+
+    def _get_adapter(self):
+        if self._adapter is None:
+            self._adapter = get_adapter("sqlite:obo:hp")
+        return self._adapter
+
+    def resolve(self, hp_id: str) -> list[str]:
+        """Return the top-level HPO category labels for a given HP term ID."""
+        if hp_id in self._cache:
+            return self._cache[hp_id]
+
+        # If the term itself is a top-level category, return it directly
+        if hp_id in _HPO_TOP_LEVEL_IDS:
+            result = [HPO_TOP_LEVEL_CATEGORIES[hp_id]]
+            self._cache[hp_id] = result
+            return result
+
+        adapter = self._get_adapter()
+        ancestors = set(adapter.ancestors(hp_id, predicates=["rdfs:subClassOf"]))
+        hits = ancestors & _HPO_TOP_LEVEL_IDS
+        result = sorted(HPO_TOP_LEVEL_CATEGORIES[h] for h in hits)
+        self._cache[hp_id] = result
+        return result
 
 
 def _build_adjacency(edges: list[tuple[str, str]]) -> tuple[dict[str, list[str]], set[str]]:
@@ -91,6 +152,9 @@ def slugify(name: str) -> str:
 class BrowserExporter:
     """Export disorder data to browser-friendly JSON format."""
 
+    def __init__(self):
+        self._hpo_resolver = HPOCategoryResolver()
+
     def load_disorder(self, file_path: Path) -> dict[str, Any]:
         """Load a single disorder YAML file."""
         with open(file_path) as f:
@@ -138,6 +202,7 @@ class BrowserExporter:
         phenotype_categories = []
         phenotype_ids = []
         frequencies = []
+        hpo_broad_categories: set[str] = set()
 
         for pheno in (disorder.get("phenotypes") or []):
             if pheno.get("name"):
@@ -151,6 +216,8 @@ class BrowserExporter:
                 hp_id = pheno["phenotype_term"]["term"].get("id")
                 if hp_id and hp_id not in phenotype_ids:
                     phenotype_ids.append(hp_id)
+                if hp_id:
+                    hpo_broad_categories.update(self._hpo_resolver.resolve(hp_id))
 
         # Genetic associations
         genes = [g.get("name", "") for g in (disorder.get("genetic") or []) if g.get("name")]
@@ -190,6 +257,7 @@ class BrowserExporter:
             "biological_processes": biological_processes,
             "phenotypes": phenotype_names,
             "phenotype_categories": phenotype_categories,
+            "phenotype_hpo_categories": sorted(hpo_broad_categories),
             "phenotype_ids": phenotype_ids,
             "frequencies": frequencies,
             "genes": genes,
@@ -207,6 +275,13 @@ class BrowserExporter:
             "causal_graph_longest_path": str(causal_longest_path),
         }
 
+    def _write_hpo_category_cache(self, output_path: Path) -> None:
+        """Write the accumulated HP-to-category cache as JSON for use by the renderer."""
+        cache_path = output_path.parent / "hpo_category_cache.json"
+        with open(cache_path, "w") as f:
+            json.dump(self._hpo_resolver._cache, f, indent=2, sort_keys=True)
+        print(f"Wrote HPO category cache ({len(self._hpo_resolver._cache)} terms) to {cache_path}")
+
     def export_to_json(self, disorder_files: list[Path], output_path: Path) -> None:
         """Export all disorder files to a single JSON file."""
         records = []
@@ -218,6 +293,7 @@ class BrowserExporter:
         with open(output_path, "w") as f:
             json.dump(records, f, indent=2)
 
+        self._write_hpo_category_cache(output_path)
         print(f"Exported {len(records)} disorders to {output_path}")
 
     def export_to_js(self, disorder_files: list[Path], output_path: Path) -> None:
@@ -234,6 +310,7 @@ class BrowserExporter:
         with open(output_path, "w") as f:
             f.write(js_content)
 
+        self._write_hpo_category_cache(output_path)
         print(f"Exported {len(records)} disorders to {output_path}")
 
 

@@ -14,6 +14,7 @@ imports:
   - classifications/mechanistic_nosology
   - classifications/iuis_immunodeficiency
   - classifications/channelopathies
+  - classifications/phenotype_category
 
 prefixes:
   linkml: https://w3id.org/linkml/
@@ -416,6 +417,63 @@ enums:
       is_direct: false
       relationship_types:
         - rdfs:subClassOf
+  OnsetEnum:
+    description: Age of onset categories from HPO
+    permissible_values:
+      ANTENATAL:
+        description: Antenatal onset
+        meaning: HP:0030674
+      EMBRYONAL:
+        description: Embryonal onset
+        meaning: HP:0011460
+      FETAL:
+        description: Fetal onset
+        meaning: HP:0011461
+      CONGENITAL:
+        description: Congenital onset
+        meaning: HP:0003577
+      NEONATAL:
+        description: Neonatal onset
+        meaning: HP:0003623
+      INFANTILE:
+        description: Infantile onset
+        meaning: HP:0003593
+      CHILDHOOD:
+        description: Childhood onset
+        meaning: HP:0011463
+      JUVENILE:
+        description: Juvenile onset
+        meaning: HP:0003621
+      YOUNG_ADULT:
+        description: Young adult onset
+        meaning: HP:0011462
+      MIDDLE_AGE:
+        description: Middle age onset
+        meaning: HP:0003596
+      LATE:
+        description: Late onset
+        meaning: HP:0003584
+      PUERPERAL:
+        description: Puerperal onset
+        meaning: HP:4000040
+  ZygosityEnum:
+    description: Zygosity categories from GENO
+    permissible_values:
+      HETEROZYGOUS:
+        description: Heterozygous
+        meaning: GENO:0000135
+      SIMPLE_HETEROZYGOUS:
+        description: Simple heterozygous
+        meaning: GENO:0000458
+      COMPOUND_HETEROZYGOUS:
+        description: Compound heterozygous
+        meaning: GENO:0000402
+      HOMOZYGOUS:
+        description: Homozygous
+        meaning: GENO:0000136
+      HEMIZYGOUS:
+        description: Hemizygous
+        meaning: GENO:0000134
   DatasetTypeEnum:
     description: Type of dataset or data resource
     permissible_values:
@@ -1590,6 +1648,68 @@ slots:
   method:
     description: Method or pipeline name
     range: string
+  # Phenotype context slots
+  phenotype_contexts:
+    description: >-
+      Context-specific qualifications of this phenotype's frequency,
+      severity, or onset. Each context can optionally specify a genetic
+      context, demographic stratum, or disease subtype. When no context
+      qualifiers are set, provides evidence for the base frequency/severity
+      claim (addressing the frequency-evidence separation problem).
+    multivalued: true
+    range: PhenotypeContext
+    inlined_as_list: true
+  genetic_context:
+    description: >-
+      The genetic context under which this qualification applies.
+      May specify genes, mutation types, zygosity, complementation groups,
+      or complex genotypes.
+    range: GeneticContext
+    inlined: true
+  allele_type:
+    description: >-
+      Type of allele or mutation (e.g., null, missense, splice_site,
+      deletion, frameshift, nonsense, hypomorphic, structural_variant).
+      Free text to accommodate the diversity of mutation nomenclature.
+    range: string
+  zygosity:
+    description: Zygosity context
+    range: ZygosityEnum
+  functional_impact:
+    description: >-
+      Functional consequence of the genetic variant
+      (e.g., loss_of_function, gain_of_function, dominant_negative).
+    range: string
+  complementation_group:
+    description: >-
+      Complementation group designation (e.g., FA-A, FA-D1, BBS1).
+      Used for genetically heterogeneous diseases where subtypes
+      are historically named by complementation analysis.
+    range: string
+  onset:
+    description: >-
+      Structured age of onset descriptor. Combines an HPO onset
+      category with optional quantitative age data (mean, min, max
+      in years) and free-text notes.
+    range: OnsetDescriptor
+    inlined: true
+  onset_category:
+    description: >-
+      HPO onset category (e.g., CHILDHOOD, NEONATAL). Use when an
+      approximate developmental stage is known.
+    range: OnsetEnum
+  mean_age_years:
+    description: >-
+      Mean age of onset in years, as reported in a cohort study.
+    range: float
+  min_age_years:
+    description: >-
+      Minimum (earliest) age of onset in years.
+    range: float
+  max_age_years:
+    description: >-
+      Maximum (latest) age of onset in years.
+    range: float
 
 classes:
   Any:
@@ -1886,6 +2006,69 @@ classes:
       - tissue_term
       - cell_type_term
 
+
+  # Phenotype context classes
+  GeneticContext:
+    description: >-
+      A structured description of a genetic context that modifies phenotype
+      frequency, severity, or presentation. Flexible enough to capture
+      single genes, multiple genes, mutation types, zygosity, complementation
+      groups, and complex genotypes. The description slot accommodates
+      contexts that don't fit neatly into the structured fields
+      (e.g., structural variants, complex rearrangements).
+    slots:
+      - gene
+      - genes
+      - allele_type
+      - zygosity
+      - functional_impact
+      - complementation_group
+      - description
+      - notes
+
+  OnsetDescriptor:
+    description: >-
+      Structured description of age of onset. Combines an HPO onset
+      category with optional quantitative age data and notes.
+    slots:
+      - onset_category
+      - mean_age_years
+      - min_age_years
+      - max_age_years
+      - notes
+
+  PhenotypeContext:
+    description: >-
+      A context-specific annotation qualifying how a phenotype manifests
+      under particular conditions. Each context can specify a genetic
+      context, demographic stratum, or disease subtype, along with
+      frequency, severity, onset, and supporting evidence specific to
+      that context.
+
+      When no context qualifier slots are set (no genetic_context, sex,
+      population, age_range, or subtype), the context provides evidence
+      for the overall/default frequency claim, addressing the evidence
+      separation problem (issue #112).
+    slots:
+      - frequency
+      - severity
+      - onset
+      - notes
+      - evidence
+      - genetic_context
+      - sex
+      - population
+      - age_range
+      - subtype
+    slot_usage:
+      sex:
+        range: SexEnum
+      evidence:
+        description: >-
+          Evidence supporting the frequency, severity, or onset claims
+          made in this specific context. Distinct from the D2P evidence
+          on the parent Phenotype.
+
   Dataset:
     description: A reference to a publicly available omics or phenotype dataset
     comments:
@@ -2104,6 +2287,7 @@ classes:
       - severity
       - notes
       - subtype
+      - phenotype_contexts
   Biochemical:
     slots:
       - name
