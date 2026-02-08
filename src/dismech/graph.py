@@ -162,7 +162,7 @@ def generate_mermaid(graph: CausalGraph) -> str:
     if not graph.edges:
         return ""
 
-    lines = ["graph TD"]
+    lines = ["graph LR"]
 
     # Track which nodes are actually used in edges
     used_nodes: set[str] = set()
