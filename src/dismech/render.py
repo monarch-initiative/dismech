@@ -206,7 +206,8 @@ def render_disorder(
     if output_path is None:
         output_dir = Path('pages/disorders')
         output_dir.mkdir(parents=True, exist_ok=True)
-        output_path = output_dir / f'{slugify(disorder["name"])}.html'
+        disorder_name = disorder.get("name") or yaml_path.stem
+        output_path = output_dir / f'{slugify(disorder_name)}.html'
 
     # Write output
     output_path.write_text(html)
@@ -266,7 +267,8 @@ def render_comorbidity(
     if output_path is None:
         output_dir = Path('pages/comorbidities')
         output_dir.mkdir(parents=True, exist_ok=True)
-        output_path = output_dir / f'{yaml_path.stem}.html'
+        comorbidity_name = comorbidity.get("name") or yaml_path.stem
+        output_path = output_dir / f'{slugify(comorbidity_name)}.html'
 
     output_path.write_text(html)
     return output_path
@@ -322,7 +324,7 @@ def _get_oak_adapter(adapter_str: str):
         return None
 
 
-def _compact_hierarchy_path(path: list[str], max_nodes: int = 6) -> list[Optional[str]]:
+def _compact_hierarchy_path(path: list[str | None], max_nodes: int = 6) -> list[str | None]:
     if len(path) <= max_nodes:
         return path
     head = path[:2]
@@ -330,7 +332,7 @@ def _compact_hierarchy_path(path: list[str], max_nodes: int = 6) -> list[Optiona
     return head + [None] + tail
 
 
-def _build_hierarchy_path(adapter, term_id: str, root_id: str) -> list[str]:
+def _build_hierarchy_path(adapter, term_id: str, root_id: str) -> list[Optional[str]]:
     path: list[str] = []
     current = term_id
     visited = set()
@@ -480,7 +482,8 @@ def render_classification_pages(
             'classifications': disorder.get('classifications') or {},
         })
 
-    disorders_by_enum_value: dict[str, dict[str, list[dict]]] = {name: {} for name in enums}
+    disorders_by_enum_value: dict[str, dict[str, list[dict]]] = {
+        name: {} for name in enums}
     for disorder in disorders:
         classifications = disorder.get('classifications') or {}
         for slot_name, entry in classifications.items():
@@ -494,7 +497,8 @@ def render_classification_pages(
                     value = item
                 if not value:
                     continue
-                enum_name = slot_to_enum.get(slot_name) or _find_enum_for_value(value, enums)
+                enum_name = slot_to_enum.get(
+                    slot_name) or _find_enum_for_value(value, enums)
                 if not enum_name:
                     continue
                 disorders_by_enum_value.setdefault(enum_name, {}).setdefault(value, []).append({
@@ -524,7 +528,8 @@ def render_classification_pages(
         roots, nodes = _build_enum_tree(enum_def)
         for value, disorder_list in (disorders_by_enum_value.get(enum_name) or {}).items():
             if value in nodes:
-                nodes[value]['disorders'] = sorted(disorder_list, key=lambda d: d['name'])
+                nodes[value]['disorders'] = sorted(
+                    disorder_list, key=lambda d: d['name'])
         for node in nodes.values():
             node['is_leaf'] = len(node['children']) == 0
 
@@ -565,13 +570,16 @@ def render_all_disorders(
     yaml_files = sorted(input_dir.glob('*.yaml'))
     output_files = []
 
+    # Each disorder should have a name,
+    # but if not, we'll use the filename as a fallback
     for yaml_path in yaml_files:
         disorder = load_disorder(yaml_path)
-        output_path = output_dir / f'{slugify(disorder["name"])}.html'
+        disorder_name = disorder.get("name") or yaml_path.stem
+        output_path = output_dir / f'{slugify(disorder_name)}.html'
 
         render_disorder(yaml_path, output_path, template_path)
         output_files.append(output_path)
-        print(f'Rendered: {disorder["name"]} -> {output_path}')
+        print(f'Rendered: {disorder_name} -> {output_path}')
 
     render_classification_pages(input_dir=input_dir)
 
@@ -583,11 +591,16 @@ def main():
     """CLI entry point."""
     import argparse
 
-    parser = argparse.ArgumentParser(description='Render disorder and comorbidity pages')
-    parser.add_argument('path', nargs='?', help='Single YAML file or directory')
-    parser.add_argument('--all', '-a', action='store_true', help='Render all disorders')
-    parser.add_argument('--comorbidity', action='store_true', help='Render comorbidity page(s)')
-    parser.add_argument('--output', '-o', help='Output path (file or directory)')
+    parser = argparse.ArgumentParser(
+        description='Render disorder and comorbidity pages')
+    parser.add_argument('path', nargs='?',
+                        help='Single YAML file or directory')
+    parser.add_argument('--all', '-a', action='store_true',
+                        help='Render all disorders')
+    parser.add_argument('--comorbidity', action='store_true',
+                        help='Render comorbidity page(s)')
+    parser.add_argument(
+        '--output', '-o', help='Output path (file or directory)')
     parser.add_argument('--template', '-t', help='Custom template path')
 
     args = parser.parse_args()
@@ -596,10 +609,12 @@ def main():
 
     if args.comorbidity:
         if args.path is None:
-            raise SystemExit('Error: --comorbidity requires a file or directory path')
+            raise SystemExit(
+                'Error: --comorbidity requires a file or directory path')
         input_path = Path(args.path)
         if input_path.is_dir():
-            output_dir = Path(args.output) if args.output else Path('pages/comorbidities')
+            output_dir = Path(args.output) if args.output else Path(
+                'pages/comorbidities')
             render_all_comorbidities(input_path, output_dir, template_path)
         else:
             output_path = Path(args.output) if args.output else None
@@ -609,7 +624,8 @@ def main():
 
     if args.all or args.path is None:
         input_dir = Path(args.path) if args.path else Path('kb/disorders')
-        output_dir = Path(args.output) if args.output else Path('pages/disorders')
+        output_dir = Path(args.output) if args.output else Path(
+            'pages/disorders')
         render_all_disorders(input_dir, output_dir, template_path)
     else:
         yaml_path = Path(args.path)
