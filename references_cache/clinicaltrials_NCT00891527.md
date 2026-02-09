@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT00891527
+reference_id: "clinicaltrials:NCT00891527"
 title: Adjunct Targeted Biologic Inhibition in Children With Multivessel Intraluminal Pulmonary Vein Stenosis
 content_type: summary
 ---
