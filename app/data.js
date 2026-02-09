@@ -51,6 +51,14 @@ window.searchData = [
       "T-cell immunodeficiency"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Endocrine",
+      "Head and Neck",
+      "Immune",
+      "Metabolism",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0001710",
       "HP:0002901",
@@ -101,6 +109,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -157,6 +166,11 @@ window.searchData = [
     "phenotype_categories": [
       "Neoplastic",
       "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Neoplasm",
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0030078",
@@ -233,6 +247,11 @@ window.searchData = [
       "Constitutional",
       "Infectious"
     ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Constitutional",
+      "Immune"
+    ],
     "phenotype_ids": [
       "HP:0001876",
       "HP:0005521",
@@ -282,6 +301,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -362,6 +382,13 @@ window.searchData = [
       "Musculoskeletal",
       "Genitourinary",
       "Systemic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Eye",
+      "Genitourinary",
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0009830",
@@ -449,6 +476,14 @@ window.searchData = [
       "Pulmonary Hypoplasia"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Prenatal and Birth",
+      "Respiratory"
+    ],
     "phenotype_ids": [
       "HP:0002983",
       "HP:0000926",
@@ -490,6 +525,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -547,6 +583,12 @@ window.searchData = [
       "Lumbar hyperlordosis"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal"
+    ],
     "phenotype_ids": [
       "HP:0008873",
       "HP:0004991",
@@ -625,6 +667,10 @@ window.searchData = [
       "Neurological",
       "Behavioral"
     ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0002076",
       "HP:0000613"
@@ -702,6 +748,11 @@ window.searchData = [
       "Scarring"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Immune",
+      "Integument",
+      "Musculoskeletal"
+    ],
     "phenotype_ids": [
       "HP:0040137",
       "HP:0030350",
@@ -769,6 +820,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -833,6 +885,13 @@ window.searchData = [
       "Neurologic",
       "Hematologic"
     ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Immune",
+      "Integument",
+      "Neoplasm",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0020102",
       "HP:0005401",
@@ -888,6 +947,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -965,6 +1025,16 @@ window.searchData = [
       "Systemic",
       "Cardiovascular",
       "Metabolic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0012378",
@@ -1072,6 +1142,14 @@ window.searchData = [
       "Abdominal",
       "Infectious"
     ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Immune",
+      "Integument",
+      "Metabolism"
+    ],
     "phenotype_ids": [
       "HP:0001974",
       "HP:0002716",
@@ -1155,6 +1233,12 @@ window.searchData = [
       "Abdominal",
       "Hepatic"
     ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Integument"
+    ],
     "phenotype_ids": [
       "HP:0002027",
       "HP:0001824",
@@ -1210,6 +1294,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -1263,6 +1348,9 @@ window.searchData = [
     ],
     "phenotype_categories": [
       "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye"
     ],
     "phenotype_ids": [
       "HP:0000551",
@@ -1337,6 +1425,12 @@ window.searchData = [
       "Dermatologic",
       "Musculoskeletal"
     ],
+    "phenotype_hpo_categories": [
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Prenatal and Birth"
+    ],
     "phenotype_ids": [
       "HP:0010491",
       "HP:0002797",
@@ -1398,6 +1492,10 @@ window.searchData = [
     "phenotype_categories": [
       "Visual"
     ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0030222",
       "HP:0001123"
@@ -1452,6 +1550,10 @@ window.searchData = [
       "Hepatic fibrosis"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Metabolism"
+    ],
     "phenotype_ids": [
       "HP:0001397",
       "HP:0001395"
@@ -1483,6 +1585,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -1565,6 +1668,9 @@ window.searchData = [
       "Psychiatric",
       "Neurologic"
     ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0002354",
       "HP:0100543",
@@ -1620,6 +1726,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -1668,6 +1775,9 @@ window.searchData = [
     ],
     "phenotype_categories": [
       "Dermatological"
+    ],
+    "phenotype_hpo_categories": [
+      "Integument"
     ],
     "phenotype_ids": [
       "HP:0001596",
@@ -1749,6 +1859,12 @@ window.searchData = [
     "phenotype_categories": [
       "Cutaneous"
     ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Immune",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
     "phenotype_ids": [
       "HP:0032967",
       "HP:0002097",
@@ -1823,6 +1939,11 @@ window.searchData = [
       "Constitutional",
       "Systemic"
     ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Growth",
+      "Neoplasm"
+    ],
     "phenotype_ids": [
       "HP:0031459",
       "HP:0000520",
@@ -1871,6 +1992,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -1921,6 +2043,9 @@ window.searchData = [
     ],
     "phenotype_categories": [
       "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0002354",
@@ -2012,6 +2137,12 @@ window.searchData = [
       "Neurological",
       "Respiratory"
     ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
     "phenotype_ids": [
       "HP:0001324",
       "HP:0002380",
@@ -2076,6 +2207,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -2129,6 +2261,12 @@ window.searchData = [
       "Musculoskeletal",
       "Ophthalmological"
     ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Eye",
+      "Immune",
+      "Musculoskeletal"
+    ],
     "phenotype_ids": [
       "HP:0003418",
       "HP:0001369",
@@ -2177,6 +2315,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -2242,6 +2381,14 @@ window.searchData = [
       "Cardiovascular",
       "Dermatologic",
       "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Integument",
+      "Nervous System",
+      "Prenatal and Birth",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0004850",
@@ -2321,6 +2468,13 @@ window.searchData = [
       "Intellectual Disability"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0004440",
       "HP:0011800",
@@ -2363,6 +2517,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -2436,6 +2591,13 @@ window.searchData = [
       "Systemic",
       "Metabolic",
       "Cognitive"
+    ],
+    "phenotype_hpo_categories": [
+      "Endocrine",
+      "Genitourinary",
+      "Growth",
+      "Metabolism",
+      "Musculoskeletal"
     ],
     "phenotype_ids": [
       "HP:0000823",
@@ -2528,6 +2690,11 @@ window.searchData = [
       "Urologic",
       "Peripheral Vascular"
     ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Integument",
+      "Neoplasm"
+    ],
     "phenotype_ids": [
       "HP:0000962",
       "HP:0000953",
@@ -2580,6 +2747,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -2664,6 +2832,12 @@ window.searchData = [
       "Sleep",
       "Cardiovascular"
     ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Integument",
+      "Nervous System",
+      "Respiratory"
+    ],
     "phenotype_ids": [
       "HP:0030828",
       "HP:0012735",
@@ -2727,6 +2901,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -2788,6 +2963,13 @@ window.searchData = [
       "Systemic",
       "Respiratory",
       "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Ear",
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0001962",
@@ -2876,6 +3058,10 @@ window.searchData = [
       "Neurological",
       "Gastrointestinal"
     ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0001251",
       "HP:0001260",
@@ -2926,6 +3112,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -2982,6 +3169,14 @@ window.searchData = [
       "Hepatic",
       "Systemic"
     ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Immune",
+      "Integument"
+    ],
     "phenotype_ids": [
       "HP:0001903",
       "HP:0000952",
@@ -3029,6 +3224,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -3087,6 +3283,11 @@ window.searchData = [
       "Hepatic",
       "Musculoskeletal"
     ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Integument"
+    ],
     "phenotype_ids": [
       "HP:0012378",
       "HP:0000952",
@@ -3138,6 +3339,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -3201,6 +3403,12 @@ window.searchData = [
       "Ophthalmologic",
       "Craniofacial",
       "Systemic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Ear",
+      "Eye",
+      "Head and Neck"
     ],
     "phenotype_ids": [
       "HP:0000501",
@@ -3276,6 +3484,13 @@ window.searchData = [
       "Systemic",
       "Constitutional"
     ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Endocrine",
+      "Immune",
+      "Neoplasm"
+    ],
     "phenotype_ids": [
       "HP:0002890",
       "HP:0002716",
@@ -3350,6 +3565,13 @@ window.searchData = [
       "Gastrointestinal",
       "Hematologic",
       "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Neoplasm"
     ],
     "phenotype_ids": [
       "HP:0003003",
@@ -3427,6 +3649,11 @@ window.searchData = [
       "Neoplastic",
       "Clinical"
     ],
+    "phenotype_hpo_categories": [
+      "Neoplasm",
+      "Nervous System",
+      "Respiratory"
+    ],
     "phenotype_ids": [
       "HP:0030078",
       "HP:0100526",
@@ -3492,6 +3719,10 @@ window.searchData = [
     ],
     "phenotype_categories": [
       "Dermatologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Integument",
+      "Neoplasm"
     ],
     "phenotype_ids": [
       "HP:0012056",
@@ -3560,6 +3791,11 @@ window.searchData = [
       "Musculoskeletal",
       "Constitutional"
     ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Genitourinary",
+      "Musculoskeletal"
+    ],
     "phenotype_ids": [
       "HP:0000079",
       "HP:0002653",
@@ -3604,6 +3840,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -3683,6 +3920,12 @@ window.searchData = [
       "Integumentary",
       "Neurologic"
     ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Metabolism",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0002315",
       "HP:0001945",
@@ -3729,6 +3972,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -3807,6 +4051,15 @@ window.searchData = [
       "Cardiovascular",
       "Gastrointestinal",
       "Ocular"
+    ],
+    "phenotype_hpo_categories": [
+      "Endocrine",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0000510",
@@ -3890,6 +4143,10 @@ window.searchData = [
     "phenotype_categories": [
       "Dermatologic"
     ],
+    "phenotype_hpo_categories": [
+      "Integument",
+      "Neoplasm"
+    ],
     "phenotype_ids": [
       "HP:0002671",
       "HP:0008069"
@@ -3936,6 +4193,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -3990,6 +4248,13 @@ window.searchData = [
       "Genitourinary",
       "Ophthalmological",
       "Dermatological"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Immune",
+      "Integument"
     ],
     "phenotype_ids": [
       "HP:0000155",
@@ -4048,6 +4313,10 @@ window.searchData = [
     "phenotype_categories": [
       "Ophthalmologic"
     ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Immune"
+    ],
     "phenotype_ids": [
       "HP:0000554",
       "HP:0000648"
@@ -4083,6 +4352,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -4146,6 +4416,9 @@ window.searchData = [
     "phenotype_categories": [
       "Urological"
     ],
+    "phenotype_hpo_categories": [
+      "Genitourinary"
+    ],
     "phenotype_ids": [
       "HP:0000012",
       "HP:0000017",
@@ -4206,6 +4479,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -4254,6 +4528,12 @@ window.searchData = [
       "Angiokeratoma"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Ear",
+      "Integument",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0001249",
       "HP:0000407",
@@ -4297,6 +4577,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -4364,6 +4645,9 @@ window.searchData = [
     "phenotype_categories": [
       "Psychiatric",
       "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0100754",
@@ -4474,6 +4758,11 @@ window.searchData = [
       "Respiratory",
       "Constitutional"
     ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Metabolism",
+      "Respiratory"
+    ],
     "phenotype_ids": [
       "HP:0002094",
       "HP:0012735",
@@ -4533,6 +4822,9 @@ window.searchData = [
     "phenotype_categories": [
       "Neurologic"
     ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0003470"
     ],
@@ -4575,6 +4867,9 @@ window.searchData = [
     "phenotype_categories": [
       "Breast"
     ],
+    "phenotype_hpo_categories": [
+      "Breast"
+    ],
     "phenotype_ids": [
       "HP:0032408"
     ],
@@ -4612,6 +4907,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -4680,6 +4976,10 @@ window.searchData = [
       "Wheezing"
     ],
     "phenotype_categories": [
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Immune",
       "Respiratory"
     ],
     "phenotype_ids": [
@@ -4773,6 +5073,15 @@ window.searchData = [
       "Lymphatic",
       "Constitutional"
     ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Musculoskeletal"
+    ],
     "phenotype_ids": [
       "HP:0003270",
       "HP:0000277",
@@ -4833,6 +5142,9 @@ window.searchData = [
     ],
     "phenotype_categories": [
       "Dermatologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Integument"
     ],
     "phenotype_ids": [
       "HP:0200042"
@@ -4900,6 +5212,17 @@ window.searchData = [
       "Growth",
       "Gastrointestinal"
     ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0000567",
       "HP:0001627",
@@ -4951,6 +5274,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -5024,6 +5348,15 @@ window.searchData = [
       "Craniofacial",
       "Sensory"
     ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0001249",
       "HP:0001263",
@@ -5076,6 +5409,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -5131,6 +5465,10 @@ window.searchData = [
       "Arachnodactyly"
     ],
     "phenotype_categories": [
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Limbs",
       "Musculoskeletal"
     ],
     "phenotype_ids": [
@@ -5211,6 +5549,15 @@ window.searchData = [
       "Polyhydramnios"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System",
+      "Prenatal and Birth"
+    ],
     "phenotype_ids": [
       "HP:0001999",
       "HP:0001627",
@@ -5259,6 +5606,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -5319,6 +5667,15 @@ window.searchData = [
       "Systemic",
       "Hematologic",
       "Dermatological",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Immune",
+      "Integument",
       "Musculoskeletal"
     ],
     "phenotype_ids": [
@@ -5413,6 +5770,12 @@ window.searchData = [
       "Pelvic",
       "Urinary"
     ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Metabolism"
+    ],
     "phenotype_ids": [
       "HP:0100608",
       "HP:0002027",
@@ -5471,6 +5834,9 @@ window.searchData = [
     "phenotype_categories": [
       "Cardiovascular"
     ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular"
+    ],
     "phenotype_ids": [
       "HP:0001638",
       "HP:0001635"
@@ -5517,6 +5883,12 @@ window.searchData = [
       "Dermatologic",
       "Musculoskeletal"
     ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Immune",
+      "Integument",
+      "Metabolism"
+    ],
     "phenotype_ids": [
       "HP:0001945",
       "HP:0000988",
@@ -5554,6 +5926,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -5632,6 +6005,13 @@ window.searchData = [
       "Cardiovascular",
       "Renal"
     ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye",
+      "Genitourinary",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
     "phenotype_ids": [
       "HP:0001944",
       "HP:0031274",
@@ -5694,6 +6074,9 @@ window.searchData = [
     "phenotype_categories": [
       "Dermatologic"
     ],
+    "phenotype_hpo_categories": [
+      "Integument"
+    ],
     "phenotype_ids": [
       "HP:0012500",
       "HP:0200035"
@@ -5727,6 +6110,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -5783,6 +6167,12 @@ window.searchData = [
       "Neurological",
       "Systemic"
     ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0003690",
       "HP:0001284",
@@ -5828,6 +6218,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -5892,6 +6283,13 @@ window.searchData = [
       "Hematologic",
       "Metabolic",
       "Systemic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Genitourinary",
+      "Metabolism"
     ],
     "phenotype_ids": [
       "HP:0012622",
@@ -5991,6 +6389,15 @@ window.searchData = [
       "Infectious",
       "Constitutional"
     ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Immune",
+      "Neoplasm"
+    ],
     "phenotype_ids": [
       "HP:0005523",
       "HP:0002716",
@@ -6046,6 +6453,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -6111,6 +6519,13 @@ window.searchData = [
       "Constitutional",
       "Abdominal"
     ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Immune"
+    ],
     "phenotype_ids": [
       "HP:0001974",
       "HP:0031807",
@@ -6161,6 +6576,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -6256,6 +6672,11 @@ window.searchData = [
       "Systemic",
       "Cardiovascular"
     ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Growth",
+      "Respiratory"
+    ],
     "phenotype_ids": [
       "HP:0002094",
       "HP:0034315",
@@ -6326,6 +6747,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -6382,6 +6804,13 @@ window.searchData = [
       "Gastrointestinal",
       "Systemic",
       "Metabolic"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Endocrine",
+      "Growth",
+      "Metabolism"
     ],
     "phenotype_ids": [
       "HP:0002027",
@@ -6444,6 +6873,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -6504,6 +6934,13 @@ window.searchData = [
       "Genitourinary",
       "Constitutional",
       "Systemic"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Genitourinary",
+      "Growth",
+      "Metabolism",
+      "Neoplasm"
     ],
     "phenotype_ids": [
       "HP:0009726",
@@ -6576,6 +7013,12 @@ window.searchData = [
       "Systemic",
       "Constitutional"
     ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Growth",
+      "Musculoskeletal",
+      "Neoplasm"
+    ],
     "phenotype_ids": [
       "HP:0031459",
       "HP:0002653",
@@ -6623,6 +7066,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -6676,6 +7120,11 @@ window.searchData = [
       "Fever"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Metabolism"
+    ],
     "phenotype_ids": [
       "HP:0002014",
       "HP:0002027",
@@ -6755,6 +7204,13 @@ window.searchData = [
       "Hematologic",
       "Metabolic"
     ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Metabolism"
+    ],
     "phenotype_ids": [
       "HP:0002028",
       "HP:0001824",
@@ -6828,6 +7284,12 @@ window.searchData = [
       "Hematologic",
       "Gastrointestinal"
     ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive"
+    ],
     "phenotype_ids": [
       "HP:0001903",
       "HP:0002573",
@@ -6896,6 +7358,12 @@ window.searchData = [
       "Infectious",
       "Abdominal"
     ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Constitutional",
+      "Digestive",
+      "Immune"
+    ],
     "phenotype_ids": [
       "HP:0001903",
       "HP:0001873",
@@ -6947,6 +7415,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -7002,6 +7471,10 @@ window.searchData = [
       "Myocardial Infarction"
     ],
     "phenotype_categories": [
+      "Cardiovascular",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
       "Cardiovascular",
       "Respiratory"
     ],
@@ -7088,6 +7561,16 @@ window.searchData = [
       "Predisposition to Malignancy"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0001508",
       "HP:0000280",
@@ -7133,6 +7616,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -7228,6 +7712,16 @@ window.searchData = [
       "Dermatologic",
       "Ocular"
     ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Eye",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
     "phenotype_ids": [
       "HP:0002027",
       "HP:0002014",
@@ -7322,6 +7816,11 @@ window.searchData = [
       "Gastrointestinal",
       "Cutaneous"
     ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Integument",
+      "Neoplasm"
+    ],
     "phenotype_ids": [
       "HP:0004390",
       "HP:0001596",
@@ -7386,6 +7885,12 @@ window.searchData = [
       "Hearing Loss"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Head and Neck",
+      "Musculoskeletal"
+    ],
     "phenotype_ids": [
       "HP:0011324",
       "HP:0011800",
@@ -7447,6 +7952,12 @@ window.searchData = [
       "Hypertelorism"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Head and Neck",
+      "Integument",
+      "Musculoskeletal"
+    ],
     "phenotype_ids": [
       "HP:0001363",
       "HP:0011800",
@@ -7511,6 +8022,14 @@ window.searchData = [
       "Easy Bruising"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Growth",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
     "phenotype_ids": [
       "HP:0001956",
       "HP:0001065",
@@ -7561,6 +8080,9 @@ window.searchData = [
     "phenotype_categories": [
       "Hepatic"
     ],
+    "phenotype_hpo_categories": [
+      "Digestive"
+    ],
     "phenotype_ids": [
       "HP:0001407"
     ],
@@ -7596,6 +8118,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -7656,6 +8179,13 @@ window.searchData = [
       "Gastrointestinal",
       "Growth",
       "Reproductive"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Genitourinary",
+      "Growth",
+      "Immune",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0002205",
@@ -7742,6 +8272,12 @@ window.searchData = [
       "Retinal dystrophy"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0001639",
       "HP:0003198",
@@ -7782,6 +8318,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -7829,6 +8366,9 @@ window.searchData = [
     "phenotype_categories": [
       "Neurological"
     ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0002367",
       "HP:0001300",
@@ -7871,6 +8411,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -7909,6 +8450,11 @@ window.searchData = [
     "phenotype_categories": [
       "Systemic",
       "Dermatologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Immune",
+      "Integument",
+      "Metabolism"
     ],
     "phenotype_ids": [
       "HP:0001945",
@@ -7965,6 +8511,10 @@ window.searchData = [
       "Dermatologic",
       "Systemic"
     ],
+    "phenotype_hpo_categories": [
+      "Integument",
+      "Neoplasm"
+    ],
     "phenotype_ids": [
       "HP:0200036",
       "HP:0031459",
@@ -8009,6 +8559,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -8069,6 +8620,15 @@ window.searchData = [
       "Dermatological",
       "Respiratory",
       "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Immune",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0003690",
@@ -8143,6 +8703,12 @@ window.searchData = [
       "Constitutional",
       "Systemic"
     ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Growth",
+      "Metabolism",
+      "Neoplasm"
+    ],
     "phenotype_ids": [
       "HP:0031500",
       "HP:0001541",
@@ -8200,6 +8766,11 @@ window.searchData = [
     "phenotype_categories": [
       "Gastrointestinal",
       "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive"
     ],
     "phenotype_ids": [
       "HP:0002239",
@@ -8281,6 +8852,14 @@ window.searchData = [
       "Abdominal",
       "Hematologic"
     ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Immune"
+    ],
     "phenotype_ids": [
       "HP:0002716",
       "HP:0030166",
@@ -8341,6 +8920,10 @@ window.searchData = [
       "Back pain"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Musculoskeletal"
+    ],
     "phenotype_ids": [
       "HP:0003418"
     ],
@@ -8371,6 +8954,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -8434,6 +9018,16 @@ window.searchData = [
       "Hematologic",
       "Respiratory",
       "Immunologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Endocrine",
+      "Head and Neck",
+      "Immune",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0000582",
@@ -8501,6 +9095,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -8529,6 +9124,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -8590,6 +9186,11 @@ window.searchData = [
       "Behavioral",
       "Respiratory",
       "Mortality"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0001250",
@@ -8685,6 +9286,13 @@ window.searchData = [
       "Cardiovascular",
       "Respiratory"
     ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
     "phenotype_ids": [
       "HP:0003323",
       "HP:0003391",
@@ -8764,6 +9372,14 @@ window.searchData = [
       "Abdominal",
       "Lymphatic"
     ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Immune"
+    ],
     "phenotype_ids": [
       "HP:0002027",
       "HP:0001824",
@@ -8813,6 +9429,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -8872,6 +9489,11 @@ window.searchData = [
       "Clinical",
       "Demographic"
     ],
+    "phenotype_hpo_categories": [
+      "Neoplasm",
+      "Nervous System",
+      "Respiratory"
+    ],
     "phenotype_ids": [
       "HP:0030078",
       "HP:0100526",
@@ -8917,6 +9539,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -8971,6 +9594,10 @@ window.searchData = [
       "Molecular",
       "Clinical"
     ],
+    "phenotype_hpo_categories": [
+      "Breast",
+      "Neoplasm"
+    ],
     "phenotype_ids": [
       "HP:0003002",
       "HP:0002664"
@@ -9019,6 +9646,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -9100,6 +9728,15 @@ window.searchData = [
       "Hepatic",
       "Metabolic"
     ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Immune",
+      "Metabolism",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0001945",
       "HP:0001892",
@@ -9164,6 +9801,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -9243,6 +9881,14 @@ window.searchData = [
       "Ophthalmologic",
       "Gastrointestinal"
     ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Eye",
+      "Integument",
+      "Musculoskeletal"
+    ],
     "phenotype_ids": [
       "HP:0001382",
       "HP:0001058",
@@ -9304,6 +9950,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -9370,6 +10017,14 @@ window.searchData = [
       "Cardiovascular",
       "Gastrointestinal",
       "Ocular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Eye",
+      "Integument",
+      "Musculoskeletal"
     ],
     "phenotype_ids": [
       "HP:0001382",
@@ -9452,6 +10107,13 @@ window.searchData = [
       "Genitourinary",
       "Constitutional"
     ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Metabolism",
+      "Neoplasm"
+    ],
     "phenotype_ids": [
       "HP:0031459",
       "HP:0000520",
@@ -9499,6 +10161,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -9558,6 +10221,12 @@ window.searchData = [
       "Reproductive",
       "Gastrointestinal",
       "Systemic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Constitutional",
+      "Digestive",
+      "Genitourinary"
     ],
     "phenotype_ids": [
       "HP:0030016",
@@ -9620,6 +10289,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -9694,6 +10364,9 @@ window.searchData = [
       "Cognitive",
       "Psychiatric"
     ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0001250",
       "HP:0001289",
@@ -9752,6 +10425,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -9816,6 +10490,11 @@ window.searchData = [
       "Cardiovascular",
       "Neurological",
       "Renal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Genitourinary",
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0000822",
@@ -9898,6 +10577,15 @@ window.searchData = [
       "Abdominal",
       "Constitutional"
     ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Immune",
+      "Limbs",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0001894",
       "HP:0001977",
@@ -9949,6 +10637,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -10003,6 +10692,13 @@ window.searchData = [
       "Musculoskeletal",
       "Constitutional",
       "Systemic"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Growth",
+      "Metabolism",
+      "Musculoskeletal",
+      "Neoplasm"
     ],
     "phenotype_ids": [
       "HP:0002653",
@@ -10078,6 +10774,12 @@ window.searchData = [
       "Hepatic",
       "Gastrointestinal",
       "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Integument"
     ],
     "phenotype_ids": [
       "HP:0002240",
@@ -10156,6 +10858,11 @@ window.searchData = [
       "Genitourinary",
       "Systemic"
     ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Genitourinary",
+      "Metabolism"
+    ],
     "phenotype_ids": [
       "HP:0000790",
       "HP:0100518",
@@ -10219,6 +10926,10 @@ window.searchData = [
       "Psychiatric",
       "Systemic",
       "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0000739",
@@ -10299,6 +11010,11 @@ window.searchData = [
       "Constitutional",
       "Infectious",
       "Bleeding"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Constitutional",
+      "Immune"
     ],
     "phenotype_ids": [
       "HP:0001974",
@@ -10390,6 +11106,14 @@ window.searchData = [
       "Renal",
       "Cardiac"
     ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Genitourinary",
+      "Integument",
+      "Metabolism",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0012531",
       "HP:0001014",
@@ -10439,6 +11163,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -10498,6 +11223,12 @@ window.searchData = [
       "Musculoskeletal",
       "Ophthalmologic"
     ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Musculoskeletal",
+      "Neoplasm"
+    ],
     "phenotype_ids": [
       "HP:0030255",
       "HP:0003003",
@@ -10546,6 +11277,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -10613,6 +11345,15 @@ window.searchData = [
       "Renal",
       "Integumentary"
     ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
     "phenotype_ids": [
       "HP:0001954",
       "HP:0001369",
@@ -10666,6 +11407,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -10689,8 +11431,33 @@ window.searchData = [
       "Bone Marrow Failure",
       "Congenital Disorder"
     ],
-    "subtypes": [],
-    "description": "Fanconi anemia is a rare inherited bone marrow failure syndrome characterized by genomic instability, congenital abnormalities, progressive bone marrow failure, and increased susceptibility to malignancies. It results from biallelic mutations in genes encoding components of the Fanconi anemia DNA repair pathway.",
+    "subtypes": [
+      "Core Complex Subtypes",
+      "ID Complex Subtypes",
+      "Downstream Effector Subtypes",
+      "FA-A",
+      "FA-B",
+      "FA-C",
+      "FA-D1",
+      "FA-D2",
+      "FA-E",
+      "FA-F",
+      "FA-G",
+      "FA-I",
+      "FA-J",
+      "FA-L",
+      "FA-N",
+      "FA-O",
+      "FA-P",
+      "FA-Q",
+      "FA-R",
+      "FA-S",
+      "FA-T",
+      "FA-U",
+      "FA-V",
+      "FA-W"
+    ],
+    "description": "Fanconi anemia is a rare inherited bone marrow failure syndrome characterized by genomic instability, congenital abnormalities, progressive bone marrow failure, and increased susceptibility to malignancies. Most cases result from biallelic pathogenic variants in genes encoding components of the Fanconi anemia/BRCA DNA interstrand crosslink repair pathway, with recognized exceptions including X-linked FANCB and autosomal dominant RAD51-associated disease (FA-R). Between 21 and 22 complementation groups are cited depending on nomenclature and curation conventions, with FANCA accounting for 60-70% of cases. The phenotypic spectrum is highly variable even within the same complementation group, reflecting genetic modifiers and environmental factors.",
     "pathophysiology": [
       "DNA Repair Deficiency",
       "Bone Marrow Failure",
@@ -10698,32 +11465,133 @@ window.searchData = [
       "Hematopoietic Stem Cell Attrition",
       "Translesion Synthesis Defect",
       "Homologous Recombination Impairment",
-      "Aldehyde-Induced Genotoxicity"
+      "Aldehyde-Induced Genotoxicity",
+      "Core Complex Dysfunction",
+      "ID Complex Dysfunction",
+      "Downstream Effector Dysfunction",
+      "Inflammatory Bone Marrow Microenvironment",
+      "Developmental Progenitor Apoptosis",
+      "Clonal Evolution",
+      "Epithelial Cancer Susceptibility",
+      "HPV-Mediated Epithelial Damage",
+      "Endocrine Gland Dysfunction",
+      "Congenital Structural Anomalies",
+      "CNS Developmental Anomalies",
+      "Skin Pigmentation Changes"
     ],
     "cell_types": [
-      "hematopoietic stem cell"
+      "hematopoietic stem cell",
+      "epithelial cell"
     ],
     "cell_type_ids": [
-      "CL:0000037"
+      "CL:0000037",
+      "CL:0000066"
     ],
     "biological_processes": [
       "response to aldehyde",
       "cellular response to oxidative stress",
       "translesion synthesis",
-      "homologous recombination"
+      "homologous recombination",
+      "protein ubiquitination",
+      "protein monoubiquitination",
+      "interstrand cross-link repair",
+      "inflammatory response",
+      "apoptotic process",
+      "embryo development"
     ],
     "phenotypes": [
       "Pancytopenia",
       "Increased Risk of Leukemia",
       "Aplastic Anemia",
+      "Thrombocytopenia",
+      "Leukopenia",
       "Short Stature",
       "Skeletal Anomalies",
       "Caf\u00e9-au-Lait Spots",
       "Squamous Cell Carcinoma",
       "Structural Anomalies",
+      "Esophageal Atresia",
+      "Duodenal Atresia",
+      "Jejunal Atresia",
+      "Anal Atresia",
+      "Intestinal Malrotation",
+      "Annular Pancreas",
+      "Tracheoesophageal Fistula",
       "Genitourinary Malformations",
       "Microcephaly",
-      "Radial Ray Defects"
+      "Anterior Pituitary Hypoplasia",
+      "Interrupted Pituitary Stalk",
+      "Micrognathia",
+      "Cleft Palate",
+      "Triangular Face",
+      "Midface Retrusion",
+      "Pointed Chin",
+      "Facial Palsy",
+      "Hypertelorism",
+      "Hypotelorism",
+      "Agenesis of Corpus Callosum",
+      "Cerebellar Hypoplasia",
+      "Radial Ray Defects",
+      "Absent or Hypoplastic Thumbs",
+      "Small Thenar Eminence",
+      "First Metacarpal Aplasia or Hypoplasia",
+      "Clinodactyly",
+      "Ulnar Aplasia or Hypoplasia",
+      "Hip Dysplasia",
+      "Hemivertebrae",
+      "Scoliosis",
+      "Kyphosis",
+      "Fused Cervical Vertebrae",
+      "Absent or Hypoplastic Coccyx",
+      "Toe Syndactyly",
+      "Clubfoot",
+      "Abnormal Toe Morphology",
+      "Microphthalmia",
+      "Strabismus",
+      "Epicanthus",
+      "Almond-Shaped Palpebral Fissures",
+      "Cataract",
+      "Ptosis",
+      "Congenital Heart Defects",
+      "Patent Ductus Arteriosus",
+      "Atrial Septal Defect",
+      "Ventricular Septal Defect",
+      "Coarctation of Aorta",
+      "Truncus Arteriosus",
+      "Situs Inversus",
+      "Hearing Loss",
+      "Abnormal Pinna Morphology",
+      "External Auditory Canal Atresia",
+      "External Auditory Canal Stenosis",
+      "Middle Ear Ossicle Abnormalities",
+      "Hypothyroidism",
+      "Growth Hormone Deficiency",
+      "Abnormal Glucose Homeostasis",
+      "Delayed Puberty and Hypogonadism",
+      "Impaired Fertility",
+      "Cryptorchidism",
+      "Testicular Aplasia or Hypoplasia",
+      "Hypospadias",
+      "Micropenis",
+      "Bicornuate Uterus",
+      "Uterine Aplasia or Hypoplasia",
+      "Gonadal Dysgenesis",
+      "Ovarian Hypoplasia",
+      "Rectovaginal Fistula",
+      "Vaginal Atresia",
+      "Delayed Menarche",
+      "Premature Ovarian Insufficiency",
+      "Renal Anomalies",
+      "Intrauterine Growth Retardation",
+      "Developmental Delay",
+      "Hydrocephalus",
+      "Ventriculomegaly",
+      "Hypopigmentation",
+      "Hyperpigmentation",
+      "Osteopenia and Osteoporosis",
+      "Dental and Craniofacial Anomalies",
+      "Myelodysplastic Syndrome",
+      "Early-Onset Solid Tumors in FANCD1/BRCA2"
     ],
     "phenotype_categories": [
       "Hematologic",
@@ -10733,19 +11601,123 @@ window.searchData = [
       "Oncologic",
       "Gastrointestinal",
       "Reproductive",
-      "Neurologic"
+      "Neurologic",
+      "Ophthalmologic",
+      "Cardiac",
+      "Audiologic",
+      "Endocrine",
+      "Renal",
+      "Dental"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Endocrine",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0001876",
-      "HP:0004808",
+      "HP:0001909",
       "HP:0001903",
+      "HP:0001873",
+      "HP:0001882",
       "HP:0004322",
       "HP:0005775",
       "HP:0000957",
       "HP:0002860",
+      "HP:0002032",
+      "HP:0002247",
+      "HP:0005235",
+      "HP:0002023",
+      "HP:0002566",
+      "HP:0001734",
+      "HP:0002575",
       "HP:0000119",
       "HP:0000252",
-      "HP:0002984"
+      "HP:0010627",
+      "HP:0034978",
+      "HP:0000347",
+      "HP:0000175",
+      "HP:0000325",
+      "HP:0011800",
+      "HP:0000307",
+      "HP:0010628",
+      "HP:0000316",
+      "HP:0000601",
+      "HP:0001274",
+      "HP:0001321",
+      "HP:0002984",
+      "HP:0009777",
+      "HP:0001245",
+      "HP:0010026",
+      "HP:0030084",
+      "HP:0006495",
+      "HP:0001385",
+      "HP:0002937",
+      "HP:0002650",
+      "HP:0002808",
+      "HP:0002949",
+      "HP:0008436",
+      "HP:0001770",
+      "HP:0001762",
+      "HP:0001780",
+      "HP:0000568",
+      "HP:0000486",
+      "HP:0000286",
+      "HP:0007874",
+      "HP:0000518",
+      "HP:0000508",
+      "HP:0001627",
+      "HP:0001643",
+      "HP:0001631",
+      "HP:0001629",
+      "HP:0001680",
+      "HP:0001660",
+      "HP:0001696",
+      "HP:0000365",
+      "HP:0000377",
+      "HP:0000413",
+      "HP:0000402",
+      "HP:0004452",
+      "HP:0000821",
+      "HP:0008240",
+      "HP:0011014",
+      "HP:0000823",
+      "HP:0000789",
+      "HP:0000028",
+      "HP:0010468",
+      "HP:0000047",
+      "HP:0000054",
+      "HP:0000813",
+      "HP:0008684",
+      "HP:0000133",
+      "HP:0010462",
+      "HP:0000143",
+      "HP:0000148",
+      "HP:0012569",
+      "HP:0008209",
+      "HP:0001511",
+      "HP:0001249",
+      "HP:0000238",
+      "HP:0002119",
+      "HP:0000951",
+      "HP:0000953",
+      "HP:0000938",
+      "HP:0000164",
+      "HP:0002863"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -10768,9 +11740,13 @@ window.searchData = [
       "BRCA2",
       "PALB2",
       "BRCA1",
+      "BRIP1",
+      "ERCC4",
       "RAD51C",
+      "RAD51",
       "XRCC2",
-      "REV7",
+      "MAD2L2",
+      "RFWD3",
       "ALDH2",
       "ADH5",
       "KMT2D"
@@ -10792,12 +11768,12 @@ window.searchData = [
     ],
     "source_file": "Fanconi_Anemia.yaml",
     "page_url": "../pages/disorders/Fanconi_Anemia.html",
-    "num_phenotypes": 11,
-    "num_pathophysiology": 7,
-    "num_genes": 21,
+    "num_phenotypes": 92,
+    "num_pathophysiology": 19,
+    "num_genes": 25,
     "num_treatments": 6,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "48",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Unknown",
@@ -10812,6 +11788,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -10876,6 +11853,11 @@ window.searchData = [
       "Musculoskeletal",
       "Respiratory"
     ],
+    "phenotype_hpo_categories": [
+      "Limbs",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
     "phenotype_ids": [
       "HP:0001844",
       "HP:0011987",
@@ -10925,6 +11907,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -10989,6 +11972,11 @@ window.searchData = [
       "Systemic",
       "Neurological",
       "Psychiatric"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Musculoskeletal",
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0012532",
@@ -11065,6 +12053,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -11123,6 +12112,13 @@ window.searchData = [
       "Craniofacial",
       "Musculoskeletal"
     ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Genitourinary",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0001249",
       "HP:0000729",
@@ -11172,6 +12168,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -11218,6 +12215,9 @@ window.searchData = [
     ],
     "phenotype_categories": [
       "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0002381",
@@ -11281,6 +12281,7 @@ window.searchData = [
       "Tremor"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [
       "FREQUENT",
@@ -11353,6 +12354,14 @@ window.searchData = [
       "Gastrointestinal",
       "Constitutional"
     ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0002027",
       "HP:0033842",
@@ -11413,6 +12422,9 @@ window.searchData = [
       "Gastric ulcer"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Digestive"
+    ],
     "phenotype_ids": [
       "HP:0002592"
     ],
@@ -11443,6 +12455,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -11496,6 +12509,13 @@ window.searchData = [
       "Gastrointestinal",
       "Respiratory",
       "ENT"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Nervous System",
+      "Respiratory",
+      "Voice"
     ],
     "phenotype_ids": [
       "HP:0410281",
@@ -11553,6 +12573,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -11610,6 +12631,13 @@ window.searchData = [
     "phenotype_categories": [
       "Gastrointestinal",
       "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Growth"
     ],
     "phenotype_ids": [
       "HP:0002027",
@@ -11689,6 +12717,15 @@ window.searchData = [
       "Hematologic",
       "Musculoskeletal"
     ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Immune",
+      "Limbs",
+      "Musculoskeletal"
+    ],
     "phenotype_ids": [
       "HP:0002240",
       "HP:0001744",
@@ -11739,6 +12776,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -11809,6 +12847,11 @@ window.searchData = [
       "Neurological",
       "Musculoskeletal"
     ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0000739",
       "HP:0000711",
@@ -11870,6 +12913,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -11929,6 +12973,11 @@ window.searchData = [
       "Musculoskeletal",
       "Systemic"
     ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Eye",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0002315",
       "HP:0000505",
@@ -11977,6 +13026,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -12033,6 +13083,10 @@ window.searchData = [
     ],
     "phenotype_categories": [
       "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Eye"
     ],
     "phenotype_ids": [
       "HP:0001123",
@@ -12128,6 +13182,9 @@ window.searchData = [
     "phenotype_categories": [
       "Neurological"
     ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0002315",
       "HP:0001250",
@@ -12180,6 +13237,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -12240,6 +13298,15 @@ window.searchData = [
       "Genitourinary",
       "Systemic",
       "Dermatologic",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Integument",
+      "Metabolism",
       "Respiratory"
     ],
     "phenotype_ids": [
@@ -12331,6 +13398,17 @@ window.searchData = [
       "Cardiac",
       "Genitourinary"
     ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Genitourinary",
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0002671",
       "HP:0010610",
@@ -12389,6 +13467,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -12443,6 +13522,12 @@ window.searchData = [
     "phenotype_categories": [
       "Musculoskeletal",
       "Renal"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Genitourinary",
+      "Metabolism",
+      "Musculoskeletal"
     ],
     "phenotype_ids": [
       "HP:0001369",
@@ -12524,6 +13609,14 @@ window.searchData = [
       "Limb",
       "Cardiovascular"
     ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0001249",
       "HP:0000347",
@@ -12571,6 +13664,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -12625,6 +13719,13 @@ window.searchData = [
       "Respiratory",
       "Renal"
     ],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Head and Neck",
+      "Immune",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
     "phenotype_ids": [
       "HP:0000246",
       "HP:0002113",
@@ -12675,6 +13776,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -12762,6 +13864,15 @@ window.searchData = [
       "Dermatologic",
       "Systemic"
     ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Endocrine",
+      "Eye",
+      "Growth",
+      "Integument",
+      "Metabolism",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0000836",
       "HP:0000853",
@@ -12830,6 +13941,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -12881,6 +13993,12 @@ window.searchData = [
     ],
     "phenotype_categories": [
       "Neurological",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System",
       "Respiratory"
     ],
     "phenotype_ids": [
@@ -12960,6 +14078,10 @@ window.searchData = [
     "phenotype_categories": [
       "Neurological"
     ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0006824",
       "HP:0001251",
@@ -13009,6 +14131,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -13061,6 +14184,10 @@ window.searchData = [
       "Neoplastic",
       "Histopathologic",
       "Molecular"
+    ],
+    "phenotype_hpo_categories": [
+      "Breast",
+      "Neoplasm"
     ],
     "phenotype_ids": [
       "HP:0003002",
@@ -13132,6 +14259,14 @@ window.searchData = [
       "Gastrointestinal",
       "Hematologic",
       "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Neoplasm"
     ],
     "phenotype_ids": [
       "HP:0003003",
@@ -13213,6 +14348,14 @@ window.searchData = [
       "Constitutional",
       "Hematologic"
     ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0002027",
       "HP:0002015",
@@ -13265,6 +14408,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -13338,6 +14482,15 @@ window.searchData = [
       "Skeletal",
       "Metabolic",
       "Craniofacial"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0001290",
@@ -13424,6 +14577,17 @@ window.searchData = [
       "Head and Neck",
       "Constitutional",
       "Ear"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Ear",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Nervous System",
+      "Voice"
     ],
     "phenotype_ids": [
       "HP:0000155",
@@ -13513,6 +14677,15 @@ window.searchData = [
       "Head and Neck",
       "Constitutional"
     ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Growth",
+      "Immune",
+      "Nervous System",
+      "Respiratory",
+      "Voice"
+    ],
     "phenotype_ids": [
       "HP:0002716",
       "HP:0002015",
@@ -13564,6 +14737,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -13624,6 +14798,14 @@ window.searchData = [
       "Endocrine",
       "Psychiatric"
     ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Endocrine",
+      "Growth",
+      "Integument",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0012378",
       "HP:0004324",
@@ -13681,6 +14863,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -13740,6 +14923,12 @@ window.searchData = [
       "Respiratory",
       "Cardiovascular",
       "Systemic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Metabolism",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0002094",
@@ -13829,6 +15018,16 @@ window.searchData = [
       "Fatigue"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Endocrine",
+      "Genitourinary",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
     "phenotype_ids": [
       "HP:0002240",
       "HP:0007574",
@@ -13872,6 +15071,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -13923,6 +15123,12 @@ window.searchData = [
       "Hematologic",
       "Dermatological",
       "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Integument",
+      "Musculoskeletal"
     ],
     "phenotype_ids": [
       "HP:0005261",
@@ -13982,6 +15188,9 @@ window.searchData = [
     "phenotype_categories": [
       "Hematologic"
     ],
+    "phenotype_hpo_categories": [
+      "Blood"
+    ],
     "phenotype_ids": [
       "HP:0001892"
     ],
@@ -14017,6 +15226,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -14087,6 +15297,13 @@ window.searchData = [
       "Systemic",
       "Hepatic",
       "Dermatologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Immune",
+      "Integument",
+      "Metabolism"
     ],
     "phenotype_ids": [
       "HP:0000952",
@@ -14182,6 +15399,13 @@ window.searchData = [
       "Laboratory",
       "Neoplastic"
     ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Integument",
+      "Metabolism",
+      "Neoplasm"
+    ],
     "phenotype_ids": [
       "HP:0012378",
       "HP:0000952",
@@ -14275,6 +15499,12 @@ window.searchData = [
       "Gastrointestinal",
       "Constitutional"
     ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Integument"
+    ],
     "phenotype_ids": [
       "HP:0002240",
       "HP:0001541",
@@ -14334,6 +15564,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -14384,6 +15615,12 @@ window.searchData = [
     ],
     "phenotype_categories": [
       "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Breast",
+      "Digestive",
+      "Genitourinary",
+      "Neoplasm"
     ],
     "phenotype_ids": [
       "HP:0003002",
@@ -14451,6 +15688,13 @@ window.searchData = [
       "Dermatologic",
       "Gynecologic"
     ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Genitourinary",
+      "Head and Neck",
+      "Integument"
+    ],
     "phenotype_ids": [
       "HP:0000421",
       "HP:0000978",
@@ -14488,6 +15732,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -14548,6 +15793,12 @@ window.searchData = [
       "Gastrointestinal",
       "Systemic",
       "Developmental"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Growth",
+      "Immune",
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0012450",
@@ -14629,6 +15880,11 @@ window.searchData = [
       "Skeletal",
       "Cardiac"
     ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Limbs",
+      "Musculoskeletal"
+    ],
     "phenotype_ids": [
       "HP:0002817",
       "HP:0002986",
@@ -14684,6 +15940,9 @@ window.searchData = [
     "phenotype_categories": [
       "Neurologic"
     ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0006979"
     ],
@@ -14718,6 +15977,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -14787,6 +16047,11 @@ window.searchData = [
       "Dysphagia"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Growth",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0002072",
       "HP:0001332",
@@ -14849,6 +16114,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -14936,6 +16202,14 @@ window.searchData = [
       "Neurologic",
       "Renal"
     ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Genitourinary",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
     "phenotype_ids": [
       "HP:0002094",
       "HP:0100749",
@@ -14994,6 +16268,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -15067,6 +16342,12 @@ window.searchData = [
     "phenotype_categories": [
       "Cardiovascular",
       "Systemic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0100749",
@@ -15152,6 +16433,14 @@ window.searchData = [
       "Pulmonary Hypoplasia"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Prenatal and Birth",
+      "Respiratory"
+    ],
     "phenotype_ids": [
       "HP:0002983",
       "HP:0000926",
@@ -15191,6 +16480,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -15236,6 +16526,12 @@ window.searchData = [
       "Genu varum"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal"
+    ],
     "phenotype_ids": [
       "HP:0003502",
       "HP:0004991",
@@ -15309,6 +16605,11 @@ window.searchData = [
       "Hematologic",
       "Constitutional",
       "Infectious"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Constitutional",
+      "Immune"
     ],
     "phenotype_ids": [
       "HP:0001903",
@@ -15385,6 +16686,9 @@ window.searchData = [
     "phenotype_categories": [
       "Neurological"
     ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0001250",
       "HP:0002315",
@@ -15460,6 +16764,12 @@ window.searchData = [
       "Hepatic",
       "Gastrointestinal",
       "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Integument"
     ],
     "phenotype_ids": [
       "HP:0002240",
@@ -15540,6 +16850,9 @@ window.searchData = [
     "phenotype_categories": [
       "Neurological"
     ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0001250",
       "HP:0002315",
@@ -15589,6 +16902,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -15643,6 +16957,11 @@ window.searchData = [
       "Renal",
       "Cardiovascular"
     ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Genitourinary",
+      "Metabolism"
+    ],
     "phenotype_ids": [
       "HP:0000790",
       "HP:0000093",
@@ -15696,6 +17015,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -15756,6 +17076,12 @@ window.searchData = [
       "Dermatological",
       "ENT"
     ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Head and Neck",
+      "Integument"
+    ],
     "phenotype_ids": [
       "HP:0001873",
       "HP:0000967",
@@ -15808,6 +17134,7 @@ window.searchData = [
     ],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -15839,6 +17166,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -15891,6 +17219,10 @@ window.searchData = [
     "phenotype_categories": [
       "Gastrointestinal",
       "Systemic"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive"
     ],
     "phenotype_ids": [
       "HP:0002027",
@@ -15967,6 +17299,11 @@ window.searchData = [
       "Absence of Hand Abnormalities"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal"
+    ],
     "phenotype_ids": [
       "HP:0001363",
       "HP:0011800",
@@ -16009,6 +17346,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -16065,6 +17403,10 @@ window.searchData = [
       "Neurologic",
       "Cognitive",
       "Developmental"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0011149",
@@ -16147,6 +17489,10 @@ window.searchData = [
     "phenotype_categories": [
       "Dermatologic"
     ],
+    "phenotype_hpo_categories": [
+      "Integument",
+      "Neoplasm"
+    ],
     "phenotype_ids": [
       "HP:0012060",
       "HP:0012056"
@@ -16217,6 +17563,11 @@ window.searchData = [
     "phenotype_categories": [
       "Neoplastic",
       "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Neoplasm",
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0030078",
@@ -16303,6 +17654,15 @@ window.searchData = [
       "Gastrointestinal",
       "Pulmonary"
     ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Respiratory"
+    ],
     "phenotype_ids": [
       "HP:0000953",
       "HP:0001004",
@@ -16351,6 +17711,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -16437,6 +17798,15 @@ window.searchData = [
       "Cardiovascular",
       "Hematologic",
       "Lymphatic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Eye",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism"
     ],
     "phenotype_ids": [
       "HP:0001945",
@@ -16540,6 +17910,11 @@ window.searchData = [
       "Alopecia"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Integument",
+      "Limbs"
+    ],
     "phenotype_ids": [
       "HP:0000982",
       "HP:0007465",
@@ -16590,6 +17965,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -16669,6 +18045,16 @@ window.searchData = [
       "Metabolic",
       "Skeletal",
       "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Breast",
+      "Cardiovascular",
+      "Endocrine",
+      "Genitourinary",
+      "Growth",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0000135",
@@ -16754,6 +18140,14 @@ window.searchData = [
       "Dumbbell-Shaped Long Bones"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal"
+    ],
     "phenotype_ids": [
       "HP:0003521",
       "HP:0003037",
@@ -16839,6 +18233,11 @@ window.searchData = [
       "Malabsorption"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Respiratory"
+    ],
     "phenotype_ids": [
       "HP:0025420",
       "HP:0002105",
@@ -16922,6 +18321,13 @@ window.searchData = [
       "Respiratory",
       "Head and Neck"
     ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Immune",
+      "Nervous System",
+      "Respiratory",
+      "Voice"
+    ],
     "phenotype_ids": [
       "HP:0002013",
       "HP:0002090",
@@ -16998,6 +18404,9 @@ window.searchData = [
     "phenotype_categories": [
       "Dermatologic"
     ],
+    "phenotype_hpo_categories": [
+      "Integument"
+    ],
     "phenotype_ids": [
       "HP:0200042"
     ],
@@ -17044,6 +18453,10 @@ window.searchData = [
       "Neurologic",
       "Dermatologic"
     ],
+    "phenotype_hpo_categories": [
+      "Integument",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0009830",
       "HP:0011355"
@@ -17079,6 +18492,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -17137,6 +18551,15 @@ window.searchData = [
     "phenotype_categories": [
       "Neoplastic"
     ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Breast",
+      "Endocrine",
+      "Immune",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0030448",
       "HP:0002669",
@@ -17192,6 +18615,9 @@ window.searchData = [
       "Lichenification"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Integument"
+    ],
     "phenotype_ids": [
       "HP:0100725"
     ],
@@ -17222,6 +18648,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -17287,6 +18714,15 @@ window.searchData = [
       "Hematologic",
       "Neurological",
       "Systemic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Immune",
+      "Integument",
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0001541",
@@ -17423,6 +18859,14 @@ window.searchData = [
       "Nausea"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Head and Neck",
+      "Nervous System",
+      "Respiratory"
+    ],
     "phenotype_ids": [
       "HP:0012378",
       "HP:0002354",
@@ -17510,6 +18954,13 @@ window.searchData = [
       "Oropharyngeal",
       "Neurological"
     ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
     "phenotype_ids": [
       "HP:0010307",
       "HP:0002094",
@@ -17577,6 +19028,11 @@ window.searchData = [
     "phenotype_categories": [
       "Respiratory",
       "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Growth",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0012735",
@@ -17660,6 +19116,15 @@ window.searchData = [
       "Neurological",
       "Cardiac"
     ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0031180",
       "HP:0012378",
@@ -17733,6 +19198,10 @@ window.searchData = [
       "Lymphatic",
       "Genitourinary"
     ],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Metabolism"
+    ],
     "phenotype_ids": [
       "HP:0001004",
       "HP:0000034"
@@ -17789,6 +19258,13 @@ window.searchData = [
       "Lymphatic",
       "Constitutional"
     ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Growth",
+      "Immune",
+      "Metabolism"
+    ],
     "phenotype_ids": [
       "HP:0002716",
       "HP:0001945",
@@ -17827,6 +19303,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -17859,7 +19336,8 @@ window.searchData = [
       "DNA Mismatch Repair Deficiency",
       "Microsatellite Instability",
       "Accelerated Tumor Development",
-      "Neoantigen Generation and Immune Activation"
+      "Neoantigen Generation and Immune Activation",
+      "Immune Checkpoint Blockade Sensitivity"
     ],
     "cell_types": [
       "colonic epithelial cell",
@@ -17867,41 +19345,44 @@ window.searchData = [
       "CD8-positive, alpha-beta T cell"
     ],
     "cell_type_ids": [
-      "CL:0000066",
-      "CL:0002076",
+      "CL:0011108",
+      "CL:0002656",
       "CL:0000625"
     ],
     "biological_processes": [
-      "DNA Repair",
-      "response to DNA damage stimulus",
-      "immune response",
-      "type I interferon signaling pathway"
+      "mismatch repair",
+      "DNA-templated DNA replication maintenance of fidelity",
+      "DNA damage response",
+      "cell population proliferation",
+      "antigen processing and presentation of peptide antigen via MHC class I",
+      "type I interferon-mediated signaling pathway",
+      "T cell mediated cytotoxicity directed against tumor cell target"
     ],
     "phenotypes": [
       "Colorectal Cancer",
       "Endometrial Cancer",
       "Stomach Cancer",
       "Urinary Tract Cancer",
-      "Sebaceous Adenomas",
-      "Urinary Tract Cancer",
       "Ovarian Cancer",
-      "Sebaceous Adenomas",
-      "Immunodeficiency",
-      "Bowel Obstruction",
-      "Metastatic Disease"
+      "Sebaceous Adenomas"
     ],
     "phenotype_categories": [
       "Gastrointestinal",
       "Gynecologic",
       "Genitourinary",
-      "Dermatologic",
-      "Systemic"
+      "Dermatologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Neoplasm"
     ],
     "phenotype_ids": [
+      "MONDO:0005575",
+      "MONDO:0011962",
       "HP:0012126",
-      "HP:0002721",
-      "HP:0005214",
-      "HP:0002664"
+      "MONDO:0020654",
+      "MONDO:0005140",
+      "MONDO:0002375"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -17930,12 +19411,12 @@ window.searchData = [
     ],
     "source_file": "Lynch_Syndrome.yaml",
     "page_url": "../pages/disorders/Lynch_Syndrome.html",
-    "num_phenotypes": 11,
-    "num_pathophysiology": 4,
+    "num_phenotypes": 6,
+    "num_pathophysiology": 5,
     "num_genes": 5,
     "num_treatments": 4,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Medium Chain Acyl-CoA Dehydrogenase Deficiency",
@@ -17971,6 +19452,11 @@ window.searchData = [
       "Reye-like syndrome"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Metabolism",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0001985",
       "HP:0002240",
@@ -18042,6 +19528,11 @@ window.searchData = [
     "phenotype_categories": [
       "Neoplastic",
       "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Neoplasm",
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0030078",
@@ -18119,6 +19610,14 @@ window.searchData = [
       "Gastrointestinal",
       "Hematologic",
       "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Neoplasm"
     ],
     "phenotype_ids": [
       "HP:0003003",
@@ -18198,6 +19697,11 @@ window.searchData = [
       "Constitutional",
       "Abdominal"
     ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Constitutional",
+      "Genitourinary"
+    ],
     "phenotype_ids": [
       "HP:0000132",
       "HP:0012378",
@@ -18247,6 +19751,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -18322,6 +19827,11 @@ window.searchData = [
       "Systemic",
       "Cognitive",
       "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0000716",
@@ -18417,6 +19927,12 @@ window.searchData = [
       "Thoracic",
       "Constitutional"
     ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Growth",
+      "Metabolism",
+      "Respiratory"
+    ],
     "phenotype_ids": [
       "HP:0002094",
       "HP:0002202",
@@ -18480,6 +19996,9 @@ window.searchData = [
       "Hyperglycemia with ketosis resistance"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Metabolism"
+    ],
     "phenotype_ids": [
       "HP:0003074"
     ],
@@ -18544,6 +20063,15 @@ window.searchData = [
       "Gastrointestinal",
       "Constitutional",
       "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Immune",
+      "Neoplasm"
     ],
     "phenotype_ids": [
       "HP:0008940",
@@ -18639,6 +20167,13 @@ window.searchData = [
       "Neurological",
       "Biochemical"
     ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Genitourinary",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0012088",
       "HP:0008872",
@@ -18709,6 +20244,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -18780,6 +20316,14 @@ window.searchData = [
       "Cardiovascular",
       "Musculoskeletal",
       "Ocular",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye",
+      "Growth",
+      "Limbs",
+      "Musculoskeletal",
       "Respiratory"
     ],
     "phenotype_ids": [
@@ -18857,6 +20401,11 @@ window.searchData = [
     ],
     "phenotype_categories": [
       "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive"
     ],
     "phenotype_ids": [
       "HP:0002239",
@@ -18941,6 +20490,15 @@ window.searchData = [
       "Hepatic",
       "Respiratory"
     ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Genitourinary",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
     "phenotype_ids": [
       "HP:0002085",
       "HP:0000800",
@@ -19001,6 +20559,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -19054,6 +20613,13 @@ window.searchData = [
       "Endocrine",
       "Constitutional",
       "Systemic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Endocrine",
+      "Immune",
+      "Neoplasm"
     ],
     "phenotype_ids": [
       "HP:0002890",
@@ -19124,6 +20690,12 @@ window.searchData = [
     ],
     "phenotype_categories": [
       "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0002315",
@@ -19200,6 +20772,11 @@ window.searchData = [
     "phenotype_categories": [
       "Neurological"
     ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0002315",
       "HP:0001251",
@@ -19247,6 +20824,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -19308,6 +20886,12 @@ window.searchData = [
       "Dermatologic",
       "Systemic",
       "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Immune",
+      "Integument",
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0002716",
@@ -19393,6 +20977,12 @@ window.searchData = [
       "Neurological",
       "Oral"
     ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0000282",
       "HP:0007209",
@@ -19468,6 +21058,10 @@ window.searchData = [
       "Nausea and Vomiting"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Ear"
+    ],
     "phenotype_ids": [
       "HP:0010532",
       "HP:0008573",
@@ -19531,6 +21125,12 @@ window.searchData = [
     "phenotype_categories": [
       "Dermatologic"
     ],
+    "phenotype_hpo_categories": [
+      "Endocrine",
+      "Integument",
+      "Neoplasm",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0100634",
       "HP:0008069"
@@ -19578,6 +21178,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -19630,6 +21231,12 @@ window.searchData = [
     "phenotype_categories": [
       "Neurological",
       "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0002315",
@@ -19695,6 +21302,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -19755,6 +21363,11 @@ window.searchData = [
       "Musculoskeletal",
       "Dermatological"
     ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
     "phenotype_ids": [
       "HP:0030880",
       "HP:0001369",
@@ -19801,6 +21414,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -19890,6 +21504,18 @@ window.searchData = [
       "Respiratory",
       "Ophthalmic"
     ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Eye",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0000988",
       "HP:0001945",
@@ -19974,6 +21600,13 @@ window.searchData = [
       "Intellectual Disability"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0004440",
       "HP:0011800",
@@ -20014,6 +21647,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -20077,6 +21711,13 @@ window.searchData = [
       "Gastrointestinal",
       "Skeletal"
     ],
+    "phenotype_hpo_categories": [
+      "Endocrine",
+      "Limbs",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0002865",
       "HP:0002666",
@@ -20126,6 +21767,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -20194,6 +21836,13 @@ window.searchData = [
     "phenotype_categories": [
       "Neurologic"
     ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Eye",
+      "Immune",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0001324",
       "HP:0012378",
@@ -20251,6 +21900,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -20338,6 +21988,19 @@ window.searchData = [
       "Respiratory",
       "Ophthalmic"
     ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Eye",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
     "phenotype_ids": [
       "HP:0001945",
       "HP:0002615",
@@ -20412,6 +22075,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -20492,6 +22156,11 @@ window.searchData = [
       "Immune",
       "Gastrointestinal"
     ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0030973",
       "HP:0012378",
@@ -20546,6 +22215,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -20607,6 +22277,13 @@ window.searchData = [
       "Neuromuscular",
       "Ocular",
       "Bulbar",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Musculoskeletal",
+      "Nervous System",
       "Respiratory"
     ],
     "phenotype_ids": [
@@ -20682,6 +22359,9 @@ window.searchData = [
     "phenotype_categories": [
       "Dermatologic"
     ],
+    "phenotype_hpo_categories": [
+      "Integument"
+    ],
     "phenotype_ids": [
       "HP:0001482"
     ],
@@ -20741,6 +22421,11 @@ window.searchData = [
       "Hematologic",
       "Constitutional",
       "Infectious"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Constitutional",
+      "Immune"
     ],
     "phenotype_ids": [
       "HP:0001974",
@@ -20810,6 +22495,10 @@ window.searchData = [
     "phenotype_categories": [
       "Dermatologic"
     ],
+    "phenotype_hpo_categories": [
+      "Integument",
+      "Neoplasm"
+    ],
     "phenotype_ids": [
       "HP:0012056",
       "HP:0008069"
@@ -20872,6 +22561,10 @@ window.searchData = [
       "General",
       "Constitutional"
     ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Neoplasm"
+    ],
     "phenotype_ids": [
       "HP:0002664",
       "HP:0012378"
@@ -20916,6 +22609,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -20969,6 +22663,9 @@ window.searchData = [
       "Sleep",
       "Motor",
       "Psychiatric"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0002329",
@@ -21059,6 +22756,14 @@ window.searchData = [
       "Otologic",
       "Neurologic"
     ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Ear",
+      "Head and Neck",
+      "Immune",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0002716",
       "HP:0001742",
@@ -21111,6 +22816,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -21185,6 +22891,15 @@ window.searchData = [
       "Endocrine",
       "Systemic",
       "Metabolic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Endocrine",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Metabolism",
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0000822",
@@ -21275,6 +22990,15 @@ window.searchData = [
       "Musculoskeletal",
       "Gastrointestinal"
     ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Eye",
+      "Growth",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
     "phenotype_ids": [
       "HP:0031500",
       "HP:0000822",
@@ -21329,6 +23053,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -21387,6 +23112,14 @@ window.searchData = [
       "Ophthalmologic",
       "Skeletal",
       "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Head and Neck",
+      "Integument",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0007565",
@@ -21459,6 +23192,11 @@ window.searchData = [
       "Neurologic",
       "Gastrointestinal"
     ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Musculoskeletal"
+    ],
     "phenotype_ids": [
       "HP:0000572",
       "HP:0001324",
@@ -21530,6 +23268,12 @@ window.searchData = [
       "Diencephalic Syndrome"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Immune",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0100653",
       "HP:0012486",
@@ -21584,6 +23328,9 @@ window.searchData = [
     "phenotype_categories": [
       "Craniofacial"
     ],
+    "phenotype_hpo_categories": [
+      "Constitutional"
+    ],
     "phenotype_ids": [
       "HP:0100758"
     ],
@@ -21616,6 +23363,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -21686,6 +23434,14 @@ window.searchData = [
       "Systemic",
       "Musculoskeletal",
       "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Growth",
+      "Immune",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0002105",
@@ -21807,6 +23563,20 @@ window.searchData = [
       "Developmental",
       "Feeding"
     ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0000316",
       "HP:0000494",
@@ -21870,6 +23640,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -21937,6 +23708,13 @@ window.searchData = [
       "Musculoskeletal",
       "Systemic"
     ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Growth",
+      "Metabolism",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0001513",
       "HP:0000855",
@@ -22000,6 +23778,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -22054,6 +23833,11 @@ window.searchData = [
       "Neurological",
       "Urological",
       "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Genitourinary",
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0025267",
@@ -22125,6 +23909,11 @@ window.searchData = [
       "Dermatologic",
       "Ophthalmologic"
     ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Immune",
+      "Integument"
+    ],
     "phenotype_ids": [
       "HP:0000989",
       "HP:0000964",
@@ -22162,6 +23951,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -22222,6 +24012,11 @@ window.searchData = [
       "Crepitus"
     ],
     "phenotype_categories": [
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Metabolism",
       "Musculoskeletal"
     ],
     "phenotype_ids": [
@@ -22297,6 +24092,15 @@ window.searchData = [
       "Easy Bruising"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Ear",
+      "Eye",
+      "Growth",
+      "Integument",
+      "Musculoskeletal"
+    ],
     "phenotype_ids": [
       "HP:0000592",
       "HP:0002757",
@@ -22360,6 +24164,13 @@ window.searchData = [
       "Wormian Bones"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
     "phenotype_ids": [
       "HP:0002757",
       "HP:0000592",
@@ -22419,6 +24230,13 @@ window.searchData = [
       "Blue Sclerae"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal"
+    ],
     "phenotype_ids": [
       "HP:0003510",
       "HP:0000924",
@@ -22481,6 +24299,14 @@ window.searchData = [
       "Hearing Impairment"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal"
+    ],
     "phenotype_ids": [
       "HP:0004322",
       "HP:0002757",
@@ -22543,6 +24369,13 @@ window.searchData = [
       "Moderate Short Stature"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal"
+    ],
     "phenotype_ids": [
       "HP:0030268",
       "HP:0002974",
@@ -22607,6 +24440,12 @@ window.searchData = [
       "Osteopenia"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Growth",
+      "Limbs",
+      "Musculoskeletal"
+    ],
     "phenotype_ids": [
       "HP:0002757",
       "HP:0008905",
@@ -22651,6 +24490,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -22701,6 +24541,11 @@ window.searchData = [
       "Height Loss"
     ],
     "phenotype_categories": [
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Limbs",
       "Musculoskeletal"
     ],
     "phenotype_ids": [
@@ -22786,6 +24631,11 @@ window.searchData = [
       "Musculoskeletal",
       "Neurologic"
     ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0002653",
       "HP:0001288"
@@ -22822,6 +24672,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -22876,6 +24727,10 @@ window.searchData = [
       "Neoplastic",
       "Molecular"
     ],
+    "phenotype_hpo_categories": [
+      "Breast",
+      "Neoplasm"
+    ],
     "phenotype_ids": [
       "HP:0003002",
       "HP:0002664"
@@ -22917,6 +24772,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -23008,6 +24864,12 @@ window.searchData = [
       "Sensory",
       "Gastrointestinal",
       "Psychiatric"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0002322",
@@ -23101,6 +24963,9 @@ window.searchData = [
       "Sensory",
       "Ocular"
     ],
+    "phenotype_hpo_categories": [
+      "Eye"
+    ],
     "phenotype_ids": [
       "HP:0000622",
       "HP:0100832",
@@ -23153,6 +25018,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -23216,6 +25082,14 @@ window.searchData = [
       "Fetal",
       "Cardiovascular"
     ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Prenatal and Birth"
+    ],
     "phenotype_ids": [
       "HP:0003040",
       "HP:0001789",
@@ -23262,6 +25136,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -23317,6 +25192,12 @@ window.searchData = [
       "Dermatological",
       "Gastrointestinal"
     ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Head and Neck",
+      "Integument",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0000155",
       "HP:0200037",
@@ -23364,6 +25245,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -23417,6 +25299,11 @@ window.searchData = [
     "phenotype_categories": [
       "Musculoskeletal",
       "Dermatological"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Integument",
+      "Musculoskeletal"
     ],
     "phenotype_ids": [
       "HP:0009763",
@@ -23478,6 +25365,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -23567,6 +25455,17 @@ window.searchData = [
       "Hematologic",
       "Cardiac",
       "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Endocrine",
+      "Eye",
+      "Genitourinary",
+      "Musculoskeletal",
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0001252",
@@ -23668,6 +25567,14 @@ window.searchData = [
       "Dermatologic",
       "Systemic"
     ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Head and Neck",
+      "Neoplasm"
+    ],
     "phenotype_ids": [
       "HP:0030256",
       "HP:0002239",
@@ -23737,6 +25644,12 @@ window.searchData = [
       "Elbow Ankylosis"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal"
+    ],
     "phenotype_ids": [
       "HP:0001363",
       "HP:0011304",
@@ -23808,6 +25721,13 @@ window.searchData = [
       "Abdominal",
       "Infectious"
     ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Immune"
+    ],
     "phenotype_ids": [
       "HP:0001876",
       "HP:0001974",
@@ -23858,6 +25778,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -23912,6 +25833,14 @@ window.searchData = [
       "Neurological",
       "Dermatological",
       "Other"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0001249",
@@ -23997,6 +25926,11 @@ window.searchData = [
       "Neurological",
       "Constitutional"
     ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Integument",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0000822",
       "HP:0002315",
@@ -24048,6 +25982,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -24117,6 +26052,10 @@ window.searchData = [
       "Cognitive",
       "Systemic"
     ],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0000722",
       "HP:0002381",
@@ -24179,6 +26118,9 @@ window.searchData = [
     "phenotype_categories": [
       "Dermatologic"
     ],
+    "phenotype_hpo_categories": [
+      "Integument"
+    ],
     "phenotype_ids": [
       "HP:0001000"
     ],
@@ -24227,6 +26169,11 @@ window.searchData = [
       "Thoracic abscess from hepatic fistula"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Immune",
+      "Respiratory"
+    ],
     "phenotype_ids": [
       "HP:0001407",
       "HP:0100523",
@@ -24299,6 +26246,13 @@ window.searchData = [
       "Hepatic",
       "Vascular"
     ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0005562",
       "HP:0000822",
@@ -24352,6 +26306,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -24403,6 +26358,12 @@ window.searchData = [
       "Reproductive",
       "Dermatological",
       "Metabolic"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Growth",
+      "Immune",
+      "Integument"
     ],
     "phenotype_ids": [
       "HP:0000858",
@@ -24494,6 +26455,15 @@ window.searchData = [
       "Neurological",
       "Abdominal"
     ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Immune",
+      "Integument",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0001901",
       "HP:0001894",
@@ -24544,6 +26514,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -24604,6 +26575,13 @@ window.searchData = [
     "phenotype_categories": [
       "Musculoskeletal",
       "Gastrointestinal",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System",
       "Respiratory"
     ],
     "phenotype_ids": [
@@ -24682,6 +26660,13 @@ window.searchData = [
       "Fever"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Metabolism"
+    ],
     "phenotype_ids": [
       "HP:0002014",
       "HP:0002027",
@@ -24725,6 +26710,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -24779,6 +26765,11 @@ window.searchData = [
       "Systemic",
       "Hepatic"
     ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Integument"
+    ],
     "phenotype_ids": [
       "HP:0000989",
       "HP:0012378",
@@ -24829,6 +26820,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -24896,6 +26888,15 @@ window.searchData = [
       "Gastrointestinal",
       "Cardiac",
       "Reproductive"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Ear",
+      "Genitourinary",
+      "Head and Neck",
+      "Immune",
+      "Musculoskeletal",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0034315",
@@ -24977,6 +26978,11 @@ window.searchData = [
     "phenotype_categories": [
       "Neurologic"
     ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0001257",
       "HP:0001260",
@@ -25041,6 +27047,14 @@ window.searchData = [
       "Abdominal",
       "Hematologic",
       "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Immune"
     ],
     "phenotype_ids": [
       "HP:0001744",
@@ -25108,6 +27122,9 @@ window.searchData = [
       "Neurologic",
       "Neuropsychiatric"
     ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0002381",
       "HP:0000708"
@@ -25147,6 +27164,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -25202,6 +27220,11 @@ window.searchData = [
       "Hepatic",
       "Gastrointestinal"
     ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Integument"
+    ],
     "phenotype_ids": [
       "HP:0000989",
       "HP:0012378",
@@ -25252,6 +27275,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -25318,6 +27342,15 @@ window.searchData = [
       "ENT",
       "Systemic",
       "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Immune",
+      "Metabolism",
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0030812",
@@ -25416,6 +27449,18 @@ window.searchData = [
       "Ophthalmologic",
       "Oncologic"
     ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Respiratory"
+    ],
     "phenotype_ids": [
       "HP:0001548",
       "HP:0100555",
@@ -25484,6 +27529,9 @@ window.searchData = [
       "Skin nodule"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Integument"
+    ],
     "phenotype_ids": [
       "HP:0000989",
       "HP:0200036"
@@ -25515,6 +27563,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -25580,6 +27629,10 @@ window.searchData = [
     "phenotype_categories": [
       "Dermatological",
       "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Integument"
     ],
     "phenotype_ids": [
       "HP:0200034",
@@ -25659,6 +27712,11 @@ window.searchData = [
       "Musculoskeletal",
       "Ophthalmologic"
     ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Immune",
+      "Musculoskeletal"
+    ],
     "phenotype_ids": [
       "HP:0001369",
       "HP:0100686",
@@ -25697,6 +27755,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -25775,6 +27834,14 @@ window.searchData = [
       "Respiratory",
       "Cardiovascular",
       "Systemic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Integument",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0002094",
@@ -25863,6 +27930,13 @@ window.searchData = [
       "Systemic",
       "Constitutional"
     ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Endocrine",
+      "Immune",
+      "Neoplasm"
+    ],
     "phenotype_ids": [
       "HP:0002890",
       "HP:0002716",
@@ -25938,6 +28012,11 @@ window.searchData = [
     "phenotype_categories": [
       "Neoplastic",
       "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Neoplasm",
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0030078",
@@ -26015,6 +28094,11 @@ window.searchData = [
       "Neoplastic",
       "Clinical"
     ],
+    "phenotype_hpo_categories": [
+      "Neoplasm",
+      "Nervous System",
+      "Respiratory"
+    ],
     "phenotype_ids": [
       "HP:0030078",
       "HP:0100526",
@@ -26070,6 +28154,10 @@ window.searchData = [
     ],
     "phenotype_categories": [
       "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Immune",
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0002383"
@@ -26134,6 +28222,13 @@ window.searchData = [
       "Hematological",
       "Neurological"
     ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
     "phenotype_ids": [
       "HP:0000969",
       "HP:0011675",
@@ -26197,6 +28292,11 @@ window.searchData = [
     "phenotype_categories": [
       "Genitourinary"
     ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Genitourinary",
+      "Metabolism"
+    ],
     "phenotype_ids": [
       "HP:0000790",
       "HP:0030157"
@@ -26234,6 +28334,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -26288,6 +28389,11 @@ window.searchData = [
     "phenotype_categories": [
       "Ocular",
       "Systemic"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Eye",
+      "Neoplasm"
     ],
     "phenotype_ids": [
       "HP:0000555",
@@ -26358,6 +28464,10 @@ window.searchData = [
       "Gurgling Sounds"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive"
+    ],
     "phenotype_ids": [
       "HP:0025031",
       "HP:0003270",
@@ -26424,6 +28534,12 @@ window.searchData = [
       "Respiratory",
       "Musculoskeletal"
     ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
     "phenotype_ids": [
       "HP:0002376",
       "HP:0012171",
@@ -26472,6 +28588,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -26559,6 +28676,15 @@ window.searchData = [
       "Cardiovascular",
       "Hematologic"
     ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Eye",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0040311",
       "HP:0005197",
@@ -26625,6 +28751,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -26679,6 +28806,12 @@ window.searchData = [
       "Craniofacial",
       "Ophthalmologic"
     ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Growth",
+      "Immune",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0002719",
       "HP:0001510",
@@ -26727,6 +28860,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -26768,27 +28902,33 @@ window.searchData = [
     ],
     "phenotypes": [
       "Severe short stature",
-      "Disproportionate short-limb short stature",
       "Developmental delay",
       "Acanthosis nigricans",
-      "Macrocephaly",
-      "Frontal bossing",
-      "Midface retrusion",
-      "Narrow thorax",
+      "Seizures",
+      "Hearing loss",
+      "Hydranencephaly",
+      "Ventriculomegaly",
       "Femoral bowing",
       "Tibial bowing",
       "Fibular bowing"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Growth",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0003510",
-      "HP:0008873",
       "HP:0001263",
       "HP:0000956",
-      "HP:0000256",
-      "HP:0002007",
-      "HP:0011800",
-      "HP:0000774",
+      "HP:0001250",
+      "HP:0000365",
+      "HP:0002324",
+      "HP:0002119",
       "HP:0002980",
       "HP:0002982",
       "HP:0010502"
@@ -26800,19 +28940,16 @@ window.searchData = [
       "FGFR3 K650M mutation"
     ],
     "treatments": [
-      "Developmental support",
-      "Orthopedic management",
-      "Dermatologic care",
       "Growth hormone therapy"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "SADDAN.yaml",
     "page_url": "../pages/disorders/SADDAN.html",
-    "num_phenotypes": 11,
+    "num_phenotypes": 10,
     "num_pathophysiology": 3,
     "num_genes": 1,
-    "num_treatments": 4,
+    "num_treatments": 1,
     "causal_graph_edges": "2",
     "causal_graph_longest_path": "2"
   },
@@ -26868,6 +29005,13 @@ window.searchData = [
       "Aggressive Behavior"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Prenatal and Birth"
+    ],
     "phenotype_ids": [
       "HP:0001249",
       "HP:0001263",
@@ -26950,6 +29094,15 @@ window.searchData = [
       "Dermatologic",
       "Ophthalmologic"
     ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Eye",
+      "Immune",
+      "Integument",
+      "Respiratory",
+      "Thoracic Cavity"
+    ],
     "phenotype_ids": [
       "HP:0100721",
       "HP:0002094",
@@ -27013,6 +29166,10 @@ window.searchData = [
     "phenotype_categories": [
       "Dermatologic"
     ],
+    "phenotype_hpo_categories": [
+      "Immune",
+      "Integument"
+    ],
     "phenotype_ids": [
       "HP:0000989",
       "HP:0000988"
@@ -27062,6 +29219,12 @@ window.searchData = [
       "Hematologic",
       "Hepatic"
     ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Immune"
+    ],
     "phenotype_ids": [
       "HP:0001903",
       "HP:0001433"
@@ -27098,6 +29261,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -27171,6 +29335,9 @@ window.searchData = [
       "Occupational",
       "Mood",
       "Behavioral"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0000738",
@@ -27262,6 +29429,11 @@ window.searchData = [
       "Congestive heart failure"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Immune",
+      "Respiratory"
+    ],
     "phenotype_ids": [
       "HP:0010773",
       "HP:0002089",
@@ -27325,6 +29497,13 @@ window.searchData = [
       "Musculoskeletal",
       "Constitutional"
     ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Head and Neck",
+      "Integument"
+    ],
     "phenotype_ids": [
       "HP:0000967",
       "HP:0000978",
@@ -27373,6 +29552,9 @@ window.searchData = [
       "Hypertension"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular"
+    ],
     "phenotype_ids": [
       "HP:0000822"
     ],
@@ -27416,6 +29598,9 @@ window.searchData = [
     "phenotype_categories": [
       "Neurologic",
       "Neuropsychiatric"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0030784",
@@ -27487,6 +29672,11 @@ window.searchData = [
       "Vestibular",
       "Auditory"
     ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0002321",
       "HP:0000639",
@@ -27557,6 +29747,13 @@ window.searchData = [
       "Neuromuscular",
       "Metabolic",
       "Genitourinary"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye",
+      "Genitourinary",
+      "Metabolism",
+      "Musculoskeletal"
     ],
     "phenotype_ids": [
       "HP:0001639",
@@ -27650,6 +29847,11 @@ window.searchData = [
       "Gastrointestinal",
       "Systemic"
     ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Metabolism"
+    ],
     "phenotype_ids": [
       "HP:0002014",
       "HP:0025085",
@@ -27706,6 +29908,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -27769,6 +29972,17 @@ window.searchData = [
       "Neurological",
       "Urological",
       "Dermatological"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Immune",
+      "Integument",
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0012531",
@@ -27853,6 +30067,10 @@ window.searchData = [
       "Ophthalmologic",
       "Craniofacial"
     ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Head and Neck"
+    ],
     "phenotype_ids": [
       "HP:0000490",
       "HP:0000324",
@@ -27892,6 +30110,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -27949,6 +30168,14 @@ window.searchData = [
       "Ophthalmological",
       "Musculoskeletal",
       "Systemic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Eye",
+      "Head and Neck",
+      "Immune",
+      "Musculoskeletal"
     ],
     "phenotype_ids": [
       "HP:0000217",
@@ -28043,6 +30270,11 @@ window.searchData = [
       "Neoplastic",
       "Clinical"
     ],
+    "phenotype_hpo_categories": [
+      "Neoplasm",
+      "Nervous System",
+      "Respiratory"
+    ],
     "phenotype_ids": [
       "HP:0100526",
       "HP:0004375"
@@ -28095,6 +30327,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -28143,6 +30376,11 @@ window.searchData = [
     "phenotype_categories": [
       "Gastrointestinal",
       "Metabolic"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Metabolism"
     ],
     "phenotype_ids": [
       "HP:0003270",
@@ -28201,6 +30439,12 @@ window.searchData = [
       "Neurologic",
       "Renal"
     ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Genitourinary",
+      "Metabolism",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0000969",
       "HP:0001892",
@@ -28247,6 +30491,9 @@ window.searchData = [
     ],
     "phenotype_categories": [
       "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood"
     ],
     "phenotype_ids": [
       "HP:0001903"
@@ -28309,6 +30556,11 @@ window.searchData = [
     "phenotype_categories": [
       "Neurological",
       "Musculoskeletal",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Musculoskeletal",
+      "Nervous System",
       "Respiratory"
     ],
     "phenotype_ids": [
@@ -28384,6 +30636,14 @@ window.searchData = [
       "Early-Onset Osteoarthritis"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal"
+    ],
     "phenotype_ids": [
       "HP:0003521",
       "HP:0002650",
@@ -28459,6 +30719,14 @@ window.searchData = [
       "Cleft Palate"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal"
+    ],
     "phenotype_ids": [
       "HP:0003521",
       "HP:0000926",
@@ -28527,6 +30795,12 @@ window.searchData = [
       "Premature Osteoarthritis"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Head and Neck",
+      "Musculoskeletal"
+    ],
     "phenotype_ids": [
       "HP:0031153",
       "HP:0000545",
@@ -28571,6 +30845,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -28633,6 +30908,10 @@ window.searchData = [
     "phenotype_categories": [
       "Neurological",
       "Psychiatric"
+    ],
+    "phenotype_hpo_categories": [
+      "Musculoskeletal",
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0002063",
@@ -28708,6 +30987,12 @@ window.searchData = [
       "Constitutional",
       "Systemic"
     ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Growth",
+      "Musculoskeletal",
+      "Neoplasm"
+    ],
     "phenotype_ids": [
       "HP:0031459",
       "HP:0002653",
@@ -28754,6 +31039,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -28857,6 +31143,16 @@ window.searchData = [
       "Pulmonary",
       "Neuropsychiatric"
     ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Genitourinary",
+      "Immune",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
     "phenotype_ids": [
       "HP:0025300",
       "HP:0000992",
@@ -28927,6 +31223,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -28988,6 +31285,13 @@ window.searchData = [
       "Dermatological",
       "Respiratory",
       "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Integument",
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0030880",
@@ -29071,6 +31375,16 @@ window.searchData = [
       "Ophthalmic",
       "Neurologic"
     ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0001631",
       "HP:0000347",
@@ -29138,6 +31452,9 @@ window.searchData = [
     "phenotype_categories": [
       "Neurologic"
     ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0001250"
     ],
@@ -29202,6 +31519,13 @@ window.searchData = [
     "phenotype_categories": [
       "Neurological",
       "Ophthalmologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0002376",
@@ -29277,6 +31601,13 @@ window.searchData = [
       "Respiratory Failure"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
     "phenotype_ids": [
       "HP:0000211",
       "HP:0002063",
@@ -29319,6 +31650,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -29373,6 +31705,13 @@ window.searchData = [
       "Respiratory insufficiency"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
     "phenotype_ids": [
       "HP:0008909",
       "HP:0006487",
@@ -29416,6 +31755,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -29470,6 +31810,13 @@ window.searchData = [
       "Respiratory insufficiency"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
     "phenotype_ids": [
       "HP:0008909",
       "HP:0003097",
@@ -29522,6 +31869,9 @@ window.searchData = [
     "phenotype_categories": [
       "Ophthalmologic"
     ],
+    "phenotype_hpo_categories": [
+      "Eye"
+    ],
     "phenotype_ids": [
       "HP:0000618"
     ],
@@ -29556,6 +31906,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -29615,6 +31966,10 @@ window.searchData = [
     "phenotype_categories": [
       "Dermatologic",
       "Systemic"
+    ],
+    "phenotype_hpo_categories": [
+      "Immune",
+      "Integument"
     ],
     "phenotype_ids": [
       "HP:0200039",
@@ -29680,6 +32035,13 @@ window.searchData = [
       "Genitourinary",
       "Gastrointestinal"
     ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0001324",
       "HP:0003474",
@@ -29723,6 +32085,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -29762,6 +32125,10 @@ window.searchData = [
       "Nausea"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive"
+    ],
     "phenotype_ids": [
       "HP:0002014",
       "HP:0002027",
@@ -29805,6 +32172,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -29859,6 +32227,10 @@ window.searchData = [
       "Clinical",
       "Molecular"
     ],
+    "phenotype_hpo_categories": [
+      "Breast",
+      "Neoplasm"
+    ],
     "phenotype_ids": [
       "HP:0003002",
       "HP:0002664"
@@ -29906,6 +32278,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -29977,6 +32350,15 @@ window.searchData = [
       "Musculoskeletal",
       "Lymphatic"
     ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Growth",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
     "phenotype_ids": [
       "HP:0034315",
       "HP:0001945",
@@ -30038,6 +32420,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -30112,6 +32495,15 @@ window.searchData = [
       "Ophthalmologic",
       "Neurological"
     ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Endocrine",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Metabolism",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0003074",
       "HP:0001959",
@@ -30171,6 +32563,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -30269,6 +32662,18 @@ window.searchData = [
       "Gastrointestinal",
       "Respiratory"
     ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Endocrine",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
     "phenotype_ids": [
       "HP:0003074",
       "HP:0001824",
@@ -30339,6 +32744,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -30404,6 +32810,12 @@ window.searchData = [
       "Gastrointestinal",
       "Systemic",
       "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Constitutional",
+      "Digestive",
+      "Growth"
     ],
     "phenotype_ids": [
       "HP:0025085",
@@ -30479,6 +32891,10 @@ window.searchData = [
       "Urticaria"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Integument"
+    ],
     "phenotype_ids": [
       "HP:0001025"
     ],
@@ -30533,6 +32949,10 @@ window.searchData = [
     ],
     "phenotype_categories": [
       "Ocular"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Neoplasm"
     ],
     "phenotype_ids": [
       "HP:0007716",
@@ -30603,6 +33023,11 @@ window.searchData = [
     "phenotype_categories": [
       "Neurological"
     ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0000613",
       "HP:0000662",
@@ -30648,6 +33073,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -30720,6 +33146,11 @@ window.searchData = [
       "Ophthalmologic",
       "Psychological"
     ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Immune",
+      "Integument"
+    ],
     "phenotype_ids": [
       "HP:0000554",
       "HP:0000992"
@@ -30780,6 +33211,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -30841,6 +33273,16 @@ window.searchData = [
       "Neoplastic",
       "Renal",
       "Pancreatic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Endocrine",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Neoplasm",
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0006770",
@@ -30925,6 +33367,16 @@ window.searchData = [
       "Hematologic/Immune",
       "Respiratory"
     ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Immune",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
     "phenotype_ids": [
       "HP:0002014",
       "HP:0002570",
@@ -30998,6 +33450,15 @@ window.searchData = [
       "Ophthalmologic",
       "Growth"
     ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Limbs",
+      "Metabolism"
+    ],
     "phenotype_ids": [
       "HP:0031500",
       "HP:0000790",
@@ -31048,6 +33509,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -31126,6 +33588,16 @@ window.searchData = [
       "Renal",
       "Hematologic",
       "Skeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Immune",
+      "Musculoskeletal",
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0002240",
@@ -31213,6 +33685,16 @@ window.searchData = [
       "Renal",
       "Cardiovascular"
     ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Genitourinary",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
     "phenotype_ids": [
       "HP:0001954",
       "HP:4000054",
@@ -31290,6 +33772,16 @@ window.searchData = [
       "Genitourinary",
       "Immunologic"
     ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0001999",
       "HP:0000252",
@@ -31352,6 +33844,9 @@ window.searchData = [
     "phenotype_categories": [
       "Dermatologic"
     ],
+    "phenotype_hpo_categories": [
+      "Integument"
+    ],
     "phenotype_ids": [
       "HP:0200042"
     ],
@@ -31386,6 +33881,7 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
     "genes": [],
@@ -31434,6 +33930,14 @@ window.searchData = [
       "Congenital heart defect"
     ],
     "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Ear",
+      "Eye",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
     "phenotype_ids": [
       "HP:0001263",
       "HP:0001249",
