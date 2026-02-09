@@ -973,6 +973,65 @@
         }
         .subtype-box .item-name { color: #3730a3; }
         .subtype-box .item-desc { color: #4f46e5; }
+        .classification-header {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #4338ca;
+            margin: 1.2rem 0 0.5rem 0;
+            padding-bottom: 0.3rem;
+            border-bottom: 2px solid #c7d2fe;
+            text-transform: capitalize;
+        }
+        .subtype-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            margin: 0.3rem 0;
+        }
+        .subtype-freq-badge {
+            background: #dbeafe;
+            color: #1e40af;
+            padding: 0.15rem 0.5rem;
+            border-radius: 9999px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        .subtype-gene-tag {
+            background: #fef3c7;
+            color: #92400e;
+            padding: 0.15rem 0.5rem;
+            border-radius: 9999px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        .subtype-inheritance-tag {
+            background: #ede9fe;
+            color: #5b21b6;
+            padding: 0.15rem 0.5rem;
+            border-radius: 9999px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        .subtype-term-link {
+            font-size: 0.8rem;
+            color: #6366f1;
+            text-decoration: none;
+        }
+        .subtype-term-link:hover { text-decoration: underline; }
+        .subtype-children {
+            margin: 0.4rem 0 0.2rem 1rem;
+            padding: 0;
+            list-style: none;
+        }
+        .subtype-children li {
+            font-size: 0.85rem;
+            color: #4338ca;
+            padding: 0.1rem 0;
+        }
+        .subtype-children li::before {
+            content: "↳ ";
+            color: #a5b4fc;
+        }
 
         /* Stats bar */
         .stats-bar {
@@ -1804,14 +1863,55 @@
                 <h2 class="card-title">Subtypes</h2>
                 <span class="card-count">{{ disorder.has_subtypes | length }}</span>
             </div>
+            {# Group subtypes by classification #}
+            {% set ns = namespace(schemes={}) %}
             {% for subtype in disorder.has_subtypes %}
-            <div class="item-box subtype-box">
-                <div class="item-name">{{ subtype.name }}</div>
-                {% if subtype.description %}
-                <div class="item-desc">{{ subtype.description }}</div>
+                {% set scheme = subtype.classification or 'General' %}
+                {% if scheme not in ns.schemes %}
+                    {% set _ = ns.schemes.update({scheme: []}) %}
                 {% endif %}
-                {{ render_evidence(subtype.evidence) }}
-            </div>
+                {% set _ = ns.schemes[scheme].append(subtype) %}
+            {% endfor %}
+            {% for scheme, subtypes_in_scheme in ns.schemes.items() %}
+                {% if ns.schemes | length > 1 %}
+                <div class="classification-header">{{ scheme | replace('_', ' ') }}</div>
+                {% endif %}
+                {% for subtype in subtypes_in_scheme %}
+                <div class="item-box subtype-box">
+                    <div class="item-name">
+                        {{ subtype.name }}
+                        {% if subtype.subtype_term and subtype.subtype_term.term and subtype.subtype_term.term.id %}
+                        <a class="subtype-term-link" href="{{ subtype.subtype_term.term.id | curie_to_url }}" target="_blank">{{ subtype.subtype_term.term.id }}</a>
+                        {% endif %}
+                    </div>
+                    <div class="subtype-meta">
+                        {% if subtype.subtype_frequency %}
+                        <span class="subtype-freq-badge">{{ subtype.subtype_frequency }}</span>
+                        {% endif %}
+                        {% if subtype.genes %}
+                            {% for gene in subtype.genes %}
+                            <span class="subtype-gene-tag">{{ gene.preferred_term or gene.term.label }}</span>
+                            {% endfor %}
+                        {% endif %}
+                        {% if subtype.inheritance %}
+                            {% for inh in subtype.inheritance %}
+                            <span class="subtype-inheritance-tag">{{ inh.inheritance_term.preferred_term if inh.inheritance_term else inh }}</span>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                    {% if subtype.description %}
+                    <div class="item-desc">{{ subtype.description }}</div>
+                    {% endif %}
+                    {% if subtype.children %}
+                    <ul class="subtype-children">
+                        {% for child_name in subtype.children %}
+                        <li>{{ child_name }}</li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                    {{ render_evidence(subtype.evidence) }}
+                </div>
+                {% endfor %}
             {% endfor %}
         </div>
         {% endif %}

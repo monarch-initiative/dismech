@@ -1,5 +1,5 @@
 # Auto generated from dismech.yaml by pythongen.py version: 0.0.1
-# Generation date: 2026-02-08T14:08:10
+# Generation date: 2026-02-09T07:20:15
 # Schema: dismech
 #
 # id: https://w3id.org/monarch-initiative/dismech
@@ -1318,6 +1318,11 @@ class Subtype(YAMLRoot):
     review_notes: Optional[str] = None
     locations: Optional[Union[Union[dict, AnatomicalEntityDescriptor], list[Union[dict, AnatomicalEntityDescriptor]]]] = empty_list()
     geography: Optional[Union[Union[str, "GeographyTerm"], list[Union[str, "GeographyTerm"]]]] = empty_list()
+    classification: Optional[str] = None
+    children: Optional[Union[str, list[str]]] = empty_list()
+    genes: Optional[Union[Union[dict, GeneDescriptor], list[Union[dict, GeneDescriptor]]]] = empty_list()
+    subtype_frequency: Optional[str] = None
+    inheritance: Optional[Union[dict[Union[str, InheritanceName], Union[dict, "Inheritance"]], list[Union[dict, "Inheritance"]]]] = empty_dict()
 
     def __post_init__(self, *_: str, **kwargs: Any):
         if self._is_empty(self.name):
@@ -1341,6 +1346,22 @@ class Subtype(YAMLRoot):
         if not isinstance(self.locations, list):
             self.locations = [self.locations] if self.locations is not None else []
         self.locations = [v if isinstance(v, AnatomicalEntityDescriptor) else AnatomicalEntityDescriptor(**as_dict(v)) for v in self.locations]
+
+        if self.classification is not None and not isinstance(self.classification, str):
+            self.classification = str(self.classification)
+
+        if not isinstance(self.children, list):
+            self.children = [self.children] if self.children is not None else []
+        self.children = [v if isinstance(v, str) else str(v) for v in self.children]
+
+        if not isinstance(self.genes, list):
+            self.genes = [self.genes] if self.genes is not None else []
+        self.genes = [v if isinstance(v, GeneDescriptor) else GeneDescriptor(**as_dict(v)) for v in self.genes]
+
+        if self.subtype_frequency is not None and not isinstance(self.subtype_frequency, str):
+            self.subtype_frequency = str(self.subtype_frequency)
+
+        self._normalize_inlined_as_list(slot_name="inheritance", slot_type=Inheritance, key_name="name", keyed=True)
 
         super().__post_init__(**kwargs)
 
@@ -5512,6 +5533,15 @@ slots.subtypes = Slot(uri=DISMECH.subtypes, name="subtypes", curie=DISMECH.curie
 
 slots.has_subtypes = Slot(uri=DISMECH.has_subtypes, name="has_subtypes", curie=DISMECH.curie('has_subtypes'),
                    model_uri=DISMECH.has_subtypes, domain=None, range=Optional[Union[dict[Union[str, SubtypeName], Union[dict, Subtype]], list[Union[dict, Subtype]]]])
+
+slots.classification = Slot(uri=DISMECH.classification, name="classification", curie=DISMECH.curie('classification'),
+                   model_uri=DISMECH.classification, domain=None, range=Optional[str])
+
+slots.children = Slot(uri=DISMECH.children, name="children", curie=DISMECH.curie('children'),
+                   model_uri=DISMECH.children, domain=None, range=Optional[Union[str, list[str]]])
+
+slots.subtype_frequency = Slot(uri=DISMECH.subtype_frequency, name="subtype_frequency", curie=DISMECH.curie('subtype_frequency'),
+                   model_uri=DISMECH.subtype_frequency, domain=None, range=Optional[str])
 
 slots.cellular_components = Slot(uri=DISMECH.cellular_components, name="cellular_components", curie=DISMECH.curie('cellular_components'),
                    model_uri=DISMECH.cellular_components, domain=None, range=Optional[Union[Union[dict, CellularComponentDescriptor], list[Union[dict, CellularComponentDescriptor]]]])

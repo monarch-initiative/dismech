@@ -3132,7 +3132,11 @@ class GeneticContext(ConfiguredBaseModel):
          'domain_of': ['GeneticContext', 'Pathophysiology', 'Variant'],
          'examples': [{'value': '{preferred_term: MEFV}'}]} })
     genes: Optional[list[GeneDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'genes',
-         'domain_of': ['GeneticContext', 'Dataset', 'Pathophysiology', 'AnimalModel'],
+         'domain_of': ['GeneticContext',
+                       'Dataset',
+                       'Subtype',
+                       'Pathophysiology',
+                       'AnimalModel'],
          'examples': [{'value': '[{preferred_term: HLA-DQ2}, {preferred_term: INS}]'}]} })
     allele_type: Optional[str] = Field(default=None, description="""Type of allele or mutation (e.g., null, missense, splice_site, deletion, frameshift, nonsense, hypomorphic, structural_variant). Free text to accommodate the diversity of mutation nomenclature.""", json_schema_extra = { "linkml_meta": {'alias': 'allele_type', 'domain_of': ['GeneticContext']} })
     zygosity: Optional[ZygosityEnum] = Field(default=None, description="""Zygosity context""", json_schema_extra = { "linkml_meta": {'alias': 'zygosity', 'domain_of': ['GeneticContext']} })
@@ -3443,7 +3447,11 @@ class Dataset(ConfiguredBaseModel):
     conditions: Optional[list[str]] = Field(default=None, description="""Experimental conditions or disease states represented""", json_schema_extra = { "linkml_meta": {'alias': 'conditions', 'domain_of': ['Dataset']} })
     exposures: Optional[list[ExposureDescriptor]] = Field(default=None, description="""Environmental exposures studied in the dataset""", json_schema_extra = { "linkml_meta": {'alias': 'exposures', 'domain_of': ['Dataset']} })
     genes: Optional[list[GeneDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'genes',
-         'domain_of': ['GeneticContext', 'Dataset', 'Pathophysiology', 'AnimalModel'],
+         'domain_of': ['GeneticContext',
+                       'Dataset',
+                       'Subtype',
+                       'Pathophysiology',
+                       'AnimalModel'],
          'examples': [{'value': '[{preferred_term: HLA-DQ2}, {preferred_term: INS}]'}]} })
     platform: Optional[str] = Field(default=None, description="""Sequencing or array platform used""", json_schema_extra = { "linkml_meta": {'alias': 'platform', 'domain_of': ['Dataset']} })
     publication: Optional[str] = Field(default=None, description="""Associated publication (PMID)""", json_schema_extra = { "linkml_meta": {'alias': 'publication', 'domain_of': ['Dataset', 'ComputationalModel']} })
@@ -4174,6 +4182,21 @@ class Subtype(ConfiguredBaseModel):
     geography: Optional[list[GeographyTerm]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'geography',
          'domain_of': ['Subtype'],
          'examples': [{'value': "['Philippines']"}]} })
+    classification: Optional[str] = Field(default=None, description="""Classification scheme this subtype belongs to (e.g., 'complementation_group', 'pathway_tier', 'histological', 'molecular', 'clinical_phenotype').""", json_schema_extra = { "linkml_meta": {'alias': 'classification', 'domain_of': ['Subtype']} })
+    children: Optional[list[str]] = Field(default=None, description="""Names of other subtypes in this list that are members/children of this grouping subtype. Used to express cross-scheme relationships (e.g., a pathway_tier subtype grouping complementation_group subtypes).""", json_schema_extra = { "linkml_meta": {'alias': 'children', 'domain_of': ['Subtype']} })
+    genes: Optional[list[GeneDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'genes',
+         'domain_of': ['GeneticContext',
+                       'Dataset',
+                       'Subtype',
+                       'Pathophysiology',
+                       'AnimalModel'],
+         'examples': [{'value': '[{preferred_term: HLA-DQ2}, {preferred_term: INS}]'}]} })
+    subtype_frequency: Optional[Union[FrequencyEnum, str]] = Field(default=None, description="""Frequency of this subtype among all cases of the parent disease (e.g., '60-70%', '~15%'). Distinct from phenotype frequency.""", json_schema_extra = { "linkml_meta": {'alias': 'subtype_frequency',
+         'any_of': [{'range': 'FrequencyEnum'}, {'range': 'FrequencyQuantity'}],
+         'domain_of': ['Subtype']} })
+    inheritance: Optional[list[Inheritance]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'inheritance',
+         'domain_of': ['Subtype', 'Genetic', 'Disease'],
+         'examples': [{'value': 'Autosomal Dominant'}]} })
 
 
 class EvidenceItem(ConfiguredBaseModel):
@@ -4861,7 +4884,11 @@ class Pathophysiology(ConfiguredBaseModel):
          'domain_of': ['Pathophysiology'],
          'examples': [{'value': '[{target: Tissue Damage}]'}]} })
     genes: Optional[list[GeneDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'genes',
-         'domain_of': ['GeneticContext', 'Dataset', 'Pathophysiology', 'AnimalModel'],
+         'domain_of': ['GeneticContext',
+                       'Dataset',
+                       'Subtype',
+                       'Pathophysiology',
+                       'AnimalModel'],
          'examples': [{'value': '[{preferred_term: HLA-DQ2}, {preferred_term: INS}]'}]} })
     subtypes: Optional[list[str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'subtypes',
          'domain_of': ['Pathophysiology'],
@@ -5600,7 +5627,7 @@ class Genetic(ConfiguredBaseModel):
                        'Genetic'],
          'examples': [{'value': 'Occasional'}]} })
     inheritance: Optional[list[Inheritance]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'inheritance',
-         'domain_of': ['Genetic', 'Disease'],
+         'domain_of': ['Subtype', 'Genetic', 'Disease'],
          'examples': [{'value': 'Autosomal Dominant'}]} })
     variants: Optional[list[Variant]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'variants',
          'comments': ['can currently be used at gene or disease level, TODO - decide '
@@ -5957,7 +5984,7 @@ class Disease(ConfiguredBaseModel):
                        'Variant'],
          'examples': [{'value': "['CYFRA 21-1']"}]} })
     inheritance: Optional[list[Inheritance]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'inheritance',
-         'domain_of': ['Genetic', 'Disease'],
+         'domain_of': ['Subtype', 'Genetic', 'Disease'],
          'examples': [{'value': 'Autosomal Dominant'}]} })
     animal_models: Optional[list[AnimalModel]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'animal_models', 'domain_of': ['Disease']} })
     datasets: Optional[list[Dataset]] = Field(default=None, description="""Publicly available datasets relevant to disease research""", json_schema_extra = { "linkml_meta": {'alias': 'datasets', 'domain_of': ['Disease'], 'recommended': True} })
@@ -6507,7 +6534,11 @@ class AnimalModel(ConfiguredBaseModel):
          'examples': [{'value': 'HLA-DQ2'}]} })
     background: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'background', 'domain_of': ['AnimalModel']} })
     genes: Optional[list[GeneDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'genes',
-         'domain_of': ['GeneticContext', 'Dataset', 'Pathophysiology', 'AnimalModel'],
+         'domain_of': ['GeneticContext',
+                       'Dataset',
+                       'Subtype',
+                       'Pathophysiology',
+                       'AnimalModel'],
          'examples': [{'value': '[{preferred_term: HLA-DQ2}, {preferred_term: INS}]'}]} })
     category: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'category',
          'domain_of': ['Phenotype', 'Disease', 'AnimalModel'],
