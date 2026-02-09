@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT04966858
+reference_id: "clinicaltrials:NCT04966858"
 title: Renewal of the Multi-center Randomized Controlled Trial of Refeeding in Anorexia Nervosa
 content_type: summary
 ---
