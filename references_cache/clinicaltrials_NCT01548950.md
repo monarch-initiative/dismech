@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT01548950
+reference_id: "clinicaltrials:NCT01548950"
 title: Combined Clinical and Surgical Approaches to Congenital Heart Disease Associated With Pulmonary Arterial Hypertension (PAH-CHD)
 content_type: summary
 ---
