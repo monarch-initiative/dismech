@@ -433,8 +433,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 3,
     "num_treatments": 6,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Achondrogenesis Type II",
@@ -4102,8 +4102,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 3,
     "num_treatments": 6,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Basal Cell Carcinoma",
@@ -5393,8 +5393,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Unknown",
@@ -8228,8 +8228,8 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 7,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Danon disease",
@@ -9259,7 +9259,9 @@ window.searchData = [
     "description": "Mutations in the DMD gene cause absent or dysfunctional dystrophin protein. Dystrophin links the cytoskeleton to the extracellular matrix in muscle fibers, providing structural stability during contraction.\n",
     "pathophysiology": [
       "Dystrophin Deficiency",
-      "Progressive Muscle Degeneration"
+      "Sarcolemmal Fragility and Calcium Influx",
+      "Progressive Muscle Degeneration",
+      "Cardiorespiratory Muscle Involvement"
     ],
     "cell_types": [
       "Skeletal Muscle Fiber"
@@ -9322,11 +9324,11 @@ window.searchData = [
     "source_file": "Duchenne_Muscular_Dystrophy.yaml",
     "page_url": "../pages/disorders/Duchenne_Muscular_Dystrophy.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 2,
+    "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "EBV-Associated Gastric Cancer",
@@ -9934,8 +9936,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 9,
     "num_treatments": 4,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Unknown",
@@ -10063,8 +10065,8 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Embryonal Rhabdomyosarcoma",
@@ -11891,8 +11893,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "1",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Unknown",
@@ -20373,8 +20375,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 10,
     "num_treatments": 5,
-    "causal_graph_edges": "1",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Meckel Diverticulum",
@@ -23082,7 +23084,9 @@ window.searchData = [
       "NF1 Tumor Suppressor Loss",
       "RAS-MAPK Pathway Hyperactivation",
       "Uncontrolled Neural Crest Cell Proliferation",
-      "Tumor Development"
+      "Tumor Development",
+      "Neurodevelopmental Circuit Dysfunction",
+      "Skeletal Dysplasia"
     ],
     "cell_types": [
       "Schwann cell"
@@ -23153,11 +23157,11 @@ window.searchData = [
     "source_file": "Neurofibromatosis_Type_1.yaml",
     "page_url": "../pages/disorders/Neurofibromatosis_Type_1.html",
     "num_phenotypes": 8,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "3",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Neuromyelitis Optica",
@@ -27551,6 +27555,113 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Pseudohypoparathyroidism",
+    "disease_id": "MONDO:0019992",
+    "category": "Genetic",
+    "parents": [
+      "Endocrine Disorder",
+      "Calcium-Phosphate Metabolism Disorder"
+    ],
+    "subtypes": [
+      "PHP1A",
+      "PHP1B",
+      "Pseudopseudohypoparathyroidism"
+    ],
+    "description": "Pseudohypoparathyroidism (PHP) is a group of disorders caused by impaired signaling at the GNAS locus, producing resistance to parathyroid hormone and, in many patients, additional endocrine and developmental abnormalities. The phenotype reflects both parent-of-origin effects (imprinting) and tissue-specific dependence on Gs alpha signaling.",
+    "pathophysiology": [
+      "GNAS Imprinting-Dependent Signaling Defect",
+      "Renal PTH Resistance",
+      "Mineral Ion Imbalance and Neuromuscular Excitability",
+      "Multihormone Resistance",
+      "AHO Developmental Tissue Effects"
+    ],
+    "cell_types": [
+      "epithelial cell of proximal tubule",
+      "osteoblast",
+      "adipocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0002306",
+      "CL:0000062",
+      "CL:0000136"
+    ],
+    "biological_processes": [
+      "genomic imprinting",
+      "adenylate cyclase-modulating G protein-coupled receptor signaling pathway",
+      "response to parathyroid hormone",
+      "phosphate ion homeostasis",
+      "calcium ion homeostasis",
+      "hormone-mediated signaling pathway",
+      "endochondral ossification",
+      "ossification"
+    ],
+    "phenotypes": [
+      "Hypocalcemia",
+      "Hyperphosphatemia",
+      "Elevated Parathyroid Hormone",
+      "Tetany",
+      "Seizures",
+      "Brachydactyly",
+      "Short Stature",
+      "Obesity",
+      "Subcutaneous Ossifications",
+      "Hypothyroidism",
+      "Developmental Delay"
+    ],
+    "phenotype_categories": [
+      "Biochemical",
+      "Neurological",
+      "Skeletal",
+      "Growth",
+      "Metabolic",
+      "Endocrine"
+    ],
+    "phenotype_hpo_categories": [
+      "Endocrine",
+      "Growth",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002901",
+      "HP:0002905",
+      "HP:0003165",
+      "HP:0001281",
+      "HP:0001250",
+      "HP:0001156",
+      "HP:0004322",
+      "HP:0001513",
+      "HP:0034282",
+      "HP:0000821",
+      "HP:0001263"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [
+      "GNAS"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [
+      "Parathyroid Hormone",
+      "Serum Calcium",
+      "Serum Phosphate"
+    ],
+    "source_file": "Pseudohypoparathyroidism.yaml",
+    "page_url": "../pages/disorders/Pseudohypoparathyroidism.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Unknown",
     "disease_id": null,
     "category": "",
@@ -30533,7 +30644,9 @@ window.searchData = [
     "description": "Homozygous deletion or mutation of SMN1 gene causes deficiency of survival motor neuron protein. SMN2 gene produces some functional protein but mostly truncated due to exon 7 skipping. SMN protein is essential for motor neuron survival and function.\n",
     "pathophysiology": [
       "SMN Protein Deficiency",
-      "Motor Neuron Degeneration"
+      "Motor Neuron Degeneration",
+      "Respiratory Motor Unit Failure",
+      "Axial Muscle Imbalance"
     ],
     "cell_types": [
       "Motor Neuron"
@@ -30592,11 +30705,11 @@ window.searchData = [
     "source_file": "Spinal_Muscular_Atrophy.yaml",
     "page_url": "../pages/disorders/Spinal_Muscular_Atrophy.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 2,
+    "num_pathophysiology": 4,
     "num_genes": 2,
     "num_treatments": 4,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Spondyloepimetaphyseal Dysplasia Strudwick Type",
