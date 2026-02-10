@@ -26,7 +26,7 @@ window.searchSchema = {
       "type": "array"
     },
     {
-      "field": "phenotype_categories",
+      "field": "phenotype_hpo_categories",
       "label": "Phenotype Systems",
       "type": "array"
     },

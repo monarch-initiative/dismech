@@ -2,6 +2,8 @@
 Render disorder YAML files to HTML pages using Jinja2 templates.
 """
 
+import json
+from collections import defaultdict
 from functools import lru_cache
 from pathlib import Path
 from typing import Optional
@@ -9,7 +11,61 @@ from typing import Optional
 import yaml
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
+from dismech.export.browser_export import HPO_TOP_LEVEL_CATEGORIES
 from dismech.graph import build_causal_graph, generate_mermaid
+
+_HPO_CATEGORY_CACHE_PATH = Path('app/hpo_category_cache.json')
+
+# Canonical display order for phenotype categories (matches HPO_TOP_LEVEL_CATEGORIES)
+_CATEGORY_ORDER = list(HPO_TOP_LEVEL_CATEGORIES.values())
+
+
+@lru_cache(maxsize=1)
+def _load_hpo_category_cache() -> dict[str, list[str]]:
+    """Load the HP-term-to-category cache written by browser_export."""
+    if _HPO_CATEGORY_CACHE_PATH.exists():
+        return json.loads(_HPO_CATEGORY_CACHE_PATH.read_text())
+    return {}
+
+
+def _group_phenotypes_by_category(phenotypes: list[dict]) -> list[tuple[str, list[dict]]]:
+    """Group phenotypes by their HPO broad category, returning (category, phenotypes) pairs.
+
+    Phenotypes without an HP term go into an "Other" group at the end.
+    """
+    cache = _load_hpo_category_cache()
+    groups: dict[str, list[dict]] = defaultdict(list)
+    seen: set[int] = set()
+
+    for i, pheno in enumerate(phenotypes):
+        hp_id = None
+        pt = pheno.get("phenotype_term")
+        if pt:
+            term = pt.get("term")
+            if term:
+                hp_id = term.get("id")
+
+        if hp_id and hp_id in cache:
+            categories = cache[hp_id]
+            if categories:
+                # Assign to the first (most specific) category
+                groups[categories[0]].append(pheno)
+                seen.add(i)
+
+    # Anything not resolved goes to "Other"
+    for i, pheno in enumerate(phenotypes):
+        if i not in seen:
+            groups["Other"].append(pheno)
+
+    # Sort by canonical order
+    result = []
+    for cat in _CATEGORY_ORDER:
+        if cat in groups:
+            result.append((cat, groups[cat]))
+    if "Other" in groups:
+        result.append(("Other", groups["Other"]))
+    return result
+
 
 STRICT_HIERARCHIES = {
     'ICD10CM': {
@@ -193,6 +249,9 @@ def render_disorder(
     mermaid_code = generate_mermaid(graph)
     comorbidity_links = _collect_comorbidity_links(yaml_path.stem)
 
+    # Group phenotypes by HPO broad category
+    phenotype_groups = _group_phenotypes_by_category(disorder.get("phenotypes") or [])
+
     html = template.render(
         disorder=disorder,
         yaml_content=yaml_content,
@@ -200,13 +259,15 @@ def render_disorder(
         mermaid_code=mermaid_code,
         graph_issues=graph.integrity_issues,
         comorbidity_links=comorbidity_links,
+        phenotype_groups=phenotype_groups,
     )
 
     # Determine output path
     if output_path is None:
         output_dir = Path('pages/disorders')
         output_dir.mkdir(parents=True, exist_ok=True)
-        output_path = output_dir / f'{slugify(disorder["name"])}.html'
+        disorder_name = disorder.get("name") or yaml_path.stem
+        output_path = output_dir / f'{slugify(disorder_name)}.html'
 
     # Write output
     output_path.write_text(html)
@@ -266,7 +327,8 @@ def render_comorbidity(
     if output_path is None:
         output_dir = Path('pages/comorbidities')
         output_dir.mkdir(parents=True, exist_ok=True)
-        output_path = output_dir / f'{yaml_path.stem}.html'
+        comorbidity_name = comorbidity.get("name") or yaml_path.stem
+        output_path = output_dir / f'{slugify(comorbidity_name)}.html'
 
     output_path.write_text(html)
     return output_path
@@ -322,7 +384,7 @@ def _get_oak_adapter(adapter_str: str):
         return None
 
 
-def _compact_hierarchy_path(path: list[str], max_nodes: int = 6) -> list[Optional[str]]:
+def _compact_hierarchy_path(path: list[str | None], max_nodes: int = 6) -> list[str | None]:
     if len(path) <= max_nodes:
         return path
     head = path[:2]
@@ -330,7 +392,7 @@ def _compact_hierarchy_path(path: list[str], max_nodes: int = 6) -> list[Optiona
     return head + [None] + tail
 
 
-def _build_hierarchy_path(adapter, term_id: str, root_id: str) -> list[str]:
+def _build_hierarchy_path(adapter, term_id: str, root_id: str) -> list[Optional[str]]:
     path: list[str] = []
     current = term_id
     visited = set()
@@ -480,7 +542,8 @@ def render_classification_pages(
             'classifications': disorder.get('classifications') or {},
         })
 
-    disorders_by_enum_value: dict[str, dict[str, list[dict]]] = {name: {} for name in enums}
+    disorders_by_enum_value: dict[str, dict[str, list[dict]]] = {
+        name: {} for name in enums}
     for disorder in disorders:
         classifications = disorder.get('classifications') or {}
         for slot_name, entry in classifications.items():
@@ -494,7 +557,8 @@ def render_classification_pages(
                     value = item
                 if not value:
                     continue
-                enum_name = slot_to_enum.get(slot_name) or _find_enum_for_value(value, enums)
+                enum_name = slot_to_enum.get(
+                    slot_name) or _find_enum_for_value(value, enums)
                 if not enum_name:
                     continue
                 disorders_by_enum_value.setdefault(enum_name, {}).setdefault(value, []).append({
@@ -524,7 +588,8 @@ def render_classification_pages(
         roots, nodes = _build_enum_tree(enum_def)
         for value, disorder_list in (disorders_by_enum_value.get(enum_name) or {}).items():
             if value in nodes:
-                nodes[value]['disorders'] = sorted(disorder_list, key=lambda d: d['name'])
+                nodes[value]['disorders'] = sorted(
+                    disorder_list, key=lambda d: d['name'])
         for node in nodes.values():
             node['is_leaf'] = len(node['children']) == 0
 
@@ -565,13 +630,16 @@ def render_all_disorders(
     yaml_files = sorted(input_dir.glob('*.yaml'))
     output_files = []
 
+    # Each disorder should have a name,
+    # but if not, we'll use the filename as a fallback
     for yaml_path in yaml_files:
         disorder = load_disorder(yaml_path)
-        output_path = output_dir / f'{slugify(disorder["name"])}.html'
+        disorder_name = disorder.get("name") or yaml_path.stem
+        output_path = output_dir / f'{slugify(disorder_name)}.html'
 
         render_disorder(yaml_path, output_path, template_path)
         output_files.append(output_path)
-        print(f'Rendered: {disorder["name"]} -> {output_path}')
+        print(f'Rendered: {disorder_name} -> {output_path}')
 
     render_classification_pages(input_dir=input_dir)
 
@@ -583,11 +651,16 @@ def main():
     """CLI entry point."""
     import argparse
 
-    parser = argparse.ArgumentParser(description='Render disorder and comorbidity pages')
-    parser.add_argument('path', nargs='?', help='Single YAML file or directory')
-    parser.add_argument('--all', '-a', action='store_true', help='Render all disorders')
-    parser.add_argument('--comorbidity', action='store_true', help='Render comorbidity page(s)')
-    parser.add_argument('--output', '-o', help='Output path (file or directory)')
+    parser = argparse.ArgumentParser(
+        description='Render disorder and comorbidity pages')
+    parser.add_argument('path', nargs='?',
+                        help='Single YAML file or directory')
+    parser.add_argument('--all', '-a', action='store_true',
+                        help='Render all disorders')
+    parser.add_argument('--comorbidity', action='store_true',
+                        help='Render comorbidity page(s)')
+    parser.add_argument(
+        '--output', '-o', help='Output path (file or directory)')
     parser.add_argument('--template', '-t', help='Custom template path')
 
     args = parser.parse_args()
@@ -596,10 +669,12 @@ def main():
 
     if args.comorbidity:
         if args.path is None:
-            raise SystemExit('Error: --comorbidity requires a file or directory path')
+            raise SystemExit(
+                'Error: --comorbidity requires a file or directory path')
         input_path = Path(args.path)
         if input_path.is_dir():
-            output_dir = Path(args.output) if args.output else Path('pages/comorbidities')
+            output_dir = Path(args.output) if args.output else Path(
+                'pages/comorbidities')
             render_all_comorbidities(input_path, output_dir, template_path)
         else:
             output_path = Path(args.output) if args.output else None
@@ -609,7 +684,8 @@ def main():
 
     if args.all or args.path is None:
         input_dir = Path(args.path) if args.path else Path('kb/disorders')
-        output_dir = Path(args.output) if args.output else Path('pages/disorders')
+        output_dir = Path(args.output) if args.output else Path(
+            'pages/disorders')
         render_all_disorders(input_dir, output_dir, template_path)
     else:
         yaml_path = Path(args.path)
