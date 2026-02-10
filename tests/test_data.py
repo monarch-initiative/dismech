@@ -81,8 +81,8 @@ def test_evidence_items_have_references(filepath):
         for i, item in enumerate(evidence_list):
             if not item.get("reference"):
                 errors.append(f"{path}[{i}]: missing reference")
-            elif not (item["reference"].startswith("PMID:") or item["reference"].startswith("DOI:")):
-                errors.append(f"{path}[{i}]: reference should start with PMID: or DOI: got {item['reference']}")
+            elif not any(item["reference"].startswith(prefix) for prefix in ("PMID:", "DOI:", "clinicaltrials:", "file:")):
+                errors.append(f"{path}[{i}]: reference should start with PMID:, DOI:, clinicaltrials:, or file: got {item['reference']}")
         return errors
 
     all_errors = []
