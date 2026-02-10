@@ -2,6 +2,8 @@
 Render disorder YAML files to HTML pages using Jinja2 templates.
 """
 
+import json
+from collections import defaultdict
 from functools import lru_cache
 from pathlib import Path
 from typing import Optional
@@ -9,7 +11,61 @@ from typing import Optional
 import yaml
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
+from dismech.export.browser_export import HPO_TOP_LEVEL_CATEGORIES
 from dismech.graph import build_causal_graph, generate_mermaid
+
+_HPO_CATEGORY_CACHE_PATH = Path('app/hpo_category_cache.json')
+
+# Canonical display order for phenotype categories (matches HPO_TOP_LEVEL_CATEGORIES)
+_CATEGORY_ORDER = list(HPO_TOP_LEVEL_CATEGORIES.values())
+
+
+@lru_cache(maxsize=1)
+def _load_hpo_category_cache() -> dict[str, list[str]]:
+    """Load the HP-term-to-category cache written by browser_export."""
+    if _HPO_CATEGORY_CACHE_PATH.exists():
+        return json.loads(_HPO_CATEGORY_CACHE_PATH.read_text())
+    return {}
+
+
+def _group_phenotypes_by_category(phenotypes: list[dict]) -> list[tuple[str, list[dict]]]:
+    """Group phenotypes by their HPO broad category, returning (category, phenotypes) pairs.
+
+    Phenotypes without an HP term go into an "Other" group at the end.
+    """
+    cache = _load_hpo_category_cache()
+    groups: dict[str, list[dict]] = defaultdict(list)
+    seen: set[int] = set()
+
+    for i, pheno in enumerate(phenotypes):
+        hp_id = None
+        pt = pheno.get("phenotype_term")
+        if pt:
+            term = pt.get("term")
+            if term:
+                hp_id = term.get("id")
+
+        if hp_id and hp_id in cache:
+            categories = cache[hp_id]
+            if categories:
+                # Assign to the first (most specific) category
+                groups[categories[0]].append(pheno)
+                seen.add(i)
+
+    # Anything not resolved goes to "Other"
+    for i, pheno in enumerate(phenotypes):
+        if i not in seen:
+            groups["Other"].append(pheno)
+
+    # Sort by canonical order
+    result = []
+    for cat in _CATEGORY_ORDER:
+        if cat in groups:
+            result.append((cat, groups[cat]))
+    if "Other" in groups:
+        result.append(("Other", groups["Other"]))
+    return result
+
 
 STRICT_HIERARCHIES = {
     'ICD10CM': {
@@ -193,6 +249,9 @@ def render_disorder(
     mermaid_code = generate_mermaid(graph)
     comorbidity_links = _collect_comorbidity_links(yaml_path.stem)
 
+    # Group phenotypes by HPO broad category
+    phenotype_groups = _group_phenotypes_by_category(disorder.get("phenotypes") or [])
+
     html = template.render(
         disorder=disorder,
         yaml_content=yaml_content,
@@ -200,6 +259,7 @@ def render_disorder(
         mermaid_code=mermaid_code,
         graph_issues=graph.integrity_issues,
         comorbidity_links=comorbidity_links,
+        phenotype_groups=phenotype_groups,
     )
 
     # Determine output path
