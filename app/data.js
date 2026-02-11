@@ -7153,6 +7153,114 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Cogan Syndrome",
+    "disease_id": "MONDO:0015453",
+    "category": "Autoimmune",
+    "parents": [
+      "Autoimmune Disease",
+      "Vasculitis",
+      "Inner Ear Diseases"
+    ],
+    "subtypes": [
+      "Typical Cogan syndrome",
+      "Atypical Cogan syndrome"
+    ],
+    "description": "Rare autoimmune vasculitis characterized by ocular inflammation and audiovestibular involvement, often with systemic vasculitis.",
+    "pathophysiology": [
+      "Autoantibodies target corneal antigens",
+      "Autoantibodies target inner ear antigens",
+      "Autoantibodies bind CD148 on inner ear sensory epithelium and endothelial cells",
+      "Autoantibodies bind connexin 26",
+      "Autoantibodies target endothelial antigens",
+      "Systemic vasculitic inflammation"
+    ],
+    "cell_types": [
+      "corneal epithelial cell",
+      "sensory epithelial cell",
+      "endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000575",
+      "CL:0000098",
+      "CL:0000115"
+    ],
+    "biological_processes": [
+      "immune system process",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Keratitis",
+      "Uveitis",
+      "Sensorineural hearing impairment",
+      "Vertigo",
+      "Tinnitus",
+      "Absent vestibular function",
+      "Episcleritis",
+      "Panuveitis",
+      "Retinal vasculitis",
+      "Aortic regurgitation",
+      "Aortitis",
+      "Coronary artery stenosis",
+      "Vasculitis",
+      "Large vessel vasculitis",
+      "Medium vessel vasculitis",
+      "Arteritis",
+      "Acute coronary syndrome"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic",
+      "Auditory",
+      "Neurologic",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Ear",
+      "Eye",
+      "Immune"
+    ],
+    "phenotype_ids": [
+      "HP:0000491",
+      "HP:0000554",
+      "HP:0000407",
+      "HP:0002321",
+      "HP:0000360",
+      "HP:0008555",
+      "HP:0100534",
+      "HP:0012121",
+      "HP:0025188",
+      "HP:0001659",
+      "HP:0005145",
+      "HP:0002633",
+      "HP:0005310",
+      "HP:6000658",
+      "HP:0012089",
+      "HP:0033678"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL",
+      "RARE"
+    ],
+    "genes": [],
+    "treatments": [
+      "Corticosteroid therapy",
+      "Immunosuppressive therapy",
+      "TNF-alpha inhibitor therapy",
+      "Cochlear device implantation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cogan_Syndrome.yaml",
+    "page_url": "../pages/disorders/Cogan_Syndrome.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 6,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Collagenous Sprue",
     "disease_id": "MONDO:0044092",
     "category": "Complex",
