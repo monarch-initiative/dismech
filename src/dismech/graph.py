@@ -38,7 +38,8 @@ class CausalGraph:
 
     nodes: dict[str, NodeInfo] = field(default_factory=dict)
     edges: list[Edge] = field(default_factory=list)
-    orphan_targets: set[str] = field(default_factory=set)  # targets with no matching node
+    # targets with no matching node
+    orphan_targets: set[str] = field(default_factory=set)
     integrity_issues: list[str] = field(default_factory=list)
 
 
@@ -57,7 +58,8 @@ NODE_COLORS = {
 def _sanitize_node_id(name: str) -> str:
     """Convert a node name to a valid Mermaid node ID."""
     # Replace problematic characters with underscores
-    sanitized = name.replace(" ", "_").replace("-", "_").replace("(", "").replace(")", "")
+    sanitized = name.replace(" ", "_").replace(
+        "-", "_").replace("(", "").replace(")", "")
     sanitized = sanitized.replace(",", "").replace("/", "_").replace("'", "")
     # Ensure it starts with a letter
     if sanitized and not sanitized[0].isalpha():
@@ -121,7 +123,8 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
             if isinstance(edge_item, dict) and "target" in edge_item:
                 target = edge_item["target"]
                 graph.edges.append(
-                    Edge(source=source, target=target, predicate="causes", source_type="pathophysiology")
+                    Edge(source=source, target=target, predicate="causes",
+                         source_type="pathophysiology")
                 )
 
     # Collect edges from phenotype sequelae
@@ -137,14 +140,16 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
             if isinstance(edge_item, dict) and "target" in edge_item:
                 target = edge_item["target"]
                 graph.edges.append(
-                    Edge(source=source, target=target, predicate="leads_to", source_type="phenotype")
+                    Edge(source=source, target=target,
+                         predicate="leads_to", source_type="phenotype")
                 )
 
     # Check referential integrity
     for edge in graph.edges:
         if edge.target not in graph.nodes:
             graph.orphan_targets.add(edge.target)
-            graph.integrity_issues.append(f"Target '{edge.target}' (from '{edge.source}') not found in named elements")
+            graph.integrity_issues.append(
+                f"Target '{edge.target}' (from '{edge.source}') not found in named elements")
 
     return graph
 
@@ -197,7 +202,8 @@ def generate_mermaid(graph: CausalGraph) -> str:
         node_id = node_ids[name]
         if name in graph.orphan_targets:
             color = NODE_COLORS["orphan"]
-            lines.append(f"    style {node_id} fill:{color},stroke:#dc2626,stroke-dasharray: 5 5")
+            lines.append(
+                f"    style {node_id} fill:{color},stroke:#dc2626,stroke-dasharray: 5 5")
         elif name in graph.nodes:
             node_type = graph.nodes[name].node_type
             color = NODE_COLORS.get(node_type, "#f3f4f6")
@@ -219,12 +225,15 @@ def validate_all_disorders(input_dir: Path) -> dict[str, list[str]]:
     issues: dict[str, list[str]] = {}
 
     for yaml_path in sorted(input_dir.glob("*.yaml")):
+        if yaml_path.name.endswith(".history.yaml"):
+            continue
         with open(yaml_path) as f:
             disorder = yaml.safe_load(f)
 
         graph = build_causal_graph(disorder)
         if graph.integrity_issues:
-            issues[disorder.get("name", yaml_path.stem)] = graph.integrity_issues
+            issues[disorder.get("name", yaml_path.stem)
+                   ] = graph.integrity_issues
 
     return issues
 
@@ -233,9 +242,12 @@ def main():
     """CLI entry point for graph validation."""
     import argparse
 
-    parser = argparse.ArgumentParser(description="Validate causal graph integrity")
-    parser.add_argument("--validate", "-v", metavar="DIR", help="Validate all disorders in directory")
-    parser.add_argument("--show", "-s", metavar="FILE", help="Show Mermaid diagram for a single file")
+    parser = argparse.ArgumentParser(
+        description="Validate causal graph integrity")
+    parser.add_argument("--validate", "-v", metavar="DIR",
+                        help="Validate all disorders in directory")
+    parser.add_argument("--show", "-s", metavar="FILE",
+                        help="Show Mermaid diagram for a single file")
 
     args = parser.parse_args()
 
