@@ -250,7 +250,8 @@ def render_disorder(
     comorbidity_links = _collect_comorbidity_links(yaml_path.stem)
 
     # Group phenotypes by HPO broad category
-    phenotype_groups = _group_phenotypes_by_category(disorder.get("phenotypes") or [])
+    phenotype_groups = _group_phenotypes_by_category(
+        disorder.get("phenotypes") or [])
 
     html = template.render(
         disorder=disorder,
@@ -534,6 +535,8 @@ def render_classification_pages(
 
     disorders: list[dict] = []
     for yaml_path in sorted(input_dir.glob('*.yaml')):
+        if yaml_path.name.endswith('.history.yaml'):
+            continue
         disorder = load_disorder(yaml_path) or {}
         name = disorder.get('name') or yaml_path.stem
         disorders.append({
@@ -627,7 +630,11 @@ def render_all_disorders(
     output_dir.mkdir(parents=True, exist_ok=True)
     render_all_comorbidities()
 
-    yaml_files = sorted(input_dir.glob('*.yaml'))
+    yaml_files = [
+        path
+        for path in sorted(input_dir.glob('*.yaml'))
+        if not path.name.endswith('.history.yaml')
+    ]
     output_files = []
 
     # Each disorder should have a name,
