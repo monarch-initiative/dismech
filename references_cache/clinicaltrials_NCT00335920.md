@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT00335920
+reference_id: "clinicaltrials:NCT00335920"
 title: "A Prospective, Randomized, Double Blind, Placebo Controlled, Multicenter Study on the Safety and Efficacy of Continuous Infusion of Corticosteroid Delivered Via Catheter in Patients With Idiopathic Sudden Sensorineural Hearing Loss"
 content_type: summary
 ---
