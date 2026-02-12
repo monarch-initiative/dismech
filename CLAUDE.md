@@ -2,6 +2,62 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## For Agent Managers (Humans)
+
+If you're new to working with Claude Code on this project:
+
+### First Time Setup
+
+1. **Install prerequisites:**
+   - **Claude Code**: Get a Claude Pro subscription at [claude.ai](https://claude.ai), then install the CLI
+   - **`just` command runner**: [Installation guide](https://github.com/casey/just#installation)
+   - **Deep research provider (recommended)**: Edison Scientific for biomedical literature
+     - Sign up at [platform.edisonscientific.com](https://platform.edisonscientific.com/)
+     - Navigate to: Account → Profile → + Create new token
+     - Set your API key: `export EDISON_API_KEY=your_key_here`
+
+2. **Clone the repository:**
+   ```bash
+   git clone https://github.com/monarch-initiative/dismech.git
+   cd dismech
+   ```
+
+3. **Create a working branch:**
+   ```bash
+   git checkout -b your-branch-name
+   ```
+   Or use GitHub Desktop to create a branch
+
+4. **Ask your agent for a tour:**
+   Open Claude Code in your terminal and ask:
+   ```
+   Give me a tour of the dismech project
+   ```
+
+5. **Start curating:**
+   ```
+   /curate Parkinson Disease
+   ```
+
+### What to Expect
+
+- **The agent will manage most tasks** - You provide high-level direction, the agent handles research, YAML editing, and validation
+- **You may need to provide API keys** - If using deep research, the agent will ask you to set up Edison or another provider
+- **Credits may run out** - Deep research can use significant credits. If using Opus with Claude Pro, you might hit limits. Switch to Sonnet with `/model sonnet` if needed
+- **Review the agent's work** - After the agent completes curation, ask for a summary (`give me a summary of what you did`) before committing
+- **Use `/resume`** to continue previous sessions in the terminal
+
+### Working with GitHub
+
+After the agent finishes:
+
+1. **Review changes** in GitHub Desktop or with `git status`
+2. **Get a commit message** from the agent: `give me a summary of the history of what you did`
+3. **Commit and push** your branch
+4. **Create a pull request** on GitHub
+
+The agent can also handle this for you - just ask it to create a PR.
+
 ## Project Overview
 
 This is the **Disorder Mechanisms Knowledge Base (dismech)** - a LinkML-based knowledge base storing disease pathophysiology information. It combines:
