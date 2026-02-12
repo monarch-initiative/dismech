@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT01231009
+reference_id: "clinicaltrials:NCT01231009"
 title: "The Role of Corticosteroids and Vestibular Exercises in Recovery of Vestibular Neuritis: a Prospective Randomized Controlled Clinical Trial"
 content_type: summary
 ---

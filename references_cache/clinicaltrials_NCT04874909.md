@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT04874909
+reference_id: "clinicaltrials:NCT04874909"
 title: Classification and Functional Stratification of the Patients With Ciliopathy and Identification of Biomarkers to Improve Their Prognosis
 content_type: summary
 ---

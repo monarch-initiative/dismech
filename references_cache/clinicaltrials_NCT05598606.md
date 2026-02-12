@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05598606
+reference_id: "clinicaltrials:NCT05598606"
 title: "Denosumab vs Zoledronate in Patients With Osteoporotic Vertebral Compression Fracture After Percutaneous Vertebroplasty: A Randomized Controlled Trial"
 content_type: summary
 ---
