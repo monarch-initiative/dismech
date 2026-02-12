@@ -68,7 +68,8 @@ class HPOCategoryResolver:
             return result
 
         adapter = self._get_adapter()
-        ancestors = set(adapter.ancestors(hp_id, predicates=["rdfs:subClassOf"]))
+        ancestors = set(adapter.ancestors(
+            hp_id, predicates=["rdfs:subClassOf"]))
         hits = ancestors & _HPO_TOP_LEVEL_IDS
         result = sorted(HPO_TOP_LEVEL_CATEGORIES[h] for h in hits)
         self._cache[hp_id] = result
@@ -174,7 +175,8 @@ class BrowserExporter:
             disease_id = disorder["disease_term"]["term"].get("id")
 
         # Subtypes
-        subtypes = [s.get("name", "") for s in (disorder.get("has_subtypes") or []) if s.get("name")]
+        subtypes = [s.get("name", "") for s in (
+            disorder.get("has_subtypes") or []) if s.get("name")]
 
         # Pathophysiology
         pathophysiology_names = []
@@ -186,7 +188,8 @@ class BrowserExporter:
             if patho.get("name"):
                 pathophysiology_names.append(patho["name"])
             for ct in (patho.get("cell_types") or []):
-                ct_name = ct.get("preferred_term") or ct.get("term", {}).get("label", "")
+                ct_name = ct.get("preferred_term") or ct.get(
+                    "term", {}).get("label", "")
                 if ct_name and ct_name not in cell_types:
                     cell_types.append(ct_name)
                 ct_id = ct.get("term", {}).get("id")
@@ -217,19 +220,24 @@ class BrowserExporter:
                 if hp_id and hp_id not in phenotype_ids:
                     phenotype_ids.append(hp_id)
                 if hp_id:
-                    hpo_broad_categories.update(self._hpo_resolver.resolve(hp_id))
+                    hpo_broad_categories.update(
+                        self._hpo_resolver.resolve(hp_id))
 
         # Genetic associations
-        genes = [g.get("name", "") for g in (disorder.get("genetic") or []) if g.get("name")]
+        genes = [g.get("name", "")
+                 for g in (disorder.get("genetic") or []) if g.get("name")]
 
         # Treatments
-        treatments = [t.get("name", "") for t in (disorder.get("treatments") or []) if t.get("name")]
+        treatments = [t.get("name", "") for t in (
+            disorder.get("treatments") or []) if t.get("name")]
 
         # Environmental factors
-        environmental = [e.get("name", "") for e in (disorder.get("environmental") or []) if e.get("name")]
+        environmental = [e.get("name", "") for e in (
+            disorder.get("environmental") or []) if e.get("name")]
 
         # Biochemical markers
-        biochemical = [b.get("name", "") for b in (disorder.get("biochemical") or []) if b.get("name")]
+        biochemical = [b.get("name", "") for b in (
+            disorder.get("biochemical") or []) if b.get("name")]
 
         # Build description from various sources
         description = disorder.get("description", "")
@@ -242,7 +250,8 @@ class BrowserExporter:
 
         graph = build_causal_graph(disorder)
         causal_edges = len(graph.edges)
-        causal_longest_path = _longest_path_length([(edge.source, edge.target) for edge in graph.edges])
+        causal_longest_path = _longest_path_length(
+            [(edge.source, edge.target) for edge in graph.edges])
 
         return {
             "name": name,
@@ -280,7 +289,8 @@ class BrowserExporter:
         cache_path = output_path.parent / "hpo_category_cache.json"
         with open(cache_path, "w") as f:
             json.dump(self._hpo_resolver._cache, f, indent=2, sort_keys=True)
-        print(f"Wrote HPO category cache ({len(self._hpo_resolver._cache)} terms) to {cache_path}")
+        print(
+            f"Wrote HPO category cache ({len(self._hpo_resolver._cache)} terms) to {cache_path}")
 
     def export_to_json(self, disorder_files: list[Path], output_path: Path) -> None:
         """Export all disorder files to a single JSON file."""
@@ -318,17 +328,25 @@ def main():
     """CLI entry point."""
     import argparse
 
-    parser = argparse.ArgumentParser(description="Export disorder data for browser")
-    parser.add_argument("--input-dir", "-i", default="kb/disorders", help="Input directory with YAML files")
-    parser.add_argument("--output", "-o", default="app/data.js", help="Output file path")
-    parser.add_argument("--format", "-f", choices=["json", "js"], default="js", help="Output format")
+    parser = argparse.ArgumentParser(
+        description="Export disorder data for browser")
+    parser.add_argument("--input-dir", "-i", default="kb/disorders",
+                        help="Input directory with YAML files")
+    parser.add_argument(
+        "--output", "-o", default="app/data.js", help="Output file path")
+    parser.add_argument(
+        "--format", "-f", choices=["json", "js"], default="js", help="Output format")
 
     args = parser.parse_args()
 
     input_dir = Path(args.input_dir)
     output_path = Path(args.output)
 
-    disorder_files = sorted(input_dir.glob("*.yaml"))
+    disorder_files = [
+        path
+        for path in sorted(input_dir.glob("*.yaml"))
+        if not path.name.endswith(".history.yaml")
+    ]
 
     exporter = BrowserExporter()
     if args.format == "json":
