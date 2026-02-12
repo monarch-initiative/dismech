@@ -1,0 +1,178 @@
+# Citations for Research Query
+
+**Query:** # Disease Pathophysiology Research Template
+
+## Target Disease
+- **Disease Name:** Cystic Fibrosis
+- **MONDO ID:**  (if available)
+- **Category:** Genetic
+
+## Research Objectives
+
+Please provide a comprehensive research report on the pathophysiology of **Cystic Fibrosis**.
+Focus on the molecular and cellular mechanisms underlying disease progression.
+
+### Required Information
+
+#### 1. Core Pathophysiology
+- What are the primary pathophysiological mechanisms?
+- What molecular pathways are dysregulated?
+- What cellular processes are affected?
+
+#### 2. Key Molecular Players
+- **Genes/Proteins**: Which genes are causally involved or implicated?
+- **Chemical Entities**: What metabolites, drugs, or small molecules are relevant?
+- **Cell Types**: Which cell types are primarily affected?
+- **Anatomical Locations**: Which tissues/organs are involved?
+
+#### 3. Biological Processes (for GO annotation)
+- What biological processes (GO terms) are disrupted?
+- Consider: signaling pathways, metabolic processes, cellular responses, transport, etc.
+
+#### 4. Cellular Components
+- Where in the cell do key processes occur?
+- Consider: organelles, membrane compartments, extracellular space, etc.
+
+#### 5. Disease Progression
+- What is the sequence of events from initial trigger to clinical manifestation?
+- Are there distinct stages or phases?
+
+#### 6. Phenotypic Manifestations
+- What are the key clinical phenotypes?
+- How do they relate to the underlying mechanisms?
+
+### Citation Requirements
+
+- Cite primary literature (PMID preferred) for all mechanistic claims
+- Prioritize recent reviews and landmark papers
+- Include direct quotes where possible to support key statements
+
+### Output Format
+
+Structure your response as a narrative that could be used to populate a disease knowledge base entry with:
+- Pathophysiology description
+- Gene/protein annotations with ontology terms (HGNC, GO)
+- Phenotype associations (HP terms)
+- Cell type involvement (CL terms)
+- Anatomical locations (UBERON terms)
+- Chemical entities (CHEBI terms)
+- Evidence items with PMIDs
+
+**Provider:** openai
+**Generated:** 2026-02-11T12:07:04.516914
+
+1. AnnotationURLCitation(end_index=508, start_index=361, title='Cystic Fibrosis - StatPearls - NCBI Bookshelf', type='url_citation', url='https://www.ncbi.nlm.nih.gov/sites/books/n/statpearls/article-20211/#:~:text=protein,into%20the%20following%205%20classes')
+2. AnnotationURLCitation(end_index=884, start_index=725, title='Does epithelial sodium channel hyperactivity contribute to cystic fibrosis lung disease? - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC3784186/#:~:text=persistent%20neutrophilia%20and%20chronic%20infections,This%20review%20will')
+3. AnnotationURLCitation(end_index=1184, start_index=1027, title='Cystic Fibrosis - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC8972143/#:~:text=CF%20is%20a%20multisystem%20disorder,excessive%20salt%20loss%20in%20sweat')
+4. AnnotationURLCitation(end_index=1565, start_index=1406, title='Does epithelial sodium channel hyperactivity contribute to cystic fibrosis lung disease? - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC3784186/#:~:text=persistent%20neutrophilia%20and%20chronic%20infections,This%20review%20will')
+5. AnnotationURLCitation(end_index=1847, start_index=1688, title='Does epithelial sodium channel hyperactivity contribute to cystic fibrosis lung disease? - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC3784186/#:~:text=persistent%20neutrophilia%20and%20chronic%20infections,This%20review%20will')
+6. AnnotationURLCitation(end_index=1944, start_index=1848, title='Does epithelial sodium channel hyperactivity contribute to cystic fibrosis lung disease? - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC3784186/#:~:text=Key%20points')
+7. AnnotationURLCitation(end_index=2194, start_index=2098, title='Does epithelial sodium channel hyperactivity contribute to cystic fibrosis lung disease? - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC3784186/#:~:text=Key%20points')
+8. AnnotationURLCitation(end_index=2469, start_index=2312, title='Cystic Fibrosis - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC8972143/#:~:text=CF%20is%20a%20multisystem%20disorder,excessive%20salt%20loss%20in%20sweat')
+9. AnnotationURLCitation(end_index=2850, start_index=2688, title='Cystic fibrosis | Nature Reviews Disease Primers', type='url_citation', url='https://www.nature.com/articles/s41572-024-00538-6#:~:text=Cystic%20fibrosis%20is%20a%20rare,obstructive%20lung%20disease.%20Cystic%20fibrosis')
+10. AnnotationURLCitation(end_index=3152, start_index=2990, title='Cystic fibrosis | Nature Reviews Disease Primers', type='url_citation', url='https://www.nature.com/articles/s41572-024-00538-6#:~:text=Cystic%20fibrosis%20is%20a%20rare,obstructive%20lung%20disease.%20Cystic%20fibrosis')
+11. AnnotationURLCitation(end_index=3490, start_index=3331, title='Does epithelial sodium channel hyperactivity contribute to cystic fibrosis lung disease? - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC3784186/#:~:text=persistent%20neutrophilia%20and%20chronic%20infections,This%20review%20will')
+12. AnnotationURLCitation(end_index=4077, start_index=3853, title='Boucher Authors NEJM Review Article on ‘Muco-Obstructive Lung Disease’ | Newsroom', type='url_citation', url='https://news.unchealthcare.org/2019/05/boucher-authors-nejm-review-article-on-2018muco-obstructive-lung-disease2019#:~:text=muco,However%2C%20neither%20%E2%80%9Cchronic%20bronchitis%E2%80%9D%20nor')
+13. AnnotationURLCitation(end_index=4289, start_index=4078, title='Boucher Authors NEJM Review Article on ‘Muco-Obstructive Lung Disease’ | Newsroom', type='url_citation', url='https://news.unchealthcare.org/2019/05/boucher-authors-nejm-review-article-on-2018muco-obstructive-lung-disease2019#:~:text=.%20.%20.%20Muco,or%20elastic%20properties%20are%20rational')
+14. AnnotationURLCitation(end_index=4648, start_index=4463, title='Neutrophil elastase in bronchiectasis | Respiratory Research | Full Text', type='url_citation', url='https://respiratory-research.biomedcentral.com/articles/10.1186/s12931-017-0691-x#:~:text=An%20outburst%20of%20neutrophilic%20inflammation,39')
+15. AnnotationURLCitation(end_index=5051, start_index=4866, title='Neutrophil elastase in bronchiectasis | Respiratory Research | Full Text', type='url_citation', url='https://respiratory-research.biomedcentral.com/articles/10.1186/s12931-017-0691-x#:~:text=An%20outburst%20of%20neutrophilic%20inflammation,39')
+16. AnnotationURLCitation(end_index=5409, start_index=5224, title='Neutrophil elastase in bronchiectasis | Respiratory Research | Full Text', type='url_citation', url='https://respiratory-research.biomedcentral.com/articles/10.1186/s12931-017-0691-x#:~:text=An%20outburst%20of%20neutrophilic%20inflammation,39')
+17. AnnotationURLCitation(end_index=5821, start_index=5606, title='Neutrophil elastase in bronchiectasis | Respiratory Research | Full Text', type='url_citation', url='https://respiratory-research.biomedcentral.com/articles/10.1186/s12931-017-0691-x#:~:text=irreversible%20airway%20dilation%20and%20early,NE%20can%20cause%20impairment%20of')
+18. AnnotationURLCitation(end_index=6079, start_index=5895, title='Neutrophil elastase in bronchiectasis | Respiratory Research | Full Text', type='url_citation', url='https://respiratory-research.biomedcentral.com/articles/10.1186/s12931-017-0691-x#:~:text=NE%20is%20a%20potent%20upregulator,Thirdly%2C%20NE')
+19. AnnotationURLCitation(end_index=6371, start_index=6187, title='Neutrophil elastase in bronchiectasis | Respiratory Research | Full Text', type='url_citation', url='https://respiratory-research.biomedcentral.com/articles/10.1186/s12931-017-0691-x#:~:text=NE%20is%20a%20potent%20upregulator,Thirdly%2C%20NE')
+20. AnnotationURLCitation(end_index=6726, start_index=6542, title='Neutrophil elastase in bronchiectasis | Respiratory Research | Full Text', type='url_citation', url='https://respiratory-research.biomedcentral.com/articles/10.1186/s12931-017-0691-x#:~:text=NE%20is%20a%20potent%20upregulator,Thirdly%2C%20NE')
+21. AnnotationURLCitation(end_index=7097, start_index=6913, title='Neutrophil elastase in bronchiectasis | Respiratory Research | Full Text', type='url_citation', url='https://respiratory-research.biomedcentral.com/articles/10.1186/s12931-017-0691-x#:~:text=NE%20is%20a%20potent%20upregulator,Thirdly%2C%20NE')
+22. AnnotationURLCitation(end_index=7895, start_index=7769, title='Cystic Fibrosis - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC8972143/#:~:text=protein%20lead%20to%20absent%20or,%28%2012')
+23. AnnotationURLCitation(end_index=8257, start_index=8117, title='Cystic Fibrosis - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC8972143/#:~:text=Cystic%20fibrosis%20,disease%20in%20childhood%20at%20the')
+24. AnnotationURLCitation(end_index=8769, start_index=8629, title='Cystic Fibrosis - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC8972143/#:~:text=Cystic%20fibrosis%20,disease%20in%20childhood%20at%20the')
+25. AnnotationURLCitation(end_index=9168, start_index=9028, title='Cystic Fibrosis - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC8972143/#:~:text=Cystic%20fibrosis%20,disease%20in%20childhood%20at%20the')
+26. AnnotationURLCitation(end_index=9816, start_index=9676, title='Cystic Fibrosis - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC8972143/#:~:text=Cystic%20fibrosis%20,disease%20in%20childhood%20at%20the')
+27. AnnotationURLCitation(end_index=10241, start_index=10101, title='Cystic Fibrosis - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC8972143/#:~:text=Cystic%20fibrosis%20,disease%20in%20childhood%20at%20the')
+28. AnnotationURLCitation(end_index=10750, start_index=10624, title='Cystic Fibrosis - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC8972143/#:~:text=protein%20lead%20to%20absent%20or,%28%2012')
+29. AnnotationURLCitation(end_index=11146, start_index=11017, title='Cystic Fibrosis - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC8972143/#:~:text=of%20thick%20and%20sticky%20mucus%2C,%28%2012')
+30. AnnotationURLCitation(end_index=11846, start_index=11648, title='Cystic Fibrosis - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC8972143/#:~:text=surface%20%28%E2%80%9Ctrafficking%20defect%E2%80%9D%29.%20Overall%2C%2044.2,the%20amount%20of%20functioning%20CFTR')
+31. AnnotationURLCitation(end_index=12166, start_index=12004, title='Cystic Fibrosis - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC8972143/#:~:text=classified%20into%20six%20distinct%20groups,of%20individuals%20with%20CF%20are')
+32. AnnotationURLCitation(end_index=12591, start_index=12436, title='Cystic Fibrosis - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC8972143/#:~:text=CF%20is%20an%20autosomal%20recessive,of%20individuals%20with%20CF%20are')
+33. AnnotationURLCitation(end_index=13068, start_index=12870, title='Cystic Fibrosis - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC8972143/#:~:text=surface%20%28%E2%80%9Ctrafficking%20defect%E2%80%9D%29.%20Overall%2C%2044.2,the%20amount%20of%20functioning%20CFTR')
+34. AnnotationURLCitation(end_index=13646, start_index=13492, title='Cystic fibrosis | Nature Reviews Disease Primers', type='url_citation', url='https://www.nature.com/articles/s41572-024-00538-6#:~:text=Cystic%20fibrosis%20is%20a%20rare,morbidity%20and%20mortality%20in%20people')
+35. AnnotationURLCitation(end_index=13810, start_index=13647, title='Cystic fibrosis | Nature Reviews Disease Primers', type='url_citation', url='https://www.nature.com/articles/s41572-024-00538-6#:~:text=is%20crucial%20for%20correct%20ion,obstructive%20lung%20disease.%20Cystic%20fibrosis')
+36. AnnotationURLCitation(end_index=14275, start_index=14128, title='Cystic Fibrosis - StatPearls - NCBI Bookshelf', type='url_citation', url='https://www.ncbi.nlm.nih.gov/sites/books/n/statpearls/article-20211/#:~:text=protein,into%20the%20following%205%20classes')
+37. AnnotationURLCitation(end_index=14636, start_index=14481, title='Cystic Fibrosis - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC8972143/#:~:text=CF%20is%20an%20autosomal%20recessive,of%20individuals%20with%20CF%20are')
+38. AnnotationURLCitation(end_index=14997, start_index=14799, title='Cystic Fibrosis - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC8972143/#:~:text=surface%20%28%E2%80%9Ctrafficking%20defect%E2%80%9D%29.%20Overall%2C%2044.2,the%20amount%20of%20functioning%20CFTR')
+39. AnnotationURLCitation(end_index=15525, start_index=15327, title='Cystic Fibrosis - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC8972143/#:~:text=surface%20%28%E2%80%9Ctrafficking%20defect%E2%80%9D%29.%20Overall%2C%2044.2,the%20amount%20of%20functioning%20CFTR')
+40. AnnotationURLCitation(end_index=15995, start_index=15881, title='Cystic fibrosis | Nature Reviews Disease Primers', type='url_citation', url='https://www.nature.com/articles/s41572-024-00538-6#:~:text=4,1214%2C%2057%E2%80%9369%20%282010')
+41. AnnotationURLCitation(end_index=16100, start_index=15996, title='Cystic fibrosis | Nature Reviews Disease Primers', type='url_citation', url='https://www.nature.com/articles/s41572-024-00538-6#:~:text=46,1%2C%2015010%20%282015')
+42. AnnotationURLCitation(end_index=16806, start_index=16647, title='Does epithelial sodium channel hyperactivity contribute to cystic fibrosis lung disease? - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC3784186/#:~:text=persistent%20neutrophilia%20and%20chronic%20infections,This%20review%20will')
+43. AnnotationURLCitation(end_index=17198, start_index=17027, title='Does epithelial sodium channel hyperactivity contribute to cystic fibrosis lung disease? - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC3784186/#:~:text=hypothesized%20to%20trigger%20mucus%20dehydration%2C,of%20ENaC%20to%20CF%20pathogenesis')
+44. AnnotationURLCitation(end_index=17295, start_index=17199, title='Does epithelial sodium channel hyperactivity contribute to cystic fibrosis lung disease? - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC3784186/#:~:text=Key%20points')
+45. AnnotationURLCitation(end_index=17752, start_index=17568, title='Neutrophil elastase in bronchiectasis | Respiratory Research | Full Text', type='url_citation', url='https://respiratory-research.biomedcentral.com/articles/10.1186/s12931-017-0691-x#:~:text=NE%20is%20a%20potent%20upregulator,Thirdly%2C%20NE')
+46. AnnotationURLCitation(end_index=18128, start_index=17917, title='Boucher Authors NEJM Review Article on ‘Muco-Obstructive Lung Disease’ | Newsroom', type='url_citation', url='https://news.unchealthcare.org/2019/05/boucher-authors-nejm-review-article-on-2018muco-obstructive-lung-disease2019#:~:text=.%20.%20.%20Muco,or%20elastic%20properties%20are%20rational')
+47. AnnotationURLCitation(end_index=18581, start_index=18396, title='Neutrophil elastase in bronchiectasis | Respiratory Research | Full Text', type='url_citation', url='https://respiratory-research.biomedcentral.com/articles/10.1186/s12931-017-0691-x#:~:text=An%20outburst%20of%20neutrophilic%20inflammation,39')
+48. AnnotationURLCitation(end_index=18766, start_index=18582, title='Neutrophil elastase in bronchiectasis | Respiratory Research | Full Text', type='url_citation', url='https://respiratory-research.biomedcentral.com/articles/10.1186/s12931-017-0691-x#:~:text=NE%20is%20a%20potent%20upregulator,Thirdly%2C%20NE')
+49. AnnotationURLCitation(end_index=19169, start_index=18984, title='Neutrophil elastase in bronchiectasis | Respiratory Research | Full Text', type='url_citation', url='https://respiratory-research.biomedcentral.com/articles/10.1186/s12931-017-0691-x#:~:text=An%20outburst%20of%20neutrophilic%20inflammation,39')
+50. AnnotationURLCitation(end_index=20177, start_index=20050, title='Bicarbonate and functional CFTR channel are required for proper mucin secretion and link cystic fibrosis with its mucus phenotype - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC3405509/#:~:text=Cystic%20fibrosis%20,This%20knowledge%20may')
+51. AnnotationURLCitation(end_index=20578, start_index=20459, title='Cystic fibrosis | Nature Reviews Disease Primers', type='url_citation', url='https://www.nature.com/articles/s41572-024-00538-6#:~:text=fibrosis,care%20for%20people%20with%20CF')
+52. AnnotationURLCitation(end_index=20881, start_index=20737, title='Cystic fibrosis | Nature Reviews Disease Primers', type='url_citation', url='https://www.nature.com/articles/s41572-024-00538-6#:~:text=and%20the%20G551D%20mutation,365%2C%201663%E2%80%931672%20%282011')
+53. AnnotationURLCitation(end_index=21213, start_index=21058, title='Cystic fibrosis | Nature Reviews Disease Primers', type='url_citation', url='https://www.nature.com/articles/s41572-024-00538-6#:~:text=fibrosis%20homozygous%20for%20Phe508del,377%2C%202013%E2%80%932023%20%282017')
+54. AnnotationURLCitation(end_index=21695, start_index=21531, title='Cystic fibrosis | Nature Reviews Disease Primers', type='url_citation', url='https://www.nature.com/articles/s41572-024-00538-6#:~:text=airway%20clearance%20techniques%20and%20antibiotics,a%20high%20unmet%20medical%20need')
+55. AnnotationURLCitation(end_index=22457, start_index=22331, title='Cystic Fibrosis - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC8972143/#:~:text=protein%20lead%20to%20absent%20or,%28%2012')
+56. AnnotationURLCitation(end_index=22880, start_index=22721, title='Does epithelial sodium channel hyperactivity contribute to cystic fibrosis lung disease? - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC3784186/#:~:text=persistent%20neutrophilia%20and%20chronic%20infections,This%20review%20will')
+57. AnnotationURLCitation(end_index=23501, start_index=23374, title='Bicarbonate and functional CFTR channel are required for proper mucin secretion and link cystic fibrosis with its mucus phenotype - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC3405509/#:~:text=Cystic%20fibrosis%20,This%20knowledge%20may')
+58. AnnotationURLCitation(end_index=23811, start_index=23684, title='Bicarbonate and functional CFTR channel are required for proper mucin secretion and link cystic fibrosis with its mucus phenotype - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC3405509/#:~:text=Cystic%20fibrosis%20,This%20knowledge%20may')
+59. AnnotationURLCitation(end_index=24134, start_index=24007, title='Bicarbonate and functional CFTR channel are required for proper mucin secretion and link cystic fibrosis with its mucus phenotype - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC3405509/#:~:text=Cystic%20fibrosis%20,This%20knowledge%20may')
+60. AnnotationURLCitation(end_index=25347, start_index=25230, title='Cystic fibrosis | Nature Reviews Disease Primers', type='url_citation', url='https://www.nature.com/articles/s41572-024-00538-6#:~:text=9,365%2C%201663%E2%80%931672%20%282011')
+61. AnnotationURLCitation(end_index=33208, start_index=33051, title='Cystic Fibrosis - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC8972143/#:~:text=CF%20is%20a%20multisystem%20disorder,excessive%20salt%20loss%20in%20sweat')
+62. AnnotationURLCitation(end_index=33453, start_index=33294, title='Does epithelial sodium channel hyperactivity contribute to cystic fibrosis lung disease? - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC3784186/#:~:text=persistent%20neutrophilia%20and%20chronic%20infections,This%20review%20will')
+63. AnnotationURLCitation(end_index=33816, start_index=33689, title='Bicarbonate and functional CFTR channel are required for proper mucin secretion and link cystic fibrosis with its mucus phenotype - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC3405509/#:~:text=Cystic%20fibrosis%20,This%20knowledge%20may')
+64. AnnotationURLCitation(end_index=34848, start_index=34664, title='Neutrophil elastase in bronchiectasis | Respiratory Research | Full Text', type='url_citation', url='https://respiratory-research.biomedcentral.com/articles/10.1186/s12931-017-0691-x#:~:text=NE%20is%20a%20potent%20upregulator,Thirdly%2C%20NE')
+65. AnnotationURLCitation(end_index=35532, start_index=35348, title='Neutrophil elastase in bronchiectasis | Respiratory Research | Full Text', type='url_citation', url='https://respiratory-research.biomedcentral.com/articles/10.1186/s12931-017-0691-x#:~:text=NE%20is%20a%20potent%20upregulator,Thirdly%2C%20NE')
+66. AnnotationURLCitation(end_index=35798, start_index=35671, title='Bicarbonate and functional CFTR channel are required for proper mucin secretion and link cystic fibrosis with its mucus phenotype - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC3405509/#:~:text=Cystic%20fibrosis%20,This%20knowledge%20may')
+67. AnnotationURLCitation(end_index=36745, start_index=36578, title='Cystic Fibrosis - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC8972143/#:~:text=different%20CFTR%20variants%20reported%2C%20some,of%20individuals%20with%20CF%20are')
+68. AnnotationURLCitation(end_index=37865, start_index=37681, title='Neutrophil elastase in bronchiectasis | Respiratory Research | Full Text', type='url_citation', url='https://respiratory-research.biomedcentral.com/articles/10.1186/s12931-017-0691-x#:~:text=NE%20is%20a%20potent%20upregulator,Thirdly%2C%20NE')
+69. AnnotationURLCitation(end_index=40000, start_index=39859, title='The future of cystic fibrosis treatment: from disease mechanisms to novel therapeutic approaches - PubMed', type='url_citation', url='https://pubmed.ncbi.nlm.nih.gov/37699417/#:~:text=based%20on%20fundamental%20research%2C%20which,pharmacological')
+70. AnnotationURLCitation(end_index=40941, start_index=40784, title='Cystic Fibrosis - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC8972143/#:~:text=CF%20is%20a%20multisystem%20disorder,excessive%20salt%20loss%20in%20sweat')
+71. AnnotationURLCitation(end_index=41234, start_index=41075, title='Does epithelial sodium channel hyperactivity contribute to cystic fibrosis lung disease? - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC3784186/#:~:text=persistent%20neutrophilia%20and%20chronic%20infections,This%20review%20will')
+72. AnnotationURLCitation(end_index=42077, start_index=41918, title='Does epithelial sodium channel hyperactivity contribute to cystic fibrosis lung disease? - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC3784186/#:~:text=persistent%20neutrophilia%20and%20chronic%20infections,This%20review%20will')
+73. AnnotationURLCitation(end_index=42444, start_index=42233, title='Boucher Authors NEJM Review Article on ‘Muco-Obstructive Lung Disease’ | Newsroom', type='url_citation', url='https://news.unchealthcare.org/2019/05/boucher-authors-nejm-review-article-on-2018muco-obstructive-lung-disease2019#:~:text=.%20.%20.%20Muco,or%20elastic%20properties%20are%20rational')
+74. AnnotationURLCitation(end_index=43246, start_index=43119, title='Bicarbonate and functional CFTR channel are required for proper mucin secretion and link cystic fibrosis with its mucus phenotype - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC3405509/#:~:text=Cystic%20fibrosis%20,This%20knowledge%20may')
+75. AnnotationURLCitation(end_index=44164, start_index=43997, title='Cystic Fibrosis - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC8972143/#:~:text=different%20CFTR%20variants%20reported%2C%20some,of%20individuals%20with%20CF%20are')
+76. AnnotationURLCitation(end_index=46294, start_index=46149, title='Neutrophil elastase in bronchiectasis | Respiratory Research | Full Text', type='url_citation', url='https://respiratory-research.biomedcentral.com/articles/10.1186/s12931-017-0691-x#:~:text=elastase,27')
+77. AnnotationURLCitation(end_index=48494, start_index=48339, title='Cystic Fibrosis - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC8972143/#:~:text=cirrhosis%29%2C%20and%20CF,a%20disease%20where%20affected%20individuals')
+78. AnnotationURLCitation(end_index=48972, start_index=48787, title='Neutrophil elastase in bronchiectasis | Respiratory Research | Full Text', type='url_citation', url='https://respiratory-research.biomedcentral.com/articles/10.1186/s12931-017-0691-x#:~:text=An%20outburst%20of%20neutrophilic%20inflammation,39')
+79. AnnotationURLCitation(end_index=49301, start_index=49119, title='Neutrophil elastase in bronchiectasis | Respiratory Research | Full Text', type='url_citation', url='https://respiratory-research.biomedcentral.com/articles/10.1186/s12931-017-0691-x#:~:text=the%20pathogenesis%20of%20lung%20inflammation,39')
+80. AnnotationURLCitation(end_index=49679, start_index=49494, title='Neutrophil elastase in bronchiectasis | Respiratory Research | Full Text', type='url_citation', url='https://respiratory-research.biomedcentral.com/articles/10.1186/s12931-017-0691-x#:~:text=An%20outburst%20of%20neutrophilic%20inflammation,39')
+81. AnnotationURLCitation(end_index=50033, start_index=49913, title='Cystic fibrosis | Nature Reviews Disease Primers', type='url_citation', url='https://www.nature.com/articles/s41572-024-00538-6#:~:text=dysfunction%20in%20cystic%20fibrosis,1993')
+82. AnnotationURLCitation(end_index=51468, start_index=51309, title='Neutrophil elastase in bronchiectasis | Respiratory Research | Full Text', type='url_citation', url='https://respiratory-research.biomedcentral.com/articles/10.1186/s12931-017-0691-x#:~:text=infants%20with%20CF%20,39')
+83. AnnotationURLCitation(end_index=53379, start_index=53229, title='Cystic Fibrosis - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC8972143/#:~:text=improvements%20in%20survival,the%20advent%20of%20newer%20therapies')
+84. AnnotationURLCitation(end_index=56576, start_index=56412, title='Cystic fibrosis | Nature Reviews Disease Primers', type='url_citation', url='https://www.nature.com/articles/s41572-024-00538-6#:~:text=airway%20clearance%20techniques%20and%20antibiotics,a%20high%20unmet%20medical%20need')
+85. AnnotationURLCitation(end_index=57112, start_index=56948, title='Cystic fibrosis | Nature Reviews Disease Primers', type='url_citation', url='https://www.nature.com/articles/s41572-024-00538-6#:~:text=airway%20clearance%20techniques%20and%20antibiotics,a%20high%20unmet%20medical%20need')
+86. AnnotationURLCitation(end_index=57232, start_index=57113, title='Cystic fibrosis | Nature Reviews Disease Primers', type='url_citation', url='https://www.nature.com/articles/s41572-024-00538-6#:~:text=fibrosis,care%20for%20people%20with%20CF')
+87. AnnotationURLCitation(end_index=58490, start_index=58343, title='Cystic fibrosis | Nature Reviews Disease Primers', type='url_citation', url='https://www.nature.com/articles/s41572-024-00538-6#:~:text=care%20has%20long%20been%20limited,a%20high%20unmet%20medical%20need')
+88. AnnotationURLCitation(end_index=58864, start_index=58709, title='Cystic fibrosis | Nature Reviews Disease Primers', type='url_citation', url='https://www.nature.com/articles/s41572-024-00538-6#:~:text=introduction%20of%20a%20highly%20effective,a%20high%20unmet%20medical%20need')
+89. AnnotationURLCitation(end_index=59413, start_index=59245, title='Cystic Fibrosis - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC8972143/#:~:text=status%2C%20as%20well%20as%20aggressive,a%20disease%20where%20affected%20individuals')
+90. AnnotationURLCitation(end_index=59807, start_index=59628, title='Cystic Fibrosis - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC8972143/#:~:text=sinusitis%2C%20exocrine%20pancreatic%20insufficiency%20leading,specific%20modulator%20therapies')
+91. AnnotationURLCitation(end_index=60360, start_index=60181, title='Cystic Fibrosis - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC8972143/#:~:text=sinusitis%2C%20exocrine%20pancreatic%20insufficiency%20leading,specific%20modulator%20therapies')
+92. AnnotationURLCitation(end_index=60700, start_index=60578, title='Cystic fibrosis | Nature Reviews Disease Primers', type='url_citation', url='https://www.nature.com/articles/s41572-024-00538-6#:~:text=20,Chest%20163%2C%2089%E2%80%9399%20%282023')
+93. AnnotationURLCitation(end_index=60817, start_index=60701, title='Cystic fibrosis | Nature Reviews Disease Primers', type='url_citation', url='https://www.nature.com/articles/s41572-024-00538-6#:~:text=29,gap%20for%20minorities%20with%20CF')
+94. AnnotationURLCitation(end_index=62145, start_index=61990, title='The future of cystic fibrosis treatment: from disease mechanisms to novel therapeutic approaches - PubMed', type='url_citation', url='https://pubmed.ncbi.nlm.nih.gov/37699417/#:~:text=With%20the%202019%20breakthrough%20in,CFTR%20dysfunction%20in%20the%20airway')
+95. AnnotationURLCitation(end_index=62306, start_index=62146, title='The future of cystic fibrosis treatment: from disease mechanisms to novel therapeutic approaches - PubMed', type='url_citation', url='https://pubmed.ncbi.nlm.nih.gov/37699417/#:~:text=our%20understanding%20of%20the%20molecular,their%20CFTR%20genotype%2C%20and%20the')
+96. AnnotationURLCitation(end_index=62632, start_index=62466, title='The future of cystic fibrosis treatment: from disease mechanisms to novel therapeutic approaches - PubMed', type='url_citation', url='https://pubmed.ncbi.nlm.nih.gov/37699417/#:~:text=infection%2C%20and%20chronic%20inflammation%20of,their%20CFTR%20genotype%2C%20and%20the')
+97. AnnotationURLCitation(end_index=67039, start_index=66899, title='Cystic Fibrosis - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC8972143/#:~:text=Cystic%20fibrosis%20,disease%20in%20childhood%20at%20the')
+98. AnnotationURLCitation(end_index=68811, start_index=68682, title='Cystic Fibrosis - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC8972143/#:~:text=of%20thick%20and%20sticky%20mucus%2C,%28%2012')
+99. AnnotationURLCitation(end_index=69148, start_index=69019, title='Cystic Fibrosis - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC8972143/#:~:text=of%20thick%20and%20sticky%20mucus%2C,%28%2012')
+100. AnnotationURLCitation(end_index=69859, start_index=69719, title='Cystic Fibrosis - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC8972143/#:~:text=Cystic%20fibrosis%20,disease%20in%20childhood%20at%20the')
+101. AnnotationURLCitation(end_index=72548, start_index=72408, title='Cystic Fibrosis - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC8972143/#:~:text=Cystic%20fibrosis%20,disease%20in%20childhood%20at%20the')
+102. AnnotationURLCitation(end_index=73390, start_index=73211, title='Cystic Fibrosis - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC8972143/#:~:text=sinusitis%2C%20exocrine%20pancreatic%20insufficiency%20leading,specific%20modulator%20therapies')
+103. AnnotationURLCitation(end_index=73781, start_index=73617, title='Cystic fibrosis | Nature Reviews Disease Primers', type='url_citation', url='https://www.nature.com/articles/s41572-024-00538-6#:~:text=airway%20clearance%20techniques%20and%20antibiotics,a%20high%20unmet%20medical%20need')
+104. AnnotationURLCitation(end_index=74104, start_index=73949, title='Cystic fibrosis | Nature Reviews Disease Primers', type='url_citation', url='https://www.nature.com/articles/s41572-024-00538-6#:~:text=introduction%20of%20a%20highly%20effective,a%20high%20unmet%20medical%20need')
+105. AnnotationURLCitation(end_index=74756, start_index=74640, title='Cystic fibrosis | Nature Reviews Disease Primers', type='url_citation', url='https://www.nature.com/articles/s41572-024-00538-6#:~:text=29,gap%20for%20minorities%20with%20CF')
+106. AnnotationURLCitation(end_index=75780, start_index=75620, title='The future of cystic fibrosis treatment: from disease mechanisms to novel therapeutic approaches - PubMed', type='url_citation', url='https://pubmed.ncbi.nlm.nih.gov/37699417/#:~:text=our%20understanding%20of%20the%20molecular,their%20CFTR%20genotype%2C%20and%20the')
+107. AnnotationURLCitation(end_index=76453, start_index=76313, title='Cystic Fibrosis - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC8972143/#:~:text=Cystic%20fibrosis%20,disease%20in%20childhood%20at%20the')
+108. AnnotationURLCitation(end_index=76611, start_index=76454, title='Cystic Fibrosis - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC8972143/#:~:text=CF%20is%20a%20multisystem%20disorder,excessive%20salt%20loss%20in%20sweat')
+109. AnnotationURLCitation(end_index=76852, start_index=76690, title='Cystic fibrosis | Nature Reviews Disease Primers', type='url_citation', url='https://www.nature.com/articles/s41572-024-00538-6#:~:text=Cystic%20fibrosis%20is%20a%20rare,obstructive%20lung%20disease.%20Cystic%20fibrosis')
+110. AnnotationURLCitation(end_index=77124, start_index=76983, title='The future of cystic fibrosis treatment: from disease mechanisms to novel therapeutic approaches - PubMed', type='url_citation', url='https://pubmed.ncbi.nlm.nih.gov/37699417/#:~:text=based%20on%20fundamental%20research%2C%20which,pharmacological')
+111. AnnotationURLCitation(end_index=77397, start_index=77186, title='Boucher Authors NEJM Review Article on ‘Muco-Obstructive Lung Disease’ | Newsroom', type='url_citation', url='https://news.unchealthcare.org/2019/05/boucher-authors-nejm-review-article-on-2018muco-obstructive-lung-disease2019#:~:text=.%20.%20.%20Muco,or%20elastic%20properties%20are%20rational')
+112. AnnotationURLCitation(end_index=77615, start_index=77456, title='Does epithelial sodium channel hyperactivity contribute to cystic fibrosis lung disease? - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC3784186/#:~:text=persistent%20neutrophilia%20and%20chronic%20infections,This%20review%20will')
+113. AnnotationURLCitation(end_index=77823, start_index=77696, title='Bicarbonate and functional CFTR channel are required for proper mucin secretion and link cystic fibrosis with its mucus phenotype - PMC', type='url_citation', url='https://pmc.ncbi.nlm.nih.gov/articles/PMC3405509/#:~:text=Cystic%20fibrosis%20,This%20knowledge%20may')
+114. AnnotationURLCitation(end_index=78127, start_index=77942, title='Neutrophil elastase in bronchiectasis | Respiratory Research | Full Text', type='url_citation', url='https://respiratory-research.biomedcentral.com/articles/10.1186/s12931-017-0691-x#:~:text=An%20outburst%20of%20neutrophilic%20inflammation,39')
+115. AnnotationURLCitation(end_index=78312, start_index=78128, title='Neutrophil elastase in bronchiectasis | Respiratory Research | Full Text', type='url_citation', url='https://respiratory-research.biomedcentral.com/articles/10.1186/s12931-017-0691-x#:~:text=NE%20is%20a%20potent%20upregulator,Thirdly%2C%20NE')

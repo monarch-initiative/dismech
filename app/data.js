@@ -433,8 +433,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 3,
     "num_treatments": 6,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Achondrogenesis Type II",
@@ -4102,8 +4102,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 3,
     "num_treatments": 6,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Basal Cell Carcinoma",
@@ -5393,8 +5393,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Unknown",
@@ -7153,6 +7153,114 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Cogan Syndrome",
+    "disease_id": "MONDO:0015453",
+    "category": "Autoimmune",
+    "parents": [
+      "Autoimmune Disease",
+      "Vasculitis",
+      "Inner Ear Diseases"
+    ],
+    "subtypes": [
+      "Typical Cogan syndrome",
+      "Atypical Cogan syndrome"
+    ],
+    "description": "Rare autoimmune vasculitis characterized by ocular inflammation and audiovestibular involvement, often with systemic vasculitis.",
+    "pathophysiology": [
+      "Autoantibodies target corneal antigens",
+      "Autoantibodies target inner ear antigens",
+      "Autoantibodies bind CD148 on inner ear sensory epithelium and endothelial cells",
+      "Autoantibodies bind connexin 26",
+      "Autoantibodies target endothelial antigens",
+      "Systemic vasculitic inflammation"
+    ],
+    "cell_types": [
+      "corneal epithelial cell",
+      "sensory epithelial cell",
+      "endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000575",
+      "CL:0000098",
+      "CL:0000115"
+    ],
+    "biological_processes": [
+      "immune system process",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Keratitis",
+      "Uveitis",
+      "Sensorineural hearing impairment",
+      "Vertigo",
+      "Tinnitus",
+      "Absent vestibular function",
+      "Episcleritis",
+      "Panuveitis",
+      "Retinal vasculitis",
+      "Aortic regurgitation",
+      "Aortitis",
+      "Coronary artery stenosis",
+      "Vasculitis",
+      "Large vessel vasculitis",
+      "Medium vessel vasculitis",
+      "Arteritis",
+      "Acute coronary syndrome"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic",
+      "Auditory",
+      "Neurologic",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Ear",
+      "Eye",
+      "Immune"
+    ],
+    "phenotype_ids": [
+      "HP:0000491",
+      "HP:0000554",
+      "HP:0000407",
+      "HP:0002321",
+      "HP:0000360",
+      "HP:0008555",
+      "HP:0100534",
+      "HP:0012121",
+      "HP:0025188",
+      "HP:0001659",
+      "HP:0005145",
+      "HP:0002633",
+      "HP:0005310",
+      "HP:6000658",
+      "HP:0012089",
+      "HP:0033678"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL",
+      "RARE"
+    ],
+    "genes": [],
+    "treatments": [
+      "Corticosteroid therapy",
+      "Immunosuppressive therapy",
+      "TNF-alpha inhibitor therapy",
+      "Cochlear device implantation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cogan_Syndrome.yaml",
+    "page_url": "../pages/disorders/Cogan_Syndrome.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 6,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Collagenous Sprue",
     "disease_id": "MONDO:0044092",
     "category": "Complex",
@@ -8143,93 +8251,194 @@ window.searchData = [
       "Inborn Error of Metabolism"
     ],
     "subtypes": [
-      "Classic CF",
-      "Atypical CF",
-      "CFTR-Related Metabolic Syndrome"
+      "Class I - No Protein Production",
+      "Class II - Processing/Trafficking Defect",
+      "Class III - Gating Defect",
+      "Class IV - Conductance Defect",
+      "Class V - Reduced Quantity",
+      "Class VI - Decreased Stability",
+      "Classic Cystic Fibrosis",
+      "Atypical (Non-Classic) Cystic Fibrosis",
+      "CFTR-Related Metabolic Syndrome (CRMS) / CF Screen Positive Inconclusive Diagnosis (CFSPID)",
+      "Congenital Bilateral Absence of the Vas Deferens (CBAVD)",
+      "CFTR-Related Pancreatitis",
+      "CFTR-Related Disseminated Bronchiectasis"
     ],
-    "description": "Mutations in CFTR gene cause defective chloride channel function. Impaired chloride and bicarbonate transport leads to thick, dehydrated secretions in airways, pancreas, and other organs.\n",
+    "description": "Cystic fibrosis is a common life-limiting autosomal recessive genetic disorder caused by mutations in the CFTR gene encoding the cystic fibrosis transmembrane conductance regulator, a chloride and bicarbonate channel expressed in epithelial cells. CFTR dysfunction leads to dehydrated, viscous secretions in multiple organ systems, most critically the airways and pancreas. Nearly 2,000 CFTR variants have been identified, with the Phe508del (F508del) mutation present in nearly 90% of patients. The disease is characterized by progressive bronchiectasis, chronic bacterial lung infection, exocrine pancreatic insufficiency, male infertility due to congenital bilateral absence of the vas deferens, and elevated sweat chloride. Multidisciplinary care and CFTR modulator therapies have extended median survival beyond 40 years, with the advent of elexacaftor-tezacaftor-ivacaftor (Trikafta) representing a transformational advance for the majority of patients.",
     "pathophysiology": [
       "CFTR Dysfunction",
-      "Airway Mucus Obstruction",
-      "Pancreatic Insufficiency"
+      "Airway Surface Liquid Depletion",
+      "Mucus Plugging and Airway Obstruction",
+      "Chronic Bacterial Infection",
+      "Neutrophilic Airway Inflammation",
+      "Bronchiectasis and Airway Remodeling",
+      "Respiratory Failure",
+      "Pancreatic Duct Obstruction",
+      "Exocrine Pancreatic Insufficiency",
+      "Fat Malabsorption",
+      "Fat-Soluble Vitamin Deficiency",
+      "Protein-Calorie Malnutrition",
+      "CF-Related Diabetes",
+      "Intestinal Obstruction",
+      "Hepatobiliary Obstruction",
+      "Sweat Gland Dysfunction",
+      "Vas Deferens Agenesis",
+      "Sinonasal Disease",
+      "CF Bone Disease"
     ],
     "cell_types": [
-      "Airway Epithelial Cell",
-      "Pancreatic Acinar Cell"
+      "Epithelial cell",
+      "Bronchial epithelial cell",
+      "Neutrophil",
+      "Pancreatic ductal cell",
+      "Pancreatic acinar cell",
+      "Pancreatic beta cell",
+      "Cholangiocyte"
     ],
     "cell_type_ids": [
+      "CL:0000066",
       "CL:0002328",
-      "CL:0002064"
+      "CL:0000775",
+      "CL:0002079",
+      "CL:0002064",
+      "CL:0000169",
+      "CL:1000488"
     ],
     "biological_processes": [
       "Chloride Transport",
-      "Mucus Secretion"
+      "Ion Transport",
+      "Mucus Secretion",
+      "Defense response to bacterium",
+      "Inflammatory response"
     ],
     "phenotypes": [
+      "Chronic Productive Cough",
       "Recurrent Respiratory Infections",
       "Bronchiectasis",
+      "Hemoptysis",
+      "Pneumothorax",
+      "Allergic Bronchopulmonary Aspergillosis",
+      "Digital Clubbing",
+      "Nasal Polyposis",
+      "Chronic Sinusitis",
       "Exocrine Pancreatic Insufficiency",
       "Steatorrhea",
-      "Failure to Thrive",
       "Meconium Ileus",
-      "Male Infertility"
+      "Distal Intestinal Obstruction Syndrome",
+      "Rectal Prolapse",
+      "Gastroesophageal Reflux",
+      "Focal Biliary Cirrhosis",
+      "Portal Hypertension",
+      "CF-Related Diabetes",
+      "Delayed Puberty",
+      "Failure to Thrive",
+      "Short Stature",
+      "Male Infertility",
+      "Reduced Female Fertility",
+      "Hyponatremic Dehydration",
+      "Fat-Soluble Vitamin Deficiency",
+      "Osteoporosis"
     ],
     "phenotype_categories": [
       "Respiratory",
+      "ENT",
       "Gastrointestinal",
+      "Hepatobiliary",
+      "Endocrine",
       "Growth",
-      "Reproductive"
+      "Reproductive",
+      "Metabolic",
+      "Musculoskeletal"
     ],
     "phenotype_hpo_categories": [
+      "Cardiovascular",
       "Digestive",
+      "Endocrine",
       "Genitourinary",
       "Growth",
+      "Head and Neck",
       "Immune",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
       "Respiratory"
     ],
     "phenotype_ids": [
+      "HP:0031245",
       "HP:0002205",
       "HP:0002110",
+      "HP:0002105",
+      "HP:0002107",
+      "HP:0001217",
+      "HP:0100582",
+      "HP:0011109",
       "HP:0001738",
       "HP:0002570",
-      "HP:0001508",
       "HP:0004401",
-      "HP:0003251"
+      "HP:0005214",
+      "HP:0002035",
+      "HP:0002020",
+      "HP:0002613",
+      "HP:0001409",
+      "HP:0000819",
+      "HP:0000823",
+      "HP:0001508",
+      "HP:0004322",
+      "HP:0003251",
+      "HP:0008222",
+      "HP:0002902",
+      "HP:0002024",
+      "HP:0000939"
     ],
     "frequencies": [
       "VERY_FREQUENT",
+      "FREQUENT",
       "OCCASIONAL"
     ],
     "genes": [
       "CFTR"
     ],
     "treatments": [
-      "CFTR Modulators",
+      "Elexacaftor-Tezacaftor-Ivacaftor (Trikafta/Kaftrio)",
+      "Ivacaftor (Kalydeco)",
       "Airway Clearance Therapy",
-      "Inhaled Mucolytics",
-      "Pancreatic Enzyme Replacement",
-      "Antibiotics",
+      "Dornase Alfa (Pulmozyme)",
+      "Hypertonic Saline (7%)",
+      "Inhaled Antibiotics",
+      "Systemic Antibiotics",
+      "Pancreatic Enzyme Replacement Therapy (PERT)",
+      "Nutritional Support",
+      "Insulin Therapy for CFRD",
+      "Ursodeoxycholic Acid",
       "Lung Transplantation",
-      "Nutritional Support"
+      "Genetic Counseling"
     ],
     "environmental": [
       "Pseudomonas aeruginosa",
+      "Staphylococcus aureus",
       "Burkholderia cepacia complex",
-      "Tobacco Smoke"
+      "Non-tuberculous Mycobacteria",
+      "Aspergillus fumigatus",
+      "Tobacco Smoke Exposure",
+      "Air Pollution"
     ],
     "biochemical": [
       "Sweat Chloride",
+      "Immunoreactive Trypsinogen (IRT)",
       "Fecal Elastase",
-      "Fat-Soluble Vitamins"
+      "Fat-Soluble Vitamins (A, D, E, K)",
+      "Liver Enzymes",
+      "Blood Glucose / HbA1c",
+      "Sputum Microbiology"
     ],
     "source_file": "Cystic_Fibrosis.yaml",
     "page_url": "../pages/disorders/Cystic_Fibrosis.html",
-    "num_phenotypes": 7,
-    "num_pathophysiology": 3,
+    "num_phenotypes": 26,
+    "num_pathophysiology": 19,
     "num_genes": 1,
-    "num_treatments": 7,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "num_treatments": 13,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Danon disease",
@@ -9259,7 +9468,9 @@ window.searchData = [
     "description": "Mutations in the DMD gene cause absent or dysfunctional dystrophin protein. Dystrophin links the cytoskeleton to the extracellular matrix in muscle fibers, providing structural stability during contraction.\n",
     "pathophysiology": [
       "Dystrophin Deficiency",
-      "Progressive Muscle Degeneration"
+      "Sarcolemmal Fragility and Calcium Influx",
+      "Progressive Muscle Degeneration",
+      "Cardiorespiratory Muscle Involvement"
     ],
     "cell_types": [
       "Skeletal Muscle Fiber"
@@ -9322,11 +9533,11 @@ window.searchData = [
     "source_file": "Duchenne_Muscular_Dystrophy.yaml",
     "page_url": "../pages/disorders/Duchenne_Muscular_Dystrophy.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 2,
+    "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "EBV-Associated Gastric Cancer",
@@ -9934,8 +10145,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 9,
     "num_treatments": 4,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Unknown",
@@ -10063,8 +10274,8 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Embryonal Rhabdomyosarcoma",
@@ -11891,8 +12102,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "1",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Unknown",
@@ -20373,8 +20584,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 10,
     "num_treatments": 5,
-    "causal_graph_edges": "1",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Meckel Diverticulum",
@@ -23082,7 +23293,9 @@ window.searchData = [
       "NF1 Tumor Suppressor Loss",
       "RAS-MAPK Pathway Hyperactivation",
       "Uncontrolled Neural Crest Cell Proliferation",
-      "Tumor Development"
+      "Tumor Development",
+      "Neurodevelopmental Circuit Dysfunction",
+      "Skeletal Dysplasia"
     ],
     "cell_types": [
       "Schwann cell"
@@ -23153,11 +23366,11 @@ window.searchData = [
     "source_file": "Neurofibromatosis_Type_1.yaml",
     "page_url": "../pages/disorders/Neurofibromatosis_Type_1.html",
     "num_phenotypes": 8,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "3",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Neuromyelitis Optica",
@@ -27551,6 +27764,113 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Pseudohypoparathyroidism",
+    "disease_id": "MONDO:0019992",
+    "category": "Genetic",
+    "parents": [
+      "Endocrine Disorder",
+      "Calcium-Phosphate Metabolism Disorder"
+    ],
+    "subtypes": [
+      "PHP1A",
+      "PHP1B",
+      "Pseudopseudohypoparathyroidism"
+    ],
+    "description": "Pseudohypoparathyroidism (PHP) is a group of disorders caused by impaired signaling at the GNAS locus, producing resistance to parathyroid hormone and, in many patients, additional endocrine and developmental abnormalities. The phenotype reflects both parent-of-origin effects (imprinting) and tissue-specific dependence on Gs alpha signaling.",
+    "pathophysiology": [
+      "GNAS Imprinting-Dependent Signaling Defect",
+      "Renal PTH Resistance",
+      "Mineral Ion Imbalance and Neuromuscular Excitability",
+      "Multihormone Resistance",
+      "AHO Developmental Tissue Effects"
+    ],
+    "cell_types": [
+      "epithelial cell of proximal tubule",
+      "osteoblast",
+      "adipocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0002306",
+      "CL:0000062",
+      "CL:0000136"
+    ],
+    "biological_processes": [
+      "genomic imprinting",
+      "adenylate cyclase-modulating G protein-coupled receptor signaling pathway",
+      "response to parathyroid hormone",
+      "phosphate ion homeostasis",
+      "calcium ion homeostasis",
+      "hormone-mediated signaling pathway",
+      "endochondral ossification",
+      "ossification"
+    ],
+    "phenotypes": [
+      "Hypocalcemia",
+      "Hyperphosphatemia",
+      "Elevated Parathyroid Hormone",
+      "Tetany",
+      "Seizures",
+      "Brachydactyly",
+      "Short Stature",
+      "Obesity",
+      "Subcutaneous Ossifications",
+      "Hypothyroidism",
+      "Developmental Delay"
+    ],
+    "phenotype_categories": [
+      "Biochemical",
+      "Neurological",
+      "Skeletal",
+      "Growth",
+      "Metabolic",
+      "Endocrine"
+    ],
+    "phenotype_hpo_categories": [
+      "Endocrine",
+      "Growth",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002901",
+      "HP:0002905",
+      "HP:0003165",
+      "HP:0001281",
+      "HP:0001250",
+      "HP:0001156",
+      "HP:0004322",
+      "HP:0001513",
+      "HP:0034282",
+      "HP:0000821",
+      "HP:0001263"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [
+      "GNAS"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [
+      "Parathyroid Hormone",
+      "Serum Calcium",
+      "Serum Phosphate"
+    ],
+    "source_file": "Pseudohypoparathyroidism.yaml",
+    "page_url": "../pages/disorders/Pseudohypoparathyroidism.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Unknown",
     "disease_id": null,
     "category": "",
@@ -30533,7 +30853,9 @@ window.searchData = [
     "description": "Homozygous deletion or mutation of SMN1 gene causes deficiency of survival motor neuron protein. SMN2 gene produces some functional protein but mostly truncated due to exon 7 skipping. SMN protein is essential for motor neuron survival and function.\n",
     "pathophysiology": [
       "SMN Protein Deficiency",
-      "Motor Neuron Degeneration"
+      "Motor Neuron Degeneration",
+      "Respiratory Motor Unit Failure",
+      "Axial Muscle Imbalance"
     ],
     "cell_types": [
       "Motor Neuron"
@@ -30592,11 +30914,11 @@ window.searchData = [
     "source_file": "Spinal_Muscular_Atrophy.yaml",
     "page_url": "../pages/disorders/Spinal_Muscular_Atrophy.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 2,
+    "num_pathophysiology": 4,
     "num_genes": 2,
     "num_treatments": 4,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Spondyloepimetaphyseal Dysplasia Strudwick Type",
