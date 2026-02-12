@@ -18393,6 +18393,90 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Kummell Disease",
+    "disease_id": "MONDO:0003940",
+    "category": "Complex",
+    "parents": [
+      "Avascular necrosis",
+      "Vertebral compression fracture",
+      "Osteoporotic spinal disease"
+    ],
+    "subtypes": [],
+    "description": "Kummell disease (also known as Kummell's disease or delayed post-traumatic vertebral collapse) is a condition characterized by avascular necrosis of a vertebral body following minor spinal trauma. First described by Hermann Kummell in 1891, the disease presents with an initial period of relatively minor symptoms after trauma, followed by a symptom-free interval, and then progressive painful kyphosis with vertebral body collapse. The hallmark radiographic finding is the intravertebral vacuum cleft sign, representing gas (nitrogen) accumulation within the necrotic vertebral body. The condition predominantly affects elderly patients with osteoporosis and most commonly involves the thoracolumbar junction. Treatment ranges from conservative management to vertebral augmentation procedures (vertebroplasty or kyphoplasty) and, in severe cases, surgical stabilization.\n",
+    "pathophysiology": [
+      "Vertebral body avascular necrosis",
+      "Basivertebral foramen microcirculation compromise",
+      "Intravertebral vacuum cleft formation",
+      "Hypoxia-driven bone remodeling imbalance",
+      "Progressive vertebral body collapse"
+    ],
+    "cell_types": [
+      "Osteocyte",
+      "Osteoblast",
+      "Osteoclast",
+      "Endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000137",
+      "CL:0000062",
+      "CL:0000092",
+      "CL:0000115"
+    ],
+    "biological_processes": [
+      "Ossification",
+      "Bone resorption",
+      "Angiogenesis",
+      "Response to hypoxia",
+      "Osteoclast differentiation",
+      "Osteoblast differentiation",
+      "Apoptotic process",
+      "Bone remodeling"
+    ],
+    "phenotypes": [
+      "Back pain",
+      "Kyphosis",
+      "Vertebral compression fracture",
+      "Neurological deficit"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0003418",
+      "HP:0002808",
+      "HP:0002953",
+      "HP:0002196"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OBLIGATE",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Percutaneous vertebroplasty",
+      "Percutaneous kyphoplasty",
+      "Conservative management",
+      "Posterior spinal fusion"
+    ],
+    "environmental": [
+      "Osteoporosis",
+      "Minor spinal trauma"
+    ],
+    "biochemical": [],
+    "source_file": "Kummell_Disease.yaml",
+    "page_url": "../pages/disorders/Kummell_Disease.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Lane Hamilton Syndrome",
     "disease_id": "MONDO:0800124",
     "category": "Complex",
