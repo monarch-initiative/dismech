@@ -7422,6 +7422,111 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Congestive Splenomegaly",
+    "disease_id": "MONDO:0037251",
+    "category": "Complex",
+    "parents": [
+      "Splenic Disease",
+      "Vascular Disease"
+    ],
+    "subtypes": [
+      "Hepatic Congestive Splenomegaly",
+      "Extrahepatic Congestive Splenomegaly"
+    ],
+    "description": "Elevated portal venous pressure, most commonly from liver cirrhosis, transmits back through the splenic vein to the spleen. As intrahepatic vascular resistance increases (backward flow), compensatory splanchnic vasodilation increases portal inflow (forward flow), creating a local hyperdynamic state around the spleen. The splenic artery resistance index is selectively elevated in cirrhotic patients. Splenic vein thrombosis can produce isolated left-sided portal hypertension with the same congestion effect.\n",
+    "pathophysiology": [
+      "Portal and Splenic Venous Congestion",
+      "Red Pulp Congestion and Fibrosis",
+      "Hypersplenism"
+    ],
+    "cell_types": [
+      "Splenic Endothelial Cell",
+      "Erythrocyte",
+      "Splenic Red Pulp Macrophage",
+      "Platelet",
+      "Macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:2000053",
+      "CL:0000232",
+      "CL:0000874",
+      "CL:0000233",
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "Vasodilation",
+      "Extracellular Matrix Organization",
+      "Erythrocyte Clearance",
+      "Phagocytosis"
+    ],
+    "phenotypes": [
+      "Splenomegaly",
+      "Thrombocytopenia",
+      "Anemia",
+      "Leukopenia",
+      "Pancytopenia",
+      "Abdominal Pain",
+      "Early Satiety",
+      "Fatigue",
+      "Gastrointestinal Hemorrhage"
+    ],
+    "phenotype_categories": [
+      "Abdominal",
+      "Hematologic",
+      "Gastrointestinal",
+      "Systemic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Immune"
+    ],
+    "phenotype_ids": [
+      "HP:0001744",
+      "HP:0001873",
+      "HP:0001903",
+      "HP:0001882",
+      "HP:0001876",
+      "HP:0002027",
+      "HP:0033842",
+      "HP:0012378",
+      "HP:0002239"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Treat Underlying Cause",
+      "Non-Selective Beta Blockers",
+      "Splenectomy",
+      "Partial Splenic Embolization",
+      "Transjugular Intrahepatic Portosystemic Shunt"
+    ],
+    "environmental": [
+      "Alcohol Use",
+      "Hepatitis B/C Virus Infection",
+      "Thrombotic Risk Factors"
+    ],
+    "biochemical": [
+      "Platelet Count",
+      "Hemoglobin",
+      "White Blood Cell Count"
+    ],
+    "source_file": "Congestive_Splenomegaly.yaml",
+    "page_url": "../pages/disorders/Congestive_Splenomegaly.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 3,
+    "num_genes": 0,
+    "num_treatments": 5,
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "2"
+  },
+  {
     "name": "Acute Myeloid Leukemia, Core Binding Factor",
     "disease_id": "MONDO:0015166",
     "category": "",
@@ -17663,6 +17768,194 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "Joubert syndrome",
+    "disease_id": "MONDO:0018772",
+    "category": "Genetic",
+    "parents": [
+      "Neurodevelopmental Disorder",
+      "Ciliopathy"
+    ],
+    "subtypes": [
+      "Joubert syndrome 1",
+      "Joubert syndrome 2",
+      "Joubert syndrome 3",
+      "Joubert syndrome with renal defect",
+      "Joubert syndrome 5",
+      "Joubert syndrome 6",
+      "Joubert syndrome 7",
+      "Joubert syndrome 9",
+      "Joubert syndrome 8",
+      "Joubert syndrome 13",
+      "Joubert syndrome 14",
+      "Joubert syndrome 15",
+      "Joubert syndrome 16",
+      "Joubert syndrome 17",
+      "Joubert syndrome 18",
+      "Joubert syndrome 20",
+      "Joubert syndrome 21",
+      "Joubert syndrome 22",
+      "Joubert syndrome 23",
+      "Joubert syndrome 24",
+      "Joubert syndrome 25",
+      "Joubert syndrome 26",
+      "Joubert syndrome 27",
+      "Joubert syndrome 28",
+      "Joubert syndrome 38",
+      "Joubert syndrome 39",
+      "Joubert syndrome 40",
+      "Joubert syndrome 37",
+      "Joubert syndrome 35",
+      "Joubert syndrome 36",
+      "Joubert syndrome 30",
+      "Joubert syndrome 32",
+      "Joubert syndrome 31",
+      "Joubert syndrome 33",
+      "Joubert syndrome 19",
+      "Joubert syndrome 29",
+      "Joubert syndrome 11",
+      "Joubert syndrome 34"
+    ],
+    "description": "Joubert syndrome is a rare neurodevelopmental ciliopathy with a characteristic molar tooth sign on brain MRI and multisystem involvement affecting the nervous system, eyes, kidneys, liver, and skeleton.",
+    "pathophysiology": [
+      "Ciliary gene mutations disrupt primary cilium assembly",
+      "Abnormal cilium structure and length",
+      "Impaired intraciliary transport",
+      "Neurodevelopmental defects"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "cilium assembly",
+      "cilium organization",
+      "intraciliary transport"
+    ],
+    "phenotypes": [
+      "Molar tooth sign on MRI",
+      "Cerebellar vermis hypoplasia",
+      "Hypotonia",
+      "Ataxia",
+      "Intellectual disability",
+      "Global developmental delay",
+      "Speech apraxia",
+      "Abnormality of eye movement",
+      "Oculomotor apraxia",
+      "Strabismus",
+      "Retinal dystrophy",
+      "Abnormal respiratory system physiology",
+      "Episodic tachypnea",
+      "Apnea",
+      "Renal cyst",
+      "Nephronophthisis",
+      "Hepatic fibrosis",
+      "Portal hypertension",
+      "Esophageal varix",
+      "Abnormality of the skeletal system",
+      "Dysphagia",
+      "Seizure",
+      "Sleep apnea",
+      "Polydactyly"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Neuromuscular",
+      "Neurodevelopmental",
+      "Ophthalmologic",
+      "Respiratory",
+      "Renal",
+      "Hepatic",
+      "Gastrointestinal",
+      "Skeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002419",
+      "HP:0001320",
+      "HP:0001252",
+      "HP:0001251",
+      "HP:0001249",
+      "HP:0001263",
+      "HP:0011098",
+      "HP:0000496",
+      "HP:0000657",
+      "HP:0000486",
+      "HP:0000556",
+      "HP:0002795",
+      "HP:0002876",
+      "HP:0002104",
+      "HP:0000107",
+      "HP:0000090",
+      "HP:0001395",
+      "HP:0001409",
+      "HP:0002040",
+      "HP:0000924",
+      "HP:0002015",
+      "HP:0001250",
+      "HP:0010535",
+      "HP:0010442"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "VERY_RARE",
+      "OCCASIONAL",
+      "RARE"
+    ],
+    "genes": [
+      "CPLANE1",
+      "CEP290",
+      "TMEM67",
+      "AHI1",
+      "ARMC9",
+      "CEP41",
+      "CSPP1",
+      "HYLS1",
+      "KATNIP",
+      "KIAA0586",
+      "KIF7",
+      "RPGRIP1L",
+      "MKS1",
+      "CC2D2A",
+      "OFD1",
+      "TCTN1",
+      "CEP120",
+      "TOPORS"
+    ],
+    "treatments": [
+      "Supportive care",
+      "Physical therapy",
+      "Occupational therapy",
+      "Speech therapy",
+      "Orthotic device usage",
+      "Genetic counseling",
+      "Liver transplantation",
+      "Nasobiliary drainage"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Urea",
+      "Creatinine",
+      "Estimated glomerular filtration rate",
+      "Urine protein-to-creatinine ratio"
+    ],
+    "source_file": "Joubert_syndrome.yaml",
+    "page_url": "../pages/disorders/Joubert_syndrome.html",
+    "num_phenotypes": 24,
+    "num_pathophysiology": 4,
+    "num_genes": 18,
+    "num_treatments": 8,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "KIT Mutant Melanoma",
     "disease_id": "MONDO:0003865",
     "category": "",
@@ -18391,6 +18684,206 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Kummell Disease",
+    "disease_id": "MONDO:0003940",
+    "category": "Complex",
+    "parents": [
+      "Avascular necrosis",
+      "Vertebral compression fracture",
+      "Osteoporotic spinal disease"
+    ],
+    "subtypes": [],
+    "description": "Kummell disease (also known as Kummell's disease or delayed post-traumatic vertebral collapse) is a condition characterized by avascular necrosis of a vertebral body following minor spinal trauma. First described by Hermann Kummell in 1891, the disease presents with an initial period of relatively minor symptoms after trauma, followed by a symptom-free interval, and then progressive painful kyphosis with vertebral body collapse. The hallmark radiographic finding is the intravertebral vacuum cleft sign, representing gas (nitrogen) accumulation within the necrotic vertebral body. The condition predominantly affects elderly patients with osteoporosis and most commonly involves the thoracolumbar junction. Treatment ranges from conservative management to vertebral augmentation procedures (vertebroplasty or kyphoplasty) and, in severe cases, surgical stabilization.\n",
+    "pathophysiology": [
+      "Vertebral body avascular necrosis",
+      "Basivertebral foramen microcirculation compromise",
+      "Intravertebral vacuum cleft formation",
+      "Hypoxia-driven bone remodeling imbalance",
+      "Progressive vertebral body collapse"
+    ],
+    "cell_types": [
+      "Osteocyte",
+      "Osteoblast",
+      "Osteoclast",
+      "Endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000137",
+      "CL:0000062",
+      "CL:0000092",
+      "CL:0000115"
+    ],
+    "biological_processes": [
+      "Ossification",
+      "Bone resorption",
+      "Angiogenesis",
+      "Response to hypoxia",
+      "Osteoclast differentiation",
+      "Osteoblast differentiation",
+      "Apoptotic process",
+      "Bone remodeling"
+    ],
+    "phenotypes": [
+      "Back pain",
+      "Kyphosis",
+      "Vertebral compression fracture",
+      "Neurological deficit"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0003418",
+      "HP:0002808",
+      "HP:0002953",
+      "HP:0002196"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OBLIGATE",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Percutaneous vertebroplasty",
+      "Percutaneous kyphoplasty",
+      "Conservative management",
+      "Posterior spinal fusion"
+    ],
+    "environmental": [
+      "Osteoporosis",
+      "Minor spinal trauma"
+    ],
+    "biochemical": [],
+    "source_file": "Kummell_Disease.yaml",
+    "page_url": "../pages/disorders/Kummell_Disease.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Labyrinthitis",
+    "disease_id": "MONDO:0002008",
+    "category": "Complex",
+    "parents": [
+      "Inner ear disorders",
+      "Inflammatory diseases"
+    ],
+    "subtypes": [
+      "Viral labyrinthitis",
+      "Bacterial (suppurative) labyrinthitis",
+      "Serous labyrinthitis"
+    ],
+    "description": "Infectious agents reach the labyrinth through three main routes: (1) tympanogenic spread from the middle ear, where bacterial toxins or organisms cross the round or oval window membrane during otitis media; (2) meningitic spread via the cochlear aqueduct during bacterial meningitis; and (3) hematogenous or neurogenic spread, particularly for viral agents such as herpes simplex virus. In serous labyrinthitis, only toxins and inflammatory mediators cross the round window membrane without direct bacterial invasion, producing reversible dysfunction. In suppurative labyrinthitis, bacteria directly invade the perilymphatic space, causing severe purulent inflammation.\n",
+    "pathophysiology": [
+      "Pathogen entry into the inner ear",
+      "Innate immune activation and cytokine release",
+      "Leukocyte recruitment and infiltration",
+      "Blood-labyrinth barrier disruption",
+      "Vestibular neuroepithelial damage",
+      "Cochlear hair cell injury",
+      "Spiral ganglion neuron degeneration",
+      "Endolymphatic hydrops",
+      "Autoimmune-mediated inner ear damage",
+      "Fibroblast proliferation in the labyrinth",
+      "Labyrinthine fibrosis",
+      "Labyrinthitis ossificans"
+    ],
+    "cell_types": [
+      "Macrophage",
+      "Neutrophil",
+      "Pericyte",
+      "Endothelial cell",
+      "Vestibular hair cell",
+      "Auditory hair cell",
+      "Spiral ganglion neuron",
+      "Fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000775",
+      "CL:0000669",
+      "CL:0000115",
+      "CL:0000609",
+      "CL:0000202",
+      "CL:0011113",
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "Innate immune response",
+      "Cytokine production",
+      "Leukocyte migration",
+      "Regulation of vascular permeability",
+      "Inflammatory response",
+      "Apoptotic process",
+      "Sensory perception of sound",
+      "Neuron apoptotic process",
+      "Immune response",
+      "Fibroblast proliferation",
+      "Extracellular matrix organization",
+      "Ossification"
+    ],
+    "phenotypes": [
+      "Vertigo",
+      "Sensorineural hearing loss",
+      "Tinnitus",
+      "Nystagmus",
+      "Nausea and vomiting",
+      "Postural imbalance"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002321",
+      "HP:0000407",
+      "HP:0000360",
+      "HP:0000639",
+      "HP:0002017",
+      "HP:0002141"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "Susceptibility factors"
+    ],
+    "treatments": [
+      "Vestibular suppressants",
+      "Corticosteroids",
+      "Antiviral therapy",
+      "Antibiotics",
+      "Vestibular rehabilitation therapy",
+      "Cochlear implantation"
+    ],
+    "environmental": [
+      "Viral upper respiratory tract infection",
+      "Otitis media",
+      "Bacterial meningitis",
+      "Inner ear trauma"
+    ],
+    "biochemical": [],
+    "source_file": "Labyrinthitis.yaml",
+    "page_url": "../pages/disorders/Labyrinthitis.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 12,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Lane Hamilton Syndrome",
