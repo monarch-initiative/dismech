@@ -1,0 +1,11 @@
+---
+reference_id: GEO:GSE49122
+title: Otitis Media Impact on Inner Ear
+content_type: summary
+---
+
+# Otitis Media Impact on Inner Ear
+
+## Content
+
+Objective: Otitis media is known to alter expression of cytokine and other genes in the mouse middle ear and inner ear. However, whole mouse genome studies of gene expression in otitis media have not previously been undertaken. Ninety-nine percent of mouse genes are shared in the human, so these studies are relevant to the human condition. Methods: To assess inflammation-driven processes in the mouse ear, gene chip analyses were conducted on mice treated with trans-tympanic heat-killed Hemophilus influenza using untreated mice as controls. Middle and inner ear tissues were separately harvested at 6 hours, RNA extracted, and samples for each treatment processed on the Affymetrix 430 2.0 Gene Chip for expression of its 34,000 genes. Results: Statistical analysis of gene expression compared to control mice showed significant alteration of gene expression in 2,355 genes, 11% of the genes tested and 8% of the mouse genome. Significant middle and inner ear upregulation (fold change >1.5, p<0.05) was seen in 1,081 and 599 genes respectively. Significant middle and inner ear downregulation (fold change <0.67, p<0.05) was seen in 978 and 287 genes respectively. While otitis media is widely believed to be an exclusively middle ear process with little impact on the inner ear, the inner ear changes noted in this study were numerous and discrete from the middle ear responses. This suggests that the inner ear does indeed respond to otitis media and that its response is a distinctive process. Numerous new genes, previously not studied, are found to be affected by inflammation in the ear. Conclusion: Whole genome analysis via gene chip allows simultaneous examination of expression of hundreds of gene families influenced by inflammation in the middle ear. Discovery of new gene families affected by inflammation may lead to new approaches to the study and treatment of otitis media.

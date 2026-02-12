@@ -1,0 +1,49 @@
+---
+name: KGX Export Release
+
+# Generates KGX edge export and attaches to GitHub release
+# Runs after a release is published via the GitHub UI
+
+on:  # yamllint disable-line rule:truthy
+  release:
+    types: [published]
+
+permissions: {}
+
+jobs:
+  kgx-export:
+    name: Generate KGX export and attach to release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # needed to upload release assets
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Install just
+        run: uv tool install rust-just
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Generate KGX export
+        run: just export-kgx
+
+      - name: Rename output with version
+        run: |
+          VERSION="${{ github.event.release.tag_name }}"
+          mv output/kgx/kgx_export_edges.jsonl "output/kgx/dismech-kgx-edges-${VERSION}.jsonl"
+
+      - name: Upload KGX export to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: output/kgx/dismech-kgx-edges-*.jsonl

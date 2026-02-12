@@ -3,6 +3,7 @@
 # Default schema path
 schema_path := "src/dismech/schema/dismech.yaml"
 kb_dir := "kb/disorders"
+comorbidity_dir := "kb/comorbidities"
 
 # Validate all disorder YAML files (schema + terms + references)
 # Runs all validations and reports ALL errors at the end
@@ -13,6 +14,9 @@ validate-all:
     failed_files=()
     echo "Validating all disorder files..."
     for f in {{kb_dir}}/*.yaml; do
+        if [[ "$f" == *.history.yaml ]]; then
+            continue
+        fi
         echo "=== $(basename $f) ==="
         errors=""
         # Schema validation
@@ -77,6 +81,87 @@ validate-schema-all:
         uv run linkml-validate --schema {{schema_path}} --target-class Disease "$f"
     done
 
+# Schema validation for all comorbidity YAML files
+[group('QC')]
+validate-comorbidities:
+    #!/usr/bin/env bash
+    set -e
+    shopt -s nullglob
+    files=({{comorbidity_dir}}/*.yaml)
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "No comorbidity files found in {{comorbidity_dir}}"
+        exit 0
+    fi
+    for f in "${files[@]}"; do
+        echo "Validating comorbidity: $f"
+        uv run linkml-validate --schema {{schema_path}} --target-class ComorbidityAssociation "$f"
+    done
+
+# Full validation of a single comorbidity file (schema + terms + references)
+[group('QC')]
+validate-comorbidity file:
+    #!/usr/bin/env bash
+    set -e
+    echo "Schema validation..."
+    uv run linkml-validate --schema {{schema_path}} --target-class ComorbidityAssociation {{file}}
+    echo "Term validation..."
+    uv run linkml-term-validator validate-data {{file}} -s {{schema_path}} -t ComorbidityAssociation --labels --no-dynamic-enums -c {{oak_config}}
+    echo "Reference validation..."
+    just fix-references-cache
+    uv run linkml-reference-validator validate data {{file}} --schema {{schema_path}} --target-class ComorbidityAssociation
+    echo "✓ All validations passed for {{file}}"
+
+# Full validation of all comorbidity YAML files (schema + terms + references)
+[group('QC')]
+validate-comorbidities-all:
+    #!/usr/bin/env bash
+    shopt -s nullglob
+    files=({{comorbidity_dir}}/*.yaml)
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "No comorbidity files found in {{comorbidity_dir}}"
+        exit 0
+    fi
+    just fix-references-cache
+    failed_files=()
+    echo "Validating all comorbidity files..."
+    for f in "${files[@]}"; do
+        echo "=== $(basename $f) ==="
+        errors=""
+        # Schema validation
+        if ! uv run linkml-validate --schema {{schema_path}} --target-class ComorbidityAssociation "$f" 2>&1 | grep -q "No issues found"; then
+            errors+="  [SCHEMA] $(uv run linkml-validate --schema {{schema_path}} --target-class ComorbidityAssociation "$f" 2>&1 | grep -v "^$")\n"
+        fi
+        # Term validation
+        term_output=$(uv run linkml-term-validator validate-data "$f" -s {{schema_path}} -t ComorbidityAssociation --labels -c {{oak_config}} 2>&1 || true)
+        if ! echo "$term_output" | grep -q "Validation passed"; then
+            errors+="  [TERMS] $term_output\n"
+        fi
+        # Reference validation
+        ref_output=$(uv run linkml-reference-validator validate data "$f" --schema {{schema_path}} --target-class ComorbidityAssociation 2>&1 || true)
+        if echo "$ref_output" | grep -q "\[ERROR\]"; then
+            errors+="  [REFERENCES]\n$(echo "$ref_output" | grep -A2 "\[ERROR\]")\n"
+        elif ! echo "$ref_output" | grep -q "All validations passed"; then
+            errors+="  [REFERENCES] $ref_output\n"
+        fi
+        if [ -n "$errors" ]; then
+            failed_files+=("$f")
+            echo -e "$errors"
+        else
+            echo "  ✓ OK"
+        fi
+    done
+    echo ""
+    echo "================================"
+    if [ ${#failed_files[@]} -eq 0 ]; then
+        echo "✓ All comorbidity files validated successfully!"
+    else
+        echo "✗ ${#failed_files[@]} comorbidity file(s) with errors:"
+        for f in "${failed_files[@]}"; do
+            echo "  - $f"
+        done
+        exit 1
+    fi
+
 # Run term validation on schema (checks dynamic enum definitions)
 [group('QC')]
 validate-terms-schema:
@@ -123,7 +208,18 @@ qc: validate-all
 # Analyze recommended field compliance for all disorder files
 [group('QC')]
 compliance-all:
-    uv run linkml-data-qc {{kb_dir}} -s {{schema_path}} -t Disease -f text
+    #!/usr/bin/env bash
+    set -e
+    if command -v rg >/dev/null 2>&1; then
+        mapfile -t files < <(rg --files -g '*.yaml' -g '!*.history.yaml' --no-ignore {{kb_dir}})
+    else
+        mapfile -t files < <(find {{kb_dir}} -maxdepth 1 -type f -name '*.yaml' ! -name '*.history.yaml' | sort)
+    fi
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "No disorder YAML files found in {{kb_dir}} (after excluding *.history.yaml)."
+        exit 1
+    fi
+    uv run linkml-data-qc "${files[@]}" -s {{schema_path}} -t Disease -f text
 
 # Analyze compliance for a single file
 [group('QC')]
@@ -133,23 +229,67 @@ compliance file:
 # Generate compliance report as JSON
 [group('QC')]
 compliance-report:
-    uv run linkml-data-qc {{kb_dir}} -s {{schema_path}} -t Disease -f json -o compliance_report.json
+    #!/usr/bin/env bash
+    set -e
+    if command -v rg >/dev/null 2>&1; then
+        mapfile -t files < <(rg --files -g '*.yaml' -g '!*.history.yaml' --no-ignore {{kb_dir}})
+    else
+        mapfile -t files < <(find {{kb_dir}} -maxdepth 1 -type f -name '*.yaml' ! -name '*.history.yaml' | sort)
+    fi
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "No disorder YAML files found in {{kb_dir}} (after excluding *.history.yaml)."
+        exit 1
+    fi
+    uv run linkml-data-qc "${files[@]}" -s {{schema_path}} -t Disease -f json -o compliance_report.json
 
 # Generate compliance report as CSV
 [group('QC')]
 compliance-csv:
-    uv run linkml-data-qc {{kb_dir}} -s {{schema_path}} -t Disease -f csv -o compliance_report.csv
+    #!/usr/bin/env bash
+    set -e
+    if command -v rg >/dev/null 2>&1; then
+        mapfile -t files < <(rg --files -g '*.yaml' -g '!*.history.yaml' --no-ignore {{kb_dir}})
+    else
+        mapfile -t files < <(find {{kb_dir}} -maxdepth 1 -type f -name '*.yaml' ! -name '*.history.yaml' | sort)
+    fi
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "No disorder YAML files found in {{kb_dir}} (after excluding *.history.yaml)."
+        exit 1
+    fi
+    uv run linkml-data-qc "${files[@]}" -s {{schema_path}} -t Disease -f csv -o compliance_report.csv
 
 # Analyze compliance with config file (weighted scoring and thresholds)
 [group('QC')]
 compliance-weighted:
-    uv run linkml-data-qc {{kb_dir}} -s {{schema_path}} -t Disease -c conf/qc_config.yaml -f text
+    #!/usr/bin/env bash
+    set -e
+    if command -v rg >/dev/null 2>&1; then
+        mapfile -t files < <(rg --files -g '*.yaml' -g '!*.history.yaml' --no-ignore {{kb_dir}})
+    else
+        mapfile -t files < <(find {{kb_dir}} -maxdepth 1 -type f -name '*.yaml' ! -name '*.history.yaml' | sort)
+    fi
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "No disorder YAML files found in {{kb_dir}} (after excluding *.history.yaml)."
+        exit 1
+    fi
+    uv run linkml-data-qc "${files[@]}" -s {{schema_path}} -t Disease -c conf/qc_config.yaml -f text
 
 # Generate QC dashboard (HTML site with charts)
 [group('QC')]
 gen-dashboard:
-    uv run linkml-data-qc {{kb_dir}} -s {{schema_path}} -t Disease -c conf/qc_config.yaml --dashboard-dir dashboard/
-    @echo "Dashboard generated in dashboard/"
+    #!/usr/bin/env bash
+    set -e
+    if command -v rg >/dev/null 2>&1; then
+        mapfile -t files < <(rg --files -g '*.yaml' -g '!*.history.yaml' --no-ignore {{kb_dir}})
+    else
+        mapfile -t files < <(find {{kb_dir}} -maxdepth 1 -type f -name '*.yaml' ! -name '*.history.yaml' | sort)
+    fi
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "No disorder YAML files found in {{kb_dir}} (after excluding *.history.yaml)."
+        exit 1
+    fi
+    uv run linkml-data-qc "${files[@]}" -s {{schema_path}} -t Disease -c conf/qc_config.yaml --dashboard-dir dashboard/
+    echo "Dashboard generated in dashboard/"
 
 # Validate snippet/reference pairs against PubMed (checks that quotes appear in cited papers)
 # Note: First run fetches from PubMed and caches; subsequent runs use cache
@@ -292,20 +432,39 @@ deploy-browser: gen-browser-data
     @echo "Browser app ready at app/index.html"
     @echo "Data generated with $(ls -1 {{kb_dir}}/*.yaml | wc -l | tr -d ' ') disorders"
 
-# Generate individual HTML pages for all disorders
+# Generate individual HTML pages for all disorders and comorbidities
 [group('Pages')]
 gen-pages:
     uv run python -m dismech.render --all
+    @echo "Generated $(ls -1 pages/disorders/*.html 2>/dev/null | wc -l | tr -d ' ') disorder pages and $(ls -1 pages/comorbidities/*.html 2>/dev/null | wc -l | tr -d ' ') comorbidity pages"
 
 # Generate a single disorder page
 [group('Pages')]
 gen-page file:
     uv run python -m dismech.render {{file}}
 
+# Generate a single comorbidity page
+[group('Pages')]
+gen-comorbidity-page file:
+    uv run python -m dismech.render --comorbidity {{file}}
+
+# Generate all comorbidity pages
+[group('Pages')]
+gen-comorbidity-pages:
+    uv run python -m dismech.render --comorbidity {{comorbidity_dir}}
+
 # Generate all pages and browser data
 [group('Pages')]
 gen-all: gen-browser-data gen-pages
-    @echo "Generated browser and $(ls -1 pages/disorders/*.html | wc -l | tr -d ' ') disorder pages"
+    @echo "Generated browser data, disorder pages, and comorbidity pages"
+
+# ============== KGX Export ==============
+
+# Generate KGX edges from disorder knowledge base
+[group('Export')]
+export-kgx:
+    mkdir -p output/kgx
+    uv run koza transform src/dismech/export/kgx_export.py -o output/kgx -f jsonl kb/disorders/*.yaml
 
 # ============== Deep Research ==============
 
@@ -344,15 +503,114 @@ research-disorder provider disorder *args="":
         --separate-citations "$output_file.citations.md" \
         {{args}}
 
+# Deep research on a comorbidity using specified provider
+# Examples:
+#   just research-comorbidity perplexity com_Type_2_Diabetes_Mellitus__Lichen_Simplex_Chronicus__Prurigo_Nodularis
+#   just research-comorbidity openai com_Type_2_Diabetes_Mellitus__Lichen_Simplex_Chronicus__Prurigo_Nodularis --model gpt-4o
+[group('Research')]
+research-comorbidity provider comorbidity *args="":
+	#!/usr/bin/env bash
+	set -e
+	mkdir -p {{research_dir}}
+	yaml_file="{{comorbidity_dir}}/{{comorbidity}}.yaml"
+	if [ ! -f "$yaml_file" ]; then
+	    echo "Error: Comorbidity file not found: $yaml_file"
+	    ls -1 {{comorbidity_dir}}/*.yaml | xargs -I {} basename {} .yaml | head -20
+	    exit 1
+	fi
+	tmpfile="$(mktemp)"
+	uv run python - <<-'PY' > "$tmpfile"
+	import yaml
+	from pathlib import Path
+
+	data = yaml.safe_load(Path("{{comorbidity_dir}}/{{comorbidity}}.yaml").read_text())
+
+	def fmt_label(d):
+	    slug = d.get("slug")
+	    if slug:
+	        return slug.replace("_", " ")
+	    comp = d.get("composition")
+	    comps = d.get("components", []) or []
+	    comp_slugs = [c.get("slug", "") for c in comps if c.get("slug")]
+	    if comp and comp_slugs:
+	        return f"{comp.title()} of " + ", ".join(comp_slugs)
+	    return "UNKNOWN"
+
+	disease_a = data.get("disease_a", {}) or {}
+	disease_b = data.get("disease_b", {}) or {}
+
+	disease_a_label = fmt_label(disease_a)
+	disease_b_label = fmt_label(disease_b)
+
+	disease_a_slug = disease_a.get("slug", "")
+	disease_b_slug = disease_b.get("slug", "")
+
+	components = disease_b.get("components", []) or []
+	component_slugs = [c.get("slug", "") for c in components if c.get("slug")]
+	disease_b_components = ", ".join(component_slugs)
+	disease_b_composition = disease_b.get("composition", "")
+
+	print("\\t".join([disease_a_label, disease_b_label, disease_a_slug, disease_b_slug, disease_b_components, disease_b_composition]))
+	PY
+	IFS=$'\\t' read -r disease_a_label disease_b_label disease_a_slug disease_b_slug disease_b_components disease_b_composition < "$tmpfile"
+	rm -f "$tmpfile"
+	output_file="{{research_dir}}/{{comorbidity}}-deep-research-{{provider}}.md"
+	echo "Researching: $disease_a_label ↔ $disease_b_label ({{provider}}) -> $output_file"
+	provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
+	uv run deep-research-client research \
+	    --template {{templates_dir}}/comorbidity_deep_research.md.j2 \
+	    --var "disease_a_label=$disease_a_label" \
+	    --var "disease_b_label=$disease_b_label" \
+	    --var "disease_a_slug=$disease_a_slug" \
+	    --var "disease_b_slug=$disease_b_slug" \
+	    --var "disease_b_components=$disease_b_components" \
+	    --var "disease_b_composition=$disease_b_composition" \
+	    $provider_arg \
+	    --output "$output_file" \
+	    --separate-citations "$output_file.citations.md" \
+	    {{args}}
+
+# Deep research on a disorder using cyberian with codex agent
+[group('Research')]
+research-disorder-cyberian-codex disorder *args="":
+    #!/usr/bin/env bash
+    set -e
+    mkdir -p {{research_dir}}
+    yaml_file="{{kb_dir}}/{{disorder}}.yaml"
+    if [ ! -f "$yaml_file" ]; then
+        echo "Error: Disorder file not found: $yaml_file"
+        ls -1 {{kb_dir}}/*.yaml | xargs -I {} basename {} .yaml | head -20
+        exit 1
+    fi
+    disease_name=$(grep "^name:" "$yaml_file" | head -1 | sed 's/name: *//' | tr '_' ' ')
+    category=$(grep "^category:" "$yaml_file" | head -1 | sed 's/category: *//' || echo "")
+    output_file="{{research_dir}}/{{disorder}}-deep-research-cyberian-codex.md"
+    echo "Researching: $disease_name (cyberian-codex) -> $output_file"
+    uv run deep-research-client research \
+        --template {{templates_dir}}/disease_pathophysiology_research.md \
+        --var "disease_name=$disease_name" \
+        --var "mondo_id=" \
+        --var "category=$category" \
+        --provider cyberian \
+        --param agent_type=codex \
+        --output "$output_file" \
+        --separate-citations "$output_file.citations.md" \
+        {{args}}
+
 # List available research providers
 [group('Research')]
 research-providers:
     uv run deep-research-client providers
 
-# Fetch and cache a reference by PMID
+# Fetch and cache a reference by ID
+# This may be a PMID, DOI, or other supported identifier
 [group('Research')]
-fetch-reference pmid:
-    uv run linkml-reference-validator cache reference {{pmid}}
+fetch-reference +identifiers:
+    #!/usr/bin/env bash
+    for identifier in {{identifiers}}; do
+        echo "Fetching reference: $identifier"
+        uv run linkml-reference-validator cache reference "$identifier"
+    done
 
 # ============== Classification Schemas ==============
 
@@ -375,6 +633,36 @@ validate-classifications:
 validate-classification file:
     uv run linkml-term-validator validate-schema {{file}} -c {{oak_config}}
 
+# ============== Epic Issue Sync ==============
+
+# Project files are in projects/ with ALL_CAPS names (e.g., CANCER.md, NTD.md)
+projects_dir := "projects"
+epic_sync_script := ".claude/skills/projman/scripts/sync_epic.py"
+
+# Push markdown project to GitHub epic issue
+# Example: just epic-push NTD
+[group('Projects')]
+epic-push project:
+    python3 {{epic_sync_script}} push {{projects_dir}}/{{project}}.md
+
+# Pull GitHub epic issue state to markdown
+# Example: just epic-pull CANCER
+[group('Projects')]
+epic-pull project:
+    python3 {{epic_sync_script}} pull {{projects_dir}}/{{project}}.md
+
+# Show sync status between markdown and GitHub epic
+# Example: just epic-status AUTOIMMUNE
+[group('Projects')]
+epic-status project:
+    python3 {{epic_sync_script}} status {{projects_dir}}/{{project}}.md
+
+# List all project files
+[group('Projects')]
+list-projects:
+    @echo "Projects in {{projects_dir}}/:"
+    @ls -1 {{projects_dir}}/*.md 2>/dev/null | xargs -I {} basename {} .md | sort
+
 # ============== Embedding Analysis ==============
 
 embed_dir := "cache/embeddings"
@@ -385,8 +673,8 @@ default_parent_groups := "Autoimmune Disease,Cardiovascular Disease,Gastrointest
 # Index all disorders with embeddings (requires OPENAI_API_KEY)
 # Install deps first: uv sync --group embeddings
 [group('Analysis')]
-embed-index:
-    uv run python -m dismech.embed index --output {{embed_dir}}
+embed-index recreate="":
+    uv run python -m dismech.embed index --output {{embed_dir}} {{ if recreate != "" { "--recreate" } else { "" } }}
 
 # Index with parent-based grouping (for visualization)
 [group('Analysis')]
@@ -407,25 +695,15 @@ embed-index-custom group_by groups:
 embed-reindex:
     uv run python -m dismech.embed index --output {{embed_dir}} --recreate
 
-# Search for disorders similar to a query in pathophysiology space
+# Semantic search for disorders matching a query
 [group('Analysis')]
-embed-search query:
-    uv run python -m dismech.embed search "{{query}}" --space pathophysiology
-
-# Search in phenotype space
-[group('Analysis')]
-embed-search-pheno query:
-    uv run python -m dismech.embed search "{{query}}" --space phenotypes
+embed-search query space="pathophysiology":
+    uv run python -m dismech.embed search "{{query}}" --space {{space}}
 
 # Find disorders similar to a specific disorder
 [group('Analysis')]
-embed-similar disorder:
-    uv run python -m dismech.embed similar "{{disorder}}"
-
-# Find similar disorders in phenotype space
-[group('Analysis')]
-embed-similar-pheno disorder:
-    uv run python -m dismech.embed similar "{{disorder}}" --space phenotypes
+embed-similar disorder space="pathophysiology":
+    uv run python -m dismech.embed similar "{{disorder}}" --space {{space}}
 
 # Compare pathophysiology vs phenotype similarity correlation
 [group('Analysis')]
@@ -548,3 +826,31 @@ embed-all:
     @echo "Step 2: Generating app data..."
     just embed-app-data
     @echo "=== Done! Open app/embeddings/index.html ==="
+
+# Index individual pathophysiology mechanisms (for mechanism comparison browser)
+[group('Analysis')]
+embed-index-mechanisms:
+    uv run python -m dismech.embed index-mechanisms --output {{embed_dir}} --recreate \
+        --group-by parents \
+        --groups "{{default_parent_groups}}"
+
+# Export data for mechanisms comparison browser
+[group('Analysis')]
+embed-mechanisms-data:
+    uv run python -m dismech.embed mechanisms-data --output app/embeddings/mechanisms_data.js
+
+# Open mechanisms comparison browser
+[group('Analysis')]
+embed-mechanisms-app:
+    @echo "Open app/embeddings/mechanisms.html in your browser"
+    @echo "Or start server: just embed-serve"
+
+# Rebuild mechanisms browser (index + export data)
+[group('Analysis')]
+embed-mechanisms-all:
+    @echo "=== Building mechanism comparison browser ==="
+    @echo "Step 1: Indexing individual mechanisms..."
+    just embed-index-mechanisms
+    @echo "Step 2: Generating browser data..."
+    just embed-mechanisms-data
+    @echo "=== Done! Open app/embeddings/mechanisms.html ==="

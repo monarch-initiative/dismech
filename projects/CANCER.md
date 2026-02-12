@@ -7,6 +7,8 @@ Comprehensive curation of cancers for the dismech knowledge base, prioritizing m
 3. Genotype-phenotype correlations inform treatment decisions
 4. Progressive stages of tumorigenesis are documented
 
+This is an evergreen project: beyond the defined tiers, "Other" expansion categories capture additional molecularly-defined cancers and emerging biomarkers as the field evolves.
+
 ## Selection Criteria
 Cancers are prioritized based on:
 - **Genetic precision**: Clear driver mutations, fusion genes, or germline predisposition
@@ -36,6 +38,7 @@ These represent textbook examples of cancer genetics with direct therapeutic imp
 | Medullary Thyroid Carcinoma | RET | Oncogenic receptor activation | Selpercatinib | [ ] |
 | Clear Cell Renal Cell Carcinoma | VHL | HIF dysregulation | Belzutifan (HIF-2α) | [ ] |
 | Ewing Sarcoma | EWS-FLI1 | Aberrant transcription factor | - | [ ] |
+| Other single-gene drivers | — | e.g. SMARCB1-deficient tumors, SDH-deficient GIST | — | [ ] |
 
 ### Tier 2: Hereditary Cancer Syndromes (High Priority)
 Well-characterized germline mutations with defined progression pathways.
@@ -48,6 +51,7 @@ Well-characterized germline mutations with defined progression pathways.
 | MEN2A/2B | RET | MTC, pheochromocytoma, parathyroid | RET gain-of-function | [ ] |
 | Hereditary Breast/Ovarian Cancer | BRCA1, BRCA2 | Breast, ovarian, pancreatic, prostate | DNA repair deficiency | [ ] |
 | Neurofibromatosis Type 1 | NF1 | MPNST, optic glioma, neurofibromas | RAS-MAPK hyperactivation | [ ] |
+| Other hereditary syndromes | — | e.g. Cowden, Peutz-Jeghers, MEN1, NF2, tuberous sclerosis | — | [ ] |
 
 ### Tier 3: Cancers with Clear Molecular Subtypes (Medium Priority)
 Defined molecular classifications guiding precision medicine.
@@ -354,7 +358,7 @@ Recent developments informing this curation:
 - [ ] Dermatofibrosarcoma Protuberans
 
 ## Progress Summary
-- **Total planned**: 78 cancers (original 28 + 50 expansion)
+- **Total planned**: 78+ cancers (original 28 + 50 expansion + open-ended)
 - **Completed**: 12/78 (15.4%)
 - **In progress**: 0
 
@@ -366,6 +370,15 @@ Recent developments informing this curation:
 3. **WHO classification alignment**: Brain tumors (Tier 9) now require molecular markers for diagnosis per WHO 2021 CNS classification.
 
 4. **Actionable alterations**: Priority given to cancers with FDA-approved targeted therapies or immunotherapies linked to molecular features.
+
+## Expansion Categories
+- [ ] Other single-gene driver cancers; e.g. SMARCB1-deficient tumors, SDH-deficient GIST
+- [ ] Other hereditary cancer syndromes; e.g. Cowden, Peutz-Jeghers, MEN1, NF2, tuberous sclerosis
+- [ ] Other molecular breast cancer subtypes; e.g. CDH1-mutant lobular, GATA3-mutant
+- [ ] Other molecular lung cancer subtypes; e.g. HER2-mutant, NRG1 fusion, SMARCA4-deficient
+- [ ] Other molecularly-defined sarcomas; e.g. CIC-rearranged, BCOR-rearranged
+- [ ] Other virus-associated cancers; e.g. HBV-associated HCC, HIV-associated lymphomas
+- [ ] Emerging biomarker-defined cancers; e.g. TMB-high, HRD-positive agnostic
 
 # NOTES
 
