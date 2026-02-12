@@ -18393,6 +18393,206 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Kummell Disease",
+    "disease_id": "MONDO:0003940",
+    "category": "Complex",
+    "parents": [
+      "Avascular necrosis",
+      "Vertebral compression fracture",
+      "Osteoporotic spinal disease"
+    ],
+    "subtypes": [],
+    "description": "Kummell disease (also known as Kummell's disease or delayed post-traumatic vertebral collapse) is a condition characterized by avascular necrosis of a vertebral body following minor spinal trauma. First described by Hermann Kummell in 1891, the disease presents with an initial period of relatively minor symptoms after trauma, followed by a symptom-free interval, and then progressive painful kyphosis with vertebral body collapse. The hallmark radiographic finding is the intravertebral vacuum cleft sign, representing gas (nitrogen) accumulation within the necrotic vertebral body. The condition predominantly affects elderly patients with osteoporosis and most commonly involves the thoracolumbar junction. Treatment ranges from conservative management to vertebral augmentation procedures (vertebroplasty or kyphoplasty) and, in severe cases, surgical stabilization.\n",
+    "pathophysiology": [
+      "Vertebral body avascular necrosis",
+      "Basivertebral foramen microcirculation compromise",
+      "Intravertebral vacuum cleft formation",
+      "Hypoxia-driven bone remodeling imbalance",
+      "Progressive vertebral body collapse"
+    ],
+    "cell_types": [
+      "Osteocyte",
+      "Osteoblast",
+      "Osteoclast",
+      "Endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000137",
+      "CL:0000062",
+      "CL:0000092",
+      "CL:0000115"
+    ],
+    "biological_processes": [
+      "Ossification",
+      "Bone resorption",
+      "Angiogenesis",
+      "Response to hypoxia",
+      "Osteoclast differentiation",
+      "Osteoblast differentiation",
+      "Apoptotic process",
+      "Bone remodeling"
+    ],
+    "phenotypes": [
+      "Back pain",
+      "Kyphosis",
+      "Vertebral compression fracture",
+      "Neurological deficit"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0003418",
+      "HP:0002808",
+      "HP:0002953",
+      "HP:0002196"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OBLIGATE",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Percutaneous vertebroplasty",
+      "Percutaneous kyphoplasty",
+      "Conservative management",
+      "Posterior spinal fusion"
+    ],
+    "environmental": [
+      "Osteoporosis",
+      "Minor spinal trauma"
+    ],
+    "biochemical": [],
+    "source_file": "Kummell_Disease.yaml",
+    "page_url": "../pages/disorders/Kummell_Disease.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Labyrinthitis",
+    "disease_id": "MONDO:0002008",
+    "category": "Complex",
+    "parents": [
+      "Inner ear disorders",
+      "Inflammatory diseases"
+    ],
+    "subtypes": [
+      "Viral labyrinthitis",
+      "Bacterial (suppurative) labyrinthitis",
+      "Serous labyrinthitis"
+    ],
+    "description": "Infectious agents reach the labyrinth through three main routes: (1) tympanogenic spread from the middle ear, where bacterial toxins or organisms cross the round or oval window membrane during otitis media; (2) meningitic spread via the cochlear aqueduct during bacterial meningitis; and (3) hematogenous or neurogenic spread, particularly for viral agents such as herpes simplex virus. In serous labyrinthitis, only toxins and inflammatory mediators cross the round window membrane without direct bacterial invasion, producing reversible dysfunction. In suppurative labyrinthitis, bacteria directly invade the perilymphatic space, causing severe purulent inflammation.\n",
+    "pathophysiology": [
+      "Pathogen entry into the inner ear",
+      "Innate immune activation and cytokine release",
+      "Leukocyte recruitment and infiltration",
+      "Blood-labyrinth barrier disruption",
+      "Vestibular neuroepithelial damage",
+      "Cochlear hair cell injury",
+      "Spiral ganglion neuron degeneration",
+      "Endolymphatic hydrops",
+      "Autoimmune-mediated inner ear damage",
+      "Fibroblast proliferation in the labyrinth",
+      "Labyrinthine fibrosis",
+      "Labyrinthitis ossificans"
+    ],
+    "cell_types": [
+      "Macrophage",
+      "Neutrophil",
+      "Pericyte",
+      "Endothelial cell",
+      "Vestibular hair cell",
+      "Auditory hair cell",
+      "Spiral ganglion neuron",
+      "Fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000775",
+      "CL:0000669",
+      "CL:0000115",
+      "CL:0000609",
+      "CL:0000202",
+      "CL:0011113",
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "Innate immune response",
+      "Cytokine production",
+      "Leukocyte migration",
+      "Regulation of vascular permeability",
+      "Inflammatory response",
+      "Apoptotic process",
+      "Sensory perception of sound",
+      "Neuron apoptotic process",
+      "Immune response",
+      "Fibroblast proliferation",
+      "Extracellular matrix organization",
+      "Ossification"
+    ],
+    "phenotypes": [
+      "Vertigo",
+      "Sensorineural hearing loss",
+      "Tinnitus",
+      "Nystagmus",
+      "Nausea and vomiting",
+      "Postural imbalance"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002321",
+      "HP:0000407",
+      "HP:0000360",
+      "HP:0000639",
+      "HP:0002017",
+      "HP:0002141"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "Susceptibility factors"
+    ],
+    "treatments": [
+      "Vestibular suppressants",
+      "Corticosteroids",
+      "Antiviral therapy",
+      "Antibiotics",
+      "Vestibular rehabilitation therapy",
+      "Cochlear implantation"
+    ],
+    "environmental": [
+      "Viral upper respiratory tract infection",
+      "Otitis media",
+      "Bacterial meningitis",
+      "Inner ear trauma"
+    ],
+    "biochemical": [],
+    "source_file": "Labyrinthitis.yaml",
+    "page_url": "../pages/disorders/Labyrinthitis.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 12,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Lane Hamilton Syndrome",
     "disease_id": "MONDO:0800124",
     "category": "Complex",
