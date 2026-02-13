@@ -3327,6 +3327,132 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Autosomal Dominant Osteopetrosis Type II",
+    "disease_id": "MONDO:0008156",
+    "category": "Mendelian",
+    "parents": [
+      "Sclerosing Bone Dysplasias"
+    ],
+    "subtypes": [],
+    "description": "Autosomal dominant osteopetrosis type II (ADO2), also known as Albers-Schonberg disease, is the most common form of osteopetrosis. It is caused by heterozygous mutations in the CLCN7 chloride channel gene, which acts through a dominant negative mechanism since chloride channels function as dimers. The disease has incomplete penetrance (66%) and variable expressivity. Clinical features include increased skeletal density, recurrent fractures, osteomyelitis (particularly mandibular), and cranial nerve compression causing visual loss. CLCN7 mutations also cause autosomal recessive osteopetrosis when homozygous, establishing ADO2 as allelic with a subset of infantile malignant osteopetrosis.\n",
+    "pathophysiology": [
+      "CLCN7 Dominant Negative Chloride Channel Dysfunction",
+      "Impaired Resorption Lacuna Acidification",
+      "Progressive Skeletal Sclerosis"
+    ],
+    "cell_types": [
+      "Osteoclast"
+    ],
+    "cell_type_ids": [
+      "CL:0000092"
+    ],
+    "biological_processes": [
+      "Bone Resorption",
+      "Bone Remodeling"
+    ],
+    "phenotypes": [
+      "Osteopetrosis",
+      "Recurrent Fractures",
+      "Osteomyelitis",
+      "Visual Loss"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Immune",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0011002",
+      "HP:0002757",
+      "HP:0002754",
+      "HP:0000648"
+    ],
+    "frequencies": [
+      "84%",
+      "16%",
+      "19%"
+    ],
+    "genes": [
+      "CLCN7 Mutations"
+    ],
+    "treatments": [
+      "Supportive Care",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Autosomal_Dominant_Osteopetrosis_Type_II.yaml",
+    "page_url": "../pages/disorders/Autosomal_Dominant_Osteopetrosis_Type_II.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Autosomal Recessive Osteopetrosis Type 2",
+    "disease_id": "MONDO:0009816",
+    "category": "Mendelian",
+    "parents": [
+      "Sclerosing Bone Dysplasias"
+    ],
+    "subtypes": [],
+    "description": "Autosomal recessive osteopetrosis type 2 (ARO2) is a severe sclerosing bone disease caused by biallelic loss-of-function mutations in TCIRG1, encoding the osteoclast-specific a3 subunit of the vacuolar H+-ATPase. TCIRG1 mutations are the most frequent cause of infantile malignant osteopetrosis, accounting for over 50% of ARO cases. Osteoclasts are present in normal or elevated numbers but are non-functional due to inability to acidify the resorption lacuna. The disease is characterized by dense but brittle bones, bone marrow failure, cranial nerve compression, and hepatosplenomegaly. Without hematopoietic stem cell transplantation, the disease is fatal within the first decade of life.\n",
+    "pathophysiology": [
+      "Vacuolar Proton Pump Deficiency in Osteoclasts",
+      "Progressive Skeletal Sclerosis",
+      "Bone Marrow Failure from Medullary Obliteration",
+      "Cranial Nerve Compression from Skull Thickening"
+    ],
+    "cell_types": [
+      "Osteoclast"
+    ],
+    "cell_type_ids": [
+      "CL:0000092"
+    ],
+    "biological_processes": [
+      "Bone Resorption",
+      "Bone Remodeling",
+      "Hematopoiesis"
+    ],
+    "phenotypes": [
+      "Osteopetrosis",
+      "Pancytopenia",
+      "Cranial Nerve Compression"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0011002",
+      "HP:0001876",
+      "HP:0001293"
+    ],
+    "frequencies": [],
+    "genes": [
+      "TCIRG1 Mutations"
+    ],
+    "treatments": [
+      "Hematopoietic Stem Cell Transplantation",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Autosomal_Recessive_Osteopetrosis.yaml",
+    "page_url": "../pages/disorders/Autosomal_Recessive_Osteopetrosis_Type_2.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Unknown",
     "disease_id": null,
     "category": "",
@@ -4847,6 +4973,61 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Brachydactyly Type A1",
+    "disease_id": "MONDO:0007215",
+    "category": "Mendelian",
+    "parents": [
+      "Limb Development Disorders"
+    ],
+    "subtypes": [],
+    "description": "Brachydactyly type A1 (BDA1) is the first recorded Mendelian autosomal dominant disorder in humans, originally identified by Farabee in 1903. It is characterized by shortening or absence of the middle phalanges. Heterozygous missense mutations in the Indian Hedgehog (IHH) gene, which encodes a key signaling molecule in endochondral bone development, cause BDA1. The mutations affect multiple levels of Hedgehog signaling including protein stability, receptor binding, and interaction with extracellular components.\n",
+    "pathophysiology": [
+      "Impaired IHH-Patched1 Receptor Signaling",
+      "IHH Protein Instability and Trafficking Defects"
+    ],
+    "cell_types": [
+      "Chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000138"
+    ],
+    "biological_processes": [
+      "Smoothened Signaling Pathway",
+      "Endochondral Ossification",
+      "Chondrocyte Differentiation"
+    ],
+    "phenotypes": [
+      "Type A1 Brachydactyly",
+      "Short Middle Phalanx of Finger"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0009371",
+      "HP:0005819"
+    ],
+    "frequencies": [],
+    "genes": [
+      "IHH Missense Mutations"
+    ],
+    "treatments": [
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Brachydactyly_Type_A1.yaml",
+    "page_url": "../pages/disorders/Brachydactyly_Type_A1.html",
+    "num_phenotypes": 2,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Breast Fibroadenoma",
     "disease_id": "MONDO:0002056",
     "category": "Benign Tumor",
@@ -5509,6 +5690,86 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "1",
     "causal_graph_longest_path": "1"
+  },
+  {
+    "name": "Camurati-Engelmann Disease",
+    "disease_id": "MONDO:0007542",
+    "category": "Mendelian",
+    "parents": [
+      "Sclerosing Bone Dysplasias"
+    ],
+    "subtypes": [],
+    "description": "Camurati-Engelmann disease (CED), also known as progressive diaphyseal dysplasia, is an autosomal dominant sclerosing bone disorder caused by mutations in TGFB1 encoding transforming growth factor beta 1. It is characterized by progressive cortical thickening (hyperostosis) of the diaphyses of long bones, leading to limb pain, muscle weakness, waddling gait, and easy fatigability. Skull involvement can cause cranial nerve palsies, particularly facial nerve paralysis and hearing loss. The disease typically presents in childhood and shows variable expressivity.\n",
+    "pathophysiology": [
+      "Constitutive TGF-beta 1 Activation",
+      "Impaired Bone Remodeling Balance"
+    ],
+    "cell_types": [
+      "Osteoblast",
+      "Osteoclast"
+    ],
+    "cell_type_ids": [
+      "CL:0000062",
+      "CL:0000092"
+    ],
+    "biological_processes": [
+      "TGF-beta Signaling",
+      "Bone Remodeling",
+      "Osteoblast Differentiation",
+      "Ossification"
+    ],
+    "phenotypes": [
+      "Diaphyseal Dysplasia",
+      "Limb Pain",
+      "Muscle Weakness",
+      "Waddling Gait",
+      "Cranial Nerve Palsy",
+      "Skull Involvement",
+      "Hearing Loss",
+      "Exophthalmos",
+      "Reduced Subcutaneous Fat"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Ear",
+      "Eye",
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0100252",
+      "HP:0009763",
+      "HP:0001324",
+      "HP:0002515",
+      "HP:0001293",
+      "HP:0004437",
+      "HP:0000365",
+      "HP:0000520",
+      "HP:0003717"
+    ],
+    "frequencies": [],
+    "genes": [
+      "TGFB1 Mutations"
+    ],
+    "treatments": [
+      "Corticosteroid Therapy",
+      "Losartan",
+      "Analgesic Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Camurati-Engelmann_Disease.yaml",
+    "page_url": "../pages/disorders/Camurati-Engelmann_Disease.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
   },
   {
     "name": "Cardiofaciocutaneous Syndrome",
@@ -10383,6 +10644,86 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Ellis-van Creveld Syndrome",
+    "disease_id": "MONDO:0009162",
+    "category": "Mendelian",
+    "parents": [
+      "Ciliopathies",
+      "Short-Rib Dysplasias"
+    ],
+    "subtypes": [],
+    "description": "Ellis-van Creveld syndrome (EvC) is an autosomal recessive skeletal ciliopathy caused by mutations in EVC or EVC2 genes, which encode proteins essential for Hedgehog signaling at the primary cilium. It is characterized by disproportionate short-limb short stature, postaxial polydactyly, ectodermal dysplasia (including nail and dental anomalies), and congenital heart defects (most commonly a common atrium or single atrium). The syndrome has a notably high prevalence in the Old Order Amish population due to a founder effect.\n",
+    "pathophysiology": [
+      "Hedgehog Signaling Disruption",
+      "Primary Cilium Dysfunction",
+      "Cardiac Septation Defect"
+    ],
+    "cell_types": [
+      "Chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000138"
+    ],
+    "biological_processes": [
+      "Hedgehog Signaling",
+      "Endochondral Ossification",
+      "Limb Development",
+      "Cilium Assembly",
+      "Heart Development",
+      "Cardiac Septum Morphogenesis"
+    ],
+    "phenotypes": [
+      "Disproportionate Short Stature",
+      "Postaxial Polydactyly",
+      "Short Ribs and Narrow Chest",
+      "Congenital Heart Defect",
+      "Nail Dysplasia",
+      "Dental Anomalies",
+      "Short Upper Lip with Multiple Frenula",
+      "Genu Valgum"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0008873",
+      "HP:0001162",
+      "HP:0000774",
+      "HP:0001631",
+      "HP:0002164",
+      "HP:0000164",
+      "HP:0000160",
+      "HP:0002857"
+    ],
+    "frequencies": [],
+    "genes": [
+      "EVC Mutations",
+      "EVC2 Mutations"
+    ],
+    "treatments": [
+      "Cardiac Surgery",
+      "Orthopedic Management",
+      "Dental Management",
+      "Respiratory Support"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Ellis-van_Creveld_Syndrome.yaml",
+    "page_url": "../pages/disorders/Ellis-van_Creveld_Syndrome.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 3,
+    "num_genes": 2,
+    "num_treatments": 4,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Embryonal Rhabdomyosarcoma",
     "disease_id": "MONDO:0009993",
     "category": "",
@@ -14245,6 +14586,66 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Greig Cephalopolysyndactyly Syndrome",
+    "disease_id": "MONDO:0008287",
+    "category": "Mendelian",
+    "parents": [
+      "Limb Development Disorders"
+    ],
+    "subtypes": [],
+    "description": "Greig cephalopolysyndactyly syndrome (GCPS) is an autosomal dominant disorder caused by functional haploinsufficiency of GLI3, a zinc-finger transcription factor in the Hedgehog signaling pathway. GCPS is characterized by preaxial polydactyly, cutaneous syndactyly, macrocephaly, and hypertelorism. GLI3 normally functions as both a transcriptional activator and repressor in Hedgehog signaling; GCPS results from loss of total GLI3 protein through large deletions, translocations, or various intragenic mutations, in contrast to the allelic disorder Pallister-Hall syndrome which results from truncating mutations that produce a constitutive repressor.\n",
+    "pathophysiology": [
+      "GLI3 Haploinsufficiency",
+      "Disrupted Anterior-Posterior Limb Patterning"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "Hedgehog Signaling Pathway",
+      "Embryonic Limb Morphogenesis"
+    ],
+    "phenotypes": [
+      "Preaxial Polydactyly",
+      "Cutaneous Syndactyly",
+      "Macrocephaly",
+      "Hypertelorism",
+      "Abnormal Corpus Callosum"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0100258",
+      "HP:0001159",
+      "HP:0000256",
+      "HP:0000316",
+      "HP:0001273"
+    ],
+    "frequencies": [],
+    "genes": [
+      "GLI3 Mutations (Haploinsufficiency)"
+    ],
+    "treatments": [
+      "Surgical Correction of Polydactyly",
+      "Developmental Monitoring"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Greig_Cephalopolysyndactyly.yaml",
+    "page_url": "../pages/disorders/Greig_Cephalopolysyndactyly_Syndrome.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Unknown",
     "disease_id": null,
     "category": "",
@@ -15039,6 +15440,65 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "2",
     "causal_graph_longest_path": "1"
+  },
+  {
+    "name": "Hand-Foot-Genital Syndrome",
+    "disease_id": "MONDO:0007698",
+    "category": "Mendelian",
+    "parents": [
+      "Limb Development Disorders"
+    ],
+    "subtypes": [],
+    "description": "Hand-foot-genital syndrome (HFGS) is an autosomal dominant, fully penetrant disorder caused by mutations in HOXA13, a homeobox transcription factor critical for distal limb and Mullerian duct development. It is characterized by short first metacarpals, small distal phalanges of the thumbs, short middle phalanges of the fifth fingers, short great toes, and Mullerian duct fusion defects (bicornuate or didelphic uterus) in females. Males may have hypospadias. HFGS was the second human syndrome shown to be caused by a HOX gene mutation.\n",
+    "pathophysiology": [
+      "Distal Limb Morphogenesis Disruption",
+      "Mullerian Duct Fusion Defect"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "Embryonic Limb Morphogenesis",
+      "Regionalization",
+      "Uterus Development"
+    ],
+    "phenotypes": [
+      "Short First Metacarpal",
+      "Short Thumb",
+      "Short Hallux",
+      "Bicornuate Uterus",
+      "Hypospadias"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0010049",
+      "HP:0009778",
+      "HP:0010109",
+      "HP:0000813",
+      "HP:0000047"
+    ],
+    "frequencies": [],
+    "genes": [
+      "HOXA13 Mutations"
+    ],
+    "treatments": [
+      "Surgical Correction",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hand-Foot-Genital_Syndrome.yaml",
+    "page_url": "../pages/disorders/Hand-Foot-Genital_Syndrome.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
   },
   {
     "name": "Unknown",
@@ -16160,6 +16620,69 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Holt-Oram Syndrome",
+    "disease_id": "MONDO:0007732",
+    "category": "Mendelian",
+    "parents": [
+      "Limb Development Disorders"
+    ],
+    "subtypes": [],
+    "description": "Holt-Oram syndrome (HOS) is an autosomal dominant heart-hand syndrome caused by mutations in TBX5, a T-box transcription factor critical for upper limb and cardiac development. It is characterized by preaxial radial ray upper limb malformations (ranging from triphalangeal thumb to phocomelia) and congenital heart defects (predominantly atrial septal defects). Cardiac conduction abnormalities may occur independently of structural heart disease. The phenotype is highly variable even within families due to genetic background and stochastic modifiers.\n",
+    "pathophysiology": [
+      "Cardiac Septation and Conduction Defects",
+      "Upper Limb Morphogenesis Disruption"
+    ],
+    "cell_types": [
+      "Cardiomyocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "Heart Development",
+      "Embryonic Limb Morphogenesis"
+    ],
+    "phenotypes": [
+      "Preaxial Radial Ray Upper Limb Defect",
+      "Atrial Septal Defect",
+      "Ventricular Septal Defect",
+      "Cardiac Conduction Abnormalities",
+      "Radial Hypoplasia"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0001172",
+      "HP:0001631",
+      "HP:0001629",
+      "HP:0011675",
+      "HP:0002984"
+    ],
+    "frequencies": [],
+    "genes": [
+      "TBX5 Mutations"
+    ],
+    "treatments": [
+      "Cardiac Surgical Repair",
+      "Orthopedic Management",
+      "Cardiac Monitoring"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Holt-Oram_Syndrome.yaml",
+    "page_url": "../pages/disorders/Holt-Oram_Syndrome.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Holt-Oram syndrome",
     "disease_id": "MONDO:0007732",
     "category": "Genetic",
@@ -16875,6 +17398,79 @@ window.searchData = [
     "num_pathophysiology": 1,
     "num_genes": 1,
     "num_treatments": 2,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Hypophosphatasia",
+    "disease_id": "MONDO:0018570",
+    "category": "Mendelian",
+    "parents": [
+      "Metabolic Bone Disorders"
+    ],
+    "subtypes": [],
+    "description": "Hypophosphatasia (HPP) is a rare inherited metabolic bone disease caused by loss-of-function mutations in ALPL, encoding tissue-nonspecific alkaline phosphatase (TNSALP). Deficient TNSALP activity leads to accumulation of its substrates including inorganic pyrophosphate (PPi), which inhibits hydroxyapatite crystal formation and thus bone mineralization. The clinical spectrum ranges from perinatal lethal to mild adult forms with premature loss of deciduous teeth. Asfotase alfa (Strensiq) is an approved enzyme replacement therapy for pediatric-onset HPP.\n",
+    "pathophysiology": [
+      "Defective Bone Mineralization",
+      "Pyridoxal Phosphate Accumulation"
+    ],
+    "cell_types": [
+      "Osteoblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000062"
+    ],
+    "biological_processes": [
+      "Ossification",
+      "Phosphate Ion Homeostasis",
+      "Vitamin B6 Metabolism"
+    ],
+    "phenotypes": [
+      "Rickets/Osteomalacia",
+      "Premature Loss of Deciduous Teeth",
+      "Low Alkaline Phosphatase",
+      "Fractures",
+      "Craniosynostosis",
+      "Seizures",
+      "Respiratory Insufficiency",
+      "Short Stature"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002748",
+      "HP:0006323",
+      "HP:0003282",
+      "HP:0002757",
+      "HP:0001363",
+      "HP:0001250",
+      "HP:0002093",
+      "HP:0004322"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ALPL Mutations"
+    ],
+    "treatments": [
+      "Asfotase Alfa (Strensiq)",
+      "Pyridoxine Supplementation",
+      "Orthopedic Management"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hypophosphatasia.yaml",
+    "page_url": "../pages/disorders/Hypophosphatasia.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 3,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
   },
@@ -17766,6 +18362,86 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "1",
     "causal_graph_longest_path": "1"
+  },
+  {
+    "name": "Jeune Asphyxiating Thoracic Dystrophy",
+    "disease_id": "MONDO:0018770",
+    "category": "Mendelian",
+    "parents": [
+      "Ciliopathies",
+      "Short-Rib Dysplasias"
+    ],
+    "subtypes": [],
+    "description": "Jeune asphyxiating thoracic dystrophy (JATD), also known as Jeune syndrome, is an autosomal recessive skeletal ciliopathy characterized by a narrow, bell-shaped thorax with short ribs leading to respiratory insufficiency. It is genetically heterogeneous, caused by mutations in genes encoding components of the intraflagellar transport (IFT) machinery and dynein motor complexes essential for primary cilium function. Additional features include short limbs, polydactyly, renal cystic disease, hepatic fibrosis, and retinal dystrophy. JATD represents the mildest end of the short-rib polydactyly syndrome spectrum.\n",
+    "pathophysiology": [
+      "Intraflagellar Transport Dysfunction",
+      "Dynein Motor Complex Deficiency",
+      "Renal Cystogenesis"
+    ],
+    "cell_types": [
+      "Chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000138"
+    ],
+    "biological_processes": [
+      "Intraflagellar Transport",
+      "Hedgehog Signaling",
+      "Cilium Assembly",
+      "Retrograde Intraflagellar Transport",
+      "Kidney Development"
+    ],
+    "phenotypes": [
+      "Narrow Thorax",
+      "Short Ribs",
+      "Limb Shortening",
+      "Postaxial Polydactyly",
+      "Renal Cystic Disease",
+      "Hepatic Fibrosis",
+      "Retinal Dystrophy",
+      "Pulmonary Insufficiency"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Limbs",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0000774",
+      "HP:0000773",
+      "HP:0009826",
+      "HP:0100259",
+      "HP:0000107",
+      "HP:0001395",
+      "HP:0000556",
+      "HP:0002093"
+    ],
+    "frequencies": [],
+    "genes": [
+      "DYNC2H1 Mutations",
+      "IFT80 Mutations",
+      "IFT140 Mutations",
+      "WDR19 Mutations"
+    ],
+    "treatments": [
+      "Respiratory Support",
+      "Thoracic Expansion Surgery",
+      "Renal Management"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Jeune_Asphyxiating_Thoracic_Dystrophy.yaml",
+    "page_url": "../pages/disorders/Jeune_Asphyxiating_Thoracic_Dystrophy.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 3,
+    "num_genes": 4,
+    "num_treatments": 3,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
   },
   {
     "name": "Joubert syndrome",
@@ -19340,6 +20016,163 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Lipoic Acid Synthetase Deficiency",
+    "disease_id": "MONDO:0013762",
+    "category": "Mendelian",
+    "parents": [
+      "Mitochondrial lipoylation defect",
+      "Neonatal encephalopathy"
+    ],
+    "subtypes": [],
+    "description": "Lipoic acid synthetase deficiency (OMIM 614462), also known as hyperglycinemia with lactic acidosis and seizures (HGCLAS), is a rare autosomal recessive mitochondrial disorder caused by biallelic mutations in LIAS, encoding lipoic acid synthetase. LIAS catalyzes the insertion of sulfur atoms into octanoyl-GCSH to form lipoyl-GCSH, the second step in the mitochondrial lipoylation pathway. Loss of function impairs lipoylation of all lipoic acid-dependent enzyme complexes: pyruvate dehydrogenase, alpha-ketoglutarate dehydrogenase, branched-chain ketoacid dehydrogenase, and the glycine cleavage system. The biochemical signature is identical to LIPT2 deficiency (NELABA), with lactic acidosis, hyperglycinemia, and combined dehydrogenase deficiency. Clinical features include neonatal-onset seizures, severe encephalopathy, hypotonia, and failure to thrive. Brain MRI shows cerebral atrophy and white matter abnormalities.\n",
+    "pathophysiology": [
+      "Defective lipoic acid synthesis via LIAS deficiency",
+      "Combined alpha-ketoacid dehydrogenase and glycine cleavage deficiency"
+    ],
+    "cell_types": [
+      "Neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "Protein lipoylation",
+      "Pyruvate dehydrogenase complex",
+      "Glycine cleavage complex",
+      "Tricarboxylic acid cycle"
+    ],
+    "phenotypes": [
+      "Seizures",
+      "Neonatal hypotonia",
+      "Lactic acidosis",
+      "Hyperglycinemia",
+      "Global developmental delay",
+      "Failure to thrive",
+      "Cerebral atrophy",
+      "Microcephaly",
+      "Apnea",
+      "Respiratory insufficiency"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001250",
+      "HP:0001319",
+      "HP:0004902",
+      "HP:0002154",
+      "HP:0012736",
+      "HP:0001508",
+      "HP:0002059",
+      "HP:0000252",
+      "HP:0002104",
+      "HP:0002093"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "LIAS loss-of-function variants"
+    ],
+    "treatments": [
+      "Supportive care",
+      "Engineered bacterial lipoate ligase (experimental)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Lipoic_Acid_Synthetase_Deficiency.yaml",
+    "page_url": "../pages/disorders/Lipoic_Acid_Synthetase_Deficiency.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Lipoyl Transferase 1 Deficiency",
+    "disease_id": "MONDO:0014576",
+    "category": "Mendelian",
+    "parents": [
+      "Mitochondrial lipoylation defect",
+      "Leigh syndrome spectrum"
+    ],
+    "subtypes": [],
+    "description": "Lipoyl transferase 1 deficiency (OMIM 616299) is a rare autosomal recessive mitochondrial disorder caused by biallelic mutations in LIPT1, encoding lipoyltransferase 1. LIPT1 catalyzes the final step in the mitochondrial lipoylation pathway, transferring lipoyl groups from lipoyl-GCSH to the E2 subunits of alpha-ketoacid dehydrogenases (pyruvate dehydrogenase, alpha-ketoglutarate dehydrogenase, and branched-chain ketoacid dehydrogenase). Critically, LIPT1 deficiency spares the glycine cleavage system, as GCSH is lipoylated upstream by the LIPT2-LIAS pathway. This results in combined dehydrogenase deficiency with lactic acidosis but typically normal glycine levels, distinguishing it biochemically from LIPT2 and LIAS deficiency. Clinical presentation includes Leigh-like encephalopathy, seizures, dystonia, spastic tetraparesis, and variable hepatic involvement. Onset is neonatal to early infantile. Metabolic decompensation during febrile illness may precipitate acute neurological deterioration.\n",
+    "pathophysiology": [
+      "Defective lipoyl relay via LIPT1 deficiency",
+      "Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage"
+    ],
+    "cell_types": [
+      "Neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "Protein lipoylation",
+      "Pyruvate dehydrogenase complex",
+      "Tricarboxylic acid cycle"
+    ],
+    "phenotypes": [
+      "Lactic acidosis",
+      "Seizures",
+      "Dystonia",
+      "Spasticity",
+      "Neonatal hypotonia",
+      "Global developmental delay",
+      "Vomiting",
+      "Respiratory insufficiency",
+      "Feeding difficulties"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0004902",
+      "HP:0001250",
+      "HP:0001332",
+      "HP:0001257",
+      "HP:0001319",
+      "HP:0012736",
+      "HP:0002013",
+      "HP:0002093",
+      "HP:0008872"
+    ],
+    "frequencies": [
+      "OBLIGATE"
+    ],
+    "genes": [
+      "LIPT1 loss-of-function variants"
+    ],
+    "treatments": [
+      "Supportive care",
+      "Multi-target pharmacological cocktail (experimental)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Lipoyl_Transferase_1_Deficiency.yaml",
+    "page_url": "../pages/disorders/Lipoyl_Transferase_1_Deficiency.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Unknown",
     "disease_id": null,
     "category": "",
@@ -19476,6 +20309,118 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 3,
     "num_treatments": 8,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Loeys-Dietz Syndrome",
+    "disease_id": "MONDO:0018954",
+    "category": "Mendelian",
+    "parents": [
+      "Connective Tissue Disorders",
+      "Marfan and Marfan-related Disorders"
+    ],
+    "subtypes": [
+      "Loeys-Dietz Syndrome Type 1",
+      "Loeys-Dietz Syndrome Type 2",
+      "Loeys-Dietz Syndrome Type 3",
+      "Loeys-Dietz Syndrome Type 4",
+      "Loeys-Dietz Syndrome Type 5"
+    ],
+    "description": "Loeys-Dietz syndrome (LDS) is an autosomal dominant connective tissue disorder caused by heterozygous mutations in genes encoding components of the TGF-beta signaling pathway, most commonly TGFBR1 and TGFBR2. It is characterized by the triad of arterial tortuosity and aneurysms, hypertelorism, and bifid uvula or cleft palate. Additional features include craniosynostosis, skeletal abnormalities (scoliosis, pectus deformity, joint laxity or contractures), thin translucent skin, and immunologic features (food allergy, eosinophilic gastrointestinal disease). LDS carries a high risk of aortic dissection at smaller aortic diameters than Marfan syndrome, with a mean age at death of 26.0 years in initial cohorts. Early diagnosis and aggressive surgical management are critical.\n",
+    "pathophysiology": [
+      "Paradoxical TGF-beta Signaling",
+      "Noncanonical MAPK Pathway Activation",
+      "Extracellular Matrix Degradation",
+      "Skeletal Development Disruption",
+      "Immune Dysregulation"
+    ],
+    "cell_types": [
+      "Vascular Smooth Muscle Cell",
+      "Fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000359",
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "TGF-beta Signaling",
+      "SMAD Signaling",
+      "ERK Cascade",
+      "JNK Cascade",
+      "Extracellular Matrix Disassembly",
+      "Elastic Fiber Assembly",
+      "Skeletal System Development",
+      "Cranial Suture Morphogenesis",
+      "Immune Response Regulation"
+    ],
+    "phenotypes": [
+      "Aortic Root Aneurysm",
+      "Arterial Tortuosity",
+      "Hypertelorism",
+      "Bifid Uvula",
+      "Craniosynostosis",
+      "Scoliosis",
+      "Pectus Excavatum",
+      "Joint Hypermobility",
+      "Cervical Spine Instability",
+      "Translucent Skin",
+      "Clubfoot",
+      "Osteoporosis",
+      "Food Allergy",
+      "Early-Onset Osteoarthritis",
+      "Pregnancy-Related Vascular Complications"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Prenatal and Birth"
+    ],
+    "phenotype_ids": [
+      "HP:0002616",
+      "HP:0005116",
+      "HP:0000316",
+      "HP:0000193",
+      "HP:0001363",
+      "HP:0002650",
+      "HP:0000767",
+      "HP:0001382",
+      "HP:0010646",
+      "HP:0010648",
+      "HP:0001762",
+      "HP:0000939",
+      "HP:0500093",
+      "HP:0002758",
+      "HP:0001197"
+    ],
+    "frequencies": [],
+    "genes": [
+      "TGFBR1 Mutations (LDS Type 1)",
+      "TGFBR2 Mutations (LDS Type 2)",
+      "SMAD3 Mutations (LDS Type 3)",
+      "TGFB2 Mutations (LDS Type 4)",
+      "TGFB3 Mutations (LDS Type 5)"
+    ],
+    "treatments": [
+      "Prophylactic Aortic Root Replacement",
+      "Losartan/ARB Therapy",
+      "Beta-Blocker Therapy",
+      "Comprehensive Vascular Surveillance"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Loeys-Dietz_Syndrome.yaml",
+    "page_url": "../pages/disorders/Loeys-Dietz_Syndrome.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 5,
+    "num_genes": 5,
+    "num_treatments": 4,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
   },
@@ -22274,6 +23219,84 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "Mucopolysaccharidosis",
+    "disease_id": "MONDO:0019249",
+    "category": "Mendelian",
+    "parents": [
+      "Metabolic Bone Disorders",
+      "Lysosomal Storage Disorders"
+    ],
+    "subtypes": [],
+    "description": "The mucopolysaccharidoses (MPS) are a group of lysosomal storage disorders caused by deficiency of enzymes required for degradation of glycosaminoglycans (GAGs). Undegraded GAGs accumulate in lysosomes and extracellular matrix, causing progressive multisystem disease. Skeletal manifestations (dysostosis multiplex) are a unifying feature across all MPS types, including vertebral abnormalities, joint contractures, short stature, and characteristic radiographic changes. Enzyme replacement therapy and hematopoietic stem cell transplantation are available for several subtypes.\n",
+    "pathophysiology": [
+      "Lysosomal GAG Accumulation",
+      "Secondary Inflammatory Response"
+    ],
+    "cell_types": [
+      "Chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000138"
+    ],
+    "biological_processes": [
+      "Glycosaminoglycan Catabolism",
+      "Lysosomal Transport",
+      "Inflammatory Response"
+    ],
+    "phenotypes": [
+      "Dysostosis Multiplex",
+      "Short Stature",
+      "Joint Contractures",
+      "Coarse Facial Features",
+      "Hepatosplenomegaly",
+      "Cardiac Valve Disease",
+      "Corneal Clouding",
+      "Intellectual Disability"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000943",
+      "HP:0004322",
+      "HP:0001387",
+      "HP:0000280",
+      "HP:0001433",
+      "HP:0001654",
+      "HP:0007957",
+      "HP:0001249"
+    ],
+    "frequencies": [],
+    "genes": [
+      "MPS I (IDUA Mutations)",
+      "MPS II (IDS Mutations)",
+      "MPS IV (GALNS/GLB1 Mutations)"
+    ],
+    "treatments": [
+      "Enzyme Replacement Therapy",
+      "Hematopoietic Stem Cell Transplantation",
+      "Supportive Orthopedic Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Mucopolysaccharidosis.yaml",
+    "page_url": "../pages/disorders/Mucopolysaccharidosis.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 2,
+    "num_genes": 3,
+    "num_treatments": 3,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Muenke Syndrome",
     "disease_id": "MONDO:0011274",
     "category": "Mendelian",
@@ -22590,6 +23613,76 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "1",
     "causal_graph_longest_path": "1"
+  },
+  {
+    "name": "Multiple Synostoses Syndrome",
+    "disease_id": "MONDO:0017923",
+    "category": "Mendelian",
+    "parents": [
+      "Joint Disorders"
+    ],
+    "subtypes": [],
+    "description": "Multiple synostoses syndrome (SYNS) is an autosomal dominant disorder characterized by progressive joint fusion (synostosis) affecting proximal interphalangeal joints, carpal and tarsal bones, and the cervical spine. It is caused by mutations in genes involved in BMP signaling, primarily NOG (encoding noggin, a BMP antagonist) and GDF5 (encoding growth/differentiation factor 5, a BMP ligand). The disorder typically presents in childhood with progressive stiffness and conductive hearing loss from stapes fixation.\n",
+    "pathophysiology": [
+      "BMP Signaling Dysregulation",
+      "Abnormal Joint Cavitation"
+    ],
+    "cell_types": [
+      "Chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000138"
+    ],
+    "biological_processes": [
+      "BMP Signaling Pathway",
+      "Limb Development",
+      "Chondrocyte Differentiation",
+      "Ossification"
+    ],
+    "phenotypes": [
+      "Proximal Symphalangism",
+      "Carpal and Tarsal Fusion",
+      "Conductive Hearing Loss",
+      "Vertebral Fusion",
+      "Short Stature",
+      "Broad Fingers"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Growth",
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0100264",
+      "HP:0009702",
+      "HP:0000405",
+      "HP:0002948",
+      "HP:0004322",
+      "HP:0001500"
+    ],
+    "frequencies": [],
+    "genes": [
+      "NOG Mutations (SYNS1)",
+      "GDF5 Mutations (SYNS2)",
+      "GDF6 Mutations (SYNS4)"
+    ],
+    "treatments": [
+      "Hearing Aid",
+      "Stapedectomy",
+      "Orthopedic Management"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Multiple_Synostoses_Syndrome.yaml",
+    "page_url": "../pages/disorders/Multiple_Synostoses_Syndrome.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 2,
+    "num_genes": 3,
+    "num_treatments": 3,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
   },
   {
     "name": "Unknown",
@@ -23084,6 +24177,100 @@ window.searchData = [
     "num_treatments": 0,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Neonatal Severe Encephalopathy with Lactic Acidosis and Brain Abnormalities",
+    "disease_id": "MONDO:0060562",
+    "category": "Mendelian",
+    "parents": [
+      "Mitochondrial lipoylation defect",
+      "Neonatal encephalopathy"
+    ],
+    "subtypes": [],
+    "description": "NELABA (Encephalopathy, Neonatal Severe, with Lactic Acidosis and Brain Abnormalities; OMIM 617668) is an ultra-rare autosomal recessive mitochondrial disorder caused by biallelic mutations in LIPT2, encoding lipoyltransferase 2. LIPT2 catalyzes the first committed step in the mitochondrial lipoylation pathway, transferring octanoyl groups from acyl carrier protein to the glycine cleavage system H protein (GCSH). Loss of function impairs lipoylation of all lipoic acid-dependent enzyme complexes: pyruvate dehydrogenase, alpha-ketoglutarate dehydrogenase, branched-chain ketoacid dehydrogenase, and the glycine cleavage system. This causes congenital lactic acidosis, hyperglycinemia, severe encephalopathy with minimal psychomotor development, and progressive brain abnormalities including cortical atrophy, cysts, white matter abnormalities, and cortical malformations. Onset is at birth with hypotonia and respiratory insufficiency. Only four cases have been reported. Prognosis is poor; lipoic acid supplementation is ineffective.\n",
+    "pathophysiology": [
+      "Impaired mitochondrial lipoylation via LIPT2 deficiency",
+      "Combined alpha-ketoacid dehydrogenase deficiency",
+      "Glycine cleavage system dysfunction",
+      "Brain glycine accumulation with NMDA receptor overactivation"
+    ],
+    "cell_types": [
+      "Neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "Protein lipoylation",
+      "Pyruvate dehydrogenase complex",
+      "Tricarboxylic acid cycle",
+      "Glycine cleavage complex"
+    ],
+    "phenotypes": [
+      "Neonatal hypotonia",
+      "Lactic acidosis",
+      "Seizures",
+      "Cerebral atrophy",
+      "Microcephaly",
+      "Dystonia",
+      "Spasticity",
+      "Delayed myelination",
+      "Global developmental delay",
+      "Respiratory insufficiency",
+      "Abnormal cerebral white matter morphology",
+      "Hyperglycinemia",
+      "Polymicrogyria",
+      "Feeding difficulties"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001319",
+      "HP:0004902",
+      "HP:0001250",
+      "HP:0002059",
+      "HP:0000252",
+      "HP:0001332",
+      "HP:0001257",
+      "HP:0012448",
+      "HP:0012736",
+      "HP:0002093",
+      "HP:0002500",
+      "HP:0002154",
+      "HP:0002126",
+      "HP:0008872"
+    ],
+    "frequencies": [
+      "OBLIGATE"
+    ],
+    "genes": [
+      "LIPT2 loss-of-function variants"
+    ],
+    "treatments": [
+      "Supportive care",
+      "Lipoic acid supplementation (ineffective)"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Decreased protein lipoylation",
+      "Reduced PDHc activity",
+      "Reduced alpha-KGDHc activity"
+    ],
+    "source_file": "NELABA.yaml",
+    "page_url": "../pages/disorders/Neonatal_Severe_Encephalopathy_with_Lactic_Acidosis_and_Brain_Abnormalities.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Acute Myeloid Leukemia, NPM1-Mutated",
@@ -24645,6 +25832,76 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Orofaciodigital Syndrome Type I",
+    "disease_id": "MONDO:0010702",
+    "category": "Mendelian",
+    "parents": [
+      "Ciliopathies"
+    ],
+    "subtypes": [],
+    "description": "Orofaciodigital syndrome type I (OFD1) is an X-linked dominant ciliopathy caused by mutations in the OFD1 gene (also known as CXORF5). It is characterized by malformations of the oral cavity (lobulated tongue, oral frenula, cleft palate), face (facial asymmetry, hypertelorism), and digits (brachydactyly, syndactyly, polydactyly). CNS malformations including agenesis of the corpus callosum and polycystic kidneys are common. The condition is typically lethal in males.\n",
+    "pathophysiology": [
+      "Primary Cilia Dysfunction",
+      "Renal Cystogenesis"
+    ],
+    "cell_types": [
+      "Epithelial Cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000066"
+    ],
+    "biological_processes": [
+      "Cilium Assembly",
+      "Hedgehog Signaling",
+      "Kidney Development"
+    ],
+    "phenotypes": [
+      "Lobulated Tongue",
+      "Accessory Oral Frenula",
+      "Median Cleft Upper Lip",
+      "Polydactyly",
+      "Polycystic Kidneys",
+      "Agenesis of Corpus Callosum",
+      "Intellectual Disability"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000180",
+      "HP:0000191",
+      "HP:0000161",
+      "HP:0010442",
+      "HP:0000107",
+      "HP:0001274",
+      "HP:0001249"
+    ],
+    "frequencies": [],
+    "genes": [
+      "OFD1 Mutations"
+    ],
+    "treatments": [
+      "Surgical Correction of Oral Anomalies",
+      "Renal Management",
+      "Neurodevelopmental Support"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Orofaciodigital_Syndrome_Type_I.yaml",
+    "page_url": "../pages/disorders/Orofaciodigital_Syndrome_Type_I.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Unknown",
     "disease_id": null,
     "category": "",
@@ -25464,6 +26721,67 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "4",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Pallister-Hall Syndrome",
+    "disease_id": "MONDO:0007804",
+    "category": "Mendelian",
+    "parents": [
+      "Limb Development Disorders"
+    ],
+    "subtypes": [],
+    "description": "Pallister-Hall syndrome (PHS) is an autosomal dominant disorder caused by truncating mutations in the middle third of the GLI3 gene. These mutations produce a constitutive transcriptional repressor that inappropriately suppresses Hedgehog target genes, causing a distinct phenotype from the allelic disorder Greig cephalopolysyndactyly syndrome. PHS is characterized by hypothalamic hamartoma, postaxial or central polydactyly, bifid epiglottis, anal atresia, and variable other malformations. Severity ranges from lethal neonatal forms to mild adult presentations.\n",
+    "pathophysiology": [
+      "GLI3 Constitutive Repressor from Truncating Mutations",
+      "Hypothalamic Development Disruption",
+      "Posterior Limb Patterning Disruption"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "Hedgehog Signaling Pathway",
+      "Embryonic Limb Morphogenesis"
+    ],
+    "phenotypes": [
+      "Hypothalamic Hamartoma",
+      "Postaxial Polydactyly",
+      "Bifid Epiglottis",
+      "Anal Atresia"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Limbs",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002444",
+      "HP:0001162",
+      "HP:0010564",
+      "HP:0002023"
+    ],
+    "frequencies": [],
+    "genes": [
+      "GLI3 Mutations (Truncating, Middle Third)"
+    ],
+    "treatments": [
+      "Surgical Correction of Polydactyly",
+      "Anal Atresia Repair",
+      "Endocrine Management"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Pallister-Hall_Syndrome.yaml",
+    "page_url": "../pages/disorders/Pallister-Hall_Syndrome.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
   },
   {
     "name": "Unknown",
@@ -28705,6 +30023,66 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "Pycnodysostosis",
+    "disease_id": "MONDO:0009940",
+    "category": "Mendelian",
+    "parents": [
+      "Sclerosing Bone Dysplasias"
+    ],
+    "subtypes": [],
+    "description": "Pycnodysostosis is an autosomal recessive osteochondrodysplasia caused by loss-of-function mutations in the CTSK gene encoding cathepsin K, a lysosomal cysteine protease highly expressed in osteoclasts. Cathepsin K is the major protease responsible for degradation of type I collagen in the bone matrix. In pycnodysostosis, osteoclasts can acidify the resorption lacuna normally but cannot degrade the organic bone matrix, leading to osteosclerosis and short stature. Characteristic features include increased bone density with pathologic fractures, open fontanelles and sutures, and short stature. The French painter Henri de Toulouse-Lautrec is believed to have had this condition.\n",
+    "pathophysiology": [
+      "Cathepsin K Deficiency in Osteoclasts",
+      "Impaired Organic Bone Matrix Degradation"
+    ],
+    "cell_types": [
+      "Osteoclast"
+    ],
+    "cell_type_ids": [
+      "CL:0000092"
+    ],
+    "biological_processes": [
+      "Bone Resorption",
+      "Bone Remodeling"
+    ],
+    "phenotypes": [
+      "Osteosclerosis",
+      "Short Stature",
+      "Pathologic Fractures",
+      "Open Fontanelles"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0011002",
+      "HP:0004322",
+      "HP:0002757",
+      "HP:0000239"
+    ],
+    "frequencies": [],
+    "genes": [
+      "CTSK Mutations"
+    ],
+    "treatments": [
+      "Supportive Care",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Pycnodysostosis.yaml",
+    "page_url": "../pages/disorders/Pycnodysostosis.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "RET Fusion-Positive Thyroid Cancer",
     "disease_id": "MONDO:0005075",
     "category": "",
@@ -30280,6 +31658,67 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Sclerosteosis",
+    "disease_id": "MONDO:0017838",
+    "category": "Mendelian",
+    "parents": [
+      "Sclerosing Bone Dysplasias"
+    ],
+    "subtypes": [],
+    "description": "Sclerosteosis is an autosomal recessive progressive sclerosing bone dysplasia caused by loss-of-function mutations in the SOST gene, which encodes sclerostin, a secreted Wnt signaling antagonist. Loss of sclerostin leads to unopposed Wnt-mediated osteoblast activation and massive progressive bone formation throughout life. The condition is characterized by generalized hyperostosis and sclerosis of the skull, mandible, ribs, clavicles, and long bones, leading to cranial nerve compression. Hand malformations (syndactyly) and tall stature distinguish sclerosteosis from the closely related Van Buchem disease. The majority of affected individuals have been reported in the South African Afrikaner population due to a founder effect. Discovery of SOST led to development of anti-sclerostin antibodies (romosozumab) for osteoporosis.\n",
+    "pathophysiology": [
+      "Loss of Sclerostin (SOST Loss-of-Function)",
+      "Unopposed Wnt/Beta-Catenin Osteoblast Activation",
+      "Progressive Cranial Hyperostosis and Nerve Compression"
+    ],
+    "cell_types": [
+      "Osteoblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000062"
+    ],
+    "biological_processes": [
+      "Wnt Signaling Pathway",
+      "Ossification",
+      "Bone Development"
+    ],
+    "phenotypes": [
+      "Cranial Hyperostosis",
+      "Sensorineural Hearing Loss",
+      "Facial Nerve Palsy"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0004437",
+      "HP:0000407",
+      "HP:6000411"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SOST Mutations"
+    ],
+    "treatments": [
+      "Surgical Decompression",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Sclerosteosis.yaml",
+    "page_url": "../pages/disorders/Sclerosteosis.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Scurvy",
     "disease_id": "MONDO:0009412",
     "category": "Nutritional",
@@ -30704,6 +32143,153 @@ window.searchData = [
     "num_phenotypes": 5,
     "num_pathophysiology": 5,
     "num_genes": 7,
+    "num_treatments": 3,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Short-Rib Polydactyly Syndrome",
+    "disease_id": "MONDO:0015461",
+    "category": "Mendelian",
+    "parents": [
+      "Ciliopathies",
+      "Short-Rib Dysplasias"
+    ],
+    "subtypes": [],
+    "description": "Short-rib polydactyly syndromes (SRPS) are a group of autosomal recessive lethal skeletal ciliopathies characterized by extremely short ribs, narrow thorax, short limbs, polydactyly, and multiorgan abnormalities. They represent the severe end of the short-rib thoracic dysplasia spectrum, with Jeune syndrome at the milder end. Multiple genetic subtypes are recognized, all involving genes required for intraflagellar transport or ciliogenesis. Death typically occurs in the perinatal period from respiratory insufficiency.\n",
+    "pathophysiology": [
+      "Intraflagellar Transport and Ciliogenesis Defects",
+      "Hedgehog Signaling Disruption in Skeletal Development"
+    ],
+    "cell_types": [
+      "Chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000138"
+    ],
+    "biological_processes": [
+      "Intraflagellar Transport",
+      "Cilium Assembly",
+      "Hedgehog Signaling"
+    ],
+    "phenotypes": [
+      "Extremely Short Ribs",
+      "Narrow Thorax",
+      "Polydactyly",
+      "Severe Limb Shortening",
+      "Renal Cystic Disease",
+      "Cardiovascular Defects",
+      "Polyhydramnios"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Genitourinary",
+      "Limbs",
+      "Musculoskeletal",
+      "Prenatal and Birth"
+    ],
+    "phenotype_ids": [
+      "HP:0000773",
+      "HP:0000774",
+      "HP:0010442",
+      "HP:0009826",
+      "HP:0000107",
+      "HP:0001627",
+      "HP:0001561"
+    ],
+    "frequencies": [],
+    "genes": [
+      "DYNC2H1 Mutations (SRP Type III/Verma-Naumoff)",
+      "NEK1 Mutations (SRP Type II/Majewski)",
+      "WDR34 Mutations (SRP Type III)",
+      "IFT80 Mutations"
+    ],
+    "treatments": [
+      "Supportive Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Short-Rib_Polydactyly_Syndrome.yaml",
+    "page_url": "../pages/disorders/Short-Rib_Polydactyly_Syndrome.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 2,
+    "num_genes": 4,
+    "num_treatments": 1,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Shprintzen-Goldberg Syndrome",
+    "disease_id": "MONDO:0008426",
+    "category": "Mendelian",
+    "parents": [
+      "Connective Tissue Disorders"
+    ],
+    "subtypes": [],
+    "description": "Shprintzen-Goldberg syndrome (SGS) is a rare autosomal dominant connective tissue disorder caused by mutations in SKI, encoding the SKI proto-oncoprotein, a negative regulator of TGF-beta signaling. It shares phenotypic overlap with Marfan and Loeys-Dietz syndromes but is distinguished by craniosynostosis and intellectual disability. Features include Marfanoid habitus, skeletal anomalies, craniosynostosis, and arachnodactyly, with less severe cardiovascular involvement than LDS.\n",
+    "pathophysiology": [
+      "Enhanced TGF-beta Signaling",
+      "Skeletal Development Disruption"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "TGF-beta Signaling",
+      "Cranial Suture Closure",
+      "Skeletal System Development",
+      "Ossification"
+    ],
+    "phenotypes": [
+      "Craniosynostosis",
+      "Disproportionate Tall Stature",
+      "Intellectual Disability",
+      "Scoliosis",
+      "Joint Contractures",
+      "Arachnodactyly",
+      "Aortic Aneurysm",
+      "Mitral Valve Prolapse",
+      "Inguinal Hernia",
+      "Cervical Vertebral Anomalies"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001363",
+      "HP:0001519",
+      "HP:0001249",
+      "HP:0002650",
+      "HP:0001371",
+      "HP:0001166",
+      "HP:0004942",
+      "HP:0001634",
+      "HP:0000023",
+      "HP:0003319"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SKI Mutations"
+    ],
+    "treatments": [
+      "Craniosynostosis Surgery",
+      "Orthopedic Management",
+      "Cardiovascular Monitoring"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Shprintzen-Goldberg_Syndrome.yaml",
+    "page_url": "../pages/disorders/Shprintzen-Goldberg_Syndrome.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
     "num_treatments": 3,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
@@ -33682,6 +35268,66 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Ulnar-Mammary Syndrome",
+    "disease_id": "MONDO:0008411",
+    "category": "Mendelian",
+    "parents": [
+      "Limb Development Disorders"
+    ],
+    "subtypes": [],
+    "description": "Ulnar-mammary syndrome (UMS) is a rare autosomal dominant pleiotropic disorder caused by mutations in TBX3, a T-box transcription factor. It affects posterior (ulnar) limb elements, apocrine gland development (breast and axillary glands), teeth, and genitalia. TBX3 and the related TBX5 (mutated in Holt-Oram syndrome) evolved from a common ancestor and acquired complementary roles in limb patterning, with TBX3 responsible for posterior elements and TBX5 for anterior elements.\n",
+    "pathophysiology": [
+      "Posterior Limb Patterning Disruption",
+      "Apocrine Gland Development Failure"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "Embryonic Limb Morphogenesis",
+      "Regionalization",
+      "Mammary Gland Development"
+    ],
+    "phenotypes": [
+      "Ulnar Ray Deficiency",
+      "Breast Hypoplasia",
+      "Absent Axillary Hair",
+      "Delayed Puberty"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Breast",
+      "Endocrine",
+      "Growth",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0003022",
+      "HP:0003187",
+      "HP:0002221",
+      "HP:0000823"
+    ],
+    "frequencies": [],
+    "genes": [
+      "TBX3 Mutations"
+    ],
+    "treatments": [
+      "Surgical Reconstruction",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Ulnar-Mammary_Syndrome.yaml",
+    "page_url": "../pages/disorders/Ulnar-Mammary_Syndrome.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Urticaria",
     "disease_id": "MONDO:0005492",
     "category": "Complex",
@@ -33801,6 +35447,68 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "2",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Van Buchem Disease",
+    "disease_id": "MONDO:0009395",
+    "category": "Mendelian",
+    "parents": [
+      "Sclerosing Bone Dysplasias"
+    ],
+    "subtypes": [],
+    "description": "Van Buchem disease (hyperostosis corticalis generalisata) is an autosomal recessive sclerosing bone dysplasia caused by a 52-kb homozygous deletion downstream of the SOST gene. Unlike sclerosteosis, where SOST coding mutations abolish sclerostin, Van Buchem disease results from deletion of a distant bone-specific enhancer element (ECR5) that is required for SOST transcription in osteocytes. The deletion leads to downregulation of sclerostin expression, producing a similar but generally milder phenotype than sclerosteosis. Van Buchem disease lacks the hand malformations and tall stature seen in sclerosteosis. This was one of the first examples of a human disease caused by deletion of a distant regulatory element rather than a coding mutation.\n",
+    "pathophysiology": [
+      "ECR5 Enhancer Deletion Causing SOST Downregulation",
+      "Reduced Sclerostin and Excessive Wnt-Mediated Bone Formation"
+    ],
+    "cell_types": [
+      "Osteoblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000062"
+    ],
+    "biological_processes": [
+      "Wnt Signaling Pathway",
+      "Bone Development"
+    ],
+    "phenotypes": [
+      "Cranial Hyperostosis",
+      "Facial Nerve Palsy",
+      "Optic Atrophy",
+      "Hearing Impairment"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0004437",
+      "HP:6000411",
+      "HP:0000648",
+      "HP:0000407"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SOST Regulatory Deletion"
+    ],
+    "treatments": [
+      "Surgical Decompression",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Van_Buchem_Disease.yaml",
+    "page_url": "../pages/disorders/Van_Buchem_Disease.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
   },
   {
     "name": "Visual Snow Syndrome",
@@ -34636,6 +36344,81 @@ window.searchData = [
     "num_pathophysiology": 1,
     "num_genes": 1,
     "num_treatments": 4,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "X-Linked Hypophosphatemia",
+    "disease_id": "MONDO:0010619",
+    "category": "Mendelian",
+    "parents": [
+      "Metabolic Bone Disorders"
+    ],
+    "subtypes": [],
+    "description": "X-linked hypophosphatemia (XLH) is the most common hereditary form of rickets, caused by loss-of-function mutations in PHEX, a phosphate-regulating endopeptidase. PHEX deficiency leads to elevated FGF23 levels, causing renal phosphate wasting and impaired 1,25-dihydroxyvitamin D synthesis. This results in chronic hypophosphatemia, rickets/osteomalacia, short stature, and dental abnormalities. Burosumab (Crysvita), an anti-FGF23 antibody, is approved for treatment.\n",
+    "pathophysiology": [
+      "Renal Phosphate Wasting via FGF23 Excess",
+      "Defective Bone Mineralization"
+    ],
+    "cell_types": [
+      "Osteocyte",
+      "Kidney Proximal Tubule Cell",
+      "Osteoblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000137",
+      "CL:0002306",
+      "CL:0000062"
+    ],
+    "biological_processes": [
+      "Phosphate Ion Homeostasis",
+      "Vitamin D Metabolism",
+      "Ossification"
+    ],
+    "phenotypes": [
+      "Rickets",
+      "Short Stature",
+      "Lower Limb Bowing",
+      "Dental Abscesses",
+      "Enthesitis",
+      "Hypophosphatemia",
+      "Craniosynostosis"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0002748",
+      "HP:0004322",
+      "HP:0002970",
+      "HP:0030757",
+      "HP:0100686",
+      "HP:0002148",
+      "HP:0001363"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PHEX Mutations"
+    ],
+    "treatments": [
+      "Burosumab (Crysvita)",
+      "Conventional Therapy (Phosphate/Calcitriol)",
+      "Orthopedic Management"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "X-Linked_Hypophosphatemia.yaml",
+    "page_url": "../pages/disorders/X-Linked_Hypophosphatemia.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 3,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
   },
