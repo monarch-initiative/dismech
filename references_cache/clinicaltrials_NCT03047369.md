@@ -1,5 +1,5 @@
 ---
-reference_id: "clinicaltrials:NCT03047369"
+reference_id: clinicaltrials:NCT03047369
 title: The Myelin Disorders Biorepository Project and Global Leukodystrophy Initiative Clinical Trials Network
 content_type: summary
 ---
