@@ -9319,6 +9319,98 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "Dientamoebiasis",
+    "disease_id": "MONDO:0024608",
+    "category": "Infectious Disease",
+    "parents": [
+      "Protozoal infection",
+      "Gastrointestinal infection"
+    ],
+    "subtypes": [],
+    "description": "Dientamoebiasis is a parasitic infection of the large intestine caused by the protozoan Dientamoeba fragilis. It is commonly reported worldwide in association with gastrointestinal symptoms including diarrhea, abdominal pain, and flatulence, though its pathogenicity remains debated. Transmission is thought to occur via the fecal-oral route, possibly facilitated by helminth eggs such as those of Enterobius vermicularis (pinworm). Clinical outcomes range from asymptomatic carriage to chronic gastrointestinal illness.",
+    "pathophysiology": [
+      "Trophozoite colonization of colonic mucosa",
+      "Mucosal inflammatory response",
+      "Altered intestinal motility and secretion",
+      "Systemic immune activation"
+    ],
+    "cell_types": [
+      "Epithelial cell of large intestine",
+      "Mature eosinophil"
+    ],
+    "cell_type_ids": [
+      "CL:0002253",
+      "CL:0000041"
+    ],
+    "biological_processes": [
+      "Inflammatory response",
+      "Defense response to protozoan",
+      "Innate immune response"
+    ],
+    "phenotypes": [
+      "Abdominal pain",
+      "Diarrhea",
+      "Flatulence",
+      "Nausea",
+      "Anorexia",
+      "Weight loss",
+      "Peripheral eosinophilia",
+      "Pruritus",
+      "Urticaria",
+      "Fatigue"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Constitutional",
+      "Hematologic",
+      "Dermatologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Immune",
+      "Integument"
+    ],
+    "phenotype_ids": [
+      "HP:0002027",
+      "HP:0002014",
+      "HP:0033589",
+      "HP:0002018",
+      "HP:0002039",
+      "HP:0001824",
+      "HP:0001880",
+      "HP:0000989",
+      "HP:0001025",
+      "HP:0012378"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [],
+    "treatments": [
+      "Paromomycin therapy",
+      "Metronidazole therapy",
+      "Iodoquinol therapy",
+      "Tetracycline therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Dientamoebiasis.yaml",
+    "page_url": "../pages/disorders/Dientamoebiasis.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 4,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "3",
+    "causal_graph_longest_path": "2"
+  },
+  {
     "name": "Dieulafoy Lesion",
     "disease_id": "MONDO:0001427",
     "category": "Acquired",
