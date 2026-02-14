@@ -96,11 +96,13 @@ evidence:
     explanation: "Why this evidence supports/refutes the claim"
 ```
 
-Set `evidence_source` to clarify provenance:
+**IMPORTANT**: The `evidence_source` field classifies **the type of evidence presented in the cited publication**, NOT how the curation was performed. Even if an AI agent is curating the entry, `evidence_source` describes what kind of study the paper reports (human clinical trial, animal model, cell culture, computational simulation, etc.).
+
+Set `evidence_source` to clarify the publication's evidence type:
 - HUMAN_CLINICAL for direct human observations (default when not specified)
 - MODEL_ORGANISM when citing animal model recapitulation
 - IN_VITRO for cell-based experiments
-- COMPUTATIONAL for in silico predictions
+- COMPUTATIONAL for in silico predictions/simulations reported in the paper
 - OTHER for evidence types that do not fit the above categories
 Model organism evidence should not be the only support for human phenotypes; keep it distinct via `evidence_source`.
 
