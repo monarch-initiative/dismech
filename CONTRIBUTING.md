@@ -2,6 +2,60 @@
 
 Thank you for your interest in contributing to the Disorder Mechanisms Knowledge Base!
 
+## Prerequisites for Contributing
+
+This repository uses **Claude Code** for AI-assisted curation. To contribute as an agent manager:
+
+### 1. Install Claude Code
+- Get a Claude Pro subscription at [claude.ai](https://claude.ai)
+- Install Claude Code CLI:
+  ```bash
+  brew install claude-code  # macOS
+  ```
+  For other platforms, see [claude.ai/code](https://claude.ai/code)
+
+### 2. Install `just` Command Runner
+Test if you have it:
+```bash
+just --version
+```
+
+If not installed:
+```bash
+brew install just  # macOS
+# Or see https://github.com/casey/just#installation for other platforms
+```
+
+### 3. Set Up Deep Research Provider (Recommended)
+For comprehensive biomedical literature research, we recommend **Edison Scientific (falcon)**:
+
+1. Create an account at [platform.edisonscientific.com](https://platform.edisonscientific.com/)
+2. Navigate to: Account → Profile → + Create new token
+3. Copy your API key and set it in your environment:
+   ```bash
+   export EDISON_API_KEY=your_key_here
+   ```
+
+**Alternative providers:** perplexity, openai, cyberian (see `.claude/skills/initiate-new-disorder-creation/` for details)
+
+### 4. Clone and Start
+```bash
+git clone https://github.com/monarch-initiative/dismech.git
+cd dismech
+```
+
+Open Claude Code and ask:
+```
+Give me a tour of the dismech project
+```
+
+Then start curating:
+```
+/curate Parkinson Disease
+```
+
+For more guidance on AI-assisted curation workflows, see [ai4curation/aidocs](https://github.com/ai4curation/aidocs).
+
 ## Curation Model: AI-Assisted with Human Oversight
 
 This knowledge base uses an **AI-first curation model**:
