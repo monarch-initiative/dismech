@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05024448
+reference_id: "clinicaltrials:NCT05024448"
 title: "Glucocorticosteroid Treatment in Acute Unilateral Vestibulopathy, a Multicentric, Randomized, Double-blind, Placebo-controlled Study"
 content_type: summary
 ---

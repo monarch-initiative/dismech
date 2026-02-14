@@ -114,9 +114,12 @@ phenotypes:
   evidence:
   - reference: PMID:XXXXXXXX
     supports: <SUPPORT | REFUTE | PARTIAL>
+    evidence_source: <HUMAN_CLINICAL | MODEL_ORGANISM | IN_VITRO | COMPUTATIONAL>
     snippet: "<Exact quote from abstract>"
     explanation: "<Why this supports the phenotype>"
 ```
+
+**IMPORTANT**: The `evidence_source` field classifies **the type of evidence in the cited publication** (human study, animal model, cell culture, computational simulation), NOT whether the curation was performed by an AI agent. Always classify based on what the paper reports, regardless of who or what is doing the curation.
 
 The same generic `evidence` list schema is used for most types.
 
@@ -216,8 +219,11 @@ All evidence items MUST:
 1. Use real PMIDs from the research query results
 2. Have snippets that are exact quotes from abstracts
 3. Include explanations linking evidence to claims
+4. Set `evidence_source` based on the **publication's evidence type** (human clinical, animal model, in vitro, computational), NOT based on whether an AI agent performed the curation
 
 **NEVER fabricate PMIDs or paraphrase snippets.**
+
+**Evidence Source Classification**: When adding `evidence_source`, ask "What kind of study does this paper report?" not "How was this entry curated?" A computational fluid dynamics study gets `COMPUTATIONAL`, a mouse model study gets `MODEL_ORGANISM`, a human clinical trial gets `HUMAN_CLINICAL` - regardless of whether the curation was done by a human or an AI agent.
 
 ## Validation Errors and Fixes
 
