@@ -2643,6 +2643,147 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "Arsenic Poisoning",
+    "disease_id": null,
+    "category": "Environmental",
+    "parents": [
+      "heavy metal poisoning"
+    ],
+    "subtypes": [
+      "Acute Arsenic Poisoning",
+      "Chronic Arsenic Poisoning (Arsenicosis)"
+    ],
+    "description": "Arsenic poisoning (arsenicosis) is a toxic condition caused by acute or chronic exposure to inorganic arsenic, a metalloid found naturally in groundwater and soil and encountered through contaminated drinking water, occupational sources (mining, smelting, pesticide manufacturing), and certain traditional medicines. Acute arsenic ingestion causes severe gastrointestinal hemorrhage, cardiovascular collapse, and multi-organ failure. Chronic exposure produces a characteristic constellation of dermatological changes (hyperpigmentation, keratoses), peripheral neuropathy, hepatotoxicity, and increased cancer risk. Arsenic disrupts cellular function through inhibition of pyruvate dehydrogenase and other sulfhydryl- dependent enzymes, uncoupling oxidative phosphorylation by substituting for phosphate (arsenolysis), and generating reactive oxygen species. Endemic arsenicosis affects tens of millions in Bangladesh, West Bengal, and other regions with naturally high groundwater arsenic. Treatment of acute poisoning relies on chelation therapy with dimercaprol (BAL) or succimer (DMSA), while chronic arsenicosis management focuses on exposure cessation and symptomatic care.",
+    "pathophysiology": [
+      "Gastrointestinal Absorption and Transport",
+      "Hepatic Methylation and Biotransformation",
+      "Inhibition of Sulfhydryl-Dependent Enzymes",
+      "Arsenolysis",
+      "Oxidative Stress and ROS Generation",
+      "Mitochondrial Dysfunction",
+      "DNA Repair Inhibition via Zinc Finger Protein Disruption",
+      "SAM Depletion",
+      "Global DNA Hypomethylation",
+      "Tumor Suppressor Gene Silencing",
+      "Arsenic-Induced Carcinogenesis",
+      "Peripheral Nerve Axonopathy",
+      "Hepatocellular Oxidative Injury",
+      "Hepatic Stellate Cell Activation",
+      "Hepatic Fibrosis",
+      "Cardiovascular Endothelial Dysfunction",
+      "Renal Tubular Injury"
+    ],
+    "cell_types": [
+      "hepatocyte",
+      "Schwann cell",
+      "hepatic stellate cell",
+      "endothelial cell",
+      "epithelial cell of proximal tubule"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0002573",
+      "CL:0000632",
+      "CL:0000115",
+      "CL:0002306"
+    ],
+    "biological_processes": [
+      "transmembrane transport",
+      "arsenic methylation",
+      "pyruvate metabolic process",
+      "glycolytic process",
+      "response to oxidative stress",
+      "mitochondrion organization",
+      "DNA repair",
+      "S-adenosylmethionine metabolic process",
+      "epigenetic regulation of gene expression",
+      "negative regulation of gene expression, epigenetic",
+      "neuron projection development",
+      "hepatocyte apoptotic process",
+      "hepatic stellate cell activation",
+      "collagen biosynthetic process",
+      "nitric oxide mediated signal transduction"
+    ],
+    "phenotypes": [
+      "Hyperpigmentation (Arsenical Melanosis)",
+      "Palmoplantar Keratoses",
+      "Peripheral Neuropathy",
+      "Gastrointestinal Hemorrhage",
+      "QTc Prolongation",
+      "Mees Lines",
+      "Hepatomegaly",
+      "Anemia",
+      "Encephalopathy",
+      "Hypertension",
+      "Diabetes Mellitus"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Endocrine",
+      "Integument",
+      "Limbs",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000953",
+      "HP:0000982",
+      "HP:0009830",
+      "HP:0002239",
+      "HP:0005184",
+      "HP:0001820",
+      "HP:0002240",
+      "HP:0001903",
+      "HP:0001298",
+      "HP:0000822",
+      "HP:0000819"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "AS3MT Polymorphisms",
+      "GSTT1/GSTM1 Polymorphisms",
+      "MPO Polymorphisms",
+      "CAT Polymorphisms"
+    ],
+    "treatments": [
+      "Chelation Therapy with Dimercaprol (BAL)",
+      "Chelation Therapy with Succimer (DMSA)",
+      "Unithiol (DMPS)",
+      "Whole Bowel Irrigation",
+      "Exposure Cessation and Safe Water"
+    ],
+    "environmental": [
+      "Contaminated Groundwater",
+      "Occupational Arsenic Exposure",
+      "Dietary Arsenic Exposure",
+      "Traditional and Herbal Medicines"
+    ],
+    "biochemical": [
+      "Urinary Arsenic (Total and Speciated)",
+      "Blood Arsenic",
+      "Hair and Nail Arsenic",
+      "Hepatic Transaminases (AST/ALT)",
+      "Beta-2-Microglobulin (Urinary)",
+      "N-Acetyl-Beta-D-Glucosaminidase (NAG)",
+      "8-Hydroxy-2-Deoxyguanosine (8-OHdG)"
+    ],
+    "source_file": "Arsenic_Poisoning.yaml",
+    "page_url": "../pages/disorders/Arsenic_Poisoning.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 17,
+    "num_genes": 4,
+    "num_treatments": 5,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Arsenic-Related Cancers",
     "disease_id": "MONDO:0005096",
     "category": "",
@@ -5350,6 +5491,93 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "CADASIL Type 1",
+    "disease_id": "MONDO:0007432",
+    "category": "Mendelian",
+    "parents": [
+      "Hereditary Stroke Disorder",
+      "Small Vessel Disease"
+    ],
+    "subtypes": [],
+    "description": "Cerebral Autosomal Dominant Arteriopathy with Subcortical Infarcts and Leukoencephalopathy (CADASIL) is a hereditary small vessel disease caused by mutations in the NOTCH3 gene. It is the most common monogenic cause of stroke and vascular dementia in adults. The disease is characterized by recurrent ischemic strokes, progressive cognitive decline, migraine with aura, and psychiatric disturbances. Pathologically, it involves progressive degeneration of vascular smooth muscle cells in small arteries, abnormal accumulation of the NOTCH3 extracellular domain (ECD) as granular osmiophilic material (GOM), and co-deposition of extracellular matrix proteins, leading to thickening of vessel walls and luminal narrowing.",
+    "pathophysiology": [
+      "NOTCH3 Mutation and ECD Aggregation",
+      "Granular Osmiophilic Material (GOM) Accumulation",
+      "Small Vessel Arteriopathy and Hypoperfusion",
+      "Immune Activation and ECM Remodeling"
+    ],
+    "cell_types": [
+      "vascular associated smooth muscle cell",
+      "pericyte",
+      "endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000359",
+      "CL:0000669",
+      "CL:0000115"
+    ],
+    "biological_processes": [
+      "Notch signaling pathway",
+      "extracellular matrix organization",
+      "vascular associated smooth muscle cell apoptotic process",
+      "proteolysis"
+    ],
+    "phenotypes": [
+      "Recurrent Ischemic Stroke",
+      "Migraine with Aura",
+      "Cognitive Impairment",
+      "Mood Disturbances",
+      "White Matter Hyperintensities",
+      "Leukoencephalopathy",
+      "Dementia",
+      "Apathy",
+      "Gait Disturbance"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Psychiatric",
+      "Neuroimaging"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0032325",
+      "HP:0002077",
+      "HP:0100543",
+      "HP:0000716",
+      "HP:0030890",
+      "HP:0002352",
+      "HP:0000726",
+      "HP:0000741",
+      "HP:0001288"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "NOTCH3"
+    ],
+    "treatments": [
+      "Antiplatelet Therapy",
+      "Migraine Prophylaxis",
+      "Supportive Care",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "CADASIL_Type_1.yaml",
+    "page_url": "../pages/disorders/CADASIL_Type_1.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "CHIME_syndrome",
     "disease_id": "MONDO:0010221",
     "category": "Genetic",
@@ -5441,6 +5669,118 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "CINCA Syndrome",
+    "disease_id": "MONDO:0011776",
+    "category": "Mendelian",
+    "parents": [
+      "Autoinflammatory diseases",
+      "Cryopyrin-associated periodic syndromes"
+    ],
+    "subtypes": [
+      "Classic CINCA with identifiable NLRP3 mutation",
+      "Mutation-negative CINCA (somatic mosaicism)"
+    ],
+    "description": "Heterozygous gain-of-function mutations in the NLRP3 gene (encoding cryopyrin) lower the activation threshold for NLRP3 inflammasome assembly. Most CINCA/NOMID mutations are de novo, arising post-zygotically or in the germline. The NLRP3 protein contains a pyrin domain, a NACHT domain, and leucine-rich repeats; disease mutations cluster in the NACHT domain and disrupt autoinhibitory conformations.\n",
+    "pathophysiology": [
+      "NLRP3 gain-of-function mutation",
+      "Constitutive NLRP3 inflammasome activation",
+      "Excessive IL-1beta production",
+      "Excessive IL-18 production",
+      "Systemic neutrophilic inflammation",
+      "Central nervous system inflammation",
+      "Epiphyseal skeletal overgrowth",
+      "Cartilage damage and destructive arthropathy",
+      "Secondary amyloidosis"
+    ],
+    "cell_types": [
+      "Neutrophil",
+      "Monocyte",
+      "Microglial cell",
+      "Chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000775",
+      "CL:0000576",
+      "CL:0000129",
+      "CL:0000138"
+    ],
+    "biological_processes": [
+      "NLRP3 inflammasome complex assembly",
+      "Positive regulation of interleukin-1 beta production",
+      "Pyroptotic inflammatory response",
+      "Positive regulation of interleukin-18 production",
+      "Neutrophil chemotaxis",
+      "Inflammatory response",
+      "Endochondral ossification",
+      "Extracellular matrix disassembly"
+    ],
+    "phenotypes": [
+      "Urticarial rash",
+      "Recurrent fever",
+      "Arthropathy with epiphyseal overgrowth",
+      "Chronic aseptic meningitis",
+      "Sensorineural hearing loss",
+      "Papilledema",
+      "Short stature",
+      "Hepatosplenomegaly",
+      "Uveitis"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001025",
+      "HP:0001954",
+      "HP:0003040",
+      "HP:0001287",
+      "HP:0000407",
+      "HP:0001085",
+      "HP:0004322",
+      "HP:0001433",
+      "HP:0000554"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "NLRP3"
+    ],
+    "treatments": [
+      "IL-1 inhibition with anakinra",
+      "IL-1 inhibition with canakinumab",
+      "IL-1 inhibition with rilonacept",
+      "Genetic counseling"
+    ],
+    "environmental": [
+      "Cold exposure"
+    ],
+    "biochemical": [
+      "Serum amyloid A",
+      "C-reactive protein",
+      "Erythrocyte sedimentation rate"
+    ],
+    "source_file": "CINCA_Syndrome.yaml",
+    "page_url": "../pages/disorders/CINCA_Syndrome.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Unknown",
@@ -5576,6 +5916,131 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "15",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Cadmium Poisoning",
+    "disease_id": "MONDO:0043523",
+    "category": "Environmental",
+    "parents": [
+      "heavy metal poisoning"
+    ],
+    "subtypes": [
+      "Acute Cadmium Poisoning (Inhalation)",
+      "Chronic Cadmium Poisoning (Itai-itai Disease)"
+    ],
+    "description": "Cadmium poisoning is a toxic condition resulting from acute or chronic exposure to cadmium, a heavy metal encountered primarily through occupational sources (silver jewelry industry, zinc smelting, battery manufacturing), contaminated food and water, and tobacco smoke. Acute inhalation of cadmium fumes causes severe pneumonitis and acute lung injury. Chronic exposure leads to progressive renal tubular dysfunction (Fanconi syndrome), hypophosphataemic osteomalacia, osteoporosis, and peripheral neuropathy. The most severe form of chronic cadmium toxicity is itai-itai disease, endemic in cadmium-polluted regions of Japan, characterized by severe bone pain, fractures, and renal failure. Cadmium has a long biological half-life (10-30 years) and there is no effective antidote; management centers on exposure cessation, chelation therapy, and supportive care.",
+    "pathophysiology": [
+      "Cadmium Absorption and Systemic Distribution",
+      "Hepatic Metallothionein Binding",
+      "Renal Proximal Tubular Cadmium Uptake",
+      "Proximal Tubular Cell Injury",
+      "Impaired Tubular Reabsorption",
+      "Renal Phosphate Wasting",
+      "Chronic Kidney Disease Progression",
+      "Defective Bone Mineralization",
+      "Direct Osteoblast Toxicity",
+      "Hepatic Glutathione Depletion",
+      "Hepatocyte Apoptosis",
+      "NF-kB/MAPK Inflammatory Signaling",
+      "Cadmium-Induced Vascular Cholesterol Dysregulation",
+      "Acute Pulmonary Injury"
+    ],
+    "cell_types": [
+      "hepatocyte",
+      "proximal tubule cell",
+      "osteoblast",
+      "type II pneumocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0002306",
+      "CL:0000062",
+      "CL:0002063"
+    ],
+    "biological_processes": [
+      "cellular response to cadmium ion",
+      "detoxification of inorganic compound",
+      "receptor-mediated endocytosis",
+      "apoptotic process",
+      "renal tubular reabsorption",
+      "phosphate ion transport",
+      "bone mineralization",
+      "osteoblast differentiation",
+      "glutathione metabolic process",
+      "inflammatory response",
+      "cholesterol homeostasis"
+    ],
+    "phenotypes": [
+      "Renal Tubular Dysfunction",
+      "Low-Molecular-Weight Proteinuria",
+      "Osteomalacia",
+      "Osteoporosis",
+      "Bone Pain",
+      "Hypophosphataemia",
+      "Chronic Kidney Disease",
+      "Peripheral Neuropathy",
+      "Acute Respiratory Distress Syndrome"
+    ],
+    "phenotype_categories": [
+      "Renal",
+      "Musculoskeletal",
+      "Metabolic",
+      "Neurological",
+      "Pulmonary"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Genitourinary",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0000124",
+      "HP:0000093",
+      "HP:0002749",
+      "HP:0000939",
+      "HP:0002653",
+      "HP:0002148",
+      "HP:0012622",
+      "HP:0009830",
+      "HP:0033677"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Chelation Therapy",
+      "Phosphate Supplementation",
+      "Vitamin D and Calcium Supplementation",
+      "Supportive ICU Care",
+      "Exposure Cessation and Prevention"
+    ],
+    "environmental": [
+      "Occupational Cadmium Exposure",
+      "Environmental Cadmium Contamination",
+      "Tobacco Smoke Exposure",
+      "Iron Deficiency as Risk Modifier"
+    ],
+    "biochemical": [
+      "Blood Cadmium Level",
+      "Urinary Cadmium Level",
+      "Urinary Beta-2-Microglobulin",
+      "Serum Phosphate",
+      "Hepatic Transaminases (ALT/AST)"
+    ],
+    "source_file": "Cadmium_Poisoning.yaml",
+    "page_url": "../pages/disorders/Cadmium_Poisoning.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 14,
+    "num_genes": 0,
+    "num_treatments": 5,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Unknown",
@@ -5983,6 +6448,96 @@ window.searchData = [
     "num_phenotypes": 8,
     "num_pathophysiology": 4,
     "num_genes": 4,
+    "num_treatments": 5,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Central Core Myopathy",
+    "disease_id": "MONDO:0007294",
+    "category": "Mendelian",
+    "parents": [
+      "Congenital myopathy",
+      "RYR1-related myopathy"
+    ],
+    "subtypes": [],
+    "description": "Central core myopathy (central core disease, CCD) is a congenital myopathy caused predominantly by mutations in the RYR1 gene encoding the skeletal muscle ryanodine receptor (RyR1), the principal sarcoplasmic reticulum calcium release channel. It is characterized histopathologically by central cores \u2014 areas of sarcomeric disorganization and mitochondrial depletion running along the longitudinal axis of type 1 muscle fibers. Clinical features include proximal muscle weakness, hypotonia, delayed motor milestones, orthopaedic complications, and susceptibility to malignant hyperthermia. Inheritance is most commonly autosomal dominant with incomplete penetrance and variable expressivity, though autosomal recessive forms exist and tend to be more severe. First described by Shy and Magee in 1956, CCD was the first congenital myopathy defined by a specific histological abnormality.\n",
+    "pathophysiology": [
+      "Abnormal RyR1 calcium release channel function",
+      "Mitochondrial depletion and oxidative metabolism deficiency in cores",
+      "Malignant hyperthermia susceptibility"
+    ],
+    "cell_types": [
+      "Skeletal muscle fiber",
+      "Slow muscle cell (type I fiber)"
+    ],
+    "cell_type_ids": [
+      "CL:0008002",
+      "CL:0000189"
+    ],
+    "biological_processes": [
+      "Regulation of SR calcium release",
+      "Calcium ion homeostasis",
+      "Regulation of skeletal muscle contraction by calcium signaling",
+      "Response to oxidative stress",
+      "Intracellular calcium ion homeostasis",
+      "Muscle contraction"
+    ],
+    "phenotypes": [
+      "Proximal muscle weakness",
+      "Neonatal hypotonia",
+      "Delayed gross motor development",
+      "Scoliosis",
+      "Congenital hip dislocation",
+      "Malignant hyperthermia susceptibility",
+      "Myopathic facies",
+      "External ophthalmoplegia",
+      "Respiratory insufficiency"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Head and Neck",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0003701",
+      "HP:0001319",
+      "HP:0002194",
+      "HP:0002650",
+      "HP:0001374",
+      "HP:0002047",
+      "HP:0002058",
+      "HP:0000544",
+      "HP:0002093"
+    ],
+    "frequencies": [
+      "HP_0040281",
+      "HP_0040282",
+      "HP_0040283",
+      "HP_0040284"
+    ],
+    "genes": [
+      "RYR1 mutations"
+    ],
+    "treatments": [
+      "Avoidance of malignant hyperthermia triggers",
+      "Dantrolene for malignant hyperthermia",
+      "Physical therapy and rehabilitation",
+      "Orthopedic management",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Central_Core_Myopathy.yaml",
+    "page_url": "../pages/disorders/Central_Core_Myopathy.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
     "num_treatments": 5,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
@@ -10896,6 +11451,100 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "1",
     "causal_graph_longest_path": "1"
+  },
+  {
+    "name": "Empty Nose Syndrome",
+    "disease_id": "MONDO:1060148",
+    "category": "Complex",
+    "parents": [
+      "Nasal disorder",
+      "Iatrogenic condition"
+    ],
+    "subtypes": [],
+    "description": "Empty Nose Syndrome (ENS) is a debilitating iatrogenic condition that develops following surgical reduction or resection of the nasal turbinates, most commonly the inferior turbinates. Despite having objectively patent nasal airways, patients experience paradoxical nasal obstruction, dyspnea, nasal dryness, and crusting. The loss of turbinate tissue disrupts normal nasal airflow patterns, mucociliary clearance, and sensory feedback, resulting in a subjective sensation of suffocation. The condition is frequently associated with significant psychological morbidity including depression, anxiety, and sleep disturbance.",
+    "pathophysiology": [
+      "Turbinate tissue loss from surgical resection",
+      "Disrupted nasal airflow dynamics",
+      "Impaired mucociliary clearance",
+      "Impaired nasal air conditioning",
+      "Trigeminal neurosensory dysfunction",
+      "Paradoxical nasal obstruction and dyspnea"
+    ],
+    "cell_types": [
+      "Nasal cavity respiratory epithelium epithelial cell",
+      "Nasal mucosa goblet cell",
+      "Nasal serous secreting cell",
+      "Trigeminal sensory neuron"
+    ],
+    "cell_type_ids": [
+      "CL:2000094",
+      "CL:0002480",
+      "CL:4042016",
+      "CL:4023170"
+    ],
+    "biological_processes": [
+      "Mucociliary clearance",
+      "Mucus secretion",
+      "Sensory perception of temperature stimulus"
+    ],
+    "phenotypes": [
+      "Paradoxical nasal obstruction",
+      "Nasal dryness",
+      "Dyspnea",
+      "Abnormal nasal mucosa morphology",
+      "Headache",
+      "Hyposmia",
+      "Depression",
+      "Anxiety",
+      "Hyperventilation",
+      "Sleep disturbance",
+      "Suicidal ideation"
+    ],
+    "phenotype_categories": [
+      "Otolaryngologic",
+      "Respiratory",
+      "Neurologic",
+      "Psychiatric"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001742",
+      "HP:0033521",
+      "HP:0002094",
+      "HP:0000433",
+      "HP:0002315",
+      "HP:0004409",
+      "HP:0000716",
+      "HP:0000739",
+      "HP:0002883",
+      "HP:0002360",
+      "HP:0031589"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Turbinate implant surgery",
+      "Nasal moisturization and saline irrigation",
+      "Platelet-rich plasma injection"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Empty_Nose_Syndrome.yaml",
+    "page_url": "../pages/disorders/Empty_Nose_Syndrome.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 6,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Unknown",
@@ -23309,6 +23958,118 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "2",
     "causal_graph_longest_path": "1"
+  },
+  {
+    "name": "Morgagni-Stewart-Morel Syndrome",
+    "disease_id": "MONDO:0007766",
+    "category": "Complex",
+    "parents": [
+      "Metabolic bone disease",
+      "Endocrine disorder"
+    ],
+    "subtypes": [],
+    "description": "Morgagni-Stewart-Morel syndrome is a rare condition characterized by the triad of hyperostosis frontalis interna (thickening of the inner table of the frontal bone), obesity, and neuropsychiatric disturbances. Additional features include endocrine disorders such as diabetes mellitus, diabetes insipidus, hyperparathyroidism, hyperprolactinemia, hirsutism, and menstrual irregularities. The syndrome predominantly affects postmenopausal women, with a female-to-male ratio of approximately 9:1. The etiology remains incompletely understood but is thought to involve endocrine imbalance driven by genetic and environmental factors, with prolonged estrogen exposure, elevated leptin levels, and growth hormone dysregulation implicated in the pathogenesis of the skull thickening.\n",
+    "pathophysiology": [
+      "Endocrine-mediated calvarial bone overgrowth",
+      "Neurological compression from calvarial thickening",
+      "Hyperprolactinemia-associated endocrine dysfunction",
+      "Increased intracranial pressure from frontal bone expansion"
+    ],
+    "cell_types": [
+      "Osteoblast",
+      "Neuron",
+      "Mammotroph"
+    ],
+    "cell_type_ids": [
+      "CL:0000062",
+      "CL:0000540",
+      "CL:0002311"
+    ],
+    "biological_processes": [
+      "Bone mineralization",
+      "Osteoblast differentiation",
+      "Neuron apoptotic process",
+      "Prolactin secretion",
+      "Regulation of body fluid levels"
+    ],
+    "phenotypes": [
+      "Hyperostosis frontalis interna",
+      "Obesity",
+      "Headache",
+      "Seizures",
+      "Cognitive impairment",
+      "Depression",
+      "Hirsutism",
+      "Vertigo",
+      "Amenorrhea",
+      "Galactorrhea",
+      "Diabetes mellitus",
+      "Diabetes insipidus"
+    ],
+    "phenotype_categories": [
+      "Skeletal",
+      "Metabolic",
+      "Neurological",
+      "Psychiatric",
+      "Dermatological",
+      "Endocrine"
+    ],
+    "phenotype_hpo_categories": [
+      "Breast",
+      "Ear",
+      "Endocrine",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0004438",
+      "HP:0001513",
+      "HP:0002315",
+      "HP:0001250",
+      "HP:0100543",
+      "HP:0000716",
+      "HP:0001007",
+      "HP:0002321",
+      "HP:0000141",
+      "HP:0100829",
+      "HP:0000819",
+      "HP:0000873"
+    ],
+    "frequencies": [
+      "HP_0040281",
+      "HP_0040282",
+      "HP_0040283",
+      "HP_0040284"
+    ],
+    "genes": [
+      "Familial hyperostosis frontalis interna"
+    ],
+    "treatments": [
+      "Symptomatic headache management",
+      "Antiepileptic therapy",
+      "Multidisciplinary management",
+      "Genetic counseling"
+    ],
+    "environmental": [
+      "Prolonged estrogen exposure"
+    ],
+    "biochemical": [
+      "Growth hormone",
+      "Prolactin"
+    ],
+    "source_file": "Morgagni-Stewart-Morel_Syndrome.yaml",
+    "page_url": "../pages/disorders/Morgagni-Stewart-Morel_Syndrome.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Mucopolysaccharidosis",
