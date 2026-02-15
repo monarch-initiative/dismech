@@ -162,6 +162,8 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 16px;
+            gap: 12px;
+            flex-wrap: wrap;
         }
 
         .results-count {
@@ -182,6 +184,36 @@
         .clear-filters:hover {
             background: var(--bg-color);
             color: var(--text-primary);
+        }
+
+        .results-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .sort-control {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .sort-select {
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 6px 8px;
+            font-size: 0.85rem;
+            color: var(--text-primary);
+            background: white;
+        }
+
+        .sort-select:focus {
+            outline: 2px solid #bfdbfe;
+            outline-offset: 1px;
+            border-color: var(--primary-color);
         }
 
         .results-list {
@@ -333,6 +365,22 @@
             margin-top: 12px;
         }
 
+        .disorder-dates {
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+
+        .date-stat {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .date-stat strong {
+            color: var(--text-primary);
+        }
+
         .stat {
             font-size: 0.8rem;
             color: var(--text-secondary);
@@ -423,6 +471,7 @@
                 this.expandedFacets = new Set();
                 this.FACET_LIMIT = 8;
                 this.TAG_LIMIT = 5;
+                this.sortBy = 'name-asc';
 
                 this.waitForData();
             }
@@ -535,11 +584,64 @@
                 return results;
             }
 
+            sortResults(results) {
+                const sorted = [...results];
+                const [field, direction] = this.sortBy.split('-');
+
+                if (field === 'name') {
+                    sorted.sort((a, b) => direction === 'desc'
+                        ? this.compareNames(b, a)
+                        : this.compareNames(a, b));
+                    return sorted;
+                }
+
+                const dateField = field === 'created' ? 'creation_date' : 'updated_date';
+                sorted.sort((a, b) => this.compareByDate(a, b, dateField, direction));
+                return sorted;
+            }
+
+            compareByDate(a, b, field, direction) {
+                const aTime = this.parseIsoDate(a[field]);
+                const bTime = this.parseIsoDate(b[field]);
+                const aMissing = aTime === null;
+                const bMissing = bTime === null;
+
+                if (aMissing && bMissing) return this.compareNames(a, b);
+                if (aMissing) return 1;
+                if (bMissing) return -1;
+                if (aTime === bTime) return this.compareNames(a, b);
+
+                return direction === 'asc' ? aTime - bTime : bTime - aTime;
+            }
+
+            compareNames(a, b) {
+                return (a.name || '').localeCompare(b.name || '', undefined, {
+                    sensitivity: 'base',
+                    numeric: true,
+                });
+            }
+
+            parseIsoDate(value) {
+                if (!value || typeof value !== 'string') return null;
+                const parsed = Date.parse(value);
+                return Number.isNaN(parsed) ? null : parsed;
+            }
+
+            formatDateForDisplay(value) {
+                const parsed = this.parseIsoDate(value);
+                if (parsed === null) return value;
+                return new Date(parsed).toLocaleString('en-US', {
+                    dateStyle: 'medium',
+                    timeStyle: 'short',
+                    timeZone: 'UTC',
+                }) + ' UTC';
+            }
+
             render() {
                 const filtered = this.filter();
                 this.facetCounts = this.computeFacetCounts(filtered);
                 this.renderFacets();
-                this.renderResults(filtered);
+                this.renderResults(this.sortResults(filtered));
             }
 
             renderFacets() {
@@ -586,7 +688,20 @@
 
                 let html = `<div class="results-header">
                     <span class="results-count">${results.length} disorder${results.length !== 1 ? 's' : ''}</span>
-                    <button class="clear-filters" id="clearFilters">Clear filters</button>
+                    <div class="results-controls">
+                        <label class="sort-control" for="sortSelect">
+                            Sort by
+                            <select id="sortSelect" class="sort-select">
+                                <option value="name-asc" ${this.sortBy === 'name-asc' ? 'selected' : ''}>Name (A-Z)</option>
+                                <option value="name-desc" ${this.sortBy === 'name-desc' ? 'selected' : ''}>Name (Z-A)</option>
+                                <option value="created-desc" ${this.sortBy === 'created-desc' ? 'selected' : ''}>Created (Newest first)</option>
+                                <option value="created-asc" ${this.sortBy === 'created-asc' ? 'selected' : ''}>Created (Oldest first)</option>
+                                <option value="updated-desc" ${this.sortBy === 'updated-desc' ? 'selected' : ''}>Updated (Newest first)</option>
+                                <option value="updated-asc" ${this.sortBy === 'updated-asc' ? 'selected' : ''}>Updated (Oldest first)</option>
+                            </select>
+                        </label>
+                        <button class="clear-filters" id="clearFilters">Clear filters</button>
+                    </div>
                 </div>`;
 
                 if (results.length === 0) {
@@ -656,6 +771,18 @@
                 // Environmental
                 if (record.environmental?.length) {
                     html += this.renderSection('Environmental Factors', record.environmental, 'environmental');
+                }
+
+                // Entry metadata dates
+                if (record.creation_date || record.updated_date) {
+                    html += '<div class="disorder-dates">';
+                    if (record.creation_date) {
+                        html += `<span class="date-stat"><strong>Created:</strong> ${this.escapeHtml(this.formatDateForDisplay(record.creation_date))}</span>`;
+                    }
+                    if (record.updated_date) {
+                        html += `<span class="date-stat"><strong>Updated:</strong> ${this.escapeHtml(this.formatDateForDisplay(record.updated_date))}</span>`;
+                    }
+                    html += '</div>';
                 }
 
                 // Stats
@@ -769,6 +896,14 @@
                         this.searchQuery = '';
                         document.getElementById('searchInput').value = '';
                         this.expandedFacets.clear();
+                        this.render();
+                    }
+                });
+
+                // Sort selector
+                document.getElementById('resultsContainer').addEventListener('change', (e) => {
+                    if (e.target.id === 'sortSelect') {
+                        this.sortBy = e.target.value;
                         this.render();
                     }
                 });

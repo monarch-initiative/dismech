@@ -106,6 +106,21 @@ Set `evidence_source` to clarify the publication's evidence type:
 - OTHER for evidence types that do not fit the above categories
 Model organism evidence should not be the only support for human phenotypes; keep it distinct via `evidence_source`.
 
+### Entry Metadata Dates
+
+Each `Disease` entry should include lifecycle timestamps:
+
+```yaml
+creation_date: "2025-06-12T20:16:27Z"
+updated_date: "2025-07-03T11:05:10Z"
+```
+
+Rules:
+- Use ISO 8601 / RFC 3339 datetime strings.
+- Keep `creation_date` stable after first creation.
+- Update `updated_date` whenever curated content changes.
+- Prefer UTC (`Z` suffix) for consistency.
+
 Quick classification rules (use these before tagging):
 - HUMAN_CLINICAL: human patients, cohorts, case reports, clinical trials (NCT), epidemiology.
 - MODEL_ORGANISM: any in vivo animal data (mouse, zebrafish, dog/cat/horse veterinary case series, primate, or other non-human animals), even if observational and not interventional.
