@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Sync disorder creation/updated dates from git history.
+"""Sync entry creation/updated dates from git history.
 
-For each disorder YAML file:
+For each YAML file:
 - creation_date := oldest commit timestamp touching the file
 - updated_date := newest commit timestamp touching the file
 
@@ -92,7 +92,7 @@ def main() -> int:
     parser.add_argument(
         "--kb-dir",
         default="kb/disorders",
-        help="Directory containing disorder YAML files (default: kb/disorders)",
+        help="Directory containing YAML files (default: kb/disorders)",
     )
     parser.add_argument(
         "--include-history",
