@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT00770601
+reference_id: "clinicaltrials:NCT00770601"
 title: "A Multi-Center, Open Label, 24-Month Treatment Study to Establish the Safety, Tolerability, Efficacy, Pharmacokinetics of Canakinumab (Anti-IL-1 Beta Antibody) in Patients With NOMID / CINCA Syndrome"
 content_type: summary
 ---
