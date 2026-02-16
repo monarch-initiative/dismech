@@ -418,7 +418,7 @@ schema-doc:
 # Generate browser data.js from knowledge base
 [group('Browser')]
 gen-browser-data:
-    uv run python -c "from pathlib import Path; from dismech.export import BrowserExporter; BrowserExporter().export_to_js(sorted(Path('kb/disorders').glob('*.yaml')), Path('app/data.js'))"
+    uv run python -c "from pathlib import Path; from dismech.export import BrowserExporter; files=[p for p in sorted(Path('kb/disorders').glob('*.yaml')) if not p.name.endswith('.history.yaml')]; BrowserExporter().export_to_js(files, Path('app/data.js'))"
 
 # Serve the browser app locally
 [group('Browser')]
@@ -430,7 +430,7 @@ serve-browser: gen-browser-data
 [group('Browser')]
 deploy-browser: gen-browser-data
     @echo "Browser app ready at app/index.html"
-    @echo "Data generated with $(ls -1 {{kb_dir}}/*.yaml | wc -l | tr -d ' ') disorders"
+    @echo "Data generated with $(find {{kb_dir}} -maxdepth 1 -type f -name '*.yaml' ! -name '*.history.yaml' | wc -l | tr -d ' ') disorders"
 
 # Generate individual HTML pages for all disorders and comorbidities
 [group('Pages')]
