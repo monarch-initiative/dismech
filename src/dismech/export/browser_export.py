@@ -258,8 +258,6 @@ class BrowserExporter:
             "disease_id": disease_id,
             "category": category,
             "parents": parents,
-            "creation_date": disorder.get("creation_date"),
-            "updated_date": disorder.get("updated_date"),
             "subtypes": subtypes,
             "description": description,
             "pathophysiology": pathophysiology_names,
