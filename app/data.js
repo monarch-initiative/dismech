@@ -15733,6 +15733,99 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Houge-Janssens Syndrome",
+    "disease_id": "MONDO:0957553",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental disorder",
+      "PP2A-related disorder"
+    ],
+    "subtypes": [
+      "Houge-Janssens syndrome type 1 (PPP2R5D)",
+      "Houge-Janssens syndrome type 2 (PPP2R1A)",
+      "Houge-Janssens syndrome type 3 (PPP2CA)",
+      "Houge-Janssens syndrome type 4 (PPP2R5C)"
+    ],
+    "description": "Houge-Janssens syndrome (HJS) is a group of neurodevelopmental disorders caused by dysfunction of protein phosphatase type 2A (PP2A). PP2A is a heterotrimeric serine/threonine phosphatase composed of a catalytic (C), scaffolding (A), and regulatory (B) subunit. PP2A opposes the activity of growth-promoting kinases of the PIK3CA/AKT/mTOR and RAS/MAPK pathways. Core clinical features include neurodevelopmental delay (especially affecting language), prolonged hypotonia, high risk of seizures, behavioral problems, and variable head circumference abnormalities. Four subtypes are recognized based on the affected PP2A subunit gene: HJS type 1 (PPP2R5D), HJS type 2 (PPP2R1A), HJS type 3 (PPP2CA), and HJS type 4 (PPP2R5C). Most pathogenic variants are de novo heterozygous missense changes acting through dominant-negative mechanisms.\n",
+    "pathophysiology": [
+      "PP2A subunit mutations",
+      "Disrupted PP2A holoenzyme assembly and function",
+      "Overactivation of growth-promoting kinase pathways",
+      "Disrupted neuronal development"
+    ],
+    "cell_types": [
+      "Neural progenitor cell"
+    ],
+    "cell_type_ids": [
+      "CL:0011020"
+    ],
+    "biological_processes": [
+      "Protein dephosphorylation",
+      "TOR signaling",
+      "MAPK cascade",
+      "Ras protein signal transduction",
+      "Nervous system development"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Delayed speech and language development",
+      "Intellectual disability",
+      "Hypotonia",
+      "Seizures",
+      "Macrocephaly",
+      "Microcephaly",
+      "Autistic behavior",
+      "Abnormal corpus callosum morphology",
+      "Ventriculomegaly",
+      "Parkinsonism"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0000750",
+      "HP:0001249",
+      "HP:0001252",
+      "HP:0001250",
+      "HP:0000256",
+      "HP:0000252",
+      "HP:0000729",
+      "HP:0001273",
+      "HP:0002119",
+      "HP:0001300"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "PPP2R5D",
+      "PPP2R1A",
+      "PPP2CA",
+      "PPP2R5C"
+    ],
+    "treatments": [
+      "Supportive care",
+      "Speech therapy",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Houge-Janssens_Syndrome.yaml",
+    "page_url": "../pages/disorders/Houge-Janssens_Syndrome.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 4,
+    "num_genes": 4,
+    "num_treatments": 3,
+    "causal_graph_edges": "3",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Human African trypanosomiasis",
     "disease_id": "MONDO:0005459",
     "category": "Infectious Disease",
