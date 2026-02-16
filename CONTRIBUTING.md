@@ -163,6 +163,12 @@ just validate-terms
 just validate-references kb/disorders/YourFile.yaml
 ```
 
+Disease entries should also maintain lifecycle metadata timestamps:
+- `creation_date`: when the file/entry was first created
+- `updated_date`: last substantive content update
+
+Use ISO 8601/RFC 3339 datetime strings (for example, `2025-06-12T20:16:27Z`), and keep `creation_date` unchanged after initial creation.
+
 ## Pull Request Process
 
 1. Create a branch for your changes
