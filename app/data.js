@@ -1705,6 +1705,136 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Alpha Thalassemia",
+    "disease_id": "MONDO:0011399",
+    "category": "Mendelian",
+    "parents": [
+      "Hematological Disease",
+      "Genetic Disease"
+    ],
+    "creation_date": null,
+    "updated_date": null,
+    "subtypes": [
+      "Silent Carrier (One Alpha-Globin Gene Deleted)",
+      "Alpha Thalassemia Trait (Two Alpha-Globin Genes Deleted)",
+      "Hemoglobin H Disease (Three Alpha-Globin Genes Deleted)",
+      "Hemoglobin Bart Hydrops Fetalis Syndrome (Four Alpha-Globin Genes Deleted)"
+    ],
+    "description": "Deletions or point mutations in HBA1 and/or HBA2 genes reduce or abolish alpha-globin chain production. Large deletions are the most common cause, removing one or both alpha-globin genes on chromosome 16p13.3. Non-deletional mutations (point mutations, small insertions/deletions) tend to produce more severe phenotypes for the same number of affected alleles.\n",
+    "pathophysiology": [
+      "Defective Alpha-Globin Synthesis",
+      "Beta-Globin Chain Excess and Hemoglobin H Formation",
+      "Chronic Hemolytic Anemia",
+      "Ineffective Erythropoiesis",
+      "Iron Overload"
+    ],
+    "cell_types": [
+      "erythroblast",
+      "erythrocyte",
+      "macrophage",
+      "erythroid progenitor cell",
+      "hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000765",
+      "CL:0000232",
+      "CL:0000235",
+      "CL:0000038",
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "hemoglobin biosynthetic process",
+      "response to oxidative stress",
+      "erythrocyte homeostasis",
+      "erythrocyte differentiation",
+      "apoptotic process",
+      "intracellular iron ion homeostasis",
+      "iron ion transport"
+    ],
+    "phenotypes": [
+      "Hypochromic Microcytic Anemia",
+      "Decreased Mean Corpuscular Volume",
+      "Hemolytic Anemia",
+      "Reticulocytosis",
+      "Extramedullary Hematopoiesis",
+      "Hydrops Fetalis",
+      "Splenomegaly",
+      "Hepatomegaly",
+      "Cholelithiasis",
+      "Jaundice",
+      "Iron Overload",
+      "Congestive Heart Failure",
+      "Thalassemia-like Bone Changes"
+    ],
+    "phenotype_categories": [
+      "Hematological",
+      "Prenatal",
+      "Gastrointestinal",
+      "Metabolic",
+      "Cardiovascular",
+      "Skeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Prenatal and Birth"
+    ],
+    "phenotype_ids": [
+      "HP:0004840",
+      "HP:0025066",
+      "HP:0001878",
+      "HP:0001923",
+      "HP:0001978",
+      "HP:0001789",
+      "HP:0001744",
+      "HP:0002240",
+      "HP:0001081",
+      "HP:0000952",
+      "HP:0003281",
+      "HP:0001635",
+      "HP:0002007"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "HBA1",
+      "HBA2"
+    ],
+    "treatments": [
+      "Red Blood Cell Transfusions",
+      "Iron Chelation Therapy",
+      "Splenectomy",
+      "Hematopoietic Stem Cell Transplantation",
+      "Avoidance of Oxidant Drugs",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Hemoglobin H",
+      "Hemoglobin Bart",
+      "Hemoglobin",
+      "MCV",
+      "Serum Ferritin"
+    ],
+    "source_file": "Alpha_Thalassemia.yaml",
+    "page_url": "../pages/disorders/Alpha_Thalassemia.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 5,
+    "num_genes": 2,
+    "num_treatments": 6,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Alveolar Rhabdomyosarcoma",
     "disease_id": "MONDO:0009994",
     "category": "",
@@ -8885,6 +9015,116 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "Diamond-Blackfan Anemia",
+    "disease_id": "MONDO:0015253",
+    "category": "Mendelian",
+    "parents": [
+      "Hematological Disease",
+      "Genetic Disease"
+    ],
+    "creation_date": null,
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Heterozygous loss-of-function mutations in ribosomal protein genes reduce ribosome assembly and protein synthesis capacity. Erythroid progenitors are exquisitely sensitive to ribosomal stress due to their high proliferative and translational demands. RPS19 mutations account for ~25% of cases, with RPL5, RPL11, and other RP genes collectively explaining ~65-70% of DBA.\n",
+    "pathophysiology": [
+      "Ribosomal Protein Haploinsufficiency",
+      "p53-Mediated Erythroid Apoptosis",
+      "GATA1 Translational Insufficiency"
+    ],
+    "cell_types": [
+      "erythroid progenitor cell",
+      "erythroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000038",
+      "CL:0000765"
+    ],
+    "biological_processes": [
+      "ribosome biogenesis",
+      "translation",
+      "translational initiation",
+      "signal transduction by p53 class mediator",
+      "erythrocyte differentiation",
+      "regulation of transcription by RNA polymerase II"
+    ],
+    "phenotypes": [
+      "Macrocytic Anemia",
+      "Pure Red Cell Aplasia",
+      "Short Stature",
+      "Congenital Malformations",
+      "Triphalangeal Thumb",
+      "Acute Myeloid Leukemia",
+      "Myelodysplasia",
+      "Osteosarcoma"
+    ],
+    "phenotype_categories": [
+      "Hematological",
+      "Growth",
+      "Craniofacial",
+      "Skeletal",
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Limbs",
+      "Musculoskeletal",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0001972",
+      "HP:0012410",
+      "HP:0004322",
+      "HP:0004439",
+      "HP:0001199",
+      "HP:0004808",
+      "HP:0002863",
+      "HP:0002669"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "RPS19",
+      "RPL5",
+      "RPL11",
+      "RPL35A",
+      "RPS26",
+      "RPS24",
+      "RPS10",
+      "RPS17",
+      "RPS7",
+      "GATA1"
+    ],
+    "treatments": [
+      "Corticosteroid Therapy",
+      "Chronic Red Blood Cell Transfusions",
+      "Hematopoietic Stem Cell Transplantation",
+      "Iron Chelation Therapy",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Hemoglobin",
+      "MCV",
+      "Erythrocyte Adenosine Deaminase",
+      "HbF",
+      "Reticulocytes"
+    ],
+    "source_file": "Diamond-Blackfan_Anemia.yaml",
+    "page_url": "../pages/disorders/Diamond-Blackfan_Anemia.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 3,
+    "num_genes": 10,
+    "num_treatments": 5,
+    "causal_graph_edges": "1",
+    "causal_graph_longest_path": "1"
+  },
+  {
     "name": "Dientamoebiasis",
     "disease_id": "MONDO:0024608",
     "category": "Infectious Disease",
@@ -11540,15 +11780,20 @@ window.searchData = [
       "Endocrine Gland Dysfunction",
       "Congenital Structural Anomalies",
       "CNS Developmental Anomalies",
-      "Skin Pigmentation Changes"
+      "Skin Pigmentation Changes",
+      "MYC-Driven HSPC Dysfunction",
+      "Differentiation-Induced Genotoxic Stress",
+      "iPSC-Revealed p53-Driven Progenitor Exhaustion"
     ],
     "cell_types": [
       "hematopoietic stem cell",
-      "epithelial cell"
+      "epithelial cell",
+      "hematopoietic precursor cell"
     ],
     "cell_type_ids": [
       "CL:0000037",
-      "CL:0000066"
+      "CL:0000066",
+      "CL:0008001"
     ],
     "biological_processes": [
       "response to aldehyde",
@@ -11560,7 +11805,10 @@ window.searchData = [
       "interstrand cross-link repair",
       "inflammatory response",
       "apoptotic process",
-      "embryo development"
+      "embryo development",
+      "regulation of gene expression",
+      "hematopoietic progenitor cell differentiation",
+      "intrinsic apoptotic signaling pathway by p53 class mediator"
     ],
     "phenotypes": [
       "Pancytopenia",
@@ -11820,7 +12068,9 @@ window.searchData = [
       "Growth Hormone Therapy",
       "Supportive Care",
       "Cancer Surveillance",
-      "Genetic Counseling"
+      "Genetic Counseling",
+      "Lentiviral Gene Therapy (FA-A)",
+      "Adenine Base Editing (ABE8e)"
     ],
     "environmental": [
       "Protections from DNA-damaging Agents"
@@ -11832,10 +12082,10 @@ window.searchData = [
     "source_file": "Fanconi_Anemia.yaml",
     "page_url": "../pages/disorders/Fanconi_Anemia.html",
     "num_phenotypes": 92,
-    "num_pathophysiology": 19,
+    "num_pathophysiology": 22,
     "num_genes": 25,
-    "num_treatments": 6,
-    "causal_graph_edges": "48",
+    "num_treatments": 8,
+    "causal_graph_edges": "54",
     "causal_graph_longest_path": "5"
   },
   {
@@ -15338,6 +15588,106 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "3",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Hereditary Spherocytosis",
+    "disease_id": "MONDO:0019350",
+    "category": "Mendelian",
+    "parents": [
+      "Hematological Disease",
+      "Genetic Disease"
+    ],
+    "creation_date": null,
+    "updated_date": null,
+    "subtypes": [
+      "HS Type 1 (ANK1-related)",
+      "HS Type 2 (SLC4A1/Band 3-related)",
+      "HS Type 3 (SPTA1-related)",
+      "HS Type 4 (SPTB-related)",
+      "HS Type 5 (EPB42-related)"
+    ],
+    "description": "Loss or dysfunction of key membrane skeleton proteins (ankyrin, band 3, spectrin, protein 4.2) that anchor the lipid bilayer to the spectrin-actin cytoskeleton. This weakens the vertical interactions between the membrane skeleton and lipid bilayer, leading to progressive membrane loss.\n",
+    "pathophysiology": [
+      "Red Cell Membrane Protein Deficiency",
+      "Membrane Surface Area Loss and Spherocyte Formation",
+      "Splenic Sequestration and Hemolysis"
+    ],
+    "cell_types": [
+      "erythrocyte",
+      "macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:0000232",
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "cytoskeleton organization",
+      "protein localization to plasma membrane",
+      "cytoskeletal anchor activity",
+      "structural constituent of cytoskeleton",
+      "spectrin binding",
+      "erythrocyte homeostasis"
+    ],
+    "phenotypes": [
+      "Spherocytosis",
+      "Hemolytic Anemia",
+      "Reticulocytosis",
+      "Splenomegaly",
+      "Jaundice",
+      "Cholelithiasis"
+    ],
+    "phenotype_categories": [
+      "Hematological",
+      "Gastrointestinal",
+      "Metabolic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Immune",
+      "Integument"
+    ],
+    "phenotype_ids": [
+      "HP:0004444",
+      "HP:0001878",
+      "HP:0001923",
+      "HP:0001744",
+      "HP:0000952",
+      "HP:0001081"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "ANK1",
+      "SLC4A1",
+      "SPTA1",
+      "SPTB",
+      "EPB42"
+    ],
+    "treatments": [
+      "Splenectomy",
+      "Red Blood Cell Transfusions",
+      "Folic Acid Supplementation",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Hemoglobin",
+      "MCHC",
+      "Reticulocytes",
+      "Indirect Bilirubin"
+    ],
+    "source_file": "Hereditary_Spherocytosis.yaml",
+    "page_url": "../pages/disorders/Hereditary_Spherocytosis.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 3,
+    "num_genes": 5,
+    "num_treatments": 4,
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Hereditary von Willebrand Disease",
@@ -31588,6 +31938,103 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "3",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Temple-Baraitser Syndrome",
+    "disease_id": "MONDO:0012735",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental disorder",
+      "Channelopathy",
+      "Intellectual disability syndrome"
+    ],
+    "creation_date": null,
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Temple-Baraitser syndrome is a rare autosomal dominant neurodevelopmental disorder caused by gain-of-function mutations in KCNH1, which encodes the EAG1 voltage-gated potassium channel. The syndrome is characterized by severe intellectual disability, epilepsy, and distinctive limb anomalies including hypoplasia or aplasia of the thumbnails and great-toe nails with broadening and elongation of the thumbs and halluces. Additional features include characteristic facial dysmorphism with wide mouth and thick vermilion borders, developmental delays, and variable craniofacial abnormalities. Most cases arise from de novo mutations, though maternal mosaicism has been reported. The condition represents part of a spectrum that may overlap with Zimmermann-Laband syndrome.\n",
+    "pathophysiology": [
+      "KCNH1 gain-of-function mutations",
+      "Altered channel gating kinetics",
+      "Aberrant neuronal excitability",
+      "Epileptogenesis",
+      "Impaired neurodevelopment",
+      "Disrupted ciliogenesis and Hedgehog signaling",
+      "Ectodermal developmental defects"
+    ],
+    "cell_types": [
+      "Neuron",
+      "Neural progenitor cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0011020"
+    ],
+    "biological_processes": [
+      "Potassium ion transport",
+      "Voltage-gated potassium channel activity",
+      "Regulation of neuron excitability",
+      "Synaptic transmission",
+      "Nervous system development",
+      "Primary cilium organization",
+      "Hedgehog signaling pathway"
+    ],
+    "phenotypes": [
+      "Severe intellectual disability",
+      "Epilepsy",
+      "Aplasia/hypoplasia of thumbnail",
+      "Aplasia/hypoplasia of great toe nail",
+      "Broad thumb",
+      "Broad hallux",
+      "Wide mouth",
+      "Thick vermilion border",
+      "Global developmental delay",
+      "Hypotonia",
+      "EEG abnormalities"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0010864",
+      "HP:0001250",
+      "HP:0012554",
+      "HP:0012555",
+      "HP:0011304",
+      "HP:0010055",
+      "HP:0000154",
+      "HP:0012471",
+      "HP:0001263",
+      "HP:0001252",
+      "HP:0002353"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "KCNH1 pathogenic variants"
+    ],
+    "treatments": [
+      "Antiepileptic drugs",
+      "Supportive developmental therapies",
+      "Special education and behavioral support",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Temple-Baraitser_Syndrome.yaml",
+    "page_url": "../pages/disorders/Temple-Baraitser_Syndrome.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Tetanus",
