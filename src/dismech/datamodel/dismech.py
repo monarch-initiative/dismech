@@ -1,5 +1,5 @@
 # Auto generated from dismech.yaml by pythongen.py version: 0.0.1
-# Generation date: 2026-02-09T07:20:15
+# Generation date: 2026-02-14T13:53:04
 # Schema: dismech
 #
 # id: https://w3id.org/monarch-initiative/dismech
@@ -1415,12 +1415,63 @@ class CausalEdge(YAMLRoot):
     target: str = None
     description: Optional[str] = None
     evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
+    hypothesis_groups: Optional[Union[str, list[str]]] = empty_list()
+    causal_link_type: Optional[Union[str, "CausalLinkTypeEnum"]] = None
+    intermediate_mechanisms: Optional[Union[str, list[str]]] = empty_list()
 
     def __post_init__(self, *_: str, **kwargs: Any):
         if self._is_empty(self.target):
             self.MissingRequiredField("target")
         if not isinstance(self.target, str):
             self.target = str(self.target)
+
+        if self.description is not None and not isinstance(self.description, str):
+            self.description = str(self.description)
+
+        if not isinstance(self.evidence, list):
+            self.evidence = [self.evidence] if self.evidence is not None else []
+        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+
+        if not isinstance(self.hypothesis_groups, list):
+            self.hypothesis_groups = [self.hypothesis_groups] if self.hypothesis_groups is not None else []
+        self.hypothesis_groups = [v if isinstance(v, str) else str(v) for v in self.hypothesis_groups]
+
+        if self.causal_link_type is not None and not isinstance(self.causal_link_type, CausalLinkTypeEnum):
+            self.causal_link_type = CausalLinkTypeEnum(self.causal_link_type)
+
+        if not isinstance(self.intermediate_mechanisms, list):
+            self.intermediate_mechanisms = [self.intermediate_mechanisms] if self.intermediate_mechanisms is not None else []
+        self.intermediate_mechanisms = [v if isinstance(v, str) else str(v) for v in self.intermediate_mechanisms]
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class TreatmentMechanismTarget(YAMLRoot):
+    """
+    Links a treatment to a specific pathophysiology mechanism node it targets. Enables reasoning about which
+    downstream phenotypes should respond to therapy and why resistance may emerge when the causal chain shifts.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["TreatmentMechanismTarget"]
+    class_class_curie: ClassVar[str] = "dismech:TreatmentMechanismTarget"
+    class_name: ClassVar[str] = "TreatmentMechanismTarget"
+    class_model_uri: ClassVar[URIRef] = DISMECH.TreatmentMechanismTarget
+
+    target: str = None
+    treatment_effect: Optional[Union[str, "TreatmentEffectEnum"]] = None
+    description: Optional[str] = None
+    evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.target):
+            self.MissingRequiredField("target")
+        if not isinstance(self.target, str):
+            self.target = str(self.target)
+
+        if self.treatment_effect is not None and not isinstance(self.treatment_effect, TreatmentEffectEnum):
+            self.treatment_effect = TreatmentEffectEnum(self.treatment_effect)
 
         if self.description is not None and not isinstance(self.description, str):
             self.description = str(self.description)
@@ -2111,6 +2162,7 @@ class Disease(YAMLRoot):
     prevalence: Optional[Union[Union[dict, Prevalence], list[Union[dict, Prevalence]]]] = empty_list()
     progression: Optional[Union[Union[dict, ProgressionInfo], list[Union[dict, ProgressionInfo]]]] = empty_list()
     pathophysiology: Optional[Union[dict[Union[str, PathophysiologyName], Union[dict, Pathophysiology]], list[Union[dict, Pathophysiology]]]] = empty_dict()
+    mechanistic_hypotheses: Optional[Union[Union[dict, "MechanisticHypothesis"], list[Union[dict, "MechanisticHypothesis"]]]] = empty_list()
     phenotypes: Optional[Union[dict[Union[str, PhenotypeName], Union[dict, Phenotype]], list[Union[dict, Phenotype]]]] = empty_dict()
     histopathology: Optional[Union[dict[Union[str, HistopathologyFindingName], Union[dict, HistopathologyFinding]], list[Union[dict, HistopathologyFinding]]]] = empty_dict()
     biochemical: Optional[Union[dict[Union[str, BiochemicalName], Union[dict, Biochemical]], list[Union[dict, Biochemical]]]] = empty_dict()
@@ -2172,6 +2224,10 @@ class Disease(YAMLRoot):
         self.progression = [v if isinstance(v, ProgressionInfo) else ProgressionInfo(**as_dict(v)) for v in self.progression]
 
         self._normalize_inlined_as_list(slot_name="pathophysiology", slot_type=Pathophysiology, key_name="name", keyed=True)
+
+        if not isinstance(self.mechanistic_hypotheses, list):
+            self.mechanistic_hypotheses = [self.mechanistic_hypotheses] if self.mechanistic_hypotheses is not None else []
+        self.mechanistic_hypotheses = [v if isinstance(v, MechanisticHypothesis) else MechanisticHypothesis(**as_dict(v)) for v in self.mechanistic_hypotheses]
 
         self._normalize_inlined_as_list(slot_name="phenotypes", slot_type=Phenotype, key_name="name", keyed=True)
 
@@ -2462,6 +2518,7 @@ class Treatment(YAMLRoot):
     treatment_term: Optional[Union[dict, TreatmentDescriptor]] = None
     regimen_term: Optional[Union[dict, RegimenDescriptor]] = None
     target_phenotypes: Optional[Union[Union[dict, PhenotypeDescriptor], list[Union[dict, PhenotypeDescriptor]]]] = empty_list()
+    target_mechanisms: Optional[Union[Union[dict, TreatmentMechanismTarget], list[Union[dict, TreatmentMechanismTarget]]]] = empty_list()
     evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
     notes: Optional[str] = None
     context: Optional[str] = None
@@ -2488,6 +2545,10 @@ class Treatment(YAMLRoot):
         if not isinstance(self.target_phenotypes, list):
             self.target_phenotypes = [self.target_phenotypes] if self.target_phenotypes is not None else []
         self.target_phenotypes = [v if isinstance(v, PhenotypeDescriptor) else PhenotypeDescriptor(**as_dict(v)) for v in self.target_phenotypes]
+
+        if not isinstance(self.target_mechanisms, list):
+            self.target_mechanisms = [self.target_mechanisms] if self.target_mechanisms is not None else []
+        self.target_mechanisms = [v if isinstance(v, TreatmentMechanismTarget) else TreatmentMechanismTarget(**as_dict(v)) for v in self.target_mechanisms]
 
         if not isinstance(self.evidence, list):
             self.evidence = [self.evidence] if self.evidence is not None else []
@@ -3808,6 +3869,56 @@ class UpstreamConditionHypothesis(YAMLRoot):
 
 
 @dataclass(repr=False)
+class MechanisticHypothesis(YAMLRoot):
+    """
+    Disease-level hypothesis metadata used to organize downstream causal edges into canonical or alternative
+    explanatory models.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["MechanisticHypothesis"]
+    class_class_curie: ClassVar[str] = "dismech:MechanisticHypothesis"
+    class_name: ClassVar[str] = "MechanisticHypothesis"
+    class_model_uri: ClassVar[URIRef] = DISMECH.MechanisticHypothesis
+
+    hypothesis_group_id: str = None
+    hypothesis_label: Optional[str] = None
+    status: Optional[Union[str, "MechanisticHypothesisStatusEnum"]] = None
+    description: Optional[str] = None
+    applies_to_subtypes: Optional[Union[str, list[str]]] = empty_list()
+    evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
+    notes: Optional[str] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.hypothesis_group_id):
+            self.MissingRequiredField("hypothesis_group_id")
+        if not isinstance(self.hypothesis_group_id, str):
+            self.hypothesis_group_id = str(self.hypothesis_group_id)
+
+        if self.hypothesis_label is not None and not isinstance(self.hypothesis_label, str):
+            self.hypothesis_label = str(self.hypothesis_label)
+
+        if self.status is not None and not isinstance(self.status, MechanisticHypothesisStatusEnum):
+            self.status = MechanisticHypothesisStatusEnum(self.status)
+
+        if self.description is not None and not isinstance(self.description, str):
+            self.description = str(self.description)
+
+        if not isinstance(self.applies_to_subtypes, list):
+            self.applies_to_subtypes = [self.applies_to_subtypes] if self.applies_to_subtypes is not None else []
+        self.applies_to_subtypes = [v if isinstance(v, str) else str(v) for v in self.applies_to_subtypes]
+
+        if not isinstance(self.evidence, list):
+            self.evidence = [self.evidence] if self.evidence is not None else []
+        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+
+        if self.notes is not None and not isinstance(self.notes, str):
+            self.notes = str(self.notes)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
 class DiseaseCollection(YAMLRoot):
     _inherited_slots: ClassVar[list[str]] = []
 
@@ -4545,6 +4656,75 @@ class ComputationalModelTypeEnum(EnumDefinitionImpl):
     _defn = EnumDefinition(
         name="ComputationalModelTypeEnum",
         description="Type of computational or in-silico model",
+    )
+
+class CausalLinkTypeEnum(EnumDefinitionImpl):
+    """
+    Degree of mechanistic directness represented by a causal edge
+    """
+    DIRECT = PermissibleValue(
+        text="DIRECT",
+        description="Direct causal influence at the current graph granularity")
+    INDIRECT_KNOWN_INTERMEDIATES = PermissibleValue(
+        text="INDIRECT_KNOWN_INTERMEDIATES",
+        description="Indirect relationship where one or more intermediates are known but omitted from the graph")
+    INDIRECT_UNKNOWN_INTERMEDIATES = PermissibleValue(
+        text="INDIRECT_UNKNOWN_INTERMEDIATES",
+        description="Indirect relationship where at least one required intermediate mechanism is currently unknown")
+    UNKNOWN = PermissibleValue(
+        text="UNKNOWN",
+        description="Directness has not yet been determined")
+
+    _defn = EnumDefinition(
+        name="CausalLinkTypeEnum",
+        description="Degree of mechanistic directness represented by a causal edge",
+    )
+
+class TreatmentEffectEnum(EnumDefinitionImpl):
+    """
+    How a treatment affects a pathophysiology mechanism node
+    """
+    INHIBITS = PermissibleValue(
+        text="INHIBITS",
+        description="Blocks or decreases the mechanism (e.g., TKI inhibiting constitutive kinase activity)")
+    ACTIVATES = PermissibleValue(
+        text="ACTIVATES",
+        description="Promotes or increases the mechanism (e.g., enzyme replacement restoring a deficient pathway)")
+    MODULATES = PermissibleValue(
+        text="MODULATES",
+        description="Alters the mechanism without clear unidirectional effect")
+    BYPASSES = PermissibleValue(
+        text="BYPASSES",
+        description="Works around the disrupted mechanism via an alternative pathway")
+    RESTORES = PermissibleValue(
+        text="RESTORES",
+        description="Restores normal function of a disrupted mechanism (e.g., gene therapy, enzyme replacement)")
+
+    _defn = EnumDefinition(
+        name="TreatmentEffectEnum",
+        description="How a treatment affects a pathophysiology mechanism node",
+    )
+
+class MechanisticHypothesisStatusEnum(EnumDefinitionImpl):
+    """
+    Curation/maturity status for a disease-level mechanistic hypothesis
+    """
+    CANONICAL = PermissibleValue(
+        text="CANONICAL",
+        description="Widely accepted explanatory model used as the default disease mechanism")
+    ALTERNATIVE = PermissibleValue(
+        text="ALTERNATIVE",
+        description="Plausible competing or superimposed hypothesis with supporting evidence")
+    EMERGING = PermissibleValue(
+        text="EMERGING",
+        description="Early-stage hypothesis with limited or recently reported evidence")
+    DEPRECATED = PermissibleValue(
+        text="DEPRECATED",
+        description="Historical hypothesis no longer supported as the current model")
+
+    _defn = EnumDefinition(
+        name="MechanisticHypothesisStatusEnum",
+        description="Curation/maturity status for a disease-level mechanistic hypothesis",
     )
 
 class ComorbidityDirectionEnum(EnumDefinitionImpl):
@@ -5795,8 +5975,32 @@ slots.function = Slot(uri=DISMECH.function, name="function", curie=DISMECH.curie
 slots.target = Slot(uri=DISMECH.target, name="target", curie=DISMECH.curie('target'),
                    model_uri=DISMECH.target, domain=None, range=str)
 
+slots.hypothesis_groups = Slot(uri=DISMECH.hypothesis_groups, name="hypothesis_groups", curie=DISMECH.curie('hypothesis_groups'),
+                   model_uri=DISMECH.hypothesis_groups, domain=None, range=Optional[Union[str, list[str]]])
+
+slots.causal_link_type = Slot(uri=DISMECH.causal_link_type, name="causal_link_type", curie=DISMECH.curie('causal_link_type'),
+                   model_uri=DISMECH.causal_link_type, domain=None, range=Optional[Union[str, "CausalLinkTypeEnum"]])
+
+slots.intermediate_mechanisms = Slot(uri=DISMECH.intermediate_mechanisms, name="intermediate_mechanisms", curie=DISMECH.curie('intermediate_mechanisms'),
+                   model_uri=DISMECH.intermediate_mechanisms, domain=None, range=Optional[Union[str, list[str]]])
+
+slots.hypothesis_group_id = Slot(uri=DISMECH.hypothesis_group_id, name="hypothesis_group_id", curie=DISMECH.curie('hypothesis_group_id'),
+                   model_uri=DISMECH.hypothesis_group_id, domain=None, range=Optional[str])
+
+slots.hypothesis_label = Slot(uri=DISMECH.hypothesis_label, name="hypothesis_label", curie=DISMECH.curie('hypothesis_label'),
+                   model_uri=DISMECH.hypothesis_label, domain=None, range=Optional[str])
+
+slots.applies_to_subtypes = Slot(uri=DISMECH.applies_to_subtypes, name="applies_to_subtypes", curie=DISMECH.curie('applies_to_subtypes'),
+                   model_uri=DISMECH.applies_to_subtypes, domain=None, range=Optional[Union[str, list[str]]])
+
 slots.target_phenotypes = Slot(uri=DISMECH.target_phenotypes, name="target_phenotypes", curie=DISMECH.curie('target_phenotypes'),
                    model_uri=DISMECH.target_phenotypes, domain=None, range=Optional[Union[Union[dict, PhenotypeDescriptor], list[Union[dict, PhenotypeDescriptor]]]])
+
+slots.target_mechanisms = Slot(uri=DISMECH.target_mechanisms, name="target_mechanisms", curie=DISMECH.curie('target_mechanisms'),
+                   model_uri=DISMECH.target_mechanisms, domain=None, range=Optional[Union[Union[dict, TreatmentMechanismTarget], list[Union[dict, TreatmentMechanismTarget]]]])
+
+slots.treatment_effect = Slot(uri=DISMECH.treatment_effect, name="treatment_effect", curie=DISMECH.curie('treatment_effect'),
+                   model_uri=DISMECH.treatment_effect, domain=None, range=Optional[Union[str, "TreatmentEffectEnum"]])
 
 slots.accession = Slot(uri=DISMECH.accession, name="accession", curie=DISMECH.curie('accession'),
                    model_uri=DISMECH.accession, domain=None, range=URIRef)
@@ -6005,6 +6209,9 @@ slots.literature_evidence = Slot(uri=DISMECH.literature_evidence, name="literatu
 slots.hypotheses = Slot(uri=DISMECH.hypotheses, name="hypotheses", curie=DISMECH.curie('hypotheses'),
                    model_uri=DISMECH.hypotheses, domain=None, range=Optional[Union[Union[dict, ComorbidityHypothesis], list[Union[dict, ComorbidityHypothesis]]]])
 
+slots.mechanistic_hypotheses = Slot(uri=DISMECH.mechanistic_hypotheses, name="mechanistic_hypotheses", curie=DISMECH.curie('mechanistic_hypotheses'),
+                   model_uri=DISMECH.mechanistic_hypotheses, domain=None, range=Optional[Union[Union[dict, MechanisticHypothesis], list[Union[dict, MechanisticHypothesis]]]])
+
 slots.shared_upstream_hypotheses = Slot(uri=DISMECH.shared_upstream_hypotheses, name="shared_upstream_hypotheses", curie=DISMECH.curie('shared_upstream_hypotheses'),
                    model_uri=DISMECH.shared_upstream_hypotheses, domain=None, range=Optional[Union[Union[dict, UpstreamConditionHypothesis], list[Union[dict, UpstreamConditionHypothesis]]]])
 
@@ -6206,6 +6413,24 @@ slots.DifferentialDiagnosis_distinguishing_features = Slot(uri=DISMECH.distingui
 slots.DifferentialDiagnosis_notes = Slot(uri=DISMECH.notes, name="DifferentialDiagnosis_notes", curie=DISMECH.curie('notes'),
                    model_uri=DISMECH.DifferentialDiagnosis_notes, domain=DifferentialDiagnosis, range=Optional[str])
 
+slots.CausalEdge_evidence = Slot(uri=DISMECH.evidence, name="CausalEdge_evidence", curie=DISMECH.curie('evidence'),
+                   model_uri=DISMECH.CausalEdge_evidence, domain=CausalEdge, range=Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]])
+
+slots.CausalEdge_hypothesis_groups = Slot(uri=DISMECH.hypothesis_groups, name="CausalEdge_hypothesis_groups", curie=DISMECH.curie('hypothesis_groups'),
+                   model_uri=DISMECH.CausalEdge_hypothesis_groups, domain=CausalEdge, range=Optional[Union[str, list[str]]])
+
+slots.CausalEdge_causal_link_type = Slot(uri=DISMECH.causal_link_type, name="CausalEdge_causal_link_type", curie=DISMECH.curie('causal_link_type'),
+                   model_uri=DISMECH.CausalEdge_causal_link_type, domain=CausalEdge, range=Optional[Union[str, "CausalLinkTypeEnum"]])
+
+slots.CausalEdge_intermediate_mechanisms = Slot(uri=DISMECH.intermediate_mechanisms, name="CausalEdge_intermediate_mechanisms", curie=DISMECH.curie('intermediate_mechanisms'),
+                   model_uri=DISMECH.CausalEdge_intermediate_mechanisms, domain=CausalEdge, range=Optional[Union[str, list[str]]])
+
+slots.TreatmentMechanismTarget_target = Slot(uri=DISMECH.target, name="TreatmentMechanismTarget_target", curie=DISMECH.curie('target'),
+                   model_uri=DISMECH.TreatmentMechanismTarget_target, domain=TreatmentMechanismTarget, range=str)
+
+slots.TreatmentMechanismTarget_evidence = Slot(uri=DISMECH.evidence, name="TreatmentMechanismTarget_evidence", curie=DISMECH.curie('evidence'),
+                   model_uri=DISMECH.TreatmentMechanismTarget_evidence, domain=TreatmentMechanismTarget, range=Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]])
+
 slots.PublicationReference_reference = Slot(uri=DISMECH.reference, name="PublicationReference_reference", curie=DISMECH.curie('reference'),
                    model_uri=DISMECH.PublicationReference_reference, domain=PublicationReference, range=Union[str, PublicationReferenceReference])
 
@@ -6292,3 +6517,9 @@ slots.AssociationSignal_method = Slot(uri=DISMECH.method, name="AssociationSigna
 
 slots.Demographics_sex = Slot(uri=DISMECH.sex, name="Demographics_sex", curie=DISMECH.curie('sex'),
                    model_uri=DISMECH.Demographics_sex, domain=Demographics, range=Optional[Union[str, "SexEnum"]])
+
+slots.MechanisticHypothesis_hypothesis_group_id = Slot(uri=DISMECH.hypothesis_group_id, name="MechanisticHypothesis_hypothesis_group_id", curie=DISMECH.curie('hypothesis_group_id'),
+                   model_uri=DISMECH.MechanisticHypothesis_hypothesis_group_id, domain=MechanisticHypothesis, range=str)
+
+slots.MechanisticHypothesis_status = Slot(uri=DISMECH.status, name="MechanisticHypothesis_status", curie=DISMECH.curie('status'),
+                   model_uri=DISMECH.MechanisticHypothesis_status, domain=MechanisticHypothesis, range=Optional[Union[str, "MechanisticHypothesisStatusEnum"]])

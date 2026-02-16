@@ -276,6 +276,30 @@ def render_disorder(
     return output_path
 
 
+def _build_condition_graphs(
+    condition: dict,
+    disorders_dir: Path = Path('kb/disorders'),
+) -> list[dict]:
+    """Build causal graphs for a comorbidity condition (handles composites)."""
+    graphs: list[dict] = []
+    slugs: list[tuple[str, str]] = []
+    slug = condition.get('slug')
+    if slug:
+        slugs.append((slug, slug.replace('_', ' ')))
+    for comp in condition.get('components', []) or []:
+        if comp.get('slug'):
+            slugs.append((comp['slug'], comp['slug'].replace('_', ' ')))
+    for s, label in slugs:
+        path = disorders_dir / f'{s}.yaml'
+        if path.exists():
+            disorder = load_disorder(path)
+            graph = build_causal_graph(disorder)
+            mermaid = generate_mermaid(graph)
+            if mermaid:
+                graphs.append({'label': label, 'mermaid_code': mermaid})
+    return graphs
+
+
 def render_comorbidity(
     yaml_path: Path,
     output_path: Optional[Path] = None,
@@ -315,6 +339,9 @@ def render_comorbidity(
     disease_a = comorbidity.get('disease_a', {}) or {}
     disease_b = comorbidity.get('disease_b', {}) or {}
 
+    disease_a_graphs = _build_condition_graphs(disease_a)
+    disease_b_graphs = _build_condition_graphs(disease_b)
+
     html = template.render(
         comorbidity=comorbidity,
         yaml_content=yaml_content,
@@ -323,6 +350,8 @@ def render_comorbidity(
         disease_b_label=_format_condition_label(disease_b),
         disease_a_slug=disease_a.get('slug') or '',
         disease_b_slug=disease_b.get('slug') or '',
+        disease_a_graphs=disease_a_graphs,
+        disease_b_graphs=disease_b_graphs,
     )
 
     if output_path is None:
