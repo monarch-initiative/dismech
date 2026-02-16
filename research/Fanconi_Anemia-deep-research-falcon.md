@@ -2,8 +2,8 @@
 provider: falcon
 model: Edison Scientific Literature
 cached: true
-start_time: '2026-02-08T09:54:22.183781'
-end_time: '2026-02-08T09:54:22.187587'
+start_time: '2026-02-14T10:37:06.557355'
+end_time: '2026-02-14T10:37:06.559130'
 duration_seconds: 0.0
 template_file: templates/disease_pathophysiology_research.md
 template_variables:
