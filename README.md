@@ -126,9 +126,11 @@ YAML files are rendered to browsable HTML pages with clickable ontology term lin
 uv run python -m dismech.render --all
 ```
 
-## For Curators
+## For Contributors
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for curation guidelines.
+Want to help curate disorder entries? This project uses **Claude Code** for AI-assisted curation.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) to get started as an agent manager.
 
 ## Schema Documentation
 

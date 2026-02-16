@@ -37,6 +37,8 @@ def test_extract_disorder_with_null_fields():
     assert record["subtypes"] == []
     assert record["pathophysiology"] == []
     assert record["phenotypes"] == []
+    assert record["creation_date"] is None
+    assert record["updated_date"] is None
 
 
 def test_extract_disorder_with_valid_data():
@@ -59,6 +61,8 @@ def test_extract_disorder_with_valid_data():
         "biochemical": [
             {"name": "Biomarker 1"},
         ],
+        "creation_date": "2025-06-12T20:16:27Z",
+        "updated_date": "2025-07-01T09:30:00Z",
     }
 
     exporter = BrowserExporter()
@@ -72,6 +76,8 @@ def test_extract_disorder_with_valid_data():
     assert record["treatments"] == ["Treatment A", "Treatment B"]
     assert record["environmental"] == ["Environmental Factor 1"]
     assert record["biochemical"] == ["Biomarker 1"]
+    assert record["creation_date"] == "2025-06-12T20:16:27Z"
+    assert record["updated_date"] == "2025-07-01T09:30:00Z"
 
 
 def test_export_to_js_with_problematic_file():
