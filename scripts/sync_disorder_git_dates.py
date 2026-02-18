@@ -104,6 +104,11 @@ def main() -> int:
         action="store_true",
         help="Compute and report changes without writing files",
     )
+    parser.add_argument(
+        "--missing-only",
+        action="store_true",
+        help="Only fill files with missing/null creation_date or updated_date",
+    )
     args = parser.parse_args()
 
     kb_dir = Path(args.kb_dir)
@@ -134,6 +139,12 @@ def main() -> int:
             skipped += 1
             print(f"SKIP (unexpected YAML root): {path}")
             continue
+
+        if args.missing_only:
+            has_creation = data.get("creation_date") not in (None, "")
+            has_updated = data.get("updated_date") not in (None, "")
+            if has_creation and has_updated:
+                continue
 
         file_changed = _set_dates(data, creation_date, updated_date)
         if not file_changed:
