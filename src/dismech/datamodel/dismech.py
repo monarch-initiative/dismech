@@ -1,5 +1,5 @@
 # Auto generated from dismech.yaml by pythongen.py version: 0.0.1
-# Generation date: 2026-02-14T13:53:04
+# Generation date: 2026-02-18T15:38:30
 # Schema: dismech
 #
 # id: https://w3id.org/monarch-initiative/dismech
@@ -2154,6 +2154,8 @@ class Disease(YAMLRoot):
 
     name: Union[str, DiseaseName] = None
     disease_term: Optional[Union[dict, DiseaseDescriptor]] = None
+    creation_date: Optional[str] = None
+    updated_date: Optional[str] = None
     description: Optional[str] = None
     references: Optional[Union[dict[Union[str, PublicationReferenceReference], Union[dict, PublicationReference]], list[Union[dict, PublicationReference]]]] = empty_dict()
     category: Optional[str] = None
@@ -2200,6 +2202,12 @@ class Disease(YAMLRoot):
 
         if self.disease_term is not None and not isinstance(self.disease_term, DiseaseDescriptor):
             self.disease_term = DiseaseDescriptor(**as_dict(self.disease_term))
+
+        if self.creation_date is not None and not isinstance(self.creation_date, str):
+            self.creation_date = str(self.creation_date)
+
+        if self.updated_date is not None and not isinstance(self.updated_date, str):
+            self.updated_date = str(self.updated_date)
 
         if self.description is not None and not isinstance(self.description, str):
             self.description = str(self.description)
@@ -3504,6 +3512,8 @@ class ComorbidityAssociation(YAMLRoot):
     class_model_uri: ClassVar[URIRef] = DISMECH.ComorbidityAssociation
 
     name: Union[str, ComorbidityAssociationName] = None
+    creation_date: Optional[str] = None
+    updated_date: Optional[str] = None
     disease_a: Optional[Union[dict, ConditionDescriptor]] = None
     disease_b: Optional[Union[dict, ConditionDescriptor]] = None
     directionality: Optional[Union[str, "ComorbidityDirectionEnum"]] = None
@@ -3520,6 +3530,12 @@ class ComorbidityAssociation(YAMLRoot):
             self.MissingRequiredField("name")
         if not isinstance(self.name, ComorbidityAssociationName):
             self.name = ComorbidityAssociationName(self.name)
+
+        if self.creation_date is not None and not isinstance(self.creation_date, str):
+            self.creation_date = str(self.creation_date)
+
+        if self.updated_date is not None and not isinstance(self.updated_date, str):
+            self.updated_date = str(self.updated_date)
 
         if self.disease_a is not None and not isinstance(self.disease_a, ConditionDescriptor):
             self.disease_a = ConditionDescriptor(**as_dict(self.disease_a))
@@ -6041,6 +6057,14 @@ slots.datasets = Slot(uri=DISMECH.datasets, name="datasets", curie=DISMECH.curie
 slots.clinical_trials = Slot(uri=DISMECH.clinical_trials, name="clinical_trials", curie=DISMECH.curie('clinical_trials'),
                    model_uri=DISMECH.clinical_trials, domain=None, range=Optional[Union[dict[Union[str, ClinicalTrialName], Union[dict, ClinicalTrial]], list[Union[dict, ClinicalTrial]]]])
 
+slots.creation_date = Slot(uri=DISMECH.creation_date, name="creation_date", curie=DISMECH.curie('creation_date'),
+                   model_uri=DISMECH.creation_date, domain=None, range=Optional[str],
+                   pattern=re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$'))
+
+slots.updated_date = Slot(uri=DISMECH.updated_date, name="updated_date", curie=DISMECH.curie('updated_date'),
+                   model_uri=DISMECH.updated_date, domain=None, range=Optional[str],
+                   pattern=re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$'))
+
 slots.curation_history = Slot(uri=DISMECH.curation_history, name="curation_history", curie=DISMECH.curie('curation_history'),
                    model_uri=DISMECH.curation_history, domain=None, range=Optional[Union[Union[dict, CurationEvent], list[Union[dict, CurationEvent]]]])
 
@@ -6452,6 +6476,14 @@ slots.HistopathologyFinding_context = Slot(uri=DISMECH.context, name="Histopatho
 slots.Disease_name = Slot(uri=DISMECH.name, name="Disease_name", curie=DISMECH.curie('name'),
                    model_uri=DISMECH.Disease_name, domain=Disease, range=Union[str, DiseaseName])
 
+slots.Disease_creation_date = Slot(uri=DISMECH.creation_date, name="Disease_creation_date", curie=DISMECH.curie('creation_date'),
+                   model_uri=DISMECH.Disease_creation_date, domain=Disease, range=Optional[str],
+                   pattern=re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$'))
+
+slots.Disease_updated_date = Slot(uri=DISMECH.updated_date, name="Disease_updated_date", curie=DISMECH.curie('updated_date'),
+                   model_uri=DISMECH.Disease_updated_date, domain=Disease, range=Optional[str],
+                   pattern=re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$'))
+
 slots.ICDOMorphologyAssignment_classification_value = Slot(uri=DISMECH.classification_value, name="ICDOMorphologyAssignment_classification_value", curie=DISMECH.curie('classification_value'),
                    model_uri=DISMECH.ICDOMorphologyAssignment_classification_value, domain=ICDOMorphologyAssignment, range=Union[str, "ICDOMorphologyEnum"])
 
@@ -6508,6 +6540,14 @@ slots.ConditionDescriptor_term = Slot(uri=DISMECH.term, name="ConditionDescripto
 
 slots.ConditionDescriptor_preferred_term = Slot(uri=DISMECH.preferred_term, name="ConditionDescriptor_preferred_term", curie=DISMECH.curie('preferred_term'),
                    model_uri=DISMECH.ConditionDescriptor_preferred_term, domain=ConditionDescriptor, range=str)
+
+slots.ComorbidityAssociation_creation_date = Slot(uri=DISMECH.creation_date, name="ComorbidityAssociation_creation_date", curie=DISMECH.curie('creation_date'),
+                   model_uri=DISMECH.ComorbidityAssociation_creation_date, domain=ComorbidityAssociation, range=Optional[str],
+                   pattern=re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$'))
+
+slots.ComorbidityAssociation_updated_date = Slot(uri=DISMECH.updated_date, name="ComorbidityAssociation_updated_date", curie=DISMECH.curie('updated_date'),
+                   model_uri=DISMECH.ComorbidityAssociation_updated_date, domain=ComorbidityAssociation, range=Optional[str],
+                   pattern=re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$'))
 
 slots.AssociationSignal_source = Slot(uri=DISMECH.source, name="AssociationSignal_source", curie=DISMECH.curie('source'),
                    model_uri=DISMECH.AssociationSignal_source, domain=AssociationSignal, range=Optional[Union[str, "AssociationSignalSourceEnum"]])

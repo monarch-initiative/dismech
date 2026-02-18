@@ -6175,9 +6175,20 @@ class Environmental(ConfiguredBaseModel):
 
 class Disease(ConfiguredBaseModel):
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
-         'slot_usage': {'name': {'description': 'Preferred name for the disease',
+         'slot_usage': {'creation_date': {'description': 'Timestamp for initial '
+                                                         'creation of this disease '
+                                                         'entry. Keep this stable '
+                                                         'after first set.',
+                                          'name': 'creation_date'},
+                        'name': {'description': 'Preferred name for the disease',
                                  'name': 'name',
-                                 'required': True}}})
+                                 'required': True},
+                        'updated_date': {'description': 'Timestamp for the latest '
+                                                        'substantive update to this '
+                                                        'disease entry. Update this '
+                                                        'whenever curated content '
+                                                        'changes.',
+                                         'name': 'updated_date'}}})
 
     name: str = Field(default=..., description="""Preferred name for the disease""", json_schema_extra = { "linkml_meta": {'alias': 'name',
          'domain_of': ['ClinicalTrial',
@@ -6208,6 +6219,12 @@ class Disease(ConfiguredBaseModel):
                        'ComorbidityAssociation'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     disease_term: Optional[DiseaseDescriptor] = Field(default=None, description="""The MONDO disease term for this disease""", json_schema_extra = { "linkml_meta": {'alias': 'disease_term', 'domain_of': ['DifferentialDiagnosis', 'Disease']} })
+    creation_date: Optional[str] = Field(default=None, description="""Timestamp for initial creation of this disease entry. Keep this stable after first set.""", json_schema_extra = { "linkml_meta": {'alias': 'creation_date',
+         'domain_of': ['Disease', 'ComorbidityAssociation'],
+         'recommended': True} })
+    updated_date: Optional[str] = Field(default=None, description="""Timestamp for the latest substantive update to this disease entry. Update this whenever curated content changes.""", json_schema_extra = { "linkml_meta": {'alias': 'updated_date',
+         'domain_of': ['Disease', 'ComorbidityAssociation'],
+         'recommended': True} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
                        'GeneticContext',
@@ -6358,6 +6375,32 @@ class Disease(ConfiguredBaseModel):
                        'Treatment'],
          'examples': [{'value': 'Added an additional clinically relevant subtype.'}]} })
     curation_history: Optional[list[CurationEvent]] = Field(default=None, description="""Audit trail of AI-assisted curation events""", json_schema_extra = { "linkml_meta": {'alias': 'curation_history', 'domain_of': ['Disease']} })
+
+    @field_validator('creation_date')
+    def pattern_creation_date(cls, v):
+        pattern=re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$")
+        if isinstance(v, list):
+            for element in v:
+                if isinstance(element, str) and not pattern.match(element):
+                    err_msg = f"Invalid creation_date format: {element}"
+                    raise ValueError(err_msg)
+        elif isinstance(v, str) and not pattern.match(v):
+            err_msg = f"Invalid creation_date format: {v}"
+            raise ValueError(err_msg)
+        return v
+
+    @field_validator('updated_date')
+    def pattern_updated_date(cls, v):
+        pattern=re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$")
+        if isinstance(v, list):
+            for element in v:
+                if isinstance(element, str) and not pattern.match(element):
+                    err_msg = f"Invalid updated_date format: {element}"
+                    raise ValueError(err_msg)
+        elif isinstance(v, str) and not pattern.match(v):
+            err_msg = f"Invalid updated_date format: {v}"
+            raise ValueError(err_msg)
+        return v
 
 
 class Stage(ConfiguredBaseModel):
@@ -9516,7 +9559,18 @@ class ComorbidityAssociation(ConfiguredBaseModel):
     """
     An association between two conditions, including directionality, evidence, and computational characterizations.
     """
-    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'creation_date': {'description': 'Timestamp for initial '
+                                                         'creation of this comorbidity '
+                                                         'entry. Keep this stable '
+                                                         'after first set.',
+                                          'name': 'creation_date'},
+                        'updated_date': {'description': 'Timestamp for the latest '
+                                                        'substantive update to this '
+                                                        'comorbidity entry. Update '
+                                                        'this whenever curated content '
+                                                        'changes.',
+                                         'name': 'updated_date'}}})
 
     name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'alias': 'name',
          'domain_of': ['ClinicalTrial',
@@ -9546,6 +9600,12 @@ class ComorbidityAssociation(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
+    creation_date: Optional[str] = Field(default=None, description="""Timestamp for initial creation of this comorbidity entry. Keep this stable after first set.""", json_schema_extra = { "linkml_meta": {'alias': 'creation_date',
+         'domain_of': ['Disease', 'ComorbidityAssociation'],
+         'recommended': True} })
+    updated_date: Optional[str] = Field(default=None, description="""Timestamp for the latest substantive update to this comorbidity entry. Update this whenever curated content changes.""", json_schema_extra = { "linkml_meta": {'alias': 'updated_date',
+         'domain_of': ['Disease', 'ComorbidityAssociation'],
+         'recommended': True} })
     disease_a: Optional[ConditionDescriptor] = Field(default=None, description="""First disease in a comorbidity pair""", json_schema_extra = { "linkml_meta": {'alias': 'disease_a', 'domain_of': ['ComorbidityAssociation']} })
     disease_b: Optional[ConditionDescriptor] = Field(default=None, description="""Second disease in a comorbidity pair""", json_schema_extra = { "linkml_meta": {'alias': 'disease_b', 'domain_of': ['ComorbidityAssociation']} })
     directionality: Optional[ComorbidityDirectionEnum] = Field(default=None, description="""Direction of a comorbidity/trajectory association""", json_schema_extra = { "linkml_meta": {'alias': 'directionality',
@@ -9593,6 +9653,32 @@ class ComorbidityAssociation(ConfiguredBaseModel):
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
     curation_status: Optional[CurationStatusEnum] = Field(default=None, description="""Curation workflow status""", json_schema_extra = { "linkml_meta": {'alias': 'curation_status', 'domain_of': ['ComorbidityAssociation']} })
+
+    @field_validator('creation_date')
+    def pattern_creation_date(cls, v):
+        pattern=re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$")
+        if isinstance(v, list):
+            for element in v:
+                if isinstance(element, str) and not pattern.match(element):
+                    err_msg = f"Invalid creation_date format: {element}"
+                    raise ValueError(err_msg)
+        elif isinstance(v, str) and not pattern.match(v):
+            err_msg = f"Invalid creation_date format: {v}"
+            raise ValueError(err_msg)
+        return v
+
+    @field_validator('updated_date')
+    def pattern_updated_date(cls, v):
+        pattern=re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$")
+        if isinstance(v, list):
+            for element in v:
+                if isinstance(element, str) and not pattern.match(element):
+                    err_msg = f"Invalid updated_date format: {element}"
+                    raise ValueError(err_msg)
+        elif isinstance(v, str) and not pattern.match(v):
+            err_msg = f"Invalid updated_date format: {v}"
+            raise ValueError(err_msg)
+        return v
 
 
 class AssociationSignal(ConfiguredBaseModel):
