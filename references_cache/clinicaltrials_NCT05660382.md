@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05660382
+reference_id: "clinicaltrials:NCT05660382"
 title: "Randomized, Double-blind, Phase III Study of the Efficacy and Safety of Miconazole Oil, Active Versus Placebo in the Treatment of Otomycosis"
 content_type: summary
 ---

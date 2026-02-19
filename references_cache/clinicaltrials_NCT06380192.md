@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT06380192
+reference_id: "clinicaltrials:NCT06380192"
 title: "Developmental and Epileptic Encephalopathy of Genetic Etiology: Natural History Through Reuse of Clinical Data / DEE-RETRO"
 content_type: summary
 ---
