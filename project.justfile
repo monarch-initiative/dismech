@@ -854,3 +854,18 @@ embed-mechanisms-all:
     @echo "Step 2: Generating browser data..."
     just embed-mechanisms-data
     @echo "=== Done! Open app/embeddings/mechanisms.html ==="
+
+# Compare dismech phenotypes against OMIM/Orphanet for a single disease
+[group('Analysis')]
+d2p-compare disease:
+    uv run python -m dismech.d2p_compare compare "{{disease}}"
+
+# Compare all diseases in the KB against OMIM/Orphanet
+[group('Analysis')]
+d2p-compare-all:
+    uv run python -m dismech.d2p_compare compare-all
+
+# Compare with JSON output
+[group('Analysis')]
+d2p-compare-json disease:
+    uv run python -m dismech.d2p_compare compare "{{disease}}" --format json
