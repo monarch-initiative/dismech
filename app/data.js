@@ -2883,6 +2883,125 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Atopic Dermatitis",
+    "disease_id": "MONDO:0004980",
+    "category": "Complex",
+    "parents": [
+      "Dermatological Disease",
+      "Chronic Inflammatory Disease",
+      "Allergic Disease"
+    ],
+    "creation_date": null,
+    "updated_date": null,
+    "subtypes": [
+      "Early-Onset Atopic Dermatitis",
+      "Adult-Onset Atopic Dermatitis",
+      "Extrinsic Atopic Dermatitis",
+      "Intrinsic Atopic Dermatitis"
+    ],
+    "description": "Loss-of-function mutations in filaggrin (FLG) and other barrier proteins lead to impaired skin barrier integrity, increased transepidermal water loss, and enhanced allergen penetration. This is the primary initiating event in many patients.",
+    "pathophysiology": [
+      "Epidermal Barrier Dysfunction",
+      "Type 2 Immune Response",
+      "Th17/Th22 Inflammation",
+      "Pruritogen-Induced Neuronal Activation",
+      "Scratching-Induced Barrier Injury",
+      "Secondary Inflammatory Amplification"
+    ],
+    "cell_types": [
+      "Keratinocyte",
+      "T-helper 2 cell",
+      "Group 2 innate lymphoid cell",
+      "Eosinophil",
+      "Mast cell",
+      "T-helper 17 cell",
+      "Sensory neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000312",
+      "CL:0000546",
+      "CL:0001069",
+      "CL:0000771",
+      "CL:0000097",
+      "CL:0000899",
+      "CL:0000101"
+    ],
+    "biological_processes": [
+      "Keratinization",
+      "Type 2 immune response",
+      "T-helper 2 cell differentiation",
+      "Interleukin-4-mediated signaling pathway",
+      "IgE isotype switching",
+      "T-helper 17 type immune response",
+      "Inflammatory response"
+    ],
+    "phenotypes": [
+      "Eczematoid Dermatitis",
+      "Pruritus",
+      "Xerosis",
+      "Lichenification",
+      "Elevated Serum IgE"
+    ],
+    "phenotype_categories": [
+      "Dermatological",
+      "Immunological"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cellular",
+      "Immune",
+      "Integument",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0000964",
+      "HP:0000989",
+      "HP:0000958",
+      "HP:0100725",
+      "HP:0003212"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "FLG",
+      "IL4R",
+      "IL13",
+      "STAT6",
+      "EMSY",
+      "BACH2",
+      "TNFAIP3",
+      "EGR2",
+      "ETS1",
+      "IRF4",
+      "SATB1",
+      "SMAD3",
+      "REL"
+    ],
+    "treatments": [
+      "Emollients and Moisturizers",
+      "Topical Corticosteroids",
+      "Dupilumab",
+      "JAK Inhibitors",
+      "Phototherapy"
+    ],
+    "environmental": [
+      "Allergen Exposure",
+      "Skin Irritants",
+      "Microbial Dysbiosis"
+    ],
+    "biochemical": [],
+    "source_file": "Atopic_Dermatitis.yaml",
+    "page_url": "../pages/disorders/Atopic_Dermatitis.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 6,
+    "num_genes": 13,
+    "num_treatments": 5,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Atrial Fibrillation",
     "disease_id": "MONDO:0004981",
     "category": "Complex",
@@ -4460,6 +4579,156 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Beta Thalassemia",
+    "disease_id": "MONDO:0019402",
+    "category": "Mendelian",
+    "parents": [
+      "Hematological Disease",
+      "Genetic Disease"
+    ],
+    "creation_date": null,
+    "updated_date": null,
+    "subtypes": [
+      "Beta Thalassemia Minor (Trait)",
+      "Beta Thalassemia Intermedia",
+      "Beta Thalassemia Major (Cooley Anemia)"
+    ],
+    "description": "Mutations in the HBB gene reduce or abolish beta-globin chain production. Beta-zero (beta0) mutations produce no beta-globin; beta-plus (beta+) mutations produce reduced amounts. Over 300 mutations have been identified, including point mutations, small deletions, and rarely large deletions.\n",
+    "pathophysiology": [
+      "Defective Beta-Globin Synthesis",
+      "Alpha-Globin Chain Excess",
+      "Ineffective Erythropoiesis",
+      "Chronic Hemolysis",
+      "Iron Overload",
+      "Fetal Hemoglobin Modulation"
+    ],
+    "cell_types": [
+      "erythroblast",
+      "erythroid progenitor cell",
+      "erythrocyte",
+      "macrophage",
+      "hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000765",
+      "CL:0000038",
+      "CL:0000232",
+      "CL:0000235",
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "hemoglobin biosynthetic process",
+      "response to oxidative stress",
+      "apoptotic process",
+      "erythrocyte differentiation",
+      "erythrocyte homeostasis",
+      "positive regulation of erythrocyte clearance",
+      "intracellular iron ion homeostasis",
+      "iron ion transport",
+      "regulation of hemoglobin biosynthetic process"
+    ],
+    "phenotypes": [
+      "Microcytic Hypochromic Anemia",
+      "Decreased Mean Corpuscular Volume",
+      "Reticulocytosis",
+      "Erythroid Hyperplasia",
+      "Persistence of Hemoglobin F",
+      "Target Cells",
+      "Extramedullary Hematopoiesis",
+      "Splenomegaly",
+      "Hepatomegaly",
+      "Cholelithiasis",
+      "Jaundice",
+      "Elevated Serum Ferritin",
+      "Cardiomyopathy",
+      "Pulmonary Hypertension",
+      "Frontal Bossing",
+      "Osteoporosis",
+      "Short Stature",
+      "Delayed Puberty"
+    ],
+    "phenotype_categories": [
+      "Hematological",
+      "Gastrointestinal",
+      "Metabolic",
+      "Cardiovascular",
+      "Skeletal",
+      "Growth",
+      "Endocrine"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Endocrine",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0004840",
+      "HP:0025066",
+      "HP:0001923",
+      "HP:0012132",
+      "HP:0011904",
+      "HP:0034280",
+      "HP:0001978",
+      "HP:0001744",
+      "HP:0002240",
+      "HP:0001081",
+      "HP:0000952",
+      "HP:0003281",
+      "HP:0001638",
+      "HP:0004890",
+      "HP:0002007",
+      "HP:0000939",
+      "HP:0004322",
+      "HP:0000823"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "HBB",
+      "BCL11A",
+      "KLF1",
+      "HBS1L-MYB"
+    ],
+    "treatments": [
+      "Regular Red Blood Cell Transfusions",
+      "Iron Chelation Therapy",
+      "Hydroxyurea",
+      "Splenectomy",
+      "Allogeneic Hematopoietic Stem Cell Transplantation",
+      "Luspatercept",
+      "Gene Therapy (Betibeglogene Autotemcel)",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Hemoglobin",
+      "HbA2",
+      "HbF",
+      "Serum Ferritin",
+      "Indirect Bilirubin",
+      "Reticulocytes"
+    ],
+    "source_file": "Beta_Thalassemia.yaml",
+    "page_url": "../pages/disorders/Beta_Thalassemia.html",
+    "num_phenotypes": 18,
+    "num_pathophysiology": 6,
+    "num_genes": 4,
+    "num_treatments": 8,
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Bipolar Disorder",
