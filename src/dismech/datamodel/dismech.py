@@ -1,5 +1,5 @@
 # Auto generated from dismech.yaml by pythongen.py version: 0.0.1
-# Generation date: 2026-02-18T15:38:30
+# Generation date: 2026-02-20T19:16:22
 # Schema: dismech
 #
 # id: https://w3id.org/monarch-initiative/dismech
@@ -1497,6 +1497,7 @@ class PublicationReference(YAMLRoot):
 
     reference: Union[str, PublicationReferenceReference] = None
     title: Optional[str] = None
+    found_in: Optional[Union[str, list[str]]] = empty_list()
     findings: Optional[Union[Union[dict, "Finding"], list[Union[dict, "Finding"]]]] = empty_list()
 
     def __post_init__(self, *_: str, **kwargs: Any):
@@ -1507,6 +1508,10 @@ class PublicationReference(YAMLRoot):
 
         if self.title is not None and not isinstance(self.title, str):
             self.title = str(self.title)
+
+        if not isinstance(self.found_in, list):
+            self.found_in = [self.found_in] if self.found_in is not None else []
+        self.found_in = [v if isinstance(v, str) else str(v) for v in self.found_in]
 
         if not isinstance(self.findings, list):
             self.findings = [self.findings] if self.findings is not None else []
@@ -3592,6 +3597,11 @@ class AssociationSignal(YAMLRoot):
     population: Optional[str] = None
     demographics: Optional[Union[dict, "Demographics"]] = None
     mapping_notes: Optional[str] = None
+    disorder_a_count: Optional[int] = None
+    disorder_b_count: Optional[int] = None
+    pair_count: Optional[int] = None
+    limited_precision: Optional[Union[bool, Bool]] = None
+    precision_count_threshold: Optional[int] = None
     directionality: Optional[Union[str, "ComorbidityDirectionEnum"]] = None
     a_before_b: Optional[float] = None
     b_before_a: Optional[float] = None
@@ -3623,6 +3633,21 @@ class AssociationSignal(YAMLRoot):
 
         if self.mapping_notes is not None and not isinstance(self.mapping_notes, str):
             self.mapping_notes = str(self.mapping_notes)
+
+        if self.disorder_a_count is not None and not isinstance(self.disorder_a_count, int):
+            self.disorder_a_count = int(self.disorder_a_count)
+
+        if self.disorder_b_count is not None and not isinstance(self.disorder_b_count, int):
+            self.disorder_b_count = int(self.disorder_b_count)
+
+        if self.pair_count is not None and not isinstance(self.pair_count, int):
+            self.pair_count = int(self.pair_count)
+
+        if self.limited_precision is not None and not isinstance(self.limited_precision, Bool):
+            self.limited_precision = Bool(self.limited_precision)
+
+        if self.precision_count_threshold is not None and not isinstance(self.precision_count_threshold, int):
+            self.precision_count_threshold = int(self.precision_count_threshold)
 
         if self.directionality is not None and not isinstance(self.directionality, ComorbidityDirectionEnum):
             self.directionality = ComorbidityDirectionEnum(self.directionality)
@@ -4912,6 +4937,12 @@ class AssociationMetricTypeEnum(EnumDefinitionImpl):
     IRR = PermissibleValue(
         text="IRR",
         description="Incidence rate ratio")
+    CHI_SQUARE = PermissibleValue(
+        text="CHI_SQUARE",
+        description="Chi-square association statistic")
+    LOG_OBS_EXP_RATIO = PermissibleValue(
+        text="LOG_OBS_EXP_RATIO",
+        description="Natural-log observed-to-expected co-occurrence ratio")
     OTHER = PermissibleValue(
         text="OTHER",
         description="Other or unspecified metric")
@@ -5658,6 +5689,9 @@ slots.supporting_text = Slot(uri=DISMECH.supporting_text, name="supporting_text"
 slots.title = Slot(uri=DISMECH.title, name="title", curie=DISMECH.curie('title'),
                    model_uri=DISMECH.title, domain=None, range=Optional[str])
 
+slots.found_in = Slot(uri=DISMECH.found_in, name="found_in", curie=DISMECH.curie('found_in'),
+                   model_uri=DISMECH.found_in, domain=None, range=Optional[Union[str, list[str]]])
+
 slots.subtype = Slot(uri=DISMECH.subtype, name="subtype", curie=DISMECH.curie('subtype'),
                    model_uri=DISMECH.subtype, domain=None, range=Optional[str])
 
@@ -6247,6 +6281,21 @@ slots.demographics = Slot(uri=DISMECH.demographics, name="demographics", curie=D
 
 slots.mapping_notes = Slot(uri=DISMECH.mapping_notes, name="mapping_notes", curie=DISMECH.curie('mapping_notes'),
                    model_uri=DISMECH.mapping_notes, domain=None, range=Optional[str])
+
+slots.disorder_a_count = Slot(uri=DISMECH.disorder_a_count, name="disorder_a_count", curie=DISMECH.curie('disorder_a_count'),
+                   model_uri=DISMECH.disorder_a_count, domain=None, range=Optional[int])
+
+slots.disorder_b_count = Slot(uri=DISMECH.disorder_b_count, name="disorder_b_count", curie=DISMECH.curie('disorder_b_count'),
+                   model_uri=DISMECH.disorder_b_count, domain=None, range=Optional[int])
+
+slots.pair_count = Slot(uri=DISMECH.pair_count, name="pair_count", curie=DISMECH.curie('pair_count'),
+                   model_uri=DISMECH.pair_count, domain=None, range=Optional[int])
+
+slots.limited_precision = Slot(uri=DISMECH.limited_precision, name="limited_precision", curie=DISMECH.curie('limited_precision'),
+                   model_uri=DISMECH.limited_precision, domain=None, range=Optional[Union[bool, Bool]])
+
+slots.precision_count_threshold = Slot(uri=DISMECH.precision_count_threshold, name="precision_count_threshold", curie=DISMECH.curie('precision_count_threshold'),
+                   model_uri=DISMECH.precision_count_threshold, domain=None, range=Optional[int])
 
 slots.sex = Slot(uri=DISMECH.sex, name="sex", curie=DISMECH.curie('sex'),
                    model_uri=DISMECH.sex, domain=None, range=Optional[str])

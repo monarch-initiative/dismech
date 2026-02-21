@@ -40,7 +40,7 @@ from typing import Optional, Tuple
 def extract_issue_info(content: str) -> Optional[Tuple[str, str, int]]:
     """Extract owner, repo, issue number from markdown content."""
     # Match: https://github.com/owner/repo/issues/123
-    pattern = r'https://github\.com/([^/]+)/([^/]+)/issues/(\d+)'
+    pattern = r"https://github\.com/([^/]+)/([^/]+)/issues/(\d+)"
     match = re.search(pattern, content)
     if match:
         return match.group(1), match.group(2), int(match.group(3))
@@ -49,12 +49,12 @@ def extract_issue_info(content: str) -> Optional[Tuple[str, str, int]]:
 
 def extract_sync_content(content: str) -> str:
     """Extract the portion of markdown that should sync to GitHub issue."""
-    lines = content.split('\n')
+    lines = content.split("\n")
 
     # Find start: first ## heading (usually Overview)
     start_idx = 0
     for i, line in enumerate(lines):
-        if line.startswith('## '):
+        if line.startswith("## "):
             start_idx = i
             break
 
@@ -62,68 +62,80 @@ def extract_sync_content(content: str) -> str:
     end_idx = len(lines)
     for i, line in enumerate(lines):
         # Stop at horizontal rule before NOTES
-        if line.strip() == '---':
+        if line.strip() == "---":
             # Check if next non-empty line is NOTES
             for j in range(i + 1, min(i + 5, len(lines))):
-                if lines[j].strip().startswith('# NOTES') or lines[j].strip().startswith('# STATUS'):
+                if lines[j].strip().startswith("# NOTES") or lines[
+                    j
+                ].strip().startswith("# STATUS"):
                     end_idx = i
                     break
             if end_idx != len(lines):
                 break
         # Also stop at # NOTES directly
-        if line.strip().startswith('# NOTES'):
+        if line.strip().startswith("# NOTES"):
             end_idx = i
             break
 
     sync_lines = lines[start_idx:end_idx]
 
     # Add sync source comment at the end
-    return '\n'.join(sync_lines).strip()
+    return "\n".join(sync_lines).strip()
 
 
 def parse_checkboxes(content: str) -> dict:
     """Parse checkbox items from content. Returns {item_text: checked}."""
     checkboxes = {}
-    for line in content.split('\n'):
-        match = re.match(r'^(\s*)-\s+\[([ xX])\]\s+(.+)$', line)
+    for line in content.split("\n"):
+        match = re.match(r"^(\s*)-\s+\[([ xX])\]\s+(.+)$", line)
         if match:
-            checked = match.group(2).lower() == 'x'
+            checked = match.group(2).lower() == "x"
             item_text = match.group(3).strip()
             # Normalize: remove trailing file references like "- `File.yaml`"
-            item_key = re.sub(r'\s*-\s*`[^`]+`\s*$', '', item_text).strip()
+            item_key = re.sub(r"\s*-\s*`[^`]+`\s*$", "", item_text).strip()
             checkboxes[item_key] = checked
     return checkboxes
 
 
 def update_checkboxes(content: str, checkbox_states: dict) -> str:
     """Update checkbox states in content based on checkbox_states dict."""
-    lines = content.split('\n')
+    lines = content.split("\n")
     updated_lines = []
 
     for line in lines:
-        match = re.match(r'^(\s*-\s+\[)([ xX])(\]\s+)(.+)$', line)
+        match = re.match(r"^(\s*-\s+\[)([ xX])(\]\s+)(.+)$", line)
         if match:
             prefix = match.group(1)
-            current_state = match.group(2)
+            _current_state = match.group(2)
             middle = match.group(3)
             item_text = match.group(4)
 
             # Normalize key
-            item_key = re.sub(r'\s*-\s*`[^`]+`\s*$', '', item_text).strip()
+            item_key = re.sub(r"\s*-\s*`[^`]+`\s*$", "", item_text).strip()
 
             if item_key in checkbox_states:
-                new_state = 'x' if checkbox_states[item_key] else ' '
+                new_state = "x" if checkbox_states[item_key] else " "
                 line = f"{prefix}{new_state}{middle}{item_text}"
 
         updated_lines.append(line)
 
-    return '\n'.join(updated_lines)
+    return "\n".join(updated_lines)
 
 
 def get_issue_body(owner: str, repo: str, issue_num: int) -> Optional[str]:
     """Fetch issue body from GitHub."""
-    cmd = ['gh', 'issue', 'view', str(issue_num),
-           '--repo', f'{owner}/{repo}', '--json', 'body', '--jq', '.body']
+    cmd = [
+        "gh",
+        "issue",
+        "view",
+        str(issue_num),
+        "--repo",
+        f"{owner}/{repo}",
+        "--json",
+        "body",
+        "--jq",
+        ".body",
+    ]
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         print(f"Error fetching issue: {result.stderr}", file=sys.stderr)
@@ -133,8 +145,16 @@ def get_issue_body(owner: str, repo: str, issue_num: int) -> Optional[str]:
 
 def update_issue_body(owner: str, repo: str, issue_num: int, body: str) -> bool:
     """Update issue body on GitHub."""
-    cmd = ['gh', 'issue', 'edit', str(issue_num),
-           '--repo', f'{owner}/{repo}', '--body', body]
+    cmd = [
+        "gh",
+        "issue",
+        "edit",
+        str(issue_num),
+        "--repo",
+        f"{owner}/{repo}",
+        "--body",
+        body,
+    ]
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         print(f"Error updating issue: {result.stderr}", file=sys.stderr)
@@ -149,7 +169,10 @@ def cmd_push(filepath: Path) -> int:
     issue_info = extract_issue_info(content)
     if not issue_info:
         print("Error: No GitHub issue link found in markdown", file=sys.stderr)
-        print("Add: > **GitHub Epic**: https://github.com/owner/repo/issues/NUM", file=sys.stderr)
+        print(
+            "Add: > **GitHub Epic**: https://github.com/owner/repo/issues/NUM",
+            file=sys.stderr,
+        )
         return 1
 
     owner, repo, issue_num = issue_info
@@ -218,7 +241,7 @@ def cmd_status(filepath: Path) -> int:
     completed = sum(1 for v in md_checkboxes.values() if v)
     total = len(md_checkboxes)
 
-    print(f"Local:  {completed}/{total} ({100*completed//total if total else 0}%)")
+    print(f"Local:  {completed}/{total} ({100 * completed // total if total else 0}%)")
 
     # Fetch and parse GitHub checkboxes
     issue_body = get_issue_body(owner, repo, issue_num)
@@ -226,7 +249,9 @@ def cmd_status(filepath: Path) -> int:
         gh_checkboxes = parse_checkboxes(issue_body)
         gh_completed = sum(1 for v in gh_checkboxes.values() if v)
         gh_total = len(gh_checkboxes)
-        print(f"GitHub: {gh_completed}/{gh_total} ({100*gh_completed//gh_total if gh_total else 0}%)")
+        print(
+            f"GitHub: {gh_completed}/{gh_total} ({100 * gh_completed // gh_total if gh_total else 0}%)"
+        )
 
         # Show differences
         diffs = []
@@ -235,8 +260,12 @@ def cmd_status(filepath: Path) -> int:
             md_state = md_checkboxes.get(key)
             gh_state = gh_checkboxes.get(key)
             if md_state != gh_state:
-                md_mark = '[x]' if md_state else '[ ]' if md_state is not None else '---'
-                gh_mark = '[x]' if gh_state else '[ ]' if gh_state is not None else '---'
+                md_mark = (
+                    "[x]" if md_state else "[ ]" if md_state is not None else "---"
+                )
+                gh_mark = (
+                    "[x]" if gh_state else "[ ]" if gh_state is not None else "---"
+                )
                 diffs.append(f"  {key}: local={md_mark} github={gh_mark}")
 
         if diffs:
@@ -253,12 +282,16 @@ def cmd_status(filepath: Path) -> int:
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Sync markdown project files with GitHub epic issues'
+        description="Sync markdown project files with GitHub epic issues"
     )
-    parser.add_argument('command', choices=['push', 'pull', 'status'],
-                        help='push=md→GH, pull=GH→md, status=compare')
-    parser.add_argument('markdown_file', type=Path,
-                        help='Path to markdown project file')
+    parser.add_argument(
+        "command",
+        choices=["push", "pull", "status"],
+        help="push=md→GH, pull=GH→md, status=compare",
+    )
+    parser.add_argument(
+        "markdown_file", type=Path, help="Path to markdown project file"
+    )
 
     args = parser.parse_args()
 
@@ -266,13 +299,13 @@ def main():
         print(f"Error: {args.markdown_file} not found", file=sys.stderr)
         return 1
 
-    if args.command == 'push':
+    if args.command == "push":
         return cmd_push(args.markdown_file)
-    elif args.command == 'pull':
+    elif args.command == "pull":
         return cmd_pull(args.markdown_file)
-    elif args.command == 'status':
+    elif args.command == "status":
         return cmd_status(args.markdown_file)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main())
