@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT07415252
+reference_id: "clinicaltrials:NCT07415252"
 title: "A Phase III, Randomized, Double-blinded, Active-controlled, Multinational, Multicenter Study to Assess the Safety and Immunogenicity of a Two-dose Regimen of SKYVaricella® (NBP608) in Children Aged 12 Months to 12 Years"
 content_type: summary
 ---
