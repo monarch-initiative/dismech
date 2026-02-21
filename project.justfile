@@ -200,10 +200,24 @@ validate-terms-legacy:
 validate-graphs:
     uv run python -m dismech.graph --validate {{kb_dir}}
 
-# Run all QC checks (full validation on all files)
+# Run all QC checks (full validation + deep-research report checks)
 [group('QC')]
-qc: validate-all
+qc: validate-all qc-deep-research
     @echo "All QC checks passed!"
+
+# Deep research QC: provider coverage + citation/reference coverage
+[group('QC')]
+qc-deep-research *args="":
+    uv run python scripts/qc_deep_research.py {{args}}
+
+# Strict deep research QC (non-zero on provider/ref coverage gaps)
+[group('QC')]
+qc-deep-research-strict:
+    uv run python scripts/qc_deep_research.py \
+      --fail-on-second-provider \
+      --fail-on-missing-reference \
+      --fail-on-unresolved-cache \
+      --fail-on-holder-bucket
 
 # Analyze recommended field compliance for all disorder files
 [group('QC')]
@@ -611,6 +625,22 @@ fetch-reference +identifiers:
         echo "Fetching reference: $identifier"
         uv run linkml-reference-validator cache reference "$identifier"
     done
+
+# Generate a COHD-based association_signals YAML block for a concept pair.
+# Examples:
+#   just cohd-signal --concept-a 436672 --concept-b 80502
+#   just cohd-signal --query-a "disorder of copper metabolism" --query-b "osteoporosis" --show-candidates
+[group('Research')]
+cohd-signal *args="":
+    uv run python scripts/cohd_pair_to_signal.py {{args}}
+
+# Add a COHD association signal directly into a comorbidity YAML file.
+# Examples:
+#   just cohd-add-signal kb/comorbidities/com_Wilsons_Disease__Osteoporosis.yaml --concept-a 436672 --concept-b 80502 --replace-existing
+#   just cohd-add-signal kb/comorbidities/com_Wilsons_Disease__Osteoporosis.yaml --query-a "disorder of copper metabolism" --query-b "osteoporosis" --show-candidates
+[group('Research')]
+cohd-add-signal file *args="":
+    uv run python scripts/cohd_add_signal_to_comorbidity.py {{file}} {{args}}
 
 # ============== Classification Schemas ==============
 

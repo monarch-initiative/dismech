@@ -1557,6 +1557,14 @@ class AssociationMetricTypeEnum(str, Enum):
     """
     Incidence rate ratio
     """
+    CHI_SQUARE = "CHI_SQUARE"
+    """
+    Chi-square association statistic
+    """
+    LOG_OBS_EXP_RATIO = "LOG_OBS_EXP_RATIO"
+    """
+    Natural-log observed-to-expected co-occurrence ratio
+    """
     OTHER = "OTHER"
     """
     Other or unspecified metric
@@ -9700,6 +9708,11 @@ class AssociationSignal(ConfiguredBaseModel):
          'examples': [{'value': 'Global'}]} })
     demographics: Optional[Demographics] = Field(default=None, description="""Demographic stratification for an association signal""", json_schema_extra = { "linkml_meta": {'alias': 'demographics', 'domain_of': ['AssociationSignal']} })
     mapping_notes: Optional[str] = Field(default=None, description="""Notes on code-to-concept mapping decisions for this signal""", json_schema_extra = { "linkml_meta": {'alias': 'mapping_notes', 'domain_of': ['AssociationSignal']} })
+    disorder_a_count: Optional[int] = Field(default=None, description="""Number of records/patients carrying disorder A in the source dataset""", json_schema_extra = { "linkml_meta": {'alias': 'disorder_a_count', 'domain_of': ['AssociationSignal']} })
+    disorder_b_count: Optional[int] = Field(default=None, description="""Number of records/patients carrying disorder B in the source dataset""", json_schema_extra = { "linkml_meta": {'alias': 'disorder_b_count', 'domain_of': ['AssociationSignal']} })
+    pair_count: Optional[int] = Field(default=None, description="""Number of records/patients with co-occurrence of disorder A and disorder B in the source dataset""", json_schema_extra = { "linkml_meta": {'alias': 'pair_count', 'domain_of': ['AssociationSignal']} })
+    limited_precision: Optional[bool] = Field(default=None, description="""Whether the signal has limited statistical precision due to small co-occurrence count""", json_schema_extra = { "linkml_meta": {'alias': 'limited_precision', 'domain_of': ['AssociationSignal']} })
+    precision_count_threshold: Optional[int] = Field(default=None, description="""Co-occurrence count threshold used to flag limited precision""", json_schema_extra = { "linkml_meta": {'alias': 'precision_count_threshold', 'domain_of': ['AssociationSignal']} })
     directionality: Optional[ComorbidityDirectionEnum] = Field(default=None, description="""Direction of a comorbidity/trajectory association""", json_schema_extra = { "linkml_meta": {'alias': 'directionality',
          'domain_of': ['ComorbidityAssociation', 'AssociationSignal']} })
     a_before_b: Optional[float] = Field(default=None, description="""Probability or fraction of A before B in an EHR signal""", json_schema_extra = { "linkml_meta": {'alias': 'a_before_b', 'domain_of': ['AssociationSignal']} })
@@ -10404,4 +10417,3 @@ ComorbidityHypothesis.model_rebuild()
 UpstreamConditionHypothesis.model_rebuild()
 MechanisticHypothesis.model_rebuild()
 DiseaseCollection.model_rebuild()
-
