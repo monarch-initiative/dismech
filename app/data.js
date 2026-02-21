@@ -29438,6 +29438,104 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Raynaud Disease",
+    "disease_id": "MONDO:0008364",
+    "category": "Complex",
+    "parents": [
+      "Vascular Disorder"
+    ],
+    "creation_date": null,
+    "updated_date": null,
+    "subtypes": [
+      "Primary Raynaud Phenomenon",
+      "Secondary Raynaud Phenomenon"
+    ],
+    "description": "Raynaud disease (primary Raynaud phenomenon) is a vasospastic disorder characterized by episodic, excessive vasoconstriction of digital arteries and arterioles triggered by cold exposure or emotional stress. It manifests as triphasic color changes of the fingers and toes (pallor, cyanosis, erythema) reflecting vasospasm, deoxygenation, and reperfusion hyperemia. Primary Raynaud disease occurs without an underlying connective tissue disease and involves primarily functional vascular abnormalities. Secondary Raynaud phenomenon is associated with autoimmune conditions such as systemic sclerosis and involves both functional and structural vascular changes. The pathogenesis involves dysregulated neurovascular control, endothelial dysfunction, alpha-2C adrenoceptor-mediated vasoconstriction amplified by RhoA/ROCK signaling, and impaired nitric oxide-soluble guanylate cyclase-cGMP vasodilatory pathways.\n",
+    "pathophysiology": [
+      "Alpha-2C Adrenoceptor Cold-Induced Vasoconstriction",
+      "RhoA/ROCK Potentiation of Vasospasm",
+      "Estrogen Potentiation of Alpha-2C-AR",
+      "Endothelial Dysfunction",
+      "Sympathetic Nervous System Dysregulation",
+      "Intravascular and Platelet Abnormalities",
+      "Oxidative Stress and Ischemia-Reperfusion Injury"
+    ],
+    "cell_types": [
+      "Vascular Smooth Muscle Cell",
+      "Endothelial Cell",
+      "Sympathetic Neuron",
+      "Platelet"
+    ],
+    "cell_type_ids": [
+      "CL:0000359",
+      "CL:0000115",
+      "CL:0011103",
+      "CL:0000233"
+    ],
+    "biological_processes": [
+      "Vasoconstriction",
+      "Cellular Response to Cold",
+      "Vascular Smooth Muscle Contraction",
+      "Vasodilation",
+      "Nitric Oxide Biosynthesis",
+      "Temperature Homeostasis",
+      "Platelet Activation",
+      "Response to Oxidative Stress"
+    ],
+    "phenotypes": [
+      "Raynaud Phenomenon",
+      "Acrocyanosis",
+      "Digital Pain and Paresthesia",
+      "Digital Ulceration",
+      "Digital Ischemia"
+    ],
+    "phenotype_categories": [
+      "Vascular",
+      "Pain",
+      "Dermatological"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Integument",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0030880",
+      "HP:0001063",
+      "HP:0003401",
+      "HP:0031917",
+      "HP:0033402"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "VERY_RARE",
+      "FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Calcium Channel Blockers",
+      "Cold Avoidance and Protective Measures",
+      "Phosphodiesterase-5 Inhibitors",
+      "Prostacyclin Analogues",
+      "Endothelin Receptor Antagonists",
+      "Sympathectomy"
+    ],
+    "environmental": [
+      "Cold Exposure",
+      "Emotional Stress"
+    ],
+    "biochemical": [],
+    "source_file": "Raynaud_Disease.yaml",
+    "page_url": "../pages/disorders/Raynaud_Disease.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 7,
+    "num_genes": 0,
+    "num_treatments": 6,
+    "causal_graph_edges": "1",
+    "causal_graph_longest_path": "1"
+  },
+  {
     "name": "Refeeding Syndrome",
     "disease_id": "MONDO:0400005",
     "category": "Nutritional",
