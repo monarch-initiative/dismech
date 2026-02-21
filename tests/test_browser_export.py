@@ -3,7 +3,6 @@
 import tempfile
 from pathlib import Path
 
-import pytest
 import yaml
 
 from dismech.export.browser_export import BrowserExporter
@@ -80,7 +79,7 @@ def test_export_to_js_with_problematic_file():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir_path = Path(tmpdir)
         yaml_file = tmpdir_path / "test_disorder.yaml"
-        
+
         # Write a YAML file with null fields (simulating empty fields in YAML)
         with open(yaml_file, "w") as f:
             f.write("""name: Test Disorder
@@ -90,23 +89,23 @@ treatments:
 environmental:
 biochemical:
 """)
-        
+
         # Load it to verify it has None values
         with open(yaml_file) as f:
             data = yaml.safe_load(f)
         assert data["genetic"] is None
         assert data["treatments"] is None
-        
+
         # Now try to export it
         output_file = tmpdir_path / "output.js"
         exporter = BrowserExporter()
-        
+
         # This should not raise a TypeError
         exporter.export_to_js([yaml_file], output_file)
-        
+
         # Verify the output file was created
         assert output_file.exists()
-        
+
         # Verify the content is valid JavaScript
         with open(output_file) as f:
             content = f.read()

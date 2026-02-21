@@ -2883,6 +2883,125 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Atopic Dermatitis",
+    "disease_id": "MONDO:0004980",
+    "category": "Complex",
+    "parents": [
+      "Dermatological Disease",
+      "Chronic Inflammatory Disease",
+      "Allergic Disease"
+    ],
+    "creation_date": null,
+    "updated_date": null,
+    "subtypes": [
+      "Early-Onset Atopic Dermatitis",
+      "Adult-Onset Atopic Dermatitis",
+      "Extrinsic Atopic Dermatitis",
+      "Intrinsic Atopic Dermatitis"
+    ],
+    "description": "Loss-of-function mutations in filaggrin (FLG) and other barrier proteins lead to impaired skin barrier integrity, increased transepidermal water loss, and enhanced allergen penetration. This is the primary initiating event in many patients.",
+    "pathophysiology": [
+      "Epidermal Barrier Dysfunction",
+      "Type 2 Immune Response",
+      "Th17/Th22 Inflammation",
+      "Pruritogen-Induced Neuronal Activation",
+      "Scratching-Induced Barrier Injury",
+      "Secondary Inflammatory Amplification"
+    ],
+    "cell_types": [
+      "Keratinocyte",
+      "T-helper 2 cell",
+      "Group 2 innate lymphoid cell",
+      "Eosinophil",
+      "Mast cell",
+      "T-helper 17 cell",
+      "Sensory neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000312",
+      "CL:0000546",
+      "CL:0001069",
+      "CL:0000771",
+      "CL:0000097",
+      "CL:0000899",
+      "CL:0000101"
+    ],
+    "biological_processes": [
+      "Keratinization",
+      "Type 2 immune response",
+      "T-helper 2 cell differentiation",
+      "Interleukin-4-mediated signaling pathway",
+      "IgE isotype switching",
+      "T-helper 17 type immune response",
+      "Inflammatory response"
+    ],
+    "phenotypes": [
+      "Eczematoid Dermatitis",
+      "Pruritus",
+      "Xerosis",
+      "Lichenification",
+      "Elevated Serum IgE"
+    ],
+    "phenotype_categories": [
+      "Dermatological",
+      "Immunological"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cellular",
+      "Immune",
+      "Integument",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0000964",
+      "HP:0000989",
+      "HP:0000958",
+      "HP:0100725",
+      "HP:0003212"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "FLG",
+      "IL4R",
+      "IL13",
+      "STAT6",
+      "EMSY",
+      "BACH2",
+      "TNFAIP3",
+      "EGR2",
+      "ETS1",
+      "IRF4",
+      "SATB1",
+      "SMAD3",
+      "REL"
+    ],
+    "treatments": [
+      "Emollients and Moisturizers",
+      "Topical Corticosteroids",
+      "Dupilumab",
+      "JAK Inhibitors",
+      "Phototherapy"
+    ],
+    "environmental": [
+      "Allergen Exposure",
+      "Skin Irritants",
+      "Microbial Dysbiosis"
+    ],
+    "biochemical": [],
+    "source_file": "Atopic_Dermatitis.yaml",
+    "page_url": "../pages/disorders/Atopic_Dermatitis.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 6,
+    "num_genes": 13,
+    "num_treatments": 5,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Atrial Fibrillation",
     "disease_id": "MONDO:0004981",
     "category": "Complex",
@@ -4460,6 +4579,156 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Beta Thalassemia",
+    "disease_id": "MONDO:0019402",
+    "category": "Mendelian",
+    "parents": [
+      "Hematological Disease",
+      "Genetic Disease"
+    ],
+    "creation_date": null,
+    "updated_date": null,
+    "subtypes": [
+      "Beta Thalassemia Minor (Trait)",
+      "Beta Thalassemia Intermedia",
+      "Beta Thalassemia Major (Cooley Anemia)"
+    ],
+    "description": "Mutations in the HBB gene reduce or abolish beta-globin chain production. Beta-zero (beta0) mutations produce no beta-globin; beta-plus (beta+) mutations produce reduced amounts. Over 300 mutations have been identified, including point mutations, small deletions, and rarely large deletions.\n",
+    "pathophysiology": [
+      "Defective Beta-Globin Synthesis",
+      "Alpha-Globin Chain Excess",
+      "Ineffective Erythropoiesis",
+      "Chronic Hemolysis",
+      "Iron Overload",
+      "Fetal Hemoglobin Modulation"
+    ],
+    "cell_types": [
+      "erythroblast",
+      "erythroid progenitor cell",
+      "erythrocyte",
+      "macrophage",
+      "hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000765",
+      "CL:0000038",
+      "CL:0000232",
+      "CL:0000235",
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "hemoglobin biosynthetic process",
+      "response to oxidative stress",
+      "apoptotic process",
+      "erythrocyte differentiation",
+      "erythrocyte homeostasis",
+      "positive regulation of erythrocyte clearance",
+      "intracellular iron ion homeostasis",
+      "iron ion transport",
+      "regulation of hemoglobin biosynthetic process"
+    ],
+    "phenotypes": [
+      "Microcytic Hypochromic Anemia",
+      "Decreased Mean Corpuscular Volume",
+      "Reticulocytosis",
+      "Erythroid Hyperplasia",
+      "Persistence of Hemoglobin F",
+      "Target Cells",
+      "Extramedullary Hematopoiesis",
+      "Splenomegaly",
+      "Hepatomegaly",
+      "Cholelithiasis",
+      "Jaundice",
+      "Elevated Serum Ferritin",
+      "Cardiomyopathy",
+      "Pulmonary Hypertension",
+      "Frontal Bossing",
+      "Osteoporosis",
+      "Short Stature",
+      "Delayed Puberty"
+    ],
+    "phenotype_categories": [
+      "Hematological",
+      "Gastrointestinal",
+      "Metabolic",
+      "Cardiovascular",
+      "Skeletal",
+      "Growth",
+      "Endocrine"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Endocrine",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0004840",
+      "HP:0025066",
+      "HP:0001923",
+      "HP:0012132",
+      "HP:0011904",
+      "HP:0034280",
+      "HP:0001978",
+      "HP:0001744",
+      "HP:0002240",
+      "HP:0001081",
+      "HP:0000952",
+      "HP:0003281",
+      "HP:0001638",
+      "HP:0004890",
+      "HP:0002007",
+      "HP:0000939",
+      "HP:0004322",
+      "HP:0000823"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "HBB",
+      "BCL11A",
+      "KLF1",
+      "HBS1L-MYB"
+    ],
+    "treatments": [
+      "Regular Red Blood Cell Transfusions",
+      "Iron Chelation Therapy",
+      "Hydroxyurea",
+      "Splenectomy",
+      "Allogeneic Hematopoietic Stem Cell Transplantation",
+      "Luspatercept",
+      "Gene Therapy (Betibeglogene Autotemcel)",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Hemoglobin",
+      "HbA2",
+      "HbF",
+      "Serum Ferritin",
+      "Indirect Bilirubin",
+      "Reticulocytes"
+    ],
+    "source_file": "Beta_Thalassemia.yaml",
+    "page_url": "../pages/disorders/Beta_Thalassemia.html",
+    "num_phenotypes": 18,
+    "num_pathophysiology": 6,
+    "num_genes": 4,
+    "num_treatments": 8,
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Bipolar Disorder",
@@ -6209,6 +6478,86 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Chickenpox",
+    "disease_id": "MONDO:0005700",
+    "category": "Infectious",
+    "parents": [
+      "Viral exanthem",
+      "Herpesvirus infection"
+    ],
+    "creation_date": "2026-02-18T19:08:31Z",
+    "updated_date": "2026-02-19T17:50:34Z",
+    "subtypes": [],
+    "description": "Chickenpox (varicella) is a highly contagious acute primary infection caused by varicella-zoster virus (VZV, human herpesvirus 3). It is characterized by a generalized pruritic vesicular rash, fever, and malaise. Transmission occurs via respiratory droplets and direct contact with vesicle fluid. After primary infection, VZV establishes lifelong latency in sensory ganglia and may reactivate as herpes zoster (shingles). While typically self-limited in immunocompetent children, chickenpox can cause serious complications including pneumonia, encephalitis, and bacterial superinfection, particularly in neonates, adults, pregnant women, and immunocompromised individuals. Universal childhood vaccination has dramatically reduced incidence, morbidity, and mortality in countries with established vaccination programs.\n",
+    "pathophysiology": [
+      "Primary VZV infection via respiratory mucosa",
+      "T-cell-associated viremia and systemic dissemination",
+      "Cutaneous vesicle formation",
+      "Establishment of latency in sensory ganglia"
+    ],
+    "cell_types": [
+      "T cell",
+      "Keratinocyte",
+      "Sensory neuron of dorsal root ganglion"
+    ],
+    "cell_type_ids": [
+      "CL:0000084",
+      "CL:0000312",
+      "CL:1001451"
+    ],
+    "biological_processes": [
+      "Defense response to virus",
+      "Viral genome replication",
+      "Establishment of viral latency"
+    ],
+    "phenotypes": [
+      "Vesicular exanthem",
+      "Fever",
+      "Pruritus",
+      "Malaise"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Immune",
+      "Integument",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0033697",
+      "HP:0001945",
+      "HP:0000989",
+      "HP:0033834"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Varicella vaccination",
+      "Antiviral therapy",
+      "Supportive care"
+    ],
+    "environmental": [
+      "Seasonal variation",
+      "Immunosuppression",
+      "Overcrowded living conditions"
+    ],
+    "biochemical": [
+      "VZV-specific IgM",
+      "VZV-specific IgG"
+    ],
+    "source_file": "Chickenpox.yaml",
+    "page_url": "../pages/disorders/Chickenpox.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 4,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "3",
+    "causal_graph_longest_path": "2"
+  },
+  {
     "name": "Chikungunya",
     "disease_id": "MONDO:0017941",
     "category": "Infectious Disease",
@@ -7238,16 +7587,22 @@ window.searchData = [
       "Healthcare-associated infections"
     ],
     "creation_date": "2025-12-19T01:18:09Z",
-    "updated_date": "2026-02-16T20:19:38Z",
-    "subtypes": [],
+    "updated_date": "2026-02-19T17:30:29Z",
+    "subtypes": [
+      "Acute Clostridioides difficile infection",
+      "Recurrent Clostridioides difficile infection",
+      "Non-colitic C. difficile infection (carrier state or diarrheal disease)"
+    ],
     "description": "Broad-spectrum antibiotics (especially fluoroquinolones, clindamycin, cephalosporins) cause indiscriminate killing of gut commensals, dramatically reducing microbial diversity and biomass. This creates ecological opportunity for C. difficile colonization.\n",
     "pathophysiology": [
       "Antibiotic-Induced Microbial Depletion",
       "Loss of Colonization Resistance",
       "Loss of Secondary Bile Acid Production",
+      "Bile Acid-Mediated TcdB Buffering Failure",
       "C. difficile Germination and Expansion",
       "Toxin Production (TcdA/TcdB)",
       "Epithelial Cell Death and Barrier Disruption",
+      "Binary Toxin (CDT)-Associated Inflammatory Signaling",
       "Neutrophil Recruitment and Inflammation",
       "Pseudomembranous Colitis"
     ],
@@ -7266,18 +7621,30 @@ window.searchData = [
     "phenotypes": [
       "Diarrhea",
       "Abdominal pain",
-      "Fever"
+      "Fever",
+      "Nausea",
+      "Vomiting",
+      "Pseudomembranous colitis",
+      "Toxic megacolon",
+      "Septic shock"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
+      "Cardiovascular",
       "Constitutional",
       "Digestive",
+      "Immune",
       "Metabolism"
     ],
     "phenotype_ids": [
       "HP:0002014",
       "HP:0002027",
-      "HP:0001945"
+      "HP:0001945",
+      "HP:0002018",
+      "HP:0002013",
+      "HP:0002583",
+      "HP:6000852",
+      "HP:0031273"
     ],
     "frequencies": [],
     "genes": [],
@@ -7294,12 +7661,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Clostridioides_difficile_Infection.yaml",
     "page_url": "../pages/disorders/Clostridioides_difficile_Infection.html",
-    "num_phenotypes": 3,
-    "num_pathophysiology": 8,
+    "num_phenotypes": 8,
+    "num_pathophysiology": 10,
     "num_genes": 0,
     "num_treatments": 5,
-    "causal_graph_edges": "9",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Cogan Syndrome",
@@ -12555,6 +12922,85 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "6",
     "causal_graph_longest_path": "1"
+  },
+  {
+    "name": "Furunculosis",
+    "disease_id": "MONDO:0100595",
+    "category": "Infectious Disease",
+    "parents": [
+      "Bacterial Infection",
+      "Skin and soft tissue infection"
+    ],
+    "creation_date": "2026-02-18T23:25:35Z",
+    "updated_date": "2026-02-19T14:59:54Z",
+    "subtypes": [],
+    "description": "Furunculosis is a recurrent deep follicular infection with localized abscess (boil) formation, usually caused by Staphylococcus aureus. The condition is closely linked to persistent colonization reservoirs and virulence factors, including Panton-Valentine leukocidin (PVL), that promote recurrence and severe suppurative disease.\n",
+    "pathophysiology": [
+      "Colonization reservoir and follicular inoculation",
+      "PVL-associated neutrophilic abscess injury",
+      "Adhesin-enriched follicular attachment",
+      "Single-species biofilm establishment in chronic furunculosis lesions",
+      "MSSA-dominant persistent virulence reservoir",
+      "Early keratinocyte-neutrophil innate immune activation",
+      "Dendritic-cell and T-cell adaptive immune phase",
+      "Immune dysregulation sustaining recurrent furunculosis"
+    ],
+    "cell_types": [
+      "keratinocyte",
+      "neutrophil",
+      "dendritic cell",
+      "T cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000312",
+      "CL:0000775",
+      "CL:0000451",
+      "CL:0000084"
+    ],
+    "biological_processes": [
+      "innate immune response",
+      "neutrophil activation",
+      "cell adhesion involved in biofilm formation",
+      "biofilm formation",
+      "single-species biofilm formation",
+      "activation of innate immune response",
+      "adaptive immune response",
+      "regulation of T cell differentiation"
+    ],
+    "phenotypes": [
+      "Furuncle",
+      "Recurrent cutaneous abscess formation"
+    ],
+    "phenotype_categories": [
+      "Dermatologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Immune",
+      "Integument"
+    ],
+    "phenotype_ids": [
+      "HP:0020083",
+      "HP:0100838"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Anti-staphylococcal antibiotic therapy",
+      "Decolonization with intranasal mupirocin and antiseptic body cleansing"
+    ],
+    "environmental": [
+      "Close contact with affected individuals",
+      "Persistent asymptomatic S. aureus carriage"
+    ],
+    "biochemical": [],
+    "source_file": "Furunculosis.yaml",
+    "page_url": "../pages/disorders/Furunculosis.html",
+    "num_phenotypes": 2,
+    "num_pathophysiology": 8,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Galactosemia",
@@ -20648,6 +21094,112 @@ window.searchData = [
     "num_treatments": 7,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Malaria",
+    "disease_id": "MONDO:0005136",
+    "category": "Infectious",
+    "parents": [
+      "protozoal infectious disease",
+      "vector-borne disease"
+    ],
+    "creation_date": "2026-02-20T00:00:00Z",
+    "updated_date": "2026-02-20T16:02:29Z",
+    "subtypes": [
+      "Plasmodium falciparum malaria",
+      "Plasmodium vivax malaria",
+      "Cerebral malaria",
+      "Recurrent vivax malaria"
+    ],
+    "description": "Malaria is a mosquito-borne protozoal infection caused by Plasmodium species, with major global burden from Plasmodium falciparum and Plasmodium vivax. Clinical disease is driven by blood-stage parasitemia, while severe falciparum syndromes involve microvascular sequestration and organ dysfunction, and vivax disease is complicated by relapse from dormant liver hypnozoites.",
+    "pathophysiology": [
+      "Infected erythrocyte sequestration and cytoadherence",
+      "Blood-brain barrier dysfunction in cerebral malaria",
+      "EPCR-associated endothelial pathology",
+      "Cerebrovascular CD8-positive T-cell engagement",
+      "ABO-dependent rosetting and severe malaria risk",
+      "Hypnozoite persistence and vivax relapse"
+    ],
+    "cell_types": [
+      "erythrocyte",
+      "endothelial cell",
+      "T cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000232",
+      "CL:0000115",
+      "CL:0000084"
+    ],
+    "biological_processes": [
+      "cell adhesion",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Chills",
+      "Headache",
+      "Vomiting",
+      "Myalgia",
+      "Anemia",
+      "Thrombocytopenia",
+      "Splenomegaly",
+      "Coma",
+      "Seizure"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Immune",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0025143",
+      "HP:0002315",
+      "HP:0002013",
+      "HP:0003326",
+      "HP:0001903",
+      "HP:0001873",
+      "HP:0001744",
+      "HP:0001259",
+      "HP:0001250"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "HBB (HbS trait)",
+      "G6PD",
+      "ACKR1 (Duffy antigen receptor for chemokines)",
+      "HBB (HbC)",
+      "HBA1/HBA2 (alpha-thalassemia)",
+      "HBB (beta-thalassemia trait)",
+      "ABO"
+    ],
+    "treatments": [
+      "Artemisinin-based antimalarial therapy",
+      "Primaquine radical cure for vivax malaria",
+      "Supportive care in severe malaria",
+      "Insecticide-treated bed nets",
+      "Intermittent preventive treatment and seasonal chemoprevention",
+      "Pre-erythrocytic malaria vaccination (RTS,S and R21)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Malaria.yaml",
+    "page_url": "../pages/disorders/Malaria.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 6,
+    "num_genes": 7,
+    "num_treatments": 6,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Malignant Mesothelioma",
@@ -32200,6 +32752,84 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Taurodontism",
+    "disease_id": "MONDO:0010098",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "tooth disorder"
+    ],
+    "creation_date": "2026-02-20T13:49:27Z",
+    "updated_date": "2026-02-20T15:02:30Z",
+    "subtypes": [
+      "Hypotaurodontism",
+      "Mesotaurodontism",
+      "Hypertaurodontism"
+    ],
+    "description": "Taurodontism is a developmental dental anomaly of multirooted teeth defined by enlarged pulp chambers, apical displacement of the pulpal floor, and reduced cervical constriction. It is observed as an isolated trait and in syndromic contexts, with documented genetic associations involving WNT10A-, DLX3-, and KCTD1-related disorders and emerging mechanistic evidence for Axin1-AKT1-mTORC1-Shh dysregulation in Hertwig epithelial root sheath.",
+    "pathophysiology": [
+      "Failed invagination of Hertwig epithelial root sheath diaphragm",
+      "Epithelial WNT10A-dependent root furcation failure",
+      "WNT10A-associated molar crown and root dysmorphology in humans",
+      "Axin1-AKT1-mTORC1-Shh translational dysregulation in HERS",
+      "KCTD1-associated WNT-SHH-BMP signaling perturbation"
+    ],
+    "cell_types": [
+      "epithelial cell",
+      "odontoblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000066",
+      "CL:0000060"
+    ],
+    "biological_processes": [
+      "odontogenesis",
+      "epithelial cell proliferation",
+      "regulation of translation"
+    ],
+    "phenotypes": [
+      "Taurodontia",
+      "Abnormal dental pulp morphology",
+      "Abnormal dental root morphology",
+      "Tooth agenesis",
+      "Supernumerary tooth"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Head and Neck"
+    ],
+    "phenotype_ids": [
+      "HP:0000679",
+      "HP:0006479",
+      "HP:0006486",
+      "HP:0009804",
+      "HP:0011069"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "WNT10A",
+      "DLX3",
+      "KCTD1",
+      "AXIN1"
+    ],
+    "treatments": [
+      "Endodontic treatment with canal-focused planning"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Taurodontism.yaml",
+    "page_url": "../pages/disorders/Taurodontism.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 5,
+    "num_genes": 4,
+    "num_treatments": 1,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "1"
   },
   {
     "name": "Tay-Sachs Disease",
