@@ -8,12 +8,11 @@ import csv
 import glob
 import os
 import re
-import sys
 import time
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Set
+from typing import Any, Dict, List, Mapping, Set
 
 import yaml
 
@@ -185,7 +184,7 @@ def citation_ref_map(research_dir: str) -> Dict[str, Dict[str, Set[str]]]:
         if not match:
             continue
         disorder = match.group("name")
-        research_file = filename.removesuffix('.citations.md')
+        research_file = filename.removesuffix(".citations.md")
         text = Path(path).read_text(encoding="utf-8", errors="ignore")
         for ref in extract_refs(text):
             refs[disorder][ref].add(research_file)
@@ -316,9 +315,7 @@ def main() -> int:
         providers = provider_map.get(disorder, set())
         target_count = len(providers.intersection(target_provider_set))
         has_research = len(providers) > 0
-        second_ok = (not has_research) or (
-            len(providers) >= 2 and target_count >= 1
-        )
+        second_ok = (not has_research) or (len(providers) >= 2 and target_count >= 1)
 
         cited_ref_to_files = citation_map.get(disorder, {})
         cited_refs = set(cited_ref_to_files.keys())
