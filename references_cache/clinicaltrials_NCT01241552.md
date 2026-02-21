@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT01241552
+reference_id: "clinicaltrials:NCT01241552"
 title: "A Phase III, Randomized, Double-Blind, Placebo-Controlled, Adaptive Design Study of the Efficacy, Safety, and Tolerability of a Single Infusion of MK-3415 (Human Monoclonal Antibody to Clostridium Difficile Toxin A), MK-6072 (Human Monoclonal Antibody to Clostridium Difficile Toxin B), and MK-3415A (Human Monoclonal Antibodies to Clostridium Difficile Toxin A and Toxin B) in Patients Receiving Antibiotic Therapy for Clostridium Difficile Infection (MODIFY I)"
 content_type: summary
 ---

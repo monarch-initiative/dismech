@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT00513799
+reference_id: "clinicaltrials:NCT00513799"
 title: The Natural History of Community-Associated Methicillin-Resistant Staphylococcus Aureus (CA-MRSA) Infections and an Evaluation of Decolonization Strategies
 content_type: summary
 ---
