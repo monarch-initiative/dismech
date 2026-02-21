@@ -4604,6 +4604,7 @@ class PublicationReference(ConfiguredBaseModel):
     title: Optional[str] = Field(default=None, description="""Title of the publication""", json_schema_extra = { "linkml_meta": {'alias': 'title',
          'domain_of': ['Dataset', 'PublicationReference'],
          'implements': ['linkml:title']} })
+    found_in: Optional[list[str]] = Field(default=None, description="""Deep-research output files where this reference was cited""", json_schema_extra = { "linkml_meta": {'alias': 'found_in', 'domain_of': ['PublicationReference']} })
     findings: Optional[list[Finding]] = Field(default=None, description="""Key findings or claims extracted from this source (publication or dataset)""", json_schema_extra = { "linkml_meta": {'alias': 'findings',
          'domain_of': ['Dataset', 'ComputationalModel', 'PublicationReference']} })
 
@@ -10417,3 +10418,4 @@ ComorbidityHypothesis.model_rebuild()
 UpstreamConditionHypothesis.model_rebuild()
 MechanisticHypothesis.model_rebuild()
 DiseaseCollection.model_rebuild()
+

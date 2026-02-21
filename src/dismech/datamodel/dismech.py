@@ -1,5 +1,5 @@
 # Auto generated from dismech.yaml by pythongen.py version: 0.0.1
-# Generation date: 2026-02-18T15:38:30
+# Generation date: 2026-02-20T19:16:22
 # Schema: dismech
 #
 # id: https://w3id.org/monarch-initiative/dismech
@@ -1497,6 +1497,7 @@ class PublicationReference(YAMLRoot):
 
     reference: Union[str, PublicationReferenceReference] = None
     title: Optional[str] = None
+    found_in: Optional[Union[str, list[str]]] = empty_list()
     findings: Optional[Union[Union[dict, "Finding"], list[Union[dict, "Finding"]]]] = empty_list()
 
     def __post_init__(self, *_: str, **kwargs: Any):
@@ -1507,6 +1508,10 @@ class PublicationReference(YAMLRoot):
 
         if self.title is not None and not isinstance(self.title, str):
             self.title = str(self.title)
+
+        if not isinstance(self.found_in, list):
+            self.found_in = [self.found_in] if self.found_in is not None else []
+        self.found_in = [v if isinstance(v, str) else str(v) for v in self.found_in]
 
         if not isinstance(self.findings, list):
             self.findings = [self.findings] if self.findings is not None else []
@@ -3595,7 +3600,7 @@ class AssociationSignal(YAMLRoot):
     disorder_a_count: Optional[int] = None
     disorder_b_count: Optional[int] = None
     pair_count: Optional[int] = None
-    limited_precision: Optional[bool] = None
+    limited_precision: Optional[Union[bool, Bool]] = None
     precision_count_threshold: Optional[int] = None
     directionality: Optional[Union[str, "ComorbidityDirectionEnum"]] = None
     a_before_b: Optional[float] = None
@@ -3638,8 +3643,8 @@ class AssociationSignal(YAMLRoot):
         if self.pair_count is not None and not isinstance(self.pair_count, int):
             self.pair_count = int(self.pair_count)
 
-        if self.limited_precision is not None and not isinstance(self.limited_precision, bool):
-            self.limited_precision = bool(self.limited_precision)
+        if self.limited_precision is not None and not isinstance(self.limited_precision, Bool):
+            self.limited_precision = Bool(self.limited_precision)
 
         if self.precision_count_threshold is not None and not isinstance(self.precision_count_threshold, int):
             self.precision_count_threshold = int(self.precision_count_threshold)
@@ -5684,6 +5689,9 @@ slots.supporting_text = Slot(uri=DISMECH.supporting_text, name="supporting_text"
 slots.title = Slot(uri=DISMECH.title, name="title", curie=DISMECH.curie('title'),
                    model_uri=DISMECH.title, domain=None, range=Optional[str])
 
+slots.found_in = Slot(uri=DISMECH.found_in, name="found_in", curie=DISMECH.curie('found_in'),
+                   model_uri=DISMECH.found_in, domain=None, range=Optional[Union[str, list[str]]])
+
 slots.subtype = Slot(uri=DISMECH.subtype, name="subtype", curie=DISMECH.curie('subtype'),
                    model_uri=DISMECH.subtype, domain=None, range=Optional[str])
 
@@ -6284,7 +6292,7 @@ slots.pair_count = Slot(uri=DISMECH.pair_count, name="pair_count", curie=DISMECH
                    model_uri=DISMECH.pair_count, domain=None, range=Optional[int])
 
 slots.limited_precision = Slot(uri=DISMECH.limited_precision, name="limited_precision", curie=DISMECH.curie('limited_precision'),
-                   model_uri=DISMECH.limited_precision, domain=None, range=Optional[bool])
+                   model_uri=DISMECH.limited_precision, domain=None, range=Optional[Union[bool, Bool]])
 
 slots.precision_count_threshold = Slot(uri=DISMECH.precision_count_threshold, name="precision_count_threshold", curie=DISMECH.curie('precision_count_threshold'),
                    model_uri=DISMECH.precision_count_threshold, domain=None, range=Optional[int])
