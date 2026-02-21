@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT03183128
+reference_id: "clinicaltrials:NCT03183128"
 title: "A Phase 3 Multicenter, RandomizeEd, Double Blind, Placebo COntrolled, Parallel Group Study to Evaluate the Safety, Tolerability, & Efficacy of SER-109 vs. Placebo to Reduce Recurrence of ClOstRidium Difficile Infection (CDI) in Adults"
 content_type: summary
 ---
