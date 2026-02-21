@@ -34,7 +34,7 @@ def format_curation_summary(
 ) -> str:
     """Format a curation with its GO mappings for display."""
     lines = [
-        f"\n{'='*80}",
+        f"\n{'=' * 80}",
         f"Gene: {curation.gene_symbol} ({curation.gene_hgnc_id})",
         f"Disease: {curation.disease_label} ({curation.disease_mondo_id})",
         f"Classification: {curation.classification}",
@@ -135,7 +135,7 @@ def search(
     results = []
 
     with ClinGenClient(cache_dir=cache_dir, rate_limit_delay=rate_limit) as client:
-        typer.echo(f"Downloading ClinGen gene-disease validity curations...", err=True)
+        typer.echo("Downloading ClinGen gene-disease validity curations...", err=True)
 
         count = 0
         processed = 0
@@ -218,71 +218,77 @@ def search(
     if output_format == "json":
         json_results = []
         for curation, mappings in results:
-            json_results.append({
-                "gene_symbol": curation.gene_symbol,
-                "gene_hgnc_id": curation.gene_hgnc_id,
-                "disease_label": curation.disease_label,
-                "disease_mondo_id": curation.disease_mondo_id,
-                "classification": curation.classification,
-                "expert_panel": curation.expert_panel,
-                "curation_id": curation.curation_id,
-                "report_url": curation.report_url,
-                "go_mappings": [
-                    {
-                        "go_id": m.go_id,
-                        "go_label": m.go_label,
-                        "mapping_type": m.mapping_type,
-                        "confidence": m.confidence,
-                        "evidence_category": m.evidence_category,
-                    }
-                    for m in mappings
-                ],
-                "experimental_evidence": (
-                    {
-                        "total_points": curation.experimental_evidence.total_points,
-                        "categories": [
-                            {
-                                "category": e.category,
-                                "explanation": e.explanation,
-                                "pmids": e.pmids,
-                            }
-                            for e in curation.experimental_evidence.function_evidence
-                        ],
-                    }
-                    if curation.experimental_evidence
-                    else None
-                ),
-            })
+            json_results.append(
+                {
+                    "gene_symbol": curation.gene_symbol,
+                    "gene_hgnc_id": curation.gene_hgnc_id,
+                    "disease_label": curation.disease_label,
+                    "disease_mondo_id": curation.disease_mondo_id,
+                    "classification": curation.classification,
+                    "expert_panel": curation.expert_panel,
+                    "curation_id": curation.curation_id,
+                    "report_url": curation.report_url,
+                    "go_mappings": [
+                        {
+                            "go_id": m.go_id,
+                            "go_label": m.go_label,
+                            "mapping_type": m.mapping_type,
+                            "confidence": m.confidence,
+                            "evidence_category": m.evidence_category,
+                        }
+                        for m in mappings
+                    ],
+                    "experimental_evidence": (
+                        {
+                            "total_points": curation.experimental_evidence.total_points,
+                            "categories": [
+                                {
+                                    "category": e.category,
+                                    "explanation": e.explanation,
+                                    "pmids": e.pmids,
+                                }
+                                for e in curation.experimental_evidence.function_evidence
+                            ],
+                        }
+                        if curation.experimental_evidence
+                        else None
+                    ),
+                }
+            )
         json.dump(json_results, output, indent=2)
 
     elif output_format == "csv":
         writer = csv.writer(output)
-        writer.writerow([
-            "gene_symbol",
-            "gene_hgnc_id",
-            "disease_label",
-            "disease_mondo_id",
-            "classification",
-            "go_id",
-            "go_label",
-            "mapping_type",
-            "confidence",
-            "evidence_category",
-        ])
+        writer.writerow(
+            [
+                "gene_symbol",
+                "gene_hgnc_id",
+                "disease_label",
+                "disease_mondo_id",
+                "classification",
+                "go_id",
+                "go_label",
+                "mapping_type",
+                "confidence",
+                "evidence_category",
+            ]
+        )
         for curation, mappings in results:
             for mapping in mappings:
-                writer.writerow([
-                    curation.gene_symbol,
-                    curation.gene_hgnc_id,
-                    curation.disease_label,
-                    curation.disease_mondo_id,
-                    curation.classification,
-                    mapping.go_id,
-                    mapping.go_label,
-                    mapping.mapping_type,
-                    mapping.confidence,
-                    mapping.evidence_category,
-                ])
+                writer.writerow(
+                    [
+                        curation.gene_symbol,
+                        curation.gene_hgnc_id,
+                        curation.disease_label,
+                        curation.disease_mondo_id,
+                        curation.classification,
+                        mapping.go_id,
+                        mapping.go_label,
+                        mapping.mapping_type,
+                        mapping.confidence,
+                        mapping.evidence_category,
+                    ]
+                )
 
     else:  # text format
         for curation, mappings in results:
@@ -434,10 +440,12 @@ def compare_go(
         typer.echo(f"  {m.go_id} - {m.go_label} [{m.mapping_type}:{m.confidence}]")
 
     # Fetch actual GO annotations
-    typer.echo(f"\nFetching actual GO annotations from QuickGO...")
+    typer.echo("\nFetching actual GO annotations from QuickGO...")
 
     with GOAnnotationFetcher() as fetcher:
-        evidence_codes = get_experimental_evidence_codes() if experimental_only else None
+        evidence_codes = (
+            get_experimental_evidence_codes() if experimental_only else None
+        )
         annotations = fetcher.get_annotations_for_gene(
             gene_symbol,
             hgnc_id=curation.gene_hgnc_id,
@@ -484,7 +492,9 @@ def compare_go(
 
 @app.command()
 def fetch_go(
-    gene_symbol: str = typer.Argument(..., help="Gene symbol to fetch GO annotations for"),
+    gene_symbol: str = typer.Argument(
+        ..., help="Gene symbol to fetch GO annotations for"
+    ),
     experimental_only: bool = typer.Option(
         True,
         "--experimental-only",
@@ -496,7 +506,9 @@ def fetch_go(
     typer.echo(f"Fetching GO annotations for {gene_symbol}...")
 
     with GOAnnotationFetcher() as fetcher:
-        evidence_codes = get_experimental_evidence_codes() if experimental_only else None
+        evidence_codes = (
+            get_experimental_evidence_codes() if experimental_only else None
+        )
         annotations = fetcher.get_annotations_for_gene(
             gene_symbol,
             evidence_codes=evidence_codes,
