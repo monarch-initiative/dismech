@@ -15,6 +15,10 @@ Each disorder page includes:
 
 ## How It Works
 
+### Project Overview Slides
+
+- [Dismech presentation slides from February 2026](https://docs.google.com/presentation/d/1XrbLle8gVQQcoT8IzpIfll4VnUl_68mQVTa6cIzN2vs/edit?usp=sharing)
+
 ### Source of Truth: YAML Files
 
 The knowledge base is stored as structured YAML files in `kb/disorders/`. Each disorder has its own file (e.g., `Asthma.yaml`) containing:
