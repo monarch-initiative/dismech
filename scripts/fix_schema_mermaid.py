@@ -50,7 +50,7 @@ def fix_file(path: Path) -> bool:
 
 
 def main() -> None:
-    root = Path("docs/elements")
+    root = Path("docs/schema")
     if not root.exists():
         return
 
