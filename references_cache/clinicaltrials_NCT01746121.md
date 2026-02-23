@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT01746121
+reference_id: "clinicaltrials:NCT01746121"
 title: Clinical and Molecular Study of Amelogenesis Imperfecta
 content_type: summary
 ---

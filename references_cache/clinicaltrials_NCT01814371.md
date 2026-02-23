@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT01814371
+reference_id: "clinicaltrials:NCT01814371"
 title: Individualized vs. Household Eradication of MRSA in Households With Children
 content_type: summary
 ---
