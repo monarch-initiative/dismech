@@ -467,10 +467,20 @@ gen-comorbidity-page file:
 gen-comorbidity-pages:
     uv run python -m dismech.render --comorbidity {{comorbidity_dir}}
 
+# Generate static schema docs site via MkDocs (served at /elements/)
+[group('Pages')]
+gen-schema-docs:
+    just gen-doc
+    # Normalize LinkML-generated mermaid cardinalities (e.g., "* _recommended_")
+    # that break Mermaid v11 parsing in class diagrams.
+    uv run python scripts/fix_schema_mermaid.py
+    uv run mkdocs build --clean
+    @echo "Generated schema docs in elements/"
+
 # Generate all pages and browser data
 [group('Pages')]
-gen-all: gen-browser-data gen-pages
-    @echo "Generated browser data, disorder pages, and comorbidity pages"
+gen-all: gen-browser-data gen-pages gen-schema-docs
+    @echo "Generated browser data, disorder/comorbidity pages, and schema docs"
 
 # ============== KGX Export ==============
 
