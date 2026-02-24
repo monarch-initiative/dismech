@@ -673,6 +673,12 @@ validate-classifications:
 validate-classification file:
     uv run linkml-term-validator validate-schema {{file}} -c {{oak_config}}
 
+# Semantic YAML diff between two git refs
+# Example: just sdiff main my-branch --dir kb/disorders --summary
+[group('QC')]
+sdiff ref_old ref_new *args="":
+    uv run python -m dismech.diff git {{ref_old}} {{ref_new}} {{args}}
+
 # ============== Epic Issue Sync ==============
 
 # Project files are in projects/ with ALL_CAPS names (e.g., CANCER.md, NTD.md)
