@@ -22,8 +22,8 @@ Alias: creation_date
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Disease](Disease.md) |  |  yes  |
 | [ComorbidityAssociation](ComorbidityAssociation.md) | An association between two conditions, including directionality, evidence, an... |  yes  |
+| [Disease](Disease.md) |  |  yes  |
 
 
 

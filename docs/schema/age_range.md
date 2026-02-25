@@ -23,8 +23,8 @@ Alias: age_range
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
 | [PhenotypeContext](PhenotypeContext.md) | A context-specific annotation qualifying how a phenotype manifests under part... |  no  |
-| [Demographics](Demographics.md) | Demographic stratification for an association signal |  no  |
 | [ProgressionInfo](ProgressionInfo.md) |  |  no  |
+| [Demographics](Demographics.md) | Demographic stratification for an association signal |  no  |
 
 
 

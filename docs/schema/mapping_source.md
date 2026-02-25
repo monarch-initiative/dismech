@@ -23,9 +23,9 @@ Alias: mapping_source
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
 | [TermMapping](TermMapping.md) | Mapping from this disease entry to an external term or code |  no  |
-| [ICD10CMMapping](ICD10CMMapping.md) | ICD-10-CM diagnosis code mapping |  no  |
-| [ICD11FMapping](ICD11FMapping.md) | ICD-11 Foundation diagnosis code mapping |  no  |
 | [MondoMapping](MondoMapping.md) | MONDO disease ontology mapping |  no  |
+| [ICD11FMapping](ICD11FMapping.md) | ICD-11 Foundation diagnosis code mapping |  no  |
+| [ICD10CMMapping](ICD10CMMapping.md) | ICD-10-CM diagnosis code mapping |  no  |
 
 
 

@@ -17,10 +17,10 @@ Alias: presence
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Environmental](Environmental.md) | An environmental factor, exposure, or context relevant to disease |  no  |
+| [Biochemical](Biochemical.md) |  |  no  |
 | [Diagnosis](Diagnosis.md) |  |  no  |
 | [Genetic](Genetic.md) |  |  no  |
-| [Biochemical](Biochemical.md) |  |  no  |
+| [Environmental](Environmental.md) | An environmental factor, exposure, or context relevant to disease |  no  |
 
 
 

@@ -18,10 +18,10 @@ Alias: genes
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
 | [Pathophysiology](Pathophysiology.md) |  |  no  |
-| [AnimalModel](AnimalModel.md) |  |  no  |
 | [Dataset](Dataset.md) | A reference to a publicly available omics or phenotype dataset |  no  |
 | [Subtype](Subtype.md) |  |  no  |
 | [GeneticContext](GeneticContext.md) | A structured description of a genetic context that modifies phenotype frequen... |  no  |
+| [AnimalModel](AnimalModel.md) |  |  no  |
 
 
 

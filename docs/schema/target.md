@@ -22,8 +22,8 @@ Alias: target
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [TreatmentMechanismTarget](TreatmentMechanismTarget.md) | Links a treatment to a specific pathophysiology mechanism node it targets |  yes  |
 | [CausalEdge](CausalEdge.md) | A reference to a downstream effect or consequence in a causal relationship |  no  |
+| [TreatmentMechanismTarget](TreatmentMechanismTarget.md) | Links a treatment to a specific pathophysiology mechanism node it targets |  yes  |
 
 
 

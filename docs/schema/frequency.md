@@ -17,12 +17,12 @@ Alias: frequency
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Pathophysiology](Pathophysiology.md) |  |  no  |
-| [Biochemical](Biochemical.md) |  |  no  |
 | [PhenotypeContext](PhenotypeContext.md) | A context-specific annotation qualifying how a phenotype manifests under part... |  no  |
-| [Genetic](Genetic.md) |  |  no  |
 | [Phenotype](Phenotype.md) |  |  no  |
+| [Pathophysiology](Pathophysiology.md) |  |  no  |
 | [HistopathologyFinding](HistopathologyFinding.md) | A histopathologic finding from microscopic examination of tissue |  yes  |
+| [Biochemical](Biochemical.md) |  |  no  |
+| [Genetic](Genetic.md) |  |  no  |
 
 
 
