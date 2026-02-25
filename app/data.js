@@ -106,7 +106,7 @@ window.searchData = [
       "non-small cell lung carcinoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-01-26T04:02:22Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "EML4-ALK NSCLC",
       "Non-EML4 ALK Fusion NSCLC"
@@ -395,7 +395,7 @@ window.searchData = [
       "Lethal Skeletal Dysplasia"
     ],
     "creation_date": "2026-02-06T03:25:37Z",
-    "updated_date": "2026-02-06T17:04:58Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Achondrogenesis type II (ACG2), also known as Langer-Saldino type, is the most severe form of type 2 collagenopathy caused by dominant mutations in COL2A1. It is a lethal skeletal dysplasia characterized by severe micromelia, deficient ossification of the vertebral bodies and sacrum, short ribs with fractures, and a disproportionately large head. Death typically occurs in utero or shortly after birth due to pulmonary hypoplasia. ACG2 represents the severe end of the COL2A1 mutation spectrum, which includes hypochondrogenesis, spondyloepiphyseal dysplasia congenita, and Stickler syndrome.\n",
     "pathophysiology": [
@@ -473,7 +473,7 @@ window.searchData = [
       "Rhizomelic limb shortening syndrome"
     ],
     "creation_date": "2026-02-02T00:16:36Z",
-    "updated_date": "2026-02-06T17:08:00Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Achondroplasia is the most common form of short-limbed dwarfism, affecting approximately 1 in 15,000-40,000 live births. It is caused by gain-of-function mutations in FGFR3, with over 95% of cases resulting from the G380R (c.1138G>A) mutation. The constitutively active FGFR3 receptor inhibits chondrocyte proliferation and differentiation in growth plate cartilage, leading to impaired endochondral ossification and disproportionate short stature with rhizomelic limb shortening, macrocephaly, frontal bossing, and characteristic trident hand configuration. Vosoritide, a C-type natriuretic peptide analog that antagonizes FGFR3 signaling, was approved by the FDA in 2021 as the first disease-modifying therapy.\n",
     "pathophysiology": [
@@ -556,7 +556,7 @@ window.searchData = [
       "Reflex Disorder"
     ],
     "creation_date": "2025-12-12T23:26:49Z",
-    "updated_date": "2025-12-12T23:26:49Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Abrupt luminance changes activate visual pathways that cross-activate trigeminal and autonomic circuits, leading to nasal prickle and sneezing in susceptible individuals.",
     "pathophysiology": [
@@ -1168,7 +1168,7 @@ window.searchData = [
       "Ophthalmological Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Dry AMD (Atrophic)",
       "Wet AMD (Neovascular)"
@@ -1257,7 +1257,7 @@ window.searchData = [
       "Musculoskeletal Disease"
     ],
     "creation_date": "2026-02-04T17:27:57Z",
-    "updated_date": "2026-02-05T15:59:45Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Ainhum (dactylolysis spontanea) is a rare disorder characterized by progressive constricting bands of the digits, most often the fifth toe, leading to distal swelling, pain, and eventual autoamputation.",
     "pathophysiology": [
@@ -1386,7 +1386,7 @@ window.searchData = [
       "Hepatic Disease"
     ],
     "creation_date": "2026-02-02T00:16:36Z",
-    "updated_date": "2026-02-02T06:53:02Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Alcohol metabolism and cellular stress cause hepatocyte and immune cell injury with cytokine and chemokine production.",
     "pathophysiology": [
@@ -1438,7 +1438,7 @@ window.searchData = [
       "Dementia"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-02-02T00:09:22Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Early-Onset Alzheimer's Disease",
       "Late-Onset Alzheimer's Disease"
@@ -1553,7 +1553,7 @@ window.searchData = [
       "Skin Disease"
     ],
     "creation_date": "2025-12-19T01:12:52Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "An autoimmune disease targeting hair follicles, resulting in non-scarring hair loss. Ranges from patchy hair loss to complete scalp (alopecia totalis) or body hair loss (alopecia universalis). Hair follicles retain regenerative capacity, allowing potential regrowth.",
     "pathophysiology": [
@@ -2116,7 +2116,7 @@ window.searchData = [
       "Spondyloarthropathy"
     ],
     "creation_date": "2025-12-19T01:12:52Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "A chronic inflammatory disease primarily affecting the axial skeleton, characterized by sacroiliitis and progressive spinal fusion. Strongly associated with HLA-B27. Part of the spondyloarthritis spectrum including enthesitis and potential peripheral joint and extra-articular involvement.",
     "pathophysiology": [
@@ -3010,7 +3010,7 @@ window.searchData = [
       "Cardiac Arrhythmia"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-01-16T19:40:45Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Paroxysmal Atrial Fibrillation",
       "Persistent Atrial Fibrillation",
@@ -3196,7 +3196,7 @@ window.searchData = [
       "Hematologic Disease"
     ],
     "creation_date": "2025-12-19T01:12:52Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "An acquired hemolytic anemia caused by autoantibodies against red blood cell surface antigens. Classified as warm (IgG, 70-80%) or cold (IgM, cold agglutinin disease) based on antibody thermal amplitude. May be primary or secondary to underlying disease.",
     "pathophysiology": [
@@ -3281,7 +3281,7 @@ window.searchData = [
       "Liver Disease"
     ],
     "creation_date": "2025-12-19T01:12:52Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "A chronic inflammatory liver disease characterized by interface hepatitis, hypergammaglobulinemia, and circulating autoantibodies. Without treatment, progresses to cirrhosis. Classified into type 1 (ANA/SMA positive) and type 2 (anti-LKM1/anti-LC1 positive).",
     "pathophysiology": [
@@ -4284,7 +4284,7 @@ window.searchData = [
       "Vasculitis"
     ],
     "creation_date": "2025-12-19T01:12:52Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "A systemic inflammatory disorder characterized by recurrent oral and genital ulcers, uveitis, and skin lesions. Involves both arterial and venous vessels of all sizes. Highly prevalent along the ancient Silk Road. Classified as a variable vessel vasculitis with autoinflammatory features.",
     "pathophysiology": [
@@ -4417,7 +4417,7 @@ window.searchData = [
       "Urological Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2025-12-18T17:01:35Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Age-related increase in prostatic stromal and glandular tissue, particularly in the transition zone. Dihydrotestosterone (DHT) drives proliferation through androgen receptors.\n",
     "pathophysiology": [
@@ -4738,7 +4738,7 @@ window.searchData = [
       "Psychiatric Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-02-03T18:28:11Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Bipolar I Disorder",
       "Bipolar II Disorder",
@@ -4949,7 +4949,7 @@ window.searchData = [
       "Bacterial Infection"
     ],
     "creation_date": "2026-02-02T00:16:36Z",
-    "updated_date": "2026-02-02T00:16:36Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Botulism is a neuroparalytic illness caused by botulinum toxin exposure.",
     "pathophysiology": [
@@ -5054,7 +5054,7 @@ window.searchData = [
       "Breast Disease"
     ],
     "creation_date": "2026-02-02T00:16:36Z",
-    "updated_date": "2026-02-02T00:16:36Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Breast fibroadenoma is a common benign breast tumor presenting as a palpable breast mass, particularly in premenopausal women.",
     "pathophysiology": [
@@ -5105,7 +5105,7 @@ window.searchData = [
       "Inflammatory Lung Disease"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Persistent microbial infections and inflammation damage airway walls, leading to dilation and thickening.",
     "pathophysiology": [
@@ -5444,7 +5444,7 @@ window.searchData = [
       "Neuroectodermal Disorder"
     ],
     "creation_date": "2025-12-22T19:53:18Z",
-    "updated_date": "2026-01-05T23:28:22Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "A rare autosomal recessive neuroectodermal disorder characterized by colobomas, congenital heart defects, ichthyosiform dermatosis, intellectual disability, and ear anomalies caused by mutations in the PIGL gene affecting glycosylphosphatidylinositol (GPI) anchor biosynthesis.",
     "pathophysiology": [
@@ -5540,7 +5540,7 @@ window.searchData = [
       "Cryopyrin-associated periodic syndromes"
     ],
     "creation_date": "2026-02-09T17:35:00Z",
-    "updated_date": "2026-02-10T19:50:05Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Classic CINCA with identifiable NLRP3 mutation",
       "Mutation-negative CINCA (somatic mosaicism)"
@@ -5654,7 +5654,7 @@ window.searchData = [
       "Chromatin Disorder"
     ],
     "creation_date": "2025-12-19T01:18:09Z",
-    "updated_date": "2026-02-10T22:32:16Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "CTCF-related neurodevelopmental disorder is a rare Mendelian condition caused by heterozygous de novo mutations in the CTCF gene, which encodes a critical chromatin architecture protein. CTCF (CCCTC-binding factor) is an 11-zinc finger transcription factor essential for establishing topologically associating domains (TADs) and regulating three-dimensional genome structure. Affected individuals typically present with intellectual disability of variable severity, developmental delay, feeding difficulties, behavioral abnormalities, and variable dysmorphic features. The pathophysiology involves haploinsufficiency leading to disrupted chromatin looping, aberrant enhancer-promoter interactions, and dysregulation of neurodevelopmental genes.\n",
     "pathophysiology": [
@@ -5889,7 +5889,7 @@ window.searchData = [
       "Joint Disorder"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-02-02T00:09:22Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Camptodactyly is a congenital or acquired condition characterized by permanent flexion contracture of one or more fingers, most commonly affecting the proximal interphalangeal joint of the fifth finger. It can occur as an isolated finding or as part of syndromic conditions including distal arthrogryposis and CACP syndrome.",
     "pathophysiology": [
@@ -5975,7 +5975,7 @@ window.searchData = [
       "Sclerosing Bone Dysplasias"
     ],
     "creation_date": "2026-02-13T00:31:42Z",
-    "updated_date": "2026-02-13T00:31:42Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Camurati-Engelmann disease (CED), also known as progressive diaphyseal dysplasia, is an autosomal dominant sclerosing bone disorder caused by mutations in TGFB1 encoding transforming growth factor beta 1. It is characterized by progressive cortical thickening (hyperostosis) of the diaphyses of long bones, leading to limb pain, muscle weakness, waddling gait, and easy fatigability. Skull involvement can cause cranial nerve palsies, particularly facial nerve paralysis and hearing loss. The disease typically presents in childhood and shows variable expressivity.\n",
     "pathophysiology": [
@@ -6143,7 +6143,7 @@ window.searchData = [
       "Autoimmune Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Gluten peptides (gliadin) cross the intestinal epithelium and are deamidated by tissue transglutaminase (tTG). Deamidated peptides bind HLA-DQ2/DQ8 and activate CD4+ T cells.\n",
     "pathophysiology": [
@@ -6621,7 +6621,7 @@ window.searchData = [
       "Bacterial Infection"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-01-11T03:03:01Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Cholera toxin B subunit (CTB) binds to GM1 ganglioside and alternative fucosylated glycan receptors (e.g., Lewis X) on the apical surface of intestinal epithelial cells, initiating receptor-mediated endocytosis and retrograde trafficking to the endoplasmic reticulum.",
     "pathophysiology": [
@@ -6781,7 +6781,7 @@ window.searchData = [
       "Peripheral Neuropathy"
     ],
     "creation_date": "2025-12-19T01:12:52Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "A chronic acquired immune-mediated neuropathy characterized by progressive or relapsing-remitting symmetric proximal and distal weakness with sensory involvement. Distinguished from GBS by duration greater than 8 weeks and chronic course.",
     "pathophysiology": [
@@ -6861,7 +6861,7 @@ window.searchData = [
       "Renal Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-02-11T22:45:48Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Diabetic Nephropathy",
       "Hypertensive Nephrosclerosis",
@@ -7176,7 +7176,7 @@ window.searchData = [
       "Smoking-Related Disease"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Chronic Bronchitis",
       "Emphysema"
@@ -7319,7 +7319,7 @@ window.searchData = [
       "Gastrointestinal Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Repeated episodes of pancreatic inflammation cause progressive acinar cell damage. Alcohol, smoking, and genetic factors are major causes. Premature trypsin activation injures cells.\n",
     "pathophysiology": [
@@ -7418,7 +7418,7 @@ window.searchData = [
       "renal cell carcinoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-01-26T04:02:22Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "VHL-associated ccRCC",
       "Sporadic ccRCC"
@@ -7787,7 +7787,7 @@ window.searchData = [
       "Malabsorption disorder"
     ],
     "creation_date": "2026-01-19T21:03:46Z",
-    "updated_date": "2026-01-21T19:22:33Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Collagenous sprue is initiated by mucosal immune activation characterized by increased intraepithelial lymphocytes (IELs), particularly CD8+ T cells, and lamina propria inflammation with plasma cells and eosinophils. IL-15 and TNF-\u03b1 signaling drive this T cell-mediated immune response, leading to epithelial cell apoptosis, crypt hyperplasia, and villous atrophy. This immune activation is not associated with celiac serology despite overlapping histologic features with celiac disease.\n",
     "pathophysiology": [
@@ -7895,7 +7895,7 @@ window.searchData = [
       "Colorectal Cancer"
     ],
     "creation_date": "2026-02-02T00:16:36Z",
-    "updated_date": "2026-02-02T00:16:36Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Colon adenocarcinoma is the most common histologic subtype of colon cancer and typically arises through the adenoma-carcinoma sequence.",
     "pathophysiology": [
@@ -7952,7 +7952,7 @@ window.searchData = [
       "Vascular Disease"
     ],
     "creation_date": "2026-02-09T22:55:50Z",
-    "updated_date": "2026-02-09T23:19:48Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Hepatic Congestive Splenomegaly",
       "Extrahepatic Congestive Splenomegaly"
@@ -8150,7 +8150,7 @@ window.searchData = [
       "Atherosclerotic Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Lipid accumulation in arterial walls triggers inflammatory response, leading to foam cell formation and fibrous cap development. Progressive plaque growth narrows the coronary arteries.\n",
     "pathophysiology": [
@@ -8241,7 +8241,7 @@ window.searchData = [
       "RASopathies"
     ],
     "creation_date": "2026-02-06T03:39:54Z",
-    "updated_date": "2026-02-06T04:14:33Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Costello syndrome is a RASopathy caused by heterozygous germline gain-of-function mutations in HRAS, characterized by failure to thrive in infancy, distinctive coarse facial features, intellectual disability, cardiac abnormalities (hypertrophic cardiomyopathy, arrhythmias), skeletal abnormalities (joint laxity, ulnar deviation), and a predisposition to malignancies (rhabdomyosarcoma, neuroblastoma, bladder carcinoma). The syndrome results from constitutive activation of the RAS-MAPK signaling pathway.\n",
     "pathophysiology": [
@@ -8489,7 +8489,7 @@ window.searchData = [
       "Genetic disorders with cutaneous manifestations"
     ],
     "creation_date": "2026-01-09T14:40:24Z",
-    "updated_date": "2026-01-12T16:21:25Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Cronkhite-Canada syndrome (CCS) is a rare, non-hereditary gastrointestinal polyposis syndrome characterized by the association of extensive hamartomatous polyps throughout the gastrointestinal tract with a distinctive cutaneous triad of alopecia, nail changes (onychodystrophy), and hyperpigmentation. The condition has significant gastrointestinal morbidity including protein-losing enteropathy, chronic diarrhea, and increased cancer risk. Although historically considered a relentlessly progressive disease with high mortality, modern advances in understanding and treatment with corticosteroids and immunomodulators have substantially improved prognosis and overall survival.\n",
     "pathophysiology": [
@@ -8826,7 +8826,7 @@ window.searchData = [
       "Inborn Error of Metabolism"
     ],
     "creation_date": "2025-12-19T14:27:56Z",
-    "updated_date": "2026-02-11T19:57:18Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Class I - No Protein Production",
       "Class II - Processing/Trafficking Defect",
@@ -9291,7 +9291,7 @@ window.searchData = [
       "Inflammatory Myopathy"
     ],
     "creation_date": "2025-12-19T01:12:52Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "An idiopathic inflammatory myopathy characterized by proximal muscle weakness and distinctive skin manifestations including heliotrope rash and Gottron's papules. Associated with increased risk of malignancy and interstitial lung disease in certain autoantibody subsets.",
     "pathophysiology": [
@@ -9573,7 +9573,7 @@ window.searchData = [
       "Gastrointestinal infection"
     ],
     "creation_date": "2026-02-12T23:17:11Z",
-    "updated_date": "2026-02-13T02:26:02Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Dientamoebiasis is a parasitic infection of the large intestine caused by the protozoan Dientamoeba fragilis. It is commonly reported worldwide in association with gastrointestinal symptoms including diarrhea, abdominal pain, and flatulence, though its pathogenicity remains debated. Transmission is thought to occur via the fecal-oral route, possibly facilitated by helminth eggs such as those of Enterobius vermicularis (pinworm). Clinical outcomes range from asymptomatic carriage to chronic gastrointestinal illness.",
     "pathophysiology": [
@@ -9828,7 +9828,7 @@ window.searchData = [
       "Musculoskeletal System Disease"
     ],
     "creation_date": "2026-02-02T00:16:36Z",
-    "updated_date": "2026-02-02T00:16:36Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Genetic variants associated with intervertebral disc disorder implicate cartilage, bone, and inflammatory processes in dorsalgia susceptibility.",
     "pathophysiology": [
@@ -10016,7 +10016,7 @@ window.searchData = [
       "Neurologic Disorder"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Dravet syndrome is a severe developmental and epileptic encephalopathy characterized by treatment-resistant seizures beginning in infancy, developmental regression, and cognitive impairment. It is primarily caused by de novo loss-of-function mutations in SCN1A, encoding the Nav1.1 voltage-gated sodium channel.",
     "pathophysiology": [
@@ -10981,7 +10981,7 @@ window.searchData = [
       "Iatrogenic condition"
     ],
     "creation_date": "2026-02-13T17:09:37Z",
-    "updated_date": "2026-02-13T17:09:37Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Empty Nose Syndrome (ENS) is a debilitating iatrogenic condition that develops following surgical reduction or resection of the nasal turbinates, most commonly the inferior turbinates. Despite having objectively patent nasal airways, patients experience paradoxical nasal obstruction, dyspnea, nasal dryness, and crusting. The loss of turbinate tissue disrupts normal nasal airflow patterns, mucociliary clearance, and sensory feedback, resulting in a subjective sensation of suffocation. The condition is frequently associated with significant psychological morbidity including depression, anxiety, and sleep disturbance.",
     "pathophysiology": [
@@ -11076,7 +11076,7 @@ window.searchData = [
       "Reproductive Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Endometrial-like tissue grows outside the uterus, commonly on ovaries, fallopian tubes, and pelvic peritoneum. Responds to hormonal cycling with bleeding and inflammation.\n",
     "pathophysiology": [
@@ -11177,7 +11177,7 @@ window.searchData = [
       "Neurological Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-01-29T16:44:13Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Focal Epilepsy",
       "Generalized Epilepsy",
@@ -11286,7 +11286,7 @@ window.searchData = [
       "Cardiovascular Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Increased systemic vascular resistance due to structural and functional changes in resistance arterioles. Endothelial dysfunction, vascular remodeling, and increased smooth muscle tone contribute.\n",
     "pathophysiology": [
@@ -12173,7 +12173,7 @@ window.searchData = [
       "Congenital Disorder"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-02-09T20:03:16Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Core Complex Subtypes",
       "ID Complex Subtypes",
@@ -12537,7 +12537,7 @@ window.searchData = [
       "Genetic Disease"
     ],
     "creation_date": "2025-12-19T01:18:09Z",
-    "updated_date": "2026-02-10T22:32:16Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "A rare, severely disabling genetic disorder characterized by progressive heterotopic ossification of skeletal muscles, fascia, tendons, and ligaments, with congenital malformation of the great toes. The condition is caused by gain-of-function mutations in the ACVR1 gene encoding a BMP type I receptor, leading to aberrant bone formation in soft tissues.",
     "pathophysiology": [
@@ -12629,7 +12629,7 @@ window.searchData = [
       "Neurological Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-01-08T02:16:53Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Augmented pain processing in the central nervous system leads to amplified pain perception. Increased excitatory neurotransmitters (glutamate, substance P) and decreased inhibitory modulation.\n",
     "pathophysiology": [
@@ -12867,7 +12867,7 @@ window.searchData = [
       "Neurodegenerative Disease"
     ],
     "creation_date": "2025-12-23T16:19:20Z",
-    "updated_date": "2026-02-02T00:09:22Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Frontotemporal Dementia (FTD) is a group of neurodegenerative disorders characterized by progressive deterioration of the frontal and temporal lobes of the brain. It presents with prominent changes in personality, behavior, and/or language, typically with onset before age 65. FTD is associated with abnormal accumulation of tau or TDP-43 proteins.\n",
     "pathophysiology": [
@@ -13011,7 +13011,7 @@ window.searchData = [
       "Newborn screening disorder"
     ],
     "creation_date": "2026-02-06T03:39:54Z",
-    "updated_date": "2026-02-06T03:39:54Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Classic Galactosemia (GALT deficiency)",
       "Galactokinase Deficiency",
@@ -13170,7 +13170,7 @@ window.searchData = [
       "Peptic Ulcer Disease"
     ],
     "creation_date": "2026-02-02T00:16:36Z",
-    "updated_date": "2026-02-02T00:16:36Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Gastric ulceration commonly relates to H. pylori infection or NSAID exposure, reflecting mucosal injury pathways.",
     "pathophysiology": [
@@ -13211,7 +13211,7 @@ window.searchData = [
       "Gastrointestinal Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-02-11T22:37:12Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Transient relaxations or chronic hypotension of the LES allow retrograde flow of gastric contents into the esophagus. Hiatal hernia exacerbates sphincter incompetence.\n",
     "pathophysiology": [
@@ -13302,7 +13302,7 @@ window.searchData = [
       "gastrointestinal neoplasm"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-01-26T04:02:22Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "KIT-mutant GIST",
       "PDGFRA-mutant GIST",
@@ -13480,7 +13480,7 @@ window.searchData = [
       "Psychiatric Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-02-03T18:26:48Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Exaggerated amygdala response to perceived threats leads to excessive fear and anxiety. Reduced prefrontal cortex regulation of amygdala activity.\n",
     "pathophysiology": [
@@ -13591,7 +13591,7 @@ window.searchData = [
       "Vasculitis"
     ],
     "creation_date": "2025-12-19T01:12:52Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "A systemic granulomatous vasculitis affecting large and medium-sized arteries, predominantly the extracranial branches of the carotid artery. Most common primary systemic vasculitis in adults over 50. Frequently associated with polymyalgia rheumatica.",
     "pathophysiology": [
@@ -13676,7 +13676,7 @@ window.searchData = [
       "Ophthalmological Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-02-11T22:42:53Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Primary Open-Angle Glaucoma",
       "Angle-Closure Glaucoma",
@@ -14073,7 +14073,7 @@ window.searchData = [
       "Musculoskeletal Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Elevated serum uric acid from increased purine metabolism or decreased renal excretion leads to supersaturation and crystal formation. Urate is the end product of purine catabolism in humans.\n",
     "pathophysiology": [
@@ -14245,7 +14245,7 @@ window.searchData = [
       "Vasculitis"
     ],
     "creation_date": "2025-12-19T01:12:52Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "An ANCA-associated systemic vasculitis characterized by necrotizing granulomatous inflammation of the upper and lower respiratory tract and necrotizing glomerulonephritis. Strongly associated with anti-PR3 (c-ANCA) antibodies. Formerly known as Wegener's granulomatosis.",
     "pathophysiology": [
@@ -14530,7 +14530,7 @@ window.searchData = [
       "Peripheral Neuropathy"
     ],
     "creation_date": "2025-12-19T01:12:52Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "An acute immune-mediated polyradiculoneuropathy characterized by rapidly progressive symmetric weakness and areflexia. Typically preceded by infection, with molecular mimicry between pathogen antigens and peripheral nerve gangliosides driving the autoimmune response.",
     "pathophysiology": [
@@ -14950,7 +14950,7 @@ window.searchData = [
       "Epileptic Encephalopathy"
     ],
     "creation_date": "2025-12-10T21:01:43Z",
-    "updated_date": "2025-12-16T02:11:39Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "HIDEA syndrome (Hypotonia, Hypoventilation, Impaired Intellectual Development, Dysautonomia, Epilepsy, and Eye Abnormalities) is a severe autosomal recessive neurodevelopmental disorder caused by biallelic loss-of-function variants in P4HTM, encoding the endoplasmic reticulum transmembrane prolyl 4-hydroxylase P4H-TM. The enzyme localizes to the ER membrane with its catalytic domain in the ER lumen and contains a unique EF-hand domain suggesting calcium regulation of enzymatic activity. Loss of P4H-TM leads to dysregulated HIF-1 signaling and calcium dynamics in astrocytes, affecting gliotransmission and central respiratory control circuits.",
     "pathophysiology": [
@@ -15316,7 +15316,7 @@ window.searchData = [
       "Endocrine Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "T cell-mediated and antibody-mediated destruction of thyroid follicular cells leads to progressive loss of thyroid function. Anti-thyroid peroxidase (anti-TPO) and anti-thyroglobulin antibodies are characteristic.\n",
     "pathophysiology": [
@@ -15419,7 +15419,7 @@ window.searchData = [
       "Cardiovascular Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Heart Failure with Reduced Ejection Fraction (HFrEF)",
       "Heart Failure with Preserved Ejection Fraction (HFpEF)",
@@ -15695,7 +15695,7 @@ window.searchData = [
       "Coagulation Disorder"
     ],
     "creation_date": "2026-02-02T00:16:36Z",
-    "updated_date": "2026-02-02T00:16:36Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Hemophilia B is an X-linked bleeding disorder caused by factor IX deficiency.",
     "pathophysiology": [
@@ -16238,7 +16238,7 @@ window.searchData = [
       "Coagulation Disorder"
     ],
     "creation_date": "2026-02-02T00:16:36Z",
-    "updated_date": "2026-02-02T00:16:36Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Type 1 von Willebrand Disease",
       "Type 2 von Willebrand Disease",
@@ -16302,7 +16302,7 @@ window.searchData = [
       "Gastrointestinal Disorder"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2025-12-16T03:19:42Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Short-Segment Hirschsprung Disease",
       "Long-Segment Hirschsprung Disease",
@@ -16461,7 +16461,7 @@ window.searchData = [
     "category": "Genetic",
     "parents": [],
     "creation_date": "2026-01-07T19:35:34Z",
-    "updated_date": "2026-02-02T00:09:22Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Holt-Oram syndrome is caused by heterozygous loss-of-function mutations in TBX5, a T-box transcription factor that acts as a dosage-sensitive regulator of cardiac and forelimb development. TBX5 haploinsufficiency disrupts enhancer accessibility and 3D chromatin architecture at regulatory regions controlling genes essential for atrial identity, chamber septation, and conduction system development. In the limb, TBX5 is critical for forelimb bud initiation and radial patterning in the lateral plate mesoderm. TBX5 cooperates with cardiac transcription factors GATA4 and NKX2-5 at conserved enhancers and requires chromatin remodeling partners (BAF/SWI-SNF and NuRD/CHD4) to maintain cell-type-specific gene expression programs.\n",
     "pathophysiology": [
@@ -16541,7 +16541,7 @@ window.searchData = [
       "PP2A-related disorder"
     ],
     "creation_date": "2026-02-15T00:00:00Z",
-    "updated_date": "2026-02-15T00:00:00Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Houge-Janssens syndrome type 1 (PPP2R5D)",
       "Houge-Janssens syndrome type 2 (PPP2R1A)",
@@ -16684,7 +16684,7 @@ window.searchData = [
       "Movement Disorder"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Juvenile Huntington's Disease",
       "Late-Onset Huntington's Disease"
@@ -16794,7 +16794,7 @@ window.searchData = [
       "Heart Disease"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Left Ventricular Hypertrophy",
       "Coronary Artery Disease",
@@ -16921,7 +16921,7 @@ window.searchData = [
       "Genetic Disorder"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Obstructive HCM",
       "Non-Obstructive HCM"
@@ -17107,7 +17107,7 @@ window.searchData = [
       "FGFR3-related skeletal dysplasia"
     ],
     "creation_date": "2026-02-02T00:16:36Z",
-    "updated_date": "2026-02-02T00:16:36Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Hypochondroplasia is a milder FGFR3-related skeletal dysplasia characterized by proportionate or mildly disproportionate short stature, with less pronounced features than achondroplasia. The most common mutation is FGFR3 N540K (c.1620C>A or c.1620C>G), found in approximately 50-70% of clinically diagnosed cases. Unlike achondroplasia, the phenotype is variable and may not be recognized until later childhood. Macrocephaly is less prominent, and spinal stenosis is less common. The diagnosis may be challenging in individuals with subtle features.\n",
     "pathophysiology": [
@@ -17586,7 +17586,7 @@ window.searchData = [
       "Kidney Disease"
     ],
     "creation_date": "2025-12-19T01:12:52Z",
-    "updated_date": "2026-02-11T22:47:51Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "The most common primary glomerulonephritis worldwide, characterized by mesangial IgA deposits. Caused by galactose-deficient IgA1 and corresponding autoantibodies forming immune complexes that deposit in the glomerulus. Variable progression from benign hematuria to end-stage renal disease.",
     "pathophysiology": [
@@ -17672,7 +17672,7 @@ window.searchData = [
       "Hematologic Disease"
     ],
     "creation_date": "2025-12-19T01:12:52Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "An autoimmune disorder characterized by isolated thrombocytopenia due to autoantibody-mediated platelet destruction and impaired platelet production. Formerly known as idiopathic thrombocytopenic purpura (ITP). May be primary or secondary to infection, autoimmune disease, or malignancy.",
     "pathophysiology": [
@@ -17755,7 +17755,7 @@ window.searchData = [
     "category": "Infectious Disease",
     "parents": [],
     "creation_date": "2026-02-02T00:16:36Z",
-    "updated_date": "2026-02-02T00:16:36Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Infectious diseases are caused by pathogenic microorganisms such as bacteria, viruses, fungi, and parasites.",
     "pathophysiology": [
@@ -17797,7 +17797,7 @@ window.searchData = [
       "Gastrointestinal Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-01-14T22:54:14Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Enhanced perception of normal gut sensations leads to pain and discomfort. Lowered pain thresholds in response to balloon distension. Central sensitization contributes.\n",
     "pathophysiology": [
@@ -17953,7 +17953,7 @@ window.searchData = [
       "Neurological Disorder"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2025-12-16T03:19:42Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Eyelid Myoclonia with Absences (EMA)",
       "Eyelid Myoclonia with Absences and Photosensitivity (EMA+)"
@@ -18044,7 +18044,7 @@ window.searchData = [
       "Short-Rib Dysplasias"
     ],
     "creation_date": "2026-02-13T00:31:42Z",
-    "updated_date": "2026-02-13T01:20:31Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Jeune asphyxiating thoracic dystrophy (JATD), also known as Jeune syndrome, is an autosomal recessive skeletal ciliopathy characterized by a narrow, bell-shaped thorax with short ribs leading to respiratory insufficiency. It is genetically heterogeneous, caused by mutations in genes encoding components of the intraflagellar transport (IFT) machinery and dynein motor complexes essential for primary cilium function. Additional features include short limbs, polydactyly, renal cystic disease, hepatic fibrosis, and retinal dystrophy. JATD represents the mildest end of the short-rib polydactyly syndrome spectrum.\n",
     "pathophysiology": [
@@ -18568,7 +18568,7 @@ window.searchData = [
       "Vasculitis"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Kawasaki Disease is a condition in children that involves inflammation of blood vessels throughout the body and is characterized by fever, rash, and other symptoms.",
     "pathophysiology": [
@@ -18711,7 +18711,7 @@ window.searchData = [
       "Connexin Disorders"
     ],
     "creation_date": "2026-02-06T03:39:54Z",
-    "updated_date": "2026-02-06T03:39:54Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Classic Vohwinkel Syndrome",
       "Loricrin Keratoderma (Variant Vohwinkel Syndrome)"
@@ -18797,7 +18797,7 @@ window.searchData = [
       "Chromosomal Disorder"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2025-12-16T02:11:39Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Typically results in a 47,XXY karyotype, leading to a range of physical, developmental, and reproductive issues.",
     "pathophysiology": [
@@ -19296,7 +19296,7 @@ window.searchData = [
       "esophageal disorder"
     ],
     "creation_date": "2026-02-03T18:21:46Z",
-    "updated_date": "2026-02-04T16:27:41Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Type 0 (interarytenoid cleft)",
       "Type I",
@@ -19601,7 +19601,7 @@ window.searchData = [
       "Neurodermatitis"
     ],
     "creation_date": "2026-02-02T00:16:36Z",
-    "updated_date": "2026-02-02T00:16:36Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Persistent scratching sustains a neuroimmune itch-scratch cycle that drives chronic skin changes.",
     "pathophysiology": [
@@ -19643,7 +19643,7 @@ window.searchData = [
       "Neonatal encephalopathy"
     ],
     "creation_date": "2026-02-13T00:59:22Z",
-    "updated_date": "2026-02-13T00:59:22Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Lipoic acid synthetase deficiency (OMIM 614462), also known as hyperglycinemia with lactic acidosis and seizures (HGCLAS), is a rare autosomal recessive mitochondrial disorder caused by biallelic mutations in LIAS, encoding lipoic acid synthetase. LIAS catalyzes the insertion of sulfur atoms into octanoyl-GCSH to form lipoyl-GCSH, the second step in the mitochondrial lipoylation pathway. Loss of function impairs lipoylation of all lipoic acid-dependent enzyme complexes: pyruvate dehydrogenase, alpha-ketoglutarate dehydrogenase, branched-chain ketoacid dehydrogenase, and the glycine cleavage system. The biochemical signature is identical to LIPT2 deficiency (NELABA), with lactic acidosis, hyperglycinemia, and combined dehydrogenase deficiency. Clinical features include neonatal-onset seizures, severe encephalopathy, hypotonia, and failure to thrive. Brain MRI shows cerebral atrophy and white matter abnormalities.\n",
     "pathophysiology": [
@@ -19726,7 +19726,7 @@ window.searchData = [
       "Leigh syndrome spectrum"
     ],
     "creation_date": "2026-02-13T00:59:22Z",
-    "updated_date": "2026-02-13T00:59:22Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Lipoyl transferase 1 deficiency (OMIM 616299) is a rare autosomal recessive mitochondrial disorder caused by biallelic mutations in LIPT1, encoding lipoyltransferase 1. LIPT1 catalyzes the final step in the mitochondrial lipoylation pathway, transferring lipoyl groups from lipoyl-GCSH to the E2 subunits of alpha-ketoacid dehydrogenases (pyruvate dehydrogenase, alpha-ketoglutarate dehydrogenase, and branched-chain ketoacid dehydrogenase). Critically, LIPT1 deficiency spares the glycine cleavage system, as GCSH is lipoylated upstream by the LIPT2-LIAS pathway. This results in combined dehydrogenase deficiency with lactic acidosis but typically normal glycine levels, distinguishing it biochemically from LIPT2 and LIAS deficiency. Clinical presentation includes Leigh-like encephalopathy, seizures, dystonia, spastic tetraparesis, and variable hepatic involvement. Onset is neonatal to early infantile. Metabolic decompensation during febrile illness may precipitate acute neurological deterioration.\n",
     "pathophysiology": [
@@ -19803,7 +19803,7 @@ window.searchData = [
       "Hepatic Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-02-11T22:39:40Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Alcoholic Cirrhosis",
       "Viral Cirrhosis",
@@ -19917,7 +19917,7 @@ window.searchData = [
       "Marfan and Marfan-related Disorders"
     ],
     "creation_date": "2026-02-13T00:31:42Z",
-    "updated_date": "2026-02-13T01:20:31Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Loeys-Dietz Syndrome Type 1",
       "Loeys-Dietz Syndrome Type 2",
@@ -20257,7 +20257,7 @@ window.searchData = [
       "Thoracic Cancer"
     ],
     "creation_date": "2026-02-02T00:16:36Z",
-    "updated_date": "2026-02-02T00:16:36Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Small Cell Lung Cancer",
       "Lung Adenocarcinoma (NSCLC)"
@@ -20490,7 +20490,7 @@ window.searchData = [
       "Hematologic Malignancy"
     ],
     "creation_date": "2026-02-02T00:16:36Z",
-    "updated_date": "2026-02-02T00:16:36Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Non-Hodgkin Lymphoma",
       "Hodgkin Lymphoma"
@@ -20555,7 +20555,7 @@ window.searchData = [
     "category": "",
     "parents": [],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-02-09T15:57:22Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "MLH1 Mutation",
       "MSH2 Mutation",
@@ -20659,7 +20659,7 @@ window.searchData = [
       "Inborn error of metabolism"
     ],
     "creation_date": "2026-02-06T03:39:54Z",
-    "updated_date": "2026-02-06T03:39:54Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Medium-chain acyl-CoA dehydrogenase (MCAD) deficiency is the most common inherited disorder of fatty acid beta-oxidation. It is caused by biallelic pathogenic variants in ACADM, which encodes the mitochondrial enzyme responsible for the initial step of medium-chain fatty acid oxidation. Affected individuals cannot metabolize medium-chain fatty acids (C6-C12) during periods of fasting or metabolic stress, leading to hypoketotic hypoglycemia, hepatomegaly, and risk of sudden death. Since inclusion in newborn screening programs, early diagnosis and preventive management have dramatically reduced morbidity and mortality.\n",
     "pathophysiology": [
@@ -20987,7 +20987,7 @@ window.searchData = [
       "Mood Disorder"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-02-03T18:27:33Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Melancholic Depression",
       "Atypical Depression",
@@ -21300,7 +21300,7 @@ window.searchData = [
       "Diabetes Mellitus"
     ],
     "creation_date": "2026-02-02T00:16:36Z",
-    "updated_date": "2026-02-02T00:16:36Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Undernutrition-associated diabetes involves insulin deficiency from pancreatic beta-cell impairment.",
     "pathophysiology": [
@@ -21447,7 +21447,7 @@ window.searchData = [
       "Inborn Error of Metabolism"
     ],
     "creation_date": "2026-01-09T01:00:56Z",
-    "updated_date": "2026-01-09T01:00:56Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Classic MSUD",
       "Intermediate MSUD",
@@ -21566,7 +21566,7 @@ window.searchData = [
       "Connective Tissue Disorder"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-02-10T22:32:16Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Marfan syndrome is an autosomal dominant connective tissue disorder caused by mutations in FBN1, which encodes fibrillin-1. It affects multiple organ systems including the cardiovascular system (aortic root dilation and dissection), skeleton (tall stature, arachnodactyly, scoliosis), and eyes (ectopia lentis).",
     "pathophysiology": [
@@ -21744,7 +21744,7 @@ window.searchData = [
       "Ciliopathy"
     ],
     "creation_date": "2026-02-02T23:29:30Z",
-    "updated_date": "2026-02-03T16:43:10Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Meckel syndrome, type 1",
       "Meckel syndrome, type 2",
@@ -21858,7 +21858,7 @@ window.searchData = [
       "thyroid carcinoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-01-26T04:02:22Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Hereditary MTC (MEN2A)",
       "Hereditary MTC (MEN2B)",
@@ -22101,7 +22101,7 @@ window.searchData = [
       "Melanoma"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-02-02T00:09:22Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Post-zygotic mosaic mutations in NRAS (codon 61) and BRAF (V600E) occur during embryogenesis in neural crest-derived melanocyte precursors, driving constitutive MAPK signaling. NRAS mutations are dominant in large/giant CMN (68-94%), while BRAF mutations are less common. Progression to melanoma requires additional alterations including TERT activation, CDKN2A loss, TP53 mutations, and PTEN inactivation.",
     "pathophysiology": [
@@ -22197,7 +22197,7 @@ window.searchData = [
       "Autoinflammatory syndrome"
     ],
     "creation_date": "2026-01-20T22:43:10Z",
-    "updated_date": "2026-01-20T22:43:10Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Melkersson-Rosenthal syndrome is characterized by non-caseating granulomatous inflammation of orofacial tissues with epithelioid macrophages, multinucleated giant cells, and perivascular/perineural lymphocytic infiltration. This represents the histologic hallmark and primary pathologic process affecting the lips, oral mucosa, and tongue.\n",
     "pathophysiology": [
@@ -22433,7 +22433,7 @@ window.searchData = [
       "Neurological Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Migraine with Aura",
       "Migraine without Aura",
@@ -22531,7 +22531,7 @@ window.searchData = [
       "Connective Tissue Disease"
     ],
     "creation_date": "2025-12-19T01:12:52Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "An autoimmune overlap syndrome characterized by features of systemic lupus erythematosus, systemic sclerosis, and polymyositis, with high titers of anti-U1 RNP antibodies. Patients typically present with Raynaud's phenomenon, swollen hands, arthritis, and myositis.",
     "pathophysiology": [
@@ -22616,7 +22616,7 @@ window.searchData = [
       "Orthopoxvirus Infection"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-01-14T22:54:14Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "West African Clade",
       "Central African (Congo Basin) Clade"
@@ -22871,7 +22871,7 @@ window.searchData = [
       "Lysosomal Storage Disorders"
     ],
     "creation_date": "2026-02-13T00:31:42Z",
-    "updated_date": "2026-02-13T00:31:42Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "The mucopolysaccharidoses (MPS) are a group of lysosomal storage disorders caused by deficiency of enzymes required for degradation of glycosaminoglycans (GAGs). Undegraded GAGs accumulate in lysosomes and extracellular matrix, causing progressive multisystem disease. Skeletal manifestations (dysostosis multiplex) are a unifying feature across all MPS types, including vertebral abnormalities, joint contractures, short stature, and characteristic radiographic changes. Enzyme replacement therapy and hematopoietic stem cell transplantation are available for several subtypes.\n",
     "pathophysiology": [
@@ -22950,7 +22950,7 @@ window.searchData = [
       "FGFR3-related craniosynostosis"
     ],
     "creation_date": "2026-02-06T03:25:37Z",
-    "updated_date": "2026-02-06T03:25:37Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Muenke syndrome is a craniosynostosis syndrome caused by a specific heterozygous mutation (P250R) in FGFR3. It is characterized by uni- or bilateral coronal craniosynostosis, midface hypoplasia, hearing loss, and brachydactyly. Unlike most other FGFR3 disorders (achondroplasia, thanatophoric dysplasia), Muenke syndrome primarily affects the skull rather than the long bones. Phenotypic expression is highly variable, with some mutation carriers being clinically unaffected.\n",
     "pathophysiology": [
@@ -23237,7 +23237,7 @@ window.searchData = [
       "Joint Disorders"
     ],
     "creation_date": "2026-02-13T00:31:42Z",
-    "updated_date": "2026-02-13T00:31:42Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Multiple synostoses syndrome (SYNS) is an autosomal dominant disorder characterized by progressive joint fusion (synostosis) affecting proximal interphalangeal joints, carpal and tarsal bones, and the cervical spine. It is caused by mutations in genes involved in BMP signaling, primarily NOG (encoding noggin, a BMP antagonist) and GDF5 (encoding growth/differentiation factor 5, a BMP ligand). The disorder typically presents in childhood with progressive stiffness and conductive hearing loss from stapes fixation.\n",
     "pathophysiology": [
@@ -23310,7 +23310,7 @@ window.searchData = [
       "Inflammatory Syndrome"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-02-02T00:09:22Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "A rare but serious condition associated with COVID-19, causing systemic inflammation in children.",
     "pathophysiology": [
@@ -23571,7 +23571,7 @@ window.searchData = [
       "Autoimmune Disease"
     ],
     "creation_date": "2025-12-19T01:12:52Z",
-    "updated_date": "2026-01-28T06:46:21Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "AChR Antibody-Positive MG",
       "MuSK Antibody-Positive MG",
@@ -23725,7 +23725,7 @@ window.searchData = [
       "Neonatal encephalopathy"
     ],
     "creation_date": "2026-02-13T00:59:22Z",
-    "updated_date": "2026-02-13T00:59:22Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "NELABA (Encephalopathy, Neonatal Severe, with Lactic Acidosis and Brain Abnormalities; OMIM 617668) is an ultra-rare autosomal recessive mitochondrial disorder caused by biallelic mutations in LIPT2, encoding lipoyltransferase 2. LIPT2 catalyzes the first committed step in the mitochondrial lipoylation pathway, transferring octanoyl groups from acyl carrier protein to the glycine cleavage system H protein (GCSH). Loss of function impairs lipoylation of all lipoic acid-dependent enzyme complexes: pyruvate dehydrogenase, alpha-ketoglutarate dehydrogenase, branched-chain ketoacid dehydrogenase, and the glycine cleavage system. This causes congenital lactic acidosis, hyperglycinemia, severe encephalopathy with minimal psychomotor development, and progressive brain abnormalities including cortical atrophy, cysts, white matter abnormalities, and cortical malformations. Onset is at birth with hypotonia and respiratory insufficiency. Only four cases have been reported. Prognosis is poor; lipoic acid supplementation is ineffective.\n",
     "pathophysiology": [
@@ -24224,7 +24224,7 @@ window.searchData = [
       "Ciliopathy"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-02-02T00:09:22Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Infantile Nephronophthisis",
       "Juvenile Nephronophthisis",
@@ -24330,6 +24330,97 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Netherton syndrome",
+    "disease_id": "MONDO:0009735",
+    "category": "Mendelian",
+    "parents": [
+      "inherited ichthyosis",
+      "genodermatosis"
+    ],
+    "creation_date": "2026-02-20T00:00:43Z",
+    "updated_date": "2026-02-21T15:39:12Z",
+    "subtypes": [
+      "Ichthyosiform erythroderma-predominant Netherton syndrome",
+      "Ichthyosis linearis circumflexa-predominant Netherton syndrome"
+    ],
+    "description": "Netherton syndrome is a rare autosomal recessive inherited ichthyosis caused by SPINK5 loss-of-function variants, with resulting LEKTI deficiency, epidermal barrier dysfunction, chronic skin inflammation, and prominent atopic features.",
+    "pathophysiology": [
+      "SPINK5 loss-of-function variants",
+      "LEKTI protein deficiency",
+      "Unchecked epidermal kallikrein protease activity",
+      "Corneodesmosome degradation and accelerated desquamation",
+      "Epidermal barrier breakdown and increased transepidermal water loss",
+      "KLK-mediated IL-36 cytokine processing",
+      "Enhanced cutaneous entry of allergens and microbes",
+      "IL-17/IL-36 inflammatory amplification",
+      "Hair shaft structural fragility from follicular protease imbalance"
+    ],
+    "cell_types": [
+      "keratinocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000312"
+    ],
+    "biological_processes": [
+      "proteolysis",
+      "keratinization",
+      "inflammatory response",
+      "interleukin-17-mediated signaling pathway"
+    ],
+    "phenotypes": [
+      "Ichthyosis",
+      "Erythroderma",
+      "Hair shaft abnormality",
+      "Atopic dermatitis",
+      "Pruritus",
+      "Recurrent infections",
+      "Failure to thrive"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Immune",
+      "Integument"
+    ],
+    "phenotype_ids": [
+      "HP:0008064",
+      "HP:0001019",
+      "HP:0003328",
+      "HP:0001047",
+      "HP:0000989",
+      "HP:0002719",
+      "HP:0001508"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SPINK5"
+    ],
+    "treatments": [
+      "Supportive topical skin care",
+      "Ex vivo SPINK5 gene-corrected epidermal sheet grafting (investigational)",
+      "Cytokine-targeted systemic pharmacotherapy",
+      "Immunoglobulin and biologic systemic therapy",
+      "Intravenous immunoglobulin (IVIG) for infection-prone pediatric NS",
+      "Dupilumab (IL-4/IL-13 pathway inhibition)",
+      "Secukinumab (IL-17 pathway inhibition)",
+      "Abrocitinib (JAK1 inhibitor)",
+      "Secukinumab and dupilumab combination (investigational/observational)"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Total serum IgE",
+      "IL-17/IL-36 inflammatory axis activity"
+    ],
+    "source_file": "Netherton_Syndrome.yaml",
+    "page_url": "../pages/disorders/Netherton_syndrome.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 9,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Neuroblastoma",
     "disease_id": "MONDO:0005072",
     "category": "",
@@ -24337,7 +24428,7 @@ window.searchData = [
       "neuroblastic tumor"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-02-02T00:09:22Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "MYCN-Amplified Neuroblastoma",
       "Stage 4S Neuroblastoma",
@@ -24529,7 +24620,7 @@ window.searchData = [
       "Autoimmune Disorder"
     ],
     "creation_date": "2026-02-02T00:16:36Z",
-    "updated_date": "2026-02-02T03:56:14Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Neuromyelitis optica is an autoimmune astrocytopathy characterized by aquaporin-4 (AQP4) autoantibody-mediated injury to astrocytes and secondary demyelination.",
     "pathophysiology": [
@@ -24596,7 +24687,7 @@ window.searchData = [
       "Demyelinating Disease"
     ],
     "creation_date": "2026-01-15T00:00:04Z",
-    "updated_date": "2026-01-31T03:12:10Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "AQP4-IgG Seropositive NMOSD",
       "MOG-IgG Associated Disease",
@@ -24724,7 +24815,7 @@ window.searchData = [
     "category": "",
     "parents": [],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-01-26T04:02:22Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Adenosquamous Carcinoma",
       "ALK-rearranged NSCLC",
@@ -24840,7 +24931,7 @@ window.searchData = [
       "Congenital Heart Disease"
     ],
     "creation_date": "2026-02-04T01:40:11Z",
-    "updated_date": "2026-02-04T02:33:26Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Noonan Syndrome 1 (PTPN11-related)",
       "Noonan Syndrome with Multiple Lentigines"
@@ -24978,7 +25069,7 @@ window.searchData = [
       "Metabolic Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-01-05T19:52:09Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Chronic positive energy balance from excess caloric intake relative to expenditure leads to fat accumulation. Multiple regulatory systems (leptin, ghrelin, insulin) fail to restore balance.\n",
     "pathophysiology": [
@@ -25090,7 +25181,7 @@ window.searchData = [
       "Sleep Disorder"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "During sleep, reduced muscle tone allows pharyngeal soft tissues to collapse, obstructing airflow. Anatomical factors (retrognathia, large tonsils, obesity) predispose to collapse.\n",
     "pathophysiology": [
@@ -25237,7 +25328,7 @@ window.searchData = [
       "Ciliopathies"
     ],
     "creation_date": "2026-02-13T00:31:42Z",
-    "updated_date": "2026-02-13T00:31:42Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Orofaciodigital syndrome type I (OFD1) is an X-linked dominant ciliopathy caused by mutations in the OFD1 gene (also known as CXORF5). It is characterized by malformations of the oral cavity (lobulated tongue, oral frenula, cleft palate), face (facial asymmetry, hypertelorism), and digits (brachydactyly, syndactyly, polydactyly). CNS malformations including agenesis of the corpus callosum and polycystic kidneys are common. The condition is typically lethal in males.\n",
     "pathophysiology": [
@@ -25310,7 +25401,7 @@ window.searchData = [
       "Degenerative Joint Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Primary Osteoarthritis",
       "Secondary Osteoarthritis",
@@ -25405,7 +25496,7 @@ window.searchData = [
       "Osteogenesis imperfecta"
     ],
     "creation_date": "2026-02-06T03:25:37Z",
-    "updated_date": "2026-02-06T03:25:37Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Osteogenesis imperfecta type I (OI type I) is the mildest form of osteogenesis imperfecta, caused by heterozygous null mutations in COL1A1 leading to quantitative deficiency of type I collagen (haploinsufficiency). Affected individuals have blue sclerae, mild bone fragility with variable fracture frequency, near-normal stature, and may develop hearing loss in adulthood. Unlike the more severe OI types caused by structural collagen mutations, type I results from reduced collagen quantity rather than abnormal collagen structure.\n",
     "pathophysiology": [
@@ -25477,7 +25568,7 @@ window.searchData = [
       "Osteogenesis imperfecta"
     ],
     "creation_date": "2026-02-06T03:25:37Z",
-    "updated_date": "2026-02-06T03:25:37Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Osteogenesis imperfecta type II is the most severe, perinatal lethal form of OI, caused by heterozygous dominant-negative mutations in COL1A1 or COL1A2. Affected infants have extreme bone fragility with multiple fractures in utero, severe skeletal deformities, dark sclerae, and die from respiratory insufficiency due to pulmonary hypoplasia secondary to small thoracic cage and rib fractures. The mutations typically involve glycine substitutions in the Gly-X-Y repeat that disrupt collagen triple helix formation.\n",
     "pathophysiology": [
@@ -25545,7 +25636,7 @@ window.searchData = [
       "Osteogenesis imperfecta"
     ],
     "creation_date": "2026-02-06T03:25:37Z",
-    "updated_date": "2026-02-06T03:25:37Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Osteogenesis imperfecta type III is the most severe non-lethal form of OI, characterized by progressive skeletal deformity, very short stature, and hundreds of fractures over a lifetime. Caused by dominant-negative mutations in COL1A1 or COL1A2, affected individuals typically require wheelchair mobility and have significant morbidity from skeletal complications. Sclerae may be blue at birth but often lighten with age. Dentinogenesis imperfecta is common.\n",
     "pathophysiology": [
@@ -25618,7 +25709,7 @@ window.searchData = [
       "Osteogenesis imperfecta"
     ],
     "creation_date": "2026-02-06T03:25:37Z",
-    "updated_date": "2026-02-06T03:25:37Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Osteogenesis imperfecta type IV represents moderate severity OI, intermediate between the mild type I and severe type III. Caused by dominant-negative mutations in COL1A1 or COL1A2, affected individuals have moderate bone fragility, variable short stature, normal or near-normal scleral hue (distinguishing it from type I), and may have dentinogenesis imperfecta. Phenotypic severity is highly variable, overlapping with both milder and more severe forms.\n",
     "pathophysiology": [
@@ -25689,7 +25780,7 @@ window.searchData = [
       "Osteogenesis imperfecta"
     ],
     "creation_date": "2026-02-06T03:25:37Z",
-    "updated_date": "2026-02-06T03:25:37Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Osteogenesis imperfecta type V is a distinct form of OI caused by a specific heterozygous mutation in IFITM5 (interferon-induced transmembrane protein 5), not by collagen gene mutations. It is characterized by moderate severity, hyperplastic callus formation after fractures, calcification of the interosseous membrane of the forearm causing limitation of pronation/supination, and a distinctive mesh-like (reticular) lamellation pattern on bone histology. Scleral hue is normal and dentinogenesis imperfecta is absent.\n",
     "pathophysiology": [
@@ -25761,7 +25852,7 @@ window.searchData = [
       "Osteogenesis imperfecta"
     ],
     "creation_date": "2026-02-06T03:25:37Z",
-    "updated_date": "2026-02-06T03:25:37Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Osteogenesis imperfecta type VII is a severe autosomal recessive form of OI caused by biallelic mutations in CRTAP (cartilage-associated protein). CRTAP forms a complex with P3H1 (LEPRE1) and cyclophilin B (PPIB) that catalyzes 3-hydroxylation of a specific proline residue in type I collagen, essential for proper collagen folding and stability. Loss of CRTAP function impairs collagen modification, leading to severe bone fragility resembling types II/III OI but with distinctive features including rhizomelia and white sclerae.\n",
     "pathophysiology": [
@@ -25834,7 +25925,7 @@ window.searchData = [
       "Metabolic Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-01-16T19:46:47Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Increased osteoclast-mediated bone resorption relative to osteoblast- mediated bone formation leads to net bone loss. This imbalance accelerates with aging and estrogen deficiency.\n",
     "pathophysiology": [
@@ -25927,7 +26018,7 @@ window.searchData = [
       "Bone Cancer"
     ],
     "creation_date": "2026-02-02T00:16:36Z",
-    "updated_date": "2026-02-02T00:16:36Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Osteosarcoma is the most common primary malignant bone tumor, most often affecting adolescents and young adults.",
     "pathophysiology": [
@@ -26064,7 +26155,7 @@ window.searchData = [
       "breast carcinoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-01-26T04:02:22Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "PIK3CA-mutant breast cancer is a molecularly-defined subset of breast cancer characterized by activating mutations in the PIK3CA gene, which encodes the p110\u03b1 catalytic subunit of phosphatidylinositol 3-kinase (PI3K). PIK3CA mutations occur in approximately 40% of ER-positive breast cancers and 10-20% of other subtypes, making it one of the most frequently mutated oncogenes in breast cancer. Hotspot mutations (E545K, H1047R) constitutively activate the PI3K-AKT-mTOR signaling pathway. FDA approval of the PI3K inhibitor alpelisib established PIK3CA mutation as a predictive biomarker for targeted therapy.",
     "pathophysiology": [
@@ -26201,7 +26292,7 @@ window.searchData = [
       "Movement Disorder"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-02-02T02:00:57Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Progressive degeneration of dopaminergic neurons in the substantia nigra pars compacta leads to dopamine deficiency in the striatum, causing motor symptoms. Symptoms appear after 60-80% neuron loss.\n",
     "pathophysiology": [
@@ -26422,7 +26513,7 @@ window.searchData = [
       "Childhood Infection"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-02-02T00:09:22Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Parvovirus B19 is a single-stranded DNA virus that primarily infects erythroid progenitor cells, causing erythema infectiosum (fifth disease) in children and arthropathy in adults. It can cause severe complications including transient aplastic crisis in patients with hemolytic disorders and hydrops fetalis in pregnant women.",
     "pathophysiology": [
@@ -26513,7 +26604,7 @@ window.searchData = [
       "Skin Disease"
     ],
     "creation_date": "2025-12-19T01:12:52Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "A potentially life-threatening autoimmune blistering disease caused by autoantibodies against desmoglein 3 (and often desmoglein 1), leading to loss of keratinocyte adhesion (acantholysis) and intraepidermal blister formation. Mucosal involvement often precedes skin lesions.",
     "pathophysiology": [
@@ -26594,7 +26685,7 @@ window.searchData = [
       "Cardiovascular Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Progressive buildup of lipid-rich plaques in peripheral arteries, predominantly affecting lower extremities. Same pathophysiology as coronary artery disease.\n",
     "pathophysiology": [
@@ -26688,7 +26779,7 @@ window.searchData = [
       "Peroxisomal Disorder"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2025-12-16T02:11:39Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Mutations in PEX genes disrupt the assembly and function of peroxisomes, leading to impaired metabolic processes.",
     "pathophysiology": [
@@ -26922,7 +27013,7 @@ window.searchData = [
       "Acrocephalosyndactyly"
     ],
     "creation_date": "2026-02-06T03:25:37Z",
-    "updated_date": "2026-02-06T03:25:37Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Pfeiffer syndrome is a craniosynostosis syndrome caused by mutations in FGFR1 or FGFR2, characterized by craniosynostosis, broad thumbs and great toes, and variable syndactyly. Three clinical subtypes exist: Type 1 (classic) is the mildest with normal intelligence and good prognosis; Types 2 and 3 are severe forms with cloverleaf skull deformity (Type 2) or without (Type 3), associated with significant neurological complications. FGFR2 mutations cause all three types; FGFR1 mutations cause only Type 1.\n",
     "pathophysiology": [
@@ -27259,7 +27350,7 @@ window.searchData = [
       "Frontotemporal Dementia"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Behavioral Variant Frontotemporal Dementia (bvFTD)",
       "Language Variant (Primary Progressive Aphasia)"
@@ -27408,7 +27499,7 @@ window.searchData = [
       "Digestive system infectious disorder"
     ],
     "creation_date": "2026-01-15T17:46:03Z",
-    "updated_date": "2026-01-15T22:11:24Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Polycystic echinococcosis is a zoonotic helminth infection caused by the larval stage of Echinococcus vogeli, producing multilocular hydatid cysts that typically involve the liver and can infiltrate adjacent organs.",
     "pathophysiology": [
@@ -27562,7 +27653,7 @@ window.searchData = [
       "Reproductive Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Excess androgen production from ovarian theca cells and adrenal glands leads to hirsutism, acne, and alopecia. Elevated LH stimulates theca cell androgen production.\n",
     "pathophysiology": [
@@ -27745,7 +27836,7 @@ window.searchData = [
       "Inflammatory Myopathy"
     ],
     "creation_date": "2025-12-19T01:12:52Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "An idiopathic inflammatory myopathy characterized by symmetric proximal muscle weakness without the skin manifestations of dermatomyositis. CD8+ T cell-mediated attack on muscle fibers is the primary pathogenic mechanism.",
     "pathophysiology": [
@@ -27916,7 +28007,7 @@ window.searchData = [
       "Liver Disease"
     ],
     "creation_date": "2025-12-19T01:12:52Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "A chronic autoimmune liver disease characterized by progressive destruction of small intrahepatic bile ducts, leading to cholestasis, fibrosis, and eventually cirrhosis. Highly associated with anti-mitochondrial antibodies (AMA) targeting pyruvate dehydrogenase complex.",
     "pathophysiology": [
@@ -27999,7 +28090,7 @@ window.searchData = [
       "Respiratory Disease"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-02-02T00:09:22Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Defects in the structure and function of motile cilia impair mucociliary clearance.",
     "pathophysiology": [
@@ -28118,7 +28209,7 @@ window.searchData = [
       "Neurodegenerative Disease"
     ],
     "creation_date": "2026-02-02T00:16:36Z",
-    "updated_date": "2026-02-02T00:16:36Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Primary lateral sclerosis is a progressive upper motor neuron disorder with insidious onset and slow progression.",
     "pathophysiology": [
@@ -28263,7 +28354,7 @@ window.searchData = [
       "Neurodegenerative Disease"
     ],
     "creation_date": "2026-02-02T00:16:36Z",
-    "updated_date": "2026-02-02T00:16:36Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Nonfluent/Agrammatic Variant PPA",
       "Semantic Variant PPA",
@@ -28322,7 +28413,7 @@ window.searchData = [
       "Liver Disease"
     ],
     "creation_date": "2025-12-19T01:12:52Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "A chronic cholestatic liver disease characterized by inflammation and fibrosis of intrahepatic and extrahepatic bile ducts, leading to multifocal strictures and eventual biliary cirrhosis. Strongly associated with inflammatory bowel disease, particularly ulcerative colitis.",
     "pathophysiology": [
@@ -28405,7 +28496,7 @@ window.searchData = [
       "Lymphoma"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-01-26T04:02:22Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Abnormal growth of germinal center B-cells with mutations in BCL2 and EZH2, affecting apoptosis regulation and epigenetic control.",
     "pathophysiology": [
@@ -28627,7 +28718,7 @@ window.searchData = [
       "Prurigo"
     ],
     "creation_date": "2026-02-02T00:16:36Z",
-    "updated_date": "2026-02-02T00:16:36Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Prurigo nodularis involves immune and neural dysregulation with cytokine and neuropeptide signaling.",
     "pathophysiology": [
@@ -28780,7 +28871,7 @@ window.searchData = [
       "Autoimmune Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Plaque Psoriasis",
       "Guttate Psoriasis",
@@ -28902,7 +28993,7 @@ window.searchData = [
       "Inflammatory Arthritis"
     ],
     "creation_date": "2026-02-02T00:16:36Z",
-    "updated_date": "2026-02-02T00:16:36Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Psoriatic arthritis is a chronic inflammatory immune-mediated arthropathy associated with psoriasis.",
     "pathophysiology": [
@@ -28964,7 +29055,7 @@ window.searchData = [
       "Lung Disease"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-01-14T23:51:02Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Pulmonary Arterial Hypertension (PAH)",
       "Secondary Pulmonary Hypertension"
@@ -29438,6 +29529,104 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Raynaud Disease",
+    "disease_id": "MONDO:0008364",
+    "category": "Complex",
+    "parents": [
+      "Vascular Disorder"
+    ],
+    "creation_date": null,
+    "updated_date": null,
+    "subtypes": [
+      "Primary Raynaud Phenomenon",
+      "Secondary Raynaud Phenomenon"
+    ],
+    "description": "Raynaud disease (primary Raynaud phenomenon) is a vasospastic disorder characterized by episodic, excessive vasoconstriction of digital arteries and arterioles triggered by cold exposure or emotional stress. It manifests as triphasic color changes of the fingers and toes (pallor, cyanosis, erythema) reflecting vasospasm, deoxygenation, and reperfusion hyperemia. Primary Raynaud disease occurs without an underlying connective tissue disease and involves primarily functional vascular abnormalities. Secondary Raynaud phenomenon is associated with autoimmune conditions such as systemic sclerosis and involves both functional and structural vascular changes. The pathogenesis involves dysregulated neurovascular control, endothelial dysfunction, alpha-2C adrenoceptor-mediated vasoconstriction amplified by RhoA/ROCK signaling, and impaired nitric oxide-soluble guanylate cyclase-cGMP vasodilatory pathways.\n",
+    "pathophysiology": [
+      "Alpha-2C Adrenoceptor Cold-Induced Vasoconstriction",
+      "RhoA/ROCK Potentiation of Vasospasm",
+      "Estrogen Potentiation of Alpha-2C-AR",
+      "Endothelial Dysfunction",
+      "Sympathetic Nervous System Dysregulation",
+      "Intravascular and Platelet Abnormalities",
+      "Oxidative Stress and Ischemia-Reperfusion Injury"
+    ],
+    "cell_types": [
+      "Vascular Smooth Muscle Cell",
+      "Endothelial Cell",
+      "Sympathetic Neuron",
+      "Platelet"
+    ],
+    "cell_type_ids": [
+      "CL:0000359",
+      "CL:0000115",
+      "CL:0011103",
+      "CL:0000233"
+    ],
+    "biological_processes": [
+      "Vasoconstriction",
+      "Cellular Response to Cold",
+      "Vascular Smooth Muscle Contraction",
+      "Vasodilation",
+      "Nitric Oxide Biosynthesis",
+      "Temperature Homeostasis",
+      "Platelet Activation",
+      "Response to Oxidative Stress"
+    ],
+    "phenotypes": [
+      "Raynaud Phenomenon",
+      "Acrocyanosis",
+      "Digital Pain and Paresthesia",
+      "Digital Ulceration",
+      "Digital Ischemia"
+    ],
+    "phenotype_categories": [
+      "Vascular",
+      "Pain",
+      "Dermatological"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Integument",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0030880",
+      "HP:0001063",
+      "HP:0003401",
+      "HP:0031917",
+      "HP:0033402"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "VERY_RARE",
+      "FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Calcium Channel Blockers",
+      "Cold Avoidance and Protective Measures",
+      "Phosphodiesterase-5 Inhibitors",
+      "Prostacyclin Analogues",
+      "Endothelin Receptor Antagonists",
+      "Sympathectomy"
+    ],
+    "environmental": [
+      "Cold Exposure",
+      "Emotional Stress"
+    ],
+    "biochemical": [],
+    "source_file": "Raynaud_Disease.yaml",
+    "page_url": "../pages/disorders/Raynaud_Disease.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 7,
+    "num_genes": 0,
+    "num_treatments": 6,
+    "causal_graph_edges": "1",
+    "causal_graph_longest_path": "1"
+  },
+  {
     "name": "Refeeding Syndrome",
     "disease_id": "MONDO:0400005",
     "category": "Nutritional",
@@ -29445,7 +29634,7 @@ window.searchData = [
       "Nutritional Disorder"
     ],
     "creation_date": "2026-02-01T20:31:01Z",
-    "updated_date": "2026-02-02T18:48:02Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "A potentially dangerous constellation of metabolic disturbances that occurs when nutrition is reintroduced after a period of malnutrition or starvation, often with carbohydrate-driven shifts in electrolytes and fluid balance.",
     "pathophysiology": [
@@ -29535,7 +29724,7 @@ window.searchData = [
       "Kidney Cancer"
     ],
     "creation_date": "2026-02-02T00:16:36Z",
-    "updated_date": "2026-02-02T00:16:36Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Renal cell carcinoma is the most common form of kidney cancer arising from renal epithelial cells.",
     "pathophysiology": [
@@ -29671,7 +29860,7 @@ window.searchData = [
       "Gastrointestinal Disorder"
     ],
     "creation_date": "2026-01-10T00:29:46Z",
-    "updated_date": "2026-01-12T17:37:05Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "A syndrome characterized by the inability to belch due to failure of the upper esophageal sphincter (cricopharyngeus muscle) to relax in response to retrograde esophageal gaseous distension. The associated symptom complex includes abdominal bloating, chest pain, gurgling noises in the chest, nausea, and excessive flatulence.",
     "pathophysiology": [
@@ -29980,7 +30169,7 @@ window.searchData = [
       "Skeletal Dysplasia"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2025-12-04T16:57:31Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Mutations in the RNU4ATAC gene result in defective minor spliceosomal RNAs, affecting normal cellular processes.",
     "pathophysiology": [
@@ -30061,7 +30250,7 @@ window.searchData = [
       "FGFR3-related skeletal dysplasia"
     ],
     "creation_date": "2026-02-02T00:16:36Z",
-    "updated_date": "2026-02-09T15:57:22Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "SADDAN (Severe Achondroplasia with Developmental Delay and Acanthosis Nigricans) is a rare, severe FGFR3-related skeletal dysplasia caused by the heterozygous K650M mutation. It represents an intermediate phenotype between achondroplasia and thanatophoric dysplasia, with severe skeletal features but potential for survival beyond infancy. Key distinguishing features include the presence of acanthosis nigricans (hyperpigmented, velvety skin) and developmental delay/intellectual disability, which are not typical of other FGFR3 skeletal dysplasias. The condition demonstrates how different mutations at the same codon (K650) can produce distinct clinical phenotypes.\n",
     "pathophysiology": [
@@ -30699,7 +30888,7 @@ window.searchData = [
       "Vitamin Deficiency Disease"
     ],
     "creation_date": "2026-01-08T21:52:49Z",
-    "updated_date": "2026-01-08T21:52:49Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Vitamin C (ascorbic acid) is essential for hydroxylation of proline and lysine residues in collagen synthesis by prolyl and lysyl hydroxylases. Deficiency leads to inadequate hydroxyproline and hydroxylysine formation, preventing triple-helix stability and mature cross-links, resulting in defective collagen formation that affects connective tissues throughout the body.\n",
     "pathophysiology": [
@@ -30768,7 +30957,7 @@ window.searchData = [
       "Hypertensive Disorder"
     ],
     "creation_date": "2026-02-02T00:16:36Z",
-    "updated_date": "2026-02-02T00:16:36Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Secondary hypertension often involves coactivation of sympathetic drive and hormonal changes related to the underlying cause.",
     "pathophysiology": [
@@ -30810,7 +30999,7 @@ window.searchData = [
       "Neurodegenerative Disease"
     ],
     "creation_date": "2026-02-02T00:16:36Z",
-    "updated_date": "2026-02-02T00:16:36Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Semantic dementia is a progressive neurodegenerative disorder characterized by loss of semantic knowledge and language comprehension.",
     "pathophysiology": [
@@ -30867,7 +31056,7 @@ window.searchData = [
       "Vestibular Disorder"
     ],
     "creation_date": "2026-01-08T22:33:12Z",
-    "updated_date": "2026-01-08T22:33:12Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "An abnormal opening or thinning in the bone overlying the superior semicircular canal creates a pathological third mobile window in the inner ear, in addition to the oval and round windows. This dehiscence may result from congenitally thin otic capsule bone predisposition with subsequent trauma trigger.",
     "pathophysiology": [
@@ -30948,7 +31137,7 @@ window.searchData = [
     "category": "Mendelian",
     "parents": [],
     "creation_date": "2026-01-27T00:22:49Z",
-    "updated_date": "2026-01-28T16:43:20Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Loss of functional AGK impairs lipid signaling activity attributed to mitochondrial acylglycerol kinase.\n",
     "pathophysiology": [
@@ -31214,7 +31403,7 @@ window.searchData = [
       "Connective Tissue Disorders"
     ],
     "creation_date": "2026-02-13T00:31:42Z",
-    "updated_date": "2026-02-13T00:31:42Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Shprintzen-Goldberg syndrome (SGS) is a rare autosomal dominant connective tissue disorder caused by mutations in SKI, encoding the SKI proto-oncoprotein, a negative regulator of TGF-beta signaling. It shares phenotypic overlap with Marfan and Loeys-Dietz syndromes but is distinguished by craniosynostosis and intellectual disability. Features include Marfanoid habitus, skeletal anomalies, craniosynostosis, and arachnodactyly, with less severe cardiovascular involvement than LDS.\n",
     "pathophysiology": [
@@ -31292,7 +31481,7 @@ window.searchData = [
       "Genetic Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-02-02T00:09:22Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Deoxygenated HbS polymerizes into rigid fibers, deforming red blood cells into sickle shape. HbS has glutamic acid to valine substitution at position 6 of beta-globin.\n",
     "pathophysiology": [
@@ -31474,7 +31663,7 @@ window.searchData = [
       "Autoimmune Disease"
     ],
     "creation_date": "2025-12-19T01:12:52Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "A chronic autoimmune disease characterized by lymphocytic infiltration and destruction of exocrine glands, primarily the salivary and lacrimal glands, leading to sicca symptoms (dry eyes and dry mouth). Can occur as primary disease or secondary to other autoimmune conditions.",
     "pathophysiology": [
@@ -31667,7 +31856,7 @@ window.searchData = [
       "Dysbiosis syndromes"
     ],
     "creation_date": "2025-12-19T01:18:09Z",
-    "updated_date": "2026-01-05T19:52:09Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Excessive bacterial colonization of the small intestine leads to malabsorption, nutrient deficiencies, and gastrointestinal symptoms. Disruption of gastric acid, motility (including migrating motor complex), and the ileocecal barrier promotes overgrowth. Bacterial fermentation produces hydrogen, methane, and short-chain fatty acids while bile acid deconjugation impairs fat absorption.\n",
     "pathophysiology": [
@@ -31846,7 +32035,7 @@ window.searchData = [
       "Neuromuscular Disease"
     ],
     "creation_date": "2026-01-07T17:31:51Z",
-    "updated_date": "2026-02-10T22:32:16Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "SMA Type 1 (Werdnig-Hoffmann)",
       "SMA Type 2",
@@ -32013,7 +32202,7 @@ window.searchData = [
       "Spondyloepiphyseal Dysplasia"
     ],
     "creation_date": "2026-02-06T03:25:37Z",
-    "updated_date": "2026-02-06T03:25:37Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Spondyloepiphyseal dysplasia congenita (SEDC) is a type 2 collagenopathy caused by heterozygous mutations in COL2A1, characterized by disproportionate short-trunk short stature, platyspondyly, and abnormal epiphyses. Unlike the lethal forms (ACG2, hypochondrogenesis), SEDC is compatible with survival into adulthood. Associated features include myopia, retinal detachment risk, hearing loss, and odontoid hypoplasia with cervical instability risk. SEDC demonstrates variable expressivity even within families with the same mutation.\n",
     "pathophysiology": [
@@ -32098,7 +32287,7 @@ window.searchData = [
       "Stickler Syndrome"
     ],
     "creation_date": "2026-02-06T03:25:37Z",
-    "updated_date": "2026-02-06T03:25:37Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Stickler syndrome type 1 (STL1) is the most common and mildest form of the type 2 collagenopathy spectrum, caused by heterozygous COL2A1 mutations that typically result in haploinsufficiency. It is characterized by vitreous abnormalities (membranous or beaded vitreous), high myopia, retinal detachment risk, sensorineural hearing loss, midface hypoplasia, and joint hypermobility with early-onset osteoarthritis. Unlike the more severe collagenopathies, skeletal features are relatively mild with variable expressivity. STL1 is the membranous vitreous type.\n",
     "pathophysiology": [
@@ -32172,7 +32361,7 @@ window.searchData = [
       "Autoimmune Disease"
     ],
     "creation_date": "2025-12-19T01:18:09Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Classic Stiff Person Syndrome",
       "Stiff Limb Syndrome",
@@ -32518,7 +32707,7 @@ window.searchData = [
       "Connective Tissue Disease"
     ],
     "creation_date": "2025-12-19T01:12:52Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "A chronic autoimmune connective tissue disease characterized by vasculopathy, immune dysregulation, and progressive fibrosis of the skin and internal organs. Classified into limited cutaneous and diffuse cutaneous subtypes based on extent of skin involvement.",
     "pathophysiology": [
@@ -33101,7 +33290,7 @@ window.searchData = [
       "Lethal skeletal dysplasia"
     ],
     "creation_date": "2026-02-02T00:16:36Z",
-    "updated_date": "2026-02-02T00:16:36Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Thanatophoric dysplasia type 1 (TD1) is a severe, usually lethal skeletal dysplasia caused by heterozygous FGFR3 mutations, most commonly R248C. It is characterized by extreme rhizomelic limb shortening with curved (bowed) femurs, narrow thorax causing pulmonary hypoplasia, platyspondyly, and macrocephaly. Cloverleaf skull (kleeblattschadel) may occur but is more common in type 2. The term \"thanatophoric\" means \"death-bearing\" in Greek, reflecting the typically perinatal lethality due to respiratory insufficiency. Rare long-term survivors have been reported with intensive respiratory support.\n",
     "pathophysiology": [
@@ -33179,7 +33368,7 @@ window.searchData = [
       "Lethal skeletal dysplasia"
     ],
     "creation_date": "2026-02-02T00:16:36Z",
-    "updated_date": "2026-02-02T00:16:36Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Thanatophoric dysplasia type 2 (TD2) is a severe, usually lethal skeletal dysplasia caused by the heterozygous FGFR3 K650E mutation. It is distinguished from TD1 by straight (rather than curved) femurs and a high frequency of cloverleaf skull (kleeblattschadel). Like TD1, it features extreme rhizomelic limb shortening, narrow thorax causing pulmonary hypoplasia, platyspondyly, and macrocephaly. Perinatal lethality is typical due to respiratory insufficiency, though rare long-term survivors have been reported with intensive support.\n",
     "pathophysiology": [
@@ -33384,7 +33573,7 @@ window.searchData = [
       "Autoimmune Disorder"
     ],
     "creation_date": "2026-02-01T23:53:45Z",
-    "updated_date": "2026-02-02T03:56:14Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Transverse myelitis is an acquired inflammatory disorder of the spinal cord that can cause rapid onset neurologic deficits.",
     "pathophysiology": [
@@ -33518,7 +33707,7 @@ window.searchData = [
       "breast carcinoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-01-27T02:41:13Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Basal-like TNBC",
       "Mesenchymal TNBC",
@@ -33713,7 +33902,7 @@ window.searchData = [
       "Endocrine Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-02-02T01:08:31Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Peripheral tissues (muscle, liver, adipose) become resistant to insulin action, requiring higher insulin levels to maintain glucose homeostasis. This leads to compensatory hyperinsulinemia and eventually beta cell exhaustion.\n",
     "pathophysiology": [
@@ -33987,7 +34176,7 @@ window.searchData = [
       "Autoimmune Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-02-02T01:08:31Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Continuous inflammation limited to the colonic mucosa, starting at the rectum and extending proximally. Crypt abscesses, goblet cell depletion, and mucosal ulceration are characteristic.\n",
     "pathophysiology": [
@@ -34172,7 +34361,7 @@ window.searchData = [
       "Urticaria"
     ],
     "creation_date": "2026-02-02T00:16:36Z",
-    "updated_date": "2026-02-02T00:16:36Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [],
     "description": "Mast cells are central to chronic spontaneous urticaria, with multiple mediators contributing to disease.",
     "pathophysiology": [
@@ -34437,7 +34626,7 @@ window.searchData = [
       "Skin Disorder"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Non-Segmental Vitiligo (NSV)",
       "Segmental Vitiligo (SV)",
@@ -34823,7 +35012,7 @@ window.searchData = [
       "Liver Disease"
     ],
     "creation_date": "2025-12-19T14:27:56Z",
-    "updated_date": "2026-02-06T00:15:28Z",
+    "updated_date": "2026-02-20T12:00:00Z",
     "subtypes": [],
     "description": "ATP7B mutations impair copper excretion into bile and incorporation into ceruloplasmin. Copper accumulates in many organs, especially liver and brain. Free copper is toxic and promotes oxidative damage and cellular toxicity. ATP7B normally resides in the trans-Golgi network where it loads copper into apoceruloplasmin and traffics to the bile canalicular membrane for biliary copper excretion when intracellular copper is elevated.\n",
     "pathophysiology": [
@@ -34855,20 +35044,30 @@ window.searchData = [
     "phenotypes": [
       "Hepatomegaly",
       "Cirrhosis",
+      "Acute Hepatic Failure",
+      "Hepatitis",
       "Kayser-Fleischer Rings",
       "Tremor",
-      "Dysarthria",
       "Dystonia",
-      "Psychiatric Symptoms",
-      "Ataxia",
       "Parkinsonism",
+      "Bradykinesia",
+      "Rigidity",
+      "Chorea",
+      "Dysarthria",
+      "Ataxia",
       "Dysphagia",
+      "Dysgraphia",
+      "Psychiatric Symptoms",
       "Cardiomyopathy",
+      "Cardiac Arrhythmia",
       "Renal Tubular Dysfunction",
       "Hemolytic Anemia",
+      "Rhabdomyolysis",
       "Osteoporosis",
+      "Osteopenia",
+      "Osteomalacia",
       "Arthritis",
-      "Hepatitis"
+      "Arthralgia"
     ],
     "phenotype_categories": [
       "Hepatic",
@@ -34878,11 +35077,13 @@ window.searchData = [
       "Cardiac",
       "Renal",
       "Hematologic",
+      "Muscular",
       "Skeletal"
     ],
     "phenotype_hpo_categories": [
       "Blood",
       "Cardiovascular",
+      "Constitutional",
       "Digestive",
       "Eye",
       "Genitourinary",
@@ -34893,20 +35094,30 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0002240",
       "HP:0001394",
+      "HP:0006554",
+      "HP:0012115",
       "HP:0200032",
       "HP:0001337",
-      "HP:0001260",
       "HP:0001332",
-      "HP:0000708",
-      "HP:0001251",
       "HP:0001300",
+      "HP:0002067",
+      "HP:0002063",
+      "HP:0002072",
+      "HP:0001260",
+      "HP:0001251",
       "HP:0002015",
+      "HP:0010526",
+      "HP:0000708",
       "HP:0001638",
+      "HP:0011675",
       "HP:0000124",
       "HP:0001878",
+      "HP:0003201",
       "HP:0000939",
+      "HP:0000938",
+      "HP:0002749",
       "HP:0001369",
-      "HP:0012115"
+      "HP:0002829"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -34929,14 +35140,14 @@ window.searchData = [
     ],
     "biochemical": [
       "Ceruloplasmin",
-      "Serum Copper",
+      "Non-Ceruloplasmin-Bound Serum Copper",
       "Free Copper",
       "24-Hour Urinary Copper",
       "Hepatic Copper"
     ],
     "source_file": "Wilsons_Disease.yaml",
     "page_url": "../pages/disorders/Wilson_Disease.html",
-    "num_phenotypes": 16,
+    "num_phenotypes": 26,
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 6,
