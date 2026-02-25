@@ -17,9 +17,9 @@ Alias: gene
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Pathophysiology](Pathophysiology.md) |  |  no  |
 | [GeneticContext](GeneticContext.md) | A structured description of a genetic context that modifies phenotype frequen... |  no  |
 | [Variant](Variant.md) |  |  no  |
+| [Pathophysiology](Pathophysiology.md) |  |  no  |
 
 
 

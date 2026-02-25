@@ -22,8 +22,8 @@ Alias: method
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [GOEnrichment](GOEnrichment.md) | GO enrichment results for an association signal |  no  |
 | [AssociationSignal](AssociationSignal.md) | An association signal from EHR, registry, or computational sources, optionall... |  yes  |
+| [GOEnrichment](GOEnrichment.md) | GO enrichment results for an association signal |  no  |
 
 
 

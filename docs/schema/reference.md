@@ -22,9 +22,9 @@ Alias: reference
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [PublicationReference](PublicationReference.md) | A reference to a publication with associated findings |  yes  |
 | [MappingConsistency](MappingConsistency.md) | Consistency assertion for a mapping relative to another source |  yes  |
 | [EvidenceItem](EvidenceItem.md) |  |  no  |
+| [PublicationReference](PublicationReference.md) | A reference to a publication with associated findings |  yes  |
 
 
 

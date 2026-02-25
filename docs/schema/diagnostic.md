@@ -17,8 +17,8 @@ Alias: diagnostic
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [HistopathologyFinding](HistopathologyFinding.md) | A histopathologic finding from microscopic examination of tissue |  yes  |
 | [Phenotype](Phenotype.md) |  |  no  |
+| [HistopathologyFinding](HistopathologyFinding.md) | A histopathologic finding from microscopic examination of tissue |  yes  |
 
 
 

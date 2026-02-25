@@ -18,8 +18,8 @@ Alias: category
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
 | [Phenotype](Phenotype.md) |  |  no  |
-| [Disease](Disease.md) |  |  no  |
 | [AnimalModel](AnimalModel.md) |  |  no  |
+| [Disease](Disease.md) |  |  no  |
 
 
 

@@ -17,13 +17,13 @@ Alias: subtype
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Biochemical](Biochemical.md) |  |  no  |
 | [PhenotypeContext](PhenotypeContext.md) | A context-specific annotation qualifying how a phenotype manifests under part... |  no  |
-| [Genetic](Genetic.md) |  |  no  |
 | [Phenotype](Phenotype.md) |  |  no  |
+| [HistopathologyFinding](HistopathologyFinding.md) | A histopathologic finding from microscopic examination of tissue |  no  |
 | [Prevalence](Prevalence.md) |  |  no  |
 | [ProgressionInfo](ProgressionInfo.md) |  |  no  |
-| [HistopathologyFinding](HistopathologyFinding.md) | A histopathologic finding from microscopic examination of tissue |  no  |
+| [Biochemical](Biochemical.md) |  |  no  |
+| [Genetic](Genetic.md) |  |  no  |
 
 
 

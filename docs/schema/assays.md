@@ -17,8 +17,8 @@ Alias: assays
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Pathophysiology](Pathophysiology.md) |  |  no  |
 | [Biochemical](Biochemical.md) |  |  no  |
+| [Pathophysiology](Pathophysiology.md) |  |  no  |
 
 
 

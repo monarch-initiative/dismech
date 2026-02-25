@@ -22,9 +22,9 @@ Alias: findings
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [PublicationReference](PublicationReference.md) | A reference to a publication with associated findings |  no  |
 | [ComputationalModel](ComputationalModel.md) | A computational or in-silico model relevant to understanding disease mechanis... |  no  |
 | [Dataset](Dataset.md) | A reference to a publicly available omics or phenotype dataset |  no  |
+| [PublicationReference](PublicationReference.md) | A reference to a publication with associated findings |  no  |
 
 
 

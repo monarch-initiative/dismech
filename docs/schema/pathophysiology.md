@@ -18,8 +18,8 @@ Alias: pathophysiology
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
 | [ComorbidityHypothesis](ComorbidityHypothesis.md) | Mechanistic hypothesis for a comorbidity association, with rich text and embe... |  no  |
-| [Stage](Stage.md) |  |  no  |
 | [Disease](Disease.md) |  |  no  |
+| [Stage](Stage.md) |  |  no  |
 
 
 

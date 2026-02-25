@@ -17,17 +17,17 @@ Alias: review_notes
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Treatment](Treatment.md) |  |  no  |
-| [ClinicalTrial](ClinicalTrial.md) | A clinical trial relevant to treatment or research of a disease |  no  |
-| [Genetic](Genetic.md) |  |  no  |
-| [AgentLifeCycle](AgentLifeCycle.md) |  |  no  |
-| [Disease](Disease.md) |  |  no  |
-| [AgentLifeCycleStage](AgentLifeCycleStage.md) |  |  no  |
-| [Environmental](Environmental.md) | An environmental factor, exposure, or context relevant to disease |  no  |
-| [Subtype](Subtype.md) |  |  no  |
 | [Phenotype](Phenotype.md) |  |  no  |
-| [Stage](Stage.md) |  |  no  |
+| [AgentLifeCycle](AgentLifeCycle.md) |  |  no  |
 | [ProgressionInfo](ProgressionInfo.md) |  |  no  |
+| [Subtype](Subtype.md) |  |  no  |
+| [AgentLifeCycleStage](AgentLifeCycleStage.md) |  |  no  |
+| [ClinicalTrial](ClinicalTrial.md) | A clinical trial relevant to treatment or research of a disease |  no  |
+| [Treatment](Treatment.md) |  |  no  |
+| [Environmental](Environmental.md) | An environmental factor, exposure, or context relevant to disease |  no  |
+| [Genetic](Genetic.md) |  |  no  |
+| [Disease](Disease.md) |  |  no  |
+| [Stage](Stage.md) |  |  no  |
 
 
 

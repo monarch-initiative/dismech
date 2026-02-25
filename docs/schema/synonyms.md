@@ -17,11 +17,11 @@ Alias: synonyms
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
+| [Variant](Variant.md) |  |  no  |
 | [Pathophysiology](Pathophysiology.md) |  |  no  |
+| [Environmental](Environmental.md) | An environmental factor, exposure, or context relevant to disease |  no  |
 | [Biochemical](Biochemical.md) |  |  no  |
 | [Disease](Disease.md) |  |  no  |
-| [Variant](Variant.md) |  |  no  |
-| [Environmental](Environmental.md) | An environmental factor, exposure, or context relevant to disease |  no  |
 
 
 

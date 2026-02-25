@@ -17,10 +17,10 @@ Alias: role
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Treatment](Treatment.md) |  |  no  |
 | [Pathophysiology](Pathophysiology.md) |  |  no  |
-| [Stage](Stage.md) |  |  no  |
+| [Treatment](Treatment.md) |  |  no  |
 | [HostDescriptor](HostDescriptor.md) | A descriptor for hosts in an infectious agent life cycle |  no  |
+| [Stage](Stage.md) |  |  no  |
 
 
 

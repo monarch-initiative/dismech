@@ -22,8 +22,8 @@ Alias: title
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [PublicationReference](PublicationReference.md) | A reference to a publication with associated findings |  no  |
 | [Dataset](Dataset.md) | A reference to a publicly available omics or phenotype dataset |  no  |
+| [PublicationReference](PublicationReference.md) | A reference to a publication with associated findings |  no  |
 
 
 

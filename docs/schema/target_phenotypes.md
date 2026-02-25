@@ -22,8 +22,8 @@ Alias: target_phenotypes
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Treatment](Treatment.md) |  |  no  |
 | [ClinicalTrial](ClinicalTrial.md) | A clinical trial relevant to treatment or research of a disease |  no  |
+| [Treatment](Treatment.md) |  |  no  |
 
 
 

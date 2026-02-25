@@ -17,8 +17,8 @@ Alias: variants
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Disease](Disease.md) |  |  no  |
 | [Genetic](Genetic.md) |  |  no  |
+| [Disease](Disease.md) |  |  no  |
 
 
 
