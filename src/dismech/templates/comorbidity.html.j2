@@ -39,6 +39,53 @@
             text-decoration: underline;
         }
 
+        .internal-link {
+            text-decoration: underline;
+            text-underline-offset: 2px;
+            text-decoration-thickness: 1px;
+        }
+
+        .internal-link:hover {
+            text-decoration-thickness: 2px;
+        }
+
+        .dismech-inline-link {
+            margin-left: 6px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #0369a1;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+            text-decoration-thickness: 1px;
+            white-space: nowrap;
+        }
+
+        .dismech-inline-link:hover {
+            text-decoration-thickness: 2px;
+        }
+
+        .curation-gap-badge {
+            display: inline-flex;
+            align-items: center;
+            margin-left: 8px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+            text-transform: uppercase;
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #b91c1c;
+            vertical-align: middle;
+        }
+
+        .missing-ontology-link {
+            color: #b91c1c !important;
+            text-decoration: underline dotted;
+            text-underline-offset: 2px;
+        }
+
         .container {
             max-width: 1100px;
             margin: 0 auto;
@@ -353,6 +400,20 @@
     {% endif %}
     {% endmacro %}
 
+    {% macro render_term_link(term_id, label=None, include_gap_badge=True) %}
+    {% if term_id %}
+    {% set is_mondo = term_id.startswith('MONDO:') %}
+    {% set has_local_page = (term_id | has_local_disorder_page) if is_mondo else False %}
+    {% set dismech_href = (term_id | dismech_page_url) if is_mondo else None %}
+    <a href="{{ term_id | curie_to_url }}" target="_blank"{% if is_mondo and not has_local_page %} class="missing-ontology-link"{% endif %}>{{ label or term_id }}</a>
+    {% if dismech_href %}
+    <a class="dismech-inline-link" href="{{ dismech_href }}">dismech</a>
+    {% elif is_mondo and include_gap_badge %}
+    <span class="curation-gap-badge">Not Yet Curated</span>
+    {% endif %}
+    {% endif %}
+    {% endmacro %}
+
     <div class="container">
         <nav class="breadcrumb">
             <a href="../../app/index.html">Browse All</a>
@@ -383,8 +444,9 @@
                     <h2 class="card-title">Disease A</h2>
                 </div>
                 <div class="mapping-title">
-                    {% if disease_a_slug %}
-                    <a href="../disorders/{{ disease_a_slug }}.html">{{ disease_a_label }}</a>
+                    {% set disease_a_href = disease_a_slug | dismech_slug_page_url if disease_a_slug else None %}
+                    {% if disease_a_href %}
+                    <a class="internal-link" href="{{ disease_a_href }}">{{ disease_a_label }}</a>
                     {% else %}
                     {{ disease_a_label }}
                     {% endif %}
@@ -400,7 +462,8 @@
                     <div class="tag-list">
                         {% for component in comorbidity.disease_a.components %}
                         {% if component.slug %}
-                        <span class="tag tag-parent"><a href="../disorders/{{ component.slug }}.html">{{ component.slug }}</a></span>
+                        {% set component_href = component.slug | dismech_slug_page_url %}
+                        <span class="tag tag-parent">{% if component_href %}<a class="internal-link" href="{{ component_href }}">{{ component.slug }}</a>{% else %}{{ component.slug }}{% endif %}</span>
                         {% endif %}
                         {% endfor %}
                     </div>
@@ -413,8 +476,9 @@
                     <h2 class="card-title">Disease B</h2>
                 </div>
                 <div class="mapping-title">
-                    {% if disease_b_slug %}
-                    <a href="../disorders/{{ disease_b_slug }}.html">{{ disease_b_label }}</a>
+                    {% set disease_b_href = disease_b_slug | dismech_slug_page_url if disease_b_slug else None %}
+                    {% if disease_b_href %}
+                    <a class="internal-link" href="{{ disease_b_href }}">{{ disease_b_label }}</a>
                     {% else %}
                     {{ disease_b_label }}
                     {% endif %}
@@ -430,7 +494,8 @@
                     <div class="tag-list">
                         {% for component in comorbidity.disease_b.components %}
                         {% if component.slug %}
-                        <span class="tag tag-parent"><a href="../disorders/{{ component.slug }}.html">{{ component.slug }}</a></span>
+                        {% set component_href = component.slug | dismech_slug_page_url %}
+                        <span class="tag tag-parent">{% if component_href %}<a class="internal-link" href="{{ component_href }}">{{ component.slug }}</a>{% else %}{{ component.slug }}{% endif %}</span>
                         {% endif %}
                         {% endfor %}
                     </div>
@@ -485,11 +550,11 @@
                     {% if signal.signal_disorder_a_id or signal.signal_disorder_b_id %}
                     <div class="field"><span class="field-label">Signal IDs:</span>
                         {% if signal.signal_disorder_a_id %}
-                        <a href="{{ signal.signal_disorder_a_id | curie_to_url }}" target="_blank">{{ signal.signal_disorder_a_id }}</a>
+                        {{ render_term_link(signal.signal_disorder_a_id) }}
                         {% endif %}
                         {% if signal.signal_disorder_b_id %}
                         {% if signal.signal_disorder_a_id %} -> {% endif %}
-                        <a href="{{ signal.signal_disorder_b_id | curie_to_url }}" target="_blank">{{ signal.signal_disorder_b_id }}</a>
+                        {{ render_term_link(signal.signal_disorder_b_id) }}
                         {% endif %}
                     </div>
                     {% endif %}
@@ -534,7 +599,7 @@
                         {% for term in signal.go_enrichment.go_terms %}
                         <li>
                             {% if term.term %}
-                            <a href="{{ term.term.id | curie_to_url }}" target="_blank">{{ term.term.label }}</a>
+                            {{ render_term_link(term.term.id, term.term.label or term.term.id) }}
                             {% endif %}
                             {% if term.fdr is not none %} (FDR {{ term.fdr }}){% endif %}
                         </li>
@@ -570,7 +635,7 @@
                         {% for ct in patho.cell_types %}
                         {% if ct.term and ct.term.id %}
                         <span class="tag tag-parent">
-                            <a href="{{ ct.term.id | curie_to_url }}" target="_blank">{{ ct.term.label or ct.preferred_term or ct.term.id }}</a>
+                            {{ render_term_link(ct.term.id, ct.term.label or ct.preferred_term or ct.term.id) }}
                         </span>
                         {% else %}
                         <span class="tag tag-parent">{{ ct.preferred_term }}</span>
@@ -586,7 +651,7 @@
                         {% for bp in patho.biological_processes %}
                         {% if bp.term and bp.term.id %}
                         <span class="tag tag-classification">
-                            <a href="{{ bp.term.id | curie_to_url }}" target="_blank">{{ bp.term.label or bp.preferred_term or bp.term.id }}</a>
+                            {{ render_term_link(bp.term.id, bp.term.label or bp.preferred_term or bp.term.id) }}
                         </span>
                         {% else %}
                         <span class="tag tag-classification">{{ bp.preferred_term }}</span>
@@ -602,7 +667,7 @@
                         {% for gp in patho.gene_products %}
                         {% if gp.term and gp.term.id %}
                         <span class="tag tag-mechanistic">
-                            <a href="{{ gp.term.id | curie_to_url }}" target="_blank">{{ gp.term.label or gp.preferred_term or gp.term.id }}</a>
+                            {{ render_term_link(gp.term.id, gp.term.label or gp.preferred_term or gp.term.id) }}
                         </span>
                         {% else %}
                         <span class="tag tag-mechanistic">{{ gp.preferred_term }}</span>
@@ -662,9 +727,7 @@
                 {% for pheno in comorbidity.phenotypes %}
                 <li>
                     {% if pheno.phenotype_term and pheno.phenotype_term.term and pheno.phenotype_term.term.id %}
-                    <a href="{{ pheno.phenotype_term.term.id | curie_to_url }}" target="_blank">
-                        {{ pheno.phenotype_term.term.label or pheno.name or pheno.preferred_term }}
-                    </a>
+                    {{ render_term_link(pheno.phenotype_term.term.id, pheno.phenotype_term.term.label or pheno.name or pheno.preferred_term) }}
                     {% else %}
                     {{ pheno.name or pheno.preferred_term }}
                     {% endif %}
