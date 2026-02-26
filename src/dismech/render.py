@@ -3,10 +3,11 @@ Render disorder YAML files to HTML pages using Jinja2 templates.
 """
 
 import json
+import re
 from collections import defaultdict
 from functools import lru_cache
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 import yaml
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -117,6 +118,162 @@ def slugify(name: str) -> str:
     return name.replace(' ', '_').replace('/', '_').replace('(', '').replace(')', '')
 
 
+def _normalize_disorder_lookup(value: str | None) -> str:
+    """Normalize disease names/slugs for tolerant internal-link lookup."""
+    if not value:
+        return ''
+    normalized = re.sub(r'[^a-z0-9]+', ' ', str(value).casefold())
+    return ' '.join(normalized.split())
+
+
+def _extract_disorder_term_id(disorder: dict) -> str | None:
+    """Extract MONDO/ontology term id from a disorder model if present."""
+    disease_term = disorder.get('disease_term')
+    if not isinstance(disease_term, dict):
+        return None
+    term = disease_term.get('term')
+    if not isinstance(term, dict):
+        return None
+    term_id = term.get('id')
+    if not term_id:
+        return None
+    return str(term_id)
+
+
+def _resolve_local_disorder_href(
+    curie: str | None,
+    by_term: dict[str, str],
+    *,
+    local_prefix: str = '',
+    excluded_term_ids: set[str] | None = None,
+) -> str | None:
+    """Resolve MONDO CURIEs to local disorder-page hrefs when available."""
+    if not isinstance(curie, str) or not curie:
+        return None
+    term_id = curie.upper()
+    if not term_id.startswith('MONDO:'):
+        return None
+    if excluded_term_ids and term_id in excluded_term_ids:
+        return None
+    page_filename = by_term.get(term_id)
+    if not page_filename:
+        return None
+    return f'{local_prefix}{page_filename}'
+
+
+def _build_dismech_page_url_filter(
+    disorders_dir: Path,
+    *,
+    local_prefix: str = '',
+    excluded_term_ids: set[str] | None = None,
+) -> Callable[[str], str | None]:
+    """Build a filter that resolves MONDO CURIEs to local DisMech page hrefs."""
+    by_term, _ = _build_disorder_page_index(str(disorders_dir.resolve()))
+    excluded = {
+        term_id.upper()
+        for term_id in (excluded_term_ids or set())
+        if isinstance(term_id, str) and term_id
+    }
+
+    def _curie_to_dismech_url(curie: str) -> str | None:
+        return _resolve_local_disorder_href(
+            curie,
+            by_term,
+            local_prefix=local_prefix,
+            excluded_term_ids=excluded,
+        )
+
+    return _curie_to_dismech_url
+
+
+def _build_has_local_disorder_filter(
+    disorders_dir: Path,
+) -> Callable[[str], bool]:
+    """Build a filter that reports whether a MONDO CURIE resolves to a local page."""
+    by_term, _ = _build_disorder_page_index(str(disorders_dir.resolve()))
+
+    def _has_local_disorder_page(curie: str) -> bool:
+        return _resolve_local_disorder_href(curie, by_term) is not None
+
+    return _has_local_disorder_page
+
+
+@lru_cache(maxsize=8)
+def _build_disorder_page_index(disorders_dir: str) -> tuple[dict[str, str], dict[str, str]]:
+    """Build indexes for resolving disorder pages by term ID or name."""
+    root = Path(disorders_dir)
+    by_term_candidates: dict[str, set[str]] = defaultdict(set)
+    by_name_candidates: dict[str, set[str]] = defaultdict(set)
+
+    for disorder_path in sorted(root.glob('*.yaml')):
+        if disorder_path.name.endswith('.history.yaml'):
+            continue
+        try:
+            disorder = load_disorder(disorder_path) or {}
+        except Exception:
+            continue
+        disorder_name = disorder.get('name') or disorder_path.stem
+        page_filename = f"{slugify(str(disorder_name))}.html"
+
+        term_id = _extract_disorder_term_id(disorder)
+        if term_id:
+            by_term_candidates[term_id.upper()].add(page_filename)
+
+        for candidate in (disorder_name, disorder_path.stem):
+            lookup_key = _normalize_disorder_lookup(str(candidate) if candidate else None)
+            if lookup_key:
+                by_name_candidates[lookup_key].add(page_filename)
+
+    by_term = {
+        term_id: next(iter(page_names))
+        for term_id, page_names in by_term_candidates.items()
+        if len(page_names) == 1
+    }
+    by_name = {
+        lookup_key: next(iter(page_names))
+        for lookup_key, page_names in by_name_candidates.items()
+        if len(page_names) == 1
+    }
+    return by_term, by_name
+
+
+def _annotate_internal_differential_links(
+    disorder: dict,
+    current_page_filename: str,
+    disorders_dir: Path,
+) -> None:
+    """Attach local DisMech page hrefs to differential entries when resolvable."""
+    differential_items = disorder.get('differential_diagnoses') or []
+    if isinstance(differential_items, dict):
+        entries = differential_items.values()
+    elif isinstance(differential_items, list):
+        entries = differential_items
+    else:
+        return
+
+    by_term, by_name = _build_disorder_page_index(str(disorders_dir.resolve()))
+    default_current_page = f"{slugify(str(disorder.get('name') or ''))}.html"
+    for diff in entries:
+        if not isinstance(diff, dict):
+            continue
+        diff.pop('dismech_page_href', None)
+
+        href = None
+        disease_term = diff.get('disease_term')
+        if isinstance(disease_term, dict):
+            term = disease_term.get('term')
+            if isinstance(term, dict):
+                term_id = term.get('id')
+                if term_id:
+                    href = by_term.get(str(term_id).upper())
+
+        if not href:
+            href = by_name.get(_normalize_disorder_lookup(diff.get('name')))
+
+        if href and href not in {current_page_filename, default_current_page}:
+            diff['dismech_page_href'] = href
+
+
 def load_disorder(yaml_path: Path) -> dict:
     """Load a disorder YAML file."""
     with open(yaml_path) as f:
@@ -222,6 +379,19 @@ def render_disorder(
     # Read raw YAML for display
     yaml_content = yaml_path.read_text()
 
+    # Determine output path early so we can resolve local page links relative to it.
+    if output_path is None:
+        disorder_name = disorder.get("name") or yaml_path.stem
+        output_path = Path('pages/disorders') / f'{slugify(disorder_name)}.html'
+    else:
+        output_path = Path(output_path)
+
+    _annotate_internal_differential_links(
+        disorder=disorder,
+        current_page_filename=output_path.name,
+        disorders_dir=yaml_path.parent,
+    )
+
     # Set up Jinja2 environment
     if template_path is None:
         template_dir = Path(__file__).parent / 'templates'
@@ -236,7 +406,15 @@ def render_disorder(
     )
 
     # Register custom filters
+    current_term_id = _extract_disorder_term_id(disorder)
     env.filters['curie_to_url'] = curie_to_url
+    env.filters['dismech_page_url'] = _build_dismech_page_url_filter(
+        yaml_path.parent,
+        excluded_term_ids={current_term_id} if current_term_id else None,
+    )
+    env.filters['has_local_disorder_page'] = _build_has_local_disorder_filter(
+        yaml_path.parent,
+    )
 
     # Load and render template
     template = env.get_template(template_name)
@@ -263,14 +441,8 @@ def render_disorder(
         phenotype_groups=phenotype_groups,
     )
 
-    # Determine output path
-    if output_path is None:
-        output_dir = Path('pages/disorders')
-        output_dir.mkdir(parents=True, exist_ok=True)
-        disorder_name = disorder.get("name") or yaml_path.stem
-        output_path = output_dir / f'{slugify(disorder_name)}.html'
-
     # Write output
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html)
 
     return output_path
@@ -331,6 +503,13 @@ def render_comorbidity(
         autoescape=select_autoescape(['html', 'j2'])
     )
     env.filters['curie_to_url'] = curie_to_url
+    env.filters['dismech_page_url'] = _build_dismech_page_url_filter(
+        Path('kb/disorders'),
+        local_prefix='../disorders/',
+    )
+    env.filters['has_local_disorder_page'] = _build_has_local_disorder_filter(
+        Path('kb/disorders'),
+    )
 
     template = env.get_template(template_name)
 
@@ -610,6 +789,13 @@ def render_classification_pages(
         autoescape=select_autoescape(['html', 'j2'])
     )
     env.filters['curie_to_url'] = curie_to_url
+    env.filters['dismech_page_url'] = _build_dismech_page_url_filter(
+        input_dir,
+        local_prefix='../disorders/',
+    )
+    env.filters['has_local_disorder_page'] = _build_has_local_disorder_filter(
+        input_dir,
+    )
     template = env.get_template(template_name)
 
     output_dir.mkdir(parents=True, exist_ok=True)

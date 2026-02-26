@@ -483,6 +483,56 @@
             margin-bottom: 6px;
         }
 
+        .item-name-link {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        .item-name-link:hover {
+            text-decoration: underline;
+        }
+
+        .missing-disease-name {
+            color: #991b1b;
+            border-bottom: 1px dotted #dc2626;
+        }
+
+        .curation-gap-badge {
+            display: inline-flex;
+            align-items: center;
+            margin-left: 8px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+            text-transform: uppercase;
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #b91c1c;
+            vertical-align: middle;
+        }
+
+        .missing-ontology-link {
+            color: #b91c1c !important;
+            text-decoration: underline dotted;
+            text-underline-offset: 2px;
+        }
+
+        .dismech-inline-link {
+            margin-left: 6px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #0369a1;
+            text-decoration: none;
+            border-bottom: 1px dotted #0369a1;
+            white-space: nowrap;
+        }
+
+        .dismech-inline-link:hover {
+            text-decoration: underline;
+        }
+
         .item-desc {
             font-size: 0.9rem;
             line-height: 1.6;
@@ -1660,13 +1710,22 @@
             <div class="mapping-section">
                 <div class="classification-category">MONDO</div>
                 {% for mapping in disorder.mappings.mondo_mappings %}
+                {% set mapping_term_id = mapping.term.id if mapping.term and mapping.term.id else None %}
+                {% set mapping_has_local_page = (mapping_term_id | has_local_disorder_page) if mapping_term_id else False %}
+                {% set mapping_dismech_href = (mapping_term_id | dismech_page_url) if mapping_term_id else None %}
                 <div class="mapping-item">
                     <div class="mapping-title">
-                        {% if mapping.term and mapping.term.id %}
-                        <a href="{{ mapping.term.id | curie_to_url }}" target="_blank">{{ mapping.term.id }}</a>
+                        {% if mapping_term_id %}
+                        <a href="{{ mapping_term_id | curie_to_url }}" target="_blank"{% if not mapping_has_local_page %} class="missing-ontology-link"{% endif %}>{{ mapping_term_id }}</a>
                         {% endif %}
                         {% if mapping.term and mapping.term.label %}
-                        <span class="mapping-label">{{ mapping.term.label }}</span>
+                        <span class="mapping-label{% if mapping_term_id and not mapping_has_local_page %} missing-disease-name{% endif %}"{% if mapping_term_id and not mapping_has_local_page %} title="No DisMech page yet for this disease"{% endif %}>{{ mapping.term.label }}</span>
+                        {% endif %}
+                        {% if mapping_term_id and not mapping_has_local_page %}
+                        <span class="curation-gap-badge">Not Yet Curated</span>
+                        {% endif %}
+                        {% if mapping_dismech_href %}
+                        <a class="dismech-inline-link" href="{{ mapping_dismech_href }}">Dismech</a>
                         {% endif %}
                     </div>
                     <div class="tag-list">
@@ -2386,13 +2445,22 @@
                 Conditions with similar clinical presentations that must be differentiated from {{ disorder.name }}:
             </p>
             {% for diff in disorder.differential_diagnoses %}
+            {% set diff_term_id = diff.disease_term.term.id if diff.disease_term and diff.disease_term.term and diff.disease_term.term.id else None %}
+            {% set diff_has_local_page = (diff_term_id | has_local_disorder_page) if diff_term_id else False %}
             <div class="item-box differential-box">
                 <div class="item-name">
+                    {% if diff.dismech_page_href %}
+                    <a class="item-name-link" href="{{ diff.dismech_page_href }}">{{ diff.name }}</a>
+                    {% elif diff_term_id and not diff_has_local_page %}
+                    <span class="missing-disease-name" title="No DisMech page yet for this disease">{{ diff.name }}</span>
+                    <span class="curation-gap-badge">Not Yet Curated</span>
+                    {% else %}
                     {{ diff.name }}
-                    {% if diff.disease_term and diff.disease_term.term %}
+                    {% endif %}
+                    {% if diff_term_id %}
                     <span class="phenotype-id">
-                        <a href="{{ diff.disease_term.term.id | curie_to_url }}" target="_blank">
-                            {{ diff.disease_term.term.id }}
+                        <a href="{{ diff_term_id | curie_to_url }}" target="_blank"{% if not diff_has_local_page %} class="missing-ontology-link"{% endif %}>
+                            {{ diff_term_id }}
                         </a>
                     </span>
                     {% endif %}
