@@ -220,7 +220,8 @@ def _build_disorder_page_index(disorders_dir: str) -> tuple[dict[str, str], dict
             by_term_candidates[term_id.upper()].add(page_filename)
 
         for candidate in (disorder_name, disorder_path.stem):
-            lookup_key = _normalize_disorder_lookup(str(candidate) if candidate else None)
+            lookup_key = _normalize_disorder_lookup(
+                str(candidate) if candidate else None)
             if lookup_key:
                 by_name_candidates[lookup_key].add(page_filename)
 
@@ -382,7 +383,8 @@ def render_disorder(
     # Determine output path early so we can resolve local page links relative to it.
     if output_path is None:
         disorder_name = disorder.get("name") or yaml_path.stem
-        output_path = Path('pages/disorders') / f'{slugify(disorder_name)}.html'
+        output_path = Path('pages/disorders') / \
+            f'{slugify(disorder_name)}.html'
     else:
         output_path = Path(output_path)
 
@@ -472,6 +474,14 @@ def _build_condition_graphs(
     return graphs
 
 
+def _resolve_comorbidity_disorders_dir(yaml_path: Path) -> Path:
+    """Resolve disorders directory for a comorbidity file, preferring nearby kb layout."""
+    candidate = yaml_path.parent.parent / 'disorders'
+    if candidate.exists():
+        return candidate
+    return Path('kb/disorders')
+
+
 def render_comorbidity(
     yaml_path: Path,
     output_path: Optional[Path] = None,
@@ -490,6 +500,7 @@ def render_comorbidity(
     """
     comorbidity = load_comorbidity(yaml_path)
     yaml_content = yaml_path.read_text()
+    disorders_dir = _resolve_comorbidity_disorders_dir(yaml_path)
 
     if template_path is None:
         template_dir = Path(__file__).parent / 'templates'
@@ -504,11 +515,11 @@ def render_comorbidity(
     )
     env.filters['curie_to_url'] = curie_to_url
     env.filters['dismech_page_url'] = _build_dismech_page_url_filter(
-        Path('kb/disorders'),
+        disorders_dir,
         local_prefix='../disorders/',
     )
     env.filters['has_local_disorder_page'] = _build_has_local_disorder_filter(
-        Path('kb/disorders'),
+        disorders_dir,
     )
 
     template = env.get_template(template_name)
@@ -518,8 +529,10 @@ def render_comorbidity(
     disease_a = comorbidity.get('disease_a', {}) or {}
     disease_b = comorbidity.get('disease_b', {}) or {}
 
-    disease_a_graphs = _build_condition_graphs(disease_a)
-    disease_b_graphs = _build_condition_graphs(disease_b)
+    disease_a_graphs = _build_condition_graphs(
+        disease_a, disorders_dir=disorders_dir)
+    disease_b_graphs = _build_condition_graphs(
+        disease_b, disorders_dir=disorders_dir)
 
     html = template.render(
         comorbidity=comorbidity,
@@ -539,6 +552,7 @@ def render_comorbidity(
         comorbidity_name = comorbidity.get("name") or yaml_path.stem
         output_path = output_dir / f'{slugify(comorbidity_name)}.html'
 
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html)
     return output_path
 
