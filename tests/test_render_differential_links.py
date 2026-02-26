@@ -232,3 +232,70 @@ def test_render_mondo_mapping_highlights_missing_disorder_page(tmp_path: Path) -
     assert "missing-disease-name" in html
     assert "missing-ontology-link" in html
     assert 'href="http://purl.obolibrary.org/obo/MONDO_0099999"' in html
+
+
+def test_render_subtype_links_to_local_disorder_page(tmp_path: Path) -> None:
+    """Subtype disease names should link to local pages when MONDO resolves locally."""
+    acne_path = tmp_path / "Acne_Vulgaris.yaml"
+    rosacea_path = tmp_path / "Rosacea.yaml"
+
+    _write_disorder(
+        acne_path,
+        {
+            "name": "Acne Vulgaris",
+            "disease_term": {"term": {"id": "MONDO:0000001", "label": "acne vulgaris"}},
+            "has_subtypes": [
+                {
+                    "name": "Rosacea-like subtype",
+                    "subtype_term": {
+                        "term": {"id": "MONDO:0000002", "label": "rosacea"}
+                    },
+                }
+            ],
+        },
+    )
+    _write_disorder(
+        rosacea_path,
+        {
+            "name": "Rosacea",
+            "disease_term": {"term": {"id": "MONDO:0000002", "label": "rosacea"}},
+        },
+    )
+
+    output_path = tmp_path / "pages" / "disorders" / "Acne_Vulgaris.html"
+    render_disorder(acne_path, output_path=output_path)
+
+    html = output_path.read_text()
+    assert 'href="Rosacea.html">Rosacea-like subtype</a>' in html
+    assert 'href="http://purl.obolibrary.org/obo/MONDO_0000002"' in html
+    assert ">Dismech</a>" in html
+    assert "Not Yet Curated" not in html
+
+
+def test_render_subtype_highlights_missing_disorder_page(tmp_path: Path) -> None:
+    """Subtype disease names should be flagged when MONDO has no local page."""
+    acne_path = tmp_path / "Acne_Vulgaris.yaml"
+    _write_disorder(
+        acne_path,
+        {
+            "name": "Acne Vulgaris",
+            "disease_term": {"term": {"id": "MONDO:0000001", "label": "acne vulgaris"}},
+            "has_subtypes": [
+                {
+                    "name": "Uncurated subtype",
+                    "subtype_term": {
+                        "term": {"id": "MONDO:0099999", "label": "uncurated disease"}
+                    },
+                }
+            ],
+        },
+    )
+
+    output_path = tmp_path / "pages" / "disorders" / "Acne_Vulgaris.html"
+    render_disorder(acne_path, output_path=output_path)
+
+    html = output_path.read_text()
+    assert "missing-disease-name" in html
+    assert "Not Yet Curated" in html
+    assert "missing-ontology-link" in html
+    assert 'href="http://purl.obolibrary.org/obo/MONDO_0099999"' in html
