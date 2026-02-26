@@ -119,6 +119,7 @@ This creates `dashboard/index.html` with:
 - Slot compliance comparison chart
 - Detailed views of the 10 lowest-compliance files (priority curation targets)
 - Full table of all files sorted by compliance
+- A dedicated `not_yet_curated.html` report listing referenced MONDO diseases that do not yet have local DisMech pages
 
 View online: [QC Dashboard](https://dismech.monarchinitiative.org/dashboard/) or locally: `open dashboard/index.html`
 
