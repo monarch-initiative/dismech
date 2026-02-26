@@ -457,6 +457,7 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/minisearch@7.1.1/dist/umd/index.min.js"></script>
     <script src="schema.js"></script>
     <script src="data.js"></script>
     <script>
@@ -466,7 +467,7 @@
                 this.schema = null;
                 this.activeFilters = {};
                 this.searchQuery = '';
-                this.searchIndex = new Map();
+                this.miniSearch = null;
                 this.facetCounts = {};
                 this.expandedFacets = new Set();
                 this.FACET_LIMIT = 8;
@@ -519,22 +520,34 @@
 
             buildSearchIndex() {
                 const searchableFields = this.schema.searchableFields || [];
-                this.data.forEach((record, idx) => {
-                    const tokens = new Set();
+                const documents = this.data.map((record, idx) => {
+                    const doc = { _id: idx };
                     searchableFields.forEach(field => {
                         const value = record[field];
                         if (Array.isArray(value)) {
-                            value.forEach(v => this.tokenize(String(v)).forEach(t => tokens.add(t)));
-                        } else if (value) {
-                            this.tokenize(String(value)).forEach(t => tokens.add(t));
+                            doc[field] = value.join(' ');
+                        } else {
+                            doc[field] = value || '';
                         }
                     });
-                    this.searchIndex.set(idx, tokens);
+                    return doc;
                 });
-            }
 
-            tokenize(text) {
-                return text.toLowerCase().split(/\W+/).filter(t => t.length > 1);
+                this.miniSearch = new MiniSearch({
+                    fields: searchableFields,
+                    idField: '_id',
+                    storeFields: ['name'],
+                    tokenize: (text) => text.toLowerCase().split(/[\s\-_/,;:()]+/).filter(t => t.length > 1),
+                    searchOptions: {
+                        boost: this.schema.fieldBoosts || {},
+                        prefix: true,
+                        fuzzy: 0.2,
+                        combineWith: 'AND',
+                        weights: { fuzzy: 0.45, prefix: 0.75 },
+                    },
+                });
+
+                this.miniSearch.addAll(documents);
             }
 
             computeFacetCounts(filteredData) {
@@ -556,17 +569,24 @@
             }
 
             filter() {
-                let results = this.data.map((r, i) => ({ ...r, _idx: i }));
+                let results = this.data.map((r, i) => ({ ...r, _idx: i, _score: 0 }));
 
-                // Apply search query
+                // Apply search query using MiniSearch with boostDocument
                 if (this.searchQuery) {
-                    const queryTokens = this.tokenize(this.searchQuery);
-                    results = results.filter(record => {
-                        const recordTokens = this.searchIndex.get(record._idx);
-                        return queryTokens.every(qt =>
-                            [...recordTokens].some(rt => rt.includes(qt))
-                        );
+                    const queryLower = this.searchQuery.toLowerCase().trim();
+                    const searchResults = this.miniSearch.search(this.searchQuery, {
+                        boostDocument: (_id, _term, storedFields) => {
+                            const nameLower = (storedFields?.name || '').toLowerCase();
+                            if (nameLower === queryLower) return 50;
+                            if (nameLower.startsWith(queryLower)) return 10;
+                            if (nameLower.includes(queryLower)) return 3;
+                            return 1;
+                        },
                     });
+                    const scoreMap = new Map(searchResults.map(r => [r.id, r.score]));
+
+                    results = results.filter(r => scoreMap.has(r._idx));
+                    results.forEach(r => { r._score = scoreMap.get(r._idx); });
                 }
 
                 // Apply facet filters
@@ -586,6 +606,13 @@
 
             sortResults(results) {
                 const sorted = [...results];
+
+                // Auto-sort by relevance when searching
+                if (this.searchQuery && this.sortBy === 'relevance') {
+                    sorted.sort((a, b) => (b._score || 0) - (a._score || 0) || this.compareNames(a, b));
+                    return sorted;
+                }
+
                 const [field, direction] = this.sortBy.split('-');
 
                 if (field === 'name') {
@@ -637,6 +664,15 @@
             }
 
             render() {
+                // Auto-switch to relevance sort when there's a search query
+                if (this.searchQuery && this._preSortBy === undefined) {
+                    this._preSortBy = this.sortBy;
+                    this.sortBy = 'relevance';
+                } else if (!this.searchQuery && this._preSortBy !== undefined) {
+                    this.sortBy = this._preSortBy;
+                    delete this._preSortBy;
+                }
+
                 const filtered = this.filter();
                 this.facetCounts = this.computeFacetCounts(filtered);
                 this.renderFacets();
@@ -685,12 +721,14 @@
             renderResults(results) {
                 const container = document.getElementById('resultsContainer');
 
+                const hasSearch = !!this.searchQuery;
                 let html = `<div class="results-header">
                     <span class="results-count">${results.length} disorder${results.length !== 1 ? 's' : ''}</span>
                     <div class="results-controls">
                         <label class="sort-control" for="sortSelect">
                             Sort by
                             <select id="sortSelect" class="sort-select">
+                                ${hasSearch ? `<option value="relevance" ${this.sortBy === 'relevance' ? 'selected' : ''}>Relevance</option>` : ''}
                                 <option value="name-asc" ${this.sortBy === 'name-asc' ? 'selected' : ''}>Name (A-Z)</option>
                                 <option value="name-desc" ${this.sortBy === 'name-desc' ? 'selected' : ''}>Name (Z-A)</option>
                                 <option value="created-desc" ${this.sortBy === 'created-desc' ? 'selected' : ''}>Created (Newest first)</option>
@@ -893,6 +931,8 @@
                     if (e.target.id === 'clearFilters') {
                         this.activeFilters = {};
                         this.searchQuery = '';
+                        this.sortBy = this._preSortBy || 'name-asc';
+                        delete this._preSortBy;
                         document.getElementById('searchInput').value = '';
                         this.expandedFacets.clear();
                         this.render();
@@ -903,6 +943,10 @@
                 document.getElementById('resultsContainer').addEventListener('change', (e) => {
                     if (e.target.id === 'sortSelect') {
                         this.sortBy = e.target.value;
+                        // If user manually changes sort during search, stop auto-switching
+                        if (this._preSortBy !== undefined && e.target.value !== 'relevance') {
+                            delete this._preSortBy;
+                        }
                         this.render();
                     }
                 });
