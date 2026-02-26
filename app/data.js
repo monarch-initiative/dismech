@@ -13959,6 +13959,100 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Glutaryl-CoA Dehydrogenase Deficiency",
+    "disease_id": "MONDO:0009281",
+    "category": "Mendelian",
+    "parents": [
+      "Organic Acidemia",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2025-12-15T00:00:00Z",
+    "updated_date": "2026-02-26T00:00:00Z",
+    "subtypes": [],
+    "description": "Glutaryl-CoA dehydrogenase deficiency (historically termed glutaric aciduria type 1, GA1) is a rare autosomal recessive neurometabolic disorder caused by deficiency of glutaryl-CoA dehydrogenase (GCDH), which catalyzes the final step of lysine, hydroxylysine, and tryptophan catabolism. GCDH deficiency leads to accumulation of neurotoxic metabolites glutaric acid (GA), 3-hydroxyglutaric acid (3-OH-GA), and glutarylcarnitine (C5DC). Untreated disease ranges from infantile-onset to later-onset forms (after age six years). Affected individuals are at highest risk for acute encephalopathic crises in early childhood (especially ages 3-36 months), often triggered by catabolic stress, which cause irreversible bilateral striatal necrosis and a complex dystonic movement disorder. Early diagnosis through newborn screening and adherence to metabolic treatment including lysine-restricted diet, carnitine supplementation, and emergency management during intercurrent illness can prevent striatal injury in the majority of patients. Even in treated cohorts, long-term surveillance is important, including attention to possible renal complications in adolescents and adults.\n",
+    "pathophysiology": [
+      "GCDH protein misfolding",
+      "GCDH enzymatic deficiency and disrupted lysine catabolism",
+      "Brain exposure to toxic GA1 catabolites",
+      "Oxidative stress and neuroinflammation",
+      "Striatal vulnerability and encephalopathic crises"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "cellular amino acid catabolic process",
+      "Response to oxidative stress",
+      "Inflammatory response"
+    ],
+    "phenotypes": [
+      "Macrocephaly",
+      "Dystonia",
+      "Motor delay",
+      "Encephalopathy",
+      "Subdural hemorrhage",
+      "Metabolic acidosis",
+      "Seizures",
+      "Intellectual disability",
+      "Hypotonia",
+      "Frontotemporal cerebral atrophy",
+      "Cerebral white matter hyperintensity on MRI"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000256",
+      "HP:0001332",
+      "HP:0001270",
+      "HP:0001298",
+      "HP:0100309",
+      "HP:0001942",
+      "HP:0001250",
+      "HP:0001249",
+      "HP:0001252",
+      "HP:0006892",
+      "HP:0030890"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "GCDH variants causing glutaryl-CoA dehydrogenase deficiency"
+    ],
+    "treatments": [
+      "Lysine-restricted diet",
+      "Carnitine supplementation",
+      "Emergency management during intercurrent illness",
+      "Newborn screening",
+      "Genetic counseling",
+      "Gene therapy (investigational)",
+      "Bezafibrate (investigational)"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Elevated glutarylcarnitine (C5DC)",
+      "Elevated glutaric acid in urine",
+      "Elevated 3-hydroxyglutaric acid in urine"
+    ],
+    "source_file": "Glutaryl-CoA_Dehydrogenase_Deficiency.yaml",
+    "page_url": "../pages/disorders/Glutaryl-CoA_Dehydrogenase_Deficiency.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 7,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Gorlin Syndrome",
     "disease_id": "MONDO:0007187",
     "category": "Mendelian",
