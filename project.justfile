@@ -303,6 +303,7 @@ gen-dashboard:
         exit 1
     fi
     uv run linkml-data-qc "${files[@]}" -s {{schema_path}} -t Disease -c conf/qc_config.yaml --dashboard-dir dashboard/
+    uv run python scripts/qc_uncurated_disease_links.py --kb-dir {{kb_dir}} --dashboard-dir dashboard/ --dashboard-index dashboard/index.html
     echo "Dashboard generated in dashboard/"
 
 # Validate snippet/reference pairs against PubMed (checks that quotes appear in cited papers)
