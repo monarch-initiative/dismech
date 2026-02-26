@@ -198,6 +198,51 @@ def _build_has_local_disorder_filter(
     return _has_local_disorder_page
 
 
+def _resolve_local_disorder_slug_href(
+    slug: str | None,
+    by_name: dict[str, str],
+    *,
+    local_prefix: str = '',
+) -> str | None:
+    """Resolve a disorder slug/name token to a local disorder-page href."""
+    if not isinstance(slug, str) or not slug:
+        return None
+    page_filename = by_name.get(_normalize_disorder_lookup(slug))
+    if not page_filename:
+        return None
+    return f'{local_prefix}{page_filename}'
+
+
+def _build_dismech_slug_page_url_filter(
+    disorders_dir: Path,
+    *,
+    local_prefix: str = '',
+) -> Callable[[str], str | None]:
+    """Build a filter that resolves disorder slug/name tokens to local page hrefs."""
+    _, by_name = _build_disorder_page_index(str(disorders_dir.resolve()))
+
+    def _slug_to_dismech_url(slug: str) -> str | None:
+        return _resolve_local_disorder_slug_href(
+            slug,
+            by_name,
+            local_prefix=local_prefix,
+        )
+
+    return _slug_to_dismech_url
+
+
+def _build_has_local_disorder_slug_filter(
+    disorders_dir: Path,
+) -> Callable[[str], bool]:
+    """Build a filter that reports whether a disorder slug/name token resolves locally."""
+    _, by_name = _build_disorder_page_index(str(disorders_dir.resolve()))
+
+    def _has_local_disorder_slug_page(slug: str) -> bool:
+        return _resolve_local_disorder_slug_href(slug, by_name) is not None
+
+    return _has_local_disorder_slug_page
+
+
 @lru_cache(maxsize=8)
 def _build_disorder_page_index(disorders_dir: str) -> tuple[dict[str, str], dict[str, str]]:
     """Build indexes for resolving disorder pages by term ID or name."""
@@ -519,6 +564,13 @@ def render_comorbidity(
         local_prefix='../disorders/',
     )
     env.filters['has_local_disorder_page'] = _build_has_local_disorder_filter(
+        disorders_dir,
+    )
+    env.filters['dismech_slug_page_url'] = _build_dismech_slug_page_url_filter(
+        disorders_dir,
+        local_prefix='../disorders/',
+    )
+    env.filters['has_local_disorder_slug_page'] = _build_has_local_disorder_slug_filter(
         disorders_dir,
     )
 

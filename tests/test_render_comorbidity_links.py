@@ -72,3 +72,54 @@ def test_render_comorbidity_signal_ids_show_dual_links_and_missing_badge(tmp_pat
     # Existing explicit local disease links are now visibly underlined/internal.
     assert 'class="internal-link" href="../disorders/Local_Disease.html"' in html
     assert 'class="internal-link" href="../disorders/Another_Disease.html"' in html
+
+
+def test_render_comorbidity_components_only_link_when_local_page_exists(tmp_path: Path) -> None:
+    """Composite component slugs should only link when a matching local disorder page exists."""
+    disorders_dir = tmp_path / "kb" / "disorders"
+    comorbidity_dir = tmp_path / "kb" / "comorbidities"
+
+    _write_yaml(
+        disorders_dir / "Present_Disease.yaml",
+        {
+            "name": "Present Disease",
+            "disease_term": {
+                "term": {"id": "MONDO:7000001", "label": "present disease"}
+            },
+        },
+    )
+    _write_yaml(
+        disorders_dir / "Another_Disease.yaml",
+        {
+            "name": "Another Disease",
+            "disease_term": {
+                "term": {"id": "MONDO:7000002", "label": "another disease"}
+            },
+        },
+    )
+
+    comorbidity_path = comorbidity_dir / "com_components.yaml"
+    _write_yaml(
+        comorbidity_path,
+        {
+            "name": "Composite components test",
+            "disease_a": {
+                "slug": "Composite_A",
+                "components": [
+                    {"slug": "Present_Disease"},
+                    {"slug": "Missing_Disease"},
+                ],
+            },
+            "disease_b": {"slug": "Another_Disease"},
+        },
+    )
+
+    output_path = tmp_path / "pages" / "comorbidities" / "com_components.html"
+    render_comorbidity(comorbidity_path, output_path=output_path)
+    html = output_path.read_text()
+
+    assert 'href="../disorders/Present_Disease.html"' in html
+    assert 'href="../disorders/Another_Disease.html"' in html
+
+    # Missing component should render as plain text, not a broken link.
+    assert 'href="../disorders/Missing_Disease.html"' not in html
