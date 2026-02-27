@@ -432,6 +432,31 @@
         .source-link a:hover {
             text-decoration: underline;
         }
+
+        mark {
+            background: #fef08a;
+            color: inherit;
+            padding: 0 1px;
+            border-radius: 2px;
+        }
+
+        .tag.matched {
+            box-shadow: 0 0 0 2px var(--primary-color);
+        }
+
+        .match-info {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .match-field {
+            display: inline-block;
+            background: #fef08a;
+            padding: 1px 6px;
+            border-radius: 3px;
+            font-size: 0.75rem;
+        }
     </style>
 </head>
 <body>
@@ -584,9 +609,13 @@
                         },
                     });
                     const scoreMap = new Map(searchResults.map(r => [r.id, r.score]));
+                    const matchMap = new Map(searchResults.map(r => [r.id, r.match]));
 
                     results = results.filter(r => scoreMap.has(r._idx));
-                    results.forEach(r => { r._score = scoreMap.get(r._idx); });
+                    results.forEach(r => {
+                        r._score = scoreMap.get(r._idx);
+                        r._matchInfo = matchMap.get(r._idx);
+                    });
                 }
 
                 // Apply facet filters
@@ -758,6 +787,8 @@
             }
 
             renderDisorderCard(record) {
+                const { terms: matchedTerms, fields: matchedFields } = this.getMatchedFields(record._matchInfo);
+
                 let html = `<div class="disorder-card">
                     <div class="disorder-header">
                         <span class="disorder-title"><a href="${record.page_url}">${this.escapeHtml(record.name)}</a></span>`;
@@ -773,36 +804,54 @@
                     html += `<span class="disorder-category">${this.escapeHtml(record.category)}</span>`;
                 }
 
+                if (matchedTerms.length > 0) {
+                    const fieldLabels = {
+                        description: 'description', pathophysiology: 'pathophysiology',
+                        phenotypes: 'phenotypes', cell_types: 'cell types',
+                        biological_processes: 'biological processes', genes: 'genes',
+                        treatments: 'treatments', subtypes: 'subtypes',
+                    };
+                    const nonNameFields = [...matchedFields]
+                        .filter(f => f !== 'name')
+                        .map(f => fieldLabels[f] || f);
+                    if (nonNameFields.length > 0) {
+                        html += `<div class="match-info">Matched in ${nonNameFields.map(f => `<span class="match-field">${f}</span>`).join(' ')}</div>`;
+                    }
+                }
+
                 if (record.description) {
                     const desc = record.description.length > 250
                         ? record.description.substring(0, 250) + '...'
                         : record.description;
-                    html += `<div class="disorder-description">${this.escapeHtml(desc)}</div>`;
+                    const descHtml = matchedFields.has('description')
+                        ? this.highlightText(desc, matchedTerms)
+                        : this.escapeHtml(desc);
+                    html += `<div class="disorder-description">${descHtml}</div>`;
                 }
 
                 // Pathophysiology
                 if (record.pathophysiology?.length) {
-                    html += this.renderSection('Pathophysiology', record.pathophysiology, 'pathophys');
+                    html += this.renderSection('Pathophysiology', record.pathophysiology, 'pathophys', matchedFields.has('pathophysiology') ? matchedTerms : null);
                 }
 
                 // Phenotypes
                 if (record.phenotypes?.length) {
-                    html += this.renderSection('Phenotypes', record.phenotypes, 'phenotype');
+                    html += this.renderSection('Phenotypes', record.phenotypes, 'phenotype', matchedFields.has('phenotypes') ? matchedTerms : null);
                 }
 
                 // Cell Types
                 if (record.cell_types?.length) {
-                    html += this.renderSection('Cell Types', record.cell_types, 'cell-type');
+                    html += this.renderSection('Cell Types', record.cell_types, 'cell-type', matchedFields.has('cell_types') ? matchedTerms : null);
                 }
 
                 // Genes
                 if (record.genes?.length) {
-                    html += this.renderSection('Associated Genes', record.genes, 'gene');
+                    html += this.renderSection('Associated Genes', record.genes, 'gene', matchedFields.has('genes') ? matchedTerms : null);
                 }
 
                 // Treatments
                 if (record.treatments?.length) {
-                    html += this.renderSection('Treatments', record.treatments, 'treatment');
+                    html += this.renderSection('Treatments', record.treatments, 'treatment', matchedFields.has('treatments') ? matchedTerms : null);
                 }
 
                 // Environmental
@@ -840,7 +889,7 @@
                 return html;
             }
 
-            renderSection(label, items, tagClass) {
+            renderSection(label, items, tagClass, matchedTerms) {
                 const visible = items.slice(0, this.TAG_LIMIT);
                 const remaining = items.length - this.TAG_LIMIT;
 
@@ -849,7 +898,11 @@
                     <div class="tag-list">`;
 
                 visible.forEach(item => {
-                    html += `<span class="tag ${tagClass}">${this.escapeHtml(item)}</span>`;
+                    const isMatched = matchedTerms && matchedTerms.some(t =>
+                        item.toLowerCase().includes(t.toLowerCase())
+                    );
+                    const classes = `tag ${tagClass}${isMatched ? ' matched' : ''}`;
+                    html += `<span class="${classes}">${this.escapeHtml(item)}</span>`;
                 });
 
                 if (remaining > 0) {
@@ -875,6 +928,30 @@
                     return base + id;
                 }
                 return `https://bioregistry.io/${curie}`;
+            }
+
+            getMatchedFields(matchInfo) {
+                if (!matchInfo) return { terms: [], fields: new Set() };
+                const terms = Object.keys(matchInfo);
+                const fields = new Set();
+                for (const term of terms) {
+                    for (const field of matchInfo[term]) {
+                        fields.add(field);
+                    }
+                }
+                return { terms, fields };
+            }
+
+            highlightText(text, matchedTerms) {
+                if (!text || !matchedTerms || matchedTerms.length === 0) return this.escapeHtml(text);
+                const escaped = this.escapeHtml(text);
+                const sorted = [...matchedTerms].sort((a, b) => b.length - a.length);
+                const pattern = sorted
+                    .map(t => this.escapeHtml(t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+                    .join('|');
+                if (!pattern) return escaped;
+                const regex = new RegExp(`(${pattern})`, 'gi');
+                return escaped.replace(regex, '<mark>$1</mark>');
             }
 
             escapeHtml(text) {
