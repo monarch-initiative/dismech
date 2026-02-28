@@ -1,5 +1,100 @@
 window.searchData = [
   {
+    "name": "2-Methylbutyryl-CoA Dehydrogenase Deficiency",
+    "disease_id": "MONDO:0012392",
+    "category": "Mendelian",
+    "parents": [
+      "Organic Acidemia",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2026-02-23T00:00:00Z",
+    "updated_date": "2026-02-28T01:20:00Z",
+    "subtypes": [],
+    "description": "2-Methylbutyryl-CoA dehydrogenase deficiency (SBCADD) is an autosomal recessive inborn error of L-isoleucine metabolism caused by biallelic pathogenic variants in the ACADSB gene encoding short/branched-chain acyl-CoA dehydrogenase (SBCAD). The metabolic block in the proximal isoleucine oxidation pathway leads to accumulation of diagnostic metabolites including elevated C5-acylcarnitine (2-methylbutyrylcarnitine) in blood and 2-methylbutyrylglycine (2-MBG) in urine. Most individuals identified through newborn screening remain asymptomatic, but approximately 10% of reported patients develop clinical manifestations including seizures, developmental delay, hypotonia, and failure to thrive. The condition is particularly prevalent in the Hmong population due to a founder mutation (c.1165A>G). Carnitine supplementation and avoidance of catabolic stress are the mainstays of management.\n",
+    "pathophysiology": [
+      "ACADSB molecular function deficiency",
+      "Impaired isoleucine catabolism via SBCAD loss-of-function",
+      "Metabolic rerouting via the R-pathway of isoleucine oxidation",
+      "Stress-sensitive metabolic decompensation",
+      "ACAD substrate promiscuity and compensatory enzymology"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "catalytic activity",
+      "isoleucine catabolic process",
+      "branched-chain amino acid catabolic process",
+      "response to starvation",
+      "fatty acid beta-oxidation"
+    ],
+    "phenotypes": [
+      "Developmental delay",
+      "Seizures",
+      "Muscular hypotonia",
+      "Failure to thrive",
+      "Microcephaly",
+      "Autism",
+      "Dyskinetic cerebral palsy",
+      "Skeletal muscle atrophy",
+      "Elevated C5-acylcarnitine on newborn screening",
+      "2-Methylbutyrylglycinuria",
+      "Largely asymptomatic course"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001250",
+      "HP:0001252",
+      "HP:0001508",
+      "HP:0000252",
+      "HP:0000717",
+      "HP:0001266",
+      "HP:0003202",
+      "HP:0045045",
+      "HP:0001992"
+    ],
+    "frequencies": [
+      "OCCASIONAL",
+      "VERY_RARE",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "ACADSB pathogenic variants"
+    ],
+    "treatments": [
+      "Carnitine supplementation",
+      "Catabolic stress avoidance and emergency protocol",
+      "Dietary management",
+      "Valproate avoidance",
+      "Newborn screening via tandem mass spectrometry",
+      "Genetic counseling",
+      "Longitudinal monitoring"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "C5-acylcarnitine (2-methylbutyrylcarnitine)",
+      "2-Methylbutyrylglycine (2-MBG) in urine",
+      "2-Ethylhydracrylic acid (2-EHA) in urine",
+      "C3-carnitine (propionylcarnitine) in ACADSB knockout cells"
+    ],
+    "source_file": "2-Methylbutyryl-CoA_Dehydrogenase_Deficiency.yaml",
+    "page_url": "../pages/disorders/2-Methylbutyryl-CoA_Dehydrogenase_Deficiency.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 7,
+    "causal_graph_edges": "3",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "22q11.2 Deletion Syndrome",
     "disease_id": "MONDO:0018923",
     "category": "Genetic",
@@ -4510,6 +4605,117 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Beta-Ketothiolase Deficiency",
+    "disease_id": "MONDO:0008760",
+    "category": "Mendelian",
+    "parents": [
+      "Organic Acidemia",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2025-06-12T20:16:27Z",
+    "updated_date": "2026-02-28T01:34:00Z",
+    "subtypes": [],
+    "description": "Beta-ketothiolase deficiency (BKD) is a rare autosomal recessive inborn error of metabolism caused by biallelic pathogenic variants in ACAT1, encoding mitochondrial acetoacetyl-CoA thiolase (T2). The enzyme is required for both isoleucine catabolism and ketone body metabolism. Loss of T2 activity blocks the terminal step of isoleucine degradation and impairs extrahepatic ketolysis, leading to accumulation of toxic organic acid intermediates. The disorder typically manifests in infancy or early childhood with recurrent episodes of ketoacidosis triggered by catabolic stressors such as infection, fasting, or ketogenic diet. Between episodes, patients are generally well. Characteristic biochemical markers include elevated urinary 2-methyl-3-hydroxybutyrate, tiglylglycine, and 2-methylacetoacetate. The frequency of ketoacidotic episodes tends to decrease with age and is rare after age 10. With appropriate management, the prognosis is generally favorable, although neurological sequelae including extrapyramidal signs can occur.\n",
+    "pathophysiology": [
+      "ACAT1 molecular function deficiency",
+      "Impaired isoleucine catabolism",
+      "Impaired ketone body metabolism",
+      "Episodic metabolic decompensation"
+    ],
+    "cell_types": [
+      "hepatocyte",
+      "cell of skeletal muscle",
+      "neuron",
+      "cardiac muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0000188",
+      "CL:0000540",
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "catalytic activity",
+      "isoleucine catabolic process",
+      "branched-chain amino acid catabolic process",
+      "ketone body metabolic process",
+      "response to starvation",
+      "cellular response to acidic pH"
+    ],
+    "phenotypes": [
+      "Episodic ketoacidosis",
+      "Metabolic acidosis",
+      "Lethargy",
+      "Vomiting",
+      "Muscular hypotonia",
+      "Tachypnea",
+      "Seizures",
+      "Coma",
+      "Basal ganglia necrosis",
+      "Psychomotor delay",
+      "Hyperglycemia",
+      "Hypoglycemia",
+      "Respiratory failure"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001993",
+      "HP:0001942",
+      "HP:0001254",
+      "HP:0002013",
+      "HP:0001252",
+      "HP:0002789",
+      "HP:0001250",
+      "HP:0001259",
+      "HP:0012128",
+      "HP:0001263",
+      "HP:0003074",
+      "HP:0001943",
+      "HP:0002878"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "ACAT1 pathogenic variants"
+    ],
+    "treatments": [
+      "Avoidance of catabolic triggers",
+      "Dietary management",
+      "Acute crisis management with intravenous dextrose",
+      "Carnitine supplementation",
+      "Newborn screening",
+      "Genetic counseling",
+      "HbA1c monitoring for dysglycemia"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "2-Methyl-3-hydroxybutyrate (2M3HB)",
+      "Tiglylglycine (TIG)",
+      "2-Methylacetoacetate (2MAA)",
+      "Tiglylcarnitine (C5:1)",
+      "2-Methyl-3-hydroxybutyrylcarnitine (C5-OH)"
+    ],
+    "source_file": "Beta-Ketothiolase_Deficiency.yaml",
+    "page_url": "../pages/disorders/Beta-Ketothiolase_Deficiency.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 7,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "2"
+  },
+  {
     "name": "Beta Mannosidosis",
     "disease_id": "MONDO:0009562",
     "category": "Mendelian",
@@ -4729,6 +4935,121 @@ window.searchData = [
     "num_treatments": 8,
     "causal_graph_edges": "5",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Biotinidase Deficiency",
+    "disease_id": "MONDO:0009665",
+    "category": "Mendelian",
+    "parents": [
+      "Metabolic Disease",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2025-06-12T20:16:27Z",
+    "updated_date": "2026-02-27T00:10:00Z",
+    "subtypes": [],
+    "description": "Biotinidase deficiency is an autosomal recessive disorder of biotin recycling caused by biallelic pathogenic variants in the BTD gene. Deficient biotinidase activity impairs cleavage of biocytin and biotinyl-peptides, leading to depletion of free biotin and secondary functional deficiency of biotin-dependent carboxylases (pyruvate carboxylase, propionyl-CoA carboxylase, 3-methylcrotonyl- CoA carboxylase, and acetyl-CoA carboxylase). This results in metabolic acidosis, organic aciduria, and multisystem injury predominantly affecting the nervous system, skin, eyes, and auditory system. Profound deficiency (<10% residual activity) and partial deficiency (10-30%) are distinguished biochemically. Lifelong oral biotin supplementation is highly effective and prevents symptoms when initiated early through newborn screening. Delayed diagnosis can lead to irreversible neurological damage, hearing loss, and optic atrophy.\n",
+    "pathophysiology": [
+      "Impaired biotin recycling and secondary multiple carboxylase deficiency",
+      "Disrupted intermediary metabolism and organic aciduria",
+      "Central nervous system vulnerability and white matter injury",
+      "Dermatologic manifestations from systemic biotin depletion"
+    ],
+    "cell_types": [
+      "hepatocyte",
+      "Purkinje cell",
+      "oligodendrocyte",
+      "keratinocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0000121",
+      "CL:0000128",
+      "CL:0000312"
+    ],
+    "biological_processes": [
+      "biotin metabolic process",
+      "protein biotinylation",
+      "gluconeogenesis",
+      "propionate catabolic process",
+      "leucine catabolic process",
+      "myelination",
+      "fatty acid biosynthetic process"
+    ],
+    "phenotypes": [
+      "Seizures",
+      "Global developmental delay",
+      "Muscular hypotonia",
+      "Alopecia",
+      "Skin rash",
+      "Hearing impairment",
+      "Optic atrophy",
+      "Ataxia",
+      "Metabolic acidosis",
+      "Respiratory insufficiency",
+      "Intellectual disability",
+      "Failure to thrive",
+      "Spastic paraplegia"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001250",
+      "HP:0001263",
+      "HP:0001252",
+      "HP:0001596",
+      "HP:0000988",
+      "HP:0000365",
+      "HP:0000648",
+      "HP:0001251",
+      "HP:0001942",
+      "HP:0002093",
+      "HP:0001249",
+      "HP:0001508",
+      "HP:0001258"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "BTD gene variants causing biotinidase deficiency"
+    ],
+    "treatments": [
+      "Oral biotin supplementation",
+      "Newborn screening",
+      "Dietary intervention",
+      "Antiseizure medication",
+      "Genetic counseling",
+      "Supportive care",
+      "Audiological management"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "3-Hydroxyisovalerylcarnitine (C5-OH)",
+      "3-Hydroxyisovaleric acid",
+      "Propionylcarnitine (C3)",
+      "Lactate",
+      "Biotinidase enzyme activity"
+    ],
+    "source_file": "Biotinidase_Deficiency.yaml",
+    "page_url": "../pages/disorders/Biotinidase_Deficiency.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 7,
+    "causal_graph_edges": "3",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Bipolar Disorder",
@@ -6135,6 +6456,111 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Carnitine Palmitoyltransferase II Deficiency",
+    "disease_id": "MONDO:0015515",
+    "category": "Mendelian",
+    "parents": [
+      "Fatty Acid Oxidation Disorder",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2025-06-12T20:16:27Z",
+    "updated_date": "2026-02-27T00:10:00Z",
+    "subtypes": [],
+    "description": "Carnitine palmitoyltransferase II (CPT-II) deficiency is an autosomal recessive inborn error of mitochondrial long-chain fatty acid oxidation caused by biallelic pathogenic variants in CPT2. CPT-II is an inner mitochondrial membrane enzyme that reconverts long-chain acylcarnitines back to long-chain acyl-CoA for entry into beta-oxidation, forming the final step of the carnitine shuttle. Three clinical phenotypes are recognized: a lethal neonatal form, a severe infantile hepatocardiomuscular form, and the most common adult myopathic form characterized by recurrent exercise- or illness-triggered myalgia, rhabdomyolysis, and myoglobinuria. A literature review identified 245 documented CPT2 cases distributed as 21 lethal neonatal, 32 severe infantile hepatocardiomuscular, and 192 myopathic.\n",
+    "pathophysiology": [
+      "Impaired mitochondrial long-chain fatty acid oxidation",
+      "Thermolability of mutant CPT-II enzyme",
+      "LCAC-mediated calcium dyshomeostasis in skeletal muscle",
+      "Carnitine shuttle disruption"
+    ],
+    "cell_types": [
+      "skeletal muscle fiber",
+      "hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0008002",
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "fatty acid beta-oxidation",
+      "long-chain fatty acid metabolic process",
+      "protein folding",
+      "calcium ion homeostasis",
+      "carnitine shuttle"
+    ],
+    "phenotypes": [
+      "Rhabdomyolysis",
+      "Myalgia",
+      "Muscle weakness",
+      "Myoglobinuria",
+      "Acute kidney injury",
+      "Hypoketotic hypoglycemia",
+      "Cardiomyopathy",
+      "Hepatomegaly",
+      "Elevated creatine kinase",
+      "Episodic muscle stiffness"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0003201",
+      "HP:0003326",
+      "HP:0001324",
+      "HP:0002913",
+      "HP:0001919",
+      "HP:0001985",
+      "HP:0001638",
+      "HP:0002240",
+      "HP:0003236",
+      "HP:0008967"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "CPT2 gene variants"
+    ],
+    "treatments": [
+      "Avoidance of metabolic triggers",
+      "High-carbohydrate, low-fat diet",
+      "Aggressive fluid resuscitation for rhabdomyolysis",
+      "Carnitine supplementation",
+      "Bezafibrate",
+      "Triheptanoin (UX007)",
+      "Newborn screening",
+      "Genetic counseling"
+    ],
+    "environmental": [
+      "Prolonged exercise",
+      "Fasting",
+      "Fever and infection",
+      "Cold exposure"
+    ],
+    "biochemical": [
+      "Long-chain acylcarnitines (C16, C18:1)",
+      "Free carnitine (C0)",
+      "Creatine kinase",
+      "Palmitoyl-carnitine in muscle"
+    ],
+    "source_file": "Carnitine_Palmitoyltransferase_II_Deficiency.yaml",
+    "page_url": "../pages/disorders/Carnitine_Palmitoyltransferase_II_Deficiency.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 8,
+    "causal_graph_edges": "3",
+    "causal_graph_longest_path": "2"
+  },
+  {
     "name": "Celiac Disease",
     "disease_id": "MONDO:0005130",
     "category": "Complex",
@@ -7409,6 +7835,122 @@ window.searchData = [
     "num_treatments": 8,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Citrin Deficiency",
+    "disease_id": "MONDO:0016602",
+    "category": "Mendelian",
+    "parents": [
+      "Amino acid metabolism disorder",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2025-06-12T20:16:27Z",
+    "updated_date": "2026-02-28T01:44:00Z",
+    "subtypes": [
+      "NICCD (Neonatal Intrahepatic Cholestasis caused by Citrin Deficiency)",
+      "FTTDCD (Failure to Thrive and Dyslipidemia caused by Citrin Deficiency)",
+      "CTLN2 (Adult-onset Type II Citrullinemia)"
+    ],
+    "description": "Citrin deficiency is an autosomal recessive disorder caused by biallelic loss-of-function variants in SLC25A13, which encodes citrin (aspartate- glutamate carrier 2, AGC2), an inner mitochondrial membrane transporter and core component of the hepatic malate-aspartate shuttle (MAS). Loss of citrin impairs export of mitochondrial aspartate to the cytosol and cytosolic NADH-to-mitochondrial NADH transfer needed to regenerate cytosolic NAD+, producing a hepatocellular energy and redox crisis that secondarily perturbs carbohydrate handling, de novo lipogenesis, fatty-acid oxidation, and ammonia detoxification. The disease manifests in age-dependent stages: neonatal intrahepatic cholestasis (NICCD), failure to thrive and dyslipidemia (FTTDCD), and adult-onset hyperammonemic encephalopathy (CTLN2). Medium-chain triglyceride (MCT) supplementation with carbohydrate restriction is the mainstay of therapy. Liver transplantation is reserved for severe or refractory cases.\n",
+    "pathophysiology": [
+      "SLC25A13 transporter molecular function deficiency",
+      "Malate-aspartate shuttle dysfunction and hepatocellular energy crisis",
+      "Impaired hepatic glycolysis and carbohydrate toxicity",
+      "Impaired urea cycle and ammonia detoxification",
+      "De novo lipogenesis defects and PPARalpha-mediated beta-oxidation impairment",
+      "Aspartate and glutamate transmembrane transport disruption"
+    ],
+    "cell_types": [
+      "hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "transmembrane transporter activity",
+      "malate-aspartate shuttle",
+      "cellular redox homeostasis",
+      "glycolytic process",
+      "urea cycle",
+      "glutamine biosynthetic process",
+      "fatty acid biosynthetic process",
+      "fatty acid beta-oxidation",
+      "L-aspartate transmembrane transport"
+    ],
+    "phenotypes": [
+      "Neonatal cholestasis",
+      "Hyperammonemia",
+      "Encephalopathy",
+      "Failure to thrive",
+      "Hepatomegaly",
+      "Dyslipidemia",
+      "Hepatic steatosis",
+      "Jaundice",
+      "Abnormal food preference",
+      "Low birth weight",
+      "Intellectual disability",
+      "Pancreatitis",
+      "Hypoglycemia",
+      "Seizures"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0006566",
+      "HP:0001987",
+      "HP:0001298",
+      "HP:0001508",
+      "HP:0002240",
+      "HP:0003119",
+      "HP:0001397",
+      "HP:0000952",
+      "HP:0100738",
+      "HP:0001518",
+      "HP:0001249",
+      "HP:0001733",
+      "HP:0001943",
+      "HP:0001250"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "SLC25A13 pathogenic variants"
+    ],
+    "treatments": [
+      "MCT supplementation with low-carbohydrate diet",
+      "Avoidance of fructose and glycerol infusions",
+      "Liver transplantation",
+      "Supportive care during acute hyperammonemia",
+      "Newborn screening",
+      "Pharmacotherapy for hyperammonemia",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Citrulline",
+      "Ammonia",
+      "Conjugated bilirubin",
+      "Plasma glutamine",
+      "Transaminases"
+    ],
+    "source_file": "Citrin_Deficiency.yaml",
+    "page_url": "../pages/disorders/Citrin_Deficiency.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 7,
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Clear Cell Renal Cell Carcinoma",
@@ -9016,6 +9558,112 @@ window.searchData = [
     "num_treatments": 13,
     "causal_graph_edges": "19",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "D-2-Hydroxyglutaric Aciduria",
+    "disease_id": "MONDO:0010924",
+    "category": "Mendelian",
+    "parents": [
+      "Organic Acidemia",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2025-06-12T20:16:27Z",
+    "updated_date": "2026-02-28T01:51:00Z",
+    "subtypes": [
+      "D-2-HGA type I",
+      "D-2-HGA type II"
+    ],
+    "description": "D-2-Hydroxyglutaric aciduria (D-2-HGA) is a rare neurometabolic disorder characterized by supraphysiological accumulation of the D-enantiomer of 2-hydroxyglutarate (D-2-HG) in body fluids, and clinically by early-onset neurodevelopmental impairment with variable severity. Two genetically distinct subtypes exist: type I (D2HGA1) caused by autosomal recessive loss-of-function mutations in D2HGDH encoding mitochondrial D-2-hydroxyglutarate dehydrogenase, and type II (D2HGA2) caused by heterozygous gain-of-function mutations in IDH2 encoding isocitrate dehydrogenase 2, which confer neomorphic D-2-HG-producing activity. Type II is generally more severe, with higher D-2-HG levels, and is particularly associated with cardiomyopathy. Both subtypes share neurological features including developmental delay, epilepsy, and hypotonia.\n",
+    "pathophysiology": [
+      "D2HGDH molecular function deficiency (type I)",
+      "Impaired D-2-hydroxyglutarate clearance (type I)",
+      "IDH2 neomorphic molecular function gain (type II)",
+      "Neomorphic IDH2-driven D-2-HG overproduction (type II)",
+      "Mitochondrial bioenergetic dysfunction and oxidative stress",
+      "Epigenetic dysregulation via alpha-KG-dependent dioxygenase inhibition"
+    ],
+    "cell_types": [
+      "neuron",
+      "cardiac muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "catalytic activity",
+      "dicarboxylic acid metabolic process",
+      "tricarboxylic acid cycle",
+      "response to oxidative stress",
+      "oxidative phosphorylation",
+      "histone demethylation",
+      "DNA demethylation"
+    ],
+    "phenotypes": [
+      "Epilepsy",
+      "Global developmental delay",
+      "Muscular hypotonia",
+      "Dilated cardiomyopathy",
+      "Intellectual disability",
+      "Macrocephaly",
+      "Subdural hygroma",
+      "Cerebral white matter abnormalities",
+      "Cerebral cortical atrophy",
+      "Visual impairment"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001250",
+      "HP:0001263",
+      "HP:0001252",
+      "HP:0001644",
+      "HP:0001249",
+      "HP:0000256",
+      "HP:6001070",
+      "HP:0002500",
+      "HP:0002120",
+      "HP:0000505"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "D2HGDH deficiency (type I)",
+      "IDH2 gain-of-function mutations (type II)"
+    ],
+    "treatments": [
+      "Enasidenib (mutant IDH2 inhibitor)",
+      "Antiseizure medication",
+      "Supportive cardiac therapy",
+      "Supportive care",
+      "Physical therapy",
+      "Genetic counseling",
+      "Urinary organic acid monitoring"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "D-2-Hydroxyglutarate",
+      "Alpha-ketoglutarate",
+      "Urinary organic acids (2-hydroxyglutarate)",
+      "Serum phospholipids (type II)"
+    ],
+    "source_file": "D-2-Hydroxyglutaric_Aciduria.yaml",
+    "page_url": "../pages/disorders/D-2-Hydroxyglutaric_Aciduria.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 6,
+    "num_genes": 2,
+    "num_treatments": 7,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Danon disease",
@@ -13956,6 +14604,100 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 3,
     "causal_graph_edges": "8",
+    "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Glutaryl-CoA Dehydrogenase Deficiency",
+    "disease_id": "MONDO:0009281",
+    "category": "Mendelian",
+    "parents": [
+      "Organic Acidemia",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2025-12-15T00:00:00Z",
+    "updated_date": "2026-02-26T00:00:00Z",
+    "subtypes": [],
+    "description": "Glutaryl-CoA dehydrogenase deficiency (historically termed glutaric aciduria type 1, GA1) is a rare autosomal recessive neurometabolic disorder caused by deficiency of glutaryl-CoA dehydrogenase (GCDH), which catalyzes the final step of lysine, hydroxylysine, and tryptophan catabolism. GCDH deficiency leads to accumulation of neurotoxic metabolites glutaric acid (GA), 3-hydroxyglutaric acid (3-OH-GA), and glutarylcarnitine (C5DC). Untreated disease ranges from infantile-onset to later-onset forms (after age six years). Affected individuals are at highest risk for acute encephalopathic crises in early childhood (especially ages 3-36 months), often triggered by catabolic stress, which cause irreversible bilateral striatal necrosis and a complex dystonic movement disorder. Early diagnosis through newborn screening and adherence to metabolic treatment including lysine-restricted diet, carnitine supplementation, and emergency management during intercurrent illness can prevent striatal injury in the majority of patients. Even in treated cohorts, long-term surveillance is important, including attention to possible renal complications in adolescents and adults.\n",
+    "pathophysiology": [
+      "GCDH protein misfolding",
+      "GCDH enzymatic deficiency and disrupted lysine catabolism",
+      "Brain exposure to toxic GA1 catabolites",
+      "Oxidative stress and neuroinflammation",
+      "Striatal vulnerability and encephalopathic crises"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "cellular amino acid catabolic process",
+      "Response to oxidative stress",
+      "Inflammatory response"
+    ],
+    "phenotypes": [
+      "Macrocephaly",
+      "Dystonia",
+      "Motor delay",
+      "Encephalopathy",
+      "Subdural hemorrhage",
+      "Metabolic acidosis",
+      "Seizures",
+      "Intellectual disability",
+      "Hypotonia",
+      "Frontotemporal cerebral atrophy",
+      "Cerebral white matter hyperintensity on MRI"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000256",
+      "HP:0001332",
+      "HP:0001270",
+      "HP:0001298",
+      "HP:0100309",
+      "HP:0001942",
+      "HP:0001250",
+      "HP:0001249",
+      "HP:0001252",
+      "HP:0006892",
+      "HP:0030890"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "GCDH variants causing glutaryl-CoA dehydrogenase deficiency"
+    ],
+    "treatments": [
+      "Lysine-restricted diet",
+      "Carnitine supplementation",
+      "Emergency management during intercurrent illness",
+      "Newborn screening",
+      "Genetic counseling",
+      "Gene therapy (investigational)",
+      "Bezafibrate (investigational)"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Elevated glutarylcarnitine (C5DC)",
+      "Elevated glutaric acid in urine",
+      "Elevated 3-hydroxyglutaric acid in urine"
+    ],
+    "source_file": "Glutaryl-CoA_Dehydrogenase_Deficiency.yaml",
+    "page_url": "../pages/disorders/Glutaryl-CoA_Dehydrogenase_Deficiency.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 7,
+    "causal_graph_edges": "9",
     "causal_graph_longest_path": "5"
   },
   {
@@ -20023,6 +20765,122 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Long-chain 3-hydroxyacyl-CoA Dehydrogenase Deficiency",
+    "disease_id": "MONDO:0012173",
+    "category": "Mendelian",
+    "parents": [
+      "Fatty Acid Oxidation Disorder",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2025-06-12T20:16:27Z",
+    "updated_date": "2026-02-28T02:10:00Z",
+    "subtypes": [],
+    "description": "Long-chain 3-hydroxyacyl-CoA dehydrogenase deficiency (LCHADD) is an autosomal recessive disorder of mitochondrial long-chain fatty acid beta-oxidation caused by biallelic pathogenic variants in HADHA, most commonly the c.1528G>C (p.Glu510Gln) founder mutation. LCHADD selectively impairs the LCHAD catalytic activity within the mitochondrial trifunctional protein (MTP/TFP), leading to energy failure during fasting or physiologic stress and accumulation of toxic long-chain 3-hydroxyacyl intermediates. Clinical manifestations include hypoketotic hypoglycemia, cardiomyopathy, rhabdomyolysis, hepatopathy, peripheral neuropathy, and a distinctive progressive chorioretinopathy not seen in other fatty acid oxidation disorders. Despite improved neonatal survival through newborn screening, long-term morbidity remains substantial, with myopathy in 82%, metabolic decompensations in 80%, and cardiomyopathy in 28% of screened individuals.\n",
+    "pathophysiology": [
+      "HADHA molecular function deficiency within mitochondrial trifunctional protein",
+      "Impaired mitochondrial long-chain fatty acid beta-oxidation",
+      "Toxic intermediate accumulation and oxidative stress",
+      "Cardiolipin remodeling defect and mitochondrial bioenergetic impairment",
+      "RPE-specific lipid peroxidation and chorioretinopathy"
+    ],
+    "cell_types": [
+      "hepatocyte",
+      "cardiac muscle cell",
+      "skeletal muscle fiber",
+      "retinal pigment epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0000746",
+      "CL:0008002",
+      "CL:0002586"
+    ],
+    "biological_processes": [
+      "catalytic activity",
+      "fatty acid beta-oxidation",
+      "ketone body biosynthetic process",
+      "response to oxidative stress",
+      "lipid oxidation",
+      "cardiolipin metabolic process",
+      "oxidative phosphorylation"
+    ],
+    "phenotypes": [
+      "Hypoketotic hypoglycemia",
+      "Cardiomyopathy",
+      "Myopathy",
+      "Rhabdomyolysis",
+      "Hepatopathy",
+      "Chorioretinopathy",
+      "Peripheral neuropathy",
+      "Metabolic decompensation",
+      "Lethargy",
+      "Hypocarnitinemia",
+      "Exercise intolerance",
+      "Myopia"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Cellular",
+      "Constitutional",
+      "Digestive",
+      "Eye",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001985",
+      "HP:0001638",
+      "HP:0003198",
+      "HP:0003201",
+      "HP:0001397",
+      "HP:0001135",
+      "HP:0009830",
+      "HP:0004911",
+      "HP:0001254",
+      "HP:0003234",
+      "HP:0003546",
+      "HP:0000545"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [
+      "HADHA pathogenic variants causing LCHADD"
+    ],
+    "treatments": [
+      "Dietary fat restriction with MCT supplementation",
+      "Emergency glucose infusion for acute decompensation",
+      "Triheptanoin (Dojolvi)",
+      "Newborn screening",
+      "Carnitine supplementation",
+      "Ophthalmologic monitoring",
+      "Genetic counseling",
+      "Cardiac monitoring and management"
+    ],
+    "environmental": [
+      "Fasting and catabolic stress"
+    ],
+    "biochemical": [
+      "Long-chain 3-hydroxyacylcarnitines (C16OH, C18OH, C18:1OH)",
+      "HADHA ratio (C16OH + C18OH + C18:1OH)/C0",
+      "Free carnitine (C0)",
+      "Ketone bodies",
+      "Cardiolipin"
+    ],
+    "source_file": "Long-Chain_3-Hydroxyacyl-CoA_Dehydrogenase_Deficiency.yaml",
+    "page_url": "../pages/disorders/Long-chain_3-hydroxyacyl-CoA_Dehydrogenase_Deficiency.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 8,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Long COVID",
     "disease_id": "MONDO:0100233",
     "category": "Complex",
@@ -22424,6 +23282,136 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "2",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Methylmalonic Acidemia",
+    "disease_id": "MONDO:0002012",
+    "category": "Mendelian",
+    "parents": [
+      "Organic Acidemia",
+      "Inborn error of metabolism"
+    ],
+    "creation_date": "2026-02-23T22:58:40Z",
+    "updated_date": "2026-02-28T02:13:00Z",
+    "subtypes": [
+      "Vitamin B12-responsive methylmalonic acidemia",
+      "Vitamin B12-unresponsive methylmalonic acidemia"
+    ],
+    "description": "Methylmalonic acidemia (MMA) is an autosomal recessive inborn error of propionate metabolism caused by deficiency of methylmalonyl-CoA mutase (MMUT) or defects in intracellular adenosylcobalamin (AdoCbl) cofactor synthesis and handling (cblA/MMAA, cblB/MMAB). Impaired conversion of methylmalonyl-CoA to succinyl-CoA leads to systemic accumulation of methylmalonic acid, propionyl-CoA, 2-methylcitrate, and related metabolites, disrupting mitochondrial anaplerosis, respiratory chain function, and protein acylation homeostasis. The disease manifests with recurrent metabolic decompensation, progressive chronic kidney disease, neurological injury including basal ganglia necrosis, cardiomyopathy, and a distinctive lipodystrophy-like phenotype. Estimated incidence is approximately 1:50,000 live births. Newborn screening via elevated propionylcarnitine (C3) allows pre-symptomatic detection and significantly improves outcomes.\n",
+    "pathophysiology": [
+      "MMUT/AdoCbl pathway molecular function deficiency",
+      "Impaired methylmalonyl-CoA metabolism",
+      "Mitochondrial respiratory chain inhibition and energetic failure",
+      "Aberrant mitochondrial protein methylmalonylation",
+      "Lysosomal-autophagy system dysfunction",
+      "Renal mitochondrial stress and impaired mitophagy"
+    ],
+    "cell_types": [
+      "hepatocyte",
+      "epithelial cell of proximal tubule"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0002306"
+    ],
+    "biological_processes": [
+      "catalytic activity",
+      "methylmalonyl-CoA metabolic process",
+      "propionate catabolic process",
+      "tricarboxylic acid cycle",
+      "mitochondrial electron transport, NADH to ubiquinone",
+      "oxidative phosphorylation",
+      "protein acylation",
+      "autophagy",
+      "lysosome organization",
+      "mitophagy",
+      "mitochondrial fission",
+      "response to oxidative stress"
+    ],
+    "phenotypes": [
+      "Metabolic acidosis",
+      "Hyperammonemia",
+      "Vomiting",
+      "Lethargy",
+      "Failure to thrive",
+      "Global developmental delay",
+      "Intellectual disability",
+      "Seizures",
+      "Basal ganglia necrosis",
+      "Chronic kidney disease",
+      "Dilated cardiomyopathy",
+      "Prolonged QT interval",
+      "Pancreatitis",
+      "Optic atrophy",
+      "Lipodystrophy"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001942",
+      "HP:0001987",
+      "HP:0002013",
+      "HP:0001254",
+      "HP:0001508",
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0001250",
+      "HP:0012128",
+      "HP:0012622",
+      "HP:0001644",
+      "HP:0001657",
+      "HP:0001733",
+      "HP:0000648",
+      "HP:0009125"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "MMUT (methylmalonyl-CoA mutase)",
+      "MMAA (cblA complementation group)",
+      "MMAB (cblB complementation group)"
+    ],
+    "treatments": [
+      "Protein-restricted diet",
+      "Hydroxocobalamin therapy",
+      "Carnitine supplementation",
+      "Acute decompensation management",
+      "Liver or combined liver-kidney transplantation",
+      "Genetic counseling",
+      "mRNA therapy (investigational)"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Methylmalonic acid",
+      "Propionylcarnitine (C3)",
+      "2-Methylcitric acid",
+      "3-Hydroxypropionate",
+      "FGF21",
+      "GDF15",
+      "Lipocalin-2 (LCN2)",
+      "Ammonia"
+    ],
+    "source_file": "Methylmalonic_Acidemia.yaml",
+    "page_url": "../pages/disorders/Methylmalonic_Acidemia.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 6,
+    "num_genes": 3,
+    "num_treatments": 7,
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Migraine",
@@ -28082,6 +29070,124 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Primary Carnitine Deficiency",
+    "disease_id": "MONDO:0008919",
+    "category": "Mendelian",
+    "parents": [
+      "Fatty Acid Oxidation Disorder",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2025-06-12T20:16:27Z",
+    "updated_date": "2026-02-28T02:23:00Z",
+    "subtypes": [
+      "Infantile acute metabolic primary carnitine deficiency",
+      "Cardiac primary carnitine deficiency"
+    ],
+    "description": "Primary carnitine deficiency (PCD) is an autosomal recessive disorder of fatty acid oxidation caused by loss-of-function variants in SLC22A5, encoding the high-affinity sodium-dependent carnitine transporter OCTN2. Defective OCTN2 leads to impaired cellular uptake and renal tubular reabsorption of carnitine, causing systemic carnitine depletion and impaired mitochondrial long-chain fatty acid beta-oxidation. The clinical spectrum is bimodal, with acute metabolic decompensation in infancy (hypoketotic hypoglycemia, hyperammonemia, hepatic encephalopathy) and a more insidious cardiomyopathy phenotype (dilated or hypertrophic) often accompanied by skeletal myopathy. PCD is treatable with lifelong oral L-carnitine supplementation, which can reverse cardiomyopathy if started early. Estimated prevalence is approximately 1 in 20,000 in Chinese populations, with regional and ethnic variation.\n",
+    "pathophysiology": [
+      "SLC22A5/OCTN2 transporter dysfunction",
+      "Systemic carnitine depletion",
+      "Impaired mitochondrial fatty acid beta-oxidation",
+      "Cardiac remodeling and fibrosis in OCTN2 deficiency",
+      "Hepatic metabolic decompensation and encephalopathy"
+    ],
+    "cell_types": [
+      "epithelial cell of proximal tubule",
+      "cardiac muscle cell",
+      "skeletal muscle fiber",
+      "fibroblast",
+      "macrophage",
+      "hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0002306",
+      "CL:0000746",
+      "CL:0008002",
+      "CL:0000057",
+      "CL:0000235",
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "transmembrane transporter activity",
+      "carnitine transmembrane transport",
+      "fatty acid beta-oxidation",
+      "extracellular matrix organization",
+      "cardiac muscle contraction",
+      "ketone body biosynthetic process"
+    ],
+    "phenotypes": [
+      "Dilated cardiomyopathy",
+      "Hypertrophic cardiomyopathy",
+      "Hypoketotic hypoglycemia",
+      "Hyperammonemia",
+      "Skeletal myopathy",
+      "Muscular hypotonia",
+      "Hepatomegaly",
+      "Lethargy",
+      "Cardiac arrest",
+      "Encephalopathy",
+      "Failure to thrive",
+      "Hepatic steatosis"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Growth",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001644",
+      "HP:0001639",
+      "HP:0001985",
+      "HP:0001987",
+      "HP:0003198",
+      "HP:0001252",
+      "HP:0002240",
+      "HP:0001254",
+      "HP:0001695",
+      "HP:0001298",
+      "HP:0001508",
+      "HP:0001397"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "SLC22A5 (OCTN2) pathogenic variants"
+    ],
+    "treatments": [
+      "L-carnitine supplementation",
+      "Dietary management",
+      "Acute decompensation management",
+      "Newborn screening",
+      "Cardiac management",
+      "Genetic counseling",
+      "Acetyl-L-carnitine for encephalopathy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Free carnitine (C0)",
+      "Urinary carnitine",
+      "Acylcarnitines",
+      "Ammonia",
+      "Blood glucose",
+      "Creatine kinase"
+    ],
+    "source_file": "Primary_Carnitine_Deficiency.yaml",
+    "page_url": "../pages/disorders/Primary_Carnitine_Deficiency.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 7,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Primary_Ciliary_Dyskinesia",
     "disease_id": "MONDO:0016575",
     "category": "Genetic",
@@ -28582,6 +29688,134 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Propionic Acidemia",
+    "disease_id": "MONDO:0011628",
+    "category": "Mendelian",
+    "parents": [
+      "Organic Acidemia",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2026-02-23T00:00:00Z",
+    "updated_date": "2026-02-28T01:15:00Z",
+    "subtypes": [],
+    "description": "Propionic acidemia is an autosomal recessive organic acidemia caused by deficiency of propionyl-CoA carboxylase (PCC), usually due to biallelic PCCA or PCCB pathogenic variants. Defective propionate metabolism leads to toxic organic acid accumulation, metabolic acidosis, hyperammonemia, and recurrent episodes of life-threatening metabolic decompensation. Long-term complications include cardiomyopathy, prolonged QTc, intellectual disability, basal ganglia necrosis, pancreatitis, chronic kidney disease, and optic atrophy.\n",
+    "pathophysiology": [
+      "Propionyl-CoA carboxylase molecular function deficiency",
+      "Toxic metabolite burden and mitochondrial stress",
+      "Secondary NAG deficiency and hyperammonemia",
+      "Cardiac oxidative stress via circulating propionate",
+      "Renal mitochondrial quality control impairment",
+      "Cardiac multi-mechanism pathogenesis"
+    ],
+    "cell_types": [
+      "hepatocyte",
+      "cardiac muscle cell",
+      "epithelial cell of proximal tubule"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0000746",
+      "CL:0002306"
+    ],
+    "biological_processes": [
+      "catalytic activity",
+      "tricarboxylic acid cycle",
+      "urea cycle",
+      "response to oxidative stress",
+      "mitochondrial fission",
+      "mitophagy",
+      "mitochondrial electron transport, NADH to ubiquinone"
+    ],
+    "phenotypes": [
+      "Metabolic acidosis",
+      "Hyperammonemia",
+      "Vomiting",
+      "Lethargy",
+      "Failure to thrive",
+      "Global developmental delay",
+      "Dilated cardiomyopathy",
+      "Prolonged QT interval",
+      "Intellectual disability",
+      "Autism spectrum disorder",
+      "Seizures",
+      "Basal ganglia necrosis",
+      "Pancreatitis",
+      "Chronic kidney disease",
+      "Optic atrophy",
+      "Hearing impairment",
+      "Rhabdomyolysis"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001942",
+      "HP:0001987",
+      "HP:0002013",
+      "HP:0001254",
+      "HP:0001508",
+      "HP:0001263",
+      "HP:0001644",
+      "HP:0001657",
+      "HP:0001249",
+      "HP:0000717",
+      "HP:0001250",
+      "HP:0012128",
+      "HP:0001733",
+      "HP:0012622",
+      "HP:0000648",
+      "HP:0000365",
+      "HP:0003201"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "PCCA or PCCB variants"
+    ],
+    "treatments": [
+      "Protein-restricted diet",
+      "Carnitine supplementation",
+      "Carglumic acid (CGA)",
+      "Ammonia-lowering therapy",
+      "Acute decompensation management",
+      "Liver transplantation",
+      "Cardiac pharmacotherapy",
+      "Genetic counseling",
+      "Newborn screening"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Propionylcarnitine (C3)",
+      "2-Methylcitric acid",
+      "Glycine",
+      "3-Hydroxypropionate",
+      "Propionylglycine",
+      "FGF21 and GDF15"
+    ],
+    "source_file": "Propionic_Acidemia.yaml",
+    "page_url": "../pages/disorders/Propionic_Acidemia.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 9,
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Proteus syndrome",
@@ -34352,6 +35586,134 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Urea Cycle Disorder",
+    "disease_id": "MONDO:0004739",
+    "category": "Mendelian",
+    "parents": [
+      "Metabolic Disease",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2026-02-16T23:59:29Z",
+    "updated_date": "2026-02-28T02:25:00Z",
+    "subtypes": [
+      "Ornithine Carbamoyltransferase Deficiency",
+      "Carbamoyl Phosphate Synthetase I Deficiency",
+      "Argininosuccinate Synthetase Deficiency",
+      "Argininosuccinate Lyase Deficiency",
+      "Arginase Deficiency",
+      "N-Acetylglutamate Synthase Deficiency"
+    ],
+    "description": "Urea cycle disorders (UCDs) are a group of inborn errors of metabolism caused by deficiency of one of the six enzymes or two transporters involved in the hepatic urea cycle, the principal pathway for disposal of waste nitrogen. Impaired conversion of ammonia to urea leads to recurrent or persistent hyperammonemia, particularly during periods of catabolic stress, with risk of acute encephalopathy, cerebral edema, seizures, and long-term neurologic injury. The estimated incidence is approximately 1 in 35,000 births. Severity and age of onset depend on residual enzyme or transporter function and are related to the respective gene mutations. Classical presentations range from neonatal-onset rapidly progressive encephalopathy to late-onset episodic hyperammonemia triggered by illness or protein loading.\n",
+    "pathophysiology": [
+      "Deficient urea cycle enzyme and transporter function",
+      "Impaired hepatic ureagenesis and ammonia accumulation",
+      "Hyperammonemic neurotoxicity and cerebral edema",
+      "Carbamoyl phosphate overflow to pyrimidine pathway",
+      "Hepatic glutathione dysregulation in ASL deficiency",
+      "Nitric oxide deficiency in ASL deficiency"
+    ],
+    "cell_types": [
+      "hepatocyte",
+      "astrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0000127"
+    ],
+    "biological_processes": [
+      "catalytic activity",
+      "transporter activity",
+      "urea cycle",
+      "glutamine biosynthetic process",
+      "cellular response to osmotic stress",
+      "pyrimidine nucleotide biosynthetic process",
+      "glutathione metabolic process",
+      "nitric oxide biosynthetic process"
+    ],
+    "phenotypes": [
+      "Hyperammonemia",
+      "Encephalopathy",
+      "Seizures",
+      "Cerebral edema",
+      "Intellectual disability",
+      "Lethargy",
+      "Vomiting",
+      "Failure to thrive",
+      "Spastic paraplegia",
+      "Hepatomegaly",
+      "Respiratory alkalosis",
+      "Coma",
+      "Global developmental delay",
+      "Abnormality of movement"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Growth",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001987",
+      "HP:0001298",
+      "HP:0001250",
+      "HP:0002181",
+      "HP:0001249",
+      "HP:0001254",
+      "HP:0002013",
+      "HP:0001508",
+      "HP:0001258",
+      "HP:0002240",
+      "HP:0001950",
+      "HP:0001259",
+      "HP:0001263",
+      "HP:0100022"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "Ornithine transcarbamylase (OTC) deficiency",
+      "Carbamoyl phosphate synthetase I (CPS1) deficiency",
+      "Argininosuccinate synthetase (ASS1) deficiency",
+      "Argininosuccinate lyase (ASL) deficiency",
+      "Arginase 1 (ARG1) deficiency",
+      "N-Acetylglutamate synthase (NAGS) deficiency"
+    ],
+    "treatments": [
+      "Protein-restricted diet",
+      "Nitrogen scavenger therapy",
+      "Arginine and citrulline supplementation",
+      "Carglumic acid",
+      "Acute hyperammonemia management",
+      "Liver transplantation",
+      "Newborn screening",
+      "Genetic counseling"
+    ],
+    "environmental": [
+      "Catabolic stress triggers"
+    ],
+    "biochemical": [
+      "Plasma ammonia",
+      "Plasma glutamine",
+      "Plasma citrulline",
+      "Urinary orotic acid",
+      "Plasma arginine",
+      "Argininosuccinic acid"
+    ],
+    "source_file": "Urea_Cycle_Disorder.yaml",
+    "page_url": "../pages/disorders/Urea_Cycle_Disorder.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 6,
+    "num_genes": 6,
+    "num_treatments": 8,
+    "causal_graph_edges": "3",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Urticaria",
