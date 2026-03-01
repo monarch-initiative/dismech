@@ -14,6 +14,17 @@ window.searchSchema = {
     "treatments",
     "subtypes"
   ],
+  "fieldBoosts": {
+    "name": 10,
+    "subtypes": 5,
+    "genes": 4,
+    "description": 3,
+    "pathophysiology": 2,
+    "phenotypes": 2,
+    "treatments": 2,
+    "cell_types": 1,
+    "biological_processes": 1
+  },
   "facets": [
     {
       "field": "category",
