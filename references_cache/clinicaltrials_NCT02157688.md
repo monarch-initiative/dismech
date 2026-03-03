@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT02157688
+reference_id: "clinicaltrials:NCT02157688"
 title: Role of Staphylococcus Aureus on Folliculitis Decalvans. A Comparative Bacteriological Study.
 content_type: summary
 ---
