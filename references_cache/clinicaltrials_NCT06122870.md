@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT06122870
+reference_id: "clinicaltrials:NCT06122870"
 title: "Double-blind, Placebo-Controlled Trial Assessing the Efficacy and Safety of CampETEC Hyperimmune Bovine Colostrum (HBC) for the Prevention of Campylobacter-Mediated Diarrheal Diseases"
 content_type: summary
 ---
