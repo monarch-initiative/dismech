@@ -5,7 +5,7 @@ cached: false
 start_time: '2026-03-04T20:05:00Z'
 end_time: '2026-03-04T20:35:00Z'
 duration_seconds: 1800.0
-citation_count: 8
+citation_count: 9
 notes: >
   Automated provider run via `just research-disorder openai Larsen_Syndrome`
   repeatedly stalled in this environment (no output file produced). Manual deep
@@ -30,7 +30,7 @@ FLNB encodes filamin B, an actin-crosslinking cytoskeletal protein. Disease-asso
 
 ## Hallmark phenotype profile
 
-Core clinical features include congenital large-joint dislocations and characteristic craniofacial dysmorphism (PMID:16801345; PMID:27048506). Frequently reported FLNB-associated findings include supernumerary carpal/tarsal elements and broad spatulate distal phalanges (PMID:16801345). Cervical spine involvement is clinically critical; cervical kyphosis is repeatedly reported as a high-risk manifestation with potential for neurologic compromise (PMID:17202879; PMID:8609132; PMID:18377309).
+Core clinical features include congenital large-joint dislocations and characteristic craniofacial dysmorphism (PMID:16801345; PMID:27048506). Classical facial descriptions include prominent forehead, depressed nasal bridge, and hypertelorism, with associated equinovarus/valgus foot deformity (PMID:11837607). Frequently reported FLNB-associated findings include supernumerary carpal/tarsal elements and broad spatulate distal phalanges (PMID:16801345). Cervical spine involvement is clinically critical; cervical kyphosis is repeatedly reported as a high-risk manifestation with potential for neurologic compromise (PMID:17202879; PMID:8609132; PMID:18377309).
 
 ## Diagnosis and management implications
 
@@ -39,6 +39,7 @@ Diagnostic confirmation combines clinical and radiographic pattern recognition w
 ## References
 
 - PMID:16648377
+- PMID:11837607
 - PMID:16801345
 - PMID:17202879
 - PMID:18377309
