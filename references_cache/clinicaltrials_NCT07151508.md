@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT07151508
+reference_id: "clinicaltrials:NCT07151508"
 title: Successful Treatment of Netherton Syndrome With Combination of Secukinumab and Dupilumab.
 content_type: summary
 ---
