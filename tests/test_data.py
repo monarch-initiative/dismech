@@ -1,14 +1,12 @@
 """Data validation tests for dismech KB."""
 
 import glob
-import os
 from pathlib import Path
 
 import pytest
 import yaml
 
 from linkml.validator import Validator
-from linkml_runtime.loaders import yaml_loader
 
 # Paths
 ROOT_DIR = Path(__file__).parent.parent
@@ -18,8 +16,7 @@ COMORBIDITY_DIR = ROOT_DIR / "kb" / "comorbidities"
 
 # Get all disorder YAML files (exclude history snapshots)
 DISORDER_FILES = [
-    f for f in glob.glob(str(KB_DIR / "*.yaml"))
-    if not f.endswith(".history.yaml")
+    f for f in glob.glob(str(KB_DIR / "*.yaml")) if not f.endswith(".history.yaml")
 ]
 COMORBIDITY_FILES = glob.glob(str(COMORBIDITY_DIR / "*.yaml"))
 
@@ -81,31 +78,46 @@ def test_evidence_items_have_references(filepath):
         for i, item in enumerate(evidence_list):
             if not item.get("reference"):
                 errors.append(f"{path}[{i}]: missing reference")
-            elif not any(item["reference"].startswith(prefix) for prefix in ("PMID:", "DOI:", "clinicaltrials:", "file:")):
-                errors.append(f"{path}[{i}]: reference should start with PMID:, DOI:, clinicaltrials:, or file: got {item['reference']}")
+            elif not any(
+                item["reference"].startswith(prefix)
+                for prefix in ("PMID:", "DOI:", "clinicaltrials:", "file:")
+            ):
+                errors.append(
+                    f"{path}[{i}]: reference should start with PMID:, DOI:, clinicaltrials:, or file: got {item['reference']}"
+                )
         return errors
 
     all_errors = []
 
     # Check evidence in pathophysiology
     for i, patho in enumerate(data.get("pathophysiology", [])):
-        all_errors.extend(check_evidence(patho.get("evidence", []), f"pathophysiology[{i}].evidence"))
+        all_errors.extend(
+            check_evidence(patho.get("evidence", []), f"pathophysiology[{i}].evidence")
+        )
 
     # Check evidence in phenotypes
     for i, pheno in enumerate(data.get("phenotypes", [])):
-        all_errors.extend(check_evidence(pheno.get("evidence", []), f"phenotypes[{i}].evidence"))
+        all_errors.extend(
+            check_evidence(pheno.get("evidence", []), f"phenotypes[{i}].evidence")
+        )
 
     # Check evidence in subtypes
     for i, subtype in enumerate(data.get("has_subtypes", [])):
-        all_errors.extend(check_evidence(subtype.get("evidence", []), f"has_subtypes[{i}].evidence"))
+        all_errors.extend(
+            check_evidence(subtype.get("evidence", []), f"has_subtypes[{i}].evidence")
+        )
 
     # Check evidence in prevalence
     for i, prev in enumerate(data.get("prevalence", [])):
-        all_errors.extend(check_evidence(prev.get("evidence", []), f"prevalence[{i}].evidence"))
+        all_errors.extend(
+            check_evidence(prev.get("evidence", []), f"prevalence[{i}].evidence")
+        )
 
     # Check evidence in progression
     for i, prog in enumerate(data.get("progression", [])):
-        all_errors.extend(check_evidence(prog.get("evidence", []), f"progression[{i}].evidence"))
+        all_errors.extend(
+            check_evidence(prog.get("evidence", []), f"progression[{i}].evidence")
+        )
 
     assert not all_errors, f"Evidence errors in {Path(filepath).name}: {all_errors}"
 
@@ -130,4 +142,6 @@ def test_all_disorders_have_unique_names():
 
 def test_disorder_count():
     """Test that we have the expected number of disorders."""
-    assert len(DISORDER_FILES) >= 50, f"Expected at least 50 disorders, got {len(DISORDER_FILES)}"
+    assert len(DISORDER_FILES) >= 50, (
+        f"Expected at least 50 disorders, got {len(DISORDER_FILES)}"
+    )

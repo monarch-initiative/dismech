@@ -1557,6 +1557,14 @@ class AssociationMetricTypeEnum(str, Enum):
     """
     Incidence rate ratio
     """
+    CHI_SQUARE = "CHI_SQUARE"
+    """
+    Chi-square association statistic
+    """
+    LOG_OBS_EXP_RATIO = "LOG_OBS_EXP_RATIO"
+    """
+    Natural-log observed-to-expected co-occurrence ratio
+    """
     OTHER = "OTHER"
     """
     Other or unspecified metric
@@ -4596,6 +4604,7 @@ class PublicationReference(ConfiguredBaseModel):
     title: Optional[str] = Field(default=None, description="""Title of the publication""", json_schema_extra = { "linkml_meta": {'alias': 'title',
          'domain_of': ['Dataset', 'PublicationReference'],
          'implements': ['linkml:title']} })
+    found_in: Optional[list[str]] = Field(default=None, description="""Deep-research output files where this reference was cited""", json_schema_extra = { "linkml_meta": {'alias': 'found_in', 'domain_of': ['PublicationReference']} })
     findings: Optional[list[Finding]] = Field(default=None, description="""Key findings or claims extracted from this source (publication or dataset)""", json_schema_extra = { "linkml_meta": {'alias': 'findings',
          'domain_of': ['Dataset', 'ComputationalModel', 'PublicationReference']} })
 
@@ -6175,9 +6184,20 @@ class Environmental(ConfiguredBaseModel):
 
 class Disease(ConfiguredBaseModel):
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
-         'slot_usage': {'name': {'description': 'Preferred name for the disease',
+         'slot_usage': {'creation_date': {'description': 'Timestamp for initial '
+                                                         'creation of this disease '
+                                                         'entry. Keep this stable '
+                                                         'after first set.',
+                                          'name': 'creation_date'},
+                        'name': {'description': 'Preferred name for the disease',
                                  'name': 'name',
-                                 'required': True}}})
+                                 'required': True},
+                        'updated_date': {'description': 'Timestamp for the latest '
+                                                        'substantive update to this '
+                                                        'disease entry. Update this '
+                                                        'whenever curated content '
+                                                        'changes.',
+                                         'name': 'updated_date'}}})
 
     name: str = Field(default=..., description="""Preferred name for the disease""", json_schema_extra = { "linkml_meta": {'alias': 'name',
          'domain_of': ['ClinicalTrial',
@@ -6208,6 +6228,12 @@ class Disease(ConfiguredBaseModel):
                        'ComorbidityAssociation'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     disease_term: Optional[DiseaseDescriptor] = Field(default=None, description="""The MONDO disease term for this disease""", json_schema_extra = { "linkml_meta": {'alias': 'disease_term', 'domain_of': ['DifferentialDiagnosis', 'Disease']} })
+    creation_date: Optional[str] = Field(default=None, description="""Timestamp for initial creation of this disease entry. Keep this stable after first set.""", json_schema_extra = { "linkml_meta": {'alias': 'creation_date',
+         'domain_of': ['Disease', 'ComorbidityAssociation'],
+         'recommended': True} })
+    updated_date: Optional[str] = Field(default=None, description="""Timestamp for the latest substantive update to this disease entry. Update this whenever curated content changes.""", json_schema_extra = { "linkml_meta": {'alias': 'updated_date',
+         'domain_of': ['Disease', 'ComorbidityAssociation'],
+         'recommended': True} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
                        'GeneticContext',
@@ -6358,6 +6384,32 @@ class Disease(ConfiguredBaseModel):
                        'Treatment'],
          'examples': [{'value': 'Added an additional clinically relevant subtype.'}]} })
     curation_history: Optional[list[CurationEvent]] = Field(default=None, description="""Audit trail of AI-assisted curation events""", json_schema_extra = { "linkml_meta": {'alias': 'curation_history', 'domain_of': ['Disease']} })
+
+    @field_validator('creation_date')
+    def pattern_creation_date(cls, v):
+        pattern=re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$")
+        if isinstance(v, list):
+            for element in v:
+                if isinstance(element, str) and not pattern.match(element):
+                    err_msg = f"Invalid creation_date format: {element}"
+                    raise ValueError(err_msg)
+        elif isinstance(v, str) and not pattern.match(v):
+            err_msg = f"Invalid creation_date format: {v}"
+            raise ValueError(err_msg)
+        return v
+
+    @field_validator('updated_date')
+    def pattern_updated_date(cls, v):
+        pattern=re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$")
+        if isinstance(v, list):
+            for element in v:
+                if isinstance(element, str) and not pattern.match(element):
+                    err_msg = f"Invalid updated_date format: {element}"
+                    raise ValueError(err_msg)
+        elif isinstance(v, str) and not pattern.match(v):
+            err_msg = f"Invalid updated_date format: {v}"
+            raise ValueError(err_msg)
+        return v
 
 
 class Stage(ConfiguredBaseModel):
@@ -9516,7 +9568,18 @@ class ComorbidityAssociation(ConfiguredBaseModel):
     """
     An association between two conditions, including directionality, evidence, and computational characterizations.
     """
-    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'creation_date': {'description': 'Timestamp for initial '
+                                                         'creation of this comorbidity '
+                                                         'entry. Keep this stable '
+                                                         'after first set.',
+                                          'name': 'creation_date'},
+                        'updated_date': {'description': 'Timestamp for the latest '
+                                                        'substantive update to this '
+                                                        'comorbidity entry. Update '
+                                                        'this whenever curated content '
+                                                        'changes.',
+                                         'name': 'updated_date'}}})
 
     name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'alias': 'name',
          'domain_of': ['ClinicalTrial',
@@ -9546,6 +9609,12 @@ class ComorbidityAssociation(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
+    creation_date: Optional[str] = Field(default=None, description="""Timestamp for initial creation of this comorbidity entry. Keep this stable after first set.""", json_schema_extra = { "linkml_meta": {'alias': 'creation_date',
+         'domain_of': ['Disease', 'ComorbidityAssociation'],
+         'recommended': True} })
+    updated_date: Optional[str] = Field(default=None, description="""Timestamp for the latest substantive update to this comorbidity entry. Update this whenever curated content changes.""", json_schema_extra = { "linkml_meta": {'alias': 'updated_date',
+         'domain_of': ['Disease', 'ComorbidityAssociation'],
+         'recommended': True} })
     disease_a: Optional[ConditionDescriptor] = Field(default=None, description="""First disease in a comorbidity pair""", json_schema_extra = { "linkml_meta": {'alias': 'disease_a', 'domain_of': ['ComorbidityAssociation']} })
     disease_b: Optional[ConditionDescriptor] = Field(default=None, description="""Second disease in a comorbidity pair""", json_schema_extra = { "linkml_meta": {'alias': 'disease_b', 'domain_of': ['ComorbidityAssociation']} })
     directionality: Optional[ComorbidityDirectionEnum] = Field(default=None, description="""Direction of a comorbidity/trajectory association""", json_schema_extra = { "linkml_meta": {'alias': 'directionality',
@@ -9594,6 +9663,32 @@ class ComorbidityAssociation(ConfiguredBaseModel):
                                 'bacteria can be spread to others.'}]} })
     curation_status: Optional[CurationStatusEnum] = Field(default=None, description="""Curation workflow status""", json_schema_extra = { "linkml_meta": {'alias': 'curation_status', 'domain_of': ['ComorbidityAssociation']} })
 
+    @field_validator('creation_date')
+    def pattern_creation_date(cls, v):
+        pattern=re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$")
+        if isinstance(v, list):
+            for element in v:
+                if isinstance(element, str) and not pattern.match(element):
+                    err_msg = f"Invalid creation_date format: {element}"
+                    raise ValueError(err_msg)
+        elif isinstance(v, str) and not pattern.match(v):
+            err_msg = f"Invalid creation_date format: {v}"
+            raise ValueError(err_msg)
+        return v
+
+    @field_validator('updated_date')
+    def pattern_updated_date(cls, v):
+        pattern=re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$")
+        if isinstance(v, list):
+            for element in v:
+                if isinstance(element, str) and not pattern.match(element):
+                    err_msg = f"Invalid updated_date format: {element}"
+                    raise ValueError(err_msg)
+        elif isinstance(v, str) and not pattern.match(v):
+            err_msg = f"Invalid updated_date format: {v}"
+            raise ValueError(err_msg)
+        return v
+
 
 class AssociationSignal(ConfiguredBaseModel):
     """
@@ -9614,6 +9709,11 @@ class AssociationSignal(ConfiguredBaseModel):
          'examples': [{'value': 'Global'}]} })
     demographics: Optional[Demographics] = Field(default=None, description="""Demographic stratification for an association signal""", json_schema_extra = { "linkml_meta": {'alias': 'demographics', 'domain_of': ['AssociationSignal']} })
     mapping_notes: Optional[str] = Field(default=None, description="""Notes on code-to-concept mapping decisions for this signal""", json_schema_extra = { "linkml_meta": {'alias': 'mapping_notes', 'domain_of': ['AssociationSignal']} })
+    disorder_a_count: Optional[int] = Field(default=None, description="""Number of records/patients carrying disorder A in the source dataset""", json_schema_extra = { "linkml_meta": {'alias': 'disorder_a_count', 'domain_of': ['AssociationSignal']} })
+    disorder_b_count: Optional[int] = Field(default=None, description="""Number of records/patients carrying disorder B in the source dataset""", json_schema_extra = { "linkml_meta": {'alias': 'disorder_b_count', 'domain_of': ['AssociationSignal']} })
+    pair_count: Optional[int] = Field(default=None, description="""Number of records/patients with co-occurrence of disorder A and disorder B in the source dataset""", json_schema_extra = { "linkml_meta": {'alias': 'pair_count', 'domain_of': ['AssociationSignal']} })
+    limited_precision: Optional[bool] = Field(default=None, description="""Whether the signal has limited statistical precision due to small co-occurrence count""", json_schema_extra = { "linkml_meta": {'alias': 'limited_precision', 'domain_of': ['AssociationSignal']} })
+    precision_count_threshold: Optional[int] = Field(default=None, description="""Co-occurrence count threshold used to flag limited precision""", json_schema_extra = { "linkml_meta": {'alias': 'precision_count_threshold', 'domain_of': ['AssociationSignal']} })
     directionality: Optional[ComorbidityDirectionEnum] = Field(default=None, description="""Direction of a comorbidity/trajectory association""", json_schema_extra = { "linkml_meta": {'alias': 'directionality',
          'domain_of': ['ComorbidityAssociation', 'AssociationSignal']} })
     a_before_b: Optional[float] = Field(default=None, description="""Probability or fraction of A before B in an EHR signal""", json_schema_extra = { "linkml_meta": {'alias': 'a_before_b', 'domain_of': ['AssociationSignal']} })

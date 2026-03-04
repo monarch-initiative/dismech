@@ -26,6 +26,7 @@ TREAT_TEMPLATE = TEMPLATES_DIR / "embed_treat.j2"
 CELLS_TEMPLATE = TEMPLATES_DIR / "embed_cells.j2"
 MECHANISM_TEMPLATE = TEMPLATES_DIR / "embed_mechanism.j2"
 
+
 def compute_group_field(
     disorder: dict,
     group_by: str,
@@ -130,12 +131,14 @@ def extract_mechanisms(disorders: list[dict]) -> list[dict]:
             continue
         group = disorder.get("_group", "Other")
         for mechanism in disorder.get("pathophysiology", []):
-            mechanisms.append({
-                "disease_name": disease_name,
-                "mechanism": mechanism,
-                "_group": group,
-                "_mechanism_name": mechanism.get("name", "Unknown"),
-            })
+            mechanisms.append(
+                {
+                    "disease_name": disease_name,
+                    "mechanism": mechanism,
+                    "_group": group,
+                    "_mechanism_name": mechanism.get("name", "Unknown"),
+                }
+            )
     return mechanisms
 
 
@@ -158,7 +161,9 @@ class DisorderEmbedder:
             cache_path.unlink()
             print(f"  Cleared cache: {cache_name}")
 
-    def index_pathophysiology(self, disorders: list[dict], recreate: bool = False) -> None:
+    def index_pathophysiology(
+        self, disorders: list[dict], recreate: bool = False
+    ) -> None:
         """Index disorders by pathophysiology content."""
         if recreate:
             self._clear_cache("patho_cache.db")
@@ -281,7 +286,9 @@ class DisorderEmbedder:
         self.index_treatments(disorders, recreate=recreate)
         self.index_celltypes(disorders, recreate=recreate)
 
-    def search(self, query: str, space: str = "pathophysiology", limit: int = 10) -> list[dict]:
+    def search(
+        self, query: str, space: str = "pathophysiology", limit: int = 10
+    ) -> list[dict]:
         """Semantic search for similar disorders."""
         coll = self.db.get_collection(space)
         results = coll.search(query, limit=limit)
@@ -296,7 +303,9 @@ class DisorderEmbedder:
             for score, obj in results.ranked_rows
         ]
 
-    def find_similar(self, disorder_name: str, space: str = "pathophysiology", limit: int = 10) -> list[dict]:
+    def find_similar(
+        self, disorder_name: str, space: str = "pathophysiology", limit: int = 10
+    ) -> list[dict]:
         """Find disorders similar to a specific disorder."""
         coll = self.db.get_collection(space)
 
@@ -322,16 +331,20 @@ class DisorderEmbedder:
         similar = []
         for score, obj in results.ranked_rows:
             if obj.get("name") != disorder.get("name"):
-                similar.append({
-                    "name": obj.get("name", "Unknown"),
-                    "score": score,
-                    "category": obj.get("category", ""),
-                    "source_file": obj.get("_source_file", ""),
-                })
+                similar.append(
+                    {
+                        "name": obj.get("name", "Unknown"),
+                        "score": score,
+                        "category": obj.get("category", ""),
+                        "source_file": obj.get("_source_file", ""),
+                    }
+                )
 
         return similar[:limit]
 
-    def get_embeddings(self, space: str = "pathophysiology") -> tuple[list[str], list[list[float]]]:
+    def get_embeddings(
+        self, space: str = "pathophysiology"
+    ) -> tuple[list[str], list[list[float]]]:
         """Get all embeddings from a space.
 
         Returns:
@@ -370,7 +383,9 @@ class DisorderEmbedder:
 
         return names, embeddings
 
-    def export_app_data(self, output_path: Path, spaces: list[str] | None = None) -> None:
+    def export_app_data(
+        self, output_path: Path, spaces: list[str] | None = None
+    ) -> None:
         """Export embedding data for the JavaScript explorer app.
 
         Exports pre-computed 2D coordinates (UMAP and t-SNE) plus metadata
@@ -399,14 +414,22 @@ class DisorderEmbedder:
             # Compute UMAP
             print("  Computing UMAP...")
             from umap import UMAP
-            umap_reducer = UMAP(n_components=2, random_state=42, metric="cosine", n_neighbors=15)
+
+            umap_reducer = UMAP(
+                n_components=2, random_state=42, metric="cosine", n_neighbors=15
+            )
             umap_coords = umap_reducer.fit_transform(X)
 
             # Compute t-SNE
             print("  Computing t-SNE...")
             from sklearn.manifold import TSNE
-            tsne_reducer = TSNE(n_components=2, random_state=42, metric="cosine",
-                               perplexity=min(30, len(names) - 1))
+
+            tsne_reducer = TSNE(
+                n_components=2,
+                random_state=42,
+                metric="cosine",
+                perplexity=min(30, len(names) - 1),
+            )
             tsne_coords = tsne_reducer.fit_transform(X)
 
             # Get metadata from collection
@@ -418,13 +441,15 @@ class DisorderEmbedder:
             metadata = []
             for name in names:
                 d = name_to_disorder.get(name, {})
-                metadata.append({
-                    "name": name,
-                    "category": d.get("category") or "Unknown",
-                    "parents": d.get("parents") or [],
-                    "_group": d.get("_group") or "Other",
-                    "_source_file": d.get("_source_file", ""),
-                })
+                metadata.append(
+                    {
+                        "name": name,
+                        "category": d.get("category") or "Unknown",
+                        "parents": d.get("parents") or [],
+                        "_group": d.get("_group") or "Other",
+                        "_source_file": d.get("_source_file", ""),
+                    }
+                )
 
             result[space] = {
                 "umap": umap_coords.tolist(),
@@ -462,6 +487,7 @@ class DisorderEmbedder:
             )
 
         import duckdb
+
         conn = duckdb.connect(str(cache_path), read_only=True)
         rows = conn.execute("SELECT text, embedding FROM all_embeddings").fetchall()
         conn.close()
@@ -479,15 +505,21 @@ class DisorderEmbedder:
         # Compute UMAP
         print("  Computing UMAP...")
         from umap import UMAP
+
         n_neighbors = min(15, len(embeddings) - 1)
-        umap_reducer = UMAP(n_components=2, random_state=42, metric="cosine", n_neighbors=n_neighbors)
+        umap_reducer = UMAP(
+            n_components=2, random_state=42, metric="cosine", n_neighbors=n_neighbors
+        )
         umap_coords = umap_reducer.fit_transform(X)
 
         # Compute t-SNE
         print("  Computing t-SNE...")
         from sklearn.manifold import TSNE
+
         perplexity = min(30, len(embeddings) - 1)
-        tsne_reducer = TSNE(n_components=2, random_state=42, metric="cosine", perplexity=perplexity)
+        tsne_reducer = TSNE(
+            n_components=2, random_state=42, metric="cosine", perplexity=perplexity
+        )
         tsne_coords = tsne_reducer.fit_transform(X)
 
         # Get metadata from collection (use large limit to get all rows)
@@ -496,6 +528,7 @@ class DisorderEmbedder:
 
         # Build points list with metadata
         from jinja2 import Template
+
         template = Template(MECHANISM_TEMPLATE.read_text())
 
         points = []
@@ -511,13 +544,15 @@ class DisorderEmbedder:
             mechanism_name = mech.get("_mechanism_name", "Unknown")
             diseases.add(disease_name)
 
-            points.append({
-                "disease": disease_name,
-                "mechanism": mechanism_name,
-                "group": mech.get("_group", "Other"),
-                "umap": umap_coords[idx].tolist(),
-                "tsne": tsne_coords[idx].tolist(),
-            })
+            points.append(
+                {
+                    "disease": disease_name,
+                    "mechanism": mechanism_name,
+                    "group": mech.get("_group", "Other"),
+                    "umap": umap_coords[idx].tolist(),
+                    "tsne": tsne_coords[idx].tolist(),
+                }
+            )
 
         result = {
             "points": points,
@@ -533,7 +568,9 @@ class DisorderEmbedder:
             json.dump(result, f)
             f.write(";\n")
 
-        print(f"Exported {len(points)} mechanisms from {len(diseases)} diseases to {output_path}")
+        print(
+            f"Exported {len(points)} mechanisms from {len(diseases)} diseases to {output_path}"
+        )
 
     def compute_similarity_matrix(self, space: str = "pathophysiology") -> dict:
         """Compute pairwise similarity matrix for all disorders."""
@@ -545,8 +582,7 @@ class DisorderEmbedder:
             name = disorder.get("name", "Unknown")
             results = coll.search(name, limit=len(disorders))
             matrix[name] = {
-                obj.get("name", "Unknown"): score
-                for score, obj in results.ranked_rows
+                obj.get("name", "Unknown"): score for score, obj in results.ranked_rows
             }
 
         return matrix
@@ -564,7 +600,9 @@ class DisorderEmbedder:
             if d1 not in pheno_matrix:
                 continue
             for d2 in disorders:
-                if d2 not in patho_matrix.get(d1, {}) or d2 not in pheno_matrix.get(d1, {}):
+                if d2 not in patho_matrix.get(d1, {}) or d2 not in pheno_matrix.get(
+                    d1, {}
+                ):
                     continue
                 patho_sim = patho_matrix[d1].get(d2, 0)
                 pheno_sim = pheno_matrix[d1].get(d2, 0)
@@ -595,7 +633,9 @@ class DisorderEmbedder:
             "n_disorders": len(disorders),
         }
 
-    def export_similarities(self, output_path: Path, space: str = "pathophysiology") -> None:
+    def export_similarities(
+        self, output_path: Path, space: str = "pathophysiology"
+    ) -> None:
         """Export similarity matrix to CSV."""
         matrix = self.compute_similarity_matrix(space)
         disorders = sorted(matrix.keys())
@@ -608,7 +648,9 @@ class DisorderEmbedder:
                 scores = [str(round(matrix[d].get(d2, 0), 4)) for d2 in disorders]
                 f.write(f"{d}," + ",".join(scores) + "\n")
 
-        print(f"Exported {len(disorders)}x{len(disorders)} similarity matrix to {output_path}")
+        print(
+            f"Exported {len(disorders)}x{len(disorders)} similarity matrix to {output_path}"
+        )
 
     def plot_interactive(
         self,
@@ -642,10 +684,19 @@ class DisorderEmbedder:
         # Dimensionality reduction
         if method == "umap":
             from umap import UMAP
-            reducer = UMAP(n_components=2, random_state=42, metric="cosine", n_neighbors=15)
+
+            reducer = UMAP(
+                n_components=2, random_state=42, metric="cosine", n_neighbors=15
+            )
         elif method == "tsne":
             from sklearn.manifold import TSNE
-            reducer = TSNE(n_components=2, random_state=42, metric="cosine", perplexity=min(30, len(names) - 1))
+
+            reducer = TSNE(
+                n_components=2,
+                random_state=42,
+                metric="cosine",
+                perplexity=min(30, len(names) - 1),
+            )
         else:
             raise ValueError(f"Unknown method: {method}")
 
@@ -661,14 +712,18 @@ class DisorderEmbedder:
         data = []
         for i, name in enumerate(names):
             disorder = name_to_disorder.get(name, {})
-            data.append({
-                "name": name,
-                "x": X_2d[i, 0],
-                "y": X_2d[i, 1],
-                color_field: disorder.get(color_field) or "Other",
-                "category": disorder.get("category") or "Unknown",
-                "parents": ", ".join(disorder.get("parents", [])) if disorder.get("parents") else "",
-            })
+            data.append(
+                {
+                    "name": name,
+                    "x": X_2d[i, 0],
+                    "y": X_2d[i, 1],
+                    color_field: disorder.get(color_field) or "Other",
+                    "category": disorder.get("category") or "Unknown",
+                    "parents": ", ".join(disorder.get("parents", []))
+                    if disorder.get("parents")
+                    else "",
+                }
+            )
 
         # Create interactive plot with plotly.express
         fig = px.scatter(
@@ -683,7 +738,9 @@ class DisorderEmbedder:
         )
 
         # Update styling
-        fig.update_traces(marker=dict(size=10, opacity=0.8, line=dict(width=0.5, color="white")))
+        fig.update_traces(
+            marker=dict(size=10, opacity=0.8, line=dict(width=0.5, color="white"))
+        )
         fig.update_layout(
             hovermode="closest",
             xaxis_title=f"{method.upper()} 1",
@@ -700,6 +757,7 @@ class DisorderEmbedder:
 
         if show:
             import webbrowser
+
             webbrowser.open(f"file://{output_path.absolute()}")
 
         return output_path
@@ -733,10 +791,17 @@ class DisorderEmbedder:
         # Dimensionality reduction
         if method == "umap":
             from umap import UMAP
+
             reducer = UMAP(n_components=2, random_state=42, metric="cosine")
         elif method == "tsne":
             from sklearn.manifold import TSNE
-            reducer = TSNE(n_components=2, random_state=42, metric="cosine", perplexity=min(30, len(names)-1))
+
+            reducer = TSNE(
+                n_components=2,
+                random_state=42,
+                metric="cosine",
+                perplexity=min(30, len(names) - 1),
+            )
         else:
             raise ValueError(f"Unknown method: {method}")
 
@@ -746,7 +811,9 @@ class DisorderEmbedder:
         # Get categories for coloring
         coll = self.db.get_collection(space)
         disorders = coll.find(limit=10000).rows
-        name_to_category = {d.get("name", ""): (d.get("category") or "Unknown") for d in disorders}
+        name_to_category = {
+            d.get("name", ""): (d.get("category") or "Unknown") for d in disorders
+        }
         categories = [name_to_category.get(name) or "Unknown" for name in names]
 
         # Create plot
@@ -774,14 +841,14 @@ class DisorderEmbedder:
                 (X_2d[i, 0], X_2d[i, 1]),
                 fontsize=6,
                 alpha=0.8,
-                ha='left',
-                va='bottom',
+                ha="left",
+                va="bottom",
             )
 
         ax.set_title(f"Disorders in {space.title()} Embedding Space ({method.upper()})")
         ax.set_xlabel(f"{method.upper()} 1")
         ax.set_ylabel(f"{method.upper()} 2")
-        ax.legend(loc='upper left', bbox_to_anchor=(1.02, 1), fontsize=8)
+        ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1), fontsize=8)
 
         plt.tight_layout()
 
@@ -789,7 +856,7 @@ class DisorderEmbedder:
         if output_path is None:
             output_path = self._cache_dir / f"{space}_{method}_plot.png"
 
-        fig.savefig(output_path, dpi=150, bbox_inches='tight')
+        fig.savefig(output_path, dpi=150, bbox_inches="tight")
         print(f"Saved plot to {output_path}")
 
         if show:
@@ -831,92 +898,192 @@ Examples:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     # Index command
-    index_parser = subparsers.add_parser("index", help="Generate embeddings for all disorders")
-    index_parser.add_argument("--output", "-o", default="cache/embeddings", help="Output directory")
-    index_parser.add_argument("--kb-dir", default="kb/disorders", help="Knowledge base directory")
-    index_parser.add_argument("--recreate", action="store_true", help="Recreate collections from scratch")
-    index_parser.add_argument("--group-by", help="Field to use for grouping (e.g., 'parents', 'category')")
-    index_parser.add_argument("--groups", help="Comma-separated list of values to highlight (rest become 'Other')")
+    index_parser = subparsers.add_parser(
+        "index", help="Generate embeddings for all disorders"
+    )
+    index_parser.add_argument(
+        "--output", "-o", default="cache/embeddings", help="Output directory"
+    )
+    index_parser.add_argument(
+        "--kb-dir", default="kb/disorders", help="Knowledge base directory"
+    )
+    index_parser.add_argument(
+        "--recreate", action="store_true", help="Recreate collections from scratch"
+    )
+    index_parser.add_argument(
+        "--group-by", help="Field to use for grouping (e.g., 'parents', 'category')"
+    )
+    index_parser.add_argument(
+        "--groups",
+        help="Comma-separated list of values to highlight (rest become 'Other')",
+    )
 
     # Search command
-    search_parser = subparsers.add_parser("search", help="Semantic search for disorders")
+    search_parser = subparsers.add_parser(
+        "search", help="Semantic search for disorders"
+    )
     search_parser.add_argument("query", help="Search query")
-    search_parser.add_argument("--space", "-s", default="pathophysiology",
-                              choices=["pathophysiology", "phenotypes", "treatments", "celltypes"],
-                              help="Embedding space to search")
-    search_parser.add_argument("--limit", "-n", type=int, default=10, help="Max results")
-    search_parser.add_argument("--db", default="cache/embeddings/disorders.duckdb", help="Database path")
+    search_parser.add_argument(
+        "--space",
+        "-s",
+        default="pathophysiology",
+        choices=["pathophysiology", "phenotypes", "treatments", "celltypes"],
+        help="Embedding space to search",
+    )
+    search_parser.add_argument(
+        "--limit", "-n", type=int, default=10, help="Max results"
+    )
+    search_parser.add_argument(
+        "--db", default="cache/embeddings/disorders.duckdb", help="Database path"
+    )
 
     # Similar command
-    similar_parser = subparsers.add_parser("similar", help="Find disorders similar to a specific one")
+    similar_parser = subparsers.add_parser(
+        "similar", help="Find disorders similar to a specific one"
+    )
     similar_parser.add_argument("disorder", help="Disorder name")
-    similar_parser.add_argument("--space", "-s", default="pathophysiology",
-                               choices=["pathophysiology", "phenotypes", "treatments", "celltypes"],
-                               help="Embedding space")
-    similar_parser.add_argument("--limit", "-n", type=int, default=10, help="Max results")
-    similar_parser.add_argument("--db", default="cache/embeddings/disorders.duckdb", help="Database path")
+    similar_parser.add_argument(
+        "--space",
+        "-s",
+        default="pathophysiology",
+        choices=["pathophysiology", "phenotypes", "treatments", "celltypes"],
+        help="Embedding space",
+    )
+    similar_parser.add_argument(
+        "--limit", "-n", type=int, default=10, help="Max results"
+    )
+    similar_parser.add_argument(
+        "--db", default="cache/embeddings/disorders.duckdb", help="Database path"
+    )
 
     # Compare command
-    compare_parser = subparsers.add_parser("compare", help="Compare pathophysiology vs phenotype spaces")
+    compare_parser = subparsers.add_parser(
+        "compare", help="Compare pathophysiology vs phenotype spaces"
+    )
     compare_parser.add_argument("--output", "-o", help="Output JSON file")
-    compare_parser.add_argument("--db", default="cache/embeddings/disorders.duckdb", help="Database path")
+    compare_parser.add_argument(
+        "--db", default="cache/embeddings/disorders.duckdb", help="Database path"
+    )
 
     # Export command
     export_parser = subparsers.add_parser("export", help="Export similarity matrix")
-    export_parser.add_argument("--output", "-o", default="cache/embeddings/similarities.csv",
-                              help="Output CSV file")
-    export_parser.add_argument("--space", "-s", default="pathophysiology",
-                              choices=["pathophysiology", "phenotypes", "treatments", "celltypes"],
-                              help="Embedding space")
-    export_parser.add_argument("--db", default="cache/embeddings/disorders.duckdb", help="Database path")
+    export_parser.add_argument(
+        "--output",
+        "-o",
+        default="cache/embeddings/similarities.csv",
+        help="Output CSV file",
+    )
+    export_parser.add_argument(
+        "--space",
+        "-s",
+        default="pathophysiology",
+        choices=["pathophysiology", "phenotypes", "treatments", "celltypes"],
+        help="Embedding space",
+    )
+    export_parser.add_argument(
+        "--db", default="cache/embeddings/disorders.duckdb", help="Database path"
+    )
 
     # Plot command (matplotlib - static)
-    plot_parser = subparsers.add_parser("plot", help="Plot disorders in 2D embedding space (static)")
-    plot_parser.add_argument("--space", "-s", default="pathophysiology",
-                            choices=["pathophysiology", "phenotypes", "treatments", "celltypes"],
-                            help="Embedding space to plot")
-    plot_parser.add_argument("--method", "-m", default="umap",
-                            choices=["umap", "tsne"],
-                            help="Dimensionality reduction method")
+    plot_parser = subparsers.add_parser(
+        "plot", help="Plot disorders in 2D embedding space (static)"
+    )
+    plot_parser.add_argument(
+        "--space",
+        "-s",
+        default="pathophysiology",
+        choices=["pathophysiology", "phenotypes", "treatments", "celltypes"],
+        help="Embedding space to plot",
+    )
+    plot_parser.add_argument(
+        "--method",
+        "-m",
+        default="umap",
+        choices=["umap", "tsne"],
+        help="Dimensionality reduction method",
+    )
     plot_parser.add_argument("--output", "-o", help="Output file path (PNG/PDF/SVG)")
-    plot_parser.add_argument("--no-show", action="store_true", help="Don't display the plot interactively")
-    plot_parser.add_argument("--db", default="cache/embeddings/disorders.duckdb", help="Database path")
+    plot_parser.add_argument(
+        "--no-show", action="store_true", help="Don't display the plot interactively"
+    )
+    plot_parser.add_argument(
+        "--db", default="cache/embeddings/disorders.duckdb", help="Database path"
+    )
 
     # Plotly command (interactive HTML)
-    plotly_parser = subparsers.add_parser("plotly", help="Interactive Plotly plot in 2D embedding space")
-    plotly_parser.add_argument("--space", "-s", default="pathophysiology",
-                              choices=["pathophysiology", "phenotypes", "treatments", "celltypes"],
-                              help="Embedding space to plot")
-    plotly_parser.add_argument("--method", "-m", default="umap",
-                              choices=["umap", "tsne"],
-                              help="Dimensionality reduction method")
-    plotly_parser.add_argument("--color-field", "-c", default="_group",
-                              help="Field to use for coloring (default: _group)")
+    plotly_parser = subparsers.add_parser(
+        "plotly", help="Interactive Plotly plot in 2D embedding space"
+    )
+    plotly_parser.add_argument(
+        "--space",
+        "-s",
+        default="pathophysiology",
+        choices=["pathophysiology", "phenotypes", "treatments", "celltypes"],
+        help="Embedding space to plot",
+    )
+    plotly_parser.add_argument(
+        "--method",
+        "-m",
+        default="umap",
+        choices=["umap", "tsne"],
+        help="Dimensionality reduction method",
+    )
+    plotly_parser.add_argument(
+        "--color-field",
+        "-c",
+        default="_group",
+        help="Field to use for coloring (default: _group)",
+    )
     plotly_parser.add_argument("--output", "-o", help="Output HTML file path")
-    plotly_parser.add_argument("--no-show", action="store_true", help="Don't open in browser")
-    plotly_parser.add_argument("--db", default="cache/embeddings/disorders.duckdb", help="Database path")
+    plotly_parser.add_argument(
+        "--no-show", action="store_true", help="Don't open in browser"
+    )
+    plotly_parser.add_argument(
+        "--db", default="cache/embeddings/disorders.duckdb", help="Database path"
+    )
 
     # App data export command (for JS explorer)
-    appdata_parser = subparsers.add_parser("app-data", help="Export data for JS embedding explorer")
-    appdata_parser.add_argument("--output", "-o", default="app/embeddings/data.js",
-                               help="Output JS file")
-    appdata_parser.add_argument("--db", default="cache/embeddings/disorders.duckdb", help="Database path")
+    appdata_parser = subparsers.add_parser(
+        "app-data", help="Export data for JS embedding explorer"
+    )
+    appdata_parser.add_argument(
+        "--output", "-o", default="app/embeddings/data.js", help="Output JS file"
+    )
+    appdata_parser.add_argument(
+        "--db", default="cache/embeddings/disorders.duckdb", help="Database path"
+    )
 
     # Index mechanisms command
-    mech_index_parser = subparsers.add_parser("index-mechanisms",
-                                               help="Index individual pathophysiology mechanisms")
-    mech_index_parser.add_argument("--output", "-o", default="cache/embeddings", help="Output directory")
-    mech_index_parser.add_argument("--kb-dir", default="kb/disorders", help="Knowledge base directory")
-    mech_index_parser.add_argument("--recreate", action="store_true", help="Recreate from scratch")
+    mech_index_parser = subparsers.add_parser(
+        "index-mechanisms", help="Index individual pathophysiology mechanisms"
+    )
+    mech_index_parser.add_argument(
+        "--output", "-o", default="cache/embeddings", help="Output directory"
+    )
+    mech_index_parser.add_argument(
+        "--kb-dir", default="kb/disorders", help="Knowledge base directory"
+    )
+    mech_index_parser.add_argument(
+        "--recreate", action="store_true", help="Recreate from scratch"
+    )
     mech_index_parser.add_argument("--group-by", help="Field to use for grouping")
-    mech_index_parser.add_argument("--groups", help="Comma-separated list of values to highlight")
+    mech_index_parser.add_argument(
+        "--groups", help="Comma-separated list of values to highlight"
+    )
 
     # Export mechanisms data command
-    mech_data_parser = subparsers.add_parser("mechanisms-data",
-                                              help="Export data for mechanisms browser")
-    mech_data_parser.add_argument("--output", "-o", default="app/embeddings/mechanisms_data.js",
-                                  help="Output JS file")
-    mech_data_parser.add_argument("--db", default="cache/embeddings/disorders.duckdb", help="Database path")
+    mech_data_parser = subparsers.add_parser(
+        "mechanisms-data", help="Export data for mechanisms browser"
+    )
+    mech_data_parser.add_argument(
+        "--output",
+        "-o",
+        default="app/embeddings/mechanisms_data.js",
+        help="Output JS file",
+    )
+    mech_data_parser.add_argument(
+        "--db", default="cache/embeddings/disorders.duckdb", help="Database path"
+    )
 
     args = parser.parse_args()
 
@@ -934,6 +1101,7 @@ Examples:
 
         if group_by and groups:
             from collections import Counter
+
             group_counts = Counter(d.get("_group", "Other") for d in disorders)
             print(f"Grouping by '{group_by}' with {len(groups)} highlighted groups:")
             for g, c in sorted(group_counts.items(), key=lambda x: -x[1]):
@@ -950,24 +1118,26 @@ Examples:
         print(f"\nSearch results for '{args.query}' in {args.space} space:\n")
         for i, r in enumerate(results, 1):
             print(f"  {i}. {r['name']} (score: {r['score']:.3f})")
-            if r['category']:
+            if r["category"]:
                 print(f"     Category: {r['category']}")
 
     elif args.command == "similar":
         embedder = DisorderEmbedder(args.db)
-        results = embedder.find_similar(args.disorder, space=args.space, limit=args.limit)
+        results = embedder.find_similar(
+            args.disorder, space=args.space, limit=args.limit
+        )
 
         print(f"\nDisorders similar to '{args.disorder}' in {args.space} space:\n")
         for i, r in enumerate(results, 1):
             print(f"  {i}. {r['name']} (score: {r['score']:.3f})")
-            if r['category']:
+            if r["category"]:
                 print(f"     Category: {r['category']}")
 
     elif args.command == "compare":
         embedder = DisorderEmbedder(args.db)
         result = embedder.compare_spaces()
 
-        print(f"\nSpace Comparison Results:")
+        print("\nSpace Comparison Results:")
         print(f"  Correlation: {result['correlation']}")
         print(f"  Disorder pairs: {result['n_pairs']}")
         print(f"  Total disorders: {result['n_disorders']}")
