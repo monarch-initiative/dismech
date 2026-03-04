@@ -27719,7 +27719,7 @@ window.searchData = [
       "Thin Filament Myopathy"
     ],
     "creation_date": "2026-02-19T00:00:00Z",
-    "updated_date": "2026-03-04T22:03:18Z",
+    "updated_date": "2026-03-04T23:35:58Z",
     "subtypes": [
       "Severe Congenital Nemaline Myopathy",
       "Typical Nemaline Myopathy",
@@ -27731,6 +27731,7 @@ window.searchData = [
       "Thin Filament Dysfunction",
       "Nemaline Rod Formation",
       "Thin Filament Length Dysregulation",
+      "Reduced Sarcomeric Tension",
       "Ubiquitin-Proteasome Pathway Dysregulation (KLHL40)",
       "Nuclear Envelope Disruption (ACTA1)",
       "NRAP-Mediated Sarcomere Disorganization"
@@ -27747,10 +27748,15 @@ window.searchData = [
       "Skeletal Muscle Contraction",
       "Actin Filament Organization",
       "Skeletal Muscle Thin Filament Assembly",
+      "Actin Filament Binding",
       "Myofibril Assembly",
       "Sarcomere Organization",
+      "skeletal muscle contraction",
       "Protein Ubiquitination",
-      "ER to Golgi Vesicle-Mediated Transport"
+      "ER to Golgi Vesicle-Mediated Transport",
+      "nuclear envelope organization",
+      "sarcomere organization",
+      "myofibril assembly"
     ],
     "phenotypes": [
       "Generalized Muscle Weakness",
@@ -27772,7 +27778,6 @@ window.searchData = [
       "Digestive",
       "Head and Neck",
       "Musculoskeletal",
-      "Nervous System",
       "Respiratory"
     ],
     "phenotype_ids": [
@@ -27783,7 +27788,7 @@ window.searchData = [
       "HP:0008872",
       "HP:0002650",
       "HP:0003798",
-      "HP:0002067",
+      "HP:0002486",
       "HP:0000218"
     ],
     "frequencies": [
@@ -27818,11 +27823,11 @@ window.searchData = [
     "source_file": "Nemaline_Myopathy.yaml",
     "page_url": "../pages/disorders/Nemaline_Myopathy.html",
     "num_phenotypes": 9,
-    "num_pathophysiology": 6,
+    "num_pathophysiology": 7,
     "num_genes": 10,
     "num_treatments": 7,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Nephronophthisis",
