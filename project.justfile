@@ -902,6 +902,35 @@ embed-mechanisms-all:
     just embed-mechanisms-data
     @echo "=== Done! Open app/embeddings/mechanisms.html ==="
 
+# ============== Reactome Pathways ==============
+
+reactome_dir := "pathways/reactome"
+
+# Fetch Reactome disease pathway data for a single disease
+# Examples:
+#   just reactome-fetch "cystic fibrosis"
+#   just reactome-fetch DOID:13636
+#   just reactome-fetch "chronic myeloid leukemia" --format md
+[group('Reactome')]
+reactome-fetch query *args="":
+    uv run python scripts/fetch_reactome_disease.py "{{query}}" {{args}}
+
+# Fetch Reactome data for all diseases overlapping with dismech KB
+[group('Reactome')]
+reactome-fetch-all:
+    uv run python scripts/fetch_reactome_disease.py --all-overlap
+
+# List cached Reactome disease files
+[group('Reactome')]
+reactome-list:
+    @echo "Cached Reactome disease pathways:"
+    @ls -1 {{reactome_dir}}/*.yaml 2>/dev/null | xargs -I {} basename {} .yaml | sort || echo "  (none yet — run 'just reactome-fetch-all')"
+
+# Show Reactome summary for a disease (prints to stdout)
+[group('Reactome')]
+reactome-show query:
+    uv run python scripts/fetch_reactome_disease.py "{{query}}" --format md -o /dev/stdout
+
 # Compare dismech phenotypes against OMIM/Orphanet for a single disease
 [group('Analysis')]
 d2p-compare disease:
