@@ -10106,7 +10106,7 @@ window.searchData = [
       "Inborn Error of Metabolism"
     ],
     "creation_date": "2025-12-19T14:27:56Z",
-    "updated_date": "2026-02-27T22:30:25Z",
+    "updated_date": "2026-03-04T17:14:19Z",
     "subtypes": [
       "Class I - No Protein Production",
       "Class II - Processing/Trafficking Defect",
@@ -10124,13 +10124,19 @@ window.searchData = [
     "description": "Cystic fibrosis is a common life-limiting autosomal recessive genetic disorder caused by mutations in the CFTR gene encoding the cystic fibrosis transmembrane conductance regulator, a chloride and bicarbonate channel expressed in epithelial cells. CFTR dysfunction leads to dehydrated, viscous secretions in multiple organ systems, most critically the airways and pancreas. Nearly 2,000 CFTR variants have been identified, with the Phe508del (F508del) mutation present in nearly 90% of patients. The disease is characterized by progressive bronchiectasis, chronic bacterial lung infection, exocrine pancreatic insufficiency, male infertility due to congenital bilateral absence of the vas deferens, and elevated sweat chloride. Multidisciplinary care and CFTR modulator therapies have extended median survival beyond 40 years, with the advent of elexacaftor-tezacaftor-ivacaftor (Trikafta) representing a transformational advance for the majority of patients.",
     "pathophysiology": [
       "CFTR Dysfunction",
+      "ENaC Hyperactivity and Sodium Hyperabsorption",
       "Airway Surface Liquid Depletion",
-      "Mucus Plugging and Airway Obstruction",
+      "Impaired Mucociliary Clearance",
+      "Mucus Plugging",
+      "Small-Airway Obstruction",
       "Chronic Bacterial Infection",
       "Neutrophilic Airway Inflammation",
-      "Bronchiectasis and Airway Remodeling",
+      "Neutrophil Elastase-Mediated Tissue Injury",
+      "Airway Remodeling",
+      "Bronchiectasis",
       "Respiratory Failure",
       "Pancreatic Duct Obstruction",
+      "Exocrine Pancreatic Tissue Destruction",
       "Exocrine Pancreatic Insufficiency",
       "Fat Malabsorption",
       "Fat-Soluble Vitamin Deficiency",
@@ -10139,6 +10145,7 @@ window.searchData = [
       "Intestinal Obstruction",
       "Hepatobiliary Obstruction",
       "Sweat Gland Dysfunction",
+      "Hyponatremic Dehydration",
       "Vas Deferens Agenesis",
       "Sinonasal Disease",
       "CF Bone Disease"
@@ -10163,10 +10170,16 @@ window.searchData = [
     ],
     "biological_processes": [
       "Chloride Transport",
-      "Ion Transport",
-      "Mucus Secretion",
+      "bicarbonate transport",
+      "sodium ion transport",
+      "mucus secretion",
+      "mucociliary clearance",
       "Defense response to bacterium",
-      "Inflammatory response"
+      "Inflammatory response",
+      "neutrophil chemotaxis",
+      "proteolysis",
+      "extracellular matrix organization",
+      "lipid digestion"
     ],
     "phenotypes": [
       "Chronic Productive Cough",
@@ -10291,11 +10304,11 @@ window.searchData = [
     "source_file": "Cystic_Fibrosis.yaml",
     "page_url": "../pages/disorders/Cystic_Fibrosis.html",
     "num_phenotypes": 26,
-    "num_pathophysiology": 19,
+    "num_pathophysiology": 26,
     "num_genes": 1,
     "num_treatments": 13,
-    "causal_graph_edges": "19",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "32",
+    "causal_graph_longest_path": "10"
   },
   {
     "name": "D-2-Hydroxyglutaric Aciduria",
@@ -14123,6 +14136,107 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Folliculitis",
+    "disease_id": "MONDO:0006552",
+    "category": "Complex",
+    "parents": [
+      "dermatitis",
+      "disorder of pilosebaceous unit"
+    ],
+    "creation_date": "2026-03-01T22:48:38Z",
+    "updated_date": "2026-03-02T19:29:56Z",
+    "subtypes": [
+      "Staphylococcal folliculitis",
+      "Pseudomonas hot-tub folliculitis",
+      "Malassezia folliculitis",
+      "Demodex-associated folliculitis",
+      "Gram-negative folliculitis",
+      "HIV-associated eosinophilic folliculitis",
+      "Folliculitis decalvans",
+      "EGFR inhibitor-induced folliculitis"
+    ],
+    "description": "Folliculitis is inflammation of hair follicles with infectious and noninfectious etiologies, typically presenting with follicular papules, papulopustules, and pruritus.",
+    "pathophysiology": [
+      "Staphylococcus aureus follicular colonization",
+      "Staphylococcal virulence factor activity",
+      "Keratinocyte innate immune activation",
+      "Neutrophil recruitment and activation",
+      "Acute suppurative follicular inflammation",
+      "Non-staphylococcal microbial follicular colonization",
+      "Prolonged broad-spectrum antibiotic exposure in acne or rosacea",
+      "Gram-negative follicular overgrowth and infection",
+      "Demodex follicular colonization",
+      "Demodex-associated follicular inflammation",
+      "Malassezia follicular colonization",
+      "Pathogenic Malassezia transition with virulence factor production",
+      "Malassezia-associated follicular inflammation",
+      "Eosinophilic follicular inflammation in advanced HIV",
+      "Folliculitis decalvans follicular dysbiosis",
+      "Impaired antibacterial cytokine response in folliculitis decalvans",
+      "Neutrophilic scarring follicular inflammation in folliculitis decalvans",
+      "EGFR pathway disruption in follicular stem-cell niche",
+      "JAK-STAT1 pathway hypersensitivity in EGFR-deficient follicles",
+      "Interferon-\u03b3 CD8 T-cell and NK-cell inflammatory amplification",
+      "Stem-cell niche compromise and scarring follicle destruction"
+    ],
+    "cell_types": [
+      "keratinocyte",
+      "neutrophil",
+      "eosinophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000312",
+      "CL:0000775",
+      "CL:0000771"
+    ],
+    "biological_processes": [
+      "response to bacterium",
+      "neutrophil activation",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Erythematous papules",
+      "Pustules",
+      "Pruritus",
+      "Low-grade fever",
+      "Alopecia"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Immune",
+      "Integument",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0030350",
+      "HP:0200039",
+      "HP:0000989",
+      "HP:0001945",
+      "HP:0001596"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Topical or systemic antibacterial therapy",
+      "Topical and systemic antifungal therapy for Malassezia folliculitis",
+      "Combination therapy for folliculitis decalvans/tufted hair folliculitis",
+      "Adjunctive anti-inflammatory/phototherapy for HIV-associated eosinophilic folliculitis"
+    ],
+    "environmental": [
+      "Contaminated recreational water exposure",
+      "Advanced HIV immunosuppression"
+    ],
+    "biochemical": [],
+    "source_file": "Folliculitis.yaml",
+    "page_url": "../pages/disorders/Folliculitis.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 21,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Foodborne trematodiases",
     "disease_id": "MONDO:0015675",
     "category": "Infectious Disease",
@@ -16893,7 +17007,7 @@ window.searchData = [
       "Endocrine Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-02-17T21:53:14Z",
+    "updated_date": "2026-03-02T21:29:00Z",
     "subtypes": [],
     "description": "T cell-mediated and antibody-mediated destruction of thyroid follicular cells leads to progressive loss of thyroid function. Anti-thyroid peroxidase (anti-TPO) and anti-thyroglobulin antibodies are characteristic.\n",
     "pathophysiology": [
@@ -16904,11 +17018,14 @@ window.searchData = [
     "cell_types": [
       "Thyroid Epithelial Cell",
       "T Helper Cell",
+      "CD4-positive helper T cell",
+      "CD8-positive, alpha-beta T cell",
       "B Cell"
     ],
     "cell_type_ids": [
       "CL:0002257",
       "CL:0000492",
+      "CL:0000625",
       "CL:0000236"
     ],
     "biological_processes": [
@@ -16922,6 +17039,7 @@ window.searchData = [
       "Weight Gain",
       "Constipation",
       "Dry Skin",
+      "Cold Intolerance",
       "Goiter",
       "Depression"
     ],
@@ -16939,6 +17057,7 @@ window.searchData = [
       "Endocrine",
       "Growth",
       "Integument",
+      "Metabolism",
       "Nervous System"
     ],
     "phenotype_ids": [
@@ -16946,6 +17065,7 @@ window.searchData = [
       "HP:0004324",
       "HP:0002019",
       "HP:0000958",
+      "HP:6000855",
       "HP:0000853",
       "HP:0000716"
     ],
@@ -16958,10 +17078,7 @@ window.searchData = [
       "HLA-DR3",
       "HLA-DR4",
       "CTLA4",
-      "PTPN22",
-      "BACH2",
-      "IRF4",
-      "IL21R"
+      "PTPN22"
     ],
     "treatments": [
       "Levothyroxine",
@@ -16981,9 +17098,9 @@ window.searchData = [
     ],
     "source_file": "Hashimotos_Thyroiditis.yaml",
     "page_url": "../pages/disorders/Hashimoto's_Thyroiditis.html",
-    "num_phenotypes": 6,
+    "num_phenotypes": 7,
     "num_pathophysiology": 3,
-    "num_genes": 7,
+    "num_genes": 4,
     "num_treatments": 3,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
@@ -27765,7 +27882,7 @@ window.searchData = [
       "Congenital Heart Disease"
     ],
     "creation_date": "2026-02-04T01:40:11Z",
-    "updated_date": "2026-02-17T21:53:14Z",
+    "updated_date": "2026-03-03T19:53:20Z",
     "subtypes": [
       "Noonan Syndrome 1 (PTPN11-related)",
       "Noonan Syndrome with Multiple Lentigines"
@@ -27778,6 +27895,8 @@ window.searchData = [
       "RIT1-Mediated RAF Recruitment",
       "LZTR1-Mediated RAS Proteostasis Defect",
       "ERK Cascade Hyperactivation",
+      "Cortical Layer Development Abnormalities",
+      "Lymphatic Structural Abnormalities",
       "Cardiac Valve Morphogenesis Defects",
       "Cardiomyocyte Hypertrophy"
     ],
@@ -27798,7 +27917,7 @@ window.searchData = [
       "regulation of proteolysis",
       "MAPK cascade",
       "regulation of ERK1 and ERK2 cascade",
-      "endocardial cushion to mesenchymal transition",
+      "epithelial to mesenchymal transition involved in endocardial cushion formation",
       "heart valve morphogenesis",
       "cardiac muscle hypertrophy"
     ],
@@ -27815,6 +27934,7 @@ window.searchData = [
       "Pectus Deformity",
       "Cryptorchidism",
       "Bruising Susceptibility",
+      "Peripheral Neuropathy",
       "Lymphedema",
       "Global Developmental Delay",
       "Mild Intellectual Disability",
@@ -27827,6 +27947,7 @@ window.searchData = [
       "Musculoskeletal",
       "Genitourinary",
       "Hematologic",
+      "Neurologic",
       "Lymphatic",
       "Developmental",
       "Feeding"
@@ -27858,6 +27979,7 @@ window.searchData = [
       "HP:0000767",
       "HP:0000028",
       "HP:0000978",
+      "HP:0009830",
       "HP:0001004",
       "HP:0001263",
       "HP:0001256",
@@ -27874,7 +27996,8 @@ window.searchData = [
       "RAF1",
       "RIT1",
       "KRAS",
-      "LZTR1"
+      "LZTR1",
+      "MRAS"
     ],
     "treatments": [
       "Growth Hormone Therapy",
@@ -27888,12 +28011,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Noonan_Syndrome.yaml",
     "page_url": "../pages/disorders/Noonan_Syndrome.html",
-    "num_phenotypes": 16,
-    "num_pathophysiology": 8,
-    "num_genes": 6,
+    "num_phenotypes": 17,
+    "num_pathophysiology": 10,
+    "num_genes": 7,
     "num_treatments": 6,
-    "causal_graph_edges": "9",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Obesity",
