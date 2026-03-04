@@ -1,0 +1,18 @@
+# Citations for Research Query
+
+**Query:** Codex secondary synthesis for Migraine
+**Provider:** cyberian-codex
+**Generated:** 2026-02-17T08:39:54Z
+
+1. DOI:10.1016/j.heliyon.2023.e14786
+2. DOI:10.1016/s1474-4422(24
+3. DOI:10.1186/s10194-023-01628-8
+4. DOI:10.1186/s10194-024-01741-2
+5. DOI:10.1186/s10194-024-01827-x
+6. DOI:10.1186/s10194-024-01830-2
+7. DOI:10.1523/jneurosci.0368-23.2023
+8. DOI:10.3389/fneur.2024.1307319
+9. DOI:10.3390/ijms241512268
+10. DOI:10.3390/jcm13092701
+11. DOI:10.3390/molecules29143385
+12. DOI:10.3390/neurolint15030067
