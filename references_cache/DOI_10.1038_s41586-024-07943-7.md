@@ -1,0 +1,147 @@
+---
+reference_id: "DOI:10.1038/s41586-024-07943-7"
+title: CTLA4 blockade abrogates KEAP1/STK11-related resistance to PD-(L)1 inhibitors
+authors:
+- Ferdinandos Skoulidis
+- Haniel A. Araujo
+- Minh Truong Do
+- Yu Qian
+- Xin Sun
+- Ana Galan-Cobo
+- John T. Le
+- Meagan Montesion
+- Rachael Palmer
+- Nadine Jahchan
+- Joseph M. Juan
+- Chengyin Min
+- Yi Yu
+- Xuewen Pan
+- Kathryn C. Arbour
+- Natalie Vokes
+- Stephanie T. Schmidt
+- David Molkentine
+- Dwight H. Owen
+- Regan Memmott
+- Pradnya D. Patil
+- Melina E. Marmarelis
+- Mark M. Awad
+- Joseph C. Murray
+- Jessica A. Hellyer
+- Justin F. Gainor
+- Anastasios Dimou
+- Christine M. Bestvina
+- Catherine A. Shu
+- Jonathan W. Riess
+- Collin M. Blakely
+- Chad V. Pecot
+- Laura Mezquita
+- Fabrizio Tabbó
+- Matthias Scheffler
+- Subba Digumarthy
+- Meghan J. Mooradian
+- Adrian G. Sacher
+- Sally C. M. Lau
+- Andreas N. Saltos
+- Julia Rotow
+- Rocio Perez Johnson
+- Corinne Liu
+- Tyler Stewart
+- Sarah B. Goldberg
+- Jonathan Killam
+- Zenta Walther
+- Kurt Schalper
+- Kurtis D. Davies
+- Mark G. Woodcock
+- Valsamo Anagnostou
+- Kristen A. Marrone
+- Patrick M. Forde
+- Biagio Ricciuti
+- Deepti Venkatraman
+- Eliezer M. Van Allen
+- Amy L. Cummings
+- Jonathan W. Goldman
+- Hiram Shaish
+- Melanie Kier
+- Sharyn Katz
+- Charu Aggarwal
+- Ying Ni
+- Joseph T. Azok
+- Jeremy Segal
+- Lauren Ritterhouse
+- Joel W. Neal
+- Ludovic Lacroix
+- Yasir Y. Elamin
+- Marcelo V. Negrao
+- Xiuning Le
+- Vincent K. Lam
+- Whitney E. Lewis
+- Haley N. Kemp
+- Brett Carter
+- Jack A. Roth
+- Stephen Swisher
+- Richard Lee
+- Teng Zhou
+- Alissa Poteete
+- Yifan Kong
+- Tomohiro Takehara
+- Alvaro Guimaraes Paula
+- Edwin R. Parra Cuentas
+- Carmen Behrens
+- Ignacio I. Wistuba
+- Jianjun Zhang
+- George R. Blumenschein
+- Carl Gay
+- Lauren A. Byers
+- Don L. Gibbons
+- Anne Tsao
+- J. Jack Lee
+- Trever G. Bivona
+- D. Ross Camidge
+- Jhannelle E. Gray
+- Natasha B. Leighl
+- Benjamin Levy
+- Julie R. Brahmer
+- Marina C. Garassino
+- David R. Gandara
+- Edward B. Garon
+- Naiyer A. Rizvi
+- Giorgio Vittorio Scagliotti
+- Jürgen Wolf
+- David Planchard
+- Benjamin Besse
+- Roy S. Herbst
+- Heather A. Wakelee
+- Nathan A. Pennell
+- Alice T. Shaw
+- Pasi A. Jänne
+- David P. Carbone
+- Matthew D. Hellmann
+- Charles M. Rudin
+- Lee Albacker
+- Helen Mann
+- Zhou Zhu
+- Zhongwu Lai
+- Ross Stewart
+- Solange Peters
+- Melissa L. Johnson
+- Kwok K. Wong
+- Alan Huang
+- Monte M. Winslow
+- Michael J. Rosen
+- Ian P. Winters
+- Vassiliki A. Papadimitrakopoulou
+- Tina Cascone
+- Philip Jewsbury
+- John V. Heymach
+journal: Nature
+year: '2024'
+doi: 10.1038/s41586-024-07943-7
+content_type: unavailable
+---
+
+# CTLA4 blockade abrogates KEAP1/STK11-related resistance to PD-(L)1 inhibitors
+**Authors:** Ferdinandos Skoulidis, Haniel A. Araujo, Minh Truong Do, Yu Qian, Xin Sun, Ana Galan-Cobo, John T. Le, Meagan Montesion, Rachael Palmer, Nadine Jahchan, Joseph M. Juan, Chengyin Min, Yi Yu, Xuewen Pan, Kathryn C. Arbour, Natalie Vokes, Stephanie T. Schmidt, David Molkentine, Dwight H. Owen, Regan Memmott, Pradnya D. Patil, Melina E. Marmarelis, Mark M. Awad, Joseph C. Murray, Jessica A. Hellyer, Justin F. Gainor, Anastasios Dimou, Christine M. Bestvina, Catherine A. Shu, Jonathan W. Riess, Collin M. Blakely, Chad V. Pecot, Laura Mezquita, Fabrizio Tabbó, Matthias Scheffler, Subba Digumarthy, Meghan J. Mooradian, Adrian G. Sacher, Sally C. M. Lau, Andreas N. Saltos, Julia Rotow, Rocio Perez Johnson, Corinne Liu, Tyler Stewart, Sarah B. Goldberg, Jonathan Killam, Zenta Walther, Kurt Schalper, Kurtis D. Davies, Mark G. Woodcock, Valsamo Anagnostou, Kristen A. Marrone, Patrick M. Forde, Biagio Ricciuti, Deepti Venkatraman, Eliezer M. Van Allen, Amy L. Cummings, Jonathan W. Goldman, Hiram Shaish, Melanie Kier, Sharyn Katz, Charu Aggarwal, Ying Ni, Joseph T. Azok, Jeremy Segal, Lauren Ritterhouse, Joel W. Neal, Ludovic Lacroix, Yasir Y. Elamin, Marcelo V. Negrao, Xiuning Le, Vincent K. Lam, Whitney E. Lewis, Haley N. Kemp, Brett Carter, Jack A. Roth, Stephen Swisher, Richard Lee, Teng Zhou, Alissa Poteete, Yifan Kong, Tomohiro Takehara, Alvaro Guimaraes Paula, Edwin R. Parra Cuentas, Carmen Behrens, Ignacio I. Wistuba, Jianjun Zhang, George R. Blumenschein, Carl Gay, Lauren A. Byers, Don L. Gibbons, Anne Tsao, J. Jack Lee, Trever G. Bivona, D. Ross Camidge, Jhannelle E. Gray, Natasha B. Leighl, Benjamin Levy, Julie R. Brahmer, Marina C. Garassino, David R. Gandara, Edward B. Garon, Naiyer A. Rizvi, Giorgio Vittorio Scagliotti, Jürgen Wolf, David Planchard, Benjamin Besse, Roy S. Herbst, Heather A. Wakelee, Nathan A. Pennell, Alice T. Shaw, Pasi A. Jänne, David P. Carbone, Matthew D. Hellmann, Charles M. Rudin, Lee Albacker, Helen Mann, Zhou Zhu, Zhongwu Lai, Ross Stewart, Solange Peters, Melissa L. Johnson, Kwok K. Wong, Alan Huang, Monte M. Winslow, Michael J. Rosen, Ian P. Winters, Vassiliki A. Papadimitrakopoulou, Tina Cascone, Philip Jewsbury, John V. Heymach
+**Journal:** Nature (2024)
+**DOI:** [10.1038/s41586-024-07943-7](https://doi.org/10.1038/s41586-024-07943-7)
+
+## Content
