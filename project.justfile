@@ -950,7 +950,6 @@ normalize-cache:
     done
     rm -f /tmp/_sorted_enum.csv
     echo "✓ All caches normalized"
-
 # Compare dismech phenotypes against OMIM/Orphanet for a single disease
 [group('Analysis')]
 d2p-compare disease:
