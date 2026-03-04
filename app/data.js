@@ -10106,7 +10106,7 @@ window.searchData = [
       "Inborn Error of Metabolism"
     ],
     "creation_date": "2025-12-19T14:27:56Z",
-    "updated_date": "2026-02-27T22:30:25Z",
+    "updated_date": "2026-03-04T17:14:19Z",
     "subtypes": [
       "Class I - No Protein Production",
       "Class II - Processing/Trafficking Defect",
@@ -10124,13 +10124,19 @@ window.searchData = [
     "description": "Cystic fibrosis is a common life-limiting autosomal recessive genetic disorder caused by mutations in the CFTR gene encoding the cystic fibrosis transmembrane conductance regulator, a chloride and bicarbonate channel expressed in epithelial cells. CFTR dysfunction leads to dehydrated, viscous secretions in multiple organ systems, most critically the airways and pancreas. Nearly 2,000 CFTR variants have been identified, with the Phe508del (F508del) mutation present in nearly 90% of patients. The disease is characterized by progressive bronchiectasis, chronic bacterial lung infection, exocrine pancreatic insufficiency, male infertility due to congenital bilateral absence of the vas deferens, and elevated sweat chloride. Multidisciplinary care and CFTR modulator therapies have extended median survival beyond 40 years, with the advent of elexacaftor-tezacaftor-ivacaftor (Trikafta) representing a transformational advance for the majority of patients.",
     "pathophysiology": [
       "CFTR Dysfunction",
+      "ENaC Hyperactivity and Sodium Hyperabsorption",
       "Airway Surface Liquid Depletion",
-      "Mucus Plugging and Airway Obstruction",
+      "Impaired Mucociliary Clearance",
+      "Mucus Plugging",
+      "Small-Airway Obstruction",
       "Chronic Bacterial Infection",
       "Neutrophilic Airway Inflammation",
-      "Bronchiectasis and Airway Remodeling",
+      "Neutrophil Elastase-Mediated Tissue Injury",
+      "Airway Remodeling",
+      "Bronchiectasis",
       "Respiratory Failure",
       "Pancreatic Duct Obstruction",
+      "Exocrine Pancreatic Tissue Destruction",
       "Exocrine Pancreatic Insufficiency",
       "Fat Malabsorption",
       "Fat-Soluble Vitamin Deficiency",
@@ -10139,6 +10145,7 @@ window.searchData = [
       "Intestinal Obstruction",
       "Hepatobiliary Obstruction",
       "Sweat Gland Dysfunction",
+      "Hyponatremic Dehydration",
       "Vas Deferens Agenesis",
       "Sinonasal Disease",
       "CF Bone Disease"
@@ -10163,10 +10170,16 @@ window.searchData = [
     ],
     "biological_processes": [
       "Chloride Transport",
-      "Ion Transport",
-      "Mucus Secretion",
+      "bicarbonate transport",
+      "sodium ion transport",
+      "mucus secretion",
+      "mucociliary clearance",
       "Defense response to bacterium",
-      "Inflammatory response"
+      "Inflammatory response",
+      "neutrophil chemotaxis",
+      "proteolysis",
+      "extracellular matrix organization",
+      "lipid digestion"
     ],
     "phenotypes": [
       "Chronic Productive Cough",
@@ -10291,11 +10304,11 @@ window.searchData = [
     "source_file": "Cystic_Fibrosis.yaml",
     "page_url": "../pages/disorders/Cystic_Fibrosis.html",
     "num_phenotypes": 26,
-    "num_pathophysiology": 19,
+    "num_pathophysiology": 26,
     "num_genes": 1,
     "num_treatments": 13,
-    "causal_graph_edges": "19",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "32",
+    "causal_graph_longest_path": "10"
   },
   {
     "name": "D-2-Hydroxyglutaric Aciduria",
@@ -30216,24 +30229,46 @@ window.searchData = [
       "Inborn Error of Metabolism"
     ],
     "creation_date": "2025-12-19T14:27:56Z",
-    "updated_date": "2026-02-27T21:53:02Z",
+    "updated_date": "2026-03-04T19:22:00Z",
     "subtypes": [
       "Classic PKU",
       "Mild PKU",
       "BH4-Responsive PKU"
     ],
-    "description": "Mutations in PAH gene cause deficient phenylalanine hydroxylase enzyme activity. Phenylalanine cannot be converted to tyrosine, leading to phenylalanine accumulation in blood and tissues.\n",
+    "description": "Pathogenic PAH variants reduce hepatic phenylalanine hydroxylase activity.",
     "pathophysiology": [
-      "Phenylalanine Hydroxylase Deficiency",
-      "Neurotoxicity",
-      "Melanin Deficiency"
+      "Hepatic PAH Enzyme Deficiency",
+      "Hyperphenylalaninemia",
+      "Relative Tyrosine Deficiency",
+      "Competitive Large Neutral Amino Acid Transport at the Blood-Brain Barrier",
+      "Reduced Serotonin Biosynthesis",
+      "Reduced Dopamine Biosynthesis",
+      "Brain Phenylalanine Toxicity",
+      "White Matter and Subcortical Structural Injury",
+      "Neurocognitive Dysfunction",
+      "Impaired Melanin Biosynthesis",
+      "Phenylketone Accumulation"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "hepatocyte",
+      "oligodendrocyte",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0000128",
+      "CL:0000540"
+    ],
     "biological_processes": [
-      "Phenylalanine Metabolism",
-      "Neurodevelopment",
-      "Melanin Biosynthesis"
+      "L-phenylalanine catabolic process",
+      "L-phenylalanine metabolic process",
+      "tyrosine metabolic process",
+      "neutral amino acid transport",
+      "serotonin biosynthetic process",
+      "dopamine biosynthetic process",
+      "nervous system development",
+      "myelination",
+      "melanin biosynthetic process"
     ],
     "phenotypes": [
       "Intellectual Disability",
@@ -30268,7 +30303,8 @@ window.searchData = [
     ],
     "frequencies": [
       "VERY_FREQUENT",
-      "FREQUENT"
+      "FREQUENT",
+      "OCCASIONAL"
     ],
     "genes": [
       "PAH"
@@ -30293,11 +30329,11 @@ window.searchData = [
     "source_file": "Phenylketonuria.yaml",
     "page_url": "../pages/disorders/Phenylketonuria.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 3,
+    "num_pathophysiology": 11,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Pheochromocytoma and Paraganglioma",
