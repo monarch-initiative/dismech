@@ -593,6 +593,20 @@ enums:
       UNKNOWN:
         description: Directness has not yet been determined
 
+  TreatmentEffectEnum:
+    description: How a treatment affects a pathophysiology mechanism node
+    permissible_values:
+      INHIBITS:
+        description: Blocks or decreases the mechanism (e.g., TKI inhibiting constitutive kinase activity)
+      ACTIVATES:
+        description: Promotes or increases the mechanism (e.g., enzyme replacement restoring a deficient pathway)
+      MODULATES:
+        description: Alters the mechanism without clear unidirectional effect
+      BYPASSES:
+        description: Works around the disrupted mechanism via an alternative pathway
+      RESTORES:
+        description: Restores normal function of a disrupted mechanism (e.g., gene therapy, enzyme replacement)
+
   MechanisticHypothesisStatusEnum:
     description: Curation/maturity status for a disease-level mechanistic hypothesis
     permissible_values:
@@ -702,6 +716,10 @@ enums:
         description: Incidence rate
       IRR:
         description: Incidence rate ratio
+      CHI_SQUARE:
+        description: Chi-square association statistic
+      LOG_OBS_EXP_RATIO:
+        description: Natural-log observed-to-expected co-occurrence ratio
       OTHER:
         description: Other or unspecified metric
 
@@ -718,7 +736,11 @@ slots:
     range: string
     # recommended: true
   preferred_term:
-    description: The preferred human-readable term for this descriptor
+    description: >-
+      The preferred human-readable term for this descriptor. This may be more specific
+      or nuanced than the linked ontology term label when the ontology does not fully
+      capture the desired granularity. Note that postcomposition using the modifier
+      slot may be appropriate for capturing the semantics of the preferred term.
     range: string
     required: true
   term:
@@ -845,6 +867,10 @@ slots:
     range: string
     implements:
       - linkml:title
+  found_in:
+    description: Deep-research output files where this reference was cited
+    multivalued: true
+    range: string
   subtype:
     examples:
       - value: Eyelid Myoclonia with Absences
@@ -1374,6 +1400,21 @@ slots:
       - Should reference phenotype names defined in the same disease's phenotypes list
       - Enables linking treatments/trials to the symptoms/manifestations they aim to manage
       - Each phenotype can include ontology term references (HP)
+  target_mechanisms:
+    description: >-
+      Pathophysiology mechanism nodes that this treatment targets or modulates.
+      Links a treatment to specific steps in the disease's causal graph, enabling
+      inference about which downstream phenotypes should respond to therapy.
+    multivalued: true
+    range: TreatmentMechanismTarget
+    inlined_as_list: true
+    comments:
+      - Target names should match pathophysiology entry names in the same disease file
+      - Complements target_phenotypes by explaining WHERE in the causal chain the drug acts
+      - Analogous to DrugMechDB paths but anchored to dismech pathophysiology nodes
+  treatment_effect:
+    description: How the treatment affects the targeted mechanism
+    range: TreatmentEffectEnum
   # Dataset-related slots
   accession:
     description: Dataset accession identifier as a CURIE (e.g., geo:GSE67472)
@@ -1689,6 +1730,21 @@ slots:
   mapping_notes:
     description: Notes on code-to-concept mapping decisions for this signal
     range: string
+  disorder_a_count:
+    description: Number of records/patients carrying disorder A in the source dataset
+    range: integer
+  disorder_b_count:
+    description: Number of records/patients carrying disorder B in the source dataset
+    range: integer
+  pair_count:
+    description: Number of records/patients with co-occurrence of disorder A and disorder B in the source dataset
+    range: integer
+  limited_precision:
+    description: Whether the signal has limited statistical precision due to small co-occurrence count
+    range: boolean
+  precision_count_threshold:
+    description: Co-occurrence count threshold used to flag limited precision
+    range: integer
   sex:
     description: Sex-specific stratum, if applicable
     range: string
@@ -2321,12 +2377,30 @@ classes:
         description: Encodes directness and whether omitted intermediates are known versus unknown
       intermediate_mechanisms:
         description: Free-text intermediates bridging source and target when using an indirect edge
+  TreatmentMechanismTarget:
+    description: >-
+      Links a treatment to a specific pathophysiology mechanism node it targets.
+      Enables reasoning about which downstream phenotypes should respond to therapy
+      and why resistance may emerge when the causal chain shifts.
+    slots:
+      - target
+      - treatment_effect
+      - description
+      - evidence
+    slot_usage:
+      target:
+        description: >-
+          Name of the pathophysiology entry this treatment targets.
+          Must match a pathophysiology name in the same disease file.
+      evidence:
+        description: Evidence that this treatment targets this specific mechanism
   # Classes for top-level references with findings (inspired by ai-gene-review)
   PublicationReference:
     description: A reference to a publication with associated findings
     slots:
       - reference
       - title
+      - found_in
       - findings
     slot_usage:
       reference:
@@ -2593,6 +2667,7 @@ classes:
       - treatment_term
       - regimen_term
       - target_phenotypes
+      - target_mechanisms
       - evidence
       - notes
       - context
@@ -2915,6 +2990,11 @@ classes:
       - population
       - demographics
       - mapping_notes
+      - disorder_a_count
+      - disorder_b_count
+      - pair_count
+      - limited_precision
+      - precision_count_threshold
       - directionality
       - a_before_b
       - b_before_a

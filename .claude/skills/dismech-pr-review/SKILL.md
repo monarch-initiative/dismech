@@ -77,6 +77,8 @@ Only genetic information belongs in `genetic`:
 - Good: Gene names (with HGNC terms), inheritance, variants
 - Bad: Expression studies, biomarkers, biochemical markers
 Put non-genetic data in `biochemical` or appropriate sections.
+- HGNC CURIEs must use the canonical lowercase prefix `hgnc:` (e.g., `hgnc:1100`), not `HGNC:1100`.
+- If HGNC CURIE case is wrong, request a direct fix (case mismatches create avoidable validation churn).
 
 10. Subtypes, Stages, and Mappings
 - Verify MONDO mappings reflect the same disease concept
@@ -86,4 +88,3 @@ Put non-genetic data in `biochemical` or appropriate sections.
 
 11. Evidence at Cell-Type Granularity
 When possible, consider evidence at the cell-type level and annotate `cell_types` accordingly.
-

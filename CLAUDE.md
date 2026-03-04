@@ -141,6 +141,40 @@ uv run runoak -i sqlite:obo:hp info HP:0040282 -O obo
 
 This prevents AI hallucination of fake or mismatched ontology terms.
 
+### `preferred_term` vs Ontology Term Labels
+
+Each descriptor (phenotype, cell type, treatment, etc.) has two distinct label fields with different rules:
+
+- **`term.label`**: MUST exactly match the canonical ontology term label. Verified with OAK. Never deviate from the official label.
+- **`preferred_term`**: The human-readable name used in display. **This CAN be more specific or nuanced than the ontology term** when the ontology does not fully capture the desired clinical or biological granularity.
+
+When the ontology provides only a broad parent term but you want to convey greater specificity, use a more descriptive `preferred_term` while still linking to the best-fit ontology term:
+
+```yaml
+# Example: cell type with preferred clinical name
+cell_types:
+- preferred_term: CD4+ regulatory T cell
+  term:
+    id: CL:0000815
+    label: regulatory T cell
+
+# Example: treatment more specific than generic MAXO term
+treatments:
+- name: Anti-TNF Biologic Therapy
+  description: Treatment with TNF inhibitors such as adalimumab or infliximab.
+  treatment_term:
+    preferred_term: anti-TNF biologic therapy
+    term:
+      id: MAXO:0000058
+      label: pharmacotherapy
+```
+
+**Guidelines:**
+- Always link to the most specific available ontology term, even if `preferred_term` is more granular.
+- If the ontology has a term that closely matches, prefer using its label as `preferred_term` for clarity.
+- Use a more nuanced `preferred_term` only when the ontology term is genuinely too broad to convey the intended meaning.
+- A `modifier` may be used to capture the semantics of some preferred terms.
+
 ### Treatment Terms (MAXO)
 Treatments can be annotated with Medical Action Ontology (MAXO) terms:
 ```yaml
