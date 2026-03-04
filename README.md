@@ -4,7 +4,7 @@ A curated knowledge base of disease pathophysiology, with structured evidence fr
 
 ## Browse the Knowledge Base
 
-**[View all disorders online](https://monarch-initiative.github.io/dismech/app/index.html)** | **[QC Dashboard](https://monarch-initiative.github.io/dismech/dashboard/)**
+**[View all disorders online](https://dismech.monarchinitiative.org/app/)** | **[QC Dashboard](https://dismech.monarchinitiative.org/dashboard/)**
 
 Each disorder page includes:
 - Disease mechanisms and pathophysiology
@@ -14,6 +14,10 @@ Each disorder page includes:
 - All claims backed by PubMed evidence
 
 ## How It Works
+
+### Project Overview Slides
+
+- [Dismech presentation slides from February 2026](https://docs.google.com/presentation/d/1XrbLle8gVQQcoT8IzpIfll4VnUl_68mQVTa6cIzN2vs/edit?usp=sharing)
 
 ### Source of Truth: YAML Files
 
@@ -115,8 +119,9 @@ This creates `dashboard/index.html` with:
 - Slot compliance comparison chart
 - Detailed views of the 10 lowest-compliance files (priority curation targets)
 - Full table of all files sorted by compliance
+- A dedicated `not_yet_curated.html` report listing referenced MONDO diseases that do not yet have local DisMech pages
 
-View online: [QC Dashboard](https://monarch-initiative.github.io/dismech/dashboard/) or locally: `open dashboard/index.html`
+View online: [QC Dashboard](https://dismech.monarchinitiative.org/dashboard/) or locally: `open dashboard/index.html`
 
 ### HTML Generation
 
@@ -134,5 +139,5 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) to get started as an agent manager.
 
 ## Schema Documentation
 
-- [LinkML Schema Docs](https://monarch-initiative.github.io/dismech)
+- [LinkML Schema Docs](https://dismech.monarchinitiative.org/elements/)
 - Schema source: `src/dismech/schema/dismech.yaml`
