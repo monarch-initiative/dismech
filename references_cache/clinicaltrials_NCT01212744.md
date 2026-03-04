@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT01212744
+reference_id: "clinicaltrials:NCT01212744"
 title: "A Phase 2, Open-Label Study to Evaluate the Safety, Tolerability, and Efficacy of Subcutaneous Dose Levels of rAvPAL-PEG Administered Daily in Subjects With Phenylketonuria"
 content_type: summary
 ---

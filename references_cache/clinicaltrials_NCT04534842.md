@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT04534842
+reference_id: "clinicaltrials:NCT04534842"
 title: An Open-label Study of the Efficacy and Safety of SYNB1618 and SYNB1934 in Patients With Phenylketonuria (SynPheny-1)
 content_type: summary
 ---
