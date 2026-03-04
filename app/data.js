@@ -3314,6 +3314,224 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Atelosteogenesis Type I",
+    "disease_id": "MONDO:0007167",
+    "category": "Mendelian",
+    "parents": [
+      "Skeletal Dysplasia",
+      "Lethal Skeletal Dysplasia"
+    ],
+    "creation_date": "2026-03-04T07:42:25Z",
+    "updated_date": "2026-03-04T17:35:59Z",
+    "subtypes": [],
+    "description": "Atelosteogenesis type I is a severe autosomal dominant FLNB-related skeletal dysplasia that is typically lethal in the perinatal period. It is characterized by marked skeletal maturation defects, hypoplastic long bones, vertebral abnormalities, joint dislocations, and frequent respiratory failure related to thoracic and pulmonary hypoplasia.\n",
+    "pathophysiology": [
+      "Cartilage Matrix and Growth Plate Dysfunction"
+    ],
+    "cell_types": [
+      "Chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000138"
+    ],
+    "biological_processes": [
+      "Cartilage Development",
+      "Endochondral Ossification",
+      "Extracellular Matrix Organization"
+    ],
+    "phenotypes": [
+      "Disproportionate Short-Limb Short Stature",
+      "Joint Dislocation",
+      "Abnormality of the Vertebral Column",
+      "Fibular Aplasia",
+      "Pulmonary Hypoplasia"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Limbs",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0008873",
+      "HP:0001373",
+      "HP:0000925",
+      "HP:0002990",
+      "HP:0002089"
+    ],
+    "frequencies": [],
+    "genes": [
+      "FLNB Pathogenic Variants"
+    ],
+    "treatments": [
+      "Supportive Perinatal Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Atelosteogenesis_Type_I.yaml",
+    "page_url": "../pages/disorders/Atelosteogenesis_Type_I.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 1,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Atelosteogenesis Type II",
+    "disease_id": "MONDO:0009727",
+    "category": "Mendelian",
+    "parents": [
+      "Skeletal Dysplasia",
+      "Lethal Skeletal Dysplasia"
+    ],
+    "creation_date": "2026-03-04T07:56:34Z",
+    "updated_date": "2026-03-04T17:53:47Z",
+    "subtypes": [],
+    "description": "Atelosteogenesis Type II is a severe SLC26A2-related chondrodysplasia characterized by rhizomelic limb shortening, hitchhiker thumbs, and a narrow thorax, and is usually lethal at birth or shortly thereafter due to pulmonary hypoplasia and tracheobronchomalacia.\n",
+    "pathophysiology": [
+      "Sulfate Transport Deficiency in Chondrocytes",
+      "Disrupted Endochondral Ossification"
+    ],
+    "cell_types": [
+      "Chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000138"
+    ],
+    "biological_processes": [
+      "sulfate transmembrane transport",
+      "Extracellular Matrix Organization",
+      "Cartilage Development",
+      "Endochondral Ossification"
+    ],
+    "phenotypes": [
+      "Rhizomelia",
+      "Hitchhiker Thumb",
+      "Narrow Chest",
+      "Cleft Palate",
+      "Depressed Nasal Bridge",
+      "Micrognathia",
+      "Talipes Equinovarus",
+      "Pulmonary Hypoplasia",
+      "Tracheobronchomalacia"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0008905",
+      "HP:0001234",
+      "HP:0000774",
+      "HP:0000175",
+      "HP:0005280",
+      "HP:0000347",
+      "HP:0001762",
+      "HP:0002089",
+      "HP:0002786"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SLC26A2 Pathogenic Variants"
+    ],
+    "treatments": [
+      "Supportive and Palliative Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Atelosteogenesis_Type_II.yaml",
+    "page_url": "../pages/disorders/Atelosteogenesis_Type_II.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Atelosteogenesis Type III",
+    "disease_id": "MONDO:0007168",
+    "category": "Mendelian",
+    "parents": [
+      "Skeletal Dysplasia"
+    ],
+    "creation_date": "2026-03-04T07:57:38Z",
+    "updated_date": "2026-03-04T17:56:47Z",
+    "subtypes": [],
+    "description": "Atelosteogenesis Type III is a severe FLNB-related skeletal dysplasia with marked limb shortening, craniofacial anomalies, vertebral abnormalities, and airway compromise; affected infants are often perinatally lethal due to respiratory complications, although rare survivors are reported.\n",
+    "pathophysiology": [
+      "FLNB Cytoskeletal Signaling Dysfunction"
+    ],
+    "cell_types": [
+      "Chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000138"
+    ],
+    "biological_processes": [
+      "Cartilage Development",
+      "Endochondral Ossification"
+    ],
+    "phenotypes": [
+      "Rhizomelia",
+      "Talipes Equinovarus",
+      "Aplasia/Hypoplasia of the Humerus",
+      "Coronal Cleft Vertebrae",
+      "Scoliosis",
+      "Hypertelorism",
+      "Depressed Nasal Bridge",
+      "Micrognathia",
+      "Cleft Palate",
+      "Broad Thumb",
+      "Tracheomalacia"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0008905",
+      "HP:0001762",
+      "HP:0006507",
+      "HP:0003417",
+      "HP:0002650",
+      "HP:0000316",
+      "HP:0005280",
+      "HP:0000347",
+      "HP:0000175",
+      "HP:0011304",
+      "HP:0002779"
+    ],
+    "frequencies": [],
+    "genes": [
+      "FLNB Pathogenic Variants"
+    ],
+    "treatments": [
+      "Airway Supportive Management"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Atelosteogenesis_Type_III.yaml",
+    "page_url": "../pages/disorders/Atelosteogenesis_Type_III.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 1,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Atopic Dermatitis",
     "disease_id": "MONDO:0004980",
     "category": "Complex",
@@ -6538,6 +6756,80 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Campomelic Dysplasia",
+    "disease_id": "MONDO:0007251",
+    "category": "Mendelian",
+    "parents": [
+      "Skeletal Dysplasia"
+    ],
+    "creation_date": "2026-03-04T07:35:50Z",
+    "updated_date": "2026-03-04T17:15:57Z",
+    "subtypes": [],
+    "description": "Campomelic dysplasia is a severe SOX9-related skeletal dysplasia with abnormal chondrogenesis, bowed long bones, axial skeletal dysplasia, frequent respiratory insufficiency, and sex reversal in many affected 46,XY individuals.\n",
+    "pathophysiology": [
+      "SOX9-Mediated Chondrogenesis Disruption",
+      "Reduced SOX9 Stability and Matrix Defects",
+      "Disrupted 46,XY Sex Determination",
+      "Airway and Thoracic Insufficiency in Early Life"
+    ],
+    "cell_types": [
+      "Chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000138"
+    ],
+    "biological_processes": [
+      "Cartilage Development",
+      "Endochondral Ossification",
+      "Extracellular Matrix Organization",
+      "Male Sex Determination"
+    ],
+    "phenotypes": [
+      "Bowing of the Long Bones",
+      "Short Stature",
+      "Respiratory Insufficiency",
+      "Sex Reversal",
+      "Female External Genitalia in 46,XY Individual",
+      "Cleft Palate",
+      "Scoliosis"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0006487",
+      "HP:0004322",
+      "HP:0002093",
+      "HP:0012245",
+      "HP:0008730",
+      "HP:0000175",
+      "HP:0002650"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SOX9 Pathogenic Variants"
+    ],
+    "treatments": [
+      "Neonatal Respiratory Support"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Campomelic_Dysplasia.yaml",
+    "page_url": "../pages/disorders/Campomelic_Dysplasia.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Camptodactyly",
     "disease_id": "MONDO:0007250",
     "category": "Musculoskeletal Disorder",
@@ -8859,6 +9151,72 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Cleidocranial Dysplasia",
+    "disease_id": "MONDO:0007340",
+    "category": "Mendelian",
+    "parents": [
+      "Skeletal Dysplasia"
+    ],
+    "creation_date": "2026-03-04T07:37:20Z",
+    "updated_date": "2026-03-04T17:24:37Z",
+    "subtypes": [],
+    "description": "Cleidocranial dysplasia is a RUNX2-related skeletal dysplasia characterized by clavicular hypoplasia/aplasia, delayed cranial suture closure, and dental abnormalities. Pathogenesis is driven by RUNX2 haploinsufficiency with impaired osteoblast differentiation affecting intramembranous and endochondral ossification.\n",
+    "pathophysiology": [
+      "RUNX2 Haploinsufficiency and Osteoblast Differentiation Failure"
+    ],
+    "cell_types": [
+      "Osteoblast",
+      "Chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000062",
+      "CL:0000138"
+    ],
+    "biological_processes": [
+      "Intramembranous Ossification",
+      "Endochondral Ossification"
+    ],
+    "phenotypes": [
+      "Aplasia/Hypoplasia of the Clavicles",
+      "Large Fontanelles",
+      "Supernumerary Tooth",
+      "Delayed Eruption of Permanent Teeth",
+      "Wormian Bones",
+      "Short Stature"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0006710",
+      "HP:0000239",
+      "HP:0011069",
+      "HP:0000696",
+      "HP:0002645",
+      "HP:0004322"
+    ],
+    "frequencies": [],
+    "genes": [
+      "RUNX2 Pathogenic Variants"
+    ],
+    "treatments": [
+      "Orthopedic and Dental Correction"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cleidocranial_Dysplasia.yaml",
+    "page_url": "../pages/disorders/Cleidocranial_Dysplasia.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 1,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Clostridioides difficile Infection",
     "disease_id": "MONDO:0000705",
     "category": "Infectious",
@@ -9598,6 +9956,89 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Cough Variant Asthma",
+    "disease_id": "MONDO:0001491",
+    "category": "Complex",
+    "parents": [
+      "Respiratory Disease",
+      "Asthma"
+    ],
+    "creation_date": "2026-03-04T12:00:00Z",
+    "updated_date": "2026-03-04T12:00:00Z",
+    "subtypes": [
+      "Atopic Cough Variant Asthma",
+      "Non-Atopic Cough Variant Asthma"
+    ],
+    "description": "Eosinophilic infiltration of the bronchial mucosa with release of cytotoxic mediators causing epithelial damage and airway hyperresponsiveness. CVA shares type 2 inflammatory biology with classic asthma but typically shows lower eosinophilic biomarker levels despite comparable or greater cough burden, suggesting cough generation is not a simple linear function of eosinophil load.\n",
+    "pathophysiology": [
+      "Eosinophilic Airway Inflammation",
+      "Airway Hyperresponsiveness",
+      "Cough Reflex Hypersensitivity",
+      "Small Airway Dysfunction"
+    ],
+    "cell_types": [
+      "eosinophil",
+      "T-helper 2 cell",
+      "mast cell",
+      "bronchial smooth muscle cell",
+      "bronchial epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000771",
+      "CL:0000546",
+      "CL:0000097",
+      "CL:0002598",
+      "CL:0002328"
+    ],
+    "biological_processes": [
+      "inflammatory response",
+      "eosinophil migration",
+      "smooth muscle contraction"
+    ],
+    "phenotypes": [
+      "Chronic Dry Cough",
+      "Nonproductive Cough",
+      "Abnormal Laryngopharyngeal Sensations",
+      "Wheezing"
+    ],
+    "phenotype_categories": [
+      "RESPIRATORY"
+    ],
+    "phenotype_hpo_categories": [
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0034315",
+      "HP:0031246",
+      "HP:0030828"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Inhaled Corticosteroids",
+      "Bronchodilator Therapy",
+      "Leukotriene Receptor Antagonists"
+    ],
+    "environmental": [
+      "Allergen Exposure",
+      "Cold Air Exposure",
+      "Upper Respiratory Infections"
+    ],
+    "biochemical": [],
+    "source_file": "Cough_Variant_Asthma.yaml",
+    "page_url": "../pages/disorders/Cough_Variant_Asthma.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 4,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Crohn Disease",
     "disease_id": "MONDO:0005011",
     "category": "Complex",
@@ -10106,7 +10547,7 @@ window.searchData = [
       "Inborn Error of Metabolism"
     ],
     "creation_date": "2025-12-19T14:27:56Z",
-    "updated_date": "2026-02-27T22:30:25Z",
+    "updated_date": "2026-03-04T17:14:19Z",
     "subtypes": [
       "Class I - No Protein Production",
       "Class II - Processing/Trafficking Defect",
@@ -10124,13 +10565,19 @@ window.searchData = [
     "description": "Cystic fibrosis is a common life-limiting autosomal recessive genetic disorder caused by mutations in the CFTR gene encoding the cystic fibrosis transmembrane conductance regulator, a chloride and bicarbonate channel expressed in epithelial cells. CFTR dysfunction leads to dehydrated, viscous secretions in multiple organ systems, most critically the airways and pancreas. Nearly 2,000 CFTR variants have been identified, with the Phe508del (F508del) mutation present in nearly 90% of patients. The disease is characterized by progressive bronchiectasis, chronic bacterial lung infection, exocrine pancreatic insufficiency, male infertility due to congenital bilateral absence of the vas deferens, and elevated sweat chloride. Multidisciplinary care and CFTR modulator therapies have extended median survival beyond 40 years, with the advent of elexacaftor-tezacaftor-ivacaftor (Trikafta) representing a transformational advance for the majority of patients.",
     "pathophysiology": [
       "CFTR Dysfunction",
+      "ENaC Hyperactivity and Sodium Hyperabsorption",
       "Airway Surface Liquid Depletion",
-      "Mucus Plugging and Airway Obstruction",
+      "Impaired Mucociliary Clearance",
+      "Mucus Plugging",
+      "Small-Airway Obstruction",
       "Chronic Bacterial Infection",
       "Neutrophilic Airway Inflammation",
-      "Bronchiectasis and Airway Remodeling",
+      "Neutrophil Elastase-Mediated Tissue Injury",
+      "Airway Remodeling",
+      "Bronchiectasis",
       "Respiratory Failure",
       "Pancreatic Duct Obstruction",
+      "Exocrine Pancreatic Tissue Destruction",
       "Exocrine Pancreatic Insufficiency",
       "Fat Malabsorption",
       "Fat-Soluble Vitamin Deficiency",
@@ -10139,6 +10586,7 @@ window.searchData = [
       "Intestinal Obstruction",
       "Hepatobiliary Obstruction",
       "Sweat Gland Dysfunction",
+      "Hyponatremic Dehydration",
       "Vas Deferens Agenesis",
       "Sinonasal Disease",
       "CF Bone Disease"
@@ -10163,10 +10611,16 @@ window.searchData = [
     ],
     "biological_processes": [
       "Chloride Transport",
-      "Ion Transport",
-      "Mucus Secretion",
+      "bicarbonate transport",
+      "sodium ion transport",
+      "mucus secretion",
+      "mucociliary clearance",
       "Defense response to bacterium",
-      "Inflammatory response"
+      "Inflammatory response",
+      "neutrophil chemotaxis",
+      "proteolysis",
+      "extracellular matrix organization",
+      "lipid digestion"
     ],
     "phenotypes": [
       "Chronic Productive Cough",
@@ -10291,11 +10745,11 @@ window.searchData = [
     "source_file": "Cystic_Fibrosis.yaml",
     "page_url": "../pages/disorders/Cystic_Fibrosis.html",
     "num_phenotypes": 26,
-    "num_pathophysiology": 19,
+    "num_pathophysiology": 26,
     "num_genes": 1,
     "num_treatments": 13,
-    "causal_graph_edges": "19",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "32",
+    "causal_graph_longest_path": "10"
   },
   {
     "name": "D-2-Hydroxyglutaric Aciduria",
@@ -10949,6 +11403,80 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "1",
     "causal_graph_longest_path": "1"
+  },
+  {
+    "name": "Diastrophic Dysplasia",
+    "disease_id": "MONDO:0009107",
+    "category": "Mendelian",
+    "parents": [
+      "Skeletal Dysplasia"
+    ],
+    "creation_date": "2026-03-04T07:00:00Z",
+    "updated_date": "2026-03-04T08:45:04Z",
+    "subtypes": [],
+    "description": "Diastrophic dysplasia is an autosomal recessive skeletal dysplasia caused by biallelic pathogenic variants in SLC26A2. Deficient sulfate transport causes proteoglycan undersulfation in cartilage matrix, disrupting endochondral ossification and producing a characteristic pattern of limb shortening, joint contractures, spinal deformity, and hand/foot malformations.\n",
+    "pathophysiology": [
+      "Sulfate Transport Defect in Cartilage",
+      "Impaired Endochondral Ossification",
+      "UPR-Dependent FGFR3 Overactivation"
+    ],
+    "cell_types": [
+      "Chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000138"
+    ],
+    "biological_processes": [
+      "Cartilage Development",
+      "Extracellular Matrix Organization",
+      "Endochondral Ossification",
+      "Response to Unfolded Protein",
+      "Fibroblast Growth Factor Receptor Signaling Pathway"
+    ],
+    "phenotypes": [
+      "Short Stature",
+      "Clubfoot",
+      "Hitchhiker Thumb",
+      "Joint Contractures",
+      "Cervical Kyphosis",
+      "Scoliosis",
+      "Cleft Palate"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0004322",
+      "HP:0001762",
+      "HP:0001234",
+      "HP:0034392",
+      "HP:0002947",
+      "HP:0002650",
+      "HP:0000175"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SLC26A2 Pathogenic Variants"
+    ],
+    "treatments": [
+      "Physiotherapy",
+      "Corrective Orthopedic Surgery",
+      "FGFR3 Signaling Inhibition (Investigational)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Diastrophic_Dysplasia.yaml",
+    "page_url": "../pages/disorders/Diastrophic_Dysplasia.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
   },
   {
     "name": "Dientamoebiasis",
@@ -24779,6 +25307,139 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Metaphyseal Chondrodysplasia, Schmid Type",
+    "disease_id": "MONDO:0007983",
+    "category": "Mendelian",
+    "parents": [
+      "Skeletal Dysplasia"
+    ],
+    "creation_date": "2026-03-04T18:10:30Z",
+    "updated_date": "2026-03-04T18:15:09Z",
+    "subtypes": [],
+    "description": "Metaphyseal Chondrodysplasia, Schmid Type (MCDS) is an autosomal dominant skeletal dysplasia caused by COL10A1 variants, with growth plate dysfunction leading to metaphyseal abnormalities, bowing of long bones, and short stature.\n",
+    "pathophysiology": [
+      "COL10A1-Associated Growth Plate Matrix Dysfunction",
+      "Collagen X Misfolding and Unfolded Protein Response"
+    ],
+    "cell_types": [
+      "Chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000138"
+    ],
+    "biological_processes": [
+      "Cartilage Development",
+      "Endochondral Ossification",
+      "Extracellular Matrix Organization",
+      "protein folding",
+      "response to unfolded protein"
+    ],
+    "phenotypes": [
+      "Short Stature",
+      "Metaphyseal Widening",
+      "Bowing of the Long Bones",
+      "Lower Limb Deformity",
+      "Metaphyseal Irregularity"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0004322",
+      "HP:0003016",
+      "HP:0006487",
+      "HP:0002814",
+      "HP:0003025"
+    ],
+    "frequencies": [],
+    "genes": [
+      "COL10A1 Pathogenic Variants"
+    ],
+    "treatments": [
+      "Orthopedic Surgical Management"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Metaphyseal_Chondrodysplasia_Schmid_Type.yaml",
+    "page_url": "../pages/disorders/Metaphyseal_Chondrodysplasia,_Schmid_Type.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Metatropic Dysplasia",
+    "disease_id": "MONDO:0007986",
+    "category": "Mendelian",
+    "parents": [
+      "Skeletal Dysplasia"
+    ],
+    "creation_date": "2026-03-04T18:40:20Z",
+    "updated_date": "2026-03-04T18:49:20Z",
+    "subtypes": [],
+    "description": "Metatropic dysplasia is a TRPV4-associated autosomal dominant skeletal dysplasia with short-limbed disproportionate stature, progressive spinal deformity, and severe metaphyseal and vertebral abnormalities that can range from nonlethal to perinatal lethal forms.\n",
+    "pathophysiology": [
+      "TRPV4 Channel Hyperactivity in Growth Plate Chondrocytes",
+      "Disrupted Endochondral Ossification and Chondrocyte Differentiation"
+    ],
+    "cell_types": [
+      "Chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000138"
+    ],
+    "biological_processes": [
+      "calcium ion transmembrane transport",
+      "Cartilage Development",
+      "Endochondral Ossification",
+      "Extracellular Matrix Organization"
+    ],
+    "phenotypes": [
+      "Short Stature",
+      "Kyphoscoliosis",
+      "Platyspondyly",
+      "Metaphyseal Widening",
+      "Dumbbell-Shaped Long Bones",
+      "Limb Undergrowth"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0004322",
+      "HP:0002751",
+      "HP:0000926",
+      "HP:0003016",
+      "HP:0000947",
+      "HP:0009826"
+    ],
+    "frequencies": [],
+    "genes": [
+      "TRPV4 Pathogenic Variants"
+    ],
+    "treatments": [
+      "Supportive Respiratory and Orthopedic Management"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Metatropic_Dysplasia.yaml",
+    "page_url": "../pages/disorders/Metatropic_Dysplasia.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Methylmalonic Acidemia",
     "disease_id": "MONDO:0002012",
     "category": "Mendelian",
@@ -30216,24 +30877,46 @@ window.searchData = [
       "Inborn Error of Metabolism"
     ],
     "creation_date": "2025-12-19T14:27:56Z",
-    "updated_date": "2026-02-27T21:53:02Z",
+    "updated_date": "2026-03-04T19:22:00Z",
     "subtypes": [
       "Classic PKU",
       "Mild PKU",
       "BH4-Responsive PKU"
     ],
-    "description": "Mutations in PAH gene cause deficient phenylalanine hydroxylase enzyme activity. Phenylalanine cannot be converted to tyrosine, leading to phenylalanine accumulation in blood and tissues.\n",
+    "description": "Pathogenic PAH variants reduce hepatic phenylalanine hydroxylase activity.",
     "pathophysiology": [
-      "Phenylalanine Hydroxylase Deficiency",
-      "Neurotoxicity",
-      "Melanin Deficiency"
+      "Hepatic PAH Enzyme Deficiency",
+      "Hyperphenylalaninemia",
+      "Relative Tyrosine Deficiency",
+      "Competitive Large Neutral Amino Acid Transport at the Blood-Brain Barrier",
+      "Reduced Serotonin Biosynthesis",
+      "Reduced Dopamine Biosynthesis",
+      "Brain Phenylalanine Toxicity",
+      "White Matter and Subcortical Structural Injury",
+      "Neurocognitive Dysfunction",
+      "Impaired Melanin Biosynthesis",
+      "Phenylketone Accumulation"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "hepatocyte",
+      "oligodendrocyte",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0000128",
+      "CL:0000540"
+    ],
     "biological_processes": [
-      "Phenylalanine Metabolism",
-      "Neurodevelopment",
-      "Melanin Biosynthesis"
+      "L-phenylalanine catabolic process",
+      "L-phenylalanine metabolic process",
+      "tyrosine metabolic process",
+      "neutral amino acid transport",
+      "serotonin biosynthetic process",
+      "dopamine biosynthetic process",
+      "nervous system development",
+      "myelination",
+      "melanin biosynthetic process"
     ],
     "phenotypes": [
       "Intellectual Disability",
@@ -30268,7 +30951,8 @@ window.searchData = [
     ],
     "frequencies": [
       "VERY_FREQUENT",
-      "FREQUENT"
+      "FREQUENT",
+      "OCCASIONAL"
     ],
     "genes": [
       "PAH"
@@ -30293,11 +30977,11 @@ window.searchData = [
     "source_file": "Phenylketonuria.yaml",
     "page_url": "../pages/disorders/Phenylketonuria.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 3,
+    "num_pathophysiology": 11,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Pheochromocytoma and Paraganglioma",
@@ -34459,7 +35143,7 @@ window.searchData = [
       "Vestibular Disorder"
     ],
     "creation_date": "2026-01-08T22:33:12Z",
-    "updated_date": "2026-02-17T21:53:14Z",
+    "updated_date": "2026-03-04T20:35:00Z",
     "subtypes": [],
     "description": "An abnormal opening or thinning in the bone overlying the superior semicircular canal creates a pathological third mobile window in the inner ear, in addition to the oval and round windows. This dehiscence may result from congenitally thin otic capsule bone predisposition with subsequent trauma trigger.",
     "pathophysiology": [
@@ -34479,7 +35163,6 @@ window.searchData = [
       "CL:0000062"
     ],
     "biological_processes": [
-      "mechanotransduction",
       "vestibular receptor stimulus detection",
       "bone remodeling"
     ],
@@ -34523,7 +35206,10 @@ window.searchData = [
       "Surgical Canal Plugging",
       "Surgical Resurfacing"
     ],
-    "environmental": [],
+    "environmental": [
+      "Minor Head Trauma",
+      "Loud Sound and Pressure Changes"
+    ],
     "biochemical": [],
     "source_file": "Semicircular_Canal_Dehiscence_Syndrome.yaml",
     "page_url": "../pages/disorders/Semicircular_Canal_Dehiscence_Syndrome.html",
@@ -34531,8 +35217,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Sengers syndrome",
