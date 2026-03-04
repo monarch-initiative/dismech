@@ -9956,6 +9956,89 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Cough Variant Asthma",
+    "disease_id": "MONDO:0001491",
+    "category": "Complex",
+    "parents": [
+      "Respiratory Disease",
+      "Asthma"
+    ],
+    "creation_date": "2026-03-04T12:00:00Z",
+    "updated_date": "2026-03-04T12:00:00Z",
+    "subtypes": [
+      "Atopic Cough Variant Asthma",
+      "Non-Atopic Cough Variant Asthma"
+    ],
+    "description": "Eosinophilic infiltration of the bronchial mucosa with release of cytotoxic mediators causing epithelial damage and airway hyperresponsiveness. CVA shares type 2 inflammatory biology with classic asthma but typically shows lower eosinophilic biomarker levels despite comparable or greater cough burden, suggesting cough generation is not a simple linear function of eosinophil load.\n",
+    "pathophysiology": [
+      "Eosinophilic Airway Inflammation",
+      "Airway Hyperresponsiveness",
+      "Cough Reflex Hypersensitivity",
+      "Small Airway Dysfunction"
+    ],
+    "cell_types": [
+      "eosinophil",
+      "T-helper 2 cell",
+      "mast cell",
+      "bronchial smooth muscle cell",
+      "bronchial epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000771",
+      "CL:0000546",
+      "CL:0000097",
+      "CL:0002598",
+      "CL:0002328"
+    ],
+    "biological_processes": [
+      "inflammatory response",
+      "eosinophil migration",
+      "smooth muscle contraction"
+    ],
+    "phenotypes": [
+      "Chronic Dry Cough",
+      "Nonproductive Cough",
+      "Abnormal Laryngopharyngeal Sensations",
+      "Wheezing"
+    ],
+    "phenotype_categories": [
+      "RESPIRATORY"
+    ],
+    "phenotype_hpo_categories": [
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0034315",
+      "HP:0031246",
+      "HP:0030828"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Inhaled Corticosteroids",
+      "Bronchodilator Therapy",
+      "Leukotriene Receptor Antagonists"
+    ],
+    "environmental": [
+      "Allergen Exposure",
+      "Cold Air Exposure",
+      "Upper Respiratory Infections"
+    ],
+    "biochemical": [],
+    "source_file": "Cough_Variant_Asthma.yaml",
+    "page_url": "../pages/disorders/Cough_Variant_Asthma.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 4,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Crohn Disease",
     "disease_id": "MONDO:0005011",
     "category": "Complex",
@@ -22829,8 +22912,12 @@ window.searchData = [
       "COVID-19 complications"
     ],
     "creation_date": "2026-01-12T22:00:21Z",
-    "updated_date": "2026-01-20T23:58:45Z",
-    "subtypes": [],
+    "updated_date": "2026-03-04T22:20:00Z",
+    "subtypes": [
+      "Pain-dominant long COVID phenotype",
+      "Cardiopulmonary-dominant long COVID phenotype",
+      "Oligosymptomatic long COVID phenotype"
+    ],
     "description": "Long COVID, formally designated as Post-acute Sequelae of SARS-CoV-2 (PASC), is a complex, multisystem condition characterized by persistent symptoms following resolution of acute SARS-CoV-2 infection. The condition can develop following both mild and severe acute illness and affects an estimated 65 million individuals worldwide.\n",
     "pathophysiology": [
       "Viral Persistence",
@@ -22940,12 +23027,17 @@ window.searchData = [
     "frequencies": [],
     "genes": [],
     "treatments": [
-      "Pacing and Energy Management",
-      "Symptom-directed Pharmacotherapy",
-      "Rehabilitation Therapy",
-      "Antihistamine Therapy"
+      "Activity pacing",
+      "Individualized physical exercise therapy",
+      "Antihistamine Therapy",
+      "Ivabradine therapy for post-COVID POTS-like tachycardia",
+      "Beta adrenergic agent therapy for POTS-associated symptoms",
+      "Hyperbaric oxygen therapy",
+      "Intranasal and transcranial photobiomodulation"
     ],
-    "environmental": [],
+    "environmental": [
+      "Infection during ancestral-strain dominance"
+    ],
     "biochemical": [
       "Serotonin Deficiency",
       "Elevated Inflammatory Cytokines"
@@ -22955,9 +23047,9 @@ window.searchData = [
     "num_phenotypes": 21,
     "num_pathophysiology": 11,
     "num_genes": 0,
-    "num_treatments": 4,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "num_treatments": 7,
+    "causal_graph_edges": "37",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Ludwig's Angina",
@@ -27617,6 +27709,120 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "2",
     "causal_graph_longest_path": "1"
+  },
+  {
+    "name": "Nemaline Myopathy",
+    "disease_id": "MONDO:0018958",
+    "category": "Mendelian",
+    "parents": [
+      "Congenital Structural Myopathy",
+      "Thin Filament Myopathy"
+    ],
+    "creation_date": "2026-02-19T00:00:00Z",
+    "updated_date": "2026-03-04T22:03:18Z",
+    "subtypes": [
+      "Severe Congenital Nemaline Myopathy",
+      "Typical Nemaline Myopathy",
+      "Childhood-Onset Nemaline Myopathy",
+      "Adult-Onset Nemaline Myopathy"
+    ],
+    "description": "Nemaline myopathy (also called nemaline rod myopathy) is a group of congenital myopathies characterized by the presence of rod-shaped structures (nemaline bodies or rods) in skeletal muscle fibers on biopsy. It is the most common non-dystrophic congenital myopathy, affecting approximately 1 in 50,000 live births. Clinical features range from severe neonatal forms with respiratory failure to mild childhood-onset or adult-onset forms with proximal weakness. The disease is genetically heterogeneous, with mutations in at least 13 genes encoding components of the thin filament or associated proteins, most commonly NEB and ACTA1.\n",
+    "pathophysiology": [
+      "Thin Filament Dysfunction",
+      "Nemaline Rod Formation",
+      "Thin Filament Length Dysregulation",
+      "Ubiquitin-Proteasome Pathway Dysregulation (KLHL40)",
+      "Nuclear Envelope Disruption (ACTA1)",
+      "NRAP-Mediated Sarcomere Disorganization"
+    ],
+    "cell_types": [
+      "Skeletal Muscle Fiber",
+      "Type I Muscle Cell"
+    ],
+    "cell_type_ids": [
+      "CL:0008002",
+      "CL:0002211"
+    ],
+    "biological_processes": [
+      "Skeletal Muscle Contraction",
+      "Actin Filament Organization",
+      "Skeletal Muscle Thin Filament Assembly",
+      "Myofibril Assembly",
+      "Sarcomere Organization",
+      "Protein Ubiquitination",
+      "ER to Golgi Vesicle-Mediated Transport"
+    ],
+    "phenotypes": [
+      "Generalized Muscle Weakness",
+      "Hypotonia",
+      "Facial Weakness",
+      "Respiratory Insufficiency",
+      "Feeding Difficulties",
+      "Scoliosis",
+      "Nemaline Bodies",
+      "Slowness of Movements",
+      "High Palate"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Cellular",
+      "Digestive",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0003324",
+      "HP:0001252",
+      "HP:0030319",
+      "HP:0002747",
+      "HP:0008872",
+      "HP:0002650",
+      "HP:0003798",
+      "HP:0002067",
+      "HP:0000218"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OBLIGATE",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "NEB Mutations",
+      "ACTA1 Mutations",
+      "KBTBD13 Mutations",
+      "KLHL40 Mutations",
+      "TPM3 Mutations",
+      "TPM2 Mutations",
+      "TNNT1 Mutations",
+      "CFL2 Mutations",
+      "LMOD3 Mutations",
+      "KLHL41 Mutations"
+    ],
+    "treatments": [
+      "Respiratory Support",
+      "Physical Therapy",
+      "Nutritional Support",
+      "Orthopedic Management",
+      "Genetic Counseling",
+      "Fast Skeletal Muscle Troponin Activators (Investigational)",
+      "Myosin Activators (Investigational)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Nemaline_Myopathy.yaml",
+    "page_url": "../pages/disorders/Nemaline_Myopathy.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 6,
+    "num_genes": 10,
+    "num_treatments": 7,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
   },
   {
     "name": "Nephronophthisis",
