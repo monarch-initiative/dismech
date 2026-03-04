@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT01442727
+reference_id: "clinicaltrials:NCT01442727"
 title: "Selenite in the Detoxification of Arsenic and the Prevention of Arsenical Melanosis and Cancers Amongst Bangladeshi Arsenicosis Patients: A 48-week, Randomized, Double-blinded, Placebo-controlled Phase III Trial"
 content_type: summary
 ---

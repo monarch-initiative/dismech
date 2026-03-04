@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT01050556
+reference_id: "clinicaltrials:NCT01050556"
 title: Folic Acid and Creatine as Therapeutic Approaches for Lowering Blood Arsenic
 content_type: summary
 ---
