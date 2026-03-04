@@ -1,8 +1,14 @@
 ---
-name: Deploy docs
+name: Validate Schema Docs Build
 on:  # yamllint disable-line rule:truthy
   push:
     branches: [main]
+    paths:
+      - 'src/dismech/schema/**'
+      - 'mkdocs.yml'
+      - 'docs/**'
+      - 'justfile'
+      - 'project.justfile'
   workflow_dispatch:
 
 permissions: {}
@@ -10,26 +16,15 @@ permissions: {}
 jobs:
   build-docs:
     runs-on: ubuntu-latest
-
-    # Grant GITHUB_TOKEN the permissions required to make a gh-pages deployment
     permissions:
-      contents: write  # to let mkdocs write the new docs
-      pages: write     # to deploy to Pages
-      id-token: write  # allow to generate an OpenID Connect (OIDC) token
+      contents: read
 
     steps:
       # https://github.com/actions/checkout
       - name: Checkout
         uses: actions/checkout@v6
         with:
-          fetch-depth: 0  # otherwise, you will fail to push refs to dest repo
-
-      - name: Configure git for the bot
-        # Gives the bot that commits to gh-pages a name & email address
-        # so that the commits have an author in the commit log.
-        run: |
-          git config user.name github-actions[bot]
-          git config user.email github-actions[bot]@users.noreply.github.com
+          fetch-depth: 0
 
       # https://github.com/astral-sh/setup-uv
       - name: Install uv
@@ -52,7 +47,14 @@ jobs:
       - name: Install dependencies
         run: uv sync --dev --no-progress
 
-      - name: Generate schema documentation
+      - name: Generate schema docs static pages
         run: |
-          just gen-doc
-          uv run mkdocs gh-deploy
+          just gen-schema-docs
+
+      - name: Ensure generated schema docs are committed
+        run: |
+          if ! git diff --quiet elements/; then
+            echo "Generated schema docs are out of date. Run: just gen-schema-docs"
+            git diff --stat elements/
+            exit 1
+          fi

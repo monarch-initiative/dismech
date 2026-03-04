@@ -40,6 +40,8 @@ Create an initial yaml file using the underscore form of the disease, e.g.
 kb/disorders/Foo_Bar.yaml:
 ```yaml
 name: Foo Bar
+creation_date: "2025-06-12T20:16:27Z"
+updated_date: "2025-06-12T20:16:27Z"
 category: Complex
 disease_term:
   term:
@@ -63,6 +65,9 @@ treatments:
   <optional yaml list of Treatment objects>
 datasets:
 ```
+
+`creation_date` and `updated_date` must be ISO 8601/RFC 3339 datetime strings.
+When editing an existing file, preserve `creation_date` and bump `updated_date`.
 
 The objects must follow the LinkML schema in src/dismech/schema.
 
@@ -114,9 +119,12 @@ phenotypes:
   evidence:
   - reference: PMID:XXXXXXXX
     supports: <SUPPORT | REFUTE | PARTIAL>
+    evidence_source: <HUMAN_CLINICAL | MODEL_ORGANISM | IN_VITRO | COMPUTATIONAL>
     snippet: "<Exact quote from abstract>"
     explanation: "<Why this supports the phenotype>"
 ```
+
+**IMPORTANT**: The `evidence_source` field classifies **the type of evidence in the cited publication** (human study, animal model, cell culture, computational simulation), NOT whether the curation was performed by an AI agent. Always classify based on what the paper reports, regardless of who or what is doing the curation.
 
 The same generic `evidence` list schema is used for most types.
 
@@ -216,8 +224,11 @@ All evidence items MUST:
 1. Use real PMIDs from the research query results
 2. Have snippets that are exact quotes from abstracts
 3. Include explanations linking evidence to claims
+4. Set `evidence_source` based on the **publication's evidence type** (human clinical, animal model, in vitro, computational), NOT based on whether an AI agent performed the curation
 
 **NEVER fabricate PMIDs or paraphrase snippets.**
+
+**Evidence Source Classification**: When adding `evidence_source`, ask "What kind of study does this paper report?" not "How was this entry curated?" A computational fluid dynamics study gets `COMPUTATIONAL`, a mouse model study gets `MODEL_ORGANISM`, a human clinical trial gets `HUMAN_CLINICAL` - regardless of whether the curation was done by a human or an AI agent.
 
 ## Validation Errors and Fixes
 

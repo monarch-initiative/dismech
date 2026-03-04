@@ -19,6 +19,9 @@
             --accent-rose: #f43f5e;
             --accent-violet: #8b5cf6;
             --accent-sky: #0ea5e9;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -28,6 +31,16 @@
             background: var(--bg);
             color: var(--text);
             line-height: 1.7;
+        }
+
+        .notice-banner {
+            background: var(--banner-bg);
+            color: var(--banner-text);
+            border-bottom: 1px solid var(--banner-border);
+            padding: 12px 16px;
+            text-align: center;
+            font-size: 0.95rem;
+            cursor: pointer;
         }
 
         .container {
@@ -468,6 +481,59 @@
         .item-name {
             font-weight: 600;
             margin-bottom: 6px;
+        }
+
+        .item-name-link {
+            color: inherit;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+            text-decoration-thickness: 1px;
+        }
+
+        .item-name-link:hover {
+            text-decoration-thickness: 2px;
+        }
+
+        .missing-disease-name {
+            color: #991b1b;
+            border-bottom: 1px dotted #dc2626;
+        }
+
+        .curation-gap-badge {
+            display: inline-flex;
+            align-items: center;
+            margin-left: 8px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+            text-transform: uppercase;
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #b91c1c;
+            vertical-align: middle;
+        }
+
+        .missing-ontology-link {
+            color: #b91c1c !important;
+            text-decoration: underline dotted;
+            text-underline-offset: 2px;
+        }
+
+        .dismech-inline-link {
+            margin-left: 6px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #0369a1;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+            text-decoration-thickness: 1px;
+            white-space: nowrap;
+        }
+
+        .dismech-inline-link:hover {
+            text-decoration-thickness: 2px;
         }
 
         .item-desc {
@@ -1167,6 +1233,7 @@
     </script>
 </head>
 <body>
+    <div class="notice-banner" role="button" tabindex="0">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</div>
     {# ========== MACROS ========== #}
 
     {% set modifier_icons = {
@@ -1458,13 +1525,13 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-value">{{ pathophysiology_count }}</div>
-                <div class="stat-label">Mechanisms</div>
+                <div class="stat-label">Pathophysiology</div>
             </div>
             </a>
             {% else %}
             <div class="stat-item">
                 <div class="stat-value">{{ pathophysiology_count }}</div>
-                <div class="stat-label">Mechanisms</div>
+                <div class="stat-label">Pathophysiology</div>
             </div>
             {% endif %}
             {% if histopathology_count %}
@@ -1646,13 +1713,22 @@
             <div class="mapping-section">
                 <div class="classification-category">MONDO</div>
                 {% for mapping in disorder.mappings.mondo_mappings %}
+                {% set mapping_term_id = mapping.term.id if mapping.term and mapping.term.id else None %}
+                {% set mapping_has_local_page = (mapping_term_id | has_local_disorder_page) if mapping_term_id else False %}
+                {% set mapping_dismech_href = (mapping_term_id | dismech_page_url) if mapping_term_id else None %}
                 <div class="mapping-item">
                     <div class="mapping-title">
-                        {% if mapping.term and mapping.term.id %}
-                        <a href="{{ mapping.term.id | curie_to_url }}" target="_blank">{{ mapping.term.id }}</a>
+                        {% if mapping_term_id %}
+                        <a href="{{ mapping_term_id | curie_to_url }}" target="_blank"{% if not mapping_has_local_page %} class="missing-ontology-link"{% endif %}>{{ mapping_term_id }}</a>
                         {% endif %}
                         {% if mapping.term and mapping.term.label %}
-                        <span class="mapping-label">{{ mapping.term.label }}</span>
+                        <span class="mapping-label{% if mapping_term_id and not mapping_has_local_page %} missing-disease-name{% endif %}"{% if mapping_term_id and not mapping_has_local_page %} title="No Dismech page yet for this disease"{% endif %}>{{ mapping.term.label }}</span>
+                        {% endif %}
+                        {% if mapping_term_id and not mapping_has_local_page %}
+                        <span class="curation-gap-badge">Not Yet Curated</span>
+                        {% endif %}
+                        {% if mapping_dismech_href %}
+                        <a class="dismech-inline-link" href="{{ mapping_dismech_href }}">Dismech</a>
                         {% endif %}
                     </div>
                     <div class="tag-list">
@@ -1877,11 +1953,25 @@
                 <div class="classification-header">{{ scheme | replace('_', ' ') }}</div>
                 {% endif %}
                 {% for subtype in subtypes_in_scheme %}
+                {% set subtype_term_id = subtype.subtype_term.term.id if subtype.subtype_term and subtype.subtype_term.term and subtype.subtype_term.term.id else None %}
+                {% set subtype_is_mondo = subtype_term_id.startswith('MONDO:') if subtype_term_id else False %}
+                {% set subtype_has_local_page = (subtype_term_id | has_local_disorder_page) if subtype_is_mondo else False %}
+                {% set subtype_dismech_href = (subtype_term_id | dismech_page_url) if subtype_is_mondo else None %}
                 <div class="item-box subtype-box">
                     <div class="item-name">
+                        {% if subtype_dismech_href %}
+                        <a class="item-name-link" href="{{ subtype_dismech_href }}">{{ subtype.name }}</a>
+                        {% elif subtype_is_mondo and not subtype_has_local_page %}
+                        <span class="missing-disease-name" title="No Dismech page yet for this disease">{{ subtype.name }}</span>
+                        <span class="curation-gap-badge">Not Yet Curated</span>
+                        {% else %}
                         {{ subtype.name }}
-                        {% if subtype.subtype_term and subtype.subtype_term.term and subtype.subtype_term.term.id %}
-                        <a class="subtype-term-link" href="{{ subtype.subtype_term.term.id | curie_to_url }}" target="_blank">{{ subtype.subtype_term.term.id }}</a>
+                        {% endif %}
+                        {% if subtype_term_id %}
+                        <a class="subtype-term-link{% if subtype_is_mondo and not subtype_has_local_page %} missing-ontology-link{% endif %}" href="{{ subtype_term_id | curie_to_url }}" target="_blank">{{ subtype_term_id }}</a>
+                        {% endif %}
+                        {% if subtype_dismech_href %}
+                        <a class="dismech-inline-link" href="{{ subtype_dismech_href }}">Dismech</a>
                         {% endif %}
                     </div>
                     <div class="subtype-meta">
@@ -2260,8 +2350,51 @@
                     </span>
                     {% endif %}
                 </div>
+                {% if tx.treatment_term and tx.treatment_term.therapeutic_agent %}
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    {% for agent in tx.treatment_term.therapeutic_agent %}
+                    <span class="tag tag-treatment">
+                        {{ agent.preferred_term or agent.term.label }}
+                        {% if agent.term and agent.term.id %}
+                        <a href="{{ agent.term.id | curie_to_url }}" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        {% endif %}
+                    </span>
+                    {% endfor %}
+                </div>
+                {% endif %}
                 {% if tx.description %}
                 <div class="item-desc">{{ tx.description }}</div>
+                {% endif %}
+                {% if tx.target_mechanisms %}
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+                    {% for tm in tx.target_mechanisms %}
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            {{ tm.treatment_effect }}
+                        </span>
+                        <strong style="color: #5b21b6;">{{ tm.target }}</strong>
+                        {% if tm.description %}
+                        <span style="color: #7c3aed;"> &mdash; {{ tm.description }}</span>
+                        {% endif %}
+                        {{ render_evidence(tm.evidence) }}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% if tx.target_phenotypes %}
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+                    {% for pheno in tx.target_phenotypes %}
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        {{ pheno.preferred_term or pheno.term.label }}
+                        {% if pheno.term and pheno.term.id %}
+                        <a href="{{ pheno.term.id | curie_to_url }}" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        {% endif %}
+                    </span>
+                    {% endfor %}
+                </div>
                 {% endif %}
                 {{ render_evidence(tx.evidence) }}
             </div>
@@ -2329,13 +2462,22 @@
                 Conditions with similar clinical presentations that must be differentiated from {{ disorder.name }}:
             </p>
             {% for diff in disorder.differential_diagnoses %}
+            {% set diff_term_id = diff.disease_term.term.id if diff.disease_term and diff.disease_term.term and diff.disease_term.term.id else None %}
+            {% set diff_has_local_page = (diff_term_id | has_local_disorder_page) if diff_term_id else False %}
             <div class="item-box differential-box">
                 <div class="item-name">
+                    {% if diff.dismech_page_href %}
+                    <a class="item-name-link" href="{{ diff.dismech_page_href }}">{{ diff.name }}</a>
+                    {% elif diff_term_id and not diff_has_local_page %}
+                    <span class="missing-disease-name" title="No Dismech page yet for this disease">{{ diff.name }}</span>
+                    <span class="curation-gap-badge">Not Yet Curated</span>
+                    {% else %}
                     {{ diff.name }}
-                    {% if diff.disease_term and diff.disease_term.term %}
+                    {% endif %}
+                    {% if diff_term_id %}
                     <span class="phenotype-id">
-                        <a href="{{ diff.disease_term.term.id | curie_to_url }}" target="_blank">
-                            {{ diff.disease_term.term.id }}
+                        <a href="{{ diff_term_id | curie_to_url }}" target="_blank"{% if not diff_has_local_page %} class="missing-ontology-link"{% endif %}>
+                            {{ diff_term_id }}
                         </a>
                     </span>
                     {% endif %}
@@ -2520,6 +2662,20 @@
             content.classList.toggle('show');
             toggleText.textContent = content.classList.contains('show') ? 'click to hide' : 'click to show';
         }
+    </script>
+    <script>
+        (function() {
+            const banner = document.querySelector('.notice-banner');
+            if (!banner) return;
+            const dismiss = () => banner.remove();
+            banner.addEventListener('click', dismiss);
+            banner.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    dismiss();
+                }
+            });
+        })();
     </script>
 </body>
 </html>

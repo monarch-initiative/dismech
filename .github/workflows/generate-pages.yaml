@@ -7,10 +7,13 @@ on:
     paths:
       - 'kb/disorders/*.yaml'
       - 'kb/comorbidities/*.yaml'
+      - 'src/dismech/schema/**'
       - 'src/dismech/templates/**'
       - 'src/dismech/render.py'
       - 'src/dismech/export.py'
       - 'conf/qc_config.yaml'
+      - 'mkdocs.yml'
+      - 'docs/**'
   workflow_dispatch:
     inputs:
       force:
@@ -60,15 +63,18 @@ jobs:
       - name: Generate compliance dashboard
         run: just gen-dashboard
 
+      - name: Generate schema docs site
+        run: just gen-schema-docs
+
       - name: Check for changes
         id: check-changes
         run: |
-          if git diff --quiet pages/ app/data.js dashboard/; then
+          if git diff --quiet pages/ app/data.js dashboard/ elements/; then
             echo "has_changes=false" >> $GITHUB_OUTPUT
           else
             echo "has_changes=true" >> $GITHUB_OUTPUT
             echo "Changed files:"
-            git diff --stat pages/ app/data.js dashboard/
+            git diff --stat pages/ app/data.js dashboard/ elements/
           fi
 
       - name: Create Pull Request
@@ -82,7 +88,7 @@ jobs:
           BRANCH_NAME="generate-pages-$(date +%Y%m%d-%H%M%S)"
           git checkout -b "$BRANCH_NAME"
 
-          git add pages/ app/data.js dashboard/
+          git add pages/ app/data.js dashboard/ elements/
 
           PAGE_COUNT=$(ls -1 pages/disorders/*.html 2>/dev/null | wc -l | tr -d ' ')
           COMORB_PAGE_COUNT=$(ls -1 pages/comorbidities/*.html 2>/dev/null | wc -l | tr -d ' ')
@@ -90,12 +96,13 @@ jobs:
           COMORB_COUNT=$(ls -1 kb/comorbidities/*.yaml 2>/dev/null | wc -l | tr -d ' ')
 
           git commit -m "$(cat <<EOF
-          Regenerate pages, app data, and compliance dashboard
+          Regenerate pages, app data, dashboard, and schema docs
 
           - $PAGE_COUNT disorder HTML pages
           - $COMORB_PAGE_COUNT comorbidity HTML pages
           - Browser app data.js
           - Compliance dashboard
+          - Schema docs site (MkDocs)
 
           Triggered by changes to KB or templates.
           EOF
@@ -104,7 +111,7 @@ jobs:
           git push origin "$BRANCH_NAME"
 
           gh pr create \
-            --title "📄 Regenerate pages and dashboard ($(date +%Y-%m-%d))" \
+            --title "📄 Regenerate pages, dashboard, and schema docs ($(date +%Y-%m-%d))" \
             --body "$(cat <<EOF
           ## Summary
 
@@ -120,20 +127,24 @@ jobs:
           | Comorbidities in KB | $COMORB_COUNT |
           | Browser data.js | ✅ |
           | Compliance dashboard | ✅ |
+          | Schema docs site | ✅ |
 
           ## Trigger
 
           This PR was triggered by changes to:
           - \`kb/disorders/*.yaml\` - disorder data files
           - \`kb/comorbidities/*.yaml\` - comorbidity data files
+          - \`src/dismech/schema/**\` - LinkML schema files
           - \`src/dismech/templates/**\` - Jinja2 templates
           - \`src/dismech/render.py\` - rendering code
           - \`src/dismech/export.py\` - export code
           - \`conf/qc_config.yaml\` - QC configuration
+          - \`mkdocs.yml\` and \`docs/**\` - schema docs configuration/content
 
           ## Review
 
           - [ ] Spot-check a few HTML pages render correctly
           - [ ] Verify dashboard loads and shows charts
+          - [ ] Verify schema docs load at /elements/
           EOF
           )"

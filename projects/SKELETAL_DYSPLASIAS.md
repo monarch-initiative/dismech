@@ -95,53 +95,53 @@ Signaling pathway disorders affecting bone and connective tissue.
 | Disorder | Gene | Pathway | Phenotype | Status |
 |----------|------|---------|-----------|--------|
 | Loeys-Dietz Syndrome | TGFBR1, TGFBR2 | TGF-β | Aortic aneurysm, craniosynostosis, skeletal features | [ ] |
-| Shprintzen-Goldberg Syndrome | SKI | TGF-β | Marfanoid, craniosynostosis, skeletal abnormalities | [ ] |
+| Shprintzen-Goldberg Syndrome | SKI | TGF-β | Marfanoid, craniosynostosis, skeletal abnormalities | [x] |
 | Camurati-Engelmann Disease | TGFB1 | TGF-β | Progressive diaphyseal dysplasia, bone pain | [ ] |
 | Fibrodysplasia Ossificans Progressiva | ACVR1 | BMP | Heterotopic ossification (already in KB) | [x] |
-| Multiple Synostoses Syndrome | NOG, GDF5 | BMP | Progressive joint fusion | [ ] |
+| Multiple Synostoses Syndrome | NOG, GDF5 | BMP | Progressive joint fusion | [x] |
 
 ### Tier 7: Ciliopathies with Skeletal Features (Medium Priority)
 Primary cilia dysfunction affecting skeletal development.
 
 | Disorder | Gene(s) | Key Features | Status |
 |----------|---------|--------------|--------|
-| Jeune Asphyxiating Thoracic Dystrophy | IFT80, DYNC2H1, others | Narrow thorax, short ribs, respiratory failure | [ ] |
-| Short-Rib Polydactyly Syndromes | DYNC2H1, IFT80, others | Lethal, narrow thorax, polydactyly | [ ] |
-| Ellis-van Creveld Syndrome | EVC, EVC2 | Short ribs, polydactyly, CHD, ectodermal features | [ ] |
-| Oro-Facial-Digital Syndrome Type I | OFD1 | Oral frenula, polydactyly, CNS malformations | [ ] |
+| Jeune Asphyxiating Thoracic Dystrophy | IFT80, DYNC2H1, others | Narrow thorax, short ribs, respiratory failure | [x] |
+| Short-Rib Polydactyly Syndromes | DYNC2H1, IFT80, others | Lethal, narrow thorax, polydactyly | [x] |
+| Ellis-van Creveld Syndrome | EVC, EVC2 | Short ribs, polydactyly, CHD, ectodermal features | [x] |
+| Oro-Facial-Digital Syndrome Type I | OFD1 | Oral frenula, polydactyly, CNS malformations | [x] |
 
 ### Tier 8: Metabolic Bone Disorders (Medium Priority)
 Enzyme deficiencies and metabolic disorders affecting bone.
 
 | Disorder | Gene | Defect | Status |
 |----------|------|--------|--------|
-| Hypophosphatasia | ALPL | Alkaline phosphatase deficiency | [ ] |
-| X-Linked Hypophosphatemia | PHEX | Phosphate wasting, rickets | [ ] |
-| Mucopolysaccharidoses (overview) | Various | GAG accumulation, dysostosis multiplex | [ ] |
-| Gaucher Disease (skeletal) | GBA | Bone crises, osteonecrosis | [ ] |
+| Hypophosphatasia | ALPL | Alkaline phosphatase deficiency | [x] |
+| X-Linked Hypophosphatemia | PHEX | Phosphate wasting, rickets | [x] |
+| Mucopolysaccharidoses (overview) | Various | GAG accumulation, dysostosis multiplex | [x] |
+| Gaucher Disease (skeletal) | GBA | Bone crises, osteonecrosis | [x] |
 
 ### Tier 9: Limb Development Disorders (Medium Priority)
 Primary limb patterning and development defects.
 
 | Disorder | Gene | Limb Defect | Status |
 |----------|------|-------------|--------|
-| Holt-Oram Syndrome | TBX5 | Upper limb + cardiac | [ ] |
-| Ulnar-Mammary Syndrome | TBX3 | Ulnar defects, hypoplastic nipples | [ ] |
-| Hand-Foot-Genital Syndrome | HOXA13 | Short thumbs, uterine anomalies | [ ] |
-| Greig Cephalopolysyndactyly | GLI3 | Polydactyly, macrocephaly | [ ] |
-| Pallister-Hall Syndrome | GLI3 | Polydactyly, hypothalamic hamartoma | [ ] |
-| Brachydactyly Type A1 | IHH | Short middle phalanges | [ ] |
+| Holt-Oram Syndrome | TBX5 | Upper limb + cardiac | [x] |
+| Ulnar-Mammary Syndrome | TBX3 | Ulnar defects, hypoplastic nipples | [x] |
+| Hand-Foot-Genital Syndrome | HOXA13 | Short thumbs, uterine anomalies | [x] |
+| Greig Cephalopolysyndactyly | GLI3 | Polydactyly, macrocephaly | [x] |
+| Pallister-Hall Syndrome | GLI3 | Polydactyly, hypothalamic hamartoma | [x] |
+| Brachydactyly Type A1 | IHH | Short middle phalanges | [x] |
 
 ### Tier 10: Sclerosing Bone Dysplasias (Lower Priority)
 Disorders of increased bone density.
 
 | Disorder | Gene | Mechanism | Status |
 |----------|------|-----------|--------|
-| Osteopetrosis (CLCN7) | CLCN7 | Osteoclast dysfunction | [ ] |
-| Osteopetrosis (TCIRG1) | TCIRG1 | Infantile malignant | [ ] |
-| Pycnodysostosis | CTSK | Cathepsin K deficiency | [ ] |
-| Sclerosteosis | SOST | Sclerostin loss | [ ] |
-| Van Buchem Disease | SOST regulatory | Sclerostin regulatory mutation | [ ] |
+| Osteopetrosis (CLCN7) | CLCN7 | Osteoclast dysfunction | [x] |
+| Osteopetrosis (TCIRG1) | TCIRG1 | Infantile malignant | [x] |
+| Pycnodysostosis | CTSK | Cathepsin K deficiency | [x] |
+| Sclerosteosis | SOST | Sclerostin loss | [x] |
+| Van Buchem Disease | SOST regulatory | Sclerostin regulatory mutation | [x] |
 
 ## Key Pathways to Document
 
@@ -223,45 +223,45 @@ Disorders of increased bone density.
 - [x] Cardiofaciocutaneous Syndrome - Created 2026-02-04, 68.4% compliance (enhanced with deep research)
 - [x] Neurofibromatosis Type 1 - Already in KB, 51.2% compliance
 
-## Tier 6: TGF-β/BMP Pathway (1/5)
-- [ ] Loeys-Dietz Syndrome
-- [ ] Shprintzen-Goldberg Syndrome
-- [ ] Camurati-Engelmann Disease
+## Tier 6: TGF-β/BMP Pathway (5/5) ✓
+- [x] Loeys-Dietz Syndrome - Created 2026-02-09, 82.8% compliance
+- [x] Shprintzen-Goldberg Syndrome - Created 2026-02-09, 77.4% compliance
+- [x] Camurati-Engelmann Disease - Created 2026-02-09, 82.9% compliance
 - [x] Fibrodysplasia Ossificans Progressiva - Already in KB
-- [ ] Multiple Synostoses Syndrome
+- [x] Multiple Synostoses Syndrome - Created 2026-02-09, 73.1% compliance
 
-## Tier 7: Ciliopathies (0/4)
-- [ ] Jeune Asphyxiating Thoracic Dystrophy
-- [ ] Short-Rib Polydactyly Syndromes
-- [ ] Ellis-van Creveld Syndrome
-- [ ] Oro-Facial-Digital Syndrome Type I
+## Tier 7: Ciliopathies (4/4) ✓
+- [x] Jeune Asphyxiating Thoracic Dystrophy - Created 2026-02-09, 88.6% compliance
+- [x] Short-Rib Polydactyly Syndrome - Created 2026-02-09, 92.3% compliance
+- [x] Ellis-van Creveld Syndrome - Created 2026-02-09, 94.1% compliance
+- [x] Orofaciodigital Syndrome Type I - Created 2026-02-09, 92.6% compliance
 
-## Tier 8: Metabolic Bone (0/4)
-- [ ] Hypophosphatasia
-- [ ] X-Linked Hypophosphatemia
-- [ ] Mucopolysaccharidoses (skeletal)
-- [ ] Gaucher Disease (skeletal)
+## Tier 8: Metabolic Bone (4/4) ✓
+- [x] Hypophosphatasia - Created 2026-02-09, 85.7% compliance
+- [x] X-Linked Hypophosphatemia - Created 2026-02-09, 96.3% compliance
+- [x] Mucopolysaccharidosis - Created 2026-02-09, 86.7% compliance
+- [x] Gaucher Disease - Already in KB with skeletal coverage
 
-## Tier 9: Limb Development (0/6)
-- [ ] Holt-Oram Syndrome
-- [ ] Ulnar-Mammary Syndrome
-- [ ] Hand-Foot-Genital Syndrome
-- [ ] Greig Cephalopolysyndactyly
-- [ ] Pallister-Hall Syndrome
-- [ ] Brachydactyly Type A1
+## Tier 9: Limb Development (6/6) ✓
+- [x] Holt-Oram Syndrome - Created 2026-02-09, 78.9% compliance
+- [x] Ulnar-Mammary Syndrome - Created 2026-02-09, 88.9% compliance
+- [x] Hand-Foot-Genital Syndrome - Created 2026-02-09, 90.0% compliance
+- [x] Greig Cephalopolysyndactyly - Created 2026-02-09, 82.4% compliance
+- [x] Pallister-Hall Syndrome - Created 2026-02-09, 81.2% compliance
+- [x] Brachydactyly Type A1 - Created 2026-02-09, 92.3% compliance
 
-## Tier 10: Sclerosing Bone Dysplasias (0/5)
-- [ ] Osteopetrosis (CLCN7)
-- [ ] Osteopetrosis (TCIRG1)
-- [ ] Pycnodysostosis
-- [ ] Sclerosteosis
-- [ ] Van Buchem Disease
+## Tier 10: Sclerosing Bone Dysplasias (5/5) ✓
+- [x] Osteopetrosis (CLCN7) - Created 2026-02-09, 88.9% compliance
+- [x] Osteopetrosis (TCIRG1) - Created 2026-02-09, 81.2% compliance
+- [x] Pycnodysostosis - Created 2026-02-09, 88.9% compliance
+- [x] Sclerosteosis - Created 2026-02-09, 88.2% compliance
+- [x] Van Buchem Disease - Created 2026-02-09, 88.9% compliance
 
 ## Progress Summary
 - **Total planned**: 51 skeletal dysplasias
 - **Already in KB**: 4 (FOP, Noonan, NF1, reused for Tier 5)
-- **Completed**: 27/51 (53%)
-- **Remaining**: 24
+- **Completed**: 51/51 (100%) ✓
+- **Remaining**: 0
 
 ### Priority Rationale
 1. **Tier 1 (FGFR3)**: Therapeutically most relevant - vosoritide approved, infigratinib in trials
@@ -271,6 +271,208 @@ Disorders of increased bone density.
 5. **Tier 5-10**: Ordered by therapeutic relevance and mechanistic clarity
 
 # NOTES
+
+## 2026-02-09 (Tier 9 + Tier 10 Completion - PROJECT COMPLETE)
+
+**6 Tier 9 disorders curated (Limb Development):**
+
+13. **Holt-Oram Syndrome** (MONDO:0007732) - 78.9% compliance
+    - TBX5 haploinsufficiency: anterior/radial limb + cardiac
+    - Key refs: PMID:8988165, 11572777, 15096952, 16183809, 30552424
+    - 5 phenotypes, 74% mutation detection with strict criteria
+
+14. **Greig Cephalopolysyndactyly** (MONDO:0008287) - 82.4% compliance
+    - GLI3 haploinsufficiency disrupting Hedgehog signaling
+    - Key refs: PMID:15739154, 20672375, 24736735, 28224613, 10693759
+    - 5 phenotypes, robust genotype-phenotype correlation
+
+15. **Pallister-Hall Syndrome** (MONDO:0007804) - 81.2% compliance
+    - GLI3 middle-third truncations → constitutive repressor
+    - Key refs: PMID:15739154, 10375510, 10693759, 24736735
+    - 4 phenotypes: hypothalamic hamartoma pathognomonic
+
+16. **Ulnar-Mammary Syndrome** (MONDO:0008411) - 88.9% compliance
+    - TBX3 haploinsufficiency: posterior/ulnar limb + apocrine
+    - Complementary to TBX5/Holt-Oram (anterior vs posterior)
+    - Key refs: PMID:9207801, 10330342, 16530712
+    - 4 phenotypes, T-domain mutations → more severe limb defects
+
+17. **Hand-Foot-Genital Syndrome** (MONDO:0007698) - 90.0% compliance
+    - HOXA13 loss-of-function: distal limb + Mullerian duct
+    - Multiple mutation types: nonsense, polyalanine expansion, missense
+    - Key refs: PMID:9020844, 10839976, 19591980
+    - 5 phenotypes including bicornuate uterus and hypospadias
+
+18. **Brachydactyly Type A1** (MONDO:0007215) - 92.3% compliance
+    - IHH missense mutations: multi-level Hedgehog signaling disruption
+    - First recorded Mendelian autosomal dominant trait (Farabee 1903)
+    - Key refs: PMID:11455389, 12525541, 21537345
+    - Patched1 binding, protein stability, heparan sulfate interaction
+
+**5 Tier 10 disorders curated (Sclerosing Bone Dysplasias):**
+
+19. **ADO Type II** (MONDO:0008156) - 88.9% compliance
+    - CLCN7 dominant negative: dimeric chloride channel disruption
+    - 66% penetrance, allelic with recessive osteopetrosis
+    - 84% fractures, 19% visual loss, 16% osteomyelitis (94-patient cohort)
+    - Key refs: PMID:11741829, 12929941, 17164308
+
+20. **ARO (TCIRG1)** (MONDO:0009816) - 81.2% compliance
+    - TCIRG1 vacuolar proton pump deficiency: osteoclast acidification failure
+    - >50% of infantile malignant osteopetrosis, fatal if untreated
+    - HSCT only curative treatment
+    - Key ref: PMID:10888887
+
+21. **Pycnodysostosis** (MONDO:0009940) - 88.9% compliance
+    - CTSK cathepsin K deficiency: collagen degradation failure
+    - 33 mutations in 59 families, hotspot exons 6/7
+    - Short stature, osteosclerosis, open fontanelles characteristic
+    - Key refs: PMID:8703060, 21569238
+
+22. **Sclerosteosis** (MONDO:0017838) - 88.2% compliance
+    - SOST loss-of-function: unopposed Wnt-mediated bone formation
+    - Afrikaner founder effect, hand malformations distinguish from VBD
+    - Led to romosozumab development for osteoporosis
+    - Key refs: PMID:11181578, 11179006
+
+23. **Van Buchem Disease** (MONDO:0009395) - 88.9% compliance
+    - 52-kb SOST enhancer deletion: regulatory vs coding SOST disruption
+    - ECR5 bone-specific enhancer identified (PMID:15965026)
+    - First human disease from distant regulatory element deletion
+    - Key refs: PMID:11836356, 15965026
+
+**PROJECT COMPLETE: 51/51 skeletal dysplasias curated across 10 tiers.**
+
+Key pathway themes covered:
+- FGFR3 gain-of-function spectrum (Tier 1)
+- Type II collagen allelic series (Tier 2)
+- FGFR craniosynostosis (Tier 3)
+- Type I collagen/OI spectrum (Tier 4)
+- RAS-MAPK pathway (Tier 5)
+- TGF-β/BMP signaling (Tier 6)
+- Primary cilia/Hedgehog (Tier 7)
+- Metabolic bone (Tier 8)
+- Limb patterning transcription factors (Tier 9)
+- Osteoclast/osteoblast regulation (Tier 10)
+
+## 2026-02-09 (Tier 6 + Tier 7 Curation Session)
+
+**3 new disorders curated across Tier 6 (TGF-β/BMP) and Tier 7 (Ciliopathies):**
+
+1. **Loeys-Dietz Syndrome** (MONDO:0018954) - 82.8% compliance
+   - 5 subtypes (LDS types 1-5: TGFBR1, TGFBR2, SMAD3, TGFB2, TGFB3)
+   - Paradoxical TGF-β signaling mechanism documented (loss-of-function mutations → tissue hyperactivation)
+   - Key refs: PMID:16928994 (Loeys 2006 NEJM), PMID:24577266 (MacCarrick 2014 guidelines), PMID:35662564 (Gouda 2022 systematic review)
+   - 15 phenotypes with HPO terms including aortic aneurysm, hypertelorism, bifid uvula
+   - ERK/JNK noncanonical signaling pathway documented (PMID:21493862)
+   - Losartan treatment evidence from Marfan mouse model (PMID:16601194)
+
+2. **Camurati-Engelmann Disease** (MONDO:0007542) - 82.9% compliance
+   - TGFB1 LAP domain mutations (R218H, R218C, C225R) causing constitutive TGF-β1 activation
+   - Key refs: PMID:15894597 (Janssens 2006, 100 patients), PMID:11278244 (Saito 2001, mechanism)
+   - 9 phenotypes with frequencies from 100-patient cohort (limb pain 68%, waddling gait 48%, muscle weakness 39%)
+   - Losartan treatment evidence (PMID:25140400)
+   - 6 PMIDs, 20 evidence items
+
+3. **Ellis-van Creveld Syndrome** (MONDO:0009162) - 94.1% compliance
+   - EVC/EVC2 mutations disrupting Hedgehog signaling at primary cilium
+   - Key refs: PMID:10700184 (Ruiz-Perez 2000 EVC), PMID:12571802 (Ruiz-Perez 2003 EVC2), PMID:23026747 (Caparros-Martin 2013 Smo interaction)
+   - 3 pathophysiology mechanisms: Hedgehog disruption, cilium dysfunction, cardiac septation
+   - Cardiac phenotype detailed with 32-case series (PMID:21533779): 88% endocardial cushion defects
+   - EFCAB7-IQCE tethering mechanism at cilia base (PMID:24582806)
+   - 6 PMIDs, 25 evidence items
+
+All 3 files pass schema + term + reference validation.
+
+## 2026-02-09 (Tier 6 + Tier 7 Curation Session, Part 2)
+
+**3 additional disorders curated, completing Tier 6:**
+
+4. **Shprintzen-Goldberg Syndrome** (MONDO:0008426) - 77.4% compliance
+   - SKI mutations in R-SMAD binding domain; 73% in 5-residue hotspot (p.Ser31-Pro35)
+   - Enhanced TGF-β signaling mechanism (loss of SKI repression)
+   - Key refs: PMID:23023332 (Doyle 2012 Nat Genet, SKI discovery), PMID:23103230 (Carmignac 2012 AJHG), PMID:24736733 (Schepers 2015 EJHG, mutational hotspot)
+   - 10 phenotypes: craniosynostosis, intellectual disability, aortic aneurysm, cervical vertebral anomalies
+   - Distinguished from MFS/LDS by craniosynostosis + intellectual disability
+   - 4 PMIDs, 14 evidence items
+
+5. **Multiple Synostoses Syndrome** (MONDO:0017923) - 73.1% compliance
+   - NOG (SYNS1) and GDF5 (SYNS2) mutations converging on BMP signaling dysregulation
+   - NOG: hypomorphic alleles reducing functional noggin dimer secretion
+   - GDF5: gain-of-function via noggin resistance (S94N mutation)
+   - Key refs: PMID:10080184 (Gong 1999 Nat Genet, NOG discovery), PMID:16532400 (Dawson 2006 AJHG, GDF5), PMID:21976273 (Schwaerzer 2012, molecular mechanism)
+   - 6 phenotypes: symphalangism, carpal/tarsal fusions, conductive hearing loss
+   - 4 PMIDs, 14 evidence items
+
+6. **Jeune Asphyxiating Thoracic Dystrophy** (MONDO:0018770) - 88.6% compliance
+   - Genetically heterogeneous ciliopathy: DYNC2H1 (33-59%), IFT80 (5%), IFT140, WDR19
+   - DYNC2H1 genotype-phenotype: primarily skeletal, lacks extra-skeletal involvement
+   - Clinical frequencies: pulmonary insufficiency 60%, retinal 50% (>5y), liver 22%, renal 17%
+   - Key refs: PMID:17468754 (Beales 2007, IFT80 first IFT-disease link), PMID:23456818 (Schmidts 2013, DYNC2H1 41%), PMID:23339108 (Baujat 2013, 39-family clinical review)
+   - VEPTR treatment: 68% survival vs 70-80% untreated mortality (PMID:25575358)
+   - 8 phenotypes, 5 PMIDs, 22 evidence items
+
+All 3 files pass schema + term + reference validation. Tier 6 now complete (5/5).
+
+## 2026-02-09 (Tier 7 Completion + Tier 8 Start)
+
+**3 more disorders curated, completing Tier 7 (Ciliopathies) and starting Tier 8 (Metabolic Bone):**
+
+7. **Short-Rib Polydactyly Syndrome** (MONDO:0015461) - 92.3% compliance
+   - Lethal skeletal ciliopathy spectrum: DYNC2H1, NEK1, WDR34, IFT80 mutations
+   - ATD-SRP spectrum continuum established (PMID:19442771)
+   - NEK1 discovery for Majewski type (PMID:21211617); digenic NEK1+DYNC2H1 inheritance noted
+   - WDR34 mutations reveal NF-κB pathway role in ciliopathies (PMID:24183449)
+   - IFT80 extends Jeune-Verma-Naumoff spectrum (PMID:19648123)
+   - 7 phenotypes, 4 genetic entries, 5 PMIDs, 20 evidence items
+
+8. **Orofaciodigital Syndrome Type I** (MONDO:0010702) - 92.6% compliance
+   - X-linked dominant ciliopathy, OFD1 mutations, male lethal
+   - OFD1 centrosomal/basal body protein disrupts Shh and Wnt signaling (PMID:19876934)
+   - Oral features most reliable diagnostic criteria (PMID:23033313)
+   - 30-family mutation study: 22 novel mutations, hotspot exons 3/8/9/13/16 (PMID:23033313, PMID:16397067)
+   - Renal cystic disease progressive → dialysis by age 35 (PMID:9482645)
+   - Brain MRI spectrum: ACC, interhemispheric cysts, vermis hypoplasia
+   - 7 phenotypes, 2 pathophysiology mechanisms, 4 PMIDs, 24 evidence items
+
+9. **Hypophosphatasia** (MONDO:0018570) - 85.7% compliance
+   - ALPL mutations → TNSALP deficiency → PPi accumulation → mineralization failure
+   - Genetic nosology from 424-patient cohort: severe (recessive), moderate (recessive/dominant), mild (dominant, very common) (PMID:32973344)
+   - DNE vs haploinsufficiency mechanisms in dominant forms; 60% adults heterozygous without DNE
+   - Asfotase alfa: 95% vs 42% survival at 1 year (PMID:26529632)
+   - PLP/B6 metabolism: ectoenzyme role, seizure mechanism (PMID:20392236)
+   - PPi mineralization: crystals form in matrix vesicles but fail to enlarge (PMID:20392236)
+   - 8 phenotypes, 2 pathophysiology, 4 PMIDs, 24 evidence items
+
+All 3 files pass schema + term + reference validation. Tier 7 now complete (4/4).
+
+## 2026-02-09 (Tier 8 Completion)
+
+**3 more disorders curated (+ 1 already in KB), completing Tier 8 (Metabolic Bone Disorders):**
+
+10. **X-Linked Hypophosphatemia** (MONDO:0010619) - 96.3% compliance
+    - PHEX loss-of-function → FGF23 excess → renal phosphate wasting → rickets/osteomalacia
+    - Two pathophysiology mechanisms: FGF23-mediated phosphate wasting + defective bone mineralization
+    - Key refs: PMID:7550339 (HYP Consortium 1995, PHEX cloning), PMID:11062477 (ADHR Consortium 2000, FGF23 discovery), PMID:29947083 (Insogna 2018, adult burosumab phase 3), PMID:31104833 (Imel 2019, pediatric burosumab phase 3), PMID:29460029 (Chesher 2018, adult clinical features)
+    - Burosumab: 94.1% phosphate normalization vs 7.6% placebo; 16.8x fracture healing odds
+    - Dental disease 63%, nephrocalcinosis 42% in adult cohort
+    - 7 phenotypes, 5 PMIDs, 28 evidence items
+
+11. **Mucopolysaccharidosis** (MONDO:0019249) - 86.7% compliance
+    - Overview entry covering MPS I/II/IV subtypes
+    - Two pathophysiology mechanisms: lysosomal GAG accumulation + TLR4-mediated inflammatory response
+    - Key refs: PMID:32780955 (Hampe 2020, dysostosis multiplex), PMID:30442189 (Concolino 2018, ERT review), PMID:25624320 (Aldenhoven 2015, 217 HCT patients), PMID:35216110 (Mandolfo 2022, innate immunity)
+    - HSCT gold standard for severe MPS I-H; early transplantation critical for cognitive outcomes
+    - ERT limitations: no BBB crossing, poor bone/cartilage penetration
+    - 8 phenotypes, 3 genetic entries, 4 PMIDs, 24 evidence items
+
+12. **Gaucher Disease** - Already in KB with good skeletal coverage
+    - Bone crises, pathologic fractures, Erlenmeyer flask deformities
+    - ERT/SRT evidence already documented (PMIDs: 28218669, 19047232, 22010032, 25688781)
+
+All new files pass schema + term + reference validation. Tier 8 now complete (4/4).
+
+---
 
 ## 2026-02-04 (Tier 5 Curation Session)
 
