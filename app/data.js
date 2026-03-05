@@ -2325,7 +2325,7 @@ window.searchData = [
       "Spondyloarthropathy"
     ],
     "creation_date": "2025-12-19T01:12:52Z",
-    "updated_date": "2026-02-17T21:53:14Z",
+    "updated_date": "2026-03-05T00:15:00Z",
     "subtypes": [],
     "description": "A chronic inflammatory disease primarily affecting the axial skeleton, characterized by sacroiliitis and progressive spinal fusion. Strongly associated with HLA-B27. Part of the spondyloarthritis spectrum including enthesitis and potential peripheral joint and extra-articular involvement.",
     "pathophysiology": [
@@ -3540,8 +3540,8 @@ window.searchData = [
       "Chronic Inflammatory Disease",
       "Allergic Disease"
     ],
-    "creation_date": null,
-    "updated_date": null,
+    "creation_date": "2025-12-18T17:01:35Z",
+    "updated_date": "2026-03-05T00:25:00Z",
     "subtypes": [
       "Early-Onset Atopic Dermatitis",
       "Adult-Onset Atopic Dermatitis",
@@ -7491,7 +7491,7 @@ window.searchData = [
       "Autoimmune Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-02-17T21:53:14Z",
+    "updated_date": "2026-03-05T01:00:00Z",
     "subtypes": [],
     "description": "Gluten peptides (gliadin) cross the intestinal epithelium and are deamidated by tissue transglutaminase (tTG). Deamidated peptides bind HLA-DQ2/DQ8 and activate CD4+ T cells.\n",
     "pathophysiology": [
@@ -15026,7 +15026,7 @@ window.searchData = [
       "Newborn screening disorder"
     ],
     "creation_date": "2026-02-06T03:39:54Z",
-    "updated_date": "2026-02-17T21:53:14Z",
+    "updated_date": "2026-03-04T23:45:00Z",
     "subtypes": [
       "Classic Galactosemia (GALT deficiency)",
       "Galactokinase Deficiency",
@@ -15053,8 +15053,26 @@ window.searchData = [
       "Tremor"
     ],
     "phenotype_categories": [],
-    "phenotype_hpo_categories": [],
-    "phenotype_ids": [],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0006579",
+      "HP:0002240",
+      "HP:0001508",
+      "HP:0000518",
+      "HP:0040187",
+      "HP:0001249",
+      "HP:0000750",
+      "HP:0008209",
+      "HP:0001337"
+    ],
     "frequencies": [
       "FREQUENT",
       "OCCASIONAL"
@@ -27719,7 +27737,7 @@ window.searchData = [
       "Thin Filament Myopathy"
     ],
     "creation_date": "2026-02-19T00:00:00Z",
-    "updated_date": "2026-03-04T22:03:18Z",
+    "updated_date": "2026-03-04T23:35:58Z",
     "subtypes": [
       "Severe Congenital Nemaline Myopathy",
       "Typical Nemaline Myopathy",
@@ -27731,6 +27749,7 @@ window.searchData = [
       "Thin Filament Dysfunction",
       "Nemaline Rod Formation",
       "Thin Filament Length Dysregulation",
+      "Reduced Sarcomeric Tension",
       "Ubiquitin-Proteasome Pathway Dysregulation (KLHL40)",
       "Nuclear Envelope Disruption (ACTA1)",
       "NRAP-Mediated Sarcomere Disorganization"
@@ -27747,10 +27766,15 @@ window.searchData = [
       "Skeletal Muscle Contraction",
       "Actin Filament Organization",
       "Skeletal Muscle Thin Filament Assembly",
+      "Actin Filament Binding",
       "Myofibril Assembly",
       "Sarcomere Organization",
+      "skeletal muscle contraction",
       "Protein Ubiquitination",
-      "ER to Golgi Vesicle-Mediated Transport"
+      "ER to Golgi Vesicle-Mediated Transport",
+      "nuclear envelope organization",
+      "sarcomere organization",
+      "myofibril assembly"
     ],
     "phenotypes": [
       "Generalized Muscle Weakness",
@@ -27772,7 +27796,6 @@ window.searchData = [
       "Digestive",
       "Head and Neck",
       "Musculoskeletal",
-      "Nervous System",
       "Respiratory"
     ],
     "phenotype_ids": [
@@ -27783,7 +27806,7 @@ window.searchData = [
       "HP:0008872",
       "HP:0002650",
       "HP:0003798",
-      "HP:0002067",
+      "HP:0002486",
       "HP:0000218"
     ],
     "frequencies": [
@@ -27818,11 +27841,11 @@ window.searchData = [
     "source_file": "Nemaline_Myopathy.yaml",
     "page_url": "../pages/disorders/Nemaline_Myopathy.html",
     "num_phenotypes": 9,
-    "num_pathophysiology": 6,
+    "num_pathophysiology": 7,
     "num_genes": 10,
     "num_treatments": 7,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Nephronophthisis",
@@ -28135,7 +28158,7 @@ window.searchData = [
       "hereditary cancer-predisposing syndrome"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-02-10T22:44:01Z",
+    "updated_date": "2026-03-04T23:00:00Z",
     "subtypes": [],
     "description": "Neurofibromatosis type 1 (NF1) is an autosomal dominant tumor predisposition syndrome caused by germline pathogenic variants in the NF1 tumor suppressor gene encoding neurofibromin. It is characterized by cafe-au-lait macules, neurofibromas, Lisch nodules, skeletal abnormalities, and increased risk of malignancy including optic pathway gliomas and malignant peripheral nerve sheath tumors (MPNST). NF1 exemplifies the RASopathy spectrum, with neurofibromin functioning as a RAS-GAP that normally negatively regulates RAS-MAPK signaling.",
     "pathophysiology": [
@@ -32969,7 +32992,7 @@ window.searchData = [
       "Autoimmune Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-02-17T21:53:14Z",
+    "updated_date": "2026-03-05T00:45:00Z",
     "subtypes": [
       "Plaque Psoriasis",
       "Guttate Psoriasis",
@@ -33021,7 +33044,7 @@ window.searchData = [
       "Integument"
     ],
     "phenotype_ids": [
-      "HP:0200034",
+      "HP:0025474",
       "HP:0040189",
       "HP:0000989",
       "HP:0008404",
@@ -38613,7 +38636,7 @@ window.searchData = [
       "Autoimmune Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-02-17T21:53:14Z",
+    "updated_date": "2026-03-05T00:15:00Z",
     "subtypes": [],
     "description": "Continuous inflammation limited to the colonic mucosa, starting at the rectum and extending proximally. Crypt abscesses, goblet cell depletion, and mucosal ulceration are characteristic.\n",
     "pathophysiology": [
@@ -38668,7 +38691,8 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0025085",
       "HP:0002027",
-      "HP:0002607",
+      "HP:0012701",
+      "HP:0012702",
       "HP:0001824",
       "HP:0012378",
       "HP:0001903"
