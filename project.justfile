@@ -303,6 +303,7 @@ gen-dashboard:
         exit 1
     fi
     uv run linkml-data-qc "${files[@]}" -s {{schema_path}} -t Disease -c conf/qc_config.yaml --dashboard-dir dashboard/
+    uv run python scripts/qc_uncurated_disease_links.py --kb-dir {{kb_dir}} --dashboard-dir dashboard/ --dashboard-index dashboard/index.html
     echo "Dashboard generated in dashboard/"
 
 # Validate snippet/reference pairs against PubMed (checks that quotes appear in cited papers)
@@ -467,10 +468,20 @@ gen-comorbidity-page file:
 gen-comorbidity-pages:
     uv run python -m dismech.render --comorbidity {{comorbidity_dir}}
 
+# Generate static schema docs site via MkDocs (served at /elements/)
+[group('Pages')]
+gen-schema-docs:
+    just gen-doc
+    # Normalize LinkML-generated mermaid cardinalities (e.g., "* _recommended_")
+    # that break Mermaid v11 parsing in class diagrams.
+    uv run python scripts/fix_schema_mermaid.py
+    uv run mkdocs build --clean
+    @echo "Generated schema docs in elements/"
+
 # Generate all pages and browser data
 [group('Pages')]
-gen-all: gen-browser-data gen-pages
-    @echo "Generated browser data, disorder pages, and comorbidity pages"
+gen-all: gen-browser-data gen-pages gen-schema-docs
+    @echo "Generated browser data, disorder/comorbidity pages, and schema docs"
 
 # ============== KGX Export ==============
 
@@ -662,6 +673,12 @@ validate-classifications:
 [group('QC')]
 validate-classification file:
     uv run linkml-term-validator validate-schema {{file}} -c {{oak_config}}
+
+# Semantic YAML diff between two git refs
+# Example: just sdiff main my-branch --dir kb/disorders --summary
+[group('QC')]
+sdiff ref_old ref_new *args="":
+    uv run python -m dismech.diff git {{ref_old}} {{ref_new}} {{args}}
 
 # ============== Epic Issue Sync ==============
 
