@@ -214,7 +214,7 @@ def generate_mermaid(graph: CausalGraph) -> str:
     return "\n".join(lines)
 
 
-def _extract_node_metadata(item: dict[str, Any], node_type: str) -> dict[str, Any]:
+def _extract_node_metadata(item: dict[str, Any]) -> dict[str, Any]:
     """Extract rich metadata from a disorder section item for pathograph tooltips."""
     meta: dict[str, Any] = {}
 
@@ -227,24 +227,24 @@ def _extract_node_metadata(item: dict[str, Any], node_type: str) -> dict[str, An
     cell_types = item.get("cell_types", []) or []
     if cell_types:
         meta["cell_types"] = [
-            ct.get("preferred_term") or (ct.get("term", {}) or {}).get("label", "")
-            for ct in cell_types if isinstance(ct, dict)
+            label for ct in cell_types if isinstance(ct, dict)
+            if (label := ct.get("preferred_term") or (ct.get("term", {}) or {}).get("label", ""))
         ]
 
     # Biological processes
     processes = item.get("biological_processes", []) or []
     if processes:
         meta["biological_processes"] = [
-            bp.get("preferred_term") or (bp.get("term", {}) or {}).get("label", "")
-            for bp in processes if isinstance(bp, dict)
+            label for bp in processes if isinstance(bp, dict)
+            if (label := bp.get("preferred_term") or (bp.get("term", {}) or {}).get("label", ""))
         ]
 
     # Genes
     genes = item.get("genes", []) or []
     if genes:
         meta["genes"] = [
-            g.get("preferred_term") or (g.get("term", {}) or {}).get("label", "")
-            for g in genes if isinstance(g, dict)
+            label for g in genes if isinstance(g, dict)
+            if (label := g.get("preferred_term") or (g.get("term", {}) or {}).get("label", ""))
         ]
 
     # Role (pathophysiology)
@@ -270,8 +270,8 @@ def _extract_node_metadata(item: dict[str, Any], node_type: str) -> dict[str, An
     locations = item.get("locations", []) or []
     if locations:
         meta["locations"] = [
-            loc.get("preferred_term") or (loc.get("term", {}) or {}).get("label", "")
-            for loc in locations if isinstance(loc, dict)
+            label for loc in locations if isinstance(loc, dict)
+            if (label := loc.get("preferred_term") or (loc.get("term", {}) or {}).get("label", ""))
         ]
 
     return meta
@@ -330,7 +330,7 @@ def graph_to_json(graph: CausalGraph, disorder: dict[str, Any]) -> str:
         # Enrich with metadata from the raw disorder item
         raw_item = item_lookup.get(name)
         if raw_item:
-            meta = _extract_node_metadata(raw_item, node_type)
+            meta = _extract_node_metadata(raw_item)
             if meta:
                 node_data["meta"] = meta
 
