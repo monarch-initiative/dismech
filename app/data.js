@@ -2317,6 +2317,115 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Angelman Syndrome",
+    "disease_id": "MONDO:0007113",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental disorder",
+      "Imprinting disorder"
+    ],
+    "creation_date": "2026-03-03T02:33:07Z",
+    "updated_date": "2026-03-05T22:30:44Z",
+    "subtypes": [
+      "Maternal 15q11.2-q13 deletion Angelman syndrome",
+      "UBE3A pathogenic variant Angelman syndrome",
+      "Paternal uniparental disomy 15 Angelman syndrome",
+      "Imprinting defect Angelman syndrome"
+    ],
+    "description": "Angelman syndrome is a neurogenetic imprinting disorder caused by deficient neuronal expression of the maternally inherited UBE3A allele, with severe developmental impairment, minimal speech, gait ataxia, seizures, and a characteristic behavioral phenotype.",
+    "pathophysiology": [
+      "Maternal UBE3A allele disruption",
+      "Neuron-specific paternal UBE3A silencing",
+      "Reduced neuronal UBE3A protein abundance",
+      "Decreased UBE3A-mediated protein ubiquitination",
+      "Dysregulated neuronal signaling pathways",
+      "Impaired experience-dependent synaptic remodeling",
+      "Disrupted neuronal excitability homeostasis",
+      "Cortical network hyperexcitability with abnormal EEG background"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "protein ubiquitination",
+      "regulation of protein stability",
+      "synapse organization",
+      "modulation of chemical synaptic transmission",
+      "regulation of membrane potential"
+    ],
+    "phenotypes": [
+      "Severe intellectual disability",
+      "Global developmental delay",
+      "Severe speech impairment",
+      "Gait ataxia",
+      "Seizures",
+      "Sleep disturbance",
+      "Microcephaly",
+      "Hyperactivity",
+      "Inappropriate laughter",
+      "Constipation",
+      "Gastroesophageal reflux",
+      "Scoliosis"
+    ],
+    "phenotype_categories": [
+      "Neurodevelopmental",
+      "Neurological",
+      "Behavioral",
+      "Gastrointestinal",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0010864",
+      "HP:0001263",
+      "HP:0002465",
+      "HP:0002066",
+      "HP:0001250",
+      "HP:0002360",
+      "HP:0000252",
+      "HP:0000752",
+      "HP:0000748",
+      "HP:0002019",
+      "HP:0002020",
+      "HP:0002650"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "UBE3A",
+      "15q11.2-q13 maternal deletion and imprinting-region abnormalities"
+    ],
+    "treatments": [
+      "Combination anti-seizure pharmacotherapy",
+      "Low-glycemic-index dietary therapy",
+      "Tonsillectomy with enhanced postoperative monitoring",
+      "Physical therapy",
+      "Occupational therapy",
+      "Speech therapy and augmentative communication",
+      "Structured management of gastrointestinal comorbidities"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Angelman_Syndrome.yaml",
+    "page_url": "../pages/disorders/Angelman_Syndrome.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 8,
+    "num_genes": 2,
+    "num_treatments": 7,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Ankylosing Spondylitis",
     "disease_id": "MONDO:0005306",
     "category": "Autoimmune",
@@ -8983,6 +9092,109 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Classic Familial Adenomatous Polyposis",
+    "disease_id": "MONDO:0021055",
+    "category": "Mendelian",
+    "parents": [
+      "familial adenomatous polyposis"
+    ],
+    "creation_date": "2026-03-01T18:54:36Z",
+    "updated_date": "2026-03-02T17:38:45Z",
+    "subtypes": [],
+    "description": "Classic familial adenomatous polyposis (classic FAP) is an autosomal dominant APC-associated polyposis syndrome characterized by extensive colorectal adenoma burden beginning early in life and very high colorectal cancer risk without definitive preventive management. Disease progression follows an APC-initiated adenoma-to-carcinoma trajectory with cooperative WNT, PI3K/mTOR, and genomic instability mechanisms, while upper gastrointestinal and extracolonic disease manifestations remain clinically important across adulthood.",
+    "pathophysiology": [
+      "Germline APC loss-of-function predisposition",
+      "APC-initiated WNT pathway activation",
+      "Epithelial hyperproliferation",
+      "Adenoma initiation",
+      "PI3K/mTOR co-activation in adenomatous lesions",
+      "Microbiome-associated pathway modulation",
+      "Genomic instability accumulation across adenoma grades",
+      "TP53 driver emergence in advanced adenomas",
+      "Adenoma-to-carcinoma transition"
+    ],
+    "cell_types": [
+      "intestinal epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002563"
+    ],
+    "biological_processes": [
+      "Wnt signaling pathway",
+      "cell population proliferation",
+      "TOR signaling",
+      "phosphatidylinositol 3-kinase/protein kinase B signal transduction",
+      "chromosome organization",
+      "DNA repair"
+    ],
+    "phenotypes": [
+      "Colorectal polyposis",
+      "Colorectal cancer",
+      "Duodenal polyposis and neoplasia risk",
+      "Desmoid tumor susceptibility",
+      "Osteomas",
+      "Dental anomalies",
+      "Congenital hypertrophy of retinal pigment epithelium",
+      "Epidermoid cysts (sebaceous cyst phenotype)"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Neoplastic",
+      "Musculoskeletal",
+      "Craniofacial",
+      "Ophthalmologic",
+      "Dermatologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Head and Neck",
+      "Integument",
+      "Musculoskeletal",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0030255",
+      "HP:0003003",
+      "HP:0030256",
+      "HP:6001034",
+      "HP:0100246",
+      "HP:0000164",
+      "HP:0007649",
+      "HP:0200040"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "APC",
+      "TP53 and cooperating progression drivers"
+    ],
+    "treatments": [
+      "Prophylactic colectomy",
+      "Endoscopic surveillance",
+      "NSAID and COX-2 inhibitor chemoprevention",
+      "Metformin-based chemoprevention",
+      "Erlotinib chemoprevention strategy",
+      "Eflornithine plus sulindac combination",
+      "Genetic counseling and hereditary risk management"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Reduced p-S6 signal after metformin exposure"
+    ],
+    "source_file": "Classic_Familial_Adenomatous_Polyposis.yaml",
+    "page_url": "../pages/disorders/Classic_Familial_Adenomatous_Polyposis.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 9,
+    "num_genes": 2,
+    "num_treatments": 7,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "Clear Cell Renal Cell Carcinoma",
     "disease_id": "MONDO:0005005",
     "category": "",
@@ -11293,6 +11505,245 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "2",
     "causal_graph_longest_path": "1"
+  },
+  {
+    "name": "Diabetes mellitus",
+    "disease_id": "MONDO:0005015",
+    "category": "Complex",
+    "parents": [
+      "endocrine pancreas disorder",
+      "glucose metabolism disease"
+    ],
+    "creation_date": "2026-02-21T15:39:12Z",
+    "updated_date": "2026-03-05T21:07:12Z",
+    "subtypes": [
+      "type 1 diabetes mellitus",
+      "latent autoimmune diabetes in adults",
+      "type 2 diabetes mellitus",
+      "lipoatrophic diabetes",
+      "gestational diabetes",
+      "monogenic diabetes",
+      "neonatal diabetes mellitus",
+      "transient neonatal diabetes mellitus",
+      "permanent neonatal diabetes mellitus",
+      "maturity-onset diabetes of the young",
+      "maturity-onset diabetes of the young type 1",
+      "maturity-onset diabetes of the young type 2",
+      "maturity-onset diabetes of the young type 3",
+      "maturity-onset diabetes of the young type 4",
+      "maturity-onset diabetes of the young type 6",
+      "maturity-onset diabetes of the young type 7",
+      "maturity-onset diabetes of the young type 8",
+      "maturity-onset diabetes of the young type 9",
+      "maturity-onset diabetes of the young type 10",
+      "maturity-onset diabetes of the young type 11",
+      "maturity-onset diabetes of the young, type 12",
+      "maturity-onset diabetes of the young type 13",
+      "maturity-onset diabetes of the young type 14",
+      "renal cysts and diabetes syndrome",
+      "maternally-inherited diabetes and deafness",
+      "type 5 diabetes mellitus",
+      "diabetic ketoacidosis"
+    ],
+    "description": "Diabetes mellitus is a heterogeneous group of disorders characterized by chronic hyperglycemia due to defects in insulin secretion, insulin action, or both.",
+    "pathophysiology": [
+      "Autoimmune diabetes genetic susceptibility",
+      "Interferon-driven beta-cell inflammatory priming",
+      "Autoimmune pancreatic beta-cell destruction",
+      "Prediabetic metabolic stress",
+      "Mitochondrial dysfunction and oxidative stress in metabolic tissues",
+      "Early pancreatic beta-cell injury",
+      "Peripheral insulin resistance in insulin-sensitive tissues",
+      "Incretin axis dysfunction",
+      "Pancreatic beta-cell secretory dysfunction",
+      "Increased hepatic glucose output",
+      "Reduced peripheral glucose disposal",
+      "Pancreatogenic endocrine hormone loss (T5DM/fibro-inflammatory overlap)",
+      "Pancreatogenic exocrine pancreatic insufficiency (T5DM/fibro-inflammatory overlap)",
+      "Absolute insulin deficiency",
+      "Increased lipolysis and ketogenesis",
+      "Relative insulin deficiency",
+      "Chronic hyperglycemia",
+      "Hyperglycemia-induced oxidative stress",
+      "Hyperglycemia-driven AGE-RAGE pathway activation",
+      "Endothelial dysfunction",
+      "Vascular inflammation",
+      "Renal microvascular injury",
+      "Retinal microvascular injury",
+      "Neural microvascular injury",
+      "Diabetic renal hemodynamic dysregulation",
+      "Diabetic glomerular injury",
+      "Diabetic tubular injury",
+      "Diabetic renal inflammation",
+      "Diabetic renal fibrosis",
+      "Diabetic kidney disease",
+      "Macrovascular atherosclerotic disease",
+      "Arterial thrombosis and ischemia"
+    ],
+    "cell_types": [
+      "type B pancreatic cell",
+      "T cell",
+      "skeletal muscle cell",
+      "adipocyte",
+      "hepatocyte",
+      "enteroendocrine cell",
+      "endothelial cell",
+      "platelet"
+    ],
+    "cell_type_ids": [
+      "CL:0000169",
+      "CL:0000084",
+      "CL:0000188",
+      "CL:0000136",
+      "CL:0000182",
+      "CL:0000164",
+      "CL:0000115",
+      "CL:0000233"
+    ],
+    "biological_processes": [
+      "immune response",
+      "type I interferon signaling pathway",
+      "antigen processing and presentation of peptide antigen via MHC class I",
+      "chemokine production",
+      "T cell mediated cytotoxicity",
+      "response to oxidative stress",
+      "autophagy of mitochondrion",
+      "apoptotic process",
+      "insulin receptor signaling pathway",
+      "cAMP-mediated signaling",
+      "regulation of insulin secretion",
+      "insulin secretion",
+      "gluconeogenesis",
+      "secretion",
+      "digestion",
+      "glucose homeostasis",
+      "inflammatory response",
+      "blood vessel remodeling",
+      "extracellular matrix organization",
+      "blood coagulation",
+      "platelet activation"
+    ],
+    "phenotypes": [
+      "Hyperglycemia",
+      "Albuminuria",
+      "Chronic kidney disease",
+      "Diabetic retinopathy",
+      "Diabetic neuropathy",
+      "Coronary artery disease",
+      "Cerebrovascular disease",
+      "Peripheral artery disease",
+      "Polyuria",
+      "Polydipsia",
+      "Weight loss",
+      "Polyphagia",
+      "Impaired glucose tolerance",
+      "Hyperinsulinemia",
+      "Obesity",
+      "Fatigue",
+      "Diabetic ketoacidosis",
+      "Glycosuria"
+    ],
+    "phenotype_categories": [
+      "Metabolic",
+      "Renal",
+      "Ophthalmologic",
+      "Neurological",
+      "Cardiovascular",
+      "Systemic",
+      "Endocrine"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Endocrine",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0003074",
+      "HP:0012592",
+      "HP:0012622",
+      "HP:0000488",
+      "HP:0009830",
+      "HP:0001677",
+      "HP:0001297",
+      "HP:0004950",
+      "HP:0000103",
+      "HP:0001959",
+      "HP:0001824",
+      "HP:0002591",
+      "HP:0001952",
+      "HP:0000842",
+      "HP:0001513",
+      "HP:0012378",
+      "HP:0001953",
+      "HP:0003076"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [
+      "HLA-DQA1",
+      "HLA-DQB1",
+      "INS",
+      "PTPN22",
+      "IL2RA",
+      "CTLA4",
+      "TCF7L2",
+      "PPARG",
+      "KCNJ11",
+      "SLC30A8",
+      "HNF1A",
+      "HNF4A",
+      "HNF1B",
+      "ABCC8",
+      "GCK",
+      "EIF2AK3",
+      "WFS1",
+      "ALMS1",
+      "CISD2",
+      "SLC19A2"
+    ],
+    "treatments": [
+      "Insulin therapy",
+      "Metformin",
+      "Dietary intervention",
+      "Physical activity increase",
+      "GLP-1 receptor agonists",
+      "SGLT2 inhibitors",
+      "GLP-1/GIP dual agonists",
+      "Teplizumab immunotherapy",
+      "Blood glucose monitoring",
+      "Continuous glucose monitoring"
+    ],
+    "environmental": [
+      "Environmental determinants of diabetes susceptibility and progression",
+      "Exogenous triggers of islet autoimmunity in type 1 diabetes pathways",
+      "Diabetogenic pharmacotherapy exposure",
+      "Immune checkpoint inhibitor exposure",
+      "Viral infection exposure",
+      "Early dietary exposures",
+      "Sedentary lifestyle",
+      "High-calorie diet",
+      "Obesogenic environment"
+    ],
+    "biochemical": [
+      "Blood glucose",
+      "Hemoglobin A1c (HbA1c)"
+    ],
+    "source_file": "Diabetes_Mellitus.yaml",
+    "page_url": "../pages/disorders/Diabetes_mellitus.html",
+    "num_phenotypes": 18,
+    "num_pathophysiology": 32,
+    "num_genes": 20,
+    "num_treatments": 10,
+    "causal_graph_edges": "49",
+    "causal_graph_longest_path": "15"
   },
   {
     "name": "Diamond-Blackfan Anemia",
@@ -15700,6 +16151,116 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Giardiasis",
+    "disease_id": "MONDO:0001103",
+    "category": "Infectious",
+    "parents": [
+      "parasitic intestinal disorder",
+      "protozoan infectious disease"
+    ],
+    "creation_date": "2026-03-02T20:53:58Z",
+    "updated_date": "2026-03-02T22:56:51Z",
+    "subtypes": [
+      "Acute symptomatic giardiasis",
+      "Chronic giardiasis with malabsorption",
+      "Refractory or treatment-resistant giardiasis"
+    ],
+    "description": "Giardiasis is an intestinal protozoal infection caused by Giardia duodenalis, characterized by acute or chronic diarrheal illness, malabsorption, and potential post-infectious gastrointestinal sequelae.",
+    "pathophysiology": [
+      "Ingestion of infectious Giardia cysts",
+      "Trophozoite colonization of the proximal small-intestinal epithelial surface",
+      "Assemblage-specific trophozoite-epithelial injury signaling",
+      "Caspase-3-dependent enterocyte apoptosis",
+      "Tight-junction disassembly in infected enterocytes",
+      "Claudin-1 downregulation",
+      "Hypoxia-dependent PKC alpha/beta II dephosphorylation",
+      "Epithelial barrier resistance decline",
+      "Sodium-glucose symport impairment",
+      "Electrogenic anion secretion activation",
+      "Mucus layer disruption",
+      "Commensal microbiota biofilm impairment",
+      "Malabsorption"
+    ],
+    "cell_types": [
+      "enterocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000584"
+    ],
+    "biological_processes": [
+      "apoptotic process",
+      "tight junction disassembly",
+      "response to hypoxia"
+    ],
+    "phenotypes": [
+      "Diarrhea",
+      "Abdominal pain",
+      "Flatulence",
+      "Abdominal distention",
+      "Steatorrhea",
+      "Malabsorption",
+      "Weight loss",
+      "Failure to thrive",
+      "Growth delay",
+      "Cognitive impairment",
+      "Post-infectious irritable bowel syndrome",
+      "Post-infectious dyspepsia"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Constitutional",
+      "Pediatric growth and nutrition",
+      "Neurodevelopmental sequelae",
+      "Post-infectious sequelae"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002014",
+      "HP:0002027",
+      "HP:0033589",
+      "HP:0003270",
+      "HP:0002570",
+      "HP:0002024",
+      "HP:0001824",
+      "HP:0001508",
+      "HP:0001510",
+      "HP:0100543",
+      "MONDO:0005052",
+      "HP:0410281"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Nitroimidazole pharmacotherapy (tinidazole or metronidazole)",
+      "Nitazoxanide alternative therapy",
+      "Paromomycin in pregnancy or nitroimidazole-constrained settings",
+      "Investigational therapy for resistant/refractory giardiasis"
+    ],
+    "environmental": [
+      "Untreated freshwater exposure",
+      "Childcare and close-contact fecal-oral exposure",
+      "Water infrastructure failure and rainfall-associated contamination"
+    ],
+    "biochemical": [],
+    "source_file": "Giardiasis.yaml",
+    "page_url": "../pages/disorders/Giardiasis.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 13,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Glaucoma",
