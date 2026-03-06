@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT06545526
+reference_id: "clinicaltrials:NCT06545526"
 title: "The Chemopreventive Effect of Celecoxib Monotherapy Versus Combination of Celecoxib and Metformin in Patients With Familial Adenomatous Polyposis: a Pilot Randomized, Open-label, Comparative Study"
 content_type: summary
 ---
