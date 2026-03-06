@@ -2317,6 +2317,115 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Angelman Syndrome",
+    "disease_id": "MONDO:0007113",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental disorder",
+      "Imprinting disorder"
+    ],
+    "creation_date": "2026-03-03T02:33:07Z",
+    "updated_date": "2026-03-05T22:30:44Z",
+    "subtypes": [
+      "Maternal 15q11.2-q13 deletion Angelman syndrome",
+      "UBE3A pathogenic variant Angelman syndrome",
+      "Paternal uniparental disomy 15 Angelman syndrome",
+      "Imprinting defect Angelman syndrome"
+    ],
+    "description": "Angelman syndrome is a neurogenetic imprinting disorder caused by deficient neuronal expression of the maternally inherited UBE3A allele, with severe developmental impairment, minimal speech, gait ataxia, seizures, and a characteristic behavioral phenotype.",
+    "pathophysiology": [
+      "Maternal UBE3A allele disruption",
+      "Neuron-specific paternal UBE3A silencing",
+      "Reduced neuronal UBE3A protein abundance",
+      "Decreased UBE3A-mediated protein ubiquitination",
+      "Dysregulated neuronal signaling pathways",
+      "Impaired experience-dependent synaptic remodeling",
+      "Disrupted neuronal excitability homeostasis",
+      "Cortical network hyperexcitability with abnormal EEG background"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "protein ubiquitination",
+      "regulation of protein stability",
+      "synapse organization",
+      "modulation of chemical synaptic transmission",
+      "regulation of membrane potential"
+    ],
+    "phenotypes": [
+      "Severe intellectual disability",
+      "Global developmental delay",
+      "Severe speech impairment",
+      "Gait ataxia",
+      "Seizures",
+      "Sleep disturbance",
+      "Microcephaly",
+      "Hyperactivity",
+      "Inappropriate laughter",
+      "Constipation",
+      "Gastroesophageal reflux",
+      "Scoliosis"
+    ],
+    "phenotype_categories": [
+      "Neurodevelopmental",
+      "Neurological",
+      "Behavioral",
+      "Gastrointestinal",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0010864",
+      "HP:0001263",
+      "HP:0002465",
+      "HP:0002066",
+      "HP:0001250",
+      "HP:0002360",
+      "HP:0000252",
+      "HP:0000752",
+      "HP:0000748",
+      "HP:0002019",
+      "HP:0002020",
+      "HP:0002650"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "UBE3A",
+      "15q11.2-q13 maternal deletion and imprinting-region abnormalities"
+    ],
+    "treatments": [
+      "Combination anti-seizure pharmacotherapy",
+      "Low-glycemic-index dietary therapy",
+      "Tonsillectomy with enhanced postoperative monitoring",
+      "Physical therapy",
+      "Occupational therapy",
+      "Speech therapy and augmentative communication",
+      "Structured management of gastrointestinal comorbidities"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Angelman_Syndrome.yaml",
+    "page_url": "../pages/disorders/Angelman_Syndrome.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 8,
+    "num_genes": 2,
+    "num_treatments": 7,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Ankylosing Spondylitis",
     "disease_id": "MONDO:0005306",
     "category": "Autoimmune",

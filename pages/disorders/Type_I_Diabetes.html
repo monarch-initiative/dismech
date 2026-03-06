@@ -1180,20 +1180,101 @@
             .stats-bar { gap: 16px; }
             .section-grid { grid-template-columns: 1fr; }
         }
-        /* Mermaid graph */
-        .mermaid-container {
-            text-align: center;
+        /* Pathograph (interactive causal graph) */
+        .pathograph-container {
             margin: 20px 0;
-            padding: 20px;
+            padding: 0;
             background: white;
             border-radius: 8px;
             border: 1px solid var(--border);
-            overflow-x: auto;
+            overflow: hidden;
+            position: relative;
         }
 
-        .mermaid svg {
-            max-width: 100%;
-            height: auto;
+        .pathograph-container svg {
+            display: block;
+            width: 100%;
+            cursor: grab;
+        }
+
+        .pathograph-container svg:active {
+            cursor: grabbing;
+        }
+
+        .pathograph-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            padding: 10px 16px;
+            background: #f9fafb;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.78rem;
+            color: #6b7280;
+        }
+
+        .pathograph-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .pathograph-legend-item.dimmed {
+            opacity: 0.35;
+        }
+
+        .pathograph-legend-swatch {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+            border: 1px solid rgba(0,0,0,0.15);
+            flex-shrink: 0;
+        }
+
+        .pathograph-tooltip {
+            position: absolute;
+            pointer-events: none;
+            background: rgba(17, 24, 39, 0.92);
+            color: #f9fafb;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            line-height: 1.45;
+            max-width: 320px;
+            z-index: 100;
+            opacity: 0;
+            transition: opacity 0.15s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip .tt-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #e5e7eb;
+        }
+
+        .pathograph-tooltip .tt-type {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            opacity: 0.7;
+            margin-bottom: 6px;
+        }
+
+        .pathograph-tooltip .tt-desc {
+            margin-bottom: 6px;
+            color: #d1d5db;
+        }
+
+        .pathograph-tooltip .tt-meta {
+            font-size: 0.72rem;
+            color: #9ca3af;
+        }
+
+        .pathograph-tooltip .tt-meta span {
+            display: block;
+            margin: 2px 0;
         }
 
         .graph-warning {
@@ -1220,16 +1301,334 @@
             margin: 4px 0;
         }
     </style>
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
     <script>
-        mermaid.initialize({
-            startOnLoad: true,
-            theme: 'default',
-            flowchart: {
-                htmlLabels: true,
-                curve: 'basis'
-            }
+    /* Pathograph: interactive D3.js causal mechanism network */
+    var NODE_SHAPES = {
+        pathophysiology: "roundrect",
+        phenotype: "ellipse",
+        environmental: "diamond",
+        genetic: "hexagon",
+        treatment: "rect",
+        biochemical: "circle",
+        orphan: "roundrect",
+        unknown: "roundrect"
+    };
+    var NODE_TYPE_LABELS = {
+        pathophysiology: "Pathophysiology",
+        phenotype: "Phenotype",
+        environmental: "Environmental",
+        genetic: "Genetic",
+        treatment: "Treatment",
+        biochemical: "Biochemical",
+        orphan: "Orphan"
+    };
+    var NODE_STROKE = {
+        pathophysiology: "#93c5fd",
+        phenotype: "#fcd34d",
+        environmental: "#86efac",
+        genetic: "#c4b5fd",
+        treatment: "#f9a8d4",
+        biochemical: "#a5b4fc",
+        orphan: "#dc2626"
+    };
+
+    function renderPathograph(containerId, data) {
+        var container = document.getElementById(containerId);
+        var svgEl = document.getElementById(containerId + "-svg");
+        var tooltipEl = document.getElementById(containerId + "-tooltip");
+        var legendEl = document.getElementById(containerId + "-legend");
+        if (!data || !data.nodes || !data.nodes.length) return;
+
+        /* -- Dagre layout -- */
+        var g = new dagre.graphlib.Graph();
+        g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
+        g.setDefaultEdgeLabel(function() { return {}; });
+
+        var nodeMap = {};
+        data.nodes.forEach(function(n) {
+            nodeMap[n.id] = n;
+            var labelLen = n.id.length;
+            var w = Math.max(120, Math.min(220, labelLen * 8 + 30));
+            var h = 44;
+            g.setNode(n.id, { width: w, height: h, label: n.id });
         });
+        data.edges.forEach(function(e) {
+            g.setEdge(e.source, e.target);
+        });
+        dagre.layout(g);
+
+        var graphInfo = g.graph();
+        var totalW = graphInfo.width + 60;
+        var totalH = graphInfo.height + 60;
+
+        /* -- SVG setup with zoom -- */
+        var svg = d3.select(svgEl)
+            .attr("viewBox", "0 0 " + totalW + " " + totalH)
+            .attr("preserveAspectRatio", "xMidYMid meet")
+            .style("min-height", Math.min(totalH, 600) + "px");
+
+        var rootG = svg.append("g").attr("class", "pathograph-root");
+
+        var zoom = d3.zoom()
+            .scaleExtent([0.3, 3])
+            .on("zoom", function(event) {
+                rootG.attr("transform", event.transform);
+            });
+        svg.call(zoom);
+
+        /* -- Arrow marker -- */
+        svg.append("defs").append("marker")
+            .attr("id", "pg-arrow")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#9ca3af");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-orphan")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#dc2626");
+
+        /* -- Draw edges -- */
+        var edgesG = rootG.append("g").attr("class", "pg-edges");
+        data.edges.forEach(function(e) {
+            var dagreEdge = g.edge(e.source, e.target);
+            if (!dagreEdge || !dagreEdge.points) return;
+            var pts = dagreEdge.points;
+            var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
+            edgesG.append("path")
+                .attr("d", line(pts))
+                .attr("fill", "none")
+                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke-width", 1.8)
+                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
+                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("data-source", e.source)
+                .attr("data-target", e.target);
+        });
+
+        /* -- Shape helpers -- */
+        function drawNodeShape(sel, nodeData, w, h) {
+            var shape = NODE_SHAPES[nodeData.node_type] || "roundrect";
+            var stroke = NODE_STROKE[nodeData.node_type] || "#d1d5db";
+            var strokeDash = nodeData.is_orphan ? "6 4" : "none";
+            if (nodeData.is_orphan) stroke = "#dc2626";
+
+            if (shape === "ellipse") {
+                sel.append("ellipse")
+                    .attr("rx", w/2).attr("ry", h/2)
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else if (shape === "diamond") {
+                var dx = w/2, dy = h/2;
+                sel.append("polygon")
+                    .attr("points", "0,"+(-dy)+" "+(dx)+",0 0,"+(dy)+" "+(-dx)+",0")
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else if (shape === "hexagon") {
+                var hx = w/2, hy = h/2, inset = w*0.2;
+                sel.append("polygon")
+                    .attr("points",
+                        (-hx+inset)+","+(-hy)+" "+(hx-inset)+","+(-hy)+" "+
+                        (hx)+",0 "+(hx-inset)+","+(hy)+" "+
+                        (-hx+inset)+","+(hy)+" "+(-hx)+",0")
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else if (shape === "circle") {
+                var r = Math.min(w, h) / 2;
+                sel.append("circle")
+                    .attr("r", r)
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else if (shape === "rect") {
+                sel.append("rect")
+                    .attr("x", -w/2).attr("y", -h/2).attr("width", w).attr("height", h)
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else {
+                /* roundrect (default) */
+                sel.append("rect")
+                    .attr("x", -w/2).attr("y", -h/2).attr("width", w).attr("height", h)
+                    .attr("rx", 8).attr("ry", 8)
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            }
+        }
+
+        /* -- Draw nodes -- */
+        var nodesG = rootG.append("g").attr("class", "pg-nodes");
+        data.nodes.forEach(function(n) {
+            var dagreNode = g.node(n.id);
+            if (!dagreNode) return;
+            var nw = dagreNode.width, nh = dagreNode.height;
+            var nodeG = nodesG.append("g")
+                .attr("transform", "translate(" + dagreNode.x + "," + dagreNode.y + ")")
+                .attr("data-node-type", n.node_type)
+                .attr("data-node-id", n.id)
+                .style("cursor", "pointer");
+
+            drawNodeShape(nodeG, n, nw, nh);
+
+            /* Label text */
+            var label = n.id;
+            var maxChars = Math.floor(nw / 7);
+            if (label.length > maxChars) label = label.substring(0, maxChars - 1) + "\u2026";
+            nodeG.append("text")
+                .attr("text-anchor", "middle")
+                .attr("dominant-baseline", "central")
+                .attr("font-size", "11px")
+                .attr("font-family", "system-ui, -apple-system, sans-serif")
+                .attr("fill", "#1f2937")
+                .text(label);
+
+            /* Interaction: hover */
+            nodeG.on("mouseenter", function(event) {
+                highlightNode(n.id, true);
+                showTooltip(event, n);
+            }).on("mouseleave", function() {
+                highlightNode(n.id, false);
+                hideTooltip();
+            }).on("click", function(event) {
+                event.stopPropagation();
+                highlightNode(n.id, true);
+                showTooltip(event, n);
+            });
+        });
+
+        /* Click on background clears highlight */
+        svg.on("click", function() {
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* -- Highlight helpers -- */
+        function highlightNode(nodeId, on) {
+            if (!on) { clearHighlight(); return; }
+            /* Find connected edges */
+            var connectedNodes = new Set([nodeId]);
+            data.edges.forEach(function(e) {
+                if (e.source === nodeId) connectedNodes.add(e.target);
+                if (e.target === nodeId) connectedNodes.add(e.source);
+            });
+            nodesG.selectAll("g").each(function() {
+                var el = d3.select(this);
+                var nid = el.attr("data-node-id");
+                el.style("opacity", connectedNodes.has(nid) ? 1 : 0.2);
+            });
+            edgesG.selectAll("path").each(function() {
+                var el = d3.select(this);
+                var s = el.attr("data-source"), t = el.attr("data-target");
+                el.style("opacity", (s === nodeId || t === nodeId) ? 1 : 0.1);
+            });
+        }
+
+        function clearHighlight() {
+            nodesG.selectAll("g").style("opacity", 1);
+            edgesG.selectAll("path").style("opacity", 1);
+        }
+
+        /* -- Tooltip -- */
+        function showTooltip(event, n) {
+            var html = [];
+            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
+            if (n.description) {
+                var desc = n.description;
+                if (desc.length > 200) desc = desc.substring(0, 197) + "...";
+                html.push('<div class="tt-desc">' + escapeHtml(desc) + '</div>');
+            }
+            var meta = n.meta || {};
+            var metaParts = [];
+            if (meta.evidence_count) metaParts.push('<span>Evidence: ' + meta.evidence_count + ' items</span>');
+            if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
+            if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
+            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
+            if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
+            if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            tooltipEl.innerHTML = html.join("");
+            tooltipEl.style.opacity = "1";
+
+            /* Position relative to container */
+            var rect = container.getBoundingClientRect();
+            var x = event.clientX - rect.left + 14;
+            var y = event.clientY - rect.top + 14;
+            if (x + 330 > rect.width) x = x - 340;
+            if (y + 200 > rect.height) y = Math.max(4, y - 200);
+            tooltipEl.style.left = x + "px";
+            tooltipEl.style.top = y + "px";
+        }
+
+        function hideTooltip() {
+            tooltipEl.style.opacity = "0";
+        }
+
+        function escapeHtml(str) {
+            var div = document.createElement("div");
+            div.appendChild(document.createTextNode(str));
+            return div.innerHTML;
+        }
+
+        /* -- Legend -- */
+        var typesInGraph = {};
+        data.nodes.forEach(function(n) { if (!n.is_orphan) typesInGraph[n.node_type] = n.color; });
+        var activeTypes = new Set(Object.keys(typesInGraph));
+
+        Object.keys(typesInGraph).forEach(function(type) {
+            var item = document.createElement("div");
+            item.className = "pathograph-legend-item";
+            item.setAttribute("data-type", type);
+            var swatch = document.createElement("div");
+            swatch.className = "pathograph-legend-swatch";
+            swatch.style.background = typesInGraph[type];
+            swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
+            item.appendChild(swatch);
+            var label = document.createElement("span");
+            label.textContent = NODE_TYPE_LABELS[type] || type;
+            item.appendChild(label);
+            item.addEventListener("click", function() {
+                if (activeTypes.has(type)) {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
+                } else {
+                    activeTypes.add(type);
+                    item.classList.remove("dimmed");
+                }
+                filterByType();
+            });
+            legendEl.appendChild(item);
+        });
+
+        function filterByType() {
+            nodesG.selectAll("g").each(function() {
+                var el = d3.select(this);
+                var t = el.attr("data-node-type");
+                el.style("display", activeTypes.has(t) ? null : "none");
+            });
+            edgesG.selectAll("path").each(function() {
+                var el = d3.select(this);
+                var sNode = nodeMap[el.attr("data-source")];
+                var tNode = nodeMap[el.attr("data-target")];
+                var sVis = sNode && activeTypes.has(sNode.node_type);
+                var tVis = tNode && activeTypes.has(tNode.node_type);
+                el.style("display", (sVis && tVis) ? null : "none");
+            });
+        }
+    }
     </script>
 </head>
 <body>
@@ -2419,93 +2818,28 @@
         <!-- Histopathology -->
         
 
-        <!-- Causal Graph -->
+        <!-- Causal Graph (Pathograph) -->
         
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
-                <h2 class="card-title">Causal Graph</h2>
+                <h2 class="card-title">Pathograph</h2>
             </div>
             
-            <div class="mermaid-container">
-                <pre class="mermaid">graph LR
-    Retinopathy[&#34;Retinopathy&#34;]
-    Cardiovascular_Disease[&#34;Cardiovascular Disease&#34;]
-    Insulin_Deficiency[&#34;Insulin Deficiency&#34;]
-    Hyperglycemia[&#34;Hyperglycemia&#34;]
-    Diabetic_Ketoacidosis[&#34;Diabetic Ketoacidosis&#34;]
-    Diabetic_Ketoacidosis_DKA[&#34;Diabetic Ketoacidosis (DKA)&#34;]
-    Environmental_Triggers[&#34;Environmental Triggers&#34;]
-    Rapid_Breathing[&#34;Rapid Breathing&#34;]
-    Genetic_Susceptibility[&#34;Genetic Susceptibility&#34;]
-    Impaired_Glucose_Utilization[&#34;Impaired Glucose Utilization&#34;]
-    ER_Stress_and_Unfolded_Protein_Response[&#34;ER Stress and Unfolded Protein Response&#34;]
-    Neuropathy[&#34;Neuropathy&#34;]
-    Weight_Loss[&#34;Weight Loss&#34;]
-    Autoimmune_Destruction_of_Beta_Cells[&#34;Autoimmune Destruction of Beta Cells&#34;]
-    Increased_Lipolysis[&#34;Increased Lipolysis&#34;]
-    Polyuria[&#34;Polyuria&#34;]
-    Interferon_Driven_Beta_Cell_Response[&#34;Interferon-Driven Beta Cell Response&#34;]
-    Nephropathy[&#34;Nephropathy&#34;]
-    Glucosuria[&#34;Glucosuria&#34;]
-    Confusion[&#34;Confusion&#34;]
-    Vomiting[&#34;Vomiting&#34;]
-    Abdominal_Pain[&#34;Abdominal Pain&#34;]
-    Polydipsia[&#34;Polydipsia&#34;]
-    Fatigue[&#34;Fatigue&#34;]
-    Chronic_Complications[&#34;Chronic Complications&#34;]
-
-    Genetic_Susceptibility --&gt; Autoimmune_Destruction_of_Beta_Cells
-    Environmental_Triggers --&gt; Autoimmune_Destruction_of_Beta_Cells
-    Interferon_Driven_Beta_Cell_Response --&gt; Autoimmune_Destruction_of_Beta_Cells
-    Autoimmune_Destruction_of_Beta_Cells --&gt; Insulin_Deficiency
-    Insulin_Deficiency --&gt; Hyperglycemia
-    Insulin_Deficiency --&gt; Impaired_Glucose_Utilization
-    Insulin_Deficiency --&gt; Increased_Lipolysis
-    Hyperglycemia --&gt; Glucosuria
-    Hyperglycemia --&gt; Polyuria
-    Hyperglycemia --&gt; Polydipsia
-    Hyperglycemia --&gt; Diabetic_Ketoacidosis_DKA
-    Impaired_Glucose_Utilization --&gt; Weight_Loss
-    Impaired_Glucose_Utilization --&gt; Fatigue
-    ER_Stress_and_Unfolded_Protein_Response --&gt; Autoimmune_Destruction_of_Beta_Cells
-    Increased_Lipolysis --&gt; Diabetic_Ketoacidosis_DKA
-    Chronic_Complications --&gt; Retinopathy
-    Chronic_Complications --&gt; Neuropathy
-    Chronic_Complications --&gt; Nephropathy
-    Chronic_Complications --&gt; Cardiovascular_Disease
-    Hyperglycemia --&gt; Diabetic_Ketoacidosis
-    Diabetic_Ketoacidosis --&gt; Abdominal_Pain
-    Diabetic_Ketoacidosis --&gt; Vomiting
-    Diabetic_Ketoacidosis --&gt; Rapid_Breathing
-    Diabetic_Ketoacidosis --&gt; Confusion
-
-    style Retinopathy fill:#fef3c7
-    style Cardiovascular_Disease fill:#fef3c7
-    style Insulin_Deficiency fill:#dbeafe
-    style Hyperglycemia fill:#fef3c7
-    style Diabetic_Ketoacidosis fill:#fef3c7
-    style Diabetic_Ketoacidosis_DKA fill:#dbeafe
-    style Environmental_Triggers fill:#dbeafe
-    style Rapid_Breathing fill:#fef3c7
-    style Genetic_Susceptibility fill:#dbeafe
-    style Impaired_Glucose_Utilization fill:#dbeafe
-    style ER_Stress_and_Unfolded_Protein_Response fill:#dbeafe
-    style Neuropathy fill:#fef3c7
-    style Weight_Loss fill:#fef3c7
-    style Autoimmune_Destruction_of_Beta_Cells fill:#dbeafe
-    style Increased_Lipolysis fill:#dbeafe
-    style Polyuria fill:#fef3c7
-    style Interferon_Driven_Beta_Cell_Response fill:#dbeafe
-    style Nephropathy fill:#fef3c7
-    style Glucosuria fill:#fef3c7
-    style Confusion fill:#fef3c7
-    style Vomiting fill:#fef3c7
-    style Abdominal_Pain fill:#fef3c7
-    style Polydipsia fill:#fef3c7
-    style Fatigue fill:#fef3c7
-    style Chronic_Complications fill:#dbeafe</pre>
+            <div class="pathograph-container" id="pathograph">
+                <div class="pathograph-legend" id="pathograph-legend"></div>
+                <svg id="pathograph-svg" role="img">
+                    <title>Pathograph: causal mechanism network for Type I Diabetes</title>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                </svg>
+                <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
+            <script>
+            (function() {
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abdominal Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002027\"}}, {\"id\": \"Autoimmune Destruction of Beta Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The immune system mistakenly targets and destroys insulin-producing beta cells in the pancreas through T cell-mediated cytotoxicity and autoantibody production.\", \"meta\": {\"evidence_count\": 8, \"cell_types\": [\"type B pancreatic cell\", \"CD8-positive, alpha-beta cytotoxic T cell\", \"CD4-positive, alpha-beta T cell\", \"regulatory T cell\", \"B cell\", \"dendritic cell\", \"macrophage\"], \"biological_processes\": [\"T cell mediated cytotoxicity\", \"autoantibody production\", \"cytokine-mediated signaling pathway\"], \"locations\": [\"pancreatic islet\"]}}, {\"id\": \"Cardiovascular Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001626\"}}, {\"id\": \"Chronic Complications\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent hyperglycemia over time can lead to damage in various tissues and organs.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Confusion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001289\"}}, {\"id\": \"Diabetic Ketoacidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001953\"}}, {\"id\": \"Diabetic Ketoacidosis (DKA)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Life-threatening metabolic emergency from insulin deficiency\"}, {\"id\": \"ER Stress and Unfolded Protein Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inflammatory cytokines induce endoplasmic reticulum stress in beta cells, activating the unfolded protein response and contributing to beta cell dysfunction and apoptosis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"type B pancreatic cell\"], \"biological_processes\": [\"endoplasmic reticulum unfolded protein response\", \"apoptotic process\"]}}, {\"id\": \"Environmental Triggers\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Viral infections or early dietary factors (cow\u0027s milk, gluten) may trigger the autoimmune response in genetically susceptible individuals.\", \"meta\": {\"evidence_count\": 5}}, {\"id\": \"Fatigue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012378\"}}, {\"id\": \"Genetic Susceptibility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Certain HLA gene variants (HLA-DQ2, HLA-DQ8) and other susceptibility genes (INS) increase the risk of developing Type I Diabetes.\", \"meta\": {\"evidence_count\": 6, \"genes\": [\"HLA-DQ2\", \"HLA-DQ8\", \"INS\"]}}, {\"id\": \"Glucosuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003076\"}}, {\"id\": \"Hyperglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003074\"}}, {\"id\": \"Impaired Glucose Utilization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without insulin, cells are unable to utilize glucose for energy production, leading to cellular energy deficiency.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Increased Lipolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Insulin deficiency also leads to increased breakdown of fat (lipolysis) for energy, resulting in the production of ketones.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Insulin Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of beta cells leads to a deficiency of insulin, a hormone required for glucose uptake.\", \"meta\": {\"evidence_count\": 5}}, {\"id\": \"Interferon-Driven Beta Cell Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Type I and type II interferons upregulate antigen presentation and chemokine production in beta cells while downregulating oxidative phosphorylation, increasing immunogenicity and metabolic stress.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"type B pancreatic cell\"], \"biological_processes\": [\"type I interferon signaling pathway\", \"antigen processing and presentation of peptide antigen via MHC class I\", \"chemokine production\", \"oxidative phosphorylation\"]}}, {\"id\": \"Nephropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000112\"}}, {\"id\": \"Neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0009830\"}}, {\"id\": \"Polydipsia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001959\"}}, {\"id\": \"Polyuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000103\"}}, {\"id\": \"Rapid Breathing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002789\"}}, {\"id\": \"Retinopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000488\"}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002013\"}}, {\"id\": \"Weight Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001824\"}}], \"edges\": [{\"source\": \"Genetic Susceptibility\", \"target\": \"Autoimmune Destruction of Beta Cells\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Environmental Triggers\", \"target\": \"Autoimmune Destruction of Beta Cells\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Interferon-Driven Beta Cell Response\", \"target\": \"Autoimmune Destruction of Beta Cells\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Autoimmune Destruction of Beta Cells\", \"target\": \"Insulin Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Insulin Deficiency\", \"target\": \"Hyperglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Insulin Deficiency\", \"target\": \"Impaired Glucose Utilization\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Insulin Deficiency\", \"target\": \"Increased Lipolysis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperglycemia\", \"target\": \"Glucosuria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperglycemia\", \"target\": \"Polyuria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperglycemia\", \"target\": \"Polydipsia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperglycemia\", \"target\": \"Diabetic Ketoacidosis (DKA)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Glucose Utilization\", \"target\": \"Weight Loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Glucose Utilization\", \"target\": \"Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ER Stress and Unfolded Protein Response\", \"target\": \"Autoimmune Destruction of Beta Cells\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Increased Lipolysis\", \"target\": \"Diabetic Ketoacidosis (DKA)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic Complications\", \"target\": \"Retinopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic Complications\", \"target\": \"Neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic Complications\", \"target\": \"Nephropathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic Complications\", \"target\": \"Cardiovascular Disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperglycemia\", \"target\": \"Diabetic Ketoacidosis\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Diabetic Ketoacidosis\", \"target\": \"Abdominal Pain\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Diabetic Ketoacidosis\", \"target\": \"Vomiting\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Diabetic Ketoacidosis\", \"target\": \"Rapid Breathing\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Diabetic Ketoacidosis\", \"target\": \"Confusion\", \"predicate\": \"leads_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                renderPathograph("pathograph", graphData);
+            })();
+            </script>
         </div>
         
 
