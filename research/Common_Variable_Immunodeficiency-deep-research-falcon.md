@@ -157,7 +157,7 @@ Structure your response as a narrative that could be used to populate a disease 
 
 ## Disease identifiers and classification
 - **Disease name:** Common variable immunodeficiency (CVID)
-- **MONDO ID:** **MONDO:0015517** (“common variable immunodeficiency”) as represented in Open Targets disease mapping ().
+- **MONDO ID:** **MONDO:0015517** (“common variable immunodeficiency”) as represented in Open Targets disease mapping.
 - **Category:** Complex/heterogeneous inborn error of immunity (IEI) syndrome; increasingly partitioned into (i) polygenic/multifactorial “CVID” and (ii) monogenic “CVID-like” disorders (alhakim2024thescopeand pages 2-4).
 
 ## 1. Key concepts and definitions (current understanding)
@@ -223,11 +223,11 @@ CVID and CVID-like disorders have substantial genetic heterogeneity spanning B-c
 
 **Recent (2024) pediatric cohort genetic yield and gene list:** In a pediatric CVID cohort (n=32), variants were identified in **17 (53%)**, including *SLC39A7, PRKCD, STAT3, NFKB1, PIK3R1, PLCG2, RFXANK, PRKDC, TNFRSF13B*, and novel *SPI1* and *NFKB1* variants (barbati2024monogeniccommonvariable pages 1-5).
 
-**Open Targets disease–gene associations:** Open Targets lists top CVID-associated targets including *TNFRSF13B, LRBA, IKZF1, NFKB2, ICOS,* and *CD19* (). (Note: Open Targets is an evidence integration resource; mechanistic interpretation still relies on primary/review literature.)
+**Open Targets disease–gene associations:** Open Targets lists top CVID-associated targets including *TNFRSF13B, LRBA, IKZF1, NFKB2, ICOS,* and *CD19*. (Note: Open Targets is an evidence integration resource; mechanistic interpretation still relies on primary/review literature.)
 
 ### 3.2 Chemical entities / therapeutics (CHEBI-relevant entities)
 While CVID is not typically “metabolic,” small molecules and biologics are directly relevant via pathway-targeted therapy:
-- **Abatacept (CTLA-4–Ig fusion protein):** used as targeted immunomodulation in CTLA-4 haploinsufficiency / LRBA deficiency, with reported high efficacy for chronic enteropathy and lymphoproliferation and variable results for cytopenias/neurologic features; for GLILD, full/partial resolution reported in up to ~70% (tessarin2023monogenicformsof pages 4-5). A case report in a CVID patient with CTLA4/LRBA variants described rapid regression of clinical/lab findings and weight gain after abatacept initiation ().
+- **Abatacept (CTLA-4–Ig fusion protein):** used as targeted immunomodulation in CTLA-4 haploinsufficiency / LRBA deficiency, with reported high efficacy for chronic enteropathy and lymphoproliferation and variable results for cytopenias/neurologic features; for GLILD, full/partial resolution reported in up to ~70% (tessarin2023monogenicformsof pages 4-5). A case report in a CVID patient with CTLA4/LRBA variants described rapid regression of clinical/lab findings and weight gain after abatacept initiation.
 - **PI3K inhibitors (APDS):** direct PI3K inhibitor approval and clinical improvement in APDS is highlighted in recent reviews (tessarin2023monogenicformsof pages 1-2, tessarin2023monogenicformsof pages 4-5).
 - **Sirolimus (mTOR inhibitor):** reported benefit in some immune dysregulation settings to enhance Treg responses (tessarin2023monogenicformsof pages 4-5).
 - **Immunoglobulin replacement therapy (IgRT; IVIG/SCIG):** mainstay therapy that reduces infectious episode rate/severity (tessarin2023monogenicformsof pages 1-2, cunninghamrundles2024commonvariableimmunodeficiency pages 1-2).
@@ -291,7 +291,7 @@ This supports real-world adoption of NGS/WES/WGS in antibody deficiency evaluati
 
 ### 8.3 Targeted therapies: pathway-directed treatment for CVID-like immune dysregulation
 - 2023–2024 reviews highlight increasing implementation of **abatacept** for CTLA4/LRBA-associated immune dysregulation and **PI3K inhibitors** for APDS (tessarin2023monogenicformsof pages 1-2, tessarin2023monogenicformsof pages 4-5).
-- A 2023 case report describes abatacept benefit in a patient with severe immune-mediated enteropathy and CTLA4/LRBA variants after a prior CVID diagnosis ().
+- A 2023 case report describes abatacept benefit in a patient with severe immune-mediated enteropathy and CTLA4/LRBA variants after a prior CVID diagnosis.
 
 ### 8.4 GI pathophysiology: standardizing plasma-cell paucity metrics in CVID enteropathy
 A 2024 systematic review of GI plasma cells proposes standardized quantification:
