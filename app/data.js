@@ -20810,6 +20810,109 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Influenza",
+    "disease_id": "MONDO:0005812",
+    "category": "Infectious Disease",
+    "parents": [
+      "Viral Respiratory Infection"
+    ],
+    "creation_date": "2026-03-06T12:00:00Z",
+    "updated_date": "2026-03-06T06:20:00Z",
+    "subtypes": [
+      "Seasonal Influenza",
+      "Pandemic Influenza",
+      "Avian Influenza"
+    ],
+    "description": "Influenza is an acute respiratory infectious disease caused by influenza viruses (types A and B in humans), transmitted via respiratory droplets. Influenza A and B cause seasonal epidemics, while influenza A is responsible for pandemics due to antigenic shift. The WHO estimates annual epidemics result in approximately 1 billion infections, 3-5 million cases of severe illness, and 300,000-500,000 deaths globally. The disease ranges from mild upper respiratory illness to severe pneumonia, acute respiratory distress syndrome, and death, particularly in elderly, immunocompromised, and young populations.\n",
+    "pathophysiology": [
+      "Respiratory Epithelial Infection and Cytopathic Effect",
+      "Toll-like Receptor Signaling and Innate Immune Activation",
+      "Inflammasome Activation and Cytokine Storm",
+      "PANoptosis and Inflammatory Cell Death",
+      "Endothelial Dysfunction and Thromboinflammation"
+    ],
+    "cell_types": [
+      "respiratory epithelial cell",
+      "alveolar macrophage",
+      "dendritic cell",
+      "macrophage",
+      "neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0002632",
+      "CL:0000583",
+      "CL:0000451",
+      "CL:0000235",
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "viral genome replication",
+      "defense response to virus",
+      "toll-like receptor signaling pathway",
+      "response to type I interferon",
+      "pyroptotic inflammatory response",
+      "necroptotic process",
+      "programmed necrotic cell death"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Cough",
+      "Myalgia",
+      "Headache",
+      "Sore Throat",
+      "Fatigue",
+      "Chills",
+      "Rhinorrhea",
+      "Dyspnea",
+      "Pneumonia"
+    ],
+    "phenotype_categories": [
+      "Constitutional",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Immune",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0012735",
+      "HP:0003326",
+      "HP:0002315",
+      "HP:0025439",
+      "HP:0012378",
+      "HP:0025143",
+      "HP:0031417",
+      "HP:0002094",
+      "HP:0002090"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Neuraminidase Inhibitors",
+      "Cap-Dependent Endonuclease Inhibitor (Baloxavir Marboxil)",
+      "Annual Vaccination",
+      "Supportive Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Influenza.yaml",
+    "page_url": "../pages/disorders/Influenza.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Irritable Bowel Syndrome",
     "disease_id": "MONDO:0005052",
     "category": "Complex",
