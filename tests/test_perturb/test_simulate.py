@@ -38,9 +38,9 @@ def test_load_model_config(model_config):
 def test_gene_effects_loaded(model_config):
     """Test gene effects are parsed correctly."""
     casr = model_config.gene_effects["CASR"]
-    assert casr.parameter == "ScaEffGam"
-    assert casr.LoF == 0.4
-    assert casr.GoF == 2.0
+    assert casr.parameter == "T61"
+    assert casr.LoF == 3.0
+    assert casr.GoF == 0.3
     assert not casr.in_extension
 
     kl = model_config.gene_effects["KL"]
