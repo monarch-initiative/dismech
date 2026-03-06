@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT06533696
+reference_id: "clinicaltrials:NCT06533696"
 title: "A Comparison of Microscopy and Enzyme Linked Immunosorbent Assay for Diagnosis of Giardia Lamblia in Children, Sohag"
 content_type: summary
 ---
