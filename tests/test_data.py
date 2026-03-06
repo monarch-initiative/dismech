@@ -80,10 +80,10 @@ def test_evidence_items_have_references(filepath):
                 errors.append(f"{path}[{i}]: missing reference")
             elif not any(
                 item["reference"].startswith(prefix)
-                for prefix in ("PMID:", "DOI:", "clinicaltrials:", "file:")
+                for prefix in ("PMID:", "DOI:", "clinicaltrials:", "file:", "url:")
             ):
                 errors.append(
-                    f"{path}[{i}]: reference should start with PMID:, DOI:, clinicaltrials:, or file: got {item['reference']}"
+                    f"{path}[{i}]: reference should start with PMID:, DOI:, clinicaltrials:, file:, or url: got {item['reference']}"
                 )
         return errors
 
