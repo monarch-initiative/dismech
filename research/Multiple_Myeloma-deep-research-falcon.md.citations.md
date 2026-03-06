@@ -59,54 +59,60 @@ Structure your response as a narrative that could be used to populate a disease 
 - Evidence items with PMIDs
 
 **Provider:** falcon
-**Generated:** 2026-03-06T03:54:42.107252
+**Generated:** 2026-03-06T04:10:12.680494
 
-1. lu2024multiplemyelomasignaling pages 1-2
-2. wang2024differentevasionstrategies pages 1-2
-3. bhowmick2024pathwaystotherapy pages 13-15
-4. lu2024multiplemyelomasignaling pages 4-6
-5. moscvin2023dissectingmolecularmechanisms pages 1-3
-6. botta2023largetcell pages 1-2
-7. cui2024identificationoftherapyinduced pages 1-2
-8. lu2024multiplemyelomasignaling pages 2-4
-9. jelinek2024beyondthemarrow pages 1-2
-10. letouze2024mechanismsofresistance pages 1-2
-11. moscvin2023dissectingmolecularmechanisms pages 3-4
-12. letouze2024mechanismsofresistance pages 2-3
-13. li2025multiplemyelomainsights pages 18-20
-14. li2025multiplemyelomainsights pages 5-7
-15. botta2023largetcell pages 2-3
-16. fotiou2025frombiologyto pages 2-4
-17. gong2024novelinsightsinto pages 10-12
-18. cui2024identificationoftherapyinduced pages 2-3
-19. larasati2025fromsilentclones pages 3-5
-20. larasati2025fromsilentclones pages 1-3
-21. URL
-22. resistant
-23. in TNFRSF17
-24. of GPRC5D
-25. including PD-1
-26. https://doi.org/10.1186/s43556-024-00188-w
-27. https://doi.org/10.3389/fimmu.2024.1346211
-28. https://doi.org/10.1016/j.heliyon.2024.e33091
-29. https://doi.org/10.20517/2394-4722.2022.110
-30. https://doi.org/10.1038/s41467-023-41562-6
-31. https://doi.org/10.1007/s00277-024-05843-4
-32. https://doi.org/10.1158/1078-0432.ccr-24-0545
-33. https://doi.org/10.1038/s41375-024-02206-w
-34. https://doi.org/10.1182/bloodadvances.2023012354
-35. https://doi.org/10.37899/journallamedihealtico.v6i3.2139
-36. https://doi.org/10.3390/cancers16030498
-37. https://doi.org/10.1186/s43556-024-00188-w,
-38. https://doi.org/10.3389/fimmu.2024.1346211,
-39. https://doi.org/10.1016/j.heliyon.2024.e33091,
-40. https://doi.org/10.1007/s00277-024-05843-4,
-41. https://doi.org/10.3390/cancers17040653,
-42. https://doi.org/10.20517/2394-4722.2022.110,
-43. https://doi.org/10.1038/s41467-023-41562-6,
-44. https://doi.org/10.3390/jcm14020327,
-45. https://doi.org/10.1158/1078-0432.ccr-24-0545,
-46. https://doi.org/10.1182/bloodadvances.2023012354,
-47. https://doi.org/10.1038/s41375-024-02206-w,
-48. https://doi.org/10.37899/journallamedihealtico.v6i3.2139,
-49. https://doi.org/10.3390/cancers16030498,
+1. kansal2024towardprecisionmedicine pages 2-3
+2. gong2024novelinsightsinto pages 10-12
+3. ram2024thegeneticand pages 25-26
+4. ram2024thegeneticand pages 20-22
+5. bhowmick2024pathwaystotherapy pages 1-3
+6. moscvin2023dissectingmolecularmechanisms pages 1-3
+7. cheng2024multiomicsrevealimmune pages 1-2
+8. pilcher2023crosscentersinglecell pages 1-2
+9. dhodapkar2024immunestatusand pages 2-3
+10. liotti2024investigationonthe pages 9-13
+11. shin2024elucidationofmolecular pages 1-2
+12. fu2023thecheckpointinhibitor pages 1-2
+13. shin2024elucidationofmolecular pages 9-10
+14. bogun2024stromalalterationsin pages 1-2
+15. lemonakis2024factorsaffectingprognosis pages 24-28
+16. ram2024thegeneticand pages 22-23
+17. bogun2024stromalalterationsin pages 11-12
+18. barakat2023investigatingtcell pages 14-17
+19. moscvin2023dissectingmolecularmechanisms pages 11-13
+20. shin2024elucidationofmolecular pages 2-3
+21. barakat2023investigatingtcell pages 66-70
+22. bogun2024stromalalterationsin pages 6-8
+23. bogun2024stromalalterationsin pages 12-13
+24. bogun2024stromalalterationsin pages 13-14
+25. barakat2023investigatingtcell pages 17-21
+26. radhakrishnan2024roleofimmune pages 4-5
+27. https://doi.org/10.3324/haematol.2023.283784
+28. https://doi.org/10.3324/haematol.2024.286484
+29. https://doi.org/10.1038/s41467-023-39769-8
+30. https://doi.org/10.1101/2024.01.09.574787
+31. https://doi.org/10.1038/s41408-024-01172-x
+32. https://doi.org/10.1182/bloodadvances.2023011632
+33. https://doi.org/10.1038/s41467-024-46594-0
+34. https://doi.org/10.1182/bloodadvances.2023011242
+35. https://doi.org/10.20517/2394-4722.2022.110
+36. https://doi.org/10.1038/s41525-022-00340-x
+37. https://doi.org/10.3390/cancers16030498
+38. https://doi.org/10.1016/j.heliyon.2024.e33091
+39. https://doi.org/10.20517/2394-4722.2022.110,
+40. https://doi.org/10.1016/j.heliyon.2024.e33091,
+41. https://doi.org/10.33696/haematology.5.058,
+42. https://doi.org/10.25434/liotti-romano\_phd2024-05-30,
+43. https://doi.org/10.3390/cancers16030498,
+44. https://doi.org/10.2147/pgpm.s350238,
+45. https://doi.org/10.1101/2024.01.09.574787,
+46. https://doi.org/10.1038/s41467-024-46594-0,
+47. https://doi.org/10.1038/s41408-024-01172-x,
+48. https://doi.org/10.1038/s41525-022-00340-x,
+49. https://doi.org/10.1182/bloodadvances.2023011242,
+50. https://doi.org/10.3324/haematol.2023.283784,
+51. https://doi.org/10.3324/haematol.2024.286484,
+52. https://doi.org/10.1038/s41467-023-39769-8,
+53. https://doi.org/10.1182/bloodadvances.2023011632,
+54. https://doi.org/10.11575/prism/dspace/40968,
+55. https://doi.org/10.3390/life14040461,
