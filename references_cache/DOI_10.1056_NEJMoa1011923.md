@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1056/NEJMoa1011923
+reference_id: "DOI:10.1056/NEJMoa1011923"
 title: FOLFIRINOX versus Gemcitabine for Metastatic Pancreatic Cancer
 authors:
 - Thierry Conroy
