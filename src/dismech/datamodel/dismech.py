@@ -1,5 +1,5 @@
 # Auto generated from dismech.yaml by pythongen.py version: 0.0.1
-# Generation date: 2026-02-20T19:16:22
+# Generation date: 2026-03-04T16:12:17
 # Schema: dismech
 #
 # id: https://w3id.org/monarch-initiative/dismech
@@ -65,6 +65,7 @@ version = None
 # Namespaces
 CHEBI = CurieNamespace('CHEBI', 'http://purl.obolibrary.org/obo/CHEBI_')
 CL = CurieNamespace('CL', 'http://purl.obolibrary.org/obo/CL_')
+ECO = CurieNamespace('ECO', 'http://purl.obolibrary.org/obo/ECO_')
 ECTO = CurieNamespace('ECTO', 'http://purl.obolibrary.org/obo/ECTO_')
 ENVO = CurieNamespace('ENVO', 'http://purl.obolibrary.org/obo/ENVO_')
 EXO = CurieNamespace('ExO', 'http://purl.obolibrary.org/obo/ExO_')
@@ -1378,6 +1379,7 @@ class EvidenceItem(YAMLRoot):
     reference: Optional[str] = None
     supports: Optional[Union[str, "EvidenceItemSupportEnum"]] = None
     evidence_source: Optional[Union[str, "EvidenceSourceEnum"]] = None
+    evidence_type: Optional[Union[str, TermId]] = None
     snippet: Optional[str] = None
     explanation: Optional[str] = None
 
@@ -1390,6 +1392,9 @@ class EvidenceItem(YAMLRoot):
 
         if self.evidence_source is not None and not isinstance(self.evidence_source, EvidenceSourceEnum):
             self.evidence_source = EvidenceSourceEnum(self.evidence_source)
+
+        if self.evidence_type is not None and not isinstance(self.evidence_type, TermId):
+            self.evidence_type = TermId(self.evidence_type)
 
         if self.snippet is not None and not isinstance(self.snippet, str):
             self.snippet = str(self.snippet)
@@ -4387,6 +4392,15 @@ class HistopathologyFindingTerm(EnumDefinitionImpl):
         description="""A histopathologic finding term from NCIT. Includes morphologic findings, architectural patterns, growth patterns, cellular features, and grading. Rooted at NCIT:C35867 (Morphologic Finding) and NCIT:C18000 (Histologic Grade).""",
     )
 
+class EvidenceTypeTerm(EnumDefinitionImpl):
+    """
+    An evidence type term from the Evidence and Conclusion Ontology (ECO)
+    """
+    _defn = EnumDefinition(
+        name="EvidenceTypeTerm",
+        description="An evidence type term from the Evidence and Conclusion Ontology (ECO)",
+    )
+
 class DiseaseTerm(EnumDefinitionImpl):
     """
     A disease or medical condition
@@ -5668,6 +5682,9 @@ slots.supports = Slot(uri=DISMECH.supports, name="supports", curie=DISMECH.curie
 slots.evidence_source = Slot(uri=DISMECH.evidence_source, name="evidence_source", curie=DISMECH.curie('evidence_source'),
                    model_uri=DISMECH.evidence_source, domain=None, range=Optional[Union[str, "EvidenceSourceEnum"]])
 
+slots.evidence_type = Slot(uri=DISMECH.evidence_type, name="evidence_type", curie=DISMECH.curie('evidence_type'),
+                   model_uri=DISMECH.evidence_type, domain=None, range=Optional[Union[str, TermId]])
+
 slots.snippet = Slot(uri=DISMECH.snippet, name="snippet", curie=DISMECH.curie('snippet'),
                    model_uri=DISMECH.snippet, domain=None, range=Optional[str])
 
@@ -6485,6 +6502,9 @@ slots.DifferentialDiagnosis_distinguishing_features = Slot(uri=DISMECH.distingui
 
 slots.DifferentialDiagnosis_notes = Slot(uri=DISMECH.notes, name="DifferentialDiagnosis_notes", curie=DISMECH.curie('notes'),
                    model_uri=DISMECH.DifferentialDiagnosis_notes, domain=DifferentialDiagnosis, range=Optional[str])
+
+slots.EvidenceItem_evidence_type = Slot(uri=DISMECH.evidence_type, name="EvidenceItem_evidence_type", curie=DISMECH.curie('evidence_type'),
+                   model_uri=DISMECH.EvidenceItem_evidence_type, domain=EvidenceItem, range=Optional[Union[str, TermId]])
 
 slots.CausalEdge_evidence = Slot(uri=DISMECH.evidence, name="CausalEdge_evidence", curie=DISMECH.curie('evidence'),
                    model_uri=DISMECH.CausalEdge_evidence, domain=CausalEdge, range=Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]])

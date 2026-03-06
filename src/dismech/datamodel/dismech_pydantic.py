@@ -78,6 +78,8 @@ linkml_meta = LinkMLMeta({'default_prefix': 'dismech',
                             'prefix_reference': 'http://purl.obolibrary.org/obo/CHEBI_'},
                   'CL': {'prefix_prefix': 'CL',
                          'prefix_reference': 'http://purl.obolibrary.org/obo/CL_'},
+                  'ECO': {'prefix_prefix': 'ECO',
+                          'prefix_reference': 'http://purl.obolibrary.org/obo/ECO_'},
                   'ECTO': {'prefix_prefix': 'ECTO',
                            'prefix_reference': 'http://purl.obolibrary.org/obo/ECTO_'},
                   'ENVO': {'prefix_prefix': 'ENVO',
@@ -995,6 +997,13 @@ class HistopathologyFindingTerm(str):
     pass
 
 
+class EvidenceTypeTerm(str):
+    """
+    An evidence type term from the Evidence and Conclusion Ontology (ECO)
+    """
+    pass
+
+
 class DiseaseTerm(str):
     """
     A disease or medical condition
@@ -1617,7 +1626,7 @@ class Descriptor(ConfiguredBaseModel):
                                         'name': 'description',
                                         'recommended': False}}})
 
-    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
+    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
                        'GeneticContext',
@@ -1700,7 +1709,7 @@ class CellTypeDescriptor(Descriptor):
                                  'description': 'Optional Cell Ontology term reference',
                                  'name': 'term'}}})
 
-    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
+    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
                        'GeneticContext',
@@ -1766,7 +1775,7 @@ class BiologicalProcessDescriptor(Descriptor):
                                                 'reference',
                                  'name': 'term'}}})
 
-    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
+    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
                        'GeneticContext',
@@ -1829,7 +1838,7 @@ class AnatomicalEntityDescriptor(Descriptor):
                                                 'term reference',
                                  'name': 'term'}}})
 
-    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
+    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
                        'GeneticContext',
@@ -1892,7 +1901,7 @@ class ChemicalEntityDescriptor(Descriptor):
                                                 'reference',
                                  'name': 'term'}}})
 
-    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
+    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
                        'GeneticContext',
@@ -1958,7 +1967,7 @@ class GeneDescriptor(Descriptor):
                                                 '(e.g., HGNC)',
                                  'name': 'term'}}})
 
-    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
+    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
                        'GeneticContext',
@@ -2024,7 +2033,7 @@ class CellularComponentDescriptor(Descriptor):
                                                 'reference',
                                  'name': 'term'}}})
 
-    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
+    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
                        'GeneticContext',
@@ -2087,7 +2096,7 @@ class ProteinComplexDescriptor(Descriptor):
                                                 'reference',
                                  'name': 'term'}}})
 
-    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
+    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
                        'GeneticContext',
@@ -2149,7 +2158,7 @@ class AssayDescriptor(Descriptor):
          'slot_usage': {'term': {'description': 'Optional OBI assay term reference',
                                  'name': 'term'}}})
 
-    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
+    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
                        'GeneticContext',
@@ -2211,7 +2220,7 @@ class TriggerDescriptor(Descriptor):
          'slot_usage': {'term': {'description': 'Optional ontology term reference',
                                  'name': 'term'}}})
 
-    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
+    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
                        'GeneticContext',
@@ -2276,7 +2285,7 @@ class DiseaseDescriptor(Descriptor):
                                  'description': 'Optional MONDO disease term reference',
                                  'name': 'term'}}})
 
-    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
+    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
                        'GeneticContext',
@@ -2344,7 +2353,7 @@ class BiomarkerDescriptor(Descriptor):
                                  'description': 'NCIT biomarker term reference',
                                  'name': 'term'}}})
 
-    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
+    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
                        'GeneticContext',
@@ -2412,7 +2421,7 @@ class GeneProductDescriptor(Descriptor):
                                  'description': 'NCIT gene product term reference',
                                  'name': 'term'}}})
 
-    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
+    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
                        'GeneticContext',
@@ -2487,7 +2496,7 @@ class HistopathologyFindingDescriptor(Descriptor):
                                                 'term reference',
                                  'name': 'term'}}})
 
-    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
+    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
                        'GeneticContext',
@@ -2555,7 +2564,7 @@ class LifeCycleStageDescriptor(Descriptor):
                                  'description': 'OPL life cycle stage term reference',
                                  'name': 'term'}}})
 
-    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
+    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
                        'GeneticContext',
@@ -2623,7 +2632,7 @@ class PhenotypeDescriptor(Descriptor):
                                  'description': 'Optional HP phenotype term reference',
                                  'name': 'term'}}})
 
-    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
+    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
                        'GeneticContext',
@@ -2692,7 +2701,7 @@ class InheritanceDescriptor(Descriptor):
                                                 'reference',
                                  'name': 'term'}}})
 
-    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
+    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
                        'GeneticContext',
@@ -2781,7 +2790,7 @@ class TreatmentDescriptor(Descriptor):
                       'aspirin)',
                       'Use NCIT for drug classes when specific CHEBI term unavailable'],
          'domain_of': ['TreatmentDescriptor']} })
-    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
+    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
                        'GeneticContext',
@@ -2849,7 +2858,7 @@ class RegimenDescriptor(Descriptor):
                                  'description': 'Optional NCIT regimen term reference',
                                  'name': 'term'}}})
 
-    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
+    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
                        'GeneticContext',
@@ -2922,7 +2931,7 @@ class ExposureDescriptor(Descriptor):
                                                 'reference',
                                  'name': 'term'}}})
 
-    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
+    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
                        'GeneticContext',
@@ -2993,7 +3002,7 @@ class EnvironmentDescriptor(Descriptor):
                                                 'reference',
                                  'name': 'term'}}})
 
-    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
+    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
                        'GeneticContext',
@@ -3061,7 +3070,7 @@ class OrganismDescriptor(Descriptor):
                                  'description': 'NCBITaxon term reference',
                                  'name': 'term'}}})
 
-    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
+    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
                        'GeneticContext',
@@ -3129,7 +3138,7 @@ class HostDescriptor(OrganismDescriptor):
     role: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'role',
          'domain_of': ['HostDescriptor', 'Pathophysiology', 'Stage', 'Treatment'],
          'examples': [{'value': 'Primary'}]} })
-    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
+    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
                        'GeneticContext',
@@ -3194,7 +3203,7 @@ class SampleTypeDescriptor(Descriptor):
 
     tissue_term: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""UBERON term for the tissue""", json_schema_extra = { "linkml_meta": {'alias': 'tissue_term', 'domain_of': ['SampleTypeDescriptor']} })
     cell_type_term: Optional[CellTypeDescriptor] = Field(default=None, description="""CL term for the cell type""", json_schema_extra = { "linkml_meta": {'alias': 'cell_type_term', 'domain_of': ['SampleTypeDescriptor']} })
-    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
+    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
                        'GeneticContext',
@@ -4357,7 +4366,14 @@ class Subtype(ConfiguredBaseModel):
 
 
 class EvidenceItem(ConfiguredBaseModel):
-    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'evidence_type': {'bindings': [{'binds_value_of': 'id',
+                                                        'obligation_level': 'RECOMMENDED',
+                                                        'range': 'EvidenceTypeTerm'}],
+                                          'description': 'Optional ECO term '
+                                                         'classifying the evidence '
+                                                         'type and assertion method',
+                                          'name': 'evidence_type'}}})
 
     reference: Optional[str] = Field(default=None, description="""The authoritative reference (publication) for this evidence item""", json_schema_extra = { "linkml_meta": {'alias': 'reference',
          'domain_of': ['EvidenceItem', 'PublicationReference', 'MappingConsistency'],
@@ -4367,6 +4383,12 @@ class EvidenceItem(ConfiguredBaseModel):
          'domain_of': ['EvidenceItem'],
          'examples': [{'value': 'SUPPORT'}]} })
     evidence_source: Optional[EvidenceSourceEnum] = Field(default=None, description="""Origin of the evidence item (human clinical, model organism, in vitro, or computational)""", json_schema_extra = { "linkml_meta": {'alias': 'evidence_source',
+         'domain_of': ['EvidenceItem'],
+         'recommended': False} })
+    evidence_type: Optional[str] = Field(default=None, description="""Optional ECO term classifying the evidence type and assertion method""", json_schema_extra = { "linkml_meta": {'alias': 'evidence_type',
+         'bindings': [{'binds_value_of': 'id',
+                       'obligation_level': 'RECOMMENDED',
+                       'range': 'EvidenceTypeTerm'}],
          'domain_of': ['EvidenceItem'],
          'recommended': False} })
     snippet: Optional[str] = Field(default=None, description="""An exact excerpt/quote from the referenced publication that supports or refutes the claim""", json_schema_extra = { "linkml_meta": {'alias': 'snippet',
@@ -9128,7 +9150,7 @@ class CriteriaItem(Descriptor):
     """
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
 
-    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
+    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
                        'GeneticContext',
@@ -9505,7 +9527,7 @@ class ConditionDescriptor(Descriptor):
                                  'name': 'term'}}})
 
     slug: Optional[str] = Field(default=None, description="""Use for leaf conditions; omit when using composition/components""", json_schema_extra = { "linkml_meta": {'alias': 'slug', 'domain_of': ['ConditionDescriptor']} })
-    preferred_term: Optional[str] = Field(default=None, description="""The preferred human-readable term for this descriptor""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
+    preferred_term: Optional[str] = Field(default=None, description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
                        'GeneticContext',
