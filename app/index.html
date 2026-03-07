@@ -432,6 +432,31 @@
         .source-link a:hover {
             text-decoration: underline;
         }
+
+        mark {
+            background: #fef08a;
+            color: inherit;
+            padding: 0 1px;
+            border-radius: 2px;
+        }
+
+        .tag.matched {
+            box-shadow: 0 0 0 2px var(--primary-color);
+        }
+
+        .match-info {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .match-field {
+            display: inline-block;
+            background: #fef08a;
+            padding: 1px 6px;
+            border-radius: 3px;
+            font-size: 0.75rem;
+        }
     </style>
 </head>
 <body>
@@ -457,6 +482,7 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/minisearch@7.1.1/dist/umd/index.min.js"></script>
     <script src="schema.js"></script>
     <script src="data.js"></script>
     <script>
@@ -466,7 +492,7 @@
                 this.schema = null;
                 this.activeFilters = {};
                 this.searchQuery = '';
-                this.searchIndex = new Map();
+                this.miniSearch = null;
                 this.facetCounts = {};
                 this.expandedFacets = new Set();
                 this.FACET_LIMIT = 8;
@@ -519,22 +545,34 @@
 
             buildSearchIndex() {
                 const searchableFields = this.schema.searchableFields || [];
-                this.data.forEach((record, idx) => {
-                    const tokens = new Set();
+                const documents = this.data.map((record, idx) => {
+                    const doc = { _id: idx };
                     searchableFields.forEach(field => {
                         const value = record[field];
                         if (Array.isArray(value)) {
-                            value.forEach(v => this.tokenize(String(v)).forEach(t => tokens.add(t)));
-                        } else if (value) {
-                            this.tokenize(String(value)).forEach(t => tokens.add(t));
+                            doc[field] = value.join(' ');
+                        } else {
+                            doc[field] = value || '';
                         }
                     });
-                    this.searchIndex.set(idx, tokens);
+                    return doc;
                 });
-            }
 
-            tokenize(text) {
-                return text.toLowerCase().split(/\W+/).filter(t => t.length > 1);
+                this.miniSearch = new MiniSearch({
+                    fields: searchableFields,
+                    idField: '_id',
+                    storeFields: ['name'],
+                    tokenize: (text) => text.toLowerCase().split(/[\s\-_/,;:()]+/).filter(t => t.length > 1),
+                    searchOptions: {
+                        boost: this.schema.fieldBoosts || {},
+                        prefix: true,
+                        fuzzy: 0.2,
+                        combineWith: 'AND',
+                        weights: { fuzzy: 0.45, prefix: 0.75 },
+                    },
+                });
+
+                this.miniSearch.addAll(documents);
             }
 
             computeFacetCounts(filteredData) {
@@ -556,16 +594,27 @@
             }
 
             filter() {
-                let results = this.data.map((r, i) => ({ ...r, _idx: i }));
+                let results = this.data.map((r, i) => ({ ...r, _idx: i, _score: 0 }));
 
-                // Apply search query
+                // Apply search query using MiniSearch with boostDocument
                 if (this.searchQuery) {
-                    const queryTokens = this.tokenize(this.searchQuery);
-                    results = results.filter(record => {
-                        const recordTokens = this.searchIndex.get(record._idx);
-                        return queryTokens.every(qt =>
-                            [...recordTokens].some(rt => rt.includes(qt))
-                        );
+                    const queryLower = this.searchQuery.toLowerCase().trim();
+                    const searchResults = this.miniSearch.search(this.searchQuery, {
+                        boostDocument: (_id, _term, storedFields) => {
+                            const nameLower = (storedFields?.name || '').toLowerCase();
+                            if (nameLower === queryLower) return 50;
+                            if (nameLower.startsWith(queryLower)) return 10;
+                            if (nameLower.includes(queryLower)) return 3;
+                            return 1;
+                        },
+                    });
+                    const scoreMap = new Map(searchResults.map(r => [r.id, r.score]));
+                    const matchMap = new Map(searchResults.map(r => [r.id, r.match]));
+
+                    results = results.filter(r => scoreMap.has(r._idx));
+                    results.forEach(r => {
+                        r._score = scoreMap.get(r._idx);
+                        r._matchInfo = matchMap.get(r._idx);
                     });
                 }
 
@@ -586,6 +635,13 @@
 
             sortResults(results) {
                 const sorted = [...results];
+
+                // Auto-sort by relevance when searching
+                if (this.searchQuery && this.sortBy === 'relevance') {
+                    sorted.sort((a, b) => (b._score || 0) - (a._score || 0) || this.compareNames(a, b));
+                    return sorted;
+                }
+
                 const [field, direction] = this.sortBy.split('-');
 
                 if (field === 'name') {
@@ -637,6 +693,15 @@
             }
 
             render() {
+                // Auto-switch to relevance sort when there's a search query
+                if (this.searchQuery && this._preSortBy === undefined) {
+                    this._preSortBy = this.sortBy;
+                    this.sortBy = 'relevance';
+                } else if (!this.searchQuery && this._preSortBy !== undefined) {
+                    this.sortBy = this._preSortBy;
+                    delete this._preSortBy;
+                }
+
                 const filtered = this.filter();
                 this.facetCounts = this.computeFacetCounts(filtered);
                 this.renderFacets();
@@ -685,12 +750,14 @@
             renderResults(results) {
                 const container = document.getElementById('resultsContainer');
 
+                const hasSearch = !!this.searchQuery;
                 let html = `<div class="results-header">
                     <span class="results-count">${results.length} disorder${results.length !== 1 ? 's' : ''}</span>
                     <div class="results-controls">
                         <label class="sort-control" for="sortSelect">
                             Sort by
                             <select id="sortSelect" class="sort-select">
+                                ${hasSearch ? `<option value="relevance" ${this.sortBy === 'relevance' ? 'selected' : ''}>Relevance</option>` : ''}
                                 <option value="name-asc" ${this.sortBy === 'name-asc' ? 'selected' : ''}>Name (A-Z)</option>
                                 <option value="name-desc" ${this.sortBy === 'name-desc' ? 'selected' : ''}>Name (Z-A)</option>
                                 <option value="created-desc" ${this.sortBy === 'created-desc' ? 'selected' : ''}>Created (Newest first)</option>
@@ -720,6 +787,8 @@
             }
 
             renderDisorderCard(record) {
+                const { terms: matchedTerms, fields: matchedFields } = this.getMatchedFields(record._matchInfo);
+
                 let html = `<div class="disorder-card">
                     <div class="disorder-header">
                         <span class="disorder-title"><a href="${record.page_url}">${this.escapeHtml(record.name)}</a></span>`;
@@ -735,36 +804,54 @@
                     html += `<span class="disorder-category">${this.escapeHtml(record.category)}</span>`;
                 }
 
+                if (matchedTerms.length > 0) {
+                    const fieldLabels = {
+                        description: 'description', pathophysiology: 'pathophysiology',
+                        phenotypes: 'phenotypes', cell_types: 'cell types',
+                        biological_processes: 'biological processes', genes: 'genes',
+                        treatments: 'treatments', subtypes: 'subtypes',
+                    };
+                    const nonNameFields = [...matchedFields]
+                        .filter(f => f !== 'name')
+                        .map(f => fieldLabels[f] || f);
+                    if (nonNameFields.length > 0) {
+                        html += `<div class="match-info">Matched in ${nonNameFields.map(f => `<span class="match-field">${f}</span>`).join(' ')}</div>`;
+                    }
+                }
+
                 if (record.description) {
                     const desc = record.description.length > 250
                         ? record.description.substring(0, 250) + '...'
                         : record.description;
-                    html += `<div class="disorder-description">${this.escapeHtml(desc)}</div>`;
+                    const descHtml = matchedFields.has('description')
+                        ? this.highlightText(desc, matchedTerms)
+                        : this.escapeHtml(desc);
+                    html += `<div class="disorder-description">${descHtml}</div>`;
                 }
 
                 // Pathophysiology
                 if (record.pathophysiology?.length) {
-                    html += this.renderSection('Pathophysiology', record.pathophysiology, 'pathophys');
+                    html += this.renderSection('Pathophysiology', record.pathophysiology, 'pathophys', matchedFields.has('pathophysiology') ? matchedTerms : null);
                 }
 
                 // Phenotypes
                 if (record.phenotypes?.length) {
-                    html += this.renderSection('Phenotypes', record.phenotypes, 'phenotype');
+                    html += this.renderSection('Phenotypes', record.phenotypes, 'phenotype', matchedFields.has('phenotypes') ? matchedTerms : null);
                 }
 
                 // Cell Types
                 if (record.cell_types?.length) {
-                    html += this.renderSection('Cell Types', record.cell_types, 'cell-type');
+                    html += this.renderSection('Cell Types', record.cell_types, 'cell-type', matchedFields.has('cell_types') ? matchedTerms : null);
                 }
 
                 // Genes
                 if (record.genes?.length) {
-                    html += this.renderSection('Associated Genes', record.genes, 'gene');
+                    html += this.renderSection('Associated Genes', record.genes, 'gene', matchedFields.has('genes') ? matchedTerms : null);
                 }
 
                 // Treatments
                 if (record.treatments?.length) {
-                    html += this.renderSection('Treatments', record.treatments, 'treatment');
+                    html += this.renderSection('Treatments', record.treatments, 'treatment', matchedFields.has('treatments') ? matchedTerms : null);
                 }
 
                 // Environmental
@@ -802,7 +889,7 @@
                 return html;
             }
 
-            renderSection(label, items, tagClass) {
+            renderSection(label, items, tagClass, matchedTerms) {
                 const visible = items.slice(0, this.TAG_LIMIT);
                 const remaining = items.length - this.TAG_LIMIT;
 
@@ -811,7 +898,11 @@
                     <div class="tag-list">`;
 
                 visible.forEach(item => {
-                    html += `<span class="tag ${tagClass}">${this.escapeHtml(item)}</span>`;
+                    const isMatched = matchedTerms && matchedTerms.some(t =>
+                        item.toLowerCase().includes(t.toLowerCase())
+                    );
+                    const classes = `tag ${tagClass}${isMatched ? ' matched' : ''}`;
+                    html += `<span class="${classes}">${this.escapeHtml(item)}</span>`;
                 });
 
                 if (remaining > 0) {
@@ -837,6 +928,30 @@
                     return base + id;
                 }
                 return `https://bioregistry.io/${curie}`;
+            }
+
+            getMatchedFields(matchInfo) {
+                if (!matchInfo) return { terms: [], fields: new Set() };
+                const terms = Object.keys(matchInfo);
+                const fields = new Set();
+                for (const term of terms) {
+                    for (const field of matchInfo[term]) {
+                        fields.add(field);
+                    }
+                }
+                return { terms, fields };
+            }
+
+            highlightText(text, matchedTerms) {
+                if (!text || !matchedTerms || matchedTerms.length === 0) return this.escapeHtml(text);
+                const escaped = this.escapeHtml(text);
+                const sorted = [...matchedTerms].sort((a, b) => b.length - a.length);
+                const pattern = sorted
+                    .map(t => this.escapeHtml(t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+                    .join('|');
+                if (!pattern) return escaped;
+                const regex = new RegExp(`(${pattern})`, 'gi');
+                return escaped.replace(regex, '<mark>$1</mark>');
             }
 
             escapeHtml(text) {
@@ -893,6 +1008,8 @@
                     if (e.target.id === 'clearFilters') {
                         this.activeFilters = {};
                         this.searchQuery = '';
+                        this.sortBy = this._preSortBy || 'name-asc';
+                        delete this._preSortBy;
                         document.getElementById('searchInput').value = '';
                         this.expandedFacets.clear();
                         this.render();
@@ -903,6 +1020,10 @@
                 document.getElementById('resultsContainer').addEventListener('change', (e) => {
                     if (e.target.id === 'sortSelect') {
                         this.sortBy = e.target.value;
+                        // If user manually changes sort during search, stop auto-switching
+                        if (this._preSortBy !== undefined && e.target.value !== 'relevance') {
+                            delete this._preSortBy;
+                        }
                         this.render();
                     }
                 });
