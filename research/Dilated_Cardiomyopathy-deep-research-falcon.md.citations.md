@@ -4,7 +4,7 @@
 
 ## Target Disease
 - **Disease Name:** Dilated Cardiomyopathy
-- **MONDO ID:**  (if available)
+- **MONDO ID:** MONDO:0005021
 - **Category:** Complex
 
 ## Research Objectives
@@ -90,15 +90,3 @@ Structure your response as a narrative that could be used to populate a disease 
 27. https://doi.org/10.3390/biomedicines12061156
 28. https://doi.org/10.3390/biomedicines12050999
 29. https://doi.org/10.3389/fped.2024.1404942
-30. https://doi.org/10.20944/preprints202404.1054.v1,
-31. https://doi.org/10.1001/jama.2024.13946,
-32. https://doi.org/10.1146/annurev-med-052422-020535,
-33. https://doi.org/10.3390/ijms252111460,
-34. https://doi.org/10.3390/biomedicines12050999,
-35. https://doi.org/10.1172/jci169753,
-36. https://doi.org/10.1161/circgen.123.004355,
-37. https://doi.org/10.1186/s12872-023-03666-1,
-38. https://doi.org/10.3390/biomedicines12061156,
-39. https://doi.org/10.1038/s41588-024-01975-5,
-40. https://doi.org/10.1038/s41588-024-01952-y,
-41. https://doi.org/10.3389/fped.2024.1404942,
