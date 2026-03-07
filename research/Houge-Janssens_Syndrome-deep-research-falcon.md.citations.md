@@ -59,29 +59,30 @@ Structure your response as a narrative that could be used to populate a disease 
 - Evidence items with PMIDs
 
 **Provider:** falcon
-**Generated:** 2026-02-15T19:51:48.170017
+**Generated:** 2026-03-07T18:55:08.930403
 
-1. toro2018arecurrentde pages 1-1
-2. braden2024anoverviewof pages 1-2
-3. pietra2023expandingtheclinical pages 3-5
-4. moss2023hmgboxesribosomopathiesand pages 2-3
-5. theophanous2023transcriptionfactorubf pages 6-8
-6. hussein2023earlymaturationand pages 2-4
-7. ledoux2024polymeraseias pages 9-11
-8. braden2024anoverviewof pages 5-6
-9. braden2024anoverviewof pages 8-10
-10. ing
-11. https://doi.org/10.1093/hmg/ddy049
-12. https://doi.org/10.3390/brainsci14020179
-13. https://doi.org/10.1212/NXG.0000000000200098
-14. https://doi.org/10.3389/fgene.2023.1225832
-15. https://doi.org/10.1016/j.jbc.2023.105203
-16. https://doi.org/10.1101/2022.11.02.514882
-17. https://doi.org/10.3390/biomedicines12051092
-18. https://doi.org/10.3390/brainsci14020179,
-19. https://doi.org/10.3389/fgene.2023.1225832,
-20. https://doi.org/10.1212/nxg.0000000000200098,
-21. https://doi.org/10.1016/j.jbc.2023.105203,
-22. https://doi.org/10.1101/2022.11.02.514882,
-23. https://doi.org/10.3390/biomedicines12051092,
-24. https://doi.org/10.1093/hmg/ddy049,
+1. smolen2023quantitativeproteomicsand pages 1-3
+2. smolen2023quantitativeproteomicsand pages 11-13
+3. smolen2023quantitativeproteomicsanda pages 13-16
+4. wu2023extendedregulationinterface pages 1-5
+5. jiang2024thirteennewpatients pages 1-2
+6. lee2025clinicalandmolecular pages 1-2
+7. verbinnen2025pathogenicdenovo pages 1-3
+8. janssens2024newinsightsinto pages 1-1
+9. smolen2023quantitativeproteomicsanda pages 1-5
+10. smolen2023quantitativeproteomicsanda pages 25-27
+11. jiang2024thirteennewpatients pages 11-12
+12. lee2025clinicalandmolecular pages 8-10
+13. https://doi.org/10.1016/j.jbc.2023.105154
+14. https://doi.org/10.1101/2023.03.27.534397
+15. https://doi.org/10.1101/2023.03.09.530109
+16. https://doi.org/10.3390/children11080897
+17. https://doi.org/10.3390/pediatric16040101
+18. https://doi.org/10.1016/j.ajhg.2025.01.021
+19. https://doi.org/10.1016/j.ajhg.2025.01.021,
+20. https://doi.org/10.3390/genes16121508,
+21. https://doi.org/10.1016/j.jbc.2023.105154,
+22. https://doi.org/10.1101/2023.03.27.534397,
+23. https://doi.org/10.1101/2023.03.09.530109,
+24. https://doi.org/10.3390/children11080897,
+25. https://doi.org/10.3390/pediatric16040101,
