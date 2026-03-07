@@ -140,32 +140,9 @@ def test_all_disorders_have_unique_names():
     assert not duplicates, f"Duplicate disorder names: {set(duplicates)}"
 
 
-# Files with known subtype FK mismatches (pre-existing, to be fixed incrementally)
-_SUBTYPE_FK_KNOWN_FAILURES = {
-    "Pick_Disease.yaml",
-    "Arsenic_Poisoning.yaml",
-    "Folliculitis.yaml",
-    "Meningioma.yaml",
-    "Hirschsprung_Disease.yaml",
-    "Axenfeld-Rieger_syndrome.yaml",
-    "Cadmium_Poisoning.yaml",
-    "Rheumatoid_Arthritis.yaml",
-    "Nemaline_Myopathy.yaml",
-    "Jeavons_Syndrome.yaml",
-    "Ehlers-Danlos_Syndrome.yaml",
-    "Maple_Syrup_Urine_Disease.yaml",
-    "Alhzeimer_Disease.yaml",
-    "Fanconi_Anemia.yaml",
-}
-
-
 @pytest.mark.parametrize("filepath", DISORDER_FILES)
 def test_subtype_foreign_keys(filepath):
     """Test that subtype references match has_subtypes names."""
-    filename = Path(filepath).name
-    if filename in _SUBTYPE_FK_KNOWN_FAILURES:
-        pytest.xfail(f"{filename}: pre-existing subtype FK mismatch")
-
     with open(filepath) as f:
         data = yaml.safe_load(f)
 
