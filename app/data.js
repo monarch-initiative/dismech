@@ -14427,6 +14427,83 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Familial Hypercholesterolemia",
+    "disease_id": "MONDO:0005439",
+    "category": "Mendelian",
+    "parents": [
+      "Dyslipidemia",
+      "Cardiovascular Disease"
+    ],
+    "creation_date": "2026-03-06T00:00:00Z",
+    "updated_date": "2026-03-06T06:25:00Z",
+    "subtypes": [],
+    "description": "Familial hypercholesterolemia (FH) is a common autosomal dominant disorder of lipid metabolism characterized by significantly elevated serum low-density lipoprotein (LDL) cholesterol levels from birth, leading to premature atherosclerotic cardiovascular disease. Most cases are caused by mutations in LDLR encoding the LDL receptor, though mutations in APOB and PCSK9 also contribute. Heterozygous FH affects approximately 1 in 250 individuals, making it one of the most common Mendelian disorders. Homozygous FH is rare but causes severe cardiovascular disease in childhood. Lifelong LDL cholesterol-lowering treatment substantially improves cardiovascular outcomes.\n",
+    "pathophysiology": [
+      "Impaired LDL Receptor Function",
+      "Accelerated Atherosclerosis"
+    ],
+    "cell_types": [
+      "hepatocyte",
+      "macrophage",
+      "vascular associated smooth muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0000235",
+      "CL:0000359"
+    ],
+    "biological_processes": [
+      "cholesterol metabolic process",
+      "lipid metabolic process"
+    ],
+    "phenotypes": [
+      "Hypercholesterolemia",
+      "Premature Coronary Artery Disease",
+      "Tendon Xanthomas"
+    ],
+    "phenotype_categories": [
+      "Metabolic",
+      "Cardiovascular",
+      "Dermatologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0003124",
+      "HP:0005181",
+      "HP:0010874"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "LDLR",
+      "APOB",
+      "PCSK9"
+    ],
+    "treatments": [
+      "Statin Therapy",
+      "PCSK9 Inhibitor Therapy",
+      "LDL Apheresis",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Familial_Hypercholesterolemia.yaml",
+    "page_url": "../pages/disorders/Familial_Hypercholesterolemia.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 2,
+    "num_genes": 3,
+    "num_treatments": 4,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Familial Mediterranean Fever",
     "disease_id": "MONDO:0018088",
     "category": "Genetic",
@@ -15321,6 +15398,90 @@ window.searchData = [
     "num_pathophysiology": 2,
     "num_genes": 1,
     "num_treatments": 5,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Friedreich Ataxia",
+    "disease_id": "MONDO:0100339",
+    "category": "Mendelian",
+    "parents": [
+      "Hereditary Ataxia",
+      "Mitochondrial Disorder"
+    ],
+    "creation_date": "2026-03-06T00:00:00Z",
+    "updated_date": "2026-03-06T06:25:00Z",
+    "subtypes": [],
+    "description": "Friedreich ataxia (FRDA) is the most common inherited ataxia, caused by homozygous GAA trinucleotide repeat expansion in intron 1 of the FXN gene encoding frataxin, a mitochondrial protein essential for iron-sulfur cluster biogenesis. Frataxin deficiency leads to mitochondrial iron accumulation, impaired oxidative phosphorylation, and oxidative stress. The disease is characterized by progressive gait and limb ataxia, dysarthria, loss of deep tendon reflexes, sensory neuropathy, hypertrophic cardiomyopathy, scoliosis, pes cavus, and diabetes mellitus. Onset is typically around puberty with progressive disability and shortened lifespan, often due to cardiac complications.\n",
+    "pathophysiology": [
+      "Frataxin Deficiency and Iron-Sulfur Cluster Assembly Defect"
+    ],
+    "cell_types": [
+      "neuron",
+      "cardiac muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "iron-sulfur cluster assembly",
+      "oxidative phosphorylation",
+      "intracellular iron ion homeostasis"
+    ],
+    "phenotypes": [
+      "Progressive Gait and Limb Ataxia",
+      "Dysarthria",
+      "Peripheral Neuropathy",
+      "Hypertrophic Cardiomyopathy",
+      "Scoliosis",
+      "Pes Cavus",
+      "Diabetes Mellitus"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Cardiac",
+      "Musculoskeletal",
+      "Endocrine"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Endocrine",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001251",
+      "HP:0001260",
+      "HP:0009830",
+      "HP:0001639",
+      "HP:0002650",
+      "HP:0001761",
+      "HP:0000819"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "FXN"
+    ],
+    "treatments": [
+      "Supportive and Symptomatic Care",
+      "Cardiac Management",
+      "Investigational Frataxin-Restoring Therapies",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Friedreich_Ataxia.yaml",
+    "page_url": "../pages/disorders/Friedreich_Ataxia.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 1,
+    "num_genes": 1,
+    "num_treatments": 4,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
   },
@@ -18918,6 +19079,90 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Hereditary Hemorrhagic Telangiectasia",
+    "disease_id": "MONDO:0019180",
+    "category": "Mendelian",
+    "parents": [
+      "Vascular Malformation",
+      "Bleeding Disorder"
+    ],
+    "creation_date": "2026-03-06T00:00:00Z",
+    "updated_date": "2026-03-06T06:25:00Z",
+    "subtypes": [],
+    "description": "Hereditary hemorrhagic telangiectasia (HHT), also known as Osler-Weber-Rendu disease, is an autosomal dominant vascular dysplasia caused by loss-of-function mutations in genes encoding proteins of the BMP/TGF-beta signaling pathway. Up to 90% of cases are caused by mutations in ENG (endoglin, HHT1) or ACVRL1 (ALK1, HHT2), with SMAD4 and GDF2 less frequently responsible. The disease is characterized by mucocutaneous telangiectases causing recurrent epistaxis and gastrointestinal bleeding, and arteriovenous malformations (AVMs) in the lungs, liver, and brain that can cause serious complications including stroke, brain abscess, and high-output cardiac failure. Estimated prevalence is approximately 1 in 5,000.\n",
+    "pathophysiology": [
+      "Impaired BMP/TGF-beta Signaling in Vascular Endothelium"
+    ],
+    "cell_types": [
+      "endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000115"
+    ],
+    "biological_processes": [
+      "BMP signaling pathway",
+      "angiogenesis"
+    ],
+    "phenotypes": [
+      "Epistaxis",
+      "Mucocutaneous Telangiectases",
+      "Gastrointestinal Hemorrhage",
+      "Stroke and Brain Abscess",
+      "Dyspnea"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Dermatologic",
+      "Gastrointestinal",
+      "Neurologic",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Head and Neck",
+      "Integument",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0000421",
+      "HP:0001009",
+      "HP:0002239",
+      "HP:0001297",
+      "HP:0002094"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "ENG",
+      "ACVRL1",
+      "SMAD4",
+      "GDF2"
+    ],
+    "treatments": [
+      "Epistaxis Management",
+      "Iron Replacement Therapy",
+      "Embolization of Pulmonary AVMs",
+      "Antiangiogenic Therapy (Bevacizumab)",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hereditary_Hemorrhagic_Telangiectasia.yaml",
+    "page_url": "../pages/disorders/Hereditary_Hemorrhagic_Telangiectasia.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 1,
+    "num_genes": 4,
+    "num_treatments": 5,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Hereditary Spherocytosis",
     "disease_id": "MONDO:0019350",
     "category": "Mendelian",
@@ -20806,6 +21051,109 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 0,
     "num_treatments": 2,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Influenza",
+    "disease_id": "MONDO:0005812",
+    "category": "Infectious Disease",
+    "parents": [
+      "Viral Respiratory Infection"
+    ],
+    "creation_date": "2026-03-06T12:00:00Z",
+    "updated_date": "2026-03-06T06:20:00Z",
+    "subtypes": [
+      "Seasonal Influenza",
+      "Pandemic Influenza",
+      "Avian Influenza"
+    ],
+    "description": "Influenza is an acute respiratory infectious disease caused by influenza viruses (types A and B in humans), transmitted via respiratory droplets. Influenza A and B cause seasonal epidemics, while influenza A is responsible for pandemics due to antigenic shift. The WHO estimates annual epidemics result in approximately 1 billion infections, 3-5 million cases of severe illness, and 300,000-500,000 deaths globally. The disease ranges from mild upper respiratory illness to severe pneumonia, acute respiratory distress syndrome, and death, particularly in elderly, immunocompromised, and young populations.\n",
+    "pathophysiology": [
+      "Respiratory Epithelial Infection and Cytopathic Effect",
+      "Toll-like Receptor Signaling and Innate Immune Activation",
+      "Inflammasome Activation and Cytokine Storm",
+      "PANoptosis and Inflammatory Cell Death",
+      "Endothelial Dysfunction and Thromboinflammation"
+    ],
+    "cell_types": [
+      "respiratory epithelial cell",
+      "alveolar macrophage",
+      "dendritic cell",
+      "macrophage",
+      "neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0002632",
+      "CL:0000583",
+      "CL:0000451",
+      "CL:0000235",
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "viral genome replication",
+      "defense response to virus",
+      "toll-like receptor signaling pathway",
+      "response to type I interferon",
+      "pyroptotic inflammatory response",
+      "necroptotic process",
+      "programmed necrotic cell death"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Cough",
+      "Myalgia",
+      "Headache",
+      "Sore Throat",
+      "Fatigue",
+      "Chills",
+      "Rhinorrhea",
+      "Dyspnea",
+      "Pneumonia"
+    ],
+    "phenotype_categories": [
+      "Constitutional",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Immune",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0012735",
+      "HP:0003326",
+      "HP:0002315",
+      "HP:0025439",
+      "HP:0012378",
+      "HP:0025143",
+      "HP:0031417",
+      "HP:0002094",
+      "HP:0002090"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Neuraminidase Inhibitors",
+      "Cap-Dependent Endonuclease Inhibitor (Baloxavir Marboxil)",
+      "Annual Vaccination",
+      "Supportive Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Influenza.yaml",
+    "page_url": "../pages/disorders/Influenza.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 4,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
   },
@@ -27686,6 +28034,90 @@ window.searchData = [
     "num_pathophysiology": 1,
     "num_genes": 0,
     "num_treatments": 0,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Myotonic Dystrophy Type 1",
+    "disease_id": "MONDO:0008056",
+    "category": "Mendelian",
+    "parents": [
+      "Muscular Dystrophy",
+      "Trinucleotide Repeat Disorder"
+    ],
+    "creation_date": "2026-03-06T00:00:00Z",
+    "updated_date": "2026-03-06T06:25:00Z",
+    "subtypes": [],
+    "description": "Myotonic dystrophy type 1 (DM1), also known as Steinert disease, is an autosomal dominant multisystem disorder caused by expansion of a CTG trinucleotide repeat in the 3'-untranslated region of the DMPK gene. It is the most common form of adult-onset muscular dystrophy. The expanded CUG repeat RNA is retained in nuclear foci where it sequesters MBNL1 splicing regulators, causing widespread mis-splicing of downstream target genes. Clinical features include myotonia, progressive muscle weakness and wasting, cardiac conduction defects, cataracts, endocrine abnormalities, and cognitive impairment. Disease severity generally correlates with repeat expansion size.\n",
+    "pathophysiology": [
+      "Toxic RNA Gain-of-Function",
+      "Chloride Channel Mis-splicing and Myotonia"
+    ],
+    "cell_types": [
+      "skeletal muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000188"
+    ],
+    "biological_processes": [
+      "RNA splicing"
+    ],
+    "phenotypes": [
+      "Myotonia",
+      "Progressive Muscle Weakness",
+      "Cataracts",
+      "Cardiac Conduction Defects",
+      "Insulin Resistance and Diabetes",
+      "Cognitive Impairment",
+      "Respiratory Insufficiency"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Ophthalmologic",
+      "Cardiac",
+      "Endocrine",
+      "Neurologic",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Endocrine",
+      "Eye",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002486",
+      "HP:0001324",
+      "HP:0000518",
+      "HP:0031546",
+      "HP:0000819",
+      "HP:0001249",
+      "HP:0002093"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "DMPK"
+    ],
+    "treatments": [
+      "Pharmacotherapy for Myotonia",
+      "Cardiac Monitoring and Pacemaker",
+      "Supportive Care",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Myotonic_Dystrophy_Type_1.yaml",
+    "page_url": "../pages/disorders/Myotonic_Dystrophy_Type_1.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 4,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
   },
@@ -38807,6 +39239,96 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "3",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Tuberous Sclerosis Complex",
+    "disease_id": "MONDO:0001734",
+    "category": "Mendelian",
+    "parents": [
+      "Neurocutaneous Syndrome",
+      "mTOR Pathway Disorder"
+    ],
+    "creation_date": "2026-03-06T00:00:00Z",
+    "updated_date": "2026-03-06T00:00:00Z",
+    "subtypes": [],
+    "description": "Tuberous sclerosis complex (TSC) is an autosomal dominant multisystem disorder caused by loss-of-function mutations in TSC1 (hamartin) or TSC2 (tuberin), which form a complex that inhibits the mechanistic target of rapamycin (mTOR) signaling pathway. Constitutive mTOR activation leads to hamartoma formation in multiple organ systems including brain, skin, kidneys, heart, and lungs. Nearly 2 million people are affected worldwide. Major clinical features include cortical tubers, subependymal giant cell astrocytomas, cardiac rhabdomyomas, renal angiomyolipomas, facial angiofibromas, and pulmonary lymphangioleiomyomatosis. TSC-associated neuropsychiatric disorders (TAND) including epilepsy, intellectual disability, and autism spectrum disorder are among the most disabling manifestations.\n",
+    "pathophysiology": [
+      "TSC1/TSC2 Loss of Function and mTOR Hyperactivation"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "mTOR signaling pathway",
+      "cell growth"
+    ],
+    "phenotypes": [
+      "Epileptic Seizures",
+      "Intellectual Disability",
+      "Autism Spectrum Disorder",
+      "Facial Angiofibromas",
+      "Shagreen Patch",
+      "Cortical Tubers",
+      "Subependymal Nodules",
+      "Subependymal Giant Cell Astrocytoma",
+      "Renal Angiomyolipoma",
+      "Cardiac Rhabdomyoma"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Behavioral",
+      "Dermatologic",
+      "Renal",
+      "Cardiac"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Genitourinary",
+      "Integument",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001250",
+      "HP:0001249",
+      "HP:0000717",
+      "HP:0010615",
+      "HP:0009721",
+      "HP:0009717",
+      "HP:0009716",
+      "HP:0009718",
+      "HP:0006772",
+      "HP:0009729"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "TSC1",
+      "TSC2"
+    ],
+    "treatments": [
+      "mTOR Inhibitor Therapy (Everolimus)",
+      "Vigabatrin for Infantile Spasms",
+      "Epilepsy Surgery",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Tuberous_Sclerosis_Complex.yaml",
+    "page_url": "../pages/disorders/Tuberous_Sclerosis_Complex.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 1,
+    "num_genes": 2,
+    "num_treatments": 4,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
   },
   {
     "name": "Type 2 Diabetes Mellitus",
