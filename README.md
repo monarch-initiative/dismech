@@ -176,8 +176,11 @@ Best for quick contributions — no local setup required.
 
 1. Go to **[claude.ai/code](https://claude.ai/code)**
 2. Open the `monarch-initiative/dismech` repository
-3. Interact with the agent in the web UI — ask questions, request edits, or run `/curate`
-4. When you're done, click the **Create pull request** button to submit your changes for review
+3. **Set up an environment** with the following settings:
+   - **Allow access to external websites** — needed for fetching PubMed abstracts, ClinicalTrials.gov data, and ontology lookups
+   - **Set `EDISON_API_KEY`** — for deep literature research via [Edison Scientific](https://platform.edisonscientific.com/) (sign up → Account → Profile → Create new token)
+4. Interact with the agent in the web UI — ask questions, request edits, or run `/curate`
+5. When you're done, click the **Create pull request** button to submit your changes for review
 
 That's it. The web UI handles git branching, commits, and PR creation automatically.
 
