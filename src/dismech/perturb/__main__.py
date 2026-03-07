@@ -13,7 +13,12 @@ import typer
 import yaml
 
 from dismech.perturb.graph import extract_causal_edges, trace_causal_paths
-from dismech.perturb.simulate import load_model_config, run_perturbation, ModelConfig
+from dismech.perturb.simulate import (
+    ModelConfig,
+    SimulationResult,
+    load_model_config,
+    run_perturbation,
+)
 from dismech.perturb.phenotypes import evaluate_phenotypes
 
 app = typer.Typer(help="Causal perturbation analysis for dismech disorders.")
@@ -177,10 +182,12 @@ def _run_all_scenarios(
     print("CAUSAL PERTURBATION ANALYSIS: All Scenarios")
     print(f"{'=' * 100}")
 
+    cached_results: dict[str, SimulationResult] = {}
     for scenario_name, scenario in config.scenarios.items():
-        _run_scenario(config, baseline, scenario_name, scenario, disorder)
+        result = _run_scenario(config, baseline, scenario_name, scenario, disorder)
+        cached_results[scenario_name] = result
 
-    _print_gene_phenotype_matrix(config, baseline)
+    _print_gene_phenotype_matrix(config, baseline, cached_results)
 
 
 def _run_named_scenario(
@@ -201,8 +208,8 @@ def _run_scenario(
     name: str,
     scenario: dict,
     disorder: dict,
-) -> None:
-    """Run one scenario and print results."""
+) -> SimulationResult:
+    """Run one scenario and print results. Returns the perturbed SimulationResult."""
     label = scenario.get("label", name)
     gene = scenario.get("gene")
     effect = scenario.get("effect")
@@ -251,9 +258,13 @@ def _run_scenario(
                 print(f"    {j + 1}. {' '.join(chain_parts)}")
                 print(f"       via: {path[-1].mechanism}")
 
+    return result
+
 
 def _print_gene_phenotype_matrix(
-    config: ModelConfig, baseline: dict[str, float]
+    config: ModelConfig,
+    baseline: dict[str, float],
+    cached_results: dict[str, SimulationResult] | None = None,
 ) -> None:
     """Print gene-to-phenotype activation matrix."""
     gene_scenarios = {k: v for k, v in config.scenarios.items() if v.get("gene")}
@@ -273,13 +284,16 @@ def _print_gene_phenotype_matrix(
     print("-" * (20 + 20 * len(hp_labels)))
 
     for scenario_name, scenario in gene_scenarios.items():
-        result = run_perturbation(
-            config,
-            gfr=scenario.get("gfr", 2.0),
-            gene=scenario.get("gene"),
-            effect=scenario.get("effect"),
-            param_overrides=scenario.get("param_overrides"),
-        )
+        if cached_results and scenario_name in cached_results:
+            result = cached_results[scenario_name]
+        else:
+            result = run_perturbation(
+                config,
+                gfr=scenario.get("gfr", 2.0),
+                gene=scenario.get("gene"),
+                effect=scenario.get("effect"),
+                param_overrides=scenario.get("param_overrides"),
+            )
         activated = evaluate_phenotypes(
             result.variables, baseline, config.phenotype_thresholds
         )

@@ -49,12 +49,16 @@ class VariableMapping:
 
 @dataclass
 class FeedbackRule:
-    """A data-driven feedback rule between extension and base models."""
+    """A data-driven feedback rule between extension and base models.
+
+    Applies Hill-type suppression: target = base_value / max(1/(1+(source/k_half)^n), 0.01)
+    """
 
     source: str  # Extension species to read (e.g., "FGF23")
     target_parameter: str  # Base parameter to modify (e.g., "T69")
     base_value: float  # Default base value if not readable from model
-    formula: str  # Formula string (currently only "hill_suppression" supported)
+    k_half: float = 50.0  # Half-maximal concentration for Hill function
+    hill_coefficient: float = 1.5  # Hill coefficient (steepness)
 
 
 @dataclass
@@ -236,7 +240,8 @@ def load_model_config(config_path: Path, disorder: dict | None = None) -> ModelC
                 source=fb_raw["source"],
                 target_parameter=fb_raw["target_parameter"],
                 base_value=float(fb_raw.get("base_value", 0.1)),
-                formula=fb_raw.get("formula", ""),
+                k_half=float(fb_raw.get("k_half", 50.0)),
+                hill_coefficient=float(fb_raw.get("hill_coefficient", 1.5)),
             )
         )
     coupling = CouplingConfig(
@@ -341,12 +346,16 @@ def run_perturbation(
         t_start = i * dt
         t_end = (i + 1) * dt
 
-        # Apply feedback rules: extension → base
+        # Apply feedback rules: extension → base (Hill-type suppression)
         if r_ext and i > 0:
             for rule in config.coupling.feedback:
-                source_val = feedback_source_values.get(rule.source, 50.0)
+                source_val = feedback_source_values.get(rule.source)
+                if source_val is None:
+                    continue
                 base_val = feedback_base_values[rule.target_parameter]
-                suppression = 1 / (1 + (source_val / 50) ** 1.5)
+                suppression = 1 / (
+                    1 + (source_val / rule.k_half) ** rule.hill_coefficient
+                )
                 r_base[rule.target_parameter] = base_val / max(suppression, 0.01)
 
         r_base.simulate(t_start, t_end, 2)
