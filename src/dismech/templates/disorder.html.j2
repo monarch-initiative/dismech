@@ -1491,6 +1491,31 @@
                 .attr("fill", "#1f2937")
                 .text(label);
 
+            /* PDB structure badge */
+            var hasPdb = n.meta && n.meta.pdb_structures && n.meta.pdb_structures.length;
+            if (hasPdb) {
+                var badgeG = nodeG.append("g")
+                    .attr("transform", "translate(" + (nw/2 - 10) + "," + (-nh/2 - 6) + ")")
+                    .style("cursor", "pointer");
+                badgeG.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "#1e40af")
+                    .attr("stroke", "#fff")
+                    .attr("stroke-width", 1.5);
+                badgeG.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "9px")
+                    .attr("fill", "#fff")
+                    .text("3D");
+                badgeG.append("title").text(n.meta.pdb_structures.length + " PDB structure(s)");
+                badgeG.on("click", function(event) {
+                    event.stopPropagation();
+                    var pdbId = n.meta.pdb_structures[0].pdb_id;
+                    window.open("https://www.rcsb.org/3d-view/" + pdbId, "_blank");
+                });
+            }
+
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
                 highlightNode(n.id, true);
@@ -1559,6 +1584,26 @@
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* PDB structures in tooltip */
+            if (meta.pdb_structures && meta.pdb_structures.length) {
+                var pdbHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                pdbHtml += '<div style="font-size:11px; font-weight:600; color:#1e40af; margin-bottom:4px;">3D Structures</div>';
+                meta.pdb_structures.forEach(function(s) {
+                    pdbHtml += '<div style="margin:3px 0; font-size:11px;">';
+                    pdbHtml += '<a href="https://www.rcsb.org/3d-view/' + escapeHtml(s.pdb_id)
+                        + '" target="_blank" style="color:#1e40af; font-weight:600; text-decoration:underline;">'
+                        + escapeHtml(s.pdb_id) + '</a>';
+                    if (s.ligand) pdbHtml += ' <span style="color:#92400e; background:#fef3c7; padding:1px 4px; border-radius:3px; font-size:10px;">' + escapeHtml(s.ligand) + '</span>';
+                    if (s.target_protein) pdbHtml += ' <span style="color:#6b7280;">→ ' + escapeHtml(s.target_protein) + '</span>';
+                    if (s.method) pdbHtml += ' <span style="color:#9ca3af; font-size:10px;">(' + escapeHtml(s.method);
+                    if (s.resolution_angstrom) pdbHtml += ', ' + s.resolution_angstrom + 'Å';
+                    if (s.method) pdbHtml += ')</span>';
+                    pdbHtml += '</div>';
+                });
+                pdbHtml += '</div>';
+                html.push(pdbHtml);
+            }
 
             tooltipEl.innerHTML = html.join("");
             tooltipEl.style.opacity = "1";
@@ -2803,6 +2848,53 @@
                         <a href="{{ pheno.term.id | curie_to_url }}" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
                         {% endif %}
                     </span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% if tx.pdb_structures %}
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">🔬 3D Structures:</strong>
+                    {% for struct in tx.pdb_structures %}
+                    <div style="margin: 8px 0 8px 12px;">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                            <span class="tag" style="background: #dbeafe; color: #1e40af; font-size: 0.8rem; font-weight: 600;">
+                                {{ struct.pdb_id }}
+                            </span>
+                            {% if struct.method %}
+                            <span style="font-size: 0.75rem; color: #6b7280;">{{ struct.method }}</span>
+                            {% endif %}
+                            {% if struct.resolution_angstrom %}
+                            <span style="font-size: 0.75rem; color: #6b7280;">{{ struct.resolution_angstrom }} Å</span>
+                            {% endif %}
+                            {% if struct.ligand %}
+                            <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.75rem;">
+                                ⚗️ {{ struct.ligand }}
+                            </span>
+                            {% endif %}
+                        </div>
+                        {% if struct.description %}
+                        <div style="font-size: 0.85rem; color: #4b5563; margin-bottom: 6px;">{{ struct.description }}</div>
+                        {% endif %}
+                        {% if struct.pdb_id[:2] == 'AF' %}
+                        <div class="molstar-viewer" style="border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; margin-bottom: 4px;">
+                            <iframe
+                                src="https://alphafold.ebi.ac.uk/entry/{{ struct.pdb_id }}"
+                                style="width: 100%; height: 320px; border: none;"
+                                loading="lazy"
+                                title="AlphaFold structure {{ struct.pdb_id }}"
+                            ></iframe>
+                        </div>
+                        {% else %}
+                        <div class="molstar-viewer" style="border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; margin-bottom: 4px;">
+                            <iframe
+                                src="https://www.rcsb.org/3d-view/{{ struct.pdb_id }}"
+                                style="width: 100%; height: 320px; border: none;"
+                                loading="lazy"
+                                title="3D structure {{ struct.pdb_id }}"
+                            ></iframe>
+                        </div>
+                        {% endif %}
+                    </div>
                     {% endfor %}
                 </div>
                 {% endif %}
