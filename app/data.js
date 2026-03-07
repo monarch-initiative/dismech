@@ -3946,6 +3946,86 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Autoimmune Encephalitis",
+    "disease_id": "MONDO:0020640",
+    "category": "Autoimmune",
+    "parents": [
+      "Neurological Disease",
+      "Autoimmune Disease"
+    ],
+    "creation_date": "2026-03-06T00:00:00Z",
+    "updated_date": "2026-03-07T00:00:00Z",
+    "subtypes": [
+      "Anti-NMDA Receptor Encephalitis",
+      "Anti-LGI1 Encephalitis",
+      "Anti-CASPR2 Encephalitis"
+    ],
+    "description": "A group of rare autoimmune neurological disorders characterized by antibodies targeting neuronal surface or synaptic proteins, leading to subacute onset of neuropsychiatric symptoms including seizures, memory impairment, psychosis, movement disorders, and autonomic dysfunction. Anti-NMDA receptor encephalitis is the most common and best-characterized subtype. Early immunotherapy is associated with improved outcomes.",
+    "pathophysiology": [
+      "Antibody-Mediated NMDA Receptor Internalization",
+      "Intrathecal Antibody Production"
+    ],
+    "cell_types": [
+      "Neuron",
+      "B cell",
+      "Plasma cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000236",
+      "CL:0000786"
+    ],
+    "biological_processes": [
+      "Glutamate receptor signaling pathway",
+      "Immune response"
+    ],
+    "phenotypes": [
+      "Seizures",
+      "Psychosis",
+      "Memory Impairment",
+      "Dyskinesia",
+      "Abnormality of the Autonomic Nervous System",
+      "Fever"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Psychiatric",
+      "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001250",
+      "HP:0000709",
+      "HP:0002354",
+      "HP:0100660",
+      "HP:0002270",
+      "HP:0001954"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "First-Line Immunotherapy",
+      "Rituximab",
+      "Tumor Resection"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Autoimmune_Encephalitis.yaml",
+    "page_url": "../pages/disorders/Autoimmune_Encephalitis.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 2,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Autoimmune Hemolytic Anemia",
     "disease_id": "MONDO:0020108",
     "category": "Autoimmune",
@@ -13542,7 +13622,7 @@ window.searchData = [
       "Neurological Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-02-17T21:53:14Z",
+    "updated_date": "2026-03-06T12:00:00Z",
     "subtypes": [
       "Focal Epilepsy",
       "Generalized Epilepsy",
@@ -13642,6 +13722,91 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "3",
     "causal_graph_longest_path": "1"
+  },
+  {
+    "name": "Erdheim-Chester Disease",
+    "disease_id": "MONDO:0018153",
+    "category": "Complex",
+    "parents": [
+      "Histiocytosis"
+    ],
+    "creation_date": "2026-03-06T00:00:00Z",
+    "updated_date": "2026-03-06T00:00:00Z",
+    "subtypes": [],
+    "description": "A rare non-Langerhans cell histiocytosis characterized by infiltration of lipid-laden foamy histiocytes (CD68+/CD1a-) in multiple organs. The disease most commonly involves the long bones (bilateral symmetric osteosclerosis), but can affect virtually any organ including the retroperitoneum, orbits, skin, lungs, central nervous system, cardiovascular system, and kidneys. Mutations activating the MAPK pathway are found in over 80% of cases, mainly BRAF V600E in 57-70%.",
+    "pathophysiology": [
+      "MAPK/ERK Pathway Activation",
+      "Histiocytic Infiltration and Fibrosis"
+    ],
+    "cell_types": [
+      "Macrophage",
+      "Macrophage derived foam cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000517"
+    ],
+    "biological_processes": [
+      "MAPK cascade",
+      "ERK1 and ERK2 cascade",
+      "Inflammatory response"
+    ],
+    "phenotypes": [
+      "Bone Pain",
+      "Proptosis",
+      "Diabetes Insipidus",
+      "Retroperitoneal Fibrosis",
+      "Fatigue",
+      "Fever",
+      "Weight Loss"
+    ],
+    "phenotype_categories": [
+      "Skeletal",
+      "Ophthalmologic",
+      "Endocrine",
+      "Abdominal",
+      "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Endocrine",
+      "Eye",
+      "Growth",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0002653",
+      "HP:0000520",
+      "HP:0000863",
+      "HP:0005200",
+      "HP:0012378",
+      "HP:0001954",
+      "HP:0001824"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "BRAF V600E"
+    ],
+    "treatments": [
+      "Vemurafenib",
+      "Cobimetinib",
+      "Interferon-alpha"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Erdheim-Chester_Disease.yaml",
+    "page_url": "../pages/disorders/Erdheim-Chester_Disease.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
   },
   {
     "name": "Essential Hypertension",
@@ -14425,6 +14590,83 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "4",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Familial Hypercholesterolemia",
+    "disease_id": "MONDO:0005439",
+    "category": "Mendelian",
+    "parents": [
+      "Dyslipidemia",
+      "Cardiovascular Disease"
+    ],
+    "creation_date": "2026-03-06T00:00:00Z",
+    "updated_date": "2026-03-06T06:25:00Z",
+    "subtypes": [],
+    "description": "Familial hypercholesterolemia (FH) is a common autosomal dominant disorder of lipid metabolism characterized by significantly elevated serum low-density lipoprotein (LDL) cholesterol levels from birth, leading to premature atherosclerotic cardiovascular disease. Most cases are caused by mutations in LDLR encoding the LDL receptor, though mutations in APOB and PCSK9 also contribute. Heterozygous FH affects approximately 1 in 250 individuals, making it one of the most common Mendelian disorders. Homozygous FH is rare but causes severe cardiovascular disease in childhood. Lifelong LDL cholesterol-lowering treatment substantially improves cardiovascular outcomes.\n",
+    "pathophysiology": [
+      "Impaired LDL Receptor Function",
+      "Accelerated Atherosclerosis"
+    ],
+    "cell_types": [
+      "hepatocyte",
+      "macrophage",
+      "vascular associated smooth muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0000235",
+      "CL:0000359"
+    ],
+    "biological_processes": [
+      "cholesterol metabolic process",
+      "lipid metabolic process"
+    ],
+    "phenotypes": [
+      "Hypercholesterolemia",
+      "Premature Coronary Artery Disease",
+      "Tendon Xanthomas"
+    ],
+    "phenotype_categories": [
+      "Metabolic",
+      "Cardiovascular",
+      "Dermatologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0003124",
+      "HP:0005181",
+      "HP:0010874"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "LDLR",
+      "APOB",
+      "PCSK9"
+    ],
+    "treatments": [
+      "Statin Therapy",
+      "PCSK9 Inhibitor Therapy",
+      "LDL Apheresis",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Familial_Hypercholesterolemia.yaml",
+    "page_url": "../pages/disorders/Familial_Hypercholesterolemia.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 2,
+    "num_genes": 3,
+    "num_treatments": 4,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
   },
   {
     "name": "Familial Mediterranean Fever",
@@ -15321,6 +15563,90 @@ window.searchData = [
     "num_pathophysiology": 2,
     "num_genes": 1,
     "num_treatments": 5,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Friedreich Ataxia",
+    "disease_id": "MONDO:0100339",
+    "category": "Mendelian",
+    "parents": [
+      "Hereditary Ataxia",
+      "Mitochondrial Disorder"
+    ],
+    "creation_date": "2026-03-06T00:00:00Z",
+    "updated_date": "2026-03-06T06:25:00Z",
+    "subtypes": [],
+    "description": "Friedreich ataxia (FRDA) is the most common inherited ataxia, caused by homozygous GAA trinucleotide repeat expansion in intron 1 of the FXN gene encoding frataxin, a mitochondrial protein essential for iron-sulfur cluster biogenesis. Frataxin deficiency leads to mitochondrial iron accumulation, impaired oxidative phosphorylation, and oxidative stress. The disease is characterized by progressive gait and limb ataxia, dysarthria, loss of deep tendon reflexes, sensory neuropathy, hypertrophic cardiomyopathy, scoliosis, pes cavus, and diabetes mellitus. Onset is typically around puberty with progressive disability and shortened lifespan, often due to cardiac complications.\n",
+    "pathophysiology": [
+      "Frataxin Deficiency and Iron-Sulfur Cluster Assembly Defect"
+    ],
+    "cell_types": [
+      "neuron",
+      "cardiac muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "iron-sulfur cluster assembly",
+      "oxidative phosphorylation",
+      "intracellular iron ion homeostasis"
+    ],
+    "phenotypes": [
+      "Progressive Gait and Limb Ataxia",
+      "Dysarthria",
+      "Peripheral Neuropathy",
+      "Hypertrophic Cardiomyopathy",
+      "Scoliosis",
+      "Pes Cavus",
+      "Diabetes Mellitus"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Cardiac",
+      "Musculoskeletal",
+      "Endocrine"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Endocrine",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001251",
+      "HP:0001260",
+      "HP:0009830",
+      "HP:0001639",
+      "HP:0002650",
+      "HP:0001761",
+      "HP:0000819"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "FXN"
+    ],
+    "treatments": [
+      "Supportive and Symptomatic Care",
+      "Cardiac Management",
+      "Investigational Frataxin-Restoring Therapies",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Friedreich_Ataxia.yaml",
+    "page_url": "../pages/disorders/Friedreich_Ataxia.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 1,
+    "num_genes": 1,
+    "num_treatments": 4,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
   },
@@ -18918,6 +19244,90 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Hereditary Hemorrhagic Telangiectasia",
+    "disease_id": "MONDO:0019180",
+    "category": "Mendelian",
+    "parents": [
+      "Vascular Malformation",
+      "Bleeding Disorder"
+    ],
+    "creation_date": "2026-03-06T00:00:00Z",
+    "updated_date": "2026-03-06T06:25:00Z",
+    "subtypes": [],
+    "description": "Hereditary hemorrhagic telangiectasia (HHT), also known as Osler-Weber-Rendu disease, is an autosomal dominant vascular dysplasia caused by loss-of-function mutations in genes encoding proteins of the BMP/TGF-beta signaling pathway. Up to 90% of cases are caused by mutations in ENG (endoglin, HHT1) or ACVRL1 (ALK1, HHT2), with SMAD4 and GDF2 less frequently responsible. The disease is characterized by mucocutaneous telangiectases causing recurrent epistaxis and gastrointestinal bleeding, and arteriovenous malformations (AVMs) in the lungs, liver, and brain that can cause serious complications including stroke, brain abscess, and high-output cardiac failure. Estimated prevalence is approximately 1 in 5,000.\n",
+    "pathophysiology": [
+      "Impaired BMP/TGF-beta Signaling in Vascular Endothelium"
+    ],
+    "cell_types": [
+      "endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000115"
+    ],
+    "biological_processes": [
+      "BMP signaling pathway",
+      "angiogenesis"
+    ],
+    "phenotypes": [
+      "Epistaxis",
+      "Mucocutaneous Telangiectases",
+      "Gastrointestinal Hemorrhage",
+      "Stroke and Brain Abscess",
+      "Dyspnea"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Dermatologic",
+      "Gastrointestinal",
+      "Neurologic",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Head and Neck",
+      "Integument",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0000421",
+      "HP:0001009",
+      "HP:0002239",
+      "HP:0001297",
+      "HP:0002094"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "ENG",
+      "ACVRL1",
+      "SMAD4",
+      "GDF2"
+    ],
+    "treatments": [
+      "Epistaxis Management",
+      "Iron Replacement Therapy",
+      "Embolization of Pulmonary AVMs",
+      "Antiangiogenic Therapy (Bevacizumab)",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hereditary_Hemorrhagic_Telangiectasia.yaml",
+    "page_url": "../pages/disorders/Hereditary_Hemorrhagic_Telangiectasia.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 1,
+    "num_genes": 4,
+    "num_treatments": 5,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Hereditary Spherocytosis",
     "disease_id": "MONDO:0019350",
     "category": "Mendelian",
@@ -20524,7 +20934,7 @@ window.searchData = [
       "diffuse glioma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-03-06T12:00:00Z",
     "subtypes": [
       "Oligodendroglioma Grade 2",
       "Oligodendroglioma Grade 3 (Anaplastic)"
@@ -20684,6 +21094,99 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "IgG4-Related Disease",
+    "disease_id": "MONDO:0017287",
+    "category": "Autoimmune",
+    "parents": [
+      "Autoimmune Disease",
+      "Fibroinflammatory Disease"
+    ],
+    "creation_date": "2026-03-06T00:00:00Z",
+    "updated_date": "2026-03-06T00:00:00Z",
+    "subtypes": [
+      "IgG4-Related Autoimmune Pancreatitis (Type 1 AIP)",
+      "IgG4-Related Dacryoadenitis and Sialadenitis"
+    ],
+    "description": "A rare immune-mediated fibroinflammatory condition characterized by tumefactive lesions, a dense lymphoplasmacytic infiltrate rich in IgG4-positive plasma cells, storiform fibrosis, and often elevated serum IgG4 concentrations. The disease can affect virtually any organ but most commonly involves the pancreas (autoimmune pancreatitis), salivary and lacrimal glands, bile ducts, kidneys, retroperitoneum, and aorta. Left untreated, it leads to progressive fibrosis and organ damage.",
+    "pathophysiology": [
+      "IgG4-Positive Plasma Cell Infiltration",
+      "Storiform Fibrosis"
+    ],
+    "cell_types": [
+      "Plasma cell",
+      "CD4-positive, alpha-beta T cell",
+      "Fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000786",
+      "CL:0000624",
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "Immune response",
+      "Inflammatory response",
+      "Collagen fibril organization"
+    ],
+    "phenotypes": [
+      "Autoimmune Pancreatitis",
+      "Enlarged Lacrimal Glands",
+      "Sclerosing Cholangitis",
+      "Jaundice",
+      "Retroperitoneal Fibrosis",
+      "Renal Insufficiency",
+      "Weight Loss"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Ophthalmologic",
+      "Hepatobiliary",
+      "Abdominal",
+      "Renal",
+      "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument"
+    ],
+    "phenotype_ids": [
+      "HP:0001733",
+      "HP:0007734",
+      "HP:0030991",
+      "HP:0000952",
+      "HP:0005200",
+      "HP:0000083",
+      "HP:0001824"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Glucocorticoids",
+      "Rituximab"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum IgG4",
+      "Total IgG",
+      "Complement C3 and C4"
+    ],
+    "source_file": "IgG4-Related_Disease.yaml",
+    "page_url": "../pages/disorders/IgG4-Related_Disease.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 2,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Immune Thrombocytopenia",
     "disease_id": "MONDO:0008558",
     "category": "Autoimmune",
@@ -20806,6 +21309,109 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 0,
     "num_treatments": 2,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Influenza",
+    "disease_id": "MONDO:0005812",
+    "category": "Infectious Disease",
+    "parents": [
+      "Viral Respiratory Infection"
+    ],
+    "creation_date": "2026-03-06T12:00:00Z",
+    "updated_date": "2026-03-06T06:20:00Z",
+    "subtypes": [
+      "Seasonal Influenza",
+      "Pandemic Influenza",
+      "Avian Influenza"
+    ],
+    "description": "Influenza is an acute respiratory infectious disease caused by influenza viruses (types A and B in humans), transmitted via respiratory droplets. Influenza A and B cause seasonal epidemics, while influenza A is responsible for pandemics due to antigenic shift. The WHO estimates annual epidemics result in approximately 1 billion infections, 3-5 million cases of severe illness, and 300,000-500,000 deaths globally. The disease ranges from mild upper respiratory illness to severe pneumonia, acute respiratory distress syndrome, and death, particularly in elderly, immunocompromised, and young populations.\n",
+    "pathophysiology": [
+      "Respiratory Epithelial Infection and Cytopathic Effect",
+      "Toll-like Receptor Signaling and Innate Immune Activation",
+      "Inflammasome Activation and Cytokine Storm",
+      "PANoptosis and Inflammatory Cell Death",
+      "Endothelial Dysfunction and Thromboinflammation"
+    ],
+    "cell_types": [
+      "respiratory epithelial cell",
+      "alveolar macrophage",
+      "dendritic cell",
+      "macrophage",
+      "neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0002632",
+      "CL:0000583",
+      "CL:0000451",
+      "CL:0000235",
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "viral genome replication",
+      "defense response to virus",
+      "toll-like receptor signaling pathway",
+      "response to type I interferon",
+      "pyroptotic inflammatory response",
+      "necroptotic process",
+      "programmed necrotic cell death"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Cough",
+      "Myalgia",
+      "Headache",
+      "Sore Throat",
+      "Fatigue",
+      "Chills",
+      "Rhinorrhea",
+      "Dyspnea",
+      "Pneumonia"
+    ],
+    "phenotype_categories": [
+      "Constitutional",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Immune",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0012735",
+      "HP:0003326",
+      "HP:0002315",
+      "HP:0025439",
+      "HP:0012378",
+      "HP:0025143",
+      "HP:0031417",
+      "HP:0002094",
+      "HP:0002090"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Neuraminidase Inhibitors",
+      "Cap-Dependent Endonuclease Inhibitor (Baloxavir Marboxil)",
+      "Annual Vaccination",
+      "Supportive Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Influenza.yaml",
+    "page_url": "../pages/disorders/Influenza.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 4,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
   },
@@ -25489,7 +26095,7 @@ window.searchData = [
       "medulloblastoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-01-26T04:02:22Z",
+    "updated_date": "2026-03-06T12:00:00Z",
     "subtypes": [
       "WNT-Activated Medulloblastoma with CTNNB1 Mutation",
       "WNT-Activated Medulloblastoma with APC Mutation"
@@ -25816,6 +26422,96 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Meningioma",
+    "disease_id": "MONDO:0016642",
+    "category": "Neoplastic",
+    "parents": [
+      "Central nervous system neoplasm",
+      "meningeal neoplasm"
+    ],
+    "creation_date": "2026-03-03T21:32:57Z",
+    "updated_date": "2026-03-06T18:34:37Z",
+    "subtypes": [
+      "Atypical meningioma (WHO grade II)",
+      "Anaplastic meningioma (WHO grade III)"
+    ],
+    "description": "Meningioma is a primarily meningeal central nervous system tumor with a broad clinical spectrum from lower-grade tumors to aggressive high-grade disease.",
+    "pathophysiology": [
+      "NOTCH3 Activation in Aggressive Meningioma",
+      "CD36-Associated Fatty Acid Oxidation Reprogramming",
+      "Ferroptosis Resistance",
+      "NY-ESO-1-Associated Immune Vulnerability in Malignant Meningioma",
+      "NY-ESO-1-Dependent TCR-T Cytolysis Susceptibility"
+    ],
+    "cell_types": [
+      "meningioma tumor cell",
+      "CD8+ alpha-beta T cell"
+    ],
+    "cell_type_ids": [
+      "CL:0001063",
+      "CL:0000625"
+    ],
+    "biological_processes": [
+      "fatty acid transport",
+      "fatty acid beta-oxidation",
+      "ferroptosis"
+    ],
+    "phenotypes": [
+      "High recurrence risk in high-grade disease",
+      "Shorter progression-free survival with high NY-ESO-1 expression",
+      "Seizure at diagnosis",
+      "Headache"
+    ],
+    "phenotype_categories": [
+      "Oncologic",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002664",
+      "HP:0001250",
+      "HP:0002315"
+    ],
+    "frequencies": [
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "NF2",
+      "TERT",
+      "CDKN2A",
+      "CDKN2B",
+      "AKT1",
+      "SMO",
+      "KLF4",
+      "POLR2A",
+      "NOTCH3",
+      "CD36",
+      "CTAG1B (NY-ESO-1)"
+    ],
+    "treatments": [
+      "Gross total surgical resection",
+      "Watch-and-scan surveillance for selected incidental tumors",
+      "Repeated stereotactic radiosurgery (SRS)",
+      "Fractionated radiotherapy for inoperable or recurrent disease",
+      "NY-ESO-1 TCR-transduced T-cell therapy (investigational)"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "High NY-ESO-1 Nuclear Expression"
+    ],
+    "source_file": "Meningioma.yaml",
+    "page_url": "../pages/disorders/Meningioma.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 5,
+    "num_genes": 11,
+    "num_treatments": 5,
+    "causal_graph_edges": "3",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Merkel Cell Carcinoma",
@@ -26860,6 +27556,107 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Multicentric Castleman Disease",
+    "disease_id": "MONDO:0019754",
+    "category": "Complex",
+    "parents": [
+      "Lymphoproliferative Disease",
+      "Autoimmune Disease"
+    ],
+    "creation_date": "2026-03-06T00:00:00Z",
+    "updated_date": "2026-03-06T00:00:00Z",
+    "subtypes": [
+      "HHV-8 Associated MCD",
+      "Idiopathic MCD (iMCD)"
+    ],
+    "description": "A rare lymphoproliferative disorder characterized by systemic lymphadenopathy with characteristic histopathological features including angiofollicular lymph node hyperplasia. Multicentric Castleman disease (MCD) can be driven by human herpesvirus 8 (HHV-8) infection or occur as an idiopathic form (iMCD). The pathogenesis centers on dysregulated interleukin-6 (IL-6) signaling leading to systemic inflammation, constitutional symptoms, cytopenias, and multi-organ dysfunction. IL-6 targeting with siltuximab or tocilizumab has transformed treatment outcomes.",
+    "pathophysiology": [
+      "IL-6 Hypersecretion and Cytokine Storm",
+      "Angiogenesis and Vascular Proliferation"
+    ],
+    "cell_types": [
+      "B cell",
+      "Plasma cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000236",
+      "CL:0000786"
+    ],
+    "biological_processes": [
+      "Interleukin-6-mediated signaling pathway",
+      "JAK-STAT signaling",
+      "Angiogenesis"
+    ],
+    "phenotypes": [
+      "Generalized Lymphadenopathy",
+      "Fever",
+      "Night Sweats",
+      "Weight Loss",
+      "Fatigue",
+      "Anemia",
+      "Thrombocytopenia",
+      "Splenomegaly",
+      "Hepatomegaly",
+      "Generalized Edema",
+      "Renal Insufficiency"
+    ],
+    "phenotype_categories": [
+      "Constitutional",
+      "Hematologic",
+      "Abdominal",
+      "Renal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Growth",
+      "Immune",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0008940",
+      "HP:0001954",
+      "HP:0030166",
+      "HP:0001824",
+      "HP:0012378",
+      "HP:0001903",
+      "HP:0001873",
+      "HP:0001744",
+      "HP:0002240",
+      "HP:0007430",
+      "HP:0000083"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Siltuximab",
+      "Tocilizumab",
+      "Rituximab",
+      "Combination Chemotherapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Interleukin-6 (IL-6)",
+      "C-Reactive Protein (CRP)",
+      "VEGF"
+    ],
+    "source_file": "Multicentric_Castleman_Disease.yaml",
+    "page_url": "../pages/disorders/Multicentric_Castleman_Disease.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 2,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Multiple Acyl-CoA Dehydrogenase Deficiency",
     "disease_id": "MONDO:0009282",
     "category": "Mendelian",
@@ -27686,6 +28483,90 @@ window.searchData = [
     "num_pathophysiology": 1,
     "num_genes": 0,
     "num_treatments": 0,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Myotonic Dystrophy Type 1",
+    "disease_id": "MONDO:0008056",
+    "category": "Mendelian",
+    "parents": [
+      "Muscular Dystrophy",
+      "Trinucleotide Repeat Disorder"
+    ],
+    "creation_date": "2026-03-06T00:00:00Z",
+    "updated_date": "2026-03-06T06:25:00Z",
+    "subtypes": [],
+    "description": "Myotonic dystrophy type 1 (DM1), also known as Steinert disease, is an autosomal dominant multisystem disorder caused by expansion of a CTG trinucleotide repeat in the 3'-untranslated region of the DMPK gene. It is the most common form of adult-onset muscular dystrophy. The expanded CUG repeat RNA is retained in nuclear foci where it sequesters MBNL1 splicing regulators, causing widespread mis-splicing of downstream target genes. Clinical features include myotonia, progressive muscle weakness and wasting, cardiac conduction defects, cataracts, endocrine abnormalities, and cognitive impairment. Disease severity generally correlates with repeat expansion size.\n",
+    "pathophysiology": [
+      "Toxic RNA Gain-of-Function",
+      "Chloride Channel Mis-splicing and Myotonia"
+    ],
+    "cell_types": [
+      "skeletal muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000188"
+    ],
+    "biological_processes": [
+      "RNA splicing"
+    ],
+    "phenotypes": [
+      "Myotonia",
+      "Progressive Muscle Weakness",
+      "Cataracts",
+      "Cardiac Conduction Defects",
+      "Insulin Resistance and Diabetes",
+      "Cognitive Impairment",
+      "Respiratory Insufficiency"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Ophthalmologic",
+      "Cardiac",
+      "Endocrine",
+      "Neurologic",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Endocrine",
+      "Eye",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002486",
+      "HP:0001324",
+      "HP:0000518",
+      "HP:0031546",
+      "HP:0000819",
+      "HP:0001249",
+      "HP:0002093"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "DMPK"
+    ],
+    "treatments": [
+      "Pharmacotherapy for Myotonia",
+      "Cardiac Monitoring and Pacemaker",
+      "Supportive Care",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Myotonic_Dystrophy_Type_1.yaml",
+    "page_url": "../pages/disorders/Myotonic_Dystrophy_Type_1.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 4,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
   },
@@ -31098,7 +31979,7 @@ window.searchData = [
       "Cardiovascular Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-02-17T21:53:14Z",
+    "updated_date": "2026-03-06T12:00:00Z",
     "subtypes": [],
     "description": "Progressive buildup of lipid-rich plaques in peripheral arteries, predominantly affecting lower extremities. Same pathophysiology as coronary artery disease.\n",
     "pathophysiology": [
@@ -31698,7 +32579,7 @@ window.searchData = [
       "neuroendocrine tumor"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-02-27T21:53:02Z",
+    "updated_date": "2026-03-06T12:00:00Z",
     "subtypes": [
       "Pheochromocytoma",
       "Sympathetic Paraganglioma",
@@ -37858,6 +38739,86 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Takayasu Arteritis",
+    "disease_id": "MONDO:0017991",
+    "category": "Autoimmune",
+    "parents": [
+      "Vasculitis",
+      "Autoimmune Disease"
+    ],
+    "creation_date": "2026-03-06T00:00:00Z",
+    "updated_date": "2026-03-06T00:00:00Z",
+    "subtypes": [],
+    "description": "A rare chronic granulomatous large-vessel vasculitis primarily affecting the aorta and its major branches. Predominantly affects young women, with highest incidence in East Asia. The disease causes segmental stenosis, occlusion, dilatation, and aneurysm formation of affected arteries, leading to limb claudication, absent pulses, hypertension, and potentially life-threatening ischemic complications.",
+    "pathophysiology": [
+      "Granulomatous Vascular Inflammation"
+    ],
+    "cell_types": [
+      "T cell",
+      "Macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:0000084",
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "Inflammatory response",
+      "T cell mediated immunity"
+    ],
+    "phenotypes": [
+      "Absent Pulses",
+      "Arterial Stenosis",
+      "Hypertension",
+      "Fatigue",
+      "Fever",
+      "Weight Loss",
+      "Arthralgia"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Growth",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0032554",
+      "HP:0100545",
+      "HP:0000822",
+      "HP:0012378",
+      "HP:0001954",
+      "HP:0001824",
+      "HP:0002829"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Glucocorticoids",
+      "Tocilizumab",
+      "Vascular Surgery"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Erythrocyte Sedimentation Rate (ESR)",
+      "C-Reactive Protein (CRP)"
+    ],
+    "source_file": "Takayasu_Arteritis.yaml",
+    "page_url": "../pages/disorders/Takayasu_Arteritis.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 1,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Taurodontism",
     "disease_id": "MONDO:0010098",
     "category": "Mendelian",
@@ -38807,6 +39768,96 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "3",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Tuberous Sclerosis Complex",
+    "disease_id": "MONDO:0001734",
+    "category": "Mendelian",
+    "parents": [
+      "Neurocutaneous Syndrome",
+      "mTOR Pathway Disorder"
+    ],
+    "creation_date": "2026-03-06T00:00:00Z",
+    "updated_date": "2026-03-06T00:00:00Z",
+    "subtypes": [],
+    "description": "Tuberous sclerosis complex (TSC) is an autosomal dominant multisystem disorder caused by loss-of-function mutations in TSC1 (hamartin) or TSC2 (tuberin), which form a complex that inhibits the mechanistic target of rapamycin (mTOR) signaling pathway. Constitutive mTOR activation leads to hamartoma formation in multiple organ systems including brain, skin, kidneys, heart, and lungs. Nearly 2 million people are affected worldwide. Major clinical features include cortical tubers, subependymal giant cell astrocytomas, cardiac rhabdomyomas, renal angiomyolipomas, facial angiofibromas, and pulmonary lymphangioleiomyomatosis. TSC-associated neuropsychiatric disorders (TAND) including epilepsy, intellectual disability, and autism spectrum disorder are among the most disabling manifestations.\n",
+    "pathophysiology": [
+      "TSC1/TSC2 Loss of Function and mTOR Hyperactivation"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "mTOR signaling pathway",
+      "cell growth"
+    ],
+    "phenotypes": [
+      "Epileptic Seizures",
+      "Intellectual Disability",
+      "Autism Spectrum Disorder",
+      "Facial Angiofibromas",
+      "Shagreen Patch",
+      "Cortical Tubers",
+      "Subependymal Nodules",
+      "Subependymal Giant Cell Astrocytoma",
+      "Renal Angiomyolipoma",
+      "Cardiac Rhabdomyoma"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Behavioral",
+      "Dermatologic",
+      "Renal",
+      "Cardiac"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Genitourinary",
+      "Integument",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001250",
+      "HP:0001249",
+      "HP:0000717",
+      "HP:0010615",
+      "HP:0009721",
+      "HP:0009717",
+      "HP:0009716",
+      "HP:0009718",
+      "HP:0006772",
+      "HP:0009729"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "TSC1",
+      "TSC2"
+    ],
+    "treatments": [
+      "mTOR Inhibitor Therapy (Everolimus)",
+      "Vigabatrin for Infantile Spasms",
+      "Epilepsy Surgery",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Tuberous_Sclerosis_Complex.yaml",
+    "page_url": "../pages/disorders/Tuberous_Sclerosis_Complex.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 1,
+    "num_genes": 2,
+    "num_treatments": 4,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
   },
   {
     "name": "Type 2 Diabetes Mellitus",
