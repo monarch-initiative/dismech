@@ -7,6 +7,7 @@ import pytest
 
 from dismech.perturb.graph import (
     build_perturbation_graph,
+    extract_causal_edges,
     PerturbationGraph,
     CausalEdgeEnriched,
     trace_causal_paths,
@@ -57,6 +58,41 @@ def test_biochemical_mappings(ckd_mbd_disorder):
     )
     assert phosphate is not None
     assert len(phosphate.mappings) > 0
+
+
+def test_extract_causal_edges_from_yaml(ckd_mbd_disorder):
+    """Test that downstream edges are extracted from pathophysiology."""
+    edges = extract_causal_edges(ckd_mbd_disorder)
+    assert len(edges) > 0
+    # Check a known edge: Phosphate Retention -> Secondary HPT
+    phos_to_hpt = [
+        e
+        for e in edges
+        if "Phosphate" in e.source and "Hyperparathyroidism" in e.target
+    ]
+    assert len(phos_to_hpt) == 1
+    # Check edge from RANKL/OPG -> Decreased Bone Mineral Density
+    rankl_to_bmd = [
+        e for e in edges if "RANKL" in e.source and "Bone Mineral" in e.target
+    ]
+    assert len(rankl_to_bmd) == 1
+    # All edges should have source and target
+    for e in edges:
+        assert e.source
+        assert e.target
+        assert e.mechanism
+
+
+def test_extract_causal_edges_traceable(ckd_mbd_disorder):
+    """Test that extracted edges can be used for causal chain tracing."""
+    edges = extract_causal_edges(ckd_mbd_disorder)
+    paths = trace_causal_paths("Phosphate Retention and FGF23 Axis", edges)
+    assert len(paths) > 0
+    # Should reach phenotype targets through multi-hop paths
+    targets = {p[-1].target for p in paths}
+    assert "Decreased Bone Mineral Density" in targets or any(
+        "Bone" in t for t in targets
+    )
 
 
 # --- Causal chain tracer tests ---

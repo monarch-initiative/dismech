@@ -119,6 +119,48 @@ def build_perturbation_graph(disorder: dict[str, Any]) -> PerturbationGraph:
     )
 
 
+def extract_causal_edges(disorder: dict[str, Any]) -> list[CausalEdgeEnriched]:
+    """Extract causal edges from pathophysiology downstream entries.
+
+    Reads pathophysiology[].downstream and converts each CausalEdge
+    into a CausalEdgeEnriched with the parent mechanism as source.
+
+    >>> edges = extract_causal_edges({"pathophysiology": [
+    ...     {"name": "A", "downstream": [{"target": "B", "description": "A causes B"}]},
+    ...     {"name": "B", "downstream": [{"target": "C"}]},
+    ... ]})
+    >>> [(e.source, e.target) for e in edges]
+    [('A', 'B'), ('B', 'C')]
+    """
+    edges: list[CausalEdgeEnriched] = []
+    for mech in disorder.get("pathophysiology", []) or []:
+        if not isinstance(mech, dict):
+            continue
+        source = mech.get("name", "")
+        for downstream in mech.get("downstream", []) or []:
+            if not isinstance(downstream, dict):
+                continue
+            target = downstream.get("target", "")
+            if not target:
+                continue
+            link_type = downstream.get("causal_link_type", "")
+            relationship = "MEDIATES"
+            if "DIRECT" in link_type:
+                relationship = "DIRECT"
+            elif "INDIRECT" in link_type:
+                relationship = "INDIRECT"
+            edges.append(
+                CausalEdgeEnriched(
+                    source=source,
+                    target=target,
+                    relationship=relationship,
+                    mechanism=source,
+                    evidence=downstream.get("description", ""),
+                )
+            )
+    return edges
+
+
 def trace_causal_paths(
     root: str,
     edges: list[CausalEdgeEnriched],

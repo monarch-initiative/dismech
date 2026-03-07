@@ -37,12 +37,14 @@ class PhenotypeThreshold:
 
 @dataclass
 class VariableMapping:
-    """Maps a named variable to its SBML/extension species."""
+    """Maps a named variable to its model species/parameter."""
 
+    dataset_identifier: str = ""
+    label: str = ""
+    # Legacy fields for backwards compatibility with sidecar configs
     sbml_species: str | None = None
     extension_species: str | None = None
     extension_assignment: str | None = None
-    label: str = ""
 
 
 @dataclass
@@ -79,17 +81,96 @@ class SimulationResult:
     label: str = ""
 
 
-def load_model_config(config_path: Path) -> ModelConfig:
-    """Load model configuration from a sidecar YAML file.
+def extract_model_variables(
+    disorder: dict, model_id: str
+) -> tuple[dict[str, VariableMapping], list[PhenotypeThreshold]]:
+    """Extract variable mappings and phenotype thresholds from disorder YAML.
+
+    Reads computational_models[].variables where model_id matches, using
+    dataset_identifier for the native model name and mappings_list entries
+    with threshold/threshold_direction for phenotype activation.
+
+    Args:
+        disorder: Parsed disorder YAML data
+        model_id: Model ID to match (e.g., "BIOMD0000000613")
+
+    Returns:
+        Tuple of (variable_mappings dict, phenotype_thresholds list)
+    """
+    var_mappings: dict[str, VariableMapping] = {}
+    thresholds: list[PhenotypeThreshold] = []
+
+    for model in disorder.get("computational_models") or []:
+        if not isinstance(model, dict):
+            continue
+        if model.get("model_id") != model_id:
+            continue
+
+        for var in model.get("variables") or []:
+            if not isinstance(var, dict):
+                continue
+            name = var.get("name", "")
+            ds_id = var.get("dataset_identifier", "")
+            if not ds_id:
+                continue
+            label = var.get("description") or name
+            unit = var.get("unit", "")
+            if unit:
+                label = f"{name} ({unit})"
+            var_mappings[name] = VariableMapping(
+                dataset_identifier=ds_id,
+                label=label,
+            )
+
+            for mapping in var.get("mappings_list") or []:
+                if not isinstance(mapping, dict):
+                    continue
+                term = mapping.get("term") or {}
+                term_id = term.get("id", "")
+                term_label = term.get("label", "")
+                thresh = mapping.get("threshold")
+                direction = mapping.get("threshold_direction")
+                if thresh is not None and direction and term_id.startswith("HP:"):
+                    severity = []
+                    for tier in mapping.get("severity_scale") or []:
+                        if isinstance(tier, dict):
+                            severity.append(
+                                (float(tier["threshold"]), str(tier["name"]))
+                            )
+                    thresholds.append(
+                        PhenotypeThreshold(
+                            hp_id=term_id,
+                            hp_label=term_label,
+                            model_variable=name,
+                            direction=direction,
+                            threshold=float(thresh),
+                            severity_scale=severity,
+                        )
+                    )
+        break  # Found matching model
+
+    return var_mappings, thresholds
+
+
+def load_model_config(config_path: Path, disorder: dict | None = None) -> ModelConfig:
+    """Load model configuration from sidecar YAML, enriched with disorder YAML.
+
+    Variable mappings and phenotype thresholds are read from the disorder
+    YAML's computational_models[].variables when available. The sidecar
+    provides gene_effects, scenarios, coupling, and fallback values.
 
     Args:
         config_path: Path to the .config.yaml file
+        disorder: Parsed disorder YAML data (optional; enriches with
+            variable mappings and phenotype thresholds)
 
     Returns:
         ModelConfig with all perturbation settings
     """
     with open(config_path) as f:
         raw = yaml.safe_load(f)
+
+    model_id = raw["model_id"]
 
     gene_effects = {}
     for gene_name, ge_raw in (raw.get("gene_effects") or {}).items():
@@ -102,31 +183,39 @@ def load_model_config(config_path: Path) -> ModelConfig:
             description=ge_raw.get("description", ""),
         )
 
-    var_mappings = {}
-    for var_name, vm_raw in (raw.get("variable_mappings") or {}).items():
-        var_mappings[var_name] = VariableMapping(
-            sbml_species=vm_raw.get("sbml_species"),
-            extension_species=vm_raw.get("extension_species"),
-            extension_assignment=vm_raw.get("extension_assignment"),
-            label=vm_raw.get("label", var_name),
-        )
+    # Try disorder YAML first for variable mappings and thresholds
+    var_mappings: dict[str, VariableMapping] = {}
+    thresholds: list[PhenotypeThreshold] = []
+    if disorder:
+        var_mappings, thresholds = extract_model_variables(disorder, model_id)
 
-    thresholds = []
-    for pt_raw in raw.get("phenotype_thresholds") or []:
-        severity = []
-        for item in pt_raw.get("severity_scale") or []:
-            if isinstance(item, list) and len(item) == 2:
-                severity.append((float(item[0]), str(item[1])))
-        thresholds.append(
-            PhenotypeThreshold(
-                hp_id=pt_raw["hp_id"],
-                hp_label=pt_raw["hp_label"],
-                model_variable=pt_raw["model_variable"],
-                direction=pt_raw["direction"],
-                threshold=float(pt_raw["threshold"]),
-                severity_scale=severity,
+    # Fall back to sidecar variable_mappings if YAML didn't provide any
+    if not var_mappings:
+        for var_name, vm_raw in (raw.get("variable_mappings") or {}).items():
+            var_mappings[var_name] = VariableMapping(
+                sbml_species=vm_raw.get("sbml_species"),
+                extension_species=vm_raw.get("extension_species"),
+                extension_assignment=vm_raw.get("extension_assignment"),
+                label=vm_raw.get("label", var_name),
             )
-        )
+
+    # Fall back to sidecar phenotype_thresholds if YAML didn't provide any
+    if not thresholds:
+        for pt_raw in raw.get("phenotype_thresholds") or []:
+            severity = []
+            for item in pt_raw.get("severity_scale") or []:
+                if isinstance(item, list) and len(item) == 2:
+                    severity.append((float(item[0]), str(item[1])))
+            thresholds.append(
+                PhenotypeThreshold(
+                    hp_id=pt_raw["hp_id"],
+                    hp_label=pt_raw["hp_label"],
+                    model_variable=pt_raw["model_variable"],
+                    direction=pt_raw["direction"],
+                    threshold=float(pt_raw["threshold"]),
+                    severity_scale=severity,
+                )
+            )
 
     coupling_raw = raw.get("coupling") or {}
     coupling = CouplingConfig(
@@ -138,7 +227,7 @@ def load_model_config(config_path: Path) -> ModelConfig:
     )
 
     return ModelConfig(
-        model_id=raw["model_id"],
+        model_id=model_id,
         sbml_file=raw["sbml_file"],
         extension_file=raw.get("extension_file"),
         gene_effects=gene_effects,
@@ -237,9 +326,20 @@ def run_perturbation(
             last_fgf23 = r_ext["FGF23"]
 
     # Collect final values
+    base_ids = set(r_base.getFloatingSpeciesIds() + r_base.getGlobalParameterIds())
+    ext_ids = set()
+    if r_ext:
+        ext_ids = set(r_ext.getFloatingSpeciesIds() + r_ext.getGlobalParameterIds())
+
     variables = {}
     for var_name, vm in config.variable_mappings.items():
-        if vm.sbml_species:
+        if vm.dataset_identifier:
+            ds_id = vm.dataset_identifier
+            if ds_id in base_ids:
+                variables[var_name] = float(r_base[ds_id])
+            elif r_ext and ds_id in ext_ids:
+                variables[var_name] = float(r_ext[ds_id])
+        elif vm.sbml_species:
             variables[var_name] = float(r_base[vm.sbml_species])
         elif vm.extension_species and r_ext:
             variables[var_name] = float(r_ext[vm.extension_species])

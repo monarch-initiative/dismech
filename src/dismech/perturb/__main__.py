@@ -12,7 +12,7 @@ from typing import Optional
 import typer
 import yaml
 
-from dismech.perturb.graph import trace_causal_paths
+from dismech.perturb.graph import extract_causal_edges, trace_causal_paths
 from dismech.perturb.simulate import load_model_config, run_perturbation, ModelConfig
 from dismech.perturb.phenotypes import evaluate_phenotypes
 
@@ -35,7 +35,7 @@ def _find_model_config(
         for d in search_dirs:
             config_path = d / f"{model_id}.config.yaml"
             if config_path.exists():
-                return load_model_config(config_path)
+                return load_model_config(config_path, disorder=disorder)
 
     return None
 
@@ -66,11 +66,9 @@ def _print_variable_table(
         )
 
 
-def _get_causal_edges():
-    """Load causal edges (currently hardcoded for CKD-MBD)."""
-    from dismech.perturb._ckd_mbd_edges import CKD_MBD_CAUSAL_EDGES
-
-    return CKD_MBD_CAUSAL_EDGES
+def _get_causal_edges(disorder: dict):
+    """Extract causal edges from disorder YAML pathophysiology downstream entries."""
+    return extract_causal_edges(disorder)
 
 
 @app.command()
@@ -114,9 +112,9 @@ def perturb(
     baseline = baseline_result.variables
 
     if all_scenarios:
-        _run_all_scenarios(config, baseline)
+        _run_all_scenarios(config, baseline, disorder)
     elif scenario:
-        _run_named_scenario(config, baseline, scenario)
+        _run_named_scenario(config, baseline, scenario, disorder)
     else:
         _run_single(config, baseline, gene, effect, param, gfr)
 
@@ -168,20 +166,22 @@ def _run_single(
         print("\n  No phenotypes activated.")
 
 
-def _run_all_scenarios(config: ModelConfig, baseline: dict[str, float]) -> None:
+def _run_all_scenarios(
+    config: ModelConfig, baseline: dict[str, float], disorder: dict
+) -> None:
     """Run all predefined scenarios from the config."""
     print(f"\n{'=' * 100}")
     print("CAUSAL PERTURBATION ANALYSIS: All Scenarios")
     print(f"{'=' * 100}")
 
     for scenario_name, scenario in config.scenarios.items():
-        _run_scenario(config, baseline, scenario_name, scenario)
+        _run_scenario(config, baseline, scenario_name, scenario, disorder)
 
     _print_gene_phenotype_matrix(config, baseline)
 
 
 def _run_named_scenario(
-    config: ModelConfig, baseline: dict[str, float], name: str
+    config: ModelConfig, baseline: dict[str, float], name: str, disorder: dict
 ) -> None:
     """Run a single named scenario."""
     if name not in config.scenarios:
@@ -189,11 +189,15 @@ def _run_named_scenario(
             f"Unknown scenario: {name}. Available: {', '.join(config.scenarios.keys())}"
         )
         raise typer.Exit(1)
-    _run_scenario(config, baseline, name, config.scenarios[name])
+    _run_scenario(config, baseline, name, config.scenarios[name], disorder)
 
 
 def _run_scenario(
-    config: ModelConfig, baseline: dict[str, float], name: str, scenario: dict
+    config: ModelConfig,
+    baseline: dict[str, float],
+    name: str,
+    scenario: dict,
+    disorder: dict,
 ) -> None:
     """Run one scenario and print results."""
     label = scenario.get("label", name)
@@ -232,7 +236,7 @@ def _run_scenario(
 
     causal_root = scenario.get("causal_root")
     if causal_root:
-        edges = _get_causal_edges()
+        edges = _get_causal_edges(disorder)
         paths = trace_causal_paths(causal_root, edges)
         if paths:
             long_paths = sorted(paths, key=len, reverse=True)[:3]
