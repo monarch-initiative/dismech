@@ -8,7 +8,7 @@ duration_seconds: 768.06
 template_file: templates/disease_pathophysiology_research.md
 template_variables:
   disease_name: Dilated Cardiomyopathy
-  mondo_id: ''
+  mondo_id: 'MONDO:0005021'
   category: Complex
 provider_config:
   timeout: null
