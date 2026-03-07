@@ -48,6 +48,16 @@ class VariableMapping:
 
 
 @dataclass
+class FeedbackRule:
+    """A data-driven feedback rule between extension and base models."""
+
+    source: str  # Extension species to read (e.g., "FGF23")
+    target_parameter: str  # Base parameter to modify (e.g., "T69")
+    base_value: float  # Default base value if not readable from model
+    formula: str  # Formula string (currently only "hill_suppression" supported)
+
+
+@dataclass
 class CouplingConfig:
     """Configuration for coupled base+extension simulation."""
 
@@ -56,6 +66,7 @@ class CouplingConfig:
     base_to_extension: dict[str, str] = field(default_factory=dict)
     gfr_parameter: str = "GFR"
     gfr_ext_parameter: str = "GFR_ext"
+    feedback: list[FeedbackRule] = field(default_factory=list)
 
 
 @dataclass
@@ -218,12 +229,23 @@ def load_model_config(config_path: Path, disorder: dict | None = None) -> ModelC
             )
 
     coupling_raw = raw.get("coupling") or {}
+    feedback_rules: list[FeedbackRule] = []
+    for name, fb_raw in (coupling_raw.get("feedback") or {}).items():
+        feedback_rules.append(
+            FeedbackRule(
+                source=fb_raw["source"],
+                target_parameter=fb_raw["target_parameter"],
+                base_value=float(fb_raw.get("base_value", 0.1)),
+                formula=fb_raw.get("formula", ""),
+            )
+        )
     coupling = CouplingConfig(
         dt_hours=coupling_raw.get("dt_hours", 168),
         duration_hours=coupling_raw.get("duration_hours", 26280),
         base_to_extension=coupling_raw.get("base_to_extension", {}),
         gfr_parameter=coupling_raw.get("gfr_parameter", "GFR"),
         gfr_ext_parameter=coupling_raw.get("gfr_ext_parameter", "GFR_ext"),
+        feedback=feedback_rules,
     )
 
     return ModelConfig(
@@ -296,24 +318,36 @@ def run_perturbation(
             elif r_ext and param in r_ext.getGlobalParameterIds():
                 r_ext[param] = r_ext[param] * mult
 
-    # Get CYP24A1 base value for feedback
-    cyp24a1_base_t69 = r_base["T69"] if "T69" in r_base.getGlobalParameterIds() else 0.1
+    # Capture base values for feedback rules
+    base_param_ids = set(r_base.getGlobalParameterIds())
+    feedback_base_values: dict[str, float] = {}
+    for rule in config.coupling.feedback:
+        if rule.target_parameter in base_param_ids:
+            feedback_base_values[rule.target_parameter] = float(
+                r_base[rule.target_parameter]
+            )
+        else:
+            feedback_base_values[rule.target_parameter] = rule.base_value
+
+    # Track last extension species values for feedback
+    feedback_source_values: dict[str, float] = {}
 
     # Run coupled simulation
     dt = config.coupling.dt_hours
     duration = config.coupling.duration_hours
     n_steps = int(duration / dt)
 
-    last_fgf23 = 50.0  # default
-
     for i in range(n_steps):
         t_start = i * dt
         t_end = (i + 1) * dt
 
-        # Bidirectional feedback: FGF23 suppresses CYP27B1
+        # Apply feedback rules: extension → base
         if r_ext and i > 0:
-            fgf23_suppression = 1 / (1 + (last_fgf23 / 50) ** 1.5)
-            r_base["T69"] = cyp24a1_base_t69 / max(fgf23_suppression, 0.01)
+            for rule in config.coupling.feedback:
+                source_val = feedback_source_values.get(rule.source, 50.0)
+                base_val = feedback_base_values[rule.target_parameter]
+                suppression = 1 / (1 + (source_val / 50) ** 1.5)
+                r_base[rule.target_parameter] = base_val / max(suppression, 0.01)
 
         r_base.simulate(t_start, t_end, 2)
 
@@ -323,7 +357,9 @@ def run_perturbation(
                 r_ext[ext_var] = r_base[base_var]
             r_ext[config.coupling.gfr_ext_parameter] = gfr
             r_ext.simulate(t_start, t_end, 2)
-            last_fgf23 = r_ext["FGF23"]
+            # Update feedback source values
+            for rule in config.coupling.feedback:
+                feedback_source_values[rule.source] = float(r_ext[rule.source])
 
     # Collect final values
     base_ids = set(r_base.getFloatingSpeciesIds() + r_base.getGlobalParameterIds())

@@ -131,6 +131,9 @@ def _run_single(
     param_overrides = {}
     if param:
         for p in param:
+            if "=" not in p:
+                typer.echo(f"Error: --param requires NAME=VALUE format, got '{p}'")
+                raise typer.Exit(1)
             name, val = p.split("=", 1)
             param_overrides[name] = float(val)
 
