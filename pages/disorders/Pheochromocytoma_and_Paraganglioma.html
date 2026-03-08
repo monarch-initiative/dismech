@@ -1180,20 +1180,101 @@
             .stats-bar { gap: 16px; }
             .section-grid { grid-template-columns: 1fr; }
         }
-        /* Mermaid graph */
-        .mermaid-container {
-            text-align: center;
+        /* Pathograph (interactive causal graph) */
+        .pathograph-container {
             margin: 20px 0;
-            padding: 20px;
+            padding: 0;
             background: white;
             border-radius: 8px;
             border: 1px solid var(--border);
-            overflow-x: auto;
+            overflow: hidden;
+            position: relative;
         }
 
-        .mermaid svg {
-            max-width: 100%;
-            height: auto;
+        .pathograph-container svg {
+            display: block;
+            width: 100%;
+            cursor: grab;
+        }
+
+        .pathograph-container svg:active {
+            cursor: grabbing;
+        }
+
+        .pathograph-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            padding: 10px 16px;
+            background: #f9fafb;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.78rem;
+            color: #6b7280;
+        }
+
+        .pathograph-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .pathograph-legend-item.dimmed {
+            opacity: 0.35;
+        }
+
+        .pathograph-legend-swatch {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+            border: 1px solid rgba(0,0,0,0.15);
+            flex-shrink: 0;
+        }
+
+        .pathograph-tooltip {
+            position: absolute;
+            pointer-events: none;
+            background: rgba(17, 24, 39, 0.92);
+            color: #f9fafb;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            line-height: 1.45;
+            max-width: 320px;
+            z-index: 100;
+            opacity: 0;
+            transition: opacity 0.15s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip .tt-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #e5e7eb;
+        }
+
+        .pathograph-tooltip .tt-type {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            opacity: 0.7;
+            margin-bottom: 6px;
+        }
+
+        .pathograph-tooltip .tt-desc {
+            margin-bottom: 6px;
+            color: #d1d5db;
+        }
+
+        .pathograph-tooltip .tt-meta {
+            font-size: 0.72rem;
+            color: #9ca3af;
+        }
+
+        .pathograph-tooltip .tt-meta span {
+            display: block;
+            margin: 2px 0;
         }
 
         .graph-warning {
@@ -1220,16 +1301,334 @@
             margin: 4px 0;
         }
     </style>
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
     <script>
-        mermaid.initialize({
-            startOnLoad: true,
-            theme: 'default',
-            flowchart: {
-                htmlLabels: true,
-                curve: 'basis'
-            }
+    /* Pathograph: interactive D3.js causal mechanism network */
+    var NODE_SHAPES = {
+        pathophysiology: "roundrect",
+        phenotype: "ellipse",
+        environmental: "diamond",
+        genetic: "hexagon",
+        treatment: "rect",
+        biochemical: "circle",
+        orphan: "roundrect",
+        unknown: "roundrect"
+    };
+    var NODE_TYPE_LABELS = {
+        pathophysiology: "Pathophysiology",
+        phenotype: "Phenotype",
+        environmental: "Environmental",
+        genetic: "Genetic",
+        treatment: "Treatment",
+        biochemical: "Biochemical",
+        orphan: "Orphan"
+    };
+    var NODE_STROKE = {
+        pathophysiology: "#93c5fd",
+        phenotype: "#fcd34d",
+        environmental: "#86efac",
+        genetic: "#c4b5fd",
+        treatment: "#f9a8d4",
+        biochemical: "#a5b4fc",
+        orphan: "#dc2626"
+    };
+
+    function renderPathograph(containerId, data) {
+        var container = document.getElementById(containerId);
+        var svgEl = document.getElementById(containerId + "-svg");
+        var tooltipEl = document.getElementById(containerId + "-tooltip");
+        var legendEl = document.getElementById(containerId + "-legend");
+        if (!data || !data.nodes || !data.nodes.length) return;
+
+        /* -- Dagre layout -- */
+        var g = new dagre.graphlib.Graph();
+        g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
+        g.setDefaultEdgeLabel(function() { return {}; });
+
+        var nodeMap = {};
+        data.nodes.forEach(function(n) {
+            nodeMap[n.id] = n;
+            var labelLen = n.id.length;
+            var w = Math.max(120, Math.min(220, labelLen * 8 + 30));
+            var h = 44;
+            g.setNode(n.id, { width: w, height: h, label: n.id });
         });
+        data.edges.forEach(function(e) {
+            g.setEdge(e.source, e.target);
+        });
+        dagre.layout(g);
+
+        var graphInfo = g.graph();
+        var totalW = graphInfo.width + 60;
+        var totalH = graphInfo.height + 60;
+
+        /* -- SVG setup with zoom -- */
+        var svg = d3.select(svgEl)
+            .attr("viewBox", "0 0 " + totalW + " " + totalH)
+            .attr("preserveAspectRatio", "xMidYMid meet")
+            .style("min-height", Math.min(totalH, 600) + "px");
+
+        var rootG = svg.append("g").attr("class", "pathograph-root");
+
+        var zoom = d3.zoom()
+            .scaleExtent([0.3, 3])
+            .on("zoom", function(event) {
+                rootG.attr("transform", event.transform);
+            });
+        svg.call(zoom);
+
+        /* -- Arrow marker -- */
+        svg.append("defs").append("marker")
+            .attr("id", "pg-arrow")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#9ca3af");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-orphan")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#dc2626");
+
+        /* -- Draw edges -- */
+        var edgesG = rootG.append("g").attr("class", "pg-edges");
+        data.edges.forEach(function(e) {
+            var dagreEdge = g.edge(e.source, e.target);
+            if (!dagreEdge || !dagreEdge.points) return;
+            var pts = dagreEdge.points;
+            var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
+            edgesG.append("path")
+                .attr("d", line(pts))
+                .attr("fill", "none")
+                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke-width", 1.8)
+                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
+                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("data-source", e.source)
+                .attr("data-target", e.target);
+        });
+
+        /* -- Shape helpers -- */
+        function drawNodeShape(sel, nodeData, w, h) {
+            var shape = NODE_SHAPES[nodeData.node_type] || "roundrect";
+            var stroke = NODE_STROKE[nodeData.node_type] || "#d1d5db";
+            var strokeDash = nodeData.is_orphan ? "6 4" : "none";
+            if (nodeData.is_orphan) stroke = "#dc2626";
+
+            if (shape === "ellipse") {
+                sel.append("ellipse")
+                    .attr("rx", w/2).attr("ry", h/2)
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else if (shape === "diamond") {
+                var dx = w/2, dy = h/2;
+                sel.append("polygon")
+                    .attr("points", "0,"+(-dy)+" "+(dx)+",0 0,"+(dy)+" "+(-dx)+",0")
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else if (shape === "hexagon") {
+                var hx = w/2, hy = h/2, inset = w*0.2;
+                sel.append("polygon")
+                    .attr("points",
+                        (-hx+inset)+","+(-hy)+" "+(hx-inset)+","+(-hy)+" "+
+                        (hx)+",0 "+(hx-inset)+","+(hy)+" "+
+                        (-hx+inset)+","+(hy)+" "+(-hx)+",0")
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else if (shape === "circle") {
+                var r = Math.min(w, h) / 2;
+                sel.append("circle")
+                    .attr("r", r)
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else if (shape === "rect") {
+                sel.append("rect")
+                    .attr("x", -w/2).attr("y", -h/2).attr("width", w).attr("height", h)
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else {
+                /* roundrect (default) */
+                sel.append("rect")
+                    .attr("x", -w/2).attr("y", -h/2).attr("width", w).attr("height", h)
+                    .attr("rx", 8).attr("ry", 8)
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            }
+        }
+
+        /* -- Draw nodes -- */
+        var nodesG = rootG.append("g").attr("class", "pg-nodes");
+        data.nodes.forEach(function(n) {
+            var dagreNode = g.node(n.id);
+            if (!dagreNode) return;
+            var nw = dagreNode.width, nh = dagreNode.height;
+            var nodeG = nodesG.append("g")
+                .attr("transform", "translate(" + dagreNode.x + "," + dagreNode.y + ")")
+                .attr("data-node-type", n.node_type)
+                .attr("data-node-id", n.id)
+                .style("cursor", "pointer");
+
+            drawNodeShape(nodeG, n, nw, nh);
+
+            /* Label text */
+            var label = n.id;
+            var maxChars = Math.floor(nw / 7);
+            if (label.length > maxChars) label = label.substring(0, maxChars - 1) + "\u2026";
+            nodeG.append("text")
+                .attr("text-anchor", "middle")
+                .attr("dominant-baseline", "central")
+                .attr("font-size", "11px")
+                .attr("font-family", "system-ui, -apple-system, sans-serif")
+                .attr("fill", "#1f2937")
+                .text(label);
+
+            /* Interaction: hover */
+            nodeG.on("mouseenter", function(event) {
+                highlightNode(n.id, true);
+                showTooltip(event, n);
+            }).on("mouseleave", function() {
+                highlightNode(n.id, false);
+                hideTooltip();
+            }).on("click", function(event) {
+                event.stopPropagation();
+                highlightNode(n.id, true);
+                showTooltip(event, n);
+            });
+        });
+
+        /* Click on background clears highlight */
+        svg.on("click", function() {
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* -- Highlight helpers -- */
+        function highlightNode(nodeId, on) {
+            if (!on) { clearHighlight(); return; }
+            /* Find connected edges */
+            var connectedNodes = new Set([nodeId]);
+            data.edges.forEach(function(e) {
+                if (e.source === nodeId) connectedNodes.add(e.target);
+                if (e.target === nodeId) connectedNodes.add(e.source);
+            });
+            nodesG.selectAll("g").each(function() {
+                var el = d3.select(this);
+                var nid = el.attr("data-node-id");
+                el.style("opacity", connectedNodes.has(nid) ? 1 : 0.2);
+            });
+            edgesG.selectAll("path").each(function() {
+                var el = d3.select(this);
+                var s = el.attr("data-source"), t = el.attr("data-target");
+                el.style("opacity", (s === nodeId || t === nodeId) ? 1 : 0.1);
+            });
+        }
+
+        function clearHighlight() {
+            nodesG.selectAll("g").style("opacity", 1);
+            edgesG.selectAll("path").style("opacity", 1);
+        }
+
+        /* -- Tooltip -- */
+        function showTooltip(event, n) {
+            var html = [];
+            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
+            if (n.description) {
+                var desc = n.description;
+                if (desc.length > 200) desc = desc.substring(0, 197) + "...";
+                html.push('<div class="tt-desc">' + escapeHtml(desc) + '</div>');
+            }
+            var meta = n.meta || {};
+            var metaParts = [];
+            if (meta.evidence_count) metaParts.push('<span>Evidence: ' + meta.evidence_count + ' items</span>');
+            if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
+            if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
+            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
+            if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
+            if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            tooltipEl.innerHTML = html.join("");
+            tooltipEl.style.opacity = "1";
+
+            /* Position relative to container */
+            var rect = container.getBoundingClientRect();
+            var x = event.clientX - rect.left + 14;
+            var y = event.clientY - rect.top + 14;
+            if (x + 330 > rect.width) x = x - 340;
+            if (y + 200 > rect.height) y = Math.max(4, y - 200);
+            tooltipEl.style.left = x + "px";
+            tooltipEl.style.top = y + "px";
+        }
+
+        function hideTooltip() {
+            tooltipEl.style.opacity = "0";
+        }
+
+        function escapeHtml(str) {
+            var div = document.createElement("div");
+            div.appendChild(document.createTextNode(str));
+            return div.innerHTML;
+        }
+
+        /* -- Legend -- */
+        var typesInGraph = {};
+        data.nodes.forEach(function(n) { if (!n.is_orphan) typesInGraph[n.node_type] = n.color; });
+        var activeTypes = new Set(Object.keys(typesInGraph));
+
+        Object.keys(typesInGraph).forEach(function(type) {
+            var item = document.createElement("div");
+            item.className = "pathograph-legend-item";
+            item.setAttribute("data-type", type);
+            var swatch = document.createElement("div");
+            swatch.className = "pathograph-legend-swatch";
+            swatch.style.background = typesInGraph[type];
+            swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
+            item.appendChild(swatch);
+            var label = document.createElement("span");
+            label.textContent = NODE_TYPE_LABELS[type] || type;
+            item.appendChild(label);
+            item.addEventListener("click", function() {
+                if (activeTypes.has(type)) {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
+                } else {
+                    activeTypes.add(type);
+                    item.classList.remove("dimmed");
+                }
+                filterByType();
+            });
+            legendEl.appendChild(item);
+        });
+
+        function filterByType() {
+            nodesG.selectAll("g").each(function() {
+                var el = d3.select(this);
+                var t = el.attr("data-node-type");
+                el.style("display", activeTypes.has(t) ? null : "none");
+            });
+            edgesG.selectAll("path").each(function() {
+                var el = d3.select(this);
+                var sNode = nodeMap[el.attr("data-source")];
+                var tNode = nodeMap[el.attr("data-target")];
+                var sVis = sNode && activeTypes.has(sNode.node_type);
+                var tVis = tNode && activeTypes.has(tNode.node_type);
+                el.style("display", (sVis && tVis) ? null : "none");
+            });
+        }
+    }
     </script>
 </head>
 <body>
@@ -1824,24 +2223,28 @@
         </div>
         
 
-        <!-- Causal Graph -->
+        <!-- Causal Graph (Pathograph) -->
         
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
-                <h2 class="card-title">Causal Graph</h2>
+                <h2 class="card-title">Pathograph</h2>
             </div>
             
-            <div class="mermaid-container">
-                <pre class="mermaid">graph LR
-    Succinate_Dehydrogenase_Complex_Dysfunction[&#34;Succinate Dehydrogenase Complex Dysfunction&#34;]
-    Pseudohypoxia_and_HIF_Activation[&#34;Pseudohypoxia and HIF Activation&#34;]
-
-    Succinate_Dehydrogenase_Complex_Dysfunction --&gt; Pseudohypoxia_and_HIF_Activation
-
-    style Succinate_Dehydrogenase_Complex_Dysfunction fill:#dbeafe
-    style Pseudohypoxia_and_HIF_Activation fill:#dbeafe</pre>
+            <div class="pathograph-container" id="pathograph">
+                <div class="pathograph-legend" id="pathograph-legend"></div>
+                <svg id="pathograph-svg" role="img">
+                    <title>Pathograph: causal mechanism network for Pheochromocytoma and Paraganglioma</title>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                </svg>
+                <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
+            <script>
+            (function() {
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Pseudohypoxia and HIF Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SDHx and VHL mutations cause constitutive stabilization of hypoxia-inducible factors (HIF1/2) under normoxic conditions. This pseudohypoxic state activates genes promoting angiogenesis, glycolysis, and cell survival, driving tumorigenesis.\", \"meta\": {\"biological_processes\": [\"response to hypoxia\"]}}, {\"id\": \"Succinate Dehydrogenase Complex Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in SDHx genes (SDHA, SDHB, SDHC, SDHD, SDHAF2) impair mitochondrial complex II function, leading to succinate accumulation. Succinate acts as an oncometabolite, inhibiting alpha-ketoglutarate-dependent dioxygenases and causing pseudohypoxia and epigenetic dysregulation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"chromaffin cell\"], \"biological_processes\": [\"succinate dehydrogenase activity\"], \"locations\": [\"adrenal gland\"]}}], \"edges\": [{\"source\": \"Succinate Dehydrogenase Complex Dysfunction\", \"target\": \"Pseudohypoxia and HIF Activation\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                renderPathograph("pathograph", graphData);
+            })();
+            </script>
         </div>
         
 
@@ -2075,6 +2478,34 @@
                 
                 
     
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15328326" target="_blank">PMID:15328326</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                </div>
+                
+                <div class="evidence-snippet">"SDHB mutation carriers have an increased frequency of malignant disease (11/32 vs 0/34, P&lt;.001)."</div>
+                
+                
+                <div class="evidence-explanation">JAMA study demonstrating significantly increased malignancy risk in SDHB mutation carriers compared to SDHD.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
     
             </div>
             
@@ -2093,6 +2524,34 @@
                 </div>
                 
                 
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15328326" target="_blank">PMID:15328326</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Head and neck paragangliomas (10/32 vs 27/34, respectively, P&lt;.001) and multifocal (9/32 vs 25/34, respectively, P&lt;.001) tumors were more frequent in carriers of SDHD mutations."</div>
+                
+                
+                <div class="evidence-explanation">JAMA study demonstrating SDHD mutations predispose to head and neck and multifocal paragangliomas.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
             </div>
@@ -2131,6 +2590,34 @@
                 </div>
                 
                 
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32388798" target="_blank">PMID:32388798</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Multiple endocrine neoplasia type 2 (MEN2) is a rare hereditary syndrome due to mutations of the proto-oncogene REarranged during Transfection (RET), defined by the association of medullary thyroid carcinoma (MTC) in almost 100% cases, and pheochromocytoma in roughly 50%"</div>
+                
+                
+                <div class="evidence-explanation">Review establishing RET mutations in MEN2 cause pheochromocytoma in approximately 50% of patients.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
             </div>
@@ -2185,6 +2672,34 @@
                 
                 
     
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24893135" target="_blank">PMID:24893135</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                </div>
+                
+                <div class="evidence-snippet">"We recommend minimally invasive adrenalectomy for most pheochromocytomas with open resection for most paragangliomas."</div>
+                
+                
+                <div class="evidence-explanation">Endocrine Society clinical practice guideline recommending surgical resection as primary treatment.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
     
             </div>
             
@@ -2206,6 +2721,34 @@
                 
                 
                 
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24893135" target="_blank">PMID:24893135</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                </div>
+                
+                <div class="evidence-snippet">"All patients with functional PPGLs should undergo preoperative blockade to prevent perioperative complications."</div>
+                
+                
+                <div class="evidence-explanation">Endocrine Society guideline recommending preoperative alpha blockade for all functional PPGLs.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
             </div>
@@ -2347,7 +2890,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Pheochromocytoma and Paraganglioma
 creation_date: &#39;2026-01-26T02:55:13Z&#39;
-updated_date: &#39;2026-02-27T21:53:02Z&#39;
+updated_date: &#39;2026-03-06T12:00:00Z&#39;
 description: &gt;-
   Pheochromocytoma and paraganglioma (PPGL) are rare neuroendocrine tumors arising
   from chromaffin cells of the adrenal medulla (pheochromocytoma) or extra-adrenal
@@ -2534,6 +3077,13 @@ genetic:
   notes: &gt;-
     SDHB mutations are associated with extra-adrenal sympathetic paraganglioma
     and high malignancy risk (30-40%). Lifelong surveillance required.
+  evidence:
+  - reference: PMID:15328326
+    supports: SUPPORT
+    snippet: &#34;SDHB mutation carriers have an increased frequency of malignant
+      disease (11/32 vs 0/34, P&lt;.001).&#34;
+    explanation: JAMA study demonstrating significantly increased malignancy
+      risk in SDHB mutation carriers compared to SDHD.
 - name: SDHD
   association: Germline Loss-of-Function Mutations
   inheritance:
@@ -2542,6 +3092,14 @@ genetic:
     SDHD mutations cause hereditary paraganglioma syndrome with predisposition
     to head and neck paragangliomas. Parent-of-origin effect with disease
     expression only with paternal transmission.
+  evidence:
+  - reference: PMID:15328326
+    supports: SUPPORT
+    snippet: &#34;Head and neck paragangliomas (10/32 vs 27/34, respectively, P&lt;.001)
+      and multifocal (9/32 vs 25/34, respectively, P&lt;.001) tumors were more
+      frequent in carriers of SDHD mutations.&#34;
+    explanation: JAMA study demonstrating SDHD mutations predispose to head
+      and neck and multifocal paragangliomas.
 - name: VHL
   association: Germline Loss-of-Function Mutations
   inheritance:
@@ -2556,6 +3114,15 @@ genetic:
   notes: &gt;-
     RET mutations in MEN2 syndrome cause pheochromocytoma in approximately
     50% of MEN2A and most MEN2B patients. Typically bilateral and benign.
+  evidence:
+  - reference: PMID:32388798
+    supports: SUPPORT
+    snippet: &#34;Multiple endocrine neoplasia type 2 (MEN2) is a rare hereditary
+      syndrome due to mutations of the proto-oncogene REarranged during
+      Transfection (RET), defined by the association of medullary thyroid
+      carcinoma (MTC) in almost 100% cases, and pheochromocytoma in roughly 50%&#34;
+    explanation: Review establishing RET mutations in MEN2 cause pheochromocytoma
+      in approximately 50% of patients.
 - name: NF1
   association: Germline Loss-of-Function Mutations
   inheritance:
@@ -2574,6 +3141,13 @@ treatments:
     term:
       id: MAXO:0000004
       label: surgical procedure
+  evidence:
+  - reference: PMID:24893135
+    supports: SUPPORT
+    snippet: &#34;We recommend minimally invasive adrenalectomy for most
+      pheochromocytomas with open resection for most paragangliomas.&#34;
+    explanation: Endocrine Society clinical practice guideline recommending
+      surgical resection as primary treatment.
 - name: Alpha-Adrenergic Blockade
   description: &gt;-
     Preoperative alpha-blockade with phenoxybenzamine or doxazosin is essential
@@ -2583,6 +3157,13 @@ treatments:
     term:
       id: MAXO:0000058
       label: pharmacotherapy
+  evidence:
+  - reference: PMID:24893135
+    supports: SUPPORT
+    snippet: &#34;All patients with functional PPGLs should undergo preoperative
+      blockade to prevent perioperative complications.&#34;
+    explanation: Endocrine Society guideline recommending preoperative alpha
+      blockade for all functional PPGLs.
 - name: MIBG Therapy
   description: &gt;-
     131I-MIBG (metaiodobenzylguanidine) is a targeted radiotherapy for

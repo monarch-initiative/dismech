@@ -1,11 +1,13 @@
 """
-Build causal graphs from disorder data and generate Mermaid diagrams.
+Build causal graphs from disorder data and generate Mermaid diagrams and
+interactive D3.js pathograph JSON.
 
 This module extracts nodes (named elements) and edges (downstream/sequelae relationships)
 from disorder YAML data, performs referential integrity checks, and generates
-Mermaid flowchart code for visualization.
+Mermaid flowchart code and pathograph JSON for visualization.
 """
 
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -210,6 +212,145 @@ def generate_mermaid(graph: CausalGraph) -> str:
             lines.append(f"    style {node_id} fill:{color}")
 
     return "\n".join(lines)
+
+
+def _extract_node_metadata(item: dict[str, Any]) -> dict[str, Any]:
+    """Extract rich metadata from a disorder section item for pathograph tooltips."""
+    meta: dict[str, Any] = {}
+
+    # Evidence count
+    evidence = item.get("evidence", []) or []
+    if evidence:
+        meta["evidence_count"] = len(evidence)
+
+    # Cell types
+    cell_types = item.get("cell_types", []) or []
+    if cell_types:
+        meta["cell_types"] = [
+            label for ct in cell_types if isinstance(ct, dict)
+            if (label := ct.get("preferred_term") or (ct.get("term", {}) or {}).get("label", ""))
+        ]
+
+    # Biological processes
+    processes = item.get("biological_processes", []) or []
+    if processes:
+        meta["biological_processes"] = [
+            label for bp in processes if isinstance(bp, dict)
+            if (label := bp.get("preferred_term") or (bp.get("term", {}) or {}).get("label", ""))
+        ]
+
+    # Genes
+    genes = item.get("genes", []) or []
+    if genes:
+        meta["genes"] = [
+            label for g in genes if isinstance(g, dict)
+            if (label := g.get("preferred_term") or (g.get("term", {}) or {}).get("label", ""))
+        ]
+
+    # Role (pathophysiology)
+    if item.get("role"):
+        meta["role"] = item["role"]
+
+    # Frequency
+    if item.get("frequency"):
+        meta["frequency"] = item["frequency"]
+
+    # Severity (phenotypes)
+    if item.get("severity"):
+        meta["severity"] = item["severity"]
+
+    # Phenotype term
+    pt = item.get("phenotype_term")
+    if isinstance(pt, dict):
+        term = pt.get("term")
+        if isinstance(term, dict) and term.get("id"):
+            meta["term_id"] = term["id"]
+
+    # Locations
+    locations = item.get("locations", []) or []
+    if locations:
+        meta["locations"] = [
+            label for loc in locations if isinstance(loc, dict)
+            if (label := loc.get("preferred_term") or (loc.get("term", {}) or {}).get("label", ""))
+        ]
+
+    return meta
+
+
+def graph_to_json(graph: CausalGraph, disorder: dict[str, Any]) -> str:
+    """
+    Serialize a causal graph to JSON for the D3.js pathograph visualization.
+
+    Enriches nodes with metadata from the disorder data (evidence counts,
+    cell types, biological processes, genes, etc.) for interactive tooltips.
+
+    Args:
+        graph: CausalGraph with nodes and edges
+        disorder: Full parsed disorder YAML data
+
+    Returns:
+        JSON string with {nodes: [...], edges: [...], orphan_targets: [...]}
+    """
+    if not graph.edges:
+        return ""
+
+    # Build a lookup from item name -> raw item dict for metadata extraction
+    section_keys = [
+        "pathophysiology", "phenotypes", "environmental",
+        "genetic", "treatments", "biochemical",
+    ]
+    item_lookup: dict[str, dict[str, Any]] = {}
+    for section_key in section_keys:
+        for item in disorder.get(section_key, []) or []:
+            if isinstance(item, dict) and "name" in item:
+                item_lookup[item["name"]] = item
+
+    # Build node list (only nodes used in edges)
+    used_nodes: set[str] = set()
+    for edge in graph.edges:
+        used_nodes.add(edge.source)
+        used_nodes.add(edge.target)
+
+    nodes_json = []
+    for name in sorted(used_nodes):
+        node_info = graph.nodes.get(name)
+        is_orphan = name in graph.orphan_targets
+        node_type = node_info.node_type if node_info else ("orphan" if is_orphan else "unknown")
+        description = node_info.description if node_info else None
+
+        node_data: dict[str, Any] = {
+            "id": name,
+            "node_type": node_type,
+            "color": NODE_COLORS.get(node_type, "#f3f4f6"),
+            "is_orphan": is_orphan,
+        }
+        if description:
+            node_data["description"] = description
+
+        # Enrich with metadata from the raw disorder item
+        raw_item = item_lookup.get(name)
+        if raw_item:
+            meta = _extract_node_metadata(raw_item)
+            if meta:
+                node_data["meta"] = meta
+
+        nodes_json.append(node_data)
+
+    edges_json = [
+        {
+            "source": edge.source,
+            "target": edge.target,
+            "predicate": edge.predicate,
+            "is_orphan": edge.target in graph.orphan_targets,
+        }
+        for edge in graph.edges
+    ]
+
+    return json.dumps({
+        "nodes": nodes_json,
+        "edges": edges_json,
+        "orphan_targets": sorted(graph.orphan_targets),
+    })
 
 
 def validate_all_disorders(input_dir: Path) -> dict[str, list[str]]:
