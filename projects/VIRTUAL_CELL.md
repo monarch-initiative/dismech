@@ -71,7 +71,7 @@ predictions.
 
 ## Tier 1 Progress
 - [x] `cellxgene:` prefix added to schema (2026-03-07)
-- [x] CELLxGENE dataset annotation (5/5 disorders annotated with publications, conditions, sample_types)
+- [x] CELLxGENE dataset annotation (7 disorders: Alzheimer's, Parkinson's, Psoriasis, Ulcerative Colitis, Asthma, NSCLC, Cystic Fibrosis)
 - [ ] CL term coverage audit (0/N)
 
 ## Notes
