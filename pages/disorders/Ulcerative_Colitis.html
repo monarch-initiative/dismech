@@ -1180,20 +1180,101 @@
             .stats-bar { gap: 16px; }
             .section-grid { grid-template-columns: 1fr; }
         }
-        /* Mermaid graph */
-        .mermaid-container {
-            text-align: center;
+        /* Pathograph (interactive causal graph) */
+        .pathograph-container {
             margin: 20px 0;
-            padding: 20px;
+            padding: 0;
             background: white;
             border-radius: 8px;
             border: 1px solid var(--border);
-            overflow-x: auto;
+            overflow: hidden;
+            position: relative;
         }
 
-        .mermaid svg {
-            max-width: 100%;
-            height: auto;
+        .pathograph-container svg {
+            display: block;
+            width: 100%;
+            cursor: grab;
+        }
+
+        .pathograph-container svg:active {
+            cursor: grabbing;
+        }
+
+        .pathograph-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            padding: 10px 16px;
+            background: #f9fafb;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.78rem;
+            color: #6b7280;
+        }
+
+        .pathograph-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .pathograph-legend-item.dimmed {
+            opacity: 0.35;
+        }
+
+        .pathograph-legend-swatch {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+            border: 1px solid rgba(0,0,0,0.15);
+            flex-shrink: 0;
+        }
+
+        .pathograph-tooltip {
+            position: absolute;
+            pointer-events: none;
+            background: rgba(17, 24, 39, 0.92);
+            color: #f9fafb;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            line-height: 1.45;
+            max-width: 320px;
+            z-index: 100;
+            opacity: 0;
+            transition: opacity 0.15s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip .tt-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #e5e7eb;
+        }
+
+        .pathograph-tooltip .tt-type {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            opacity: 0.7;
+            margin-bottom: 6px;
+        }
+
+        .pathograph-tooltip .tt-desc {
+            margin-bottom: 6px;
+            color: #d1d5db;
+        }
+
+        .pathograph-tooltip .tt-meta {
+            font-size: 0.72rem;
+            color: #9ca3af;
+        }
+
+        .pathograph-tooltip .tt-meta span {
+            display: block;
+            margin: 2px 0;
         }
 
         .graph-warning {
@@ -1220,16 +1301,334 @@
             margin: 4px 0;
         }
     </style>
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
     <script>
-        mermaid.initialize({
-            startOnLoad: true,
-            theme: 'default',
-            flowchart: {
-                htmlLabels: true,
-                curve: 'basis'
-            }
+    /* Pathograph: interactive D3.js causal mechanism network */
+    var NODE_SHAPES = {
+        pathophysiology: "roundrect",
+        phenotype: "ellipse",
+        environmental: "diamond",
+        genetic: "hexagon",
+        treatment: "rect",
+        biochemical: "circle",
+        orphan: "roundrect",
+        unknown: "roundrect"
+    };
+    var NODE_TYPE_LABELS = {
+        pathophysiology: "Pathophysiology",
+        phenotype: "Phenotype",
+        environmental: "Environmental",
+        genetic: "Genetic",
+        treatment: "Treatment",
+        biochemical: "Biochemical",
+        orphan: "Orphan"
+    };
+    var NODE_STROKE = {
+        pathophysiology: "#93c5fd",
+        phenotype: "#fcd34d",
+        environmental: "#86efac",
+        genetic: "#c4b5fd",
+        treatment: "#f9a8d4",
+        biochemical: "#a5b4fc",
+        orphan: "#dc2626"
+    };
+
+    function renderPathograph(containerId, data) {
+        var container = document.getElementById(containerId);
+        var svgEl = document.getElementById(containerId + "-svg");
+        var tooltipEl = document.getElementById(containerId + "-tooltip");
+        var legendEl = document.getElementById(containerId + "-legend");
+        if (!data || !data.nodes || !data.nodes.length) return;
+
+        /* -- Dagre layout -- */
+        var g = new dagre.graphlib.Graph();
+        g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
+        g.setDefaultEdgeLabel(function() { return {}; });
+
+        var nodeMap = {};
+        data.nodes.forEach(function(n) {
+            nodeMap[n.id] = n;
+            var labelLen = n.id.length;
+            var w = Math.max(120, Math.min(220, labelLen * 8 + 30));
+            var h = 44;
+            g.setNode(n.id, { width: w, height: h, label: n.id });
         });
+        data.edges.forEach(function(e) {
+            g.setEdge(e.source, e.target);
+        });
+        dagre.layout(g);
+
+        var graphInfo = g.graph();
+        var totalW = graphInfo.width + 60;
+        var totalH = graphInfo.height + 60;
+
+        /* -- SVG setup with zoom -- */
+        var svg = d3.select(svgEl)
+            .attr("viewBox", "0 0 " + totalW + " " + totalH)
+            .attr("preserveAspectRatio", "xMidYMid meet")
+            .style("min-height", Math.min(totalH, 600) + "px");
+
+        var rootG = svg.append("g").attr("class", "pathograph-root");
+
+        var zoom = d3.zoom()
+            .scaleExtent([0.3, 3])
+            .on("zoom", function(event) {
+                rootG.attr("transform", event.transform);
+            });
+        svg.call(zoom);
+
+        /* -- Arrow marker -- */
+        svg.append("defs").append("marker")
+            .attr("id", "pg-arrow")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#9ca3af");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-orphan")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#dc2626");
+
+        /* -- Draw edges -- */
+        var edgesG = rootG.append("g").attr("class", "pg-edges");
+        data.edges.forEach(function(e) {
+            var dagreEdge = g.edge(e.source, e.target);
+            if (!dagreEdge || !dagreEdge.points) return;
+            var pts = dagreEdge.points;
+            var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
+            edgesG.append("path")
+                .attr("d", line(pts))
+                .attr("fill", "none")
+                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke-width", 1.8)
+                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
+                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("data-source", e.source)
+                .attr("data-target", e.target);
+        });
+
+        /* -- Shape helpers -- */
+        function drawNodeShape(sel, nodeData, w, h) {
+            var shape = NODE_SHAPES[nodeData.node_type] || "roundrect";
+            var stroke = NODE_STROKE[nodeData.node_type] || "#d1d5db";
+            var strokeDash = nodeData.is_orphan ? "6 4" : "none";
+            if (nodeData.is_orphan) stroke = "#dc2626";
+
+            if (shape === "ellipse") {
+                sel.append("ellipse")
+                    .attr("rx", w/2).attr("ry", h/2)
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else if (shape === "diamond") {
+                var dx = w/2, dy = h/2;
+                sel.append("polygon")
+                    .attr("points", "0,"+(-dy)+" "+(dx)+",0 0,"+(dy)+" "+(-dx)+",0")
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else if (shape === "hexagon") {
+                var hx = w/2, hy = h/2, inset = w*0.2;
+                sel.append("polygon")
+                    .attr("points",
+                        (-hx+inset)+","+(-hy)+" "+(hx-inset)+","+(-hy)+" "+
+                        (hx)+",0 "+(hx-inset)+","+(hy)+" "+
+                        (-hx+inset)+","+(hy)+" "+(-hx)+",0")
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else if (shape === "circle") {
+                var r = Math.min(w, h) / 2;
+                sel.append("circle")
+                    .attr("r", r)
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else if (shape === "rect") {
+                sel.append("rect")
+                    .attr("x", -w/2).attr("y", -h/2).attr("width", w).attr("height", h)
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else {
+                /* roundrect (default) */
+                sel.append("rect")
+                    .attr("x", -w/2).attr("y", -h/2).attr("width", w).attr("height", h)
+                    .attr("rx", 8).attr("ry", 8)
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            }
+        }
+
+        /* -- Draw nodes -- */
+        var nodesG = rootG.append("g").attr("class", "pg-nodes");
+        data.nodes.forEach(function(n) {
+            var dagreNode = g.node(n.id);
+            if (!dagreNode) return;
+            var nw = dagreNode.width, nh = dagreNode.height;
+            var nodeG = nodesG.append("g")
+                .attr("transform", "translate(" + dagreNode.x + "," + dagreNode.y + ")")
+                .attr("data-node-type", n.node_type)
+                .attr("data-node-id", n.id)
+                .style("cursor", "pointer");
+
+            drawNodeShape(nodeG, n, nw, nh);
+
+            /* Label text */
+            var label = n.id;
+            var maxChars = Math.floor(nw / 7);
+            if (label.length > maxChars) label = label.substring(0, maxChars - 1) + "\u2026";
+            nodeG.append("text")
+                .attr("text-anchor", "middle")
+                .attr("dominant-baseline", "central")
+                .attr("font-size", "11px")
+                .attr("font-family", "system-ui, -apple-system, sans-serif")
+                .attr("fill", "#1f2937")
+                .text(label);
+
+            /* Interaction: hover */
+            nodeG.on("mouseenter", function(event) {
+                highlightNode(n.id, true);
+                showTooltip(event, n);
+            }).on("mouseleave", function() {
+                highlightNode(n.id, false);
+                hideTooltip();
+            }).on("click", function(event) {
+                event.stopPropagation();
+                highlightNode(n.id, true);
+                showTooltip(event, n);
+            });
+        });
+
+        /* Click on background clears highlight */
+        svg.on("click", function() {
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* -- Highlight helpers -- */
+        function highlightNode(nodeId, on) {
+            if (!on) { clearHighlight(); return; }
+            /* Find connected edges */
+            var connectedNodes = new Set([nodeId]);
+            data.edges.forEach(function(e) {
+                if (e.source === nodeId) connectedNodes.add(e.target);
+                if (e.target === nodeId) connectedNodes.add(e.source);
+            });
+            nodesG.selectAll("g").each(function() {
+                var el = d3.select(this);
+                var nid = el.attr("data-node-id");
+                el.style("opacity", connectedNodes.has(nid) ? 1 : 0.2);
+            });
+            edgesG.selectAll("path").each(function() {
+                var el = d3.select(this);
+                var s = el.attr("data-source"), t = el.attr("data-target");
+                el.style("opacity", (s === nodeId || t === nodeId) ? 1 : 0.1);
+            });
+        }
+
+        function clearHighlight() {
+            nodesG.selectAll("g").style("opacity", 1);
+            edgesG.selectAll("path").style("opacity", 1);
+        }
+
+        /* -- Tooltip -- */
+        function showTooltip(event, n) {
+            var html = [];
+            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
+            if (n.description) {
+                var desc = n.description;
+                if (desc.length > 200) desc = desc.substring(0, 197) + "...";
+                html.push('<div class="tt-desc">' + escapeHtml(desc) + '</div>');
+            }
+            var meta = n.meta || {};
+            var metaParts = [];
+            if (meta.evidence_count) metaParts.push('<span>Evidence: ' + meta.evidence_count + ' items</span>');
+            if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
+            if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
+            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
+            if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
+            if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            tooltipEl.innerHTML = html.join("");
+            tooltipEl.style.opacity = "1";
+
+            /* Position relative to container */
+            var rect = container.getBoundingClientRect();
+            var x = event.clientX - rect.left + 14;
+            var y = event.clientY - rect.top + 14;
+            if (x + 330 > rect.width) x = x - 340;
+            if (y + 200 > rect.height) y = Math.max(4, y - 200);
+            tooltipEl.style.left = x + "px";
+            tooltipEl.style.top = y + "px";
+        }
+
+        function hideTooltip() {
+            tooltipEl.style.opacity = "0";
+        }
+
+        function escapeHtml(str) {
+            var div = document.createElement("div");
+            div.appendChild(document.createTextNode(str));
+            return div.innerHTML;
+        }
+
+        /* -- Legend -- */
+        var typesInGraph = {};
+        data.nodes.forEach(function(n) { if (!n.is_orphan) typesInGraph[n.node_type] = n.color; });
+        var activeTypes = new Set(Object.keys(typesInGraph));
+
+        Object.keys(typesInGraph).forEach(function(type) {
+            var item = document.createElement("div");
+            item.className = "pathograph-legend-item";
+            item.setAttribute("data-type", type);
+            var swatch = document.createElement("div");
+            swatch.className = "pathograph-legend-swatch";
+            swatch.style.background = typesInGraph[type];
+            swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
+            item.appendChild(swatch);
+            var label = document.createElement("span");
+            label.textContent = NODE_TYPE_LABELS[type] || type;
+            item.appendChild(label);
+            item.addEventListener("click", function() {
+                if (activeTypes.has(type)) {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
+                } else {
+                    activeTypes.add(type);
+                    item.classList.remove("dimmed");
+                }
+                filterByType();
+            });
+            legendEl.appendChild(item);
+        });
+
+        function filterByType() {
+            nodesG.selectAll("g").each(function() {
+                var el = d3.select(this);
+                var t = el.attr("data-node-type");
+                el.style("display", activeTypes.has(t) ? null : "none");
+            });
+            edgesG.selectAll("path").each(function() {
+                var el = d3.select(this);
+                var sNode = nodeMap[el.attr("data-source")];
+                var tNode = nodeMap[el.attr("data-target")];
+                var sVis = sNode && activeTypes.has(sNode.node_type);
+                var tVis = tNode && activeTypes.has(tNode.node_type);
+                el.style("display", (sVis && tVis) ? null : "none");
+            });
+        }
+    }
     </script>
 </head>
 <body>
@@ -2131,43 +2530,28 @@
         <!-- Histopathology -->
         
 
-        <!-- Causal Graph -->
+        <!-- Causal Graph (Pathograph) -->
         
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
-                <h2 class="card-title">Causal Graph</h2>
+                <h2 class="card-title">Pathograph</h2>
             </div>
             
-            <div class="mermaid-container">
-                <pre class="mermaid">graph LR
-    Decreased_Butyrate_Production[&#34;Decreased Butyrate Production&#34;]
-    Loss_of_Microbial_Diversity[&#34;Loss of Microbial Diversity&#34;]
-    Loss_of_Keystone_SCFA_Producers[&#34;Loss of Keystone SCFA Producers&#34;]
-    Pathobiont_Expansion[&#34;Pathobiont Expansion&#34;]
-    Epithelial_Barrier_Dysfunction[&#34;Epithelial Barrier Dysfunction&#34;]
-    Increased_Microbial_Community_Instability[&#34;Increased Microbial Community Instability&#34;]
-    Mucosal_Inflammation[&#34;Mucosal Inflammation&#34;]
-    Impaired_Colonocyte_Energy_Metabolism[&#34;Impaired Colonocyte Energy Metabolism&#34;]
-
-    Loss_of_Microbial_Diversity --&gt; Loss_of_Keystone_SCFA_Producers
-    Loss_of_Microbial_Diversity --&gt; Increased_Microbial_Community_Instability
-    Loss_of_Keystone_SCFA_Producers --&gt; Decreased_Butyrate_Production
-    Pathobiont_Expansion --&gt; Mucosal_Inflammation
-    Pathobiont_Expansion --&gt; Epithelial_Barrier_Dysfunction
-    Decreased_Butyrate_Production --&gt; Impaired_Colonocyte_Energy_Metabolism
-    Impaired_Colonocyte_Energy_Metabolism --&gt; Epithelial_Barrier_Dysfunction
-    Increased_Microbial_Community_Instability --&gt; Loss_of_Microbial_Diversity
-
-    style Decreased_Butyrate_Production fill:#dbeafe
-    style Loss_of_Microbial_Diversity fill:#dbeafe
-    style Loss_of_Keystone_SCFA_Producers fill:#dbeafe
-    style Pathobiont_Expansion fill:#dbeafe
-    style Epithelial_Barrier_Dysfunction fill:#dbeafe
-    style Increased_Microbial_Community_Instability fill:#dbeafe
-    style Mucosal_Inflammation fill:#dbeafe
-    style Impaired_Colonocyte_Energy_Metabolism fill:#dbeafe</pre>
+            <div class="pathograph-container" id="pathograph">
+                <div class="pathograph-legend" id="pathograph-legend"></div>
+                <svg id="pathograph-svg" role="img">
+                    <title>Pathograph: causal mechanism network for Ulcerative Colitis</title>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                </svg>
+                <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
+            <script>
+            (function() {
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Decreased Butyrate Production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced fecal short-chain fatty acid (SCFA) concentrations, particularly butyrate. Butyrate is the primary energy source for colonocytes (providing ~70% of energy needs) and exerts anti-inflammatory effects via HDAC inhibition and GPR109A signaling.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Short-chain Fatty Acid Metabolism\"]}}, {\"id\": \"Epithelial Barrier Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disrupted tight junctions and mucus layer allow bacterial translocation, perpetuating inflammation. Goblet cell depletion reduces protective mucus.\\n\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"Epithelial Barrier Function\"]}}, {\"id\": \"Impaired Colonocyte Energy Metabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Colonocytes deprived of butyrate shift from beta-oxidation to glycolysis, causing energy deficit. This impairs tight junction maintenance, mucus production by goblet cells, and epithelial renewal from crypt stem cells.\\n\", \"meta\": {\"cell_types\": [\"Colonic Epithelial Cell\"]}}, {\"id\": \"Increased Microbial Community Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Anna Karenina effect - dysbiotic microbiomes show increased inter-individual variability and temporal instability compared to healthy controls. The community loses resilience and may occupy an alternative stable state that resists therapeutic intervention.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Loss of Keystone SCFA Producers\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Depletion of butyrate-producing Firmicutes, particularly Faecalibacterium prausnitzii, Roseburia spp., and Eubacterium rectale. These keystone taxa are network hubs supporting community structure through cross-feeding.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Loss of Microbial Diversity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced alpha diversity (species richness and evenness) in the colonic microbiome. Shannon and Chao1 indices are decreased compared to healthy controls, representing ecological collapse of the microbial community.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Microbiome Community Dynamics\"]}}, {\"id\": \"Mucosal Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Continuous inflammation limited to the colonic mucosa, starting at the rectum and extending proximally. Crypt abscesses, goblet cell depletion, and mucosal ulceration are characteristic.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Colonic Epithelial Cell\"], \"biological_processes\": [\"Inflammatory Response\"]}}, {\"id\": \"Pathobiont Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Bloom of opportunistic pathobionts including adherent-invasive E. coli (AIEC), Fusobacterium nucleatum, and Enterobacteriaceae. These taxa exploit the ecological niche vacated by depleted commensals and promote inflammation through LPS and direct epithelial invasion.\\n\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Loss of Microbial Diversity\", \"target\": \"Loss of Keystone SCFA Producers\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of Microbial Diversity\", \"target\": \"Increased Microbial Community Instability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of Keystone SCFA Producers\", \"target\": \"Decreased Butyrate Production\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Pathobiont Expansion\", \"target\": \"Mucosal Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Pathobiont Expansion\", \"target\": \"Epithelial Barrier Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Decreased Butyrate Production\", \"target\": \"Impaired Colonocyte Energy Metabolism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Colonocyte Energy Metabolism\", \"target\": \"Epithelial Barrier Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Increased Microbial Community Instability\", \"target\": \"Loss of Microbial Diversity\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                renderPathograph("pathograph", graphData);
+            })();
+            </script>
         </div>
         
 
@@ -2187,9 +2571,11 @@
                 
                 <a class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(2)</span></a>
                 
-                <a class="pheno-toc-pill" data-target="pheno-cat-3">Constitutional<span class="pill-count">(3)</span></a>
+                <a class="pheno-toc-pill" data-target="pheno-cat-3">Constitutional<span class="pill-count">(2)</span></a>
                 
                 <a class="pheno-toc-pill" data-target="pheno-cat-4">Growth<span class="pill-count">(1)</span></a>
+                
+                <a class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(1)</span></a>
                 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -2222,6 +2608,34 @@
                     
                     
                     
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25646159" target="_blank">PMID:25646159</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Anemia is one of the most frequent complications and/or extraintestinal manifestations of inflammatory bowel disease (IBD). Iron deficiency is the most important cause of anemia in Crohn&#39;s disease and ulcerative colitis patients."</div>
+                
+                
+                <div class="evidence-explanation">Anemia, particularly iron deficiency anemia, is one of the most frequent complications of ulcerative colitis due to chronic blood loss from the inflamed colonic mucosa.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
                     
@@ -2293,22 +2707,52 @@
                 
                 <div class="item-box phenotype-box">
                     <div class="item-name">
-                        Tenesmus
+                        Urgency
                         
-                        <span class="phenotype-freq">FREQUENT</span>
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
                         
                         
                         <span class="phenotype-id">
-                            <a href="http://purl.obolibrary.org/obo/HP_0025085" target="_blank">
-                                Bloody diarrhea
+                            <a href="http://purl.obolibrary.org/obo/HP_0012701" target="_blank">
+                                Bowel urgency
                             </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0025085)</span>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0012701)</span>
                         </span>
                         
                     </div>
                     
+                    <div class="item-desc">Fecal urgency</div>
                     
                     
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30837080" target="_blank">PMID:30837080</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The classic presentation of UC include bloody diarrhea with or without mucus, rectal urgency, tenesmus, and variable degrees of abdominal pain that is often relieved by defecation."</div>
+                
+                
+                <div class="evidence-explanation">Rectal urgency is described as a classic presenting symptom of ulcerative colitis.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
                     
@@ -2322,7 +2766,7 @@
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Constitutional
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">2</span>
                 </summary>
                 
                 <div class="item-box phenotype-box">
@@ -2344,32 +2788,35 @@
                     
                     
     
-    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31272578" target="_blank">PMID:31272578</a>
+                    </span>
                     
-    
-    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
-                <div class="item-box phenotype-box">
-                    <div class="item-name">
-                        Urgency
-                        
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                        
-                        <span class="phenotype-id">
-                            <a href="http://purl.obolibrary.org/obo/HP_0002607" target="_blank">
-                                Bowel incontinence
-                            </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002607)</span>
-                        </span>
-                        
-                    </div>
-                    
-                    <div class="item-desc">Fecal urgency</div>
-                    
-                    
-                    
+                <div class="evidence-snippet">"Typical symptoms on presentation are bloody diarrhea, abdominal pain, fecal urgency, and tenesmus."</div>
+                
+                
+                <div class="evidence-explanation">Mayo Clinic Proceedings review confirms abdominal pain as a typical presenting symptom in UC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
                     
@@ -2395,6 +2842,34 @@
                     
                     
                     
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27310658" target="_blank">PMID:27310658</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                </div>
+                
+                <div class="evidence-snippet">"more severe fatigue was associated with more ulcerative colitis symptoms"</div>
+                
+                
+                <div class="evidence-explanation">Fatigue is a common symptom in ulcerative colitis patients that correlates with disease activity and symptom severity.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
                     
@@ -2429,6 +2904,96 @@
                     
                     
                     
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25506359" target="_blank">PMID:25506359</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                </div>
+                
+                <div class="evidence-snippet">"51% of subjects with UC experienced significant weight loss prior to diagnosis (&gt;5% BMI loss)."</div>
+                
+                
+                <div class="evidence-explanation">Weight loss is a significant and common symptom in ulcerative colitis patients, with over half experiencing significant weight loss prior to diagnosis.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+            </details>
+            
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">1</span>
+                </summary>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Tenesmus
+                        
+                        <span class="phenotype-freq">FREQUENT</span>
+                        
+                        
+                        <span class="phenotype-id">
+                            <a href="http://purl.obolibrary.org/obo/HP_0012702" target="_blank">
+                                Tenesmus
+                            </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0012702)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30837080" target="_blank">PMID:30837080</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The classic presentation of UC include bloody diarrhea with or without mucus, rectal urgency, tenesmus, and variable degrees of abdominal pain that is often relieved by defecation."</div>
+                
+                
+                <div class="evidence-explanation">Tenesmus is described as a classic presenting symptom of ulcerative colitis.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
                     
@@ -2725,6 +3290,12 @@
                 <div class="item-name">
                     5-Aminosalicylates
                     
+                    <span class="phenotype-id">
+                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
+                            MAXO:0000058
+                        </a>
+                    </span>
+                    
                 </div>
                 
                 
@@ -2734,12 +3305,48 @@
                 
                 
     
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21407188" target="_blank">PMID:21407188</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"5-ASAs are highly effective for inducing remission and preventing relapse in UC. Evidence suggests that doses of ≥ 2.0 g/day have greater efficacy"</div>
+                
+                
+                <div class="evidence-explanation">Systematic review and meta-analysis confirming 5-ASA efficacy in UC remission induction and relapse prevention.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
     
             </div>
             
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Corticosteroids
+                    
+                    <span class="phenotype-id">
+                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
+                            MAXO:0000058
+                        </a>
+                    </span>
                     
                 </div>
                 
@@ -2750,12 +3357,48 @@
                 
                 
     
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31272578" target="_blank">PMID:31272578</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Most cases are treated with pharmacological therapy to first induce remission and then to maintain a corticosteroid-free remission."</div>
+                
+                
+                <div class="evidence-explanation">Review confirms corticosteroids are used to induce remission with goal of achieving corticosteroid-free maintenance.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
     
             </div>
             
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Thiopurines
+                    
+                    <span class="phenotype-id">
+                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
+                            MAXO:0000058
+                        </a>
+                    </span>
                     
                 </div>
                 
@@ -2766,12 +3409,48 @@
                 
                 
     
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31272578" target="_blank">PMID:31272578</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"In moderate to severe colitis, medication classes include thiopurines, biological agents targeting tumor necrosis factor and integrins, and the small-molecule Janus kinase inhibitors."</div>
+                
+                
+                <div class="evidence-explanation">Review confirms thiopurines as a treatment class for moderate-severe UC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
     
             </div>
             
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Anti-TNF Therapy
+                    
+                    <span class="phenotype-id">
+                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
+                            MAXO:0000058
+                        </a>
+                    </span>
                     
                 </div>
                 
@@ -2782,12 +3461,48 @@
                 
                 
     
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26902011" target="_blank">PMID:26902011</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Infliximab had a statistically significant effects in induction of clinical response (RR = 1.67; 95% CI 1.12 to 2.50) of UC compared with conventional therapy"</div>
+                
+                
+                <div class="evidence-explanation">Meta-analysis demonstrating significant efficacy of anti-TNF agents in UC clinical response induction.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
     
             </div>
             
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Vedolizumab
+                    
+                    <span class="phenotype-id">
+                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
+                            MAXO:0000058
+                        </a>
+                    </span>
                     
                 </div>
                 
@@ -2798,12 +3513,48 @@
                 
                 
     
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31470005" target="_blank">PMID:31470005</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"clinical remission at week 52 was achieved by 46.2%, 42.6%, and 14.3% of patients in the subcutaneous vedolizumab, intravenous vedolizumab, and placebo groups, respectively"</div>
+                
+                
+                <div class="evidence-explanation">Phase 3 RCT demonstrating vedolizumab efficacy with 46% clinical remission vs 14% placebo at week 52.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
     
             </div>
             
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Tofacitinib
+                    
+                    <span class="phenotype-id">
+                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
+                            MAXO:0000058
+                        </a>
+                    </span>
                     
                 </div>
                 
@@ -2814,12 +3565,48 @@
                 
                 
     
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31272578" target="_blank">PMID:31272578</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"In moderate to severe colitis, medication classes include thiopurines, biological agents targeting tumor necrosis factor and integrins, and the small-molecule Janus kinase inhibitors."</div>
+                
+                
+                <div class="evidence-explanation">Review confirms JAK inhibitors as approved treatment for moderate-severe UC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
     
             </div>
             
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Ustekinumab
+                    
+                    <span class="phenotype-id">
+                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
+                            MAXO:0000058
+                        </a>
+                    </span>
                     
                 </div>
                 
@@ -2830,12 +3617,48 @@
                 
                 
     
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39461795" target="_blank">PMID:39461795</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Addressing an upstream pathological mechanism shared between these disorders, this drug class has high efficacy rates and a durable response"</div>
+                
+                
+                <div class="evidence-explanation">IL-23 inhibitors demonstrate high efficacy in UC by targeting upstream pathological mechanisms.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
     
             </div>
             
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Colectomy
+                    
+                    <span class="phenotype-id">
+                        <a href="https://bioregistry.io/MAXO:0000004" target="_blank">
+                            MAXO:0000004
+                        </a>
+                    </span>
                     
                 </div>
                 
@@ -2845,6 +3668,36 @@
                 
                 
                 
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31272578" target="_blank">PMID:31272578</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"in up to 15% of cases, patients in whom medical therapy fails or who have development of dysplasia secondary to their long-standing colitis will require surgical treatment."</div>
+                
+                
+                <div class="evidence-explanation">Review confirms 15% of UC patients require colectomy for refractory disease or dysplasia.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
             </div>
@@ -2995,7 +3848,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Ulcerative Colitis
 creation_date: &#39;2025-12-18T17:01:35Z&#39;
-updated_date: &#39;2026-02-17T21:53:14Z&#39;
+updated_date: &#39;2026-03-05T00:15:00Z&#39;
 category: Complex
 parents:
 - Gastrointestinal Disease
@@ -3316,23 +4169,39 @@ phenotypes:
     term:
       id: HP:0002027
       label: Abdominal pain
+  evidence:
+  - reference: PMID:31272578
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Typical symptoms on presentation are bloody diarrhea, abdominal pain, fecal urgency, and tenesmus.&#34;
+    explanation: Mayo Clinic Proceedings review confirms abdominal pain as a typical presenting symptom in UC.
 - name: Urgency
   category: Gastrointestinal
   frequency: VERY_FREQUENT
   notes: Fecal urgency
   phenotype_term:
-    preferred_term: Fecal Incontinence
+    preferred_term: Fecal Urgency
     term:
-      id: HP:0002607
-      label: Bowel incontinence
+      id: HP:0012701
+      label: Bowel urgency
+  evidence:
+  - reference: PMID:30837080
+    supports: SUPPORT
+    snippet: &#34;The classic presentation of UC include bloody diarrhea with or without mucus, rectal urgency, tenesmus, and variable degrees of abdominal pain that is often relieved by defecation.&#34;
+    explanation: Rectal urgency is described as a classic presenting symptom of ulcerative colitis.
 - name: Tenesmus
   category: Gastrointestinal
   frequency: FREQUENT
   phenotype_term:
     preferred_term: Tenesmus
     term:
-      id: HP:0025085
-      label: Bloody diarrhea
+      id: HP:0012702
+      label: Tenesmus
+  evidence:
+  - reference: PMID:30837080
+    supports: SUPPORT
+    snippet: &#34;The classic presentation of UC include bloody diarrhea with or without mucus, rectal urgency, tenesmus, and variable degrees of abdominal pain that is often relieved by defecation.&#34;
+    explanation: Tenesmus is described as a classic presenting symptom of ulcerative colitis.
 - name: Weight Loss
   category: Systemic
   frequency: FREQUENT
@@ -3341,6 +4210,11 @@ phenotypes:
     term:
       id: HP:0001824
       label: Weight loss
+  evidence:
+  - reference: PMID:25506359
+    supports: SUPPORT
+    snippet: &#34;51% of subjects with UC experienced significant weight loss prior to diagnosis (&gt;5% BMI loss).&#34;
+    explanation: Weight loss is a significant and common symptom in ulcerative colitis patients, with over half experiencing significant weight loss prior to diagnosis.
 - name: Fatigue
   category: Systemic
   frequency: FREQUENT
@@ -3349,6 +4223,11 @@ phenotypes:
     term:
       id: HP:0012378
       label: Fatigue
+  evidence:
+  - reference: PMID:27310658
+    supports: SUPPORT
+    snippet: &#34;more severe fatigue was associated with more ulcerative colitis symptoms&#34;
+    explanation: Fatigue is a common symptom in ulcerative colitis patients that correlates with disease activity and symptom severity.
 - name: Anemia
   category: Hematologic
   frequency: FREQUENT
@@ -3358,6 +4237,11 @@ phenotypes:
     term:
       id: HP:0001903
       label: Anemia
+  evidence:
+  - reference: PMID:25646159
+    supports: SUPPORT
+    snippet: &#34;Anemia is one of the most frequent complications and/or extraintestinal manifestations of inflammatory bowel disease (IBD). Iron deficiency is the most important cause of anemia in Crohn&#39;s disease and ulcerative colitis patients.&#34;
+    explanation: Anemia, particularly iron deficiency anemia, is one of the most frequent complications of ulcerative colitis due to chronic blood loss from the inflamed colonic mucosa.
 biochemical:
 - name: Fecal Calprotectin
   presence: Elevated
@@ -3442,20 +4326,108 @@ environmental:
 treatments:
 - name: 5-Aminosalicylates
   description: First-line for mild-moderate disease (mesalamine).
+  treatment_term:
+    preferred_term: 5-aminosalicylate therapy
+    term:
+      id: MAXO:0000058
+      label: pharmacotherapy
+  evidence:
+  - reference: PMID:21407188
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;5-ASAs are highly effective for inducing remission and preventing relapse in UC. Evidence suggests that doses of ≥ 2.0 g/day have greater efficacy&#34;
+    explanation: Systematic review and meta-analysis confirming 5-ASA efficacy in UC remission induction and relapse prevention.
 - name: Corticosteroids
   description: For acute flares (prednisone, budesonide).
+  treatment_term:
+    preferred_term: Corticosteroid therapy
+    term:
+      id: MAXO:0000058
+      label: pharmacotherapy
+  evidence:
+  - reference: PMID:31272578
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Most cases are treated with pharmacological therapy to first induce remission and then to maintain a corticosteroid-free remission.&#34;
+    explanation: Review confirms corticosteroids are used to induce remission with goal of achieving corticosteroid-free maintenance.
 - name: Thiopurines
   description: Azathioprine, 6-MP for maintenance.
+  treatment_term:
+    preferred_term: Thiopurine therapy
+    term:
+      id: MAXO:0000058
+      label: pharmacotherapy
+  evidence:
+  - reference: PMID:31272578
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;In moderate to severe colitis, medication classes include thiopurines, biological agents targeting tumor necrosis factor and integrins, and the small-molecule Janus kinase inhibitors.&#34;
+    explanation: Review confirms thiopurines as a treatment class for moderate-severe UC.
 - name: Anti-TNF Therapy
   description: Infliximab, adalimumab for moderate-severe disease.
+  treatment_term:
+    preferred_term: Anti-TNF therapy
+    term:
+      id: MAXO:0000058
+      label: pharmacotherapy
+  evidence:
+  - reference: PMID:26902011
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Infliximab had a statistically significant effects in induction of clinical response (RR = 1.67; 95% CI 1.12 to 2.50) of UC compared with conventional therapy&#34;
+    explanation: Meta-analysis demonstrating significant efficacy of anti-TNF agents in UC clinical response induction.
 - name: Vedolizumab
   description: Gut-selective integrin inhibitor.
+  treatment_term:
+    preferred_term: Vedolizumab therapy
+    term:
+      id: MAXO:0000058
+      label: pharmacotherapy
+  evidence:
+  - reference: PMID:31470005
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;clinical remission at week 52 was achieved by 46.2%, 42.6%, and 14.3% of patients in the subcutaneous vedolizumab, intravenous vedolizumab, and placebo groups, respectively&#34;
+    explanation: Phase 3 RCT demonstrating vedolizumab efficacy with 46% clinical remission vs 14% placebo at week 52.
 - name: Tofacitinib
   description: JAK inhibitor for moderate-severe disease.
+  treatment_term:
+    preferred_term: JAK inhibitor therapy
+    term:
+      id: MAXO:0000058
+      label: pharmacotherapy
+  evidence:
+  - reference: PMID:31272578
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;In moderate to severe colitis, medication classes include thiopurines, biological agents targeting tumor necrosis factor and integrins, and the small-molecule Janus kinase inhibitors.&#34;
+    explanation: Review confirms JAK inhibitors as approved treatment for moderate-severe UC.
 - name: Ustekinumab
   description: IL-12/23 inhibitor.
+  treatment_term:
+    preferred_term: IL-12/23 inhibitor therapy
+    term:
+      id: MAXO:0000058
+      label: pharmacotherapy
+  evidence:
+  - reference: PMID:39461795
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Addressing an upstream pathological mechanism shared between these disorders, this drug class has high efficacy rates and a durable response&#34;
+    explanation: IL-23 inhibitors demonstrate high efficacy in UC by targeting upstream pathological mechanisms.
 - name: Colectomy
   description: Curative surgery for refractory or complicated disease.
+  treatment_term:
+    preferred_term: Colectomy
+    term:
+      id: MAXO:0000004
+      label: surgical procedure
+  evidence:
+  - reference: PMID:31272578
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;in up to 15% of cases, patients in whom medical therapy fails or who have development of dysplasia secondary to their long-standing colitis will require surgical treatment.&#34;
+    explanation: Review confirms 15% of UC patients require colectomy for refractory disease or dysplasia.
 computational_models:
 - name: AGORA2 Gut Microbiome Metabolic Models
   description: &gt;
