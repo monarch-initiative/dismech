@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1073/pnas.1219280110"
+reference_id: DOI:10.1073/pnas.1219280110
 title: CTCF/cohesin-mediated DNA looping is required for protocadherin α promoter choice
 authors:
 - Ya Guo

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3389/fgene.2021.732033"
+reference_id: DOI:10.3389/fgene.2021.732033
 title: "Loop Interrupted: Dysfunctional Chromatin Relations in Neurological Diseases"
 authors:
 - Marthe Behrends

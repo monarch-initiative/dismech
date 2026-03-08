@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3389/fneur.2024.1343025"
+reference_id: DOI:10.3389/fneur.2024.1343025
 title: "A novel compound heterozygous variant of ECEL1 induced joint dysfunction and cartilage degradation: a case report and literature review"
 authors:
 - Siyuan Jing
