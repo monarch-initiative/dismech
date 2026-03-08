@@ -123,6 +123,9 @@ prefixes:
   HGNC:
     prefix_prefix: HGNC
     prefix_reference: https://www.genenames.org/data/gene-symbol-report/#!/hgnc_id/
+  LOINC:
+    prefix_prefix: LOINC
+    prefix_reference: https://loinc.org/
   bigg:
     prefix_prefix: bigg
     prefix_reference: https://bigg.ucsd.edu/models/
@@ -1156,6 +1159,19 @@ enums:
         text: FOUNDATION_MODEL
         description: Pre-trained single-cell foundation models (scGPT, Geneformer,
           scGenePT) for perturbation response prediction
+  ThresholdDirectionEnum:
+    name: ThresholdDirectionEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/ThresholdDirectionEnum
+    description: Whether a threshold activates when the variable goes above or below
+      the value
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    permissible_values:
+      above:
+        text: above
+        description: Activates when the variable exceeds the threshold
+      below:
+        text: below
+        description: Activates when the variable falls below the threshold
   CausalLinkTypeEnum:
     name: CausalLinkTypeEnum
     definition_uri: https://w3id.org/monarch-initiative/dismech/CausalLinkTypeEnum
@@ -1823,6 +1839,10 @@ enums:
         text: mitochondrial disease
         description: Mitochondrial function/genome disorders (MELAS, MERRF, Leigh)
         meaning: MONDO:0044970
+      amyloidopathy:
+        text: amyloidopathy
+        description: Amyloid protein aggregation disorders (Alzheimer's, CAA, hereditary
+          cerebral amyloid angiopathy)
       tauopathy:
         text: tauopathy
         description: Tau protein aggregation disorders (Alzheimer's, PSP, CBD)
@@ -2043,6 +2063,8 @@ slots:
     domain_of:
     - ClinicalTrial
     - ComputationalModel
+    - ModelVariable
+    - SeverityTier
     - DifferentialDiagnosis
     - Subtype
     - EpidemiologyInfo
@@ -2092,6 +2114,7 @@ slots:
     - Dataset
     - ClinicalTrial
     - ComputationalModel
+    - ModelVariable
     - DifferentialDiagnosis
     - Subtype
     - CausalEdge
@@ -2647,6 +2670,7 @@ slots:
     - Dataset
     - ClinicalTrial
     - ComputationalModel
+    - ModelVariable
     - DifferentialDiagnosis
     - Prevalence
     - ProgressionInfo
@@ -3901,6 +3925,60 @@ slots:
     - EpidemiologyInfo
     range: string
     multivalued: true
+  dataset_identifier:
+    name: dataset_identifier
+    definition_uri: https://w3id.org/monarch-initiative/dismech/dataset_identifier
+    description: Native identifier for this variable in the source dataset or model
+      (e.g., SBML species ID, database column name, COBRA reaction ID). When the parent
+      context already specifies the dataset (e.g., a ComputationalModel with model_id),
+      this field gives the local name within that dataset.
+    examples:
+    - value: ECCPhos
+    - value: Qbone
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:dataset_identifier
+    owner: ModelVariable
+    domain_of:
+    - ModelVariable
+    range: string
+  threshold:
+    name: threshold
+    definition_uri: https://w3id.org/monarch-initiative/dismech/threshold
+    description: Numeric threshold at which this mapping activates (e.g., a phenotype
+      becomes clinically relevant when the variable crosses this value).
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:threshold
+    owner: ModelVariableDescriptor
+    domain_of:
+    - SeverityTier
+    - ModelVariableDescriptor
+    range: float
+  threshold_direction:
+    name: threshold_direction
+    definition_uri: https://w3id.org/monarch-initiative/dismech/threshold_direction
+    description: Whether the threshold activates when the variable goes above or below
+      the value.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:threshold_direction
+    owner: ModelVariableDescriptor
+    domain_of:
+    - ModelVariableDescriptor
+    range: ThresholdDirectionEnum
+  severity_scale:
+    name: severity_scale
+    definition_uri: https://w3id.org/monarch-initiative/dismech/severity_scale
+    description: Ordered list of severity tiers, each a value-label pair. For "above"
+      direction, higher values mean greater severity; for "below", lower values mean
+      greater severity.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:severity_scale
+    owner: ModelVariableDescriptor
+    domain_of:
+    - ModelVariableDescriptor
+    range: SeverityTier
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
   unit:
     name: unit
     definition_uri: https://w3id.org/monarch-initiative/dismech/unit
@@ -3910,6 +3988,7 @@ slots:
     slot_uri: dismech:unit
     owner: EpidemiologyInfo
     domain_of:
+    - ModelVariable
     - EpidemiologyInfo
     range: string
   function:
@@ -4353,6 +4432,33 @@ slots:
     domain_of:
     - ComputationalModel
     range: GeneDescriptor
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
+  variables:
+    name: variables
+    definition_uri: https://w3id.org/monarch-initiative/dismech/variables
+    description: Variables/outputs of a computational model with ontology mappings
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:variables
+    owner: ComputationalModel
+    domain_of:
+    - ComputationalModel
+    range: ModelVariable
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
+  mappings_list:
+    name: mappings_list
+    definition_uri: https://w3id.org/monarch-initiative/dismech/mappings_list
+    description: Ontology term mappings for a model variable (LOINC, CHEBI, HP, etc.)
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:mappings_list
+    owner: Biochemical
+    domain_of:
+    - ModelVariable
+    - Biochemical
+    range: ModelVariableDescriptor
     multivalued: true
     inlined: true
     inlined_as_list: true
@@ -5363,6 +5469,12 @@ slots:
     is_usage_slot: true
     usage_slot_name: term
     range: Term
+    bindings:
+    - range: BiologicalProcessTerm
+      obligation_level:
+        text: REQUIRED
+        description: The metadata element is required to be present in the model
+      binds_value_of: id
     recommended: true
     inlined: true
   AnatomicalEntityDescriptor_term:
@@ -5380,6 +5492,12 @@ slots:
     is_usage_slot: true
     usage_slot_name: term
     range: Term
+    bindings:
+    - range: AnatomicalEntityTerm
+      obligation_level:
+        text: REQUIRED
+        description: The metadata element is required to be present in the model
+      binds_value_of: id
     recommended: true
     inlined: true
   ChemicalEntityDescriptor_term:
@@ -5397,6 +5515,12 @@ slots:
     is_usage_slot: true
     usage_slot_name: term
     range: Term
+    bindings:
+    - range: ChemicalEntityTerm
+      obligation_level:
+        text: REQUIRED
+        description: The metadata element is required to be present in the model
+      binds_value_of: id
     recommended: true
     inlined: true
   GeneDescriptor_term:
@@ -5437,6 +5561,12 @@ slots:
     is_usage_slot: true
     usage_slot_name: term
     range: Term
+    bindings:
+    - range: CellularComponentTerm
+      obligation_level:
+        text: REQUIRED
+        description: The metadata element is required to be present in the model
+      binds_value_of: id
     recommended: true
     inlined: true
   ProteinComplexDescriptor_term:
@@ -5454,6 +5584,12 @@ slots:
     is_usage_slot: true
     usage_slot_name: term
     range: Term
+    bindings:
+    - range: ProteinComplexTerm
+      obligation_level:
+        text: REQUIRED
+        description: The metadata element is required to be present in the model
+      binds_value_of: id
     recommended: true
     inlined: true
   AssayDescriptor_term:
@@ -5471,6 +5607,12 @@ slots:
     is_usage_slot: true
     usage_slot_name: term
     range: Term
+    bindings:
+    - range: AssayTerm
+      obligation_level:
+        text: REQUIRED
+        description: The metadata element is required to be present in the model
+      binds_value_of: id
     recommended: true
     inlined: true
   TriggerDescriptor_term:
@@ -5488,6 +5630,12 @@ slots:
     is_usage_slot: true
     usage_slot_name: term
     range: Term
+    bindings:
+    - range: TriggerTerm
+      obligation_level:
+        text: REQUIRED
+        description: The metadata element is required to be present in the model
+      binds_value_of: id
     recommended: true
     inlined: true
   DiseaseDescriptor_term:
@@ -5932,6 +6080,106 @@ slots:
     usage_slot_name: evidence
     range: EvidenceItem
     recommended: true
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
+  SeverityTier_threshold:
+    name: SeverityTier_threshold
+    definition_uri: https://w3id.org/monarch-initiative/dismech/threshold
+    description: The variable value at which this severity tier activates
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: threshold
+    domain: SeverityTier
+    slot_uri: dismech:threshold
+    alias: threshold
+    owner: SeverityTier
+    domain_of:
+    - SeverityTier
+    is_usage_slot: true
+    usage_slot_name: threshold
+    range: float
+    required: true
+  SeverityTier_name:
+    name: SeverityTier_name
+    definition_uri: https://w3id.org/monarch-initiative/dismech/name
+    description: Severity label (e.g., "mild", "moderate", "severe")
+    examples:
+    - value: Adolescent Nephronophthisis
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: name
+    domain: SeverityTier
+    slot_uri: dismech:name
+    identifier: true
+    alias: name
+    owner: SeverityTier
+    domain_of:
+    - SeverityTier
+    is_usage_slot: true
+    usage_slot_name: name
+    range: string
+    required: true
+  ModelVariableDescriptor_term:
+    name: ModelVariableDescriptor_term
+    definition_uri: https://w3id.org/monarch-initiative/dismech/term
+    description: Ontology term reference (LOINC code, CHEBI term, HP term, etc.)
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: term
+    domain: ModelVariableDescriptor
+    slot_uri: dismech:term
+    alias: term
+    owner: ModelVariableDescriptor
+    domain_of:
+    - ModelVariableDescriptor
+    is_usage_slot: true
+    usage_slot_name: term
+    range: Term
+    recommended: true
+    inlined: true
+  ModelVariableDescriptor_threshold:
+    name: ModelVariableDescriptor_threshold
+    definition_uri: https://w3id.org/monarch-initiative/dismech/threshold
+    description: Value at which the mapped phenotype activates
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: threshold
+    domain: ModelVariableDescriptor
+    slot_uri: dismech:threshold
+    alias: threshold
+    owner: ModelVariableDescriptor
+    domain_of:
+    - ModelVariableDescriptor
+    is_usage_slot: true
+    usage_slot_name: threshold
+    range: float
+  ModelVariableDescriptor_threshold_direction:
+    name: ModelVariableDescriptor_threshold_direction
+    definition_uri: https://w3id.org/monarch-initiative/dismech/threshold_direction
+    description: Whether the phenotype activates above or below the threshold
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: threshold_direction
+    domain: ModelVariableDescriptor
+    slot_uri: dismech:threshold_direction
+    alias: threshold_direction
+    owner: ModelVariableDescriptor
+    domain_of:
+    - ModelVariableDescriptor
+    is_usage_slot: true
+    usage_slot_name: threshold_direction
+    range: ThresholdDirectionEnum
+  ModelVariableDescriptor_severity_scale:
+    name: ModelVariableDescriptor_severity_scale
+    definition_uri: https://w3id.org/monarch-initiative/dismech/severity_scale
+    description: Ordered severity tiers for graded phenotype activation
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: severity_scale
+    domain: ModelVariableDescriptor
+    slot_uri: dismech:severity_scale
+    alias: severity_scale
+    owner: ModelVariableDescriptor
+    domain_of:
+    - ModelVariableDescriptor
+    is_usage_slot: true
+    usage_slot_name: severity_scale
+    range: SeverityTier
     multivalued: true
     inlined: true
     inlined_as_list: true
@@ -6839,6 +7087,12 @@ classes:
       term:
         name: term
         description: Optional GO biological process term reference
+        bindings:
+        - range: BiologicalProcessTerm
+          obligation_level:
+            text: REQUIRED
+            description: The metadata element is required to be present in the model
+          binds_value_of: id
     class_uri: dismech:BiologicalProcessDescriptor
   AnatomicalEntityDescriptor:
     name: AnatomicalEntityDescriptor
@@ -6858,6 +7112,12 @@ classes:
       term:
         name: term
         description: Optional UBERON anatomical entity term reference
+        bindings:
+        - range: AnatomicalEntityTerm
+          obligation_level:
+            text: REQUIRED
+            description: The metadata element is required to be present in the model
+          binds_value_of: id
     class_uri: dismech:AnatomicalEntityDescriptor
   ChemicalEntityDescriptor:
     name: ChemicalEntityDescriptor
@@ -6877,6 +7137,12 @@ classes:
       term:
         name: term
         description: Optional CHEBI chemical entity term reference
+        bindings:
+        - range: ChemicalEntityTerm
+          obligation_level:
+            text: REQUIRED
+            description: The metadata element is required to be present in the model
+          binds_value_of: id
     class_uri: dismech:ChemicalEntityDescriptor
   GeneDescriptor:
     name: GeneDescriptor
@@ -6921,6 +7187,12 @@ classes:
       term:
         name: term
         description: Optional GO cellular component term reference
+        bindings:
+        - range: CellularComponentTerm
+          obligation_level:
+            text: REQUIRED
+            description: The metadata element is required to be present in the model
+          binds_value_of: id
     class_uri: dismech:CellularComponentDescriptor
   ProteinComplexDescriptor:
     name: ProteinComplexDescriptor
@@ -6941,6 +7213,12 @@ classes:
       term:
         name: term
         description: Optional GO protein complex term reference
+        bindings:
+        - range: ProteinComplexTerm
+          obligation_level:
+            text: REQUIRED
+            description: The metadata element is required to be present in the model
+          binds_value_of: id
     class_uri: dismech:ProteinComplexDescriptor
   AssayDescriptor:
     name: AssayDescriptor
@@ -6960,6 +7238,12 @@ classes:
       term:
         name: term
         description: Optional OBI assay term reference
+        bindings:
+        - range: AssayTerm
+          obligation_level:
+            text: REQUIRED
+            description: The metadata element is required to be present in the model
+          binds_value_of: id
     class_uri: dismech:AssayDescriptor
   TriggerDescriptor:
     name: TriggerDescriptor
@@ -6979,6 +7263,12 @@ classes:
       term:
         name: term
         description: Optional ontology term reference
+        bindings:
+        - range: TriggerTerm
+          obligation_level:
+            text: REQUIRED
+            description: The metadata element is required to be present in the model
+          binds_value_of: id
     class_uri: dismech:TriggerDescriptor
   DiseaseDescriptor:
     name: DiseaseDescriptor
@@ -7502,6 +7792,7 @@ classes:
     - model_id
     - base_model
     - perturbations
+    - variables
     - model_software
     - model_format
     - publication
@@ -7509,6 +7800,80 @@ classes:
     - evidence
     - notes
     class_uri: dismech:ComputationalModel
+  ModelVariable:
+    name: ModelVariable
+    definition_uri: https://w3id.org/monarch-initiative/dismech/ModelVariable
+    description: A variable in a computational model, identified by a human-readable
+      name, with an optional dataset_identifier for the native name in the model file
+      and ontology term mappings (e.g., LOINC for clinical observables, CHEBI for
+      metabolites, HP for phenotypic readouts).
+    comments:
+    - Use 'name' for human-readable display (e.g., "Plasma Calcium")
+    - Use 'dataset_identifier' for the native model name (e.g., SBML species "P",
+      COBRA reaction "R_0001")
+    - Map to LOINC codes for clinical lab measurements to link model outputs to CDEs
+    - Map to CHEBI for metabolite variables, HP for phenotypic readouts
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slots:
+    - name
+    - dataset_identifier
+    - description
+    - unit
+    - mappings_list
+    - notes
+    class_uri: dismech:ModelVariable
+  SeverityTier:
+    name: SeverityTier
+    definition_uri: https://w3id.org/monarch-initiative/dismech/SeverityTier
+    description: A threshold-severity pair defining one tier in a severity scale
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slots:
+    - SeverityTier_threshold
+    - SeverityTier_name
+    slot_usage:
+      threshold:
+        name: threshold
+        description: The variable value at which this severity tier activates
+        required: true
+      name:
+        name: name
+        description: Severity label (e.g., "mild", "moderate", "severe")
+        required: true
+    class_uri: dismech:SeverityTier
+  ModelVariableDescriptor:
+    name: ModelVariableDescriptor
+    definition_uri: https://w3id.org/monarch-initiative/dismech/ModelVariableDescriptor
+    description: A descriptor mapping a model variable to an ontology term (LOINC,
+      CHEBI, HP, etc.). When the mapped term is an HP phenotype, optional threshold
+      fields specify when the variable value activates that phenotype and at what
+      severity.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: Descriptor
+    slots:
+    - preferred_term
+    - Descriptor_description
+    - modifier
+    - located_in
+    - laterality
+    - qualifiers
+    - ModelVariableDescriptor_threshold
+    - ModelVariableDescriptor_threshold_direction
+    - ModelVariableDescriptor_severity_scale
+    - ModelVariableDescriptor_term
+    slot_usage:
+      term:
+        name: term
+        description: Ontology term reference (LOINC code, CHEBI term, HP term, etc.)
+      threshold:
+        name: threshold
+        description: Value at which the mapped phenotype activates
+      threshold_direction:
+        name: threshold_direction
+        description: Whether the phenotype activates above or below the threshold
+      severity_scale:
+        name: severity_scale
+        description: Ordered severity tiers for graded phenotype activation
+    class_uri: dismech:ModelVariableDescriptor
   DifferentialDiagnosis:
     name: DifferentialDiagnosis
     definition_uri: https://w3id.org/monarch-initiative/dismech/DifferentialDiagnosis
@@ -7755,6 +8120,7 @@ classes:
     - subtype
     - cell_types
     - assays
+    - mappings_list
     - synonyms
     class_uri: dismech:Biochemical
   HistopathologyFinding:
@@ -8590,7 +8956,7 @@ classes:
     tree_root: true
 metamodel_version: 1.7.0
 source_file: dismech.yaml
-source_file_date: '2026-03-06T01:22:34'
-source_file_size: 97117
-generation_date: '2026-03-06T01:27:09'
+source_file_date: '2026-03-08T15:51:37'
+source_file_size: 101845
+generation_date: '2026-03-08T15:56:09'
 
