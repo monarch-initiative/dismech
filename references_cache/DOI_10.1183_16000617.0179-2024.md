@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1183/16000617.0179-2024"
+reference_id: DOI:10.1183/16000617.0179-2024
 title: Neutrophilic inflammation in bronchiectasis
 authors:
 - James D. Chalmers
