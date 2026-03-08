@@ -1180,20 +1180,101 @@
             .stats-bar { gap: 16px; }
             .section-grid { grid-template-columns: 1fr; }
         }
-        /* Mermaid graph */
-        .mermaid-container {
-            text-align: center;
+        /* Pathograph (interactive causal graph) */
+        .pathograph-container {
             margin: 20px 0;
-            padding: 20px;
+            padding: 0;
             background: white;
             border-radius: 8px;
             border: 1px solid var(--border);
-            overflow-x: auto;
+            overflow: hidden;
+            position: relative;
         }
 
-        .mermaid svg {
-            max-width: 100%;
-            height: auto;
+        .pathograph-container svg {
+            display: block;
+            width: 100%;
+            cursor: grab;
+        }
+
+        .pathograph-container svg:active {
+            cursor: grabbing;
+        }
+
+        .pathograph-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            padding: 10px 16px;
+            background: #f9fafb;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.78rem;
+            color: #6b7280;
+        }
+
+        .pathograph-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .pathograph-legend-item.dimmed {
+            opacity: 0.35;
+        }
+
+        .pathograph-legend-swatch {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+            border: 1px solid rgba(0,0,0,0.15);
+            flex-shrink: 0;
+        }
+
+        .pathograph-tooltip {
+            position: absolute;
+            pointer-events: none;
+            background: rgba(17, 24, 39, 0.92);
+            color: #f9fafb;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            line-height: 1.45;
+            max-width: 320px;
+            z-index: 100;
+            opacity: 0;
+            transition: opacity 0.15s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip .tt-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #e5e7eb;
+        }
+
+        .pathograph-tooltip .tt-type {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            opacity: 0.7;
+            margin-bottom: 6px;
+        }
+
+        .pathograph-tooltip .tt-desc {
+            margin-bottom: 6px;
+            color: #d1d5db;
+        }
+
+        .pathograph-tooltip .tt-meta {
+            font-size: 0.72rem;
+            color: #9ca3af;
+        }
+
+        .pathograph-tooltip .tt-meta span {
+            display: block;
+            margin: 2px 0;
         }
 
         .graph-warning {
@@ -1220,16 +1301,334 @@
             margin: 4px 0;
         }
     </style>
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
     <script>
-        mermaid.initialize({
-            startOnLoad: true,
-            theme: 'default',
-            flowchart: {
-                htmlLabels: true,
-                curve: 'basis'
-            }
+    /* Pathograph: interactive D3.js causal mechanism network */
+    var NODE_SHAPES = {
+        pathophysiology: "roundrect",
+        phenotype: "ellipse",
+        environmental: "diamond",
+        genetic: "hexagon",
+        treatment: "rect",
+        biochemical: "circle",
+        orphan: "roundrect",
+        unknown: "roundrect"
+    };
+    var NODE_TYPE_LABELS = {
+        pathophysiology: "Pathophysiology",
+        phenotype: "Phenotype",
+        environmental: "Environmental",
+        genetic: "Genetic",
+        treatment: "Treatment",
+        biochemical: "Biochemical",
+        orphan: "Orphan"
+    };
+    var NODE_STROKE = {
+        pathophysiology: "#93c5fd",
+        phenotype: "#fcd34d",
+        environmental: "#86efac",
+        genetic: "#c4b5fd",
+        treatment: "#f9a8d4",
+        biochemical: "#a5b4fc",
+        orphan: "#dc2626"
+    };
+
+    function renderPathograph(containerId, data) {
+        var container = document.getElementById(containerId);
+        var svgEl = document.getElementById(containerId + "-svg");
+        var tooltipEl = document.getElementById(containerId + "-tooltip");
+        var legendEl = document.getElementById(containerId + "-legend");
+        if (!data || !data.nodes || !data.nodes.length) return;
+
+        /* -- Dagre layout -- */
+        var g = new dagre.graphlib.Graph();
+        g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
+        g.setDefaultEdgeLabel(function() { return {}; });
+
+        var nodeMap = {};
+        data.nodes.forEach(function(n) {
+            nodeMap[n.id] = n;
+            var labelLen = n.id.length;
+            var w = Math.max(120, Math.min(220, labelLen * 8 + 30));
+            var h = 44;
+            g.setNode(n.id, { width: w, height: h, label: n.id });
         });
+        data.edges.forEach(function(e) {
+            g.setEdge(e.source, e.target);
+        });
+        dagre.layout(g);
+
+        var graphInfo = g.graph();
+        var totalW = graphInfo.width + 60;
+        var totalH = graphInfo.height + 60;
+
+        /* -- SVG setup with zoom -- */
+        var svg = d3.select(svgEl)
+            .attr("viewBox", "0 0 " + totalW + " " + totalH)
+            .attr("preserveAspectRatio", "xMidYMid meet")
+            .style("min-height", Math.min(totalH, 600) + "px");
+
+        var rootG = svg.append("g").attr("class", "pathograph-root");
+
+        var zoom = d3.zoom()
+            .scaleExtent([0.3, 3])
+            .on("zoom", function(event) {
+                rootG.attr("transform", event.transform);
+            });
+        svg.call(zoom);
+
+        /* -- Arrow marker -- */
+        svg.append("defs").append("marker")
+            .attr("id", "pg-arrow")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#9ca3af");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-orphan")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#dc2626");
+
+        /* -- Draw edges -- */
+        var edgesG = rootG.append("g").attr("class", "pg-edges");
+        data.edges.forEach(function(e) {
+            var dagreEdge = g.edge(e.source, e.target);
+            if (!dagreEdge || !dagreEdge.points) return;
+            var pts = dagreEdge.points;
+            var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
+            edgesG.append("path")
+                .attr("d", line(pts))
+                .attr("fill", "none")
+                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke-width", 1.8)
+                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
+                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("data-source", e.source)
+                .attr("data-target", e.target);
+        });
+
+        /* -- Shape helpers -- */
+        function drawNodeShape(sel, nodeData, w, h) {
+            var shape = NODE_SHAPES[nodeData.node_type] || "roundrect";
+            var stroke = NODE_STROKE[nodeData.node_type] || "#d1d5db";
+            var strokeDash = nodeData.is_orphan ? "6 4" : "none";
+            if (nodeData.is_orphan) stroke = "#dc2626";
+
+            if (shape === "ellipse") {
+                sel.append("ellipse")
+                    .attr("rx", w/2).attr("ry", h/2)
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else if (shape === "diamond") {
+                var dx = w/2, dy = h/2;
+                sel.append("polygon")
+                    .attr("points", "0,"+(-dy)+" "+(dx)+",0 0,"+(dy)+" "+(-dx)+",0")
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else if (shape === "hexagon") {
+                var hx = w/2, hy = h/2, inset = w*0.2;
+                sel.append("polygon")
+                    .attr("points",
+                        (-hx+inset)+","+(-hy)+" "+(hx-inset)+","+(-hy)+" "+
+                        (hx)+",0 "+(hx-inset)+","+(hy)+" "+
+                        (-hx+inset)+","+(hy)+" "+(-hx)+",0")
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else if (shape === "circle") {
+                var r = Math.min(w, h) / 2;
+                sel.append("circle")
+                    .attr("r", r)
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else if (shape === "rect") {
+                sel.append("rect")
+                    .attr("x", -w/2).attr("y", -h/2).attr("width", w).attr("height", h)
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else {
+                /* roundrect (default) */
+                sel.append("rect")
+                    .attr("x", -w/2).attr("y", -h/2).attr("width", w).attr("height", h)
+                    .attr("rx", 8).attr("ry", 8)
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            }
+        }
+
+        /* -- Draw nodes -- */
+        var nodesG = rootG.append("g").attr("class", "pg-nodes");
+        data.nodes.forEach(function(n) {
+            var dagreNode = g.node(n.id);
+            if (!dagreNode) return;
+            var nw = dagreNode.width, nh = dagreNode.height;
+            var nodeG = nodesG.append("g")
+                .attr("transform", "translate(" + dagreNode.x + "," + dagreNode.y + ")")
+                .attr("data-node-type", n.node_type)
+                .attr("data-node-id", n.id)
+                .style("cursor", "pointer");
+
+            drawNodeShape(nodeG, n, nw, nh);
+
+            /* Label text */
+            var label = n.id;
+            var maxChars = Math.floor(nw / 7);
+            if (label.length > maxChars) label = label.substring(0, maxChars - 1) + "\u2026";
+            nodeG.append("text")
+                .attr("text-anchor", "middle")
+                .attr("dominant-baseline", "central")
+                .attr("font-size", "11px")
+                .attr("font-family", "system-ui, -apple-system, sans-serif")
+                .attr("fill", "#1f2937")
+                .text(label);
+
+            /* Interaction: hover */
+            nodeG.on("mouseenter", function(event) {
+                highlightNode(n.id, true);
+                showTooltip(event, n);
+            }).on("mouseleave", function() {
+                highlightNode(n.id, false);
+                hideTooltip();
+            }).on("click", function(event) {
+                event.stopPropagation();
+                highlightNode(n.id, true);
+                showTooltip(event, n);
+            });
+        });
+
+        /* Click on background clears highlight */
+        svg.on("click", function() {
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* -- Highlight helpers -- */
+        function highlightNode(nodeId, on) {
+            if (!on) { clearHighlight(); return; }
+            /* Find connected edges */
+            var connectedNodes = new Set([nodeId]);
+            data.edges.forEach(function(e) {
+                if (e.source === nodeId) connectedNodes.add(e.target);
+                if (e.target === nodeId) connectedNodes.add(e.source);
+            });
+            nodesG.selectAll("g").each(function() {
+                var el = d3.select(this);
+                var nid = el.attr("data-node-id");
+                el.style("opacity", connectedNodes.has(nid) ? 1 : 0.2);
+            });
+            edgesG.selectAll("path").each(function() {
+                var el = d3.select(this);
+                var s = el.attr("data-source"), t = el.attr("data-target");
+                el.style("opacity", (s === nodeId || t === nodeId) ? 1 : 0.1);
+            });
+        }
+
+        function clearHighlight() {
+            nodesG.selectAll("g").style("opacity", 1);
+            edgesG.selectAll("path").style("opacity", 1);
+        }
+
+        /* -- Tooltip -- */
+        function showTooltip(event, n) {
+            var html = [];
+            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
+            if (n.description) {
+                var desc = n.description;
+                if (desc.length > 200) desc = desc.substring(0, 197) + "...";
+                html.push('<div class="tt-desc">' + escapeHtml(desc) + '</div>');
+            }
+            var meta = n.meta || {};
+            var metaParts = [];
+            if (meta.evidence_count) metaParts.push('<span>Evidence: ' + meta.evidence_count + ' items</span>');
+            if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
+            if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
+            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
+            if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
+            if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            tooltipEl.innerHTML = html.join("");
+            tooltipEl.style.opacity = "1";
+
+            /* Position relative to container */
+            var rect = container.getBoundingClientRect();
+            var x = event.clientX - rect.left + 14;
+            var y = event.clientY - rect.top + 14;
+            if (x + 330 > rect.width) x = x - 340;
+            if (y + 200 > rect.height) y = Math.max(4, y - 200);
+            tooltipEl.style.left = x + "px";
+            tooltipEl.style.top = y + "px";
+        }
+
+        function hideTooltip() {
+            tooltipEl.style.opacity = "0";
+        }
+
+        function escapeHtml(str) {
+            var div = document.createElement("div");
+            div.appendChild(document.createTextNode(str));
+            return div.innerHTML;
+        }
+
+        /* -- Legend -- */
+        var typesInGraph = {};
+        data.nodes.forEach(function(n) { if (!n.is_orphan) typesInGraph[n.node_type] = n.color; });
+        var activeTypes = new Set(Object.keys(typesInGraph));
+
+        Object.keys(typesInGraph).forEach(function(type) {
+            var item = document.createElement("div");
+            item.className = "pathograph-legend-item";
+            item.setAttribute("data-type", type);
+            var swatch = document.createElement("div");
+            swatch.className = "pathograph-legend-swatch";
+            swatch.style.background = typesInGraph[type];
+            swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
+            item.appendChild(swatch);
+            var label = document.createElement("span");
+            label.textContent = NODE_TYPE_LABELS[type] || type;
+            item.appendChild(label);
+            item.addEventListener("click", function() {
+                if (activeTypes.has(type)) {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
+                } else {
+                    activeTypes.add(type);
+                    item.classList.remove("dimmed");
+                }
+                filterByType();
+            });
+            legendEl.appendChild(item);
+        });
+
+        function filterByType() {
+            nodesG.selectAll("g").each(function() {
+                var el = d3.select(this);
+                var t = el.attr("data-node-type");
+                el.style("display", activeTypes.has(t) ? null : "none");
+            });
+            edgesG.selectAll("path").each(function() {
+                var el = d3.select(this);
+                var sNode = nodeMap[el.attr("data-source")];
+                var tNode = nodeMap[el.attr("data-target")];
+                var sVis = sNode && activeTypes.has(sNode.node_type);
+                var tVis = tNode && activeTypes.has(tNode.node_type);
+                el.style("display", (sVis && tVis) ? null : "none");
+            });
+        }
+    }
     </script>
 </head>
 <body>
@@ -1302,18 +1701,26 @@
         
         
         
+            
+                
+            
+        
         <div class="stats-bar">
             
+            <a class="stat-link" href="#mappings">
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">1</div>
                 <div class="stat-label">Mappings</div>
             </div>
+            </a>
             
             
+            <a class="stat-link" href="#definitions">
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">1</div>
                 <div class="stat-label">Definitions</div>
             </div>
+            </a>
             
             
             <div class="stat-item">
@@ -1352,16 +1759,18 @@
             
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
-                <div class="stat-value">4</div>
+                <div class="stat-value">7</div>
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
             
             
+            <a class="stat-link" href="#subtypes">
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Subtypes</div>
             </div>
+            </a>
             
             
             <a class="stat-link" href="#differentials">
@@ -1394,14 +1803,357 @@
 
         <!-- Mappings -->
         
+        <div class="card" id="mappings">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔗</div>
+                <h2 class="card-title">Mappings</h2>
+            </div>
+            
+            <div class="mapping-section">
+                <div class="classification-category">MONDO</div>
+                
+                
+                
+                
+                <div class="mapping-item">
+                    <div class="mapping-title">
+                        
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0100233" target="_blank">MONDO:0100233</a>
+                        
+                        
+                        <span class="mapping-label">long COVID-19</span>
+                        
+                        
+                        
+                    </div>
+                    <div class="tag-list">
+                        
+                        <span class="tag tag-classification">skos:exactMatch</span>
+                        
+                        
+                        <span class="tag tag-parent">MONDO</span>
+                        
+                        
+                    </div>
+                    
+                    <div class="mapping-notes">Primary MONDO disease identifier for this Long COVID entry.</div>
+                    
+                </div>
+                
+            </div>
+            
+            
+            
+        </div>
+        
 
         <!-- Definitions -->
+        
+        <div class="card" id="definitions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #cffafe; color: #0e7490;">📘</div>
+                <h2 class="card-title">Definitions</h2>
+                <span class="card-count">1</span>
+            </div>
+            
+            <div class="item-box definition-box">
+                <div class="item-name">WHO clinical case definition for post-COVID-19 condition</div>
+                
+                <div class="item-desc">Consensus case definition produced through a WHO-led Delphi process for adult post-COVID-19 condition (Long COVID), anchored to prior SARS-CoV-2 infection, minimum symptom duration, and exclusion of alternative diagnoses.
+</div>
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-classification">CASE_DEFINITION</span>
+                    
+                    
+                    <span class="tag tag-parent">Adults</span>
+                    
+                </div>
+                
+    
+    
+                
+    
+    
+                
+    
+    
+                
+    
+    
+                
+    
+    
+                
+    
+    
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34951953" target="_blank">PMID:34951953</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"post-COVID-19 condition occurs in individuals with a history of probable or confirmed SARS-CoV-2 infection, usually 3 months from the onset, with symptoms that last for at least 2 months and cannot be explained by an alternative diagnosis."</div>
+                
+                
+                <div class="evidence-explanation">Provides the core timing and exclusion-based WHO case-definition criteria.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34951953" target="_blank">PMID:34951953</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Common symptoms include, but are not limited to, fatigue, shortness of breath, and cognitive dysfunction, and generally have an impact on everyday functioning."</div>
+                
+                
+                <div class="evidence-explanation">Supports inclusion of key symptom domains and functional impact in the case definition.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                
+                <div class="item-desc">Notes: WHO notes that a separate pediatric definition might be applicable for children.</div>
+                
+            </div>
+            
+        </div>
         
 
         <!-- Inheritance -->
         
 
         <!-- Subtypes -->
+        
+        <div class="card" id="subtypes">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
+                <h2 class="card-title">Subtypes</h2>
+                <span class="card-count">3</span>
+            </div>
+            
+            
+            
+                
+                
+                    
+                
+                
+            
+                
+                
+                
+            
+                
+                
+                
+            
+            
+                
+                
+                
+                
+                
+                
+                <div class="item-box subtype-box">
+                    <div class="item-name">
+                        
+                        Pain-dominant long COVID phenotype
+                        
+                        
+                        
+                    </div>
+                    <div class="subtype-meta">
+                        
+                        
+                        
+                    </div>
+                    
+                    <div class="item-desc">Symptom-cluster phenotype enriched for joint pain, myalgia, and headache.
+</div>
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35265728" target="_blank">PMID:35265728</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Cluster 1 had predominantly pain symptoms with a higher proportion of joint pain, myalgia, and headache;"</div>
+                
+                
+                <div class="evidence-explanation">Cluster analysis identifies a pain-predominant long-COVID subtype.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                </div>
+                
+                
+                
+                
+                
+                <div class="item-box subtype-box">
+                    <div class="item-name">
+                        
+                        Cardiopulmonary-dominant long COVID phenotype
+                        
+                        
+                        
+                    </div>
+                    <div class="subtype-meta">
+                        
+                        
+                        
+                    </div>
+                    
+                    <div class="item-desc">Symptom-cluster phenotype enriched for chest pain, shortness of breath, and palpitations.
+</div>
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35265728" target="_blank">PMID:35265728</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"cluster 2 had a preponderance of cardiovascular symptoms with prominent chest pain, shortness of breath, and palpitations;"</div>
+                
+                
+                <div class="evidence-explanation">Cluster analysis identifies a cardiopulmonary symptom-dominant subtype.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                </div>
+                
+                
+                
+                
+                
+                <div class="item-box subtype-box">
+                    <div class="item-name">
+                        
+                        Oligosymptomatic long COVID phenotype
+                        
+                        
+                        
+                    </div>
+                    <div class="subtype-meta">
+                        
+                        
+                        
+                    </div>
+                    
+                    <div class="item-desc">Symptom-cluster phenotype with lower symptom burden than pain- and cardiopulmonary-dominant groups.
+</div>
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35265728" target="_blank">PMID:35265728</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"cluster 3 had significantly fewer symptoms than the other clusters"</div>
+                
+                
+                <div class="evidence-explanation">Cluster analysis identifies a lower-symptom-burden subtype.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                </div>
+                
+            
+        </div>
         
 
         <!-- Comorbidities -->
@@ -2337,7 +3089,29 @@
         <!-- Histopathology -->
         
 
-        <!-- Causal Graph -->
+        <!-- Causal Graph (Pathograph) -->
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
+                <h2 class="card-title">Pathograph</h2>
+            </div>
+            
+            <div class="pathograph-container" id="pathograph">
+                <div class="pathograph-legend" id="pathograph-legend"></div>
+                <svg id="pathograph-svg" role="img">
+                    <title>Pathograph: causal mechanism network for Long COVID</title>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                </svg>
+                <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
+            </div>
+            <script>
+            (function() {
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anxiety\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased anxiety levels and panic symptoms.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000739\"}}, {\"id\": \"Arthralgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint pain without inflammation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002829\"}}, {\"id\": \"Autonomic Nervous System Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysautonomia, particularly postural orthostatic tachycardia syndrome (POTS), develops in many Long COVID patients. This may be related to virus- or immune-mediated disruption of the autonomic nervous system resulting in orthostatic intolerance syndromes.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mast cell activation\"]}}, {\"id\": \"Cognitive Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brain fog, difficulty concentrating, memory problems, and reduced executive function. Often referred to as cognitive dysfunction.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002354\"}}, {\"id\": \"Depression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Depressed mood and emotional dysregulation.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000716\"}}, {\"id\": \"Diarrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loose or watery bowel movements persisting after acute infection.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002014\"}}, {\"id\": \"Dyspnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Shortness of breath and breathing difficulties persisting after acute infection.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002094\"}}, {\"id\": \"Endothelial Dysfunction and Microclots\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent endothelial damage and formation of amyloid-like fibrin microclots impair microcirculation. These anomalous fibrin deposits resist normal fibrinolysis and can block capillaries, limiting oxygen delivery to tissues and potentially explaining the diverse symptomatology of Long COVID.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"endothelial cell\", \"platelet\"], \"biological_processes\": [\"fibrinolysis\"]}}, {\"id\": \"Fatigue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent, debilitating fatigue that is not relieved by rest.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012378\"}}, {\"id\": \"Headache\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic or recurring headaches.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002315\"}}, {\"id\": \"Impaired Mitochondrial Energy Production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Long COVID is associated with reduced mitochondrial ATP production and impaired oxidative phosphorylation, contributing to fatigue, cognitive disturbances, and exercise intolerance.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"oxidative phosphorylation\", \"ATP biosynthetic process\"]}}, {\"id\": \"Insomnia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Difficulty falling asleep or staying asleep.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100785\"}}, {\"id\": \"Mast Cell Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mast cell activation syndrome (MCAS) has been implicated in Long COVID pathophysiology. Mast cell degranulation releases pro-inflammatory mediators including histamine, contributing to fatigue, brain fog, cardiovascular symptoms, and gastrointestinal disturbances.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"mast cell\"]}}, {\"id\": \"Metabolic Shift and Oxidative Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitochondrial impairment drives a shift toward glycolysis with associated oxidative stress and metabolic disturbances, further exacerbating systemic symptoms in Long COVID.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"glycolytic process\", \"response to oxidative stress\"]}}, {\"id\": \"Myalgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Muscle pain and body aches.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003326\"}}, {\"id\": \"Nausea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensation of unease in the stomach with urge to vomit.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002018\"}}, {\"id\": \"Neuroinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neuroinflammation in Long COVID involves microglial activation, blood-brain barrier disruption, and inflammatory cytokine penetration into the brain parenchyma. This contributes to cognitive dysfunction, memory impairment, and other neurological symptoms.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"microglial cell\", \"macrophage\"], \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Orthostatic Tachycardia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Excessive heart rate increase upon standing, characteristic of POTS.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012173\"}}, {\"id\": \"Palpitations\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Awareness of heartbeat, often associated with POTS or general autonomic dysfunction.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001962\"}}, {\"id\": \"Post-exertional Malaise\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Worsening of symptoms following physical or mental exertion, similar to myalgic encephalomyelitis/chronic fatigue syndrome.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0030973\"}}, {\"id\": \"Serotonin Depletion Mechanisms\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Long COVID features reduced peripheral serotonin driven by diminished intestinal tryptophan absorption, platelet hyperactivation that depletes stored serotonin, and enhanced monoamine oxidase-mediated serotonin turnover.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"tryptophan transport\", \"platelet activation\", \"serotonin metabolic process\"]}}, {\"id\": \"Sleep Disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Insomnia, unrefreshing sleep, or altered sleep patterns.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002360\"}}, {\"id\": \"Systemic Immune Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Long COVID patients show ongoing systemic inflammation with altered T cell subset distributions and cytokine perturbations, indicating chronic immune activation and dysregulated signaling.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"CD4-positive T cell\", \"CD8-positive T cell\"], \"biological_processes\": [\"inflammatory response\", \"JAK-STAT signaling\"]}}, {\"id\": \"T Cell Exhaustion and Tissue Trafficking\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SARS-CoV-2-specific CD8+ T cells exhibit exhaustion phenotypes while CD4+ T cells are poised to migrate to inflamed tissues, reflecting sustained antigen exposure and chronic activation in Long COVID.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD4-positive T cell\", \"CD8-positive T cell\"], \"biological_processes\": [\"T cell migration\", \"T cell activation\"]}}, {\"id\": \"Tachycardia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated heart rate, often associated with POTS or general autonomic dysfunction.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001649\"}}, {\"id\": \"Vagus-Hippocampal Signaling Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Peripheral serotonin depletion weakens vagus nerve activity, leading to impaired hippocampal responses and memory formation that contribute to cognitive symptoms in Long COVID.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of synaptic plasticity\", \"memory\"]}}, {\"id\": \"Viral Persistence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SARS-CoV-2 viral reservoirs may persist in tissues including gut, brain, and other organs for months after acute infection. The gastrointestinal tract has emerged as a particularly significant reservoir site, with viral RNA detected in approximately 30% of intestinal specimens from Long COVID patients.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\", \"CD8-positive T cell\"]}}], \"edges\": [{\"source\": \"Viral Persistence\", \"target\": \"Systemic Immune Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Viral Persistence\", \"target\": \"T Cell Exhaustion and Tissue Trafficking\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Viral Persistence\", \"target\": \"Serotonin Depletion Mechanisms\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Viral Persistence\", \"target\": \"Mast Cell Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Immune Activation\", \"target\": \"Neuroinflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Immune Activation\", \"target\": \"Impaired Mitochondrial Energy Production\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Immune Activation\", \"target\": \"Mast Cell Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Immune Activation\", \"target\": \"Autonomic Nervous System Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Immune Activation\", \"target\": \"Myalgia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Immune Activation\", \"target\": \"Arthralgia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endothelial Dysfunction and Microclots\", \"target\": \"Impaired Mitochondrial Energy Production\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endothelial Dysfunction and Microclots\", \"target\": \"Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endothelial Dysfunction and Microclots\", \"target\": \"Dyspnea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Serotonin Depletion Mechanisms\", \"target\": \"Vagus-Hippocampal Signaling Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Serotonin Depletion Mechanisms\", \"target\": \"Autonomic Nervous System Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Serotonin Depletion Mechanisms\", \"target\": \"Depression\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vagus-Hippocampal Signaling Impairment\", \"target\": \"Neuroinflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vagus-Hippocampal Signaling Impairment\", \"target\": \"Cognitive Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Autonomic Nervous System Dysfunction\", \"target\": \"Orthostatic Tachycardia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Autonomic Nervous System Dysfunction\", \"target\": \"Palpitations\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mitochondrial Energy Production\", \"target\": \"Metabolic Shift and Oxidative Stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mitochondrial Energy Production\", \"target\": \"Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mitochondrial Energy Production\", \"target\": \"Post-exertional Malaise\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Metabolic Shift and Oxidative Stress\", \"target\": \"Impaired Mitochondrial Energy Production\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mast Cell Activation\", \"target\": \"Autonomic Nervous System Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mast Cell Activation\", \"target\": \"Neuroinflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mast Cell Activation\", \"target\": \"Tachycardia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mast Cell Activation\", \"target\": \"Diarrhea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mast Cell Activation\", \"target\": \"Nausea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroinflammation\", \"target\": \"Cognitive Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroinflammation\", \"target\": \"Headache\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroinflammation\", \"target\": \"Depression\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroinflammation\", \"target\": \"Anxiety\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Post-exertional Malaise\", \"target\": \"Fatigue\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Sleep Disturbance\", \"target\": \"Cognitive Impairment\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Insomnia\", \"target\": \"Anxiety\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Insomnia\", \"target\": \"Depression\", \"predicate\": \"leads_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                renderPathograph("pathograph", graphData);
+            })();
+            </script>
+        </div>
         
 
         <!-- Phenotypes -->
@@ -2879,6 +3653,13 @@
                     </div>
                     
                     
+                    <div class="item-meta">
+                        <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
+                        
+                        <span class="tag" style="background: #bbf7d0; color: #166534;">Cognitive Impairment</span>
+                        
+                    </div>
+                    
                     
     
     <details class="evidence-details">
@@ -3136,6 +3917,15 @@
                         
                     </div>
                     
+                    
+                    <div class="item-meta">
+                        <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
+                        
+                        <span class="tag" style="background: #bbf7d0; color: #166534;">Anxiety</span>
+                        
+                        <span class="tag" style="background: #bbf7d0; color: #166534;">Depression</span>
+                        
+                    </div>
                     
                     
     
@@ -3410,6 +4200,13 @@
                     </div>
                     
                     
+                    <div class="item-meta">
+                        <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
+                        
+                        <span class="tag" style="background: #bbf7d0; color: #166534;">Fatigue</span>
+                        
+                    </div>
+                    
                     
     
     <details class="evidence-details">
@@ -3656,20 +4453,45 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
-                <span class="card-count">4</span>
+                <span class="card-count">7</span>
             </div>
             
             <div class="item-box treatment-box">
                 <div class="item-name">
-                    Pacing and Energy Management
+                    Activity pacing
+                    
+                    <span class="phenotype-id">
+                        <a href="https://bioregistry.io/MAXO:0000950" target="_blank">
+                            MAXO:0000950
+                        </a>
+                    </span>
                     
                 </div>
                 
                 
-                <div class="item-desc">Activity management strategies to avoid post-exertional malaise, similar to approaches used in ME/CFS.
+                <div class="item-desc">Structured energy-envelope management to reduce post-exertional symptom exacerbation.
 </div>
                 
                 
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+                    
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Post-exertional malaise
+                        
+                        <a href="http://purl.obolibrary.org/obo/HP_0030973" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Fatigue
+                        
+                        <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
                 
                 
     
@@ -3688,12 +4510,14 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"clinical experience has shown that the presence of post-exertional malaise (PEM) is a significant barrier to physical exercise training in people with long COVID."</div>
                 
                 
-                <div class="evidence-explanation">Documents the importance of addressing PEM through pacing strategies before exercise in Long COVID.</div>
+                <div class="evidence-explanation">Supports pacing as a prerequisite strategy when PEM limits standard exercise progression.</div>
                 
             </div>
             
@@ -3706,12 +4530,14 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"The illness (Long COVID) is similar to myalgic encephalomyelitis/chronic fatigue syndrome (ME/CFS)"</div>
                 
                 
-                <div class="evidence-explanation">Supports applying ME/CFS management approaches including pacing to Long COVID.</div>
+                <div class="evidence-explanation">Supports borrowing pacing-based management approaches from ME/CFS care models.</div>
                 
             </div>
             
@@ -3724,58 +4550,7 @@
             
             <div class="item-box treatment-box">
                 <div class="item-name">
-                    Symptom-directed Pharmacotherapy
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
-                </div>
-                
-                
-                <div class="item-desc">Medications targeting specific symptoms such as beta-blockers for tachycardia, antihistamines for mast cell activation, and low-dose naltrexone for neuroinflammation.
-</div>
-                
-                
-                
-                
-    
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37529714" target="_blank">PMID:37529714</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                </div>
-                
-                <div class="evidence-snippet">"Our data confirm that histamine receptors blockade may be an effective target to successfully treat long-COVID."</div>
-                
-                
-                <div class="evidence-explanation">Demonstrates effectiveness of antihistamine pharmacotherapy for Long COVID symptoms.</div>
-                
-            </div>
-            
-            
-        </div>
-    </details>
-    
-    
-            </div>
-            
-            <div class="item-box treatment-box">
-                <div class="item-name">
-                    Rehabilitation Therapy
+                    Individualized physical exercise therapy
                     
                     <span class="phenotype-id">
                         <a href="https://bioregistry.io/MAXO:0000011" target="_blank">
@@ -3786,16 +4561,35 @@
                 </div>
                 
                 
-                <div class="item-desc">Physical therapy, occupational therapy, and cognitive rehabilitation tailored to individual tolerance.
+                <div class="item-desc">Personalized exercise-based physical therapy with intensity adjusted to PEM severity and tolerance.
 </div>
                 
                 
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+                    
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Fatigue
+                        
+                        <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Dyspnea
+                        
+                        <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
                 
                 
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -3808,30 +4602,14 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"impaired exercise performance is a condition that can be recovered in many people through an individualized physical exercise training program."</div>
                 
                 
-                <div class="evidence-explanation">Documents effectiveness of individualized physical rehabilitation for Long COVID exercise impairment.</div>
-                
-            </div>
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38658496" target="_blank">PMID:38658496</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                </div>
-                
-                <div class="evidence-snippet">"These recommendations may guide allied healthcare professionals worldwide in initiating and adjusting exercise training programs for people with long COVID, stratified according to the presence and severity of PEM."</div>
-                
-                
-                <div class="evidence-explanation">Provides framework for rehabilitation stratified by PEM severity in Long COVID.</div>
+                <div class="evidence-explanation">Supports individualized exercise therapy as an effective rehabilitation component.</div>
                 
             </div>
             
@@ -3844,12 +4622,14 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"Rehabilitation is a key element of management to achieve functional improvement... Exercise-based therapy, an essential part of management of long COVID, can be conducted with different modules, including telerehabilitation."</div>
                 
                 
-                <div class="evidence-explanation">Reviews rehabilitation principles and highlights exercise-based therapy as central to Long COVID management.</div>
+                <div class="evidence-explanation">Confirms exercise-based physical rehabilitation as a core management pillar.</div>
                 
             </div>
             
@@ -3878,6 +4658,25 @@
                 
                 
                 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+                    
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Tachycardia
+                        
+                        <a href="http://purl.obolibrary.org/obo/HP_0001649" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Palpitations
+                        
+                        <a href="http://purl.obolibrary.org/obo/HP_0001962" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
                 
     
     <details class="evidence-details">
@@ -3894,6 +4693,8 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -3913,6 +4714,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"Long-COVID symptoms disappeared completely in 29% of treated patients. There was a significant improvement in each of the considered symptoms"</div>
@@ -3929,10 +4732,379 @@
     
             </div>
             
+            <div class="item-box treatment-box">
+                <div class="item-name">
+                    Ivabradine therapy for post-COVID POTS-like tachycardia
+                    
+                    <span class="phenotype-id">
+                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
+                            MAXO:0000058
+                        </a>
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="item-desc">Heart-rate-lowering pharmacotherapy for Long-COVID patients with orthostatic tachycardia syndromes.
+</div>
+                
+                
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+                    
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Orthostatic tachycardia
+                        
+                        <a href="http://purl.obolibrary.org/obo/HP_0012173" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Tachycardia
+                        
+                        <a href="http://purl.obolibrary.org/obo/HP_0001649" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37469536" target="_blank">PMID:37469536</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"43 of 55 (78%) of the included patients reported significant improvement of the symptoms within 7 days of ivabradine therapy."</div>
+                
+                
+                <div class="evidence-explanation">Prospective post-COVID POTS study supports short-term symptom improvement with ivabradine.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39882369" target="_blank">PMID:39882369</a>
+                    </span>
+                    
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Ivabradine, midodrine, and beta-blockers currently appear to be reasonable front-line choices in pharmacologic management of POTS (PASC associated and otherwise)."</div>
+                
+                
+                <div class="evidence-explanation">Systematic review supports ivabradine among front-line options in PASC-associated POTS contexts.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box treatment-box">
+                <div class="item-name">
+                    Beta adrenergic agent therapy for POTS-associated symptoms
+                    
+                    <span class="phenotype-id">
+                        <a href="https://bioregistry.io/MAXO:0000186" target="_blank">
+                            MAXO:0000186
+                        </a>
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="item-desc">Class-level beta-blocker therapy to reduce orthostatic tachycardia and palpitations in Long-COVID dysautonomia phenotypes.
+</div>
+                
+                
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+                    
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Orthostatic tachycardia
+                        
+                        <a href="http://purl.obolibrary.org/obo/HP_0012173" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Palpitations
+                        
+                        <a href="http://purl.obolibrary.org/obo/HP_0001962" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39882369" target="_blank">PMID:39882369</a>
+                    </span>
+                    
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Ivabradine, midodrine, and beta-blockers currently appear to be reasonable front-line choices in pharmacologic management of POTS (PASC associated and otherwise)."</div>
+                
+                
+                <div class="evidence-explanation">Supports beta-blockers as reasonable front-line therapy in PASC-associated POTS, while acknowledging ongoing evidence development.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box treatment-box">
+                <div class="item-name">
+                    Hyperbaric oxygen therapy
+                    
+                    <span class="phenotype-id">
+                        <a href="https://bioregistry.io/MAXO:0001298" target="_blank">
+                            MAXO:0001298
+                        </a>
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="item-desc">Adjunctive therapy under pressure-controlled oxygen conditions, studied for fatigue, cognitive, neuropsychiatric, and cardiopulmonary Long-COVID symptoms.
+</div>
+                
+                
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+                    
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Fatigue
+                        
+                        <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Memory impairment
+                        
+                        <a href="http://purl.obolibrary.org/obo/HP_0002354" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41745098" target="_blank">PMID:41745098</a>
+                    </span>
+                    
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"They suggested that HBOT can improve quality of life, fatigue, cognition, neuropsychiatric symptoms and cardiopulmonary functions."</div>
+                
+                
+                <div class="evidence-explanation">Literature synthesis suggests multi-domain symptomatic benefit, but indicates need for larger definitive studies.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41745098" target="_blank">PMID:41745098</a>
+                    </span>
+                    
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"HBOT is a safe treatment and has shown some benefits for long COVID symptoms."</div>
+                
+                
+                <div class="evidence-explanation">Supports safety and preliminary benefit signal for HBOT in Long COVID.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box treatment-box">
+                <div class="item-name">
+                    Intranasal and transcranial photobiomodulation
+                    
+                    <span class="phenotype-id">
+                        <a href="https://bioregistry.io/MAXO:0001298" target="_blank">
+                            MAXO:0001298
+                        </a>
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="item-desc">Non-invasive light-based intervention studied for post-COVID cognitive dysfunction (brain fog).
+</div>
+                
+                
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+                    
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Memory impairment
+                        
+                        <a href="http://purl.obolibrary.org/obo/HP_0002354" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41768981" target="_blank">PMID:41768981</a>
+                    </span>
+                    
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Home-based itPBM is safe and feasible, showing potential cognitive benefits for PCC brain fog, particularly in younger adults."</div>
+                
+                
+                <div class="evidence-explanation">Pilot randomized evidence supports feasibility/safety and signals cognitive benefit requiring confirmation in larger trials.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
         </div>
         
 
         <!-- Environmental Factors -->
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ccfbf1; color: #0d9488;">🌍</div>
+                <h2 class="card-title">Environmental Factors</h2>
+                <span class="card-count">1</span>
+            </div>
+            
+            <div class="item-box environmental-box">
+                <div class="item-name">Infection during ancestral-strain dominance</div>
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39489523" target="_blank">PMID:39489523</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Factors associated with a decreased risk of having clinical long COVID included infection when the Omicron strain was dominant and infection when the Delta strain was dominant, as compared with when the ancestral strain of the virus was dominant."</div>
+                
+                
+                <div class="evidence-explanation">Indicates infection-context effects by circulating variant period on long-COVID risk.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+        </div>
         
 
         <!-- Biochemical Markers -->
@@ -4552,8 +5724,12 @@
             </div>
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Long COVID
+synonyms:
+- Post-COVID-19 condition
+- Post-acute sequelae of SARS-CoV-2 infection
+- PASC
 creation_date: &#39;2026-01-12T22:00:21Z&#39;
-updated_date: &#39;2026-01-20T23:58:45Z&#39;
+updated_date: &#39;2026-03-04T22:20:00Z&#39;
 category: Complex
 description: &gt;
   Long COVID, formally designated as Post-acute Sequelae of SARS-CoV-2 (PASC),
@@ -4565,9 +5741,347 @@ disease_term:
   term:
     id: MONDO:0100233
     label: long COVID-19
+mappings:
+  mondo_mappings:
+  - term:
+      id: MONDO:0100233
+      label: long COVID-19
+    mapping_predicate: skos:exactMatch
+    mapping_source: MONDO
+    mapping_justification: Primary MONDO disease identifier for this Long COVID entry.
 parents:
 - Post-viral syndrome
 - COVID-19 complications
+has_subtypes:
+- name: Pain-dominant long COVID phenotype
+  description: &gt;
+    Symptom-cluster phenotype enriched for joint pain, myalgia, and headache.
+  classification: symptom_cluster
+  evidence:
+  - reference: PMID:35265728
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Cluster 1 had predominantly pain symptoms with a higher proportion of joint pain, myalgia, and headache;&#34;
+    explanation: Cluster analysis identifies a pain-predominant long-COVID subtype.
+- name: Cardiopulmonary-dominant long COVID phenotype
+  description: &gt;
+    Symptom-cluster phenotype enriched for chest pain, shortness of breath, and palpitations.
+  classification: symptom_cluster
+  evidence:
+  - reference: PMID:35265728
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;cluster 2 had a preponderance of cardiovascular symptoms with prominent chest pain, shortness of breath, and palpitations;&#34;
+    explanation: Cluster analysis identifies a cardiopulmonary symptom-dominant subtype.
+- name: Oligosymptomatic long COVID phenotype
+  description: &gt;
+    Symptom-cluster phenotype with lower symptom burden than pain- and cardiopulmonary-dominant groups.
+  classification: symptom_cluster
+  evidence:
+  - reference: PMID:35265728
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;cluster 3 had significantly fewer symptoms than the other clusters&#34;
+    explanation: Cluster analysis identifies a lower-symptom-burden subtype.
+infectious_agent:
+- name: SARS-CoV-2
+  infectious_agent_term:
+    preferred_term: SARS-CoV-2
+    term:
+      id: NCBITaxon:2697049
+      label: Severe acute respiratory syndrome coronavirus 2
+  description: Causal antecedent infection for post-COVID-19 condition.
+  evidence:
+  - reference: PMID:34951953
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;post-COVID-19 condition occurs in individuals with a history of probable or confirmed SARS-CoV-2 infection, usually 3 months from the onset, with symptoms that last for at least 2 months and cannot be explained by an alternative diagnosis.&#34;
+    explanation: Establishes prior SARS-CoV-2 infection as a defining prerequisite for Long COVID.
+prevalence:
+- population: COVID-19 survivors (mixed hospitalization status)
+  percentage: &#34;~45% with at least one unresolved symptom at mean follow-up of 126 days&#34;
+  evidence:
+  - reference: PMID:36474804
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;On average, at least 45% of COVID-19 survivors, regardless of hospitalisation status, went on to experience at least one unresolved symptom (mean follow-up 126 days).&#34;
+    explanation: Provides pooled prevalence of unresolved post-COVID symptoms across global cohorts.
+- population: Adults with prior SARS-CoV-2 infection (Victoria, Australia)
+  percentage: &#34;14.2% clinical long COVID&#34;
+  evidence:
+  - reference: PMID:39489523
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;A total of 1656 respondents (14.2%; 95% CI, 13.4-15.0%) were classified as having clinical long COVID using the criteria of at least one persistent new symptom and less than 80% recovery three months after the infection.&#34;
+    explanation: Reports cohort-level frequency of clinically defined long COVID in a large stratified random survey.
+epidemiology:
+- name: Persistent symptom burden after COVID-19
+  description: Persistent symptoms remain common in both hospitalized and non-hospitalized survivors.
+  minimum_value: 45
+  unit: percentage
+  factors:
+  - Follow-up duration after acute infection
+  - Case mix of hospitalized and non-hospitalized cohorts
+  evidence:
+  - reference: PMID:36474804
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Our work shows that 45% of COVID-19 survivors, regardless of hospitalisation status, were experiencing a range of unresolved symptoms at ∼ 4 months.&#34;
+    explanation: Quantifies substantial ongoing symptom burden during post-acute follow-up.
+- name: Risk factors for clinical long COVID
+  description: Demographic and acute-illness characteristics influence long-COVID risk.
+  factors:
+  - female sex
+  - age
+  - severe acute illness
+  - chronic illness/comorbidity burden
+  - higher BMI
+  evidence:
+  - reference: PMID:37866679
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Factors frequently associated with a higher prevalence of persistent symptoms included female gender, advanced age, severe illness during the acute phase of COVID-19, multiple comorbidities, an extended duration of hospital stay, and a high body mass index.&#34;
+    explanation: Systematic-review evidence identifies reproducible risk factors associated with post-COVID persistent symptoms.
+  - reference: PMID:39489523
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The risk factors for clinical long COVID were female sex, age 40-49 years, infection severity, chronic illness, and past anxiety or depression.&#34;
+    explanation: Population survey confirms major risk factors for clinically defined long COVID.
+progression:
+- phase: Post-acute case-definition window
+  notes: Symptoms usually emerge or persist around three months from acute infection and continue for at least two months.
+  evidence:
+  - reference: PMID:34951953
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;post-COVID-19 condition occurs in individuals with a history of probable or confirmed SARS-CoV-2 infection, usually 3 months from the onset, with symptoms that last for at least 2 months and cannot be explained by an alternative diagnosis.&#34;
+    explanation: Defines the canonical temporal window used for post-acute progression of Long COVID.
+- phase: Fluctuating or relapsing course
+  notes: Symptom burden may wax and wane over time rather than following a monotonic recovery trajectory.
+  evidence:
+  - reference: PMID:34951953
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Symptoms might also fluctuate or relapse over time.&#34;
+    explanation: Directly supports relapsing-remitting progression patterns.
+- phase: Persistent unresolved symptoms at medium-term follow-up
+  notes: A substantial fraction of survivors continue to report unresolved symptoms around four months after acute infection.
+  evidence:
+  - reference: PMID:36474804
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Our work shows that 45% of COVID-19 survivors, regardless of hospitalisation status, were experiencing a range of unresolved symptoms at ∼ 4 months.&#34;
+    explanation: Supports sustained medium-term disease burden in mixed populations.
+stages:
+- name: Early post-acute persistent symptom stage
+  description: Ongoing symptoms beyond four weeks after acute infection.
+  evidence:
+  - reference: PMID:35265728
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;individuals with a confirmed diagnosis of COVID-19 and persistent symptoms &gt;4 weeks from onset of acute symptoms.&#34;
+    explanation: Defines an early persistent-symptom stage soon after the acute phase.
+- name: Established WHO post-COVID-19 condition stage
+  description: Symptoms usually present around three months from onset and persist at least two months without alternative explanation.
+  evidence:
+  - reference: PMID:34951953
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;post-COVID-19 condition occurs in individuals with a history of probable or confirmed SARS-CoV-2 infection, usually 3 months from the onset, with symptoms that last for at least 2 months and cannot be explained by an alternative diagnosis.&#34;
+    explanation: Anchors the established condition stage to WHO consensus timing criteria.
+- name: Medium-term unresolved symptom stage
+  description: Significant proportion of survivors continue to report unresolved symptoms around four months.
+  evidence:
+  - reference: PMID:36474804
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Our work shows that 45% of COVID-19 survivors, regardless of hospitalisation status, were experiencing a range of unresolved symptoms at ∼ 4 months.&#34;
+    explanation: Supports persistent disease burden into medium-term follow-up.
+mechanistic_hypotheses:
+- hypothesis_group_id: canonical_persistence_immune_model
+  hypothesis_label: Canonical Viral Persistence-Immune Dysregulation Model
+  status: CANONICAL
+  description: &gt;
+    Persistent viral RNA/antigen reservoirs sustain immune activation and downstream
+    multisystem dysfunction, providing the default explanatory framework for Long COVID.
+  applies_to_subtypes:
+  - Pain-dominant long COVID phenotype
+  - Cardiopulmonary-dominant long COVID phenotype
+  evidence:
+  - reference: PMID:37140960
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Persistence of SARS-CoV-2 RNA or antigens is reported in some organs, yet the mechanism by which they do so and how they may be associated with pathogenic immune responses is unclear.&#34;
+    explanation: Supports reservoir persistence linked to pathogenic immune responses.
+- hypothesis_group_id: vascular_microclot_model
+  hypothesis_label: Endothelial-Microclot Perfusion Model
+  status: ALTERNATIVE
+  description: &gt;
+    Fibrin amyloid microclots impair capillary flow and oxygen exchange, driving
+    fatigue, dyspnea, and energy deficits in a vascular-predominant subtype.
+  applies_to_subtypes:
+  - Cardiopulmonary-dominant long COVID phenotype
+  evidence:
+  - reference: PMID:35195253
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;the ability of these fibrin amyloid microclots (fibrinaloids) to block up capillaries, and thus to limit the passage of red blood cells and hence O2 exchange, can actually underpin the majority of these symptoms&#34;
+    explanation: Supports a perfusion-limitation mechanism that can coexist with immune-driven models.
+- hypothesis_group_id: serotonin_vagal_model
+  hypothesis_label: Serotonin-Vagus-Hippocampal Signaling Model
+  status: EMERGING
+  description: &gt;
+    Interferon-linked serotonin depletion impairs vagal signaling and hippocampal
+    responses, contributing to cognitive and autonomic symptoms.
+  applies_to_subtypes:
+  - Pain-dominant long COVID phenotype
+  - Oligosymptomatic long COVID phenotype
+  evidence:
+  - reference: PMID:37848036
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Peripheral serotonin reduction, in turn, impedes the activity of the vagus nerve and thereby impairs hippocampal responses and memory.&#34;
+    explanation: Supports an emerging gut-immune-neuro axis in Long COVID.
+- hypothesis_group_id: mastcell_neuroimmune_model
+  hypothesis_label: Mast Cell-BBB Neuroinflammation Model
+  status: EMERGING
+  description: &gt;
+    Mast-cell activation may compromise BBB integrity and promote neuroinflammation,
+    amplifying cognitive and neuropsychiatric manifestations.
+  applies_to_subtypes:
+  - Pain-dominant long COVID phenotype
+  - Cardiopulmonary-dominant long COVID phenotype
+  evidence:
+  - reference: PMID:38638822
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;These findings reveal a cellular mechanism of SARS-CoV-2-induced neuroinflammation.&#34;
+    explanation: Provides mechanistic cellular support for mast-cell-associated neuroinflammatory pathways.
+diagnosis:
+- name: WHO post-COVID-19 clinical case definition
+  presence: History of probable or confirmed SARS-CoV-2 infection, symptoms usually beginning by about 3 months, lasting at least 2 months, and not explained by an alternative diagnosis.
+  evidence:
+  - reference: PMID:34951953
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;post-COVID-19 condition occurs in individuals with a history of probable or confirmed SARS-CoV-2 infection, usually 3 months from the onset, with symptoms that last for at least 2 months and cannot be explained by an alternative diagnosis.&#34;
+    explanation: Provides consensus diagnostic framework for adult post-COVID-19 condition.
+- name: Functional-impact symptom profile
+  presence: Persistent fatigue, dyspnea, and/or cognitive dysfunction with daily-function impact support clinical diagnosis.
+  evidence:
+  - reference: PMID:34951953
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Common symptoms include, but are not limited to, fatigue, shortness of breath, and cognitive dysfunction, and generally have an impact on everyday functioning.&#34;
+    explanation: Defines core symptom constellation and functional impact used in diagnosis.
+environmental:
+- name: Infection during ancestral-strain dominance
+  presence: Associated with higher risk
+  effect: Increased risk of clinical long COVID compared with later Delta/Omicron-dominant periods.
+  evidence:
+  - reference: PMID:39489523
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Factors associated with a decreased risk of having clinical long COVID included infection when the Omicron strain was dominant and infection when the Delta strain was dominant, as compared with when the ancestral strain of the virus was dominant.&#34;
+    explanation: Indicates infection-context effects by circulating variant period on long-COVID risk.
+definitions:
+- name: WHO clinical case definition for post-COVID-19 condition
+  definition_type: CASE_DEFINITION
+  description: &gt;
+    Consensus case definition produced through a WHO-led Delphi process for adult
+    post-COVID-19 condition (Long COVID), anchored to prior SARS-CoV-2 infection,
+    minimum symptom duration, and exclusion of alternative diagnoses.
+  scope: Adults
+  notes: WHO notes that a separate pediatric definition might be applicable for children.
+  evidence:
+  - reference: PMID:34951953
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;post-COVID-19 condition occurs in individuals with a history of probable or confirmed SARS-CoV-2 infection, usually 3 months from the onset, with symptoms that last for at least 2 months and cannot be explained by an alternative diagnosis.&#34;
+    explanation: Provides the core timing and exclusion-based WHO case-definition criteria.
+  - reference: PMID:34951953
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Common symptoms include, but are not limited to, fatigue, shortness of breath, and cognitive dysfunction, and generally have an impact on everyday functioning.&#34;
+    explanation: Supports inclusion of key symptom domains and functional impact in the case definition.
+modeling_considerations:
+- name: Phenotype harmonization across cohorts
+  description: &gt;
+    Long COVID analyses should standardize symptom terminology (for example via HPO)
+    because cross-study synonym variability and inconsistent ascertainment reduce
+    comparability and pooling.
+  evidence:
+  - reference: PMID:34839263
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Long COVID clinical manifestations are not assessed consistently across studies, and most manifestations have been reported with a wide range of synonyms by different authors.&#34;
+    explanation: Directly identifies ascertainment and terminology heterogeneity that modeling pipelines must normalize.
+  - reference: PMID:34839263
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;If researchers, clinicians, and patients share a common language, then studies can be compared/pooled more effectively.&#34;
+    explanation: Supports ontology-based harmonization as a practical prerequisite for pooled modeling.
+- name: Stratified risk and trajectory modeling
+  description: &gt;
+    Models should include stratification by acute severity, demographics,
+    comorbidities, and follow-up window, because these factors materially influence
+    long-COVID prevalence and symptom trajectories.
+  evidence:
+  - reference: PMID:37866679
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Factors frequently associated with a higher prevalence of persistent symptoms included female gender, advanced age, severe illness during the acute phase of COVID-19, multiple comorbidities, an extended duration of hospital stay, and a high body mass index.&#34;
+    explanation: Identifies major covariates that should be explicit model features for risk estimation.
+  - reference: PMID:36474804
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Current understanding is limited by heterogeneous study design, follow-up durations, and measurement methods.&#34;
+    explanation: Emphasizes that trajectory models must account for follow-up and design heterogeneity.
+references:
+- reference: PMID:34951953
+  title: A clinical case definition of post-COVID-19 condition by a Delphi consensus.
+  findings:
+  - statement: WHO Delphi consensus defines adult post-COVID-19 condition using timing, symptom persistence, and exclusion criteria.
+    supporting_text: &#34;post-COVID-19 condition occurs in individuals with a history of probable or confirmed SARS-CoV-2 infection, usually 3 months from the onset, with symptoms that last for at least 2 months and cannot be explained by an alternative diagnosis.&#34;
+    evidence:
+    - reference: PMID:34951953
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;post-COVID-19 condition occurs in individuals with a history of probable or confirmed SARS-CoV-2 infection, usually 3 months from the onset, with symptoms that last for at least 2 months and cannot be explained by an alternative diagnosis.&#34;
+      explanation: Captures the consensus WHO definition elements used in this page.
+- reference: PMID:36474804
+  title: &#34;The prevalence and long-term health effects of Long Covid among hospitalised and non-hospitalised populations: A systematic review and meta-analysis.&#34;
+  findings:
+  - statement: Persistent symptoms affect a large fraction of survivors at medium-term follow-up.
+    supporting_text: &#34;On average, at least 45% of COVID-19 survivors, regardless of hospitalisation status, went on to experience at least one unresolved symptom (mean follow-up 126 days).&#34;
+    evidence:
+    - reference: PMID:36474804
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;On average, at least 45% of COVID-19 survivors, regardless of hospitalisation status, went on to experience at least one unresolved symptom (mean follow-up 126 days).&#34;
+      explanation: Supports high unresolved-symptom prevalence across hospitalization strata.
+- reference: PMID:37140960
+  title: &#34;Viral persistence, reactivation, and mechanisms of long COVID.&#34;
+  findings:
+  - statement: Viral RNA or antigen persistence is documented and may contribute to pathogenic immune responses.
+    supporting_text: &#34;Persistence of SARS-CoV-2 RNA or antigens is reported in some organs, yet the mechanism by which they do so and how they may be associated with pathogenic immune responses is unclear.&#34;
+    evidence:
+    - reference: PMID:37140960
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Persistence of SARS-CoV-2 RNA or antigens is reported in some organs, yet the mechanism by which they do so and how they may be associated with pathogenic immune responses is unclear.&#34;
+      explanation: Supports a persistence-driven mechanistic axis in Long COVID.
+- reference: PMID:37848036
+  title: Serotonin reduction in post-acute sequelae of viral infection.
+  findings:
+  - statement: Serotonin depletion in PASC is linked to reduced tryptophan absorption, platelet effects, and increased MAO turnover.
+    supporting_text: &#34;Viral infection and type I interferon-driven inflammation reduce serotonin through three mechanisms: diminished intestinal absorption of the serotonin precursor tryptophan; platelet hyperactivation and thrombocytopenia, which impacts serotonin storage; and enhanced MAO-mediated serotonin turnover.&#34;
+    evidence:
+    - reference: PMID:37848036
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Viral infection and type I interferon-driven inflammation reduce serotonin through three mechanisms: diminished intestinal absorption of the serotonin precursor tryptophan; platelet hyperactivation and thrombocytopenia, which impacts serotonin storage; and enhanced MAO-mediated serotonin turnover.&#34;
+      explanation: Supports the serotonin-depletion mechanistic module in this disease model.
 pathophysiology:
 - name: Viral Persistence
   description: &gt;
@@ -4589,6 +6103,39 @@ pathophysiology:
     supports: SUPPORT
     snippet: &#34;Persistence of SARS-CoV-2 RNA or antigens is reported in some organs, yet the mechanism by which they do so and how they may be associated with pathogenic immune responses is unclear.&#34;
     explanation: Links Long COVID to persistence of SARS-CoV-2 RNA or antigen in tissues and resulting immune responses.
+  downstream:
+  - target: Systemic Immune Activation
+    description: Persistent viral antigens drive chronic immune activation and cytokine perturbations.
+    evidence:
+    - reference: PMID:37140960
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Persistence of SARS-CoV-2 RNA or antigens is reported in some organs, yet the mechanism by which they do so and how they may be associated with pathogenic immune responses is unclear.&#34;
+      explanation: Persistent tissue viral RNA/antigen supports continued immune stimulation in Long COVID.
+  - target: T Cell Exhaustion and Tissue Trafficking
+    description: Sustained antigen exposure from viral reservoirs leads to CD8+ T cell exhaustion and CD4+ tissue trafficking.
+    evidence:
+    - reference: PMID:37140960
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Persistence of SARS-CoV-2 RNA or antigens is reported in some organs, yet the mechanism by which they do so and how they may be associated with pathogenic immune responses is unclear.&#34;
+      explanation: Ongoing antigen exposure from reservoirs provides a mechanistic basis for chronic T cell activation/exhaustion states.
+  - target: Serotonin Depletion Mechanisms
+    description: Viral persistence and type I interferon-driven inflammation reduce serotonin through diminished tryptophan absorption, platelet hyperactivation, and enhanced MAO turnover.
+    evidence:
+    - reference: PMID:37848036
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Viral infection and type I interferon-driven inflammation reduce serotonin through three mechanisms: diminished intestinal absorption of the serotonin precursor tryptophan; platelet hyperactivation and thrombocytopenia, which impacts serotonin storage; and enhanced MAO-mediated serotonin turnover.&#34;
+      explanation: Directly links persistent viral/inflammatory signaling to serotonin depletion pathways.
+  - target: Mast Cell Activation
+    description: Persistent viral antigens trigger mast cell degranulation and release of pro-inflammatory mediators.
+    evidence:
+    - reference: PMID:35938771
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;COVID-19 infection could lead to exaggeration of existing undiagnosed mast cell activation syndrome, or could activate normal mast cells owing to the persistence of viral particles.&#34;
+      explanation: Directly links persistent viral particles to activation of normal mast cells.
 - name: Systemic Immune Activation
   description: &gt;
     Long COVID patients show ongoing systemic inflammation with altered T cell
@@ -4621,6 +6168,52 @@ pathophysiology:
     supports: SUPPORT
     snippet: &#34;Marked differences were noted in circulating myeloid and lymphocyte populations relative to the matched controls, as well as evidence of exaggerated humoral responses directed against SARS-CoV-2 among participants with long COVID.&#34;
     explanation: Immune profiling shows broad myeloid/lymphocyte shifts and heightened humoral responses in Long COVID.
+  downstream:
+  - target: Neuroinflammation
+    description: Systemic inflammatory cytokines penetrate the blood-brain barrier and activate microglia.
+    evidence:
+    - reference: PMID:38212464
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;LC individuals exhibited systemic inflammation and immune dysregulation. This was evidenced by global differences in T cell subset distribution implying ongoing immune responses, as well as by sex-specific perturbations in cytolytic subsets.&#34;
+      explanation: Supports persistent systemic inflammation in Long COVID, which plausibly drives downstream neuroinflammatory responses.
+  - target: Impaired Mitochondrial Energy Production
+    description: Chronic immune activation disrupts mitochondrial function and oxidative phosphorylation.
+    evidence:
+    - reference: PMID:28668382
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Cytokines, particularly tumor necrosis factor-alpha, impede mitochondrial oxidative phosphorylation and associated ATP production and instigate mitochondrial reactive oxygen species production.&#34;
+      explanation: Demonstrates that inflammatory cytokines directly impair mitochondrial oxidative phosphorylation and ATP production.
+  - target: Mast Cell Activation
+    description: Immune dysregulation and elevated cytokines promote mast cell activation syndrome.
+    evidence:
+    - reference: PMID:37389095
+      supports: SUPPORT
+      snippet: &#34;There is an activated condition of mast cells in long COVID-19, with abnormal granulation and excessive inflammatory cytokine release.&#34;
+      explanation: Documents mast cell activation with abnormal granulation in the context of Long COVID immune dysregulation.
+  - target: Autonomic Nervous System Dysfunction
+    description: Systemic inflammation and immune-mediated damage disrupt autonomic nervous system function.
+    evidence:
+    - reference: PMID:37064029
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;arthralgias, paresthesias, dysautonomia, and GI and ophthalmic problems can consequently arise as result of the elevated peripheral and central cytokines.&#34;
+      explanation: Explicitly links elevated cytokines to dysautonomia, supporting inflammation-driven autonomic dysfunction.
+  - target: Myalgia
+    description: Inflammatory cytokines cause widespread muscle pain.
+    evidence:
+    - reference: PMID:35295802
+      supports: SUPPORT
+      snippet: &#34;studies have shown that inflammatory cytokines could cause myalgia by inducing prostaglandin E2 (PGE2) production&#34;
+      explanation: Provides the mechanistic link between inflammatory cytokines and myalgia via PGE2 induction in COVID-19.
+  - target: Arthralgia
+    description: Inflammatory cytokines drive joint pain without overt inflammation.
+    evidence:
+    - reference: PMID:37064029
+      supports: SUPPORT
+      snippet: &#34;arthralgias, paresthesias, dysautonomia, and GI and ophthalmic problems can consequently arise as result of the elevated peripheral and central cytokines.&#34;
+      explanation: Directly attributes arthralgias to elevated cytokine levels in Long COVID.
 - name: T Cell Exhaustion and Tissue Trafficking
   description: &gt;
     SARS-CoV-2-specific CD8+ T cells exhibit exhaustion phenotypes while CD4+ T
@@ -4678,6 +6271,31 @@ pathophysiology:
     supports: SUPPORT
     snippet: &#34;the ability of these fibrin amyloid microclots (fibrinaloids) to block up capillaries, and thus to limit the passage of red blood cells and hence O2 exchange, can actually underpin the majority of these symptoms&#34;
     explanation: Explains how microclots may cause Long COVID symptoms through impaired oxygen delivery.
+  downstream:
+  - target: Impaired Mitochondrial Energy Production
+    description: Microclot-mediated capillary blockage impairs oxygen delivery, reducing mitochondrial oxidative phosphorylation.
+    evidence:
+    - reference: PMID:35195253
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;the ability of these fibrin amyloid microclots (fibrinaloids) to block up capillaries, and thus to limit the passage of red blood cells and hence O2 exchange, can actually underpin the majority of these symptoms&#34;
+      explanation: Capillary obstruction with reduced oxygen exchange supports downstream mitochondrial energy impairment.
+  - target: Fatigue
+    description: Impaired microcirculatory oxygen exchange contributes to persistent fatigue.
+    evidence:
+    - reference: PMID:35195253
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;the ability of these fibrin amyloid microclots (fibrinaloids) to block up capillaries, and thus to limit the passage of red blood cells and hence O2 exchange, can actually underpin the majority of these symptoms&#34;
+      explanation: Microvascular oxygen-delivery deficits are consistent with persistent fatigue symptom burden.
+  - target: Dyspnea
+    description: Reduced pulmonary capillary perfusion and oxygen delivery contribute to breathlessness.
+    evidence:
+    - reference: PMID:35195253
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;the ability of these fibrin amyloid microclots (fibrinaloids) to block up capillaries, and thus to limit the passage of red blood cells and hence O2 exchange, can actually underpin the majority of these symptoms&#34;
+      explanation: Impaired O2 exchange from microclots supports a mechanistic basis for ongoing breathlessness.
 - name: Serotonin Depletion Mechanisms
   description: &gt;
     Long COVID features reduced peripheral serotonin driven by diminished
@@ -4702,6 +6320,31 @@ pathophysiology:
     supports: SUPPORT
     snippet: &#34;Viral infection and type I interferon-driven inflammation reduce serotonin through three mechanisms: diminished intestinal absorption of the serotonin precursor tryptophan; platelet hyperactivation and thrombocytopenia, which impacts serotonin storage; and enhanced MAO-mediated serotonin turnover.&#34;
     explanation: Describes the three mechanistic drivers of serotonin loss in Long COVID.
+  downstream:
+  - target: Vagus-Hippocampal Signaling Impairment
+    description: Peripheral serotonin reduction impedes vagus nerve activity and impairs hippocampal signaling.
+    evidence:
+    - reference: PMID:37848036
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Peripheral serotonin reduction, in turn, impedes the activity of the vagus nerve and thereby impairs hippocampal responses and memory.&#34;
+      explanation: Direct evidence that serotonin depletion impairs vagal-hippocampal signaling.
+  - target: Autonomic Nervous System Dysfunction
+    description: Serotonin modulates autonomic tone; its depletion contributes to dysautonomia.
+    evidence:
+    - reference: PMID:37848036
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Peripheral serotonin reduction, in turn, impedes the activity of the vagus nerve and thereby impairs hippocampal responses and memory.&#34;
+      explanation: Supports serotonin-mediated vagal dysfunction; extension to broader dysautonomia is mechanistically consistent.
+  - target: Depression
+    description: Reduced serotonin levels contribute to depressed mood through classical monoamine mechanisms.
+    evidence:
+    - reference: PMID:37848036
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Viral infection and type I interferon-driven inflammation reduce serotonin through three mechanisms: diminished intestinal absorption of the serotonin precursor tryptophan; platelet hyperactivation and thrombocytopenia, which impacts serotonin storage; and enhanced MAO-mediated serotonin turnover.&#34;
+      explanation: Establishes sustained serotonin depletion, a core mechanistic substrate for depressive symptoms.
 - name: Vagus-Hippocampal Signaling Impairment
   description: &gt;
     Peripheral serotonin depletion weakens vagus nerve activity, leading to
@@ -4721,6 +6364,22 @@ pathophysiology:
     supports: SUPPORT
     snippet: &#34;Peripheral serotonin reduction, in turn, impedes the activity of the vagus nerve and thereby impairs hippocampal responses and memory.&#34;
     explanation: Connects serotonin loss to vagal signaling deficits and hippocampal dysfunction.
+  downstream:
+  - target: Neuroinflammation
+    description: Impaired vagal anti-inflammatory reflex permits unchecked neuroinflammation.
+    evidence:
+    - reference: PMID:38018736
+      supports: SUPPORT
+      snippet: &#34;The vagus nerve inflammatory reflex is an important, well-characterized mechanism for the reflexive suppression of cytokine storm, and its experimental or clinical impairment facilitates the onset and progression of hyperinflammation.&#34;
+      explanation: Establishes that impairment of the vagal inflammatory reflex facilitates hyperinflammation.
+  - target: Cognitive Impairment
+    description: Disrupted hippocampal signaling impairs memory formation and cognitive function.
+    evidence:
+    - reference: PMID:37848036
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Peripheral serotonin reduction, in turn, impedes the activity of the vagus nerve and thereby impairs hippocampal responses and memory.&#34;
+      explanation: Directly connects vagal-hippocampal dysfunction to memory/cognitive impairment.
 - name: Autonomic Nervous System Dysfunction
   description: &gt;
     Dysautonomia, particularly postural orthostatic tachycardia syndrome (POTS),
@@ -4741,6 +6400,23 @@ pathophysiology:
     supports: SUPPORT
     snippet: &#34;&#39;Post-acute COVID&#39; (known colloquially as &#39;long COVID&#39;) is emerging as a prevalent syndrome. It encompasses a plethora of debilitating symptoms (including breathlessness, chest pain, palpitations and orthostatic intolerance)&#34;
     explanation: Documents the prevalence of autonomic symptoms in Long COVID.
+  downstream:
+  - target: Orthostatic Tachycardia
+    description: Autonomic dysfunction directly causes excessive heart rate increase upon standing.
+    evidence:
+    - reference: PMID:33243837
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;We posit that this condition may be related to a virus- or immune-mediated disruption of the autonomic nervous system resulting in orthostatic intolerance syndromes.&#34;
+      explanation: Supports orthostatic tachycardia as a downstream manifestation of autonomic disruption.
+  - target: Palpitations
+    description: Dysautonomia produces awareness of abnormal heartbeat patterns.
+    evidence:
+    - reference: PMID:33243837
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;&#39;Post-acute COVID&#39; (known colloquially as &#39;long COVID&#39;) is emerging as a prevalent syndrome. It encompasses a plethora of debilitating symptoms (including breathlessness, chest pain, palpitations and orthostatic intolerance)&#34;
+      explanation: Palpitations co-occur with orthostatic intolerance in post-acute COVID, supporting dysautonomia linkage.
 - name: Impaired Mitochondrial Energy Production
   description: &gt;
     Long COVID is associated with reduced mitochondrial ATP production and
@@ -4760,6 +6436,31 @@ pathophysiology:
     supports: SUPPORT
     snippet: &#34;Emerging evidence has pointed to mitochondrial dysfunction as a potential underpinning mechanism contributing to the persistence and diversity of long COVID symptoms.&#34;
     explanation: Links mitochondrial dysfunction and reduced energy production to persistent Long COVID symptoms.
+  downstream:
+  - target: Metabolic Shift and Oxidative Stress
+    description: Impaired oxidative phosphorylation forces a compensatory shift toward glycolysis with resulting oxidative stress.
+    evidence:
+    - reference: PMID:38668888
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;This review aims to synthesize current findings related to mitochondrial dysfunction in long COVID, exploring its implications for cellular energy deficits, oxidative stress, immune dysregulation, metabolic disturbances, and endothelial dysfunction.&#34;
+      explanation: Directly supports a downstream shift toward oxidative stress/metabolic disturbance from mitochondrial dysfunction.
+  - target: Fatigue
+    description: Reduced cellular ATP production underlies persistent fatigue.
+    evidence:
+    - reference: PMID:38668888
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Emerging evidence has pointed to mitochondrial dysfunction as a potential underpinning mechanism contributing to the persistence and diversity of long COVID symptoms.&#34;
+      explanation: Supports mitochondrial dysfunction as a contributor to persistent fatigue in Long COVID.
+  - target: Post-exertional Malaise
+    description: Insufficient mitochondrial energy reserve causes symptom exacerbation after exertion.
+    evidence:
+    - reference: PMID:38668888
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Emerging evidence has pointed to mitochondrial dysfunction as a potential underpinning mechanism contributing to the persistence and diversity of long COVID symptoms.&#34;
+      explanation: Supports energy-production deficits as a plausible driver of exertional symptom exacerbation.
 - name: Metabolic Shift and Oxidative Stress
   description: &gt;
     Mitochondrial impairment drives a shift toward glycolysis with associated
@@ -4779,6 +6480,15 @@ pathophysiology:
     supports: SUPPORT
     snippet: &#34;This review aims to synthesize current findings related to mitochondrial dysfunction in long COVID, exploring its implications for cellular energy deficits, oxidative stress, immune dysregulation, metabolic disturbances, and endothelial dysfunction.&#34;
     explanation: Describes oxidative stress and metabolic disturbances resulting from mitochondrial dysfunction in Long COVID.
+  downstream:
+  - target: Impaired Mitochondrial Energy Production
+    description: Oxidative stress damages mitochondrial components, creating a self-reinforcing feedback loop of energy deficit.
+    evidence:
+    - reference: PMID:24557875
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Defects in ATP production and the electron transport complex, in turn, are associated with an elevated production of superoxide and hydrogen peroxide in mitochondria creating adaptive and synergistic damage.&#34;
+      explanation: Demonstrates the feedback loop where mitochondrial defects produce ROS that cause further synergistic damage.
 - name: Mast Cell Activation
   description: &gt;
     Mast cell activation syndrome (MCAS) has been implicated in Long COVID
@@ -4799,6 +6509,46 @@ pathophysiology:
     supports: SUPPORT
     snippet: &#34;Long-COVID symptoms disappeared completely in 29% of treated patients. There was a significant improvement in each of the considered symptoms (improved or disappeared) in all treated patients&#34;
     explanation: Treatment response to antihistamines supports the role of mast cell activation in Long COVID.
+  downstream:
+  - target: Autonomic Nervous System Dysfunction
+    description: Histamine release from mast cells drives autonomic dysfunction and POTS symptoms.
+    evidence:
+    - reference: PMID:37951572
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;MC are located perivascularly close to nerve endings and sites such as the carotid bodies, heart, hypothalamus, the pineal gland, and the adrenal gland that would allow them not only to regulate but also to be affected by the autonomic nervous system (ANS). MC are stimulated not only by allergens but also many other triggers including some from the ANS that can affect MC release of neurosensitizing, proinflammatory, and vasoactive mediators.&#34;
+      explanation: Establishes anatomical basis for mast cell regulation of autonomic nervous system at key control sites.
+  - target: Neuroinflammation
+    description: Mast cell mediators cross the blood-brain barrier and activate neuroinflammatory cascades.
+    evidence:
+    - reference: PMID:38638822
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &#34;These findings reveal a cellular mechanism of SARS-CoV-2-induced neuroinflammation.&#34;
+      explanation: Demonstrates mast-cell-mediated mechanisms for SARS-CoV-2-associated neuroinflammation.
+  - target: Tachycardia
+    description: Mast cell-derived histamine directly increases heart rate.
+    evidence:
+    - reference: PMID:37529714
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Cardiovascular manifestations of long-COVID include high heart rate, postural tachycardia, and palpitations.&#34;
+      explanation: Supports tachycardia as a cardiovascular manifestation in the mast-cell-associated Long COVID phenotype.
+  - target: Diarrhea
+    description: Mast cell degranulation in the gastrointestinal tract causes diarrhea.
+    evidence:
+    - reference: PMID:15710782
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;MCA+POTS patients were characterized by episodes of flushing, shortness of breath, headache, lightheadedness, excessive diuresis, and gastrointestinal symptoms such as diarrhea, nausea, and vomiting.&#34;
+      explanation: Supports diarrhea as a downstream gastrointestinal manifestation of mast cell activation.
+  - target: Nausea
+    description: Gastrointestinal mast cell activation produces nausea.
+    evidence:
+    - reference: PMID:15710782
+      supports: SUPPORT
+      snippet: &#34;MCA+POTS patients were characterized by episodes of flushing, shortness of breath, headache, lightheadedness, excessive diuresis, and gastrointestinal symptoms such as diarrhea, nausea, and vomiting.&#34;
+      explanation: Documents nausea as a characteristic symptom of mast cell activation in POTS patients.
 - name: Neuroinflammation
   description: &gt;
     Neuroinflammation in Long COVID involves microglial activation, blood-brain
@@ -4828,6 +6578,38 @@ pathophysiology:
     supports: SUPPORT
     snippet: &#34;Inflammatory cytokines have been found to play a significant role in reductions in LTP and LTD, a reduction in neurogenesis, and in dendritic sprouting.&#34;
     explanation: Explains how inflammatory cytokines impair neural function in Long COVID brain fog.
+  downstream:
+  - target: Cognitive Impairment
+    description: Microglial activation and inflammatory cytokines impair learning, memory, and executive function.
+    evidence:
+    - reference: PMID:36846556
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Activation of microglia in response to an immune system challenge can lead to a significant impact on cognitive processes, such as learning, memory and emotional regulation.&#34;
+      explanation: Directly supports cognitive consequences of microglial activation in neuroinflammation.
+  - target: Headache
+    description: Neuroinflammatory mediators sensitize pain pathways and drive chronic headache.
+    evidence:
+    - reference: PMID:36284805
+      supports: SUPPORT
+      snippet: &#34;The possible COVID-19 pain pathway pathomechanism engaging interleukin (IL)-1, IL-6, and tumor necrosis factor (TNF) alpha aided with a cortical spreading depression disturbing the hypothalamus is also described in this study.&#34;
+      explanation: Describes the neuroinflammatory cytokine pathway that produces headache pain in COVID-19.
+  - target: Depression
+    description: Inflammatory cytokines in the brain disrupt monoamine signaling and promote depressed mood.
+    evidence:
+    - reference: PMID:36846556
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Activation of microglia in response to an immune system challenge can lead to a significant impact on cognitive processes, such as learning, memory and emotional regulation.&#34;
+      explanation: Supports mood/emotional dysregulation downstream of neuroinflammatory microglial activation.
+  - target: Anxiety
+    description: Neuroinflammation in limbic circuitry amplifies anxiety and emotional dysregulation.
+    evidence:
+    - reference: PMID:36846556
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Activation of microglia in response to an immune system challenge can lead to a significant impact on cognitive processes, such as learning, memory and emotional regulation.&#34;
+      explanation: Supports anxiety-relevant emotional dysregulation as a downstream consequence of neuroinflammation.
 differential_diagnoses:
 - name: Myalgic Encephalomyelitis/Chronic Fatigue Syndrome
   description: &gt;
@@ -4975,6 +6757,15 @@ phenotypes:
     supports: SUPPORT
     snippet: &#34;The illness (Long COVID) is similar to myalgic encephalomyelitis/chronic fatigue syndrome (ME/CFS)&#34;
     explanation: Notes the similarity between Long COVID and ME/CFS, which share post-exertional malaise.
+  sequelae:
+  - target: Fatigue
+    description: Episodes of post-exertional malaise exacerbate and prolong baseline fatigue.
+    evidence:
+    - reference: PMID:37342500
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;They develop persistent fatigue, cognitive problems, headaches, disrupted sleep, myalgias and arthralgias, post-exertional malaise, orthostatic intolerance and other symptoms that greatly interfere with their ability to function&#34;
+      explanation: Co-occurrence of post-exertional malaise with persistent fatigue supports exacerbation of fatigue burden.
 - name: Palpitations
   description: Awareness of heartbeat, often associated with POTS or general autonomic dysfunction.
   phenotype_term:
@@ -5039,6 +6830,14 @@ phenotypes:
     supports: SUPPORT
     snippet: &#34;They develop persistent fatigue, cognitive problems, headaches, disrupted sleep&#34;
     explanation: Documents disrupted sleep as a symptom that interferes with function.
+  sequelae:
+  - target: Cognitive Impairment
+    description: Sleep disruption impairs memory consolidation and executive function.
+    evidence:
+    - reference: PMID:38370438
+      supports: SUPPORT
+      snippet: &#34;Objective evidence of sleep disruption measured by wakefulness after sleep onset, sleep efficiency, and latency were associated with decreased performance in attention and processing speed.&#34;
+      explanation: Demonstrates objective sleep disruption metrics predict decreased cognitive performance in Long COVID patients.
 - name: Anxiety
   description: Increased anxiety levels and panic symptoms.
   phenotype_term:
@@ -5175,6 +6974,21 @@ phenotypes:
     supports: SUPPORT
     snippet: &#34;Across at least 10 cohorts, authors reported 31 unique clinical features corresponding to HPO terms; the most commonly reported feature was Fatigue (median 45.1%)&#34;
     explanation: Insomnia was among the 31 most commonly reported clinical features across Long COVID cohorts.
+  sequelae:
+  - target: Anxiety
+    description: Chronic insomnia is a significant predictor for the onset of anxiety.
+    evidence:
+    - reference: PMID:30537570
+      supports: SUPPORT
+      snippet: &#34;insomnia is a significant predictor for the onset of depression (10 studies, OR 2.83, CI 1.55-5.17), anxiety (six studies, OR 3.23, CI 1.52-6.85)&#34;
+      explanation: Meta-analysis establishes insomnia as a significant predictor for anxiety onset with OR 3.23.
+  - target: Depression
+    description: Persistent insomnia is a significant risk factor for the development of depression.
+    evidence:
+    - reference: PMID:27816065
+      supports: SUPPORT
+      snippet: &#34;insomnia is significantly associated with an increased risk of depression&#34;
+      explanation: Meta-analysis of 34 cohort studies with 172,077 participants shows insomnia increases depression risk (RR 2.27).
 - name: Diarrhea
   description: Loose or watery bowel movements persisting after acute infection.
   phenotype_term:
@@ -5219,56 +7033,64 @@ biochemical:
     snippet: &#34;LC individuals exhibited systemic inflammation and immune dysregulation.&#34;
     explanation: Documents systemic inflammation in Long COVID patients.
 treatments:
-- name: Pacing and Energy Management
+- name: Activity pacing
   description: &gt;
-    Activity management strategies to avoid post-exertional malaise,
-    similar to approaches used in ME/CFS.
+    Structured energy-envelope management to reduce post-exertional symptom
+    exacerbation.
+  treatment_term:
+    preferred_term: supportive care
+    term:
+      id: MAXO:0000950
+      label: supportive care
+  target_phenotypes:
+  - preferred_term: Post-exertional malaise
+    term:
+      id: HP:0030973
+      label: Postexertional symptom exacerbation
+  - preferred_term: Fatigue
+    term:
+      id: HP:0012378
+      label: Fatigue
   evidence:
   - reference: PMID:38658496
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
     snippet: &#34;clinical experience has shown that the presence of post-exertional malaise (PEM) is a significant barrier to physical exercise training in people with long COVID.&#34;
-    explanation: Documents the importance of addressing PEM through pacing strategies before exercise in Long COVID.
+    explanation: Supports pacing as a prerequisite strategy when PEM limits standard exercise progression.
   - reference: PMID:37342500
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
     snippet: &#34;The illness (Long COVID) is similar to myalgic encephalomyelitis/chronic fatigue syndrome (ME/CFS)&#34;
-    explanation: Supports applying ME/CFS management approaches including pacing to Long COVID.
-- name: Symptom-directed Pharmacotherapy
+    explanation: Supports borrowing pacing-based management approaches from ME/CFS care models.
+- name: Individualized physical exercise therapy
   description: &gt;
-    Medications targeting specific symptoms such as beta-blockers for
-    tachycardia, antihistamines for mast cell activation, and low-dose
-    naltrexone for neuroinflammation.
-  treatment_term:
-    preferred_term: pharmacotherapy
-    term:
-      id: MAXO:0000058
-      label: pharmacotherapy
-  evidence:
-  - reference: PMID:37529714
-    supports: SUPPORT
-    snippet: &#34;Our data confirm that histamine receptors blockade may be an effective target to successfully treat long-COVID.&#34;
-    explanation: Demonstrates effectiveness of antihistamine pharmacotherapy for Long COVID symptoms.
-- name: Rehabilitation Therapy
-  description: &gt;
-    Physical therapy, occupational therapy, and cognitive
-    rehabilitation tailored to individual tolerance.
+    Personalized exercise-based physical therapy with intensity adjusted to PEM
+    severity and tolerance.
   treatment_term:
     preferred_term: physical therapy
     term:
       id: MAXO:0000011
       label: physical therapy
+  target_phenotypes:
+  - preferred_term: Fatigue
+    term:
+      id: HP:0012378
+      label: Fatigue
+  - preferred_term: Dyspnea
+    term:
+      id: HP:0002094
+      label: Dyspnea
   evidence:
   - reference: PMID:38658496
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
     snippet: &#34;impaired exercise performance is a condition that can be recovered in many people through an individualized physical exercise training program.&#34;
-    explanation: Documents effectiveness of individualized physical rehabilitation for Long COVID exercise impairment.
-  - reference: PMID:38658496
-    supports: SUPPORT
-    snippet: &#34;These recommendations may guide allied healthcare professionals worldwide in initiating and adjusting exercise training programs for people with long COVID, stratified according to the presence and severity of PEM.&#34;
-    explanation: Provides framework for rehabilitation stratified by PEM severity in Long COVID.
+    explanation: Supports individualized exercise therapy as an effective rehabilitation component.
   - reference: PMID:37061399
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
     snippet: &#34;Rehabilitation is a key element of management to achieve functional improvement... Exercise-based therapy, an essential part of management of long COVID, can be conducted with different modules, including telerehabilitation.&#34;
-    explanation: Reviews rehabilitation principles and highlights exercise-based therapy as central to Long COVID management.
+    explanation: Confirms exercise-based physical rehabilitation as a core management pillar.
 - name: Antihistamine Therapy
   description: &gt;
     H1 and H2 receptor antagonists (such as fexofenadine and famotidine)
@@ -5278,15 +7100,192 @@ treatments:
     term:
       id: MAXO:0000058
       label: pharmacotherapy
+    qualifiers:
+    - predicate:
+        preferred_term: therapeutic agent
+        term:
+          id: NCIT:C2259
+          label: Therapeutic Agent
+      value:
+        preferred_term: histamine antagonist
+        term:
+          id: CHEBI:37956
+          label: histamine antagonist
+    - predicate:
+        preferred_term: therapeutic agent
+        term:
+          id: NCIT:C2259
+          label: Therapeutic Agent
+      value:
+        preferred_term: fexofenadine
+        term:
+          id: CHEBI:5050
+          label: fexofenadine
+    - predicate:
+        preferred_term: therapeutic agent
+        term:
+          id: NCIT:C2259
+          label: Therapeutic Agent
+      value:
+        preferred_term: famotidine
+        term:
+          id: CHEBI:4975
+          label: famotidine
+  target_phenotypes:
+  - preferred_term: Tachycardia
+    term:
+      id: HP:0001649
+      label: Tachycardia
+  - preferred_term: Palpitations
+    term:
+      id: HP:0001962
+      label: Palpitations
   evidence:
   - reference: PMID:37529714
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
     snippet: &#34;Patients were treated with fexofenadine (180 mg/day) and famotidine (40 mg/day). Fatigue, brain fog, abdominal disorders, and increased heart rate were evaluated in treated and untreated patients at baseline and 20 days later.&#34;
     explanation: Details the antihistamine treatment protocol used in Long COVID.
   - reference: PMID:37529714
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
     snippet: &#34;Long-COVID symptoms disappeared completely in 29% of treated patients. There was a significant improvement in each of the considered symptoms&#34;
     explanation: Documents significant improvement with antihistamine treatment.
+- name: Ivabradine therapy for post-COVID POTS-like tachycardia
+  description: &gt;
+    Heart-rate-lowering pharmacotherapy for Long-COVID patients with orthostatic
+    tachycardia syndromes.
+  treatment_term:
+    preferred_term: pharmacotherapy
+    term:
+      id: MAXO:0000058
+      label: pharmacotherapy
+    qualifiers:
+    - predicate:
+        preferred_term: therapeutic agent
+        term:
+          id: NCIT:C2259
+          label: Therapeutic Agent
+      value:
+        preferred_term: ivabradine
+        term:
+          id: CHEBI:85966
+          label: ivabradine
+  target_phenotypes:
+  - preferred_term: Orthostatic tachycardia
+    term:
+      id: HP:0012173
+      label: Orthostatic tachycardia
+  - preferred_term: Tachycardia
+    term:
+      id: HP:0001649
+      label: Tachycardia
+  evidence:
+  - reference: PMID:37469536
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;43 of 55 (78%) of the included patients reported significant improvement of the symptoms within 7 days of ivabradine therapy.&#34;
+    explanation: Prospective post-COVID POTS study supports short-term symptom improvement with ivabradine.
+  - reference: PMID:39882369
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Ivabradine, midodrine, and beta-blockers currently appear to be reasonable front-line choices in pharmacologic management of POTS (PASC associated and otherwise).&#34;
+    explanation: Systematic review supports ivabradine among front-line options in PASC-associated POTS contexts.
+- name: Beta adrenergic agent therapy for POTS-associated symptoms
+  description: &gt;
+    Class-level beta-blocker therapy to reduce orthostatic tachycardia and
+    palpitations in Long-COVID dysautonomia phenotypes.
+  treatment_term:
+    preferred_term: beta adrenergic agent therapy
+    term:
+      id: MAXO:0000186
+      label: beta adrenergic agent therapy
+  target_phenotypes:
+  - preferred_term: Orthostatic tachycardia
+    term:
+      id: HP:0012173
+      label: Orthostatic tachycardia
+  - preferred_term: Palpitations
+    term:
+      id: HP:0001962
+      label: Palpitations
+  evidence:
+  - reference: PMID:39882369
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Ivabradine, midodrine, and beta-blockers currently appear to be reasonable front-line choices in pharmacologic management of POTS (PASC associated and otherwise).&#34;
+    explanation: Supports beta-blockers as reasonable front-line therapy in PASC-associated POTS, while acknowledging ongoing evidence development.
+- name: Hyperbaric oxygen therapy
+  description: &gt;
+    Adjunctive therapy under pressure-controlled oxygen conditions, studied for
+    fatigue, cognitive, neuropsychiatric, and cardiopulmonary Long-COVID symptoms.
+  treatment_term:
+    preferred_term: therapy
+    term:
+      id: MAXO:0001298
+      label: therapy
+    qualifiers:
+    - predicate:
+        preferred_term: therapeutic agent
+        term:
+          id: NCIT:C2259
+          label: Therapeutic Agent
+      value:
+        preferred_term: Hyperbaric Oxygen
+        term:
+          id: NCIT:C2351
+          label: Hyperbaric Oxygen
+  target_phenotypes:
+  - preferred_term: Fatigue
+    term:
+      id: HP:0012378
+      label: Fatigue
+  - preferred_term: Memory impairment
+    term:
+      id: HP:0002354
+      label: Memory impairment
+  evidence:
+  - reference: PMID:41745098
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;They suggested that HBOT can improve quality of life, fatigue, cognition, neuropsychiatric symptoms and cardiopulmonary functions.&#34;
+    explanation: Literature synthesis suggests multi-domain symptomatic benefit, but indicates need for larger definitive studies.
+  - reference: PMID:41745098
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;HBOT is a safe treatment and has shown some benefits for long COVID symptoms.&#34;
+    explanation: Supports safety and preliminary benefit signal for HBOT in Long COVID.
+- name: Intranasal and transcranial photobiomodulation
+  description: &gt;
+    Non-invasive light-based intervention studied for post-COVID cognitive
+    dysfunction (brain fog).
+  treatment_term:
+    preferred_term: therapy
+    term:
+      id: MAXO:0001298
+      label: therapy
+    qualifiers:
+    - predicate:
+        preferred_term: therapeutic agent
+        term:
+          id: NCIT:C2259
+          label: Therapeutic Agent
+      value:
+        preferred_term: Phototherapy
+        term:
+          id: NCIT:C15301
+          label: Phototherapy
+  target_phenotypes:
+  - preferred_term: Memory impairment
+    term:
+      id: HP:0002354
+      label: Memory impairment
+  evidence:
+  - reference: PMID:41768981
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Home-based itPBM is safe and feasible, showing potential cognitive benefits for PCC brain fog, particularly in younger adults.&#34;
+    explanation: Pilot randomized evidence supports feasibility/safety and signals cognitive benefit requiring confirmation in larger trials.
 notes: &gt;
   Long COVID shares substantial clinical and biological overlap with myalgic
   encephalomyelitis/chronic fatigue syndrome (ME/CFS) and postural orthostatic

@@ -1180,20 +1180,101 @@
             .stats-bar { gap: 16px; }
             .section-grid { grid-template-columns: 1fr; }
         }
-        /* Mermaid graph */
-        .mermaid-container {
-            text-align: center;
+        /* Pathograph (interactive causal graph) */
+        .pathograph-container {
             margin: 20px 0;
-            padding: 20px;
+            padding: 0;
             background: white;
             border-radius: 8px;
             border: 1px solid var(--border);
-            overflow-x: auto;
+            overflow: hidden;
+            position: relative;
         }
 
-        .mermaid svg {
-            max-width: 100%;
-            height: auto;
+        .pathograph-container svg {
+            display: block;
+            width: 100%;
+            cursor: grab;
+        }
+
+        .pathograph-container svg:active {
+            cursor: grabbing;
+        }
+
+        .pathograph-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            padding: 10px 16px;
+            background: #f9fafb;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.78rem;
+            color: #6b7280;
+        }
+
+        .pathograph-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .pathograph-legend-item.dimmed {
+            opacity: 0.35;
+        }
+
+        .pathograph-legend-swatch {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+            border: 1px solid rgba(0,0,0,0.15);
+            flex-shrink: 0;
+        }
+
+        .pathograph-tooltip {
+            position: absolute;
+            pointer-events: none;
+            background: rgba(17, 24, 39, 0.92);
+            color: #f9fafb;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            line-height: 1.45;
+            max-width: 320px;
+            z-index: 100;
+            opacity: 0;
+            transition: opacity 0.15s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip .tt-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #e5e7eb;
+        }
+
+        .pathograph-tooltip .tt-type {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            opacity: 0.7;
+            margin-bottom: 6px;
+        }
+
+        .pathograph-tooltip .tt-desc {
+            margin-bottom: 6px;
+            color: #d1d5db;
+        }
+
+        .pathograph-tooltip .tt-meta {
+            font-size: 0.72rem;
+            color: #9ca3af;
+        }
+
+        .pathograph-tooltip .tt-meta span {
+            display: block;
+            margin: 2px 0;
         }
 
         .graph-warning {
@@ -1220,16 +1301,334 @@
             margin: 4px 0;
         }
     </style>
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
     <script>
-        mermaid.initialize({
-            startOnLoad: true,
-            theme: 'default',
-            flowchart: {
-                htmlLabels: true,
-                curve: 'basis'
-            }
+    /* Pathograph: interactive D3.js causal mechanism network */
+    var NODE_SHAPES = {
+        pathophysiology: "roundrect",
+        phenotype: "ellipse",
+        environmental: "diamond",
+        genetic: "hexagon",
+        treatment: "rect",
+        biochemical: "circle",
+        orphan: "roundrect",
+        unknown: "roundrect"
+    };
+    var NODE_TYPE_LABELS = {
+        pathophysiology: "Pathophysiology",
+        phenotype: "Phenotype",
+        environmental: "Environmental",
+        genetic: "Genetic",
+        treatment: "Treatment",
+        biochemical: "Biochemical",
+        orphan: "Orphan"
+    };
+    var NODE_STROKE = {
+        pathophysiology: "#93c5fd",
+        phenotype: "#fcd34d",
+        environmental: "#86efac",
+        genetic: "#c4b5fd",
+        treatment: "#f9a8d4",
+        biochemical: "#a5b4fc",
+        orphan: "#dc2626"
+    };
+
+    function renderPathograph(containerId, data) {
+        var container = document.getElementById(containerId);
+        var svgEl = document.getElementById(containerId + "-svg");
+        var tooltipEl = document.getElementById(containerId + "-tooltip");
+        var legendEl = document.getElementById(containerId + "-legend");
+        if (!data || !data.nodes || !data.nodes.length) return;
+
+        /* -- Dagre layout -- */
+        var g = new dagre.graphlib.Graph();
+        g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
+        g.setDefaultEdgeLabel(function() { return {}; });
+
+        var nodeMap = {};
+        data.nodes.forEach(function(n) {
+            nodeMap[n.id] = n;
+            var labelLen = n.id.length;
+            var w = Math.max(120, Math.min(220, labelLen * 8 + 30));
+            var h = 44;
+            g.setNode(n.id, { width: w, height: h, label: n.id });
         });
+        data.edges.forEach(function(e) {
+            g.setEdge(e.source, e.target);
+        });
+        dagre.layout(g);
+
+        var graphInfo = g.graph();
+        var totalW = graphInfo.width + 60;
+        var totalH = graphInfo.height + 60;
+
+        /* -- SVG setup with zoom -- */
+        var svg = d3.select(svgEl)
+            .attr("viewBox", "0 0 " + totalW + " " + totalH)
+            .attr("preserveAspectRatio", "xMidYMid meet")
+            .style("min-height", Math.min(totalH, 600) + "px");
+
+        var rootG = svg.append("g").attr("class", "pathograph-root");
+
+        var zoom = d3.zoom()
+            .scaleExtent([0.3, 3])
+            .on("zoom", function(event) {
+                rootG.attr("transform", event.transform);
+            });
+        svg.call(zoom);
+
+        /* -- Arrow marker -- */
+        svg.append("defs").append("marker")
+            .attr("id", "pg-arrow")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#9ca3af");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-orphan")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#dc2626");
+
+        /* -- Draw edges -- */
+        var edgesG = rootG.append("g").attr("class", "pg-edges");
+        data.edges.forEach(function(e) {
+            var dagreEdge = g.edge(e.source, e.target);
+            if (!dagreEdge || !dagreEdge.points) return;
+            var pts = dagreEdge.points;
+            var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
+            edgesG.append("path")
+                .attr("d", line(pts))
+                .attr("fill", "none")
+                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke-width", 1.8)
+                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
+                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("data-source", e.source)
+                .attr("data-target", e.target);
+        });
+
+        /* -- Shape helpers -- */
+        function drawNodeShape(sel, nodeData, w, h) {
+            var shape = NODE_SHAPES[nodeData.node_type] || "roundrect";
+            var stroke = NODE_STROKE[nodeData.node_type] || "#d1d5db";
+            var strokeDash = nodeData.is_orphan ? "6 4" : "none";
+            if (nodeData.is_orphan) stroke = "#dc2626";
+
+            if (shape === "ellipse") {
+                sel.append("ellipse")
+                    .attr("rx", w/2).attr("ry", h/2)
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else if (shape === "diamond") {
+                var dx = w/2, dy = h/2;
+                sel.append("polygon")
+                    .attr("points", "0,"+(-dy)+" "+(dx)+",0 0,"+(dy)+" "+(-dx)+",0")
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else if (shape === "hexagon") {
+                var hx = w/2, hy = h/2, inset = w*0.2;
+                sel.append("polygon")
+                    .attr("points",
+                        (-hx+inset)+","+(-hy)+" "+(hx-inset)+","+(-hy)+" "+
+                        (hx)+",0 "+(hx-inset)+","+(hy)+" "+
+                        (-hx+inset)+","+(hy)+" "+(-hx)+",0")
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else if (shape === "circle") {
+                var r = Math.min(w, h) / 2;
+                sel.append("circle")
+                    .attr("r", r)
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else if (shape === "rect") {
+                sel.append("rect")
+                    .attr("x", -w/2).attr("y", -h/2).attr("width", w).attr("height", h)
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else {
+                /* roundrect (default) */
+                sel.append("rect")
+                    .attr("x", -w/2).attr("y", -h/2).attr("width", w).attr("height", h)
+                    .attr("rx", 8).attr("ry", 8)
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            }
+        }
+
+        /* -- Draw nodes -- */
+        var nodesG = rootG.append("g").attr("class", "pg-nodes");
+        data.nodes.forEach(function(n) {
+            var dagreNode = g.node(n.id);
+            if (!dagreNode) return;
+            var nw = dagreNode.width, nh = dagreNode.height;
+            var nodeG = nodesG.append("g")
+                .attr("transform", "translate(" + dagreNode.x + "," + dagreNode.y + ")")
+                .attr("data-node-type", n.node_type)
+                .attr("data-node-id", n.id)
+                .style("cursor", "pointer");
+
+            drawNodeShape(nodeG, n, nw, nh);
+
+            /* Label text */
+            var label = n.id;
+            var maxChars = Math.floor(nw / 7);
+            if (label.length > maxChars) label = label.substring(0, maxChars - 1) + "\u2026";
+            nodeG.append("text")
+                .attr("text-anchor", "middle")
+                .attr("dominant-baseline", "central")
+                .attr("font-size", "11px")
+                .attr("font-family", "system-ui, -apple-system, sans-serif")
+                .attr("fill", "#1f2937")
+                .text(label);
+
+            /* Interaction: hover */
+            nodeG.on("mouseenter", function(event) {
+                highlightNode(n.id, true);
+                showTooltip(event, n);
+            }).on("mouseleave", function() {
+                highlightNode(n.id, false);
+                hideTooltip();
+            }).on("click", function(event) {
+                event.stopPropagation();
+                highlightNode(n.id, true);
+                showTooltip(event, n);
+            });
+        });
+
+        /* Click on background clears highlight */
+        svg.on("click", function() {
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* -- Highlight helpers -- */
+        function highlightNode(nodeId, on) {
+            if (!on) { clearHighlight(); return; }
+            /* Find connected edges */
+            var connectedNodes = new Set([nodeId]);
+            data.edges.forEach(function(e) {
+                if (e.source === nodeId) connectedNodes.add(e.target);
+                if (e.target === nodeId) connectedNodes.add(e.source);
+            });
+            nodesG.selectAll("g").each(function() {
+                var el = d3.select(this);
+                var nid = el.attr("data-node-id");
+                el.style("opacity", connectedNodes.has(nid) ? 1 : 0.2);
+            });
+            edgesG.selectAll("path").each(function() {
+                var el = d3.select(this);
+                var s = el.attr("data-source"), t = el.attr("data-target");
+                el.style("opacity", (s === nodeId || t === nodeId) ? 1 : 0.1);
+            });
+        }
+
+        function clearHighlight() {
+            nodesG.selectAll("g").style("opacity", 1);
+            edgesG.selectAll("path").style("opacity", 1);
+        }
+
+        /* -- Tooltip -- */
+        function showTooltip(event, n) {
+            var html = [];
+            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
+            if (n.description) {
+                var desc = n.description;
+                if (desc.length > 200) desc = desc.substring(0, 197) + "...";
+                html.push('<div class="tt-desc">' + escapeHtml(desc) + '</div>');
+            }
+            var meta = n.meta || {};
+            var metaParts = [];
+            if (meta.evidence_count) metaParts.push('<span>Evidence: ' + meta.evidence_count + ' items</span>');
+            if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
+            if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
+            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
+            if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
+            if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            tooltipEl.innerHTML = html.join("");
+            tooltipEl.style.opacity = "1";
+
+            /* Position relative to container */
+            var rect = container.getBoundingClientRect();
+            var x = event.clientX - rect.left + 14;
+            var y = event.clientY - rect.top + 14;
+            if (x + 330 > rect.width) x = x - 340;
+            if (y + 200 > rect.height) y = Math.max(4, y - 200);
+            tooltipEl.style.left = x + "px";
+            tooltipEl.style.top = y + "px";
+        }
+
+        function hideTooltip() {
+            tooltipEl.style.opacity = "0";
+        }
+
+        function escapeHtml(str) {
+            var div = document.createElement("div");
+            div.appendChild(document.createTextNode(str));
+            return div.innerHTML;
+        }
+
+        /* -- Legend -- */
+        var typesInGraph = {};
+        data.nodes.forEach(function(n) { if (!n.is_orphan) typesInGraph[n.node_type] = n.color; });
+        var activeTypes = new Set(Object.keys(typesInGraph));
+
+        Object.keys(typesInGraph).forEach(function(type) {
+            var item = document.createElement("div");
+            item.className = "pathograph-legend-item";
+            item.setAttribute("data-type", type);
+            var swatch = document.createElement("div");
+            swatch.className = "pathograph-legend-swatch";
+            swatch.style.background = typesInGraph[type];
+            swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
+            item.appendChild(swatch);
+            var label = document.createElement("span");
+            label.textContent = NODE_TYPE_LABELS[type] || type;
+            item.appendChild(label);
+            item.addEventListener("click", function() {
+                if (activeTypes.has(type)) {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
+                } else {
+                    activeTypes.add(type);
+                    item.classList.remove("dimmed");
+                }
+                filterByType();
+            });
+            legendEl.appendChild(item);
+        });
+
+        function filterByType() {
+            nodesG.selectAll("g").each(function() {
+                var el = d3.select(this);
+                var t = el.attr("data-node-type");
+                el.style("display", activeTypes.has(t) ? null : "none");
+            });
+            edgesG.selectAll("path").each(function() {
+                var el = d3.select(this);
+                var sNode = nodeMap[el.attr("data-source")];
+                var tNode = nodeMap[el.attr("data-target")];
+                var sVis = sNode && activeTypes.has(sNode.node_type);
+                var tVis = tNode && activeTypes.has(tNode.node_type);
+                el.style("display", (sVis && tVis) ? null : "none");
+            });
+        }
+    }
     </script>
 </head>
 <body>
@@ -2090,59 +2489,28 @@
         <!-- Histopathology -->
         
 
-        <!-- Causal Graph -->
+        <!-- Causal Graph (Pathograph) -->
         
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
-                <h2 class="card-title">Causal Graph</h2>
+                <h2 class="card-title">Pathograph</h2>
             </div>
             
-            <div class="mermaid-container">
-                <pre class="mermaid">graph LR
-    Hirsutism[&#34;Hirsutism&#34;]
-    Seizures[&#34;Seizures&#34;]
-    Vertigo[&#34;Vertigo&#34;]
-    Obesity[&#34;Obesity&#34;]
-    Amenorrhea[&#34;Amenorrhea&#34;]
-    Headache[&#34;Headache&#34;]
-    Hyperprolactinemia_associated_endocrine_dysfunction[&#34;Hyperprolactinemia-associated endocrine dysfunction&#34;]
-    Increased_intracranial_pressure_from_frontal_bone_expansion[&#34;Increased intracranial pressure from frontal bone expansion&#34;]
-    Cognitive_impairment[&#34;Cognitive impairment&#34;]
-    Neurological_compression_from_calvarial_thickening[&#34;Neurological compression from calvarial thickening&#34;]
-    Endocrine_mediated_calvarial_bone_overgrowth[&#34;Endocrine-mediated calvarial bone overgrowth&#34;]
-    Galactorrhea[&#34;Galactorrhea&#34;]
-    Depression[&#34;Depression&#34;]
-    Hyperostosis_frontalis_interna[&#34;Hyperostosis frontalis interna&#34;]
-
-    Endocrine_mediated_calvarial_bone_overgrowth --&gt; Hyperostosis_frontalis_interna
-    Endocrine_mediated_calvarial_bone_overgrowth --&gt; Obesity
-    Endocrine_mediated_calvarial_bone_overgrowth --&gt; Increased_intracranial_pressure_from_frontal_bone_expansion
-    Neurological_compression_from_calvarial_thickening --&gt; Cognitive_impairment
-    Neurological_compression_from_calvarial_thickening --&gt; Depression
-    Neurological_compression_from_calvarial_thickening --&gt; Seizures
-    Neurological_compression_from_calvarial_thickening --&gt; Increased_intracranial_pressure_from_frontal_bone_expansion
-    Neurological_compression_from_calvarial_thickening --&gt; Vertigo
-    Hyperprolactinemia_associated_endocrine_dysfunction --&gt; Amenorrhea
-    Hyperprolactinemia_associated_endocrine_dysfunction --&gt; Galactorrhea
-    Hyperprolactinemia_associated_endocrine_dysfunction --&gt; Hirsutism
-    Increased_intracranial_pressure_from_frontal_bone_expansion --&gt; Headache
-
-    style Hirsutism fill:#fef3c7
-    style Seizures fill:#fef3c7
-    style Vertigo fill:#fef3c7
-    style Obesity fill:#fef3c7
-    style Amenorrhea fill:#fef3c7
-    style Headache fill:#fef3c7
-    style Hyperprolactinemia_associated_endocrine_dysfunction fill:#dbeafe
-    style Increased_intracranial_pressure_from_frontal_bone_expansion fill:#dbeafe
-    style Cognitive_impairment fill:#fef3c7
-    style Neurological_compression_from_calvarial_thickening fill:#dbeafe
-    style Endocrine_mediated_calvarial_bone_overgrowth fill:#dbeafe
-    style Galactorrhea fill:#fef3c7
-    style Depression fill:#fef3c7
-    style Hyperostosis_frontalis_interna fill:#fef3c7</pre>
+            <div class="pathograph-container" id="pathograph">
+                <div class="pathograph-legend" id="pathograph-legend"></div>
+                <svg id="pathograph-svg" role="img">
+                    <title>Pathograph: causal mechanism network for Morgagni-Stewart-Morel Syndrome</title>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                </svg>
+                <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
+            <script>
+            (function() {
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Amenorrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Menstrual disturbances including amenorrhea are part of the endocrine manifestations of the syndrome, potentially linked to hyperprolactinemia or hypothalamic-pituitary dysfunction.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"HP_0040283\", \"term_id\": \"HP:0000141\"}}, {\"id\": \"Cognitive impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive cognitive decline may develop, attributed to frontal lobe compression and atrophy from the expanding inner table of the skull.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"HP_0040283\", \"term_id\": \"HP:0100543\"}}, {\"id\": \"Depression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Depressive symptoms are frequently reported and may be related to frontal lobe dysfunction or the broader neuropsychiatric component of the syndrome.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"HP_0040283\", \"term_id\": \"HP:0000716\"}}, {\"id\": \"Endocrine-mediated calvarial bone overgrowth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The precise pathogenesis of frontal bone thickening remains unclear. Well-supported hypotheses include prolonged estrogen exposure stimulating osteoblastic activity in the frontal bone inner table (supported by large-scale anthropological studies) and elevated leptin levels associated with obesity promoting bone formation. A more contested hypothesis involves dysregulated growth hormone secretion from pituitary microadenomatosis; however, recent evidence shows no direct causative role for GH excess or hyperprolactinemia in HFI etiopathogenesis. The condition predominantly affects females and is associated with age, being much less frequent in females under 40 years.\\n\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"Osteoblast\"], \"biological_processes\": [\"Bone mineralization\", \"Osteoblast differentiation\"], \"locations\": [\"Frontal bone\"]}}, {\"id\": \"Galactorrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Inappropriate lactation related to hyperprolactinemia, which has been found in a significant proportion of patients with hyperostosis frontalis interna.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"HP_0040284\", \"term_id\": \"HP:0100829\"}}, {\"id\": \"Headache\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic headaches are a common presenting symptom, potentially related to increased intracranial pressure from calvarial thickening or direct compression effects.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"HP_0040282\", \"term_id\": \"HP:0002315\"}}, {\"id\": \"Hirsutism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Excess body hair growth in a male pattern distribution in affected females, related to the virilism component of the syndrome and potentially linked to hyperprolactinemia or androgen dysregulation.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"HP_0040283\", \"term_id\": \"HP:0001007\"}}, {\"id\": \"Hyperostosis frontalis interna\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral, irregular thickening of the inner table of the frontal bone, typically sparing the midline at the superior sagittal sinus. This is the defining radiological feature, usually discovered incidentally on skull X-ray, CT, or MRI.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"HP_0040281\", \"term_id\": \"HP:0004438\"}}, {\"id\": \"Hyperprolactinemia-associated endocrine dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyperostosis frontalis interna is strongly associated with acromegaly and hyperprolactinemia, particularly when both conditions coexist. Elevated prolactin levels may contribute to menstrual disturbances, galactorrhea, and hirsutism observed in MSM syndrome. The relationship between HFI and hyperprolactinemia appears to be particularly strong in acromegalic patients.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Mammotroph\"], \"biological_processes\": [\"Prolactin secretion\"], \"locations\": [\"Anterior pituitary gland\"]}}, {\"id\": \"Increased intracranial pressure from frontal bone expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive frontal bone thickening can result in increased intracranial pressure due to reduced intracranial volume and potential obstruction of CSF flow pathways. This increased pressure may contribute to headaches and other neurological symptoms observed in MSM syndrome. The mechanism links the skeletal abnormality (hyperostosis) to neurological manifestations through biomechanical effects.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Regulation of body fluid levels\"], \"locations\": [\"Cranial cavity\"]}}, {\"id\": \"Neurological compression from calvarial thickening\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive thickening of the frontal bone inner table can lead to compression of underlying brain parenchyma, particularly the frontal lobes. This mechanical compression may result in cerebral atrophy, cognitive impairment, neuropsychiatric symptoms including depression and anxiety, headaches, seizures, and cranial nerve dysfunction affecting olfaction and vision.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Neuron apoptotic process\"], \"locations\": [\"Frontal cortex\"]}}, {\"id\": \"Obesity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Central obesity is a cardinal feature, present in the majority of affected individuals. It may be related to endocrine dysregulation including leptin resistance and growth hormone abnormalities.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"HP_0040282\", \"term_id\": \"HP:0001513\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized seizures may occur, potentially related to frontal lobe compression from the hyperostotic bone. Seizures have been reported since early adulthood in some patients.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"HP_0040283\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Vertigo\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dizziness and vertigo are reported neurological symptoms, potentially related to cranial nerve involvement or intracranial pressure changes.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"HP_0040283\", \"term_id\": \"HP:0002321\"}}], \"edges\": [{\"source\": \"Endocrine-mediated calvarial bone overgrowth\", \"target\": \"Hyperostosis frontalis interna\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endocrine-mediated calvarial bone overgrowth\", \"target\": \"Obesity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endocrine-mediated calvarial bone overgrowth\", \"target\": \"Increased intracranial pressure from frontal bone expansion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurological compression from calvarial thickening\", \"target\": \"Cognitive impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurological compression from calvarial thickening\", \"target\": \"Depression\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurological compression from calvarial thickening\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurological compression from calvarial thickening\", \"target\": \"Increased intracranial pressure from frontal bone expansion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurological compression from calvarial thickening\", \"target\": \"Vertigo\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperprolactinemia-associated endocrine dysfunction\", \"target\": \"Amenorrhea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperprolactinemia-associated endocrine dysfunction\", \"target\": \"Galactorrhea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperprolactinemia-associated endocrine dysfunction\", \"target\": \"Hirsutism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Increased intracranial pressure from frontal bone expansion\", \"target\": \"Headache\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                renderPathograph("pathograph", graphData);
+            })();
+            </script>
         </div>
         
 
