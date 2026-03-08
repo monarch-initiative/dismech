@@ -36,7 +36,8 @@ predictions.
 ### Tier 1: Low Effort (schema/config changes, data annotation)
 
 - [x] Add `cellxgene:` prefix to schema for CELLxGENE dataset accessions
-- [ ] Add CELLxGENE dataset references to disorders that already have `datasets` sections
+- [x] Add CELLxGENE dataset references to disorders that already have `datasets` sections
+- [x] Annotate CELLxGENE datasets with publications, conditions, and sample_types
 - [ ] Add CELLxGENE dataset references to disorders with `cell_types` but no datasets
 - [ ] Document CL term coverage: which dismech cell types have CELLxGENE representation
 
@@ -70,7 +71,7 @@ predictions.
 
 ## Tier 1 Progress
 - [x] `cellxgene:` prefix added to schema (2026-03-07)
-- [ ] CELLxGENE dataset annotation (0/N disorders)
+- [x] CELLxGENE dataset annotation (5/5 disorders annotated with publications, conditions, sample_types)
 - [ ] CL term coverage audit (0/N)
 
 ## Notes
