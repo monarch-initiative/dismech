@@ -931,6 +931,26 @@ reactome-list:
 reactome-show query:
     uv run python scripts/fetch_reactome_disease.py "{{query}}" --format md -o /dev/stdout
 
+# Normalize all term and enum cache files for deterministic diffs
+# Sorts term caches by CURIE (via linkml-term-validator migrate-cache)
+# and sorts enum membership caches by CURIE.
+# See: https://github.com/linkml/linkml-term-validator/issues/15
+[group('QC')]
+normalize-cache:
+    #!/usr/bin/env bash
+    set -e
+    echo "Normalizing term caches..."
+    uv run linkml-term-validator migrate-cache --cache-dir cache --sort-only
+    echo "Normalizing enum caches..."
+    for f in cache/enums/*.csv; do
+        header=$(head -1 "$f")
+        tail -n+2 "$f" | sort > /tmp/_sorted_enum.csv
+        echo "$header" > "$f"
+        cat /tmp/_sorted_enum.csv >> "$f"
+    done
+    rm -f /tmp/_sorted_enum.csv
+    echo "✓ All caches normalized"
+
 # Compare dismech phenotypes against OMIM/Orphanet for a single disease
 [group('Analysis')]
 d2p-compare disease:
