@@ -1180,20 +1180,101 @@
             .stats-bar { gap: 16px; }
             .section-grid { grid-template-columns: 1fr; }
         }
-        /* Mermaid graph */
-        .mermaid-container {
-            text-align: center;
+        /* Pathograph (interactive causal graph) */
+        .pathograph-container {
             margin: 20px 0;
-            padding: 20px;
+            padding: 0;
             background: white;
             border-radius: 8px;
             border: 1px solid var(--border);
-            overflow-x: auto;
+            overflow: hidden;
+            position: relative;
         }
 
-        .mermaid svg {
-            max-width: 100%;
-            height: auto;
+        .pathograph-container svg {
+            display: block;
+            width: 100%;
+            cursor: grab;
+        }
+
+        .pathograph-container svg:active {
+            cursor: grabbing;
+        }
+
+        .pathograph-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            padding: 10px 16px;
+            background: #f9fafb;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.78rem;
+            color: #6b7280;
+        }
+
+        .pathograph-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .pathograph-legend-item.dimmed {
+            opacity: 0.35;
+        }
+
+        .pathograph-legend-swatch {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+            border: 1px solid rgba(0,0,0,0.15);
+            flex-shrink: 0;
+        }
+
+        .pathograph-tooltip {
+            position: absolute;
+            pointer-events: none;
+            background: rgba(17, 24, 39, 0.92);
+            color: #f9fafb;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            line-height: 1.45;
+            max-width: 320px;
+            z-index: 100;
+            opacity: 0;
+            transition: opacity 0.15s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip .tt-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #e5e7eb;
+        }
+
+        .pathograph-tooltip .tt-type {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            opacity: 0.7;
+            margin-bottom: 6px;
+        }
+
+        .pathograph-tooltip .tt-desc {
+            margin-bottom: 6px;
+            color: #d1d5db;
+        }
+
+        .pathograph-tooltip .tt-meta {
+            font-size: 0.72rem;
+            color: #9ca3af;
+        }
+
+        .pathograph-tooltip .tt-meta span {
+            display: block;
+            margin: 2px 0;
         }
 
         .graph-warning {
@@ -1220,16 +1301,334 @@
             margin: 4px 0;
         }
     </style>
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
     <script>
-        mermaid.initialize({
-            startOnLoad: true,
-            theme: 'default',
-            flowchart: {
-                htmlLabels: true,
-                curve: 'basis'
-            }
+    /* Pathograph: interactive D3.js causal mechanism network */
+    var NODE_SHAPES = {
+        pathophysiology: "roundrect",
+        phenotype: "ellipse",
+        environmental: "diamond",
+        genetic: "hexagon",
+        treatment: "rect",
+        biochemical: "circle",
+        orphan: "roundrect",
+        unknown: "roundrect"
+    };
+    var NODE_TYPE_LABELS = {
+        pathophysiology: "Pathophysiology",
+        phenotype: "Phenotype",
+        environmental: "Environmental",
+        genetic: "Genetic",
+        treatment: "Treatment",
+        biochemical: "Biochemical",
+        orphan: "Orphan"
+    };
+    var NODE_STROKE = {
+        pathophysiology: "#93c5fd",
+        phenotype: "#fcd34d",
+        environmental: "#86efac",
+        genetic: "#c4b5fd",
+        treatment: "#f9a8d4",
+        biochemical: "#a5b4fc",
+        orphan: "#dc2626"
+    };
+
+    function renderPathograph(containerId, data) {
+        var container = document.getElementById(containerId);
+        var svgEl = document.getElementById(containerId + "-svg");
+        var tooltipEl = document.getElementById(containerId + "-tooltip");
+        var legendEl = document.getElementById(containerId + "-legend");
+        if (!data || !data.nodes || !data.nodes.length) return;
+
+        /* -- Dagre layout -- */
+        var g = new dagre.graphlib.Graph();
+        g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
+        g.setDefaultEdgeLabel(function() { return {}; });
+
+        var nodeMap = {};
+        data.nodes.forEach(function(n) {
+            nodeMap[n.id] = n;
+            var labelLen = n.id.length;
+            var w = Math.max(120, Math.min(220, labelLen * 8 + 30));
+            var h = 44;
+            g.setNode(n.id, { width: w, height: h, label: n.id });
         });
+        data.edges.forEach(function(e) {
+            g.setEdge(e.source, e.target);
+        });
+        dagre.layout(g);
+
+        var graphInfo = g.graph();
+        var totalW = graphInfo.width + 60;
+        var totalH = graphInfo.height + 60;
+
+        /* -- SVG setup with zoom -- */
+        var svg = d3.select(svgEl)
+            .attr("viewBox", "0 0 " + totalW + " " + totalH)
+            .attr("preserveAspectRatio", "xMidYMid meet")
+            .style("min-height", Math.min(totalH, 600) + "px");
+
+        var rootG = svg.append("g").attr("class", "pathograph-root");
+
+        var zoom = d3.zoom()
+            .scaleExtent([0.3, 3])
+            .on("zoom", function(event) {
+                rootG.attr("transform", event.transform);
+            });
+        svg.call(zoom);
+
+        /* -- Arrow marker -- */
+        svg.append("defs").append("marker")
+            .attr("id", "pg-arrow")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#9ca3af");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-orphan")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#dc2626");
+
+        /* -- Draw edges -- */
+        var edgesG = rootG.append("g").attr("class", "pg-edges");
+        data.edges.forEach(function(e) {
+            var dagreEdge = g.edge(e.source, e.target);
+            if (!dagreEdge || !dagreEdge.points) return;
+            var pts = dagreEdge.points;
+            var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
+            edgesG.append("path")
+                .attr("d", line(pts))
+                .attr("fill", "none")
+                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke-width", 1.8)
+                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
+                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("data-source", e.source)
+                .attr("data-target", e.target);
+        });
+
+        /* -- Shape helpers -- */
+        function drawNodeShape(sel, nodeData, w, h) {
+            var shape = NODE_SHAPES[nodeData.node_type] || "roundrect";
+            var stroke = NODE_STROKE[nodeData.node_type] || "#d1d5db";
+            var strokeDash = nodeData.is_orphan ? "6 4" : "none";
+            if (nodeData.is_orphan) stroke = "#dc2626";
+
+            if (shape === "ellipse") {
+                sel.append("ellipse")
+                    .attr("rx", w/2).attr("ry", h/2)
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else if (shape === "diamond") {
+                var dx = w/2, dy = h/2;
+                sel.append("polygon")
+                    .attr("points", "0,"+(-dy)+" "+(dx)+",0 0,"+(dy)+" "+(-dx)+",0")
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else if (shape === "hexagon") {
+                var hx = w/2, hy = h/2, inset = w*0.2;
+                sel.append("polygon")
+                    .attr("points",
+                        (-hx+inset)+","+(-hy)+" "+(hx-inset)+","+(-hy)+" "+
+                        (hx)+",0 "+(hx-inset)+","+(hy)+" "+
+                        (-hx+inset)+","+(hy)+" "+(-hx)+",0")
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else if (shape === "circle") {
+                var r = Math.min(w, h) / 2;
+                sel.append("circle")
+                    .attr("r", r)
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else if (shape === "rect") {
+                sel.append("rect")
+                    .attr("x", -w/2).attr("y", -h/2).attr("width", w).attr("height", h)
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else {
+                /* roundrect (default) */
+                sel.append("rect")
+                    .attr("x", -w/2).attr("y", -h/2).attr("width", w).attr("height", h)
+                    .attr("rx", 8).attr("ry", 8)
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            }
+        }
+
+        /* -- Draw nodes -- */
+        var nodesG = rootG.append("g").attr("class", "pg-nodes");
+        data.nodes.forEach(function(n) {
+            var dagreNode = g.node(n.id);
+            if (!dagreNode) return;
+            var nw = dagreNode.width, nh = dagreNode.height;
+            var nodeG = nodesG.append("g")
+                .attr("transform", "translate(" + dagreNode.x + "," + dagreNode.y + ")")
+                .attr("data-node-type", n.node_type)
+                .attr("data-node-id", n.id)
+                .style("cursor", "pointer");
+
+            drawNodeShape(nodeG, n, nw, nh);
+
+            /* Label text */
+            var label = n.id;
+            var maxChars = Math.floor(nw / 7);
+            if (label.length > maxChars) label = label.substring(0, maxChars - 1) + "\u2026";
+            nodeG.append("text")
+                .attr("text-anchor", "middle")
+                .attr("dominant-baseline", "central")
+                .attr("font-size", "11px")
+                .attr("font-family", "system-ui, -apple-system, sans-serif")
+                .attr("fill", "#1f2937")
+                .text(label);
+
+            /* Interaction: hover */
+            nodeG.on("mouseenter", function(event) {
+                highlightNode(n.id, true);
+                showTooltip(event, n);
+            }).on("mouseleave", function() {
+                highlightNode(n.id, false);
+                hideTooltip();
+            }).on("click", function(event) {
+                event.stopPropagation();
+                highlightNode(n.id, true);
+                showTooltip(event, n);
+            });
+        });
+
+        /* Click on background clears highlight */
+        svg.on("click", function() {
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* -- Highlight helpers -- */
+        function highlightNode(nodeId, on) {
+            if (!on) { clearHighlight(); return; }
+            /* Find connected edges */
+            var connectedNodes = new Set([nodeId]);
+            data.edges.forEach(function(e) {
+                if (e.source === nodeId) connectedNodes.add(e.target);
+                if (e.target === nodeId) connectedNodes.add(e.source);
+            });
+            nodesG.selectAll("g").each(function() {
+                var el = d3.select(this);
+                var nid = el.attr("data-node-id");
+                el.style("opacity", connectedNodes.has(nid) ? 1 : 0.2);
+            });
+            edgesG.selectAll("path").each(function() {
+                var el = d3.select(this);
+                var s = el.attr("data-source"), t = el.attr("data-target");
+                el.style("opacity", (s === nodeId || t === nodeId) ? 1 : 0.1);
+            });
+        }
+
+        function clearHighlight() {
+            nodesG.selectAll("g").style("opacity", 1);
+            edgesG.selectAll("path").style("opacity", 1);
+        }
+
+        /* -- Tooltip -- */
+        function showTooltip(event, n) {
+            var html = [];
+            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
+            if (n.description) {
+                var desc = n.description;
+                if (desc.length > 200) desc = desc.substring(0, 197) + "...";
+                html.push('<div class="tt-desc">' + escapeHtml(desc) + '</div>');
+            }
+            var meta = n.meta || {};
+            var metaParts = [];
+            if (meta.evidence_count) metaParts.push('<span>Evidence: ' + meta.evidence_count + ' items</span>');
+            if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
+            if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
+            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
+            if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
+            if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            tooltipEl.innerHTML = html.join("");
+            tooltipEl.style.opacity = "1";
+
+            /* Position relative to container */
+            var rect = container.getBoundingClientRect();
+            var x = event.clientX - rect.left + 14;
+            var y = event.clientY - rect.top + 14;
+            if (x + 330 > rect.width) x = x - 340;
+            if (y + 200 > rect.height) y = Math.max(4, y - 200);
+            tooltipEl.style.left = x + "px";
+            tooltipEl.style.top = y + "px";
+        }
+
+        function hideTooltip() {
+            tooltipEl.style.opacity = "0";
+        }
+
+        function escapeHtml(str) {
+            var div = document.createElement("div");
+            div.appendChild(document.createTextNode(str));
+            return div.innerHTML;
+        }
+
+        /* -- Legend -- */
+        var typesInGraph = {};
+        data.nodes.forEach(function(n) { if (!n.is_orphan) typesInGraph[n.node_type] = n.color; });
+        var activeTypes = new Set(Object.keys(typesInGraph));
+
+        Object.keys(typesInGraph).forEach(function(type) {
+            var item = document.createElement("div");
+            item.className = "pathograph-legend-item";
+            item.setAttribute("data-type", type);
+            var swatch = document.createElement("div");
+            swatch.className = "pathograph-legend-swatch";
+            swatch.style.background = typesInGraph[type];
+            swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
+            item.appendChild(swatch);
+            var label = document.createElement("span");
+            label.textContent = NODE_TYPE_LABELS[type] || type;
+            item.appendChild(label);
+            item.addEventListener("click", function() {
+                if (activeTypes.has(type)) {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
+                } else {
+                    activeTypes.add(type);
+                    item.classList.remove("dimmed");
+                }
+                filterByType();
+            });
+            legendEl.appendChild(item);
+        });
+
+        function filterByType() {
+            nodesG.selectAll("g").each(function() {
+                var el = d3.select(this);
+                var t = el.attr("data-node-type");
+                el.style("display", activeTypes.has(t) ? null : "none");
+            });
+            edgesG.selectAll("path").each(function() {
+                var el = d3.select(this);
+                var sNode = nodeMap[el.attr("data-source")];
+                var tNode = nodeMap[el.attr("data-target")];
+                var sVis = sNode && activeTypes.has(sNode.node_type);
+                var tVis = tNode && activeTypes.has(tNode.node_type);
+                el.style("display", (sVis && tVis) ? null : "none");
+            });
+        }
+    }
     </script>
 </head>
 <body>
@@ -3349,60 +3748,28 @@
         </div>
         
 
-        <!-- Causal Graph -->
+        <!-- Causal Graph (Pathograph) -->
         
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
-                <h2 class="card-title">Causal Graph</h2>
+                <h2 class="card-title">Pathograph</h2>
             </div>
             
-            <div class="mermaid-container">
-                <pre class="mermaid">graph LR
-    NF_kB_MAPK_Inflammatory_Signaling[&#34;NF-kB/MAPK Inflammatory Signaling&#34;]
-    Cadmium_Absorption_and_Systemic_Distribution[&#34;Cadmium Absorption and Systemic Distribution&#34;]
-    Hepatic_Glutathione_Depletion[&#34;Hepatic Glutathione Depletion&#34;]
-    Chronic_Kidney_Disease_Progression[&#34;Chronic Kidney Disease Progression&#34;]
-    Defective_Bone_Mineralization[&#34;Defective Bone Mineralization&#34;]
-    Proximal_Tubular_Cell_Injury[&#34;Proximal Tubular Cell Injury&#34;]
-    Hepatic_Metallothionein_Binding[&#34;Hepatic Metallothionein Binding&#34;]
-    Direct_Osteoblast_Toxicity[&#34;Direct Osteoblast Toxicity&#34;]
-    Impaired_Tubular_Reabsorption[&#34;Impaired Tubular Reabsorption&#34;]
-    Renal_Phosphate_Wasting[&#34;Renal Phosphate Wasting&#34;]
-    Renal_Proximal_Tubular_Cadmium_Uptake[&#34;Renal Proximal Tubular Cadmium Uptake&#34;]
-    Hepatocyte_Apoptosis[&#34;Hepatocyte Apoptosis&#34;]
-    Cadmium_Induced_Vascular_Cholesterol_Dysregulation[&#34;Cadmium-Induced Vascular Cholesterol Dysregulation&#34;]
-
-    Cadmium_Absorption_and_Systemic_Distribution --&gt; Hepatic_Metallothionein_Binding
-    Cadmium_Absorption_and_Systemic_Distribution --&gt; NF_kB_MAPK_Inflammatory_Signaling
-    Cadmium_Absorption_and_Systemic_Distribution --&gt; Direct_Osteoblast_Toxicity
-    Cadmium_Absorption_and_Systemic_Distribution --&gt; Hepatic_Glutathione_Depletion
-    Cadmium_Absorption_and_Systemic_Distribution --&gt; Cadmium_Induced_Vascular_Cholesterol_Dysregulation
-    Hepatic_Metallothionein_Binding --&gt; Renal_Proximal_Tubular_Cadmium_Uptake
-    Renal_Proximal_Tubular_Cadmium_Uptake --&gt; Proximal_Tubular_Cell_Injury
-    Proximal_Tubular_Cell_Injury --&gt; Impaired_Tubular_Reabsorption
-    Proximal_Tubular_Cell_Injury --&gt; Chronic_Kidney_Disease_Progression
-    Impaired_Tubular_Reabsorption --&gt; Renal_Phosphate_Wasting
-    Renal_Phosphate_Wasting --&gt; Defective_Bone_Mineralization
-    Direct_Osteoblast_Toxicity --&gt; Defective_Bone_Mineralization
-    Hepatic_Glutathione_Depletion --&gt; Hepatocyte_Apoptosis
-    NF_kB_MAPK_Inflammatory_Signaling --&gt; Proximal_Tubular_Cell_Injury
-    NF_kB_MAPK_Inflammatory_Signaling --&gt; Hepatic_Glutathione_Depletion
-
-    style NF_kB_MAPK_Inflammatory_Signaling fill:#dbeafe
-    style Cadmium_Absorption_and_Systemic_Distribution fill:#dbeafe
-    style Hepatic_Glutathione_Depletion fill:#dbeafe
-    style Chronic_Kidney_Disease_Progression fill:#dbeafe
-    style Defective_Bone_Mineralization fill:#dbeafe
-    style Proximal_Tubular_Cell_Injury fill:#dbeafe
-    style Hepatic_Metallothionein_Binding fill:#dbeafe
-    style Direct_Osteoblast_Toxicity fill:#dbeafe
-    style Impaired_Tubular_Reabsorption fill:#dbeafe
-    style Renal_Phosphate_Wasting fill:#dbeafe
-    style Renal_Proximal_Tubular_Cadmium_Uptake fill:#dbeafe
-    style Hepatocyte_Apoptosis fill:#dbeafe
-    style Cadmium_Induced_Vascular_Cholesterol_Dysregulation fill:#dbeafe</pre>
+            <div class="pathograph-container" id="pathograph">
+                <div class="pathograph-legend" id="pathograph-legend"></div>
+                <svg id="pathograph-svg" role="img">
+                    <title>Pathograph: causal mechanism network for Cadmium Poisoning</title>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                </svg>
+                <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
+            <script>
+            (function() {
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cadmium Absorption and Systemic Distribution\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cadmium enters the body via inhalation of fumes/dust or gastrointestinal absorption from contaminated food and water. Inhaled cadmium has 25-50% bioavailability; oral absorption is lower (3-8%) but enhanced by iron deficiency via shared divalent metal transporter 1 (DMT1). Once absorbed, cadmium distributes via the bloodstream bound to albumin and accumulates in liver, kidney, and bone with a biological half-life of 10-30 years.\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"cellular response to cadmium ion\"]}}, {\"id\": \"Cadmium-Induced Vascular Cholesterol Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cadmium disrupts cholesterol homeostasis in the vascular wall, promoting atherosclerosis through miRNA-mediated dysregulation of cholesterol uptake (CD36), efflux (ABCA1), and hydrolysis (NCEH1). Cadmium upregulates miR-30d-5p and downregulates miR-504-3p, promoting foam cell formation and intracellular lipid accumulation in macrophages. This pathway links cadmium exposure to increased cardiovascular risk, particularly ischemic stroke.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"cholesterol homeostasis\"]}}, {\"id\": \"Chronic Kidney Disease Progression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained proximal tubular injury from cadmium accumulation leads to tubulointerstitial inflammation, fibrosis, and progressive nephron loss. Glomerular filtration rate declines as tubulointerstitial nephritis advances, ultimately resulting in chronic kidney disease.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"kidney\"]}}, {\"id\": \"Defective Bone Mineralization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic hypophosphataemia from renal phosphate wasting impairs hydroxyapatite crystal deposition in osteoid, causing osteomalacia. Bone becomes soft and prone to deformation and pathologic fractures. In itai-itai disease, severe demineralization causes fractures from minimal trauma, height loss, and skeletal deformities.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"bone mineralization\"], \"locations\": [\"bone\"]}}, {\"id\": \"Direct Osteoblast Toxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cadmium directly inhibits osteoblast differentiation and function independently of the renal phosphate wasting pathway. Cadmium disrupts calcium signaling in osteoblasts, inhibits alkaline phosphatase activity, and promotes osteoclast-mediated resorption, contributing to osteoporosis even before significant renal damage develops.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"osteoblast\"], \"biological_processes\": [\"osteoblast differentiation\"], \"locations\": [\"bone\"]}}, {\"id\": \"Hepatic Glutathione Depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cadmium depletes hepatic glutathione stores and inhibits antioxidant enzymes (SOD, GSH-Px, CAT), disrupting the cellular redox balance. Lipid peroxidation increases (elevated MDA), and the glutathione metabolic pathway is overwhelmed. Cadmium also affects drug metabolism through altered cytochrome P450 activity.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"glutathione metabolic process\"], \"locations\": [\"liver\"]}}, {\"id\": \"Hepatic Metallothionein Binding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The liver is the primary site of initial cadmium detoxification. Hepatocytes synthesize metallothionein (MT), a cysteine-rich protein that binds cadmium with high affinity. The cadmium-metallothionein (Cd-MT) complex is slowly released into the bloodstream over time. While MT binding initially protects against free cadmium toxicity, the Cd-MT complex is filtered at the glomerulus and taken up by renal tubular cells, effectively transferring the cadmium burden to the kidney.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"detoxification of inorganic compound\"], \"locations\": [\"liver\"]}}, {\"id\": \"Hepatocyte Apoptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained oxidative stress from glutathione depletion triggers hepatocyte apoptosis via mitochondrial pathways. Cadmium causes release of pro- apoptotic proteins (cytochrome c, caspase-3, Bax) and nuclear damage, leading to progressive hepatocellular loss and liver injury.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"apoptotic process\"], \"locations\": [\"liver\"]}}, {\"id\": \"Impaired Tubular Reabsorption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Injury to proximal tubular cells causes Fanconi syndrome, characterized by impaired reabsorption of low-molecular-weight proteins (beta-2- microglobulin, retinol-binding protein), glucose, amino acids, uric acid, and phosphate. This is the earliest and most sensitive clinical indicator of chronic cadmium nephrotoxicity, detectable before decline in GFR.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"proximal tubule cell\"], \"biological_processes\": [\"renal tubular reabsorption\"], \"locations\": [\"kidney\"]}}, {\"id\": \"NF-kB/MAPK Inflammatory Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cadmium activates pro-inflammatory signaling cascades including the NF-kB and MAPK/JNK pathways, leading to increased secretion of pro-inflammatory cytokines (IL-1beta, IL-6, TNF-alpha, IL-8, CCL2) and upregulation of COX-2. This chronic inflammatory state exacerbates organ-specific injury in kidney, liver, and intestine.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Proximal Tubular Cell Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"When intracellular cadmium exceeds the metallothionein binding capacity of proximal tubular cells (typically at renal cortex concentrations above 200 mcg/g), free cadmium ions cause oxidative stress, mitochondrial dysfunction, and activation of apoptotic pathways. Cadmium displaces zinc from zinc-finger proteins and disrupts calcium signaling, leading to tubular cell death.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"proximal tubule cell\"], \"biological_processes\": [\"apoptotic process\"], \"locations\": [\"proximal tubule\"]}}, {\"id\": \"Renal Phosphate Wasting\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired proximal tubular phosphate reabsorption leads to chronic phosphaturia and hypophosphataemia. The sustained phosphate loss is the primary metabolic driver of cadmium-induced osteomalacia, as phosphate is essential for hydroxyapatite crystal formation in bone.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"phosphate ion transport\"], \"locations\": [\"proximal tubule\"]}}, {\"id\": \"Renal Proximal Tubular Cadmium Uptake\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cadmium-metallothionein (Cd-MT) complex is freely filtered at the glomerulus due to its small molecular weight (~7 kDa). Proximal tubular epithelial cells reabsorb Cd-MT via receptor-mediated endocytosis through the megalin/cubilin receptor complex. Once internalized, Cd-MT is degraded in lysosomes, releasing free cadmium ions intracellularly. This mechanism explains the kidney\u0027s particular vulnerability to cadmium accumulation.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"proximal tubule cell\"], \"biological_processes\": [\"receptor-mediated endocytosis\"], \"locations\": [\"proximal tubule\"]}}], \"edges\": [{\"source\": \"Cadmium Absorption and Systemic Distribution\", \"target\": \"Hepatic Metallothionein Binding\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cadmium Absorption and Systemic Distribution\", \"target\": \"NF-kB/MAPK Inflammatory Signaling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cadmium Absorption and Systemic Distribution\", \"target\": \"Direct Osteoblast Toxicity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cadmium Absorption and Systemic Distribution\", \"target\": \"Hepatic Glutathione Depletion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cadmium Absorption and Systemic Distribution\", \"target\": \"Cadmium-Induced Vascular Cholesterol Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatic Metallothionein Binding\", \"target\": \"Renal Proximal Tubular Cadmium Uptake\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Renal Proximal Tubular Cadmium Uptake\", \"target\": \"Proximal Tubular Cell Injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Proximal Tubular Cell Injury\", \"target\": \"Impaired Tubular Reabsorption\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Proximal Tubular Cell Injury\", \"target\": \"Chronic Kidney Disease Progression\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Tubular Reabsorption\", \"target\": \"Renal Phosphate Wasting\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Renal Phosphate Wasting\", \"target\": \"Defective Bone Mineralization\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Direct Osteoblast Toxicity\", \"target\": \"Defective Bone Mineralization\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatic Glutathione Depletion\", \"target\": \"Hepatocyte Apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"NF-kB/MAPK Inflammatory Signaling\", \"target\": \"Proximal Tubular Cell Injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"NF-kB/MAPK Inflammatory Signaling\", \"target\": \"Hepatic Glutathione Depletion\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                renderPathograph("pathograph", graphData);
+            })();
+            </script>
         </div>
         
 

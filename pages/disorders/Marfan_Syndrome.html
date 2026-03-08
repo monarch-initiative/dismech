@@ -1180,20 +1180,101 @@
             .stats-bar { gap: 16px; }
             .section-grid { grid-template-columns: 1fr; }
         }
-        /* Mermaid graph */
-        .mermaid-container {
-            text-align: center;
+        /* Pathograph (interactive causal graph) */
+        .pathograph-container {
             margin: 20px 0;
-            padding: 20px;
+            padding: 0;
             background: white;
             border-radius: 8px;
             border: 1px solid var(--border);
-            overflow-x: auto;
+            overflow: hidden;
+            position: relative;
         }
 
-        .mermaid svg {
-            max-width: 100%;
-            height: auto;
+        .pathograph-container svg {
+            display: block;
+            width: 100%;
+            cursor: grab;
+        }
+
+        .pathograph-container svg:active {
+            cursor: grabbing;
+        }
+
+        .pathograph-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            padding: 10px 16px;
+            background: #f9fafb;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.78rem;
+            color: #6b7280;
+        }
+
+        .pathograph-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .pathograph-legend-item.dimmed {
+            opacity: 0.35;
+        }
+
+        .pathograph-legend-swatch {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+            border: 1px solid rgba(0,0,0,0.15);
+            flex-shrink: 0;
+        }
+
+        .pathograph-tooltip {
+            position: absolute;
+            pointer-events: none;
+            background: rgba(17, 24, 39, 0.92);
+            color: #f9fafb;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            line-height: 1.45;
+            max-width: 320px;
+            z-index: 100;
+            opacity: 0;
+            transition: opacity 0.15s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip .tt-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #e5e7eb;
+        }
+
+        .pathograph-tooltip .tt-type {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            opacity: 0.7;
+            margin-bottom: 6px;
+        }
+
+        .pathograph-tooltip .tt-desc {
+            margin-bottom: 6px;
+            color: #d1d5db;
+        }
+
+        .pathograph-tooltip .tt-meta {
+            font-size: 0.72rem;
+            color: #9ca3af;
+        }
+
+        .pathograph-tooltip .tt-meta span {
+            display: block;
+            margin: 2px 0;
         }
 
         .graph-warning {
@@ -1220,16 +1301,334 @@
             margin: 4px 0;
         }
     </style>
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
     <script>
-        mermaid.initialize({
-            startOnLoad: true,
-            theme: 'default',
-            flowchart: {
-                htmlLabels: true,
-                curve: 'basis'
-            }
+    /* Pathograph: interactive D3.js causal mechanism network */
+    var NODE_SHAPES = {
+        pathophysiology: "roundrect",
+        phenotype: "ellipse",
+        environmental: "diamond",
+        genetic: "hexagon",
+        treatment: "rect",
+        biochemical: "circle",
+        orphan: "roundrect",
+        unknown: "roundrect"
+    };
+    var NODE_TYPE_LABELS = {
+        pathophysiology: "Pathophysiology",
+        phenotype: "Phenotype",
+        environmental: "Environmental",
+        genetic: "Genetic",
+        treatment: "Treatment",
+        biochemical: "Biochemical",
+        orphan: "Orphan"
+    };
+    var NODE_STROKE = {
+        pathophysiology: "#93c5fd",
+        phenotype: "#fcd34d",
+        environmental: "#86efac",
+        genetic: "#c4b5fd",
+        treatment: "#f9a8d4",
+        biochemical: "#a5b4fc",
+        orphan: "#dc2626"
+    };
+
+    function renderPathograph(containerId, data) {
+        var container = document.getElementById(containerId);
+        var svgEl = document.getElementById(containerId + "-svg");
+        var tooltipEl = document.getElementById(containerId + "-tooltip");
+        var legendEl = document.getElementById(containerId + "-legend");
+        if (!data || !data.nodes || !data.nodes.length) return;
+
+        /* -- Dagre layout -- */
+        var g = new dagre.graphlib.Graph();
+        g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
+        g.setDefaultEdgeLabel(function() { return {}; });
+
+        var nodeMap = {};
+        data.nodes.forEach(function(n) {
+            nodeMap[n.id] = n;
+            var labelLen = n.id.length;
+            var w = Math.max(120, Math.min(220, labelLen * 8 + 30));
+            var h = 44;
+            g.setNode(n.id, { width: w, height: h, label: n.id });
         });
+        data.edges.forEach(function(e) {
+            g.setEdge(e.source, e.target);
+        });
+        dagre.layout(g);
+
+        var graphInfo = g.graph();
+        var totalW = graphInfo.width + 60;
+        var totalH = graphInfo.height + 60;
+
+        /* -- SVG setup with zoom -- */
+        var svg = d3.select(svgEl)
+            .attr("viewBox", "0 0 " + totalW + " " + totalH)
+            .attr("preserveAspectRatio", "xMidYMid meet")
+            .style("min-height", Math.min(totalH, 600) + "px");
+
+        var rootG = svg.append("g").attr("class", "pathograph-root");
+
+        var zoom = d3.zoom()
+            .scaleExtent([0.3, 3])
+            .on("zoom", function(event) {
+                rootG.attr("transform", event.transform);
+            });
+        svg.call(zoom);
+
+        /* -- Arrow marker -- */
+        svg.append("defs").append("marker")
+            .attr("id", "pg-arrow")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#9ca3af");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-orphan")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#dc2626");
+
+        /* -- Draw edges -- */
+        var edgesG = rootG.append("g").attr("class", "pg-edges");
+        data.edges.forEach(function(e) {
+            var dagreEdge = g.edge(e.source, e.target);
+            if (!dagreEdge || !dagreEdge.points) return;
+            var pts = dagreEdge.points;
+            var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
+            edgesG.append("path")
+                .attr("d", line(pts))
+                .attr("fill", "none")
+                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke-width", 1.8)
+                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
+                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("data-source", e.source)
+                .attr("data-target", e.target);
+        });
+
+        /* -- Shape helpers -- */
+        function drawNodeShape(sel, nodeData, w, h) {
+            var shape = NODE_SHAPES[nodeData.node_type] || "roundrect";
+            var stroke = NODE_STROKE[nodeData.node_type] || "#d1d5db";
+            var strokeDash = nodeData.is_orphan ? "6 4" : "none";
+            if (nodeData.is_orphan) stroke = "#dc2626";
+
+            if (shape === "ellipse") {
+                sel.append("ellipse")
+                    .attr("rx", w/2).attr("ry", h/2)
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else if (shape === "diamond") {
+                var dx = w/2, dy = h/2;
+                sel.append("polygon")
+                    .attr("points", "0,"+(-dy)+" "+(dx)+",0 0,"+(dy)+" "+(-dx)+",0")
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else if (shape === "hexagon") {
+                var hx = w/2, hy = h/2, inset = w*0.2;
+                sel.append("polygon")
+                    .attr("points",
+                        (-hx+inset)+","+(-hy)+" "+(hx-inset)+","+(-hy)+" "+
+                        (hx)+",0 "+(hx-inset)+","+(hy)+" "+
+                        (-hx+inset)+","+(hy)+" "+(-hx)+",0")
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else if (shape === "circle") {
+                var r = Math.min(w, h) / 2;
+                sel.append("circle")
+                    .attr("r", r)
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else if (shape === "rect") {
+                sel.append("rect")
+                    .attr("x", -w/2).attr("y", -h/2).attr("width", w).attr("height", h)
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else {
+                /* roundrect (default) */
+                sel.append("rect")
+                    .attr("x", -w/2).attr("y", -h/2).attr("width", w).attr("height", h)
+                    .attr("rx", 8).attr("ry", 8)
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            }
+        }
+
+        /* -- Draw nodes -- */
+        var nodesG = rootG.append("g").attr("class", "pg-nodes");
+        data.nodes.forEach(function(n) {
+            var dagreNode = g.node(n.id);
+            if (!dagreNode) return;
+            var nw = dagreNode.width, nh = dagreNode.height;
+            var nodeG = nodesG.append("g")
+                .attr("transform", "translate(" + dagreNode.x + "," + dagreNode.y + ")")
+                .attr("data-node-type", n.node_type)
+                .attr("data-node-id", n.id)
+                .style("cursor", "pointer");
+
+            drawNodeShape(nodeG, n, nw, nh);
+
+            /* Label text */
+            var label = n.id;
+            var maxChars = Math.floor(nw / 7);
+            if (label.length > maxChars) label = label.substring(0, maxChars - 1) + "\u2026";
+            nodeG.append("text")
+                .attr("text-anchor", "middle")
+                .attr("dominant-baseline", "central")
+                .attr("font-size", "11px")
+                .attr("font-family", "system-ui, -apple-system, sans-serif")
+                .attr("fill", "#1f2937")
+                .text(label);
+
+            /* Interaction: hover */
+            nodeG.on("mouseenter", function(event) {
+                highlightNode(n.id, true);
+                showTooltip(event, n);
+            }).on("mouseleave", function() {
+                highlightNode(n.id, false);
+                hideTooltip();
+            }).on("click", function(event) {
+                event.stopPropagation();
+                highlightNode(n.id, true);
+                showTooltip(event, n);
+            });
+        });
+
+        /* Click on background clears highlight */
+        svg.on("click", function() {
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* -- Highlight helpers -- */
+        function highlightNode(nodeId, on) {
+            if (!on) { clearHighlight(); return; }
+            /* Find connected edges */
+            var connectedNodes = new Set([nodeId]);
+            data.edges.forEach(function(e) {
+                if (e.source === nodeId) connectedNodes.add(e.target);
+                if (e.target === nodeId) connectedNodes.add(e.source);
+            });
+            nodesG.selectAll("g").each(function() {
+                var el = d3.select(this);
+                var nid = el.attr("data-node-id");
+                el.style("opacity", connectedNodes.has(nid) ? 1 : 0.2);
+            });
+            edgesG.selectAll("path").each(function() {
+                var el = d3.select(this);
+                var s = el.attr("data-source"), t = el.attr("data-target");
+                el.style("opacity", (s === nodeId || t === nodeId) ? 1 : 0.1);
+            });
+        }
+
+        function clearHighlight() {
+            nodesG.selectAll("g").style("opacity", 1);
+            edgesG.selectAll("path").style("opacity", 1);
+        }
+
+        /* -- Tooltip -- */
+        function showTooltip(event, n) {
+            var html = [];
+            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
+            if (n.description) {
+                var desc = n.description;
+                if (desc.length > 200) desc = desc.substring(0, 197) + "...";
+                html.push('<div class="tt-desc">' + escapeHtml(desc) + '</div>');
+            }
+            var meta = n.meta || {};
+            var metaParts = [];
+            if (meta.evidence_count) metaParts.push('<span>Evidence: ' + meta.evidence_count + ' items</span>');
+            if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
+            if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
+            if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
+            if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
+            if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            tooltipEl.innerHTML = html.join("");
+            tooltipEl.style.opacity = "1";
+
+            /* Position relative to container */
+            var rect = container.getBoundingClientRect();
+            var x = event.clientX - rect.left + 14;
+            var y = event.clientY - rect.top + 14;
+            if (x + 330 > rect.width) x = x - 340;
+            if (y + 200 > rect.height) y = Math.max(4, y - 200);
+            tooltipEl.style.left = x + "px";
+            tooltipEl.style.top = y + "px";
+        }
+
+        function hideTooltip() {
+            tooltipEl.style.opacity = "0";
+        }
+
+        function escapeHtml(str) {
+            var div = document.createElement("div");
+            div.appendChild(document.createTextNode(str));
+            return div.innerHTML;
+        }
+
+        /* -- Legend -- */
+        var typesInGraph = {};
+        data.nodes.forEach(function(n) { if (!n.is_orphan) typesInGraph[n.node_type] = n.color; });
+        var activeTypes = new Set(Object.keys(typesInGraph));
+
+        Object.keys(typesInGraph).forEach(function(type) {
+            var item = document.createElement("div");
+            item.className = "pathograph-legend-item";
+            item.setAttribute("data-type", type);
+            var swatch = document.createElement("div");
+            swatch.className = "pathograph-legend-swatch";
+            swatch.style.background = typesInGraph[type];
+            swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
+            item.appendChild(swatch);
+            var label = document.createElement("span");
+            label.textContent = NODE_TYPE_LABELS[type] || type;
+            item.appendChild(label);
+            item.addEventListener("click", function() {
+                if (activeTypes.has(type)) {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
+                } else {
+                    activeTypes.add(type);
+                    item.classList.remove("dimmed");
+                }
+                filterByType();
+            });
+            legendEl.appendChild(item);
+        });
+
+        function filterByType() {
+            nodesG.selectAll("g").each(function() {
+                var el = d3.select(this);
+                var t = el.attr("data-node-type");
+                el.style("display", activeTypes.has(t) ? null : "none");
+            });
+            edgesG.selectAll("path").each(function() {
+                var el = d3.select(this);
+                var sNode = nodeMap[el.attr("data-source")];
+                var tNode = nodeMap[el.attr("data-target")];
+                var sVis = sNode && activeTypes.has(sNode.node_type);
+                var tVis = tNode && activeTypes.has(tNode.node_type);
+                el.style("display", (sVis && tVis) ? null : "none");
+            });
+        }
+    }
     </script>
 </head>
 <body>
@@ -1877,65 +2276,28 @@
         <!-- Histopathology -->
         
 
-        <!-- Causal Graph -->
+        <!-- Causal Graph (Pathograph) -->
         
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
-                <h2 class="card-title">Causal Graph</h2>
+                <h2 class="card-title">Pathograph</h2>
             </div>
             
-            <div class="mermaid-container">
-                <pre class="mermaid">graph LR
-    FBN1_Gene_Mutation[&#34;FBN1 Gene Mutation&#34;]
-    Ectopia_Lentis[&#34;Ectopia Lentis&#34;]
-    Impaired_Mechanotransduction[&#34;Impaired Mechanotransduction&#34;]
-    Tall_Stature[&#34;Tall Stature&#34;]
-    Aortic_Dissection[&#34;Aortic Dissection&#34;]
-    Scoliosis[&#34;Scoliosis&#34;]
-    Pneumothorax[&#34;Pneumothorax&#34;]
-    Aortic_Root_Aneurysm[&#34;Aortic Root Aneurysm&#34;]
-    Vascular_Inflammation[&#34;Vascular Inflammation&#34;]
-    Arachnodactyly[&#34;Arachnodactyly&#34;]
-    Mitral_Valve_Prolapse[&#34;Mitral Valve Prolapse&#34;]
-    Mitochondrial_Dysfunction[&#34;Mitochondrial Dysfunction&#34;]
-    Extracellular_Matrix_Remodeling[&#34;Extracellular Matrix Remodeling&#34;]
-    Aortic_Aneurysm[&#34;Aortic Aneurysm&#34;]
-    Dysregulated_TGF_beta_Signaling[&#34;Dysregulated TGF-beta Signaling&#34;]
-
-    FBN1_Gene_Mutation --&gt; Dysregulated_TGF_beta_Signaling
-    FBN1_Gene_Mutation --&gt; Extracellular_Matrix_Remodeling
-    FBN1_Gene_Mutation --&gt; Impaired_Mechanotransduction
-    Dysregulated_TGF_beta_Signaling --&gt; Extracellular_Matrix_Remodeling
-    Dysregulated_TGF_beta_Signaling --&gt; Aortic_Root_Aneurysm
-    Dysregulated_TGF_beta_Signaling --&gt; Tall_Stature
-    Dysregulated_TGF_beta_Signaling --&gt; Arachnodactyly
-    Extracellular_Matrix_Remodeling --&gt; Aortic_Aneurysm
-    Extracellular_Matrix_Remodeling --&gt; Mitral_Valve_Prolapse
-    Extracellular_Matrix_Remodeling --&gt; Ectopia_Lentis
-    Extracellular_Matrix_Remodeling --&gt; Scoliosis
-    Extracellular_Matrix_Remodeling --&gt; Pneumothorax
-    Impaired_Mechanotransduction --&gt; Aortic_Root_Aneurysm
-    Vascular_Inflammation --&gt; Aortic_Dissection
-    Mitochondrial_Dysfunction --&gt; Aortic_Dissection
-    Aortic_Aneurysm --&gt; Aortic_Dissection
-
-    style FBN1_Gene_Mutation fill:#dbeafe
-    style Ectopia_Lentis fill:#fef3c7
-    style Impaired_Mechanotransduction fill:#dbeafe
-    style Tall_Stature fill:#fef3c7
-    style Aortic_Dissection fill:#fef3c7
-    style Scoliosis fill:#fef3c7
-    style Pneumothorax fill:#fef3c7
-    style Aortic_Root_Aneurysm fill:#fef3c7
-    style Vascular_Inflammation fill:#dbeafe
-    style Arachnodactyly fill:#fef3c7
-    style Mitral_Valve_Prolapse fill:#fef3c7
-    style Mitochondrial_Dysfunction fill:#dbeafe
-    style Extracellular_Matrix_Remodeling fill:#dbeafe
-    style Aortic_Aneurysm fill:#fef3c7
-    style Dysregulated_TGF_beta_Signaling fill:#dbeafe</pre>
+            <div class="pathograph-container" id="pathograph">
+                <div class="pathograph-legend" id="pathograph-legend"></div>
+                <svg id="pathograph-svg" role="img">
+                    <title>Pathograph: causal mechanism network for Marfan Syndrome</title>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                </svg>
+                <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
+            <script>
+            (function() {
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aortic Aneurysm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive dilation of the aortic root beginning in childhood, with risk of life-threatening aortic dissection.\", \"meta\": {\"evidence_count\": 5, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004942\"}}, {\"id\": \"Aortic Dissection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Life-threatening tear in the aortic wall allowing blood to enter between tissue layers, the leading cause of death in untreated Marfan syndrome.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002647\"}}, {\"id\": \"Aortic Root Aneurysm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive enlargement of the aortic root diameter, typically measured by echocardiography and tracked using Z-scores adjusted for age and body surface area.\", \"meta\": {\"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002616\"}}, {\"id\": \"Arachnodactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormally long, slender fingers and toes (spider-like digits), often demonstrated by positive wrist and thumb signs.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001166\"}}, {\"id\": \"Dysregulated TGF-beta Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective fibrillin-1 microfibrils fail to sequester latent TGF-beta complexes, leading to increased bioavailable TGF-beta and excessive SMAD2/3 signaling that drives vascular smooth muscle cell phenotypic switching and ECM remodeling.\", \"meta\": {\"cell_types\": [\"vascular associated smooth muscle cell\"], \"biological_processes\": [\"transforming growth factor beta receptor signaling pathway\", \"SMAD protein signal transduction\"], \"locations\": [\"aorta\"]}}, {\"id\": \"Ectopia Lentis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Superior and temporal displacement of the lens due to weakened zonular fibers, affecting visual acuity.\", \"meta\": {\"evidence_count\": 8, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001083\"}}, {\"id\": \"Extracellular Matrix Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Increased matrix metalloproteinase activity, elastic fiber fragmentation, altered collagen composition, and proteoglycan accumulation (especially versican) weaken the aortic wall medial layer.\", \"meta\": {\"cell_types\": [\"vascular associated smooth muscle cell\", \"fibroblast\"], \"biological_processes\": [\"extracellular matrix organization\", \"proteolysis\"], \"locations\": [\"aorta tunica media\"]}}, {\"id\": \"FBN1 Gene Mutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in the FBN1 gene result in defective fibrillin-1 protein, which affects the elasticity and strength of connective tissues.\", \"meta\": {\"evidence_count\": 7}}, {\"id\": \"Impaired Mechanotransduction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Perturbed integrin-fibrillin interactions alter focal adhesion signaling and mechanosensing, contributing to maladaptive vascular smooth muscle cell responses to hemodynamic stress.\", \"meta\": {\"cell_types\": [\"vascular associated smooth muscle cell\", \"endothelial cell\"], \"biological_processes\": [\"cellular response to mechanical stimulus\", \"integrin-mediated signaling pathway\"], \"locations\": [\"aorta\"]}}, {\"id\": \"Mitochondrial Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Emerging evidence implicates mitochondrial dysfunction and oxidative stress in vascular smooth muscle cells and endothelial cells as contributors to thoracic aortic aneurysm progression in Marfan syndrome.\", \"meta\": {\"cell_types\": [\"vascular associated smooth muscle cell\", \"endothelial cell\"], \"biological_processes\": [\"mitochondrial ATP synthesis coupled electron transport\", \"response to oxidative stress\"], \"locations\": [\"aorta\"]}}, {\"id\": \"Mitral Valve Prolapse\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myxomatous degeneration of mitral valve leaflets causing prolapse into the left atrium during systole, often accompanied by mitral regurgitation.\", \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001634\"}}, {\"id\": \"Pneumothorax\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spontaneous lung collapse occurring in 5-11% of patients due to apical blebs from connective tissue abnormalities.\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002107\"}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lateral curvature of the spine occurring in approximately 63% of Marfan syndrome patients, often progressive.\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"Tall Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disproportionately tall stature with long limbs and increased arm span-to-height ratio.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000098\"}}, {\"id\": \"Vascular Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Angiotensin II type 1 receptor signaling and chemokine pathways recruit macrophages and promote inflammatory mediators that exacerbate vascular smooth muscle cell dysfunction and ECM degradation.\", \"meta\": {\"cell_types\": [\"macrophage\", \"vascular associated smooth muscle cell\"], \"biological_processes\": [\"inflammatory response\", \"leukocyte migration\"], \"locations\": [\"aorta tunica intima\", \"aorta tunica media\"]}}], \"edges\": [{\"source\": \"FBN1 Gene Mutation\", \"target\": \"Dysregulated TGF-beta Signaling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FBN1 Gene Mutation\", \"target\": \"Extracellular Matrix Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FBN1 Gene Mutation\", \"target\": \"Impaired Mechanotransduction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dysregulated TGF-beta Signaling\", \"target\": \"Extracellular Matrix Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dysregulated TGF-beta Signaling\", \"target\": \"Aortic Root Aneurysm\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dysregulated TGF-beta Signaling\", \"target\": \"Tall Stature\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dysregulated TGF-beta Signaling\", \"target\": \"Arachnodactyly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular Matrix Remodeling\", \"target\": \"Aortic Aneurysm\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular Matrix Remodeling\", \"target\": \"Mitral Valve Prolapse\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular Matrix Remodeling\", \"target\": \"Ectopia Lentis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular Matrix Remodeling\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular Matrix Remodeling\", \"target\": \"Pneumothorax\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mechanotransduction\", \"target\": \"Aortic Root Aneurysm\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vascular Inflammation\", \"target\": \"Aortic Dissection\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial Dysfunction\", \"target\": \"Aortic Dissection\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Aortic Aneurysm\", \"target\": \"Aortic Dissection\", \"predicate\": \"leads_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                renderPathograph("pathograph", graphData);
+            })();
+            </script>
         </div>
         
 
