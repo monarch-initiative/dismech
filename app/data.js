@@ -23763,6 +23763,82 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Larsen Syndrome",
+    "disease_id": "MONDO:0007875",
+    "category": "Mendelian",
+    "parents": [
+      "Skeletal Dysplasia"
+    ],
+    "creation_date": "2026-03-04T19:58:20Z",
+    "updated_date": "2026-03-04T20:18:00Z",
+    "subtypes": [],
+    "description": "Larsen syndrome is an FLNB-associated autosomal dominant skeletal dysplasia characterized by congenital large-joint dislocations, craniofacial dysmorphism, and high-risk cervical spine deformity.\n",
+    "pathophysiology": [
+      "FLNB Variant Clustering in Functional Protein Domains",
+      "Gain-of-Function Actin-Binding Dysregulation",
+      "Impaired Chondrocyte Differentiation in FLNB Deficiency Models",
+      "Disrupted Endochondral Ossification in FLNB Deficiency Models"
+    ],
+    "cell_types": [
+      "Chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000138"
+    ],
+    "biological_processes": [
+      "actin filament organization",
+      "Cartilage Development",
+      "Endochondral Ossification"
+    ],
+    "phenotypes": [
+      "Large Joint Dislocations",
+      "Prominent Forehead",
+      "Depressed Nasal Bridge",
+      "Hypertelorism",
+      "Multiple Carpal Ossification Centers",
+      "Broad Distal Phalanx of Finger",
+      "Talipes Equinovarus",
+      "Cervical Kyphosis",
+      "Kyphoscoliosis"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0005008",
+      "HP:0011220",
+      "HP:0005280",
+      "HP:0000316",
+      "HP:0006067",
+      "HP:0009836",
+      "HP:0001762",
+      "HP:0002947",
+      "HP:0002751"
+    ],
+    "frequencies": [],
+    "genes": [
+      "FLNB Pathogenic Variants"
+    ],
+    "treatments": [
+      "Cervical Spine Surgical Stabilization",
+      "Conservative and Supportive Management for Nonoperative Cases"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Larsen_Syndrome.yaml",
+    "page_url": "../pages/disorders/Larsen_Syndrome.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Laryngotracheoesophageal Cleft",
     "disease_id": "MONDO:0016060",
     "category": "Complex",
@@ -23977,6 +24053,150 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Leptospirosis",
+    "disease_id": "MONDO:0005825",
+    "category": "Infectious",
+    "parents": [
+      "zoonotic bacterial infection",
+      "spirochetal infection"
+    ],
+    "creation_date": "2026-03-03T16:18:51Z",
+    "updated_date": "2026-03-08T18:31:34Z",
+    "subtypes": [
+      "Anicteric leptospirosis",
+      "Severe icteric leptospirosis (Weil disease)",
+      "Severe pulmonary leptospirosis (ARDS-associated)"
+    ],
+    "description": "Leptospirosis is a zoonotic spirochetal infection caused by pathogenic Leptospira species, with clinical severity ranging from self-limited febrile illness to severe multi-organ dysfunction (including jaundice, pulmonary hemorrhage, and acute kidney injury).",
+    "pathophysiology": [
+      "ColA-mediated collagen degradation",
+      "Barrier transcytosis across endothelial and epithelial monolayers",
+      "Hematogenous leptospiral dissemination",
+      "TLR2 signaling activation in monocytes and macrophages",
+      "Cytokine and chemokine upregulation",
+      "NLRP3 inflammasome complex assembly",
+      "Increased interleukin-1 beta production",
+      "TolC-mediated factor H recruitment",
+      "Reduced membrane attack complex deposition",
+      "Persistent tissue colonization by Leptospira",
+      "Leptospiral GLP engagement of Na/K-ATPase",
+      "Na/K-ATPase dysfunction in endothelial and kidney epithelial cells",
+      "Pulmonary microvascular damage in hemorrhagic leptospirosis",
+      "Multi-organ tissue injury in severe leptospirosis",
+      "Coagulation derangement in critical leptospirosis"
+    ],
+    "cell_types": [
+      "endothelial cell",
+      "kidney epithelial cell",
+      "monocyte",
+      "macrophage",
+      "platelet"
+    ],
+    "cell_type_ids": [
+      "CL:0000115",
+      "CL:0002518",
+      "CL:0000576",
+      "CL:0000235",
+      "CL:0000233"
+    ],
+    "biological_processes": [
+      "collagen catabolic process",
+      "transcytosis",
+      "response to molecule of bacterial origin",
+      "toll-like receptor signaling pathway",
+      "positive regulation of cytokine production",
+      "NLRP3 inflammasome complex assembly",
+      "interleukin-1 beta production",
+      "complement activation",
+      "response to lipopolysaccharide",
+      "inflammatory response",
+      "blood coagulation"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Headache",
+      "Myalgia",
+      "Chills",
+      "Nausea",
+      "Vomiting",
+      "Conjunctival suffusion",
+      "Jaundice",
+      "Acute kidney injury",
+      "Oliguria",
+      "Pulmonary hemorrhage",
+      "Acute respiratory distress syndrome",
+      "Meningitis",
+      "Disseminated intravascular coagulation",
+      "Thrombocytopenia"
+    ],
+    "phenotype_categories": [
+      "Constitutional",
+      "Neurological",
+      "Gastrointestinal",
+      "Ophthalmologic",
+      "Hepatic",
+      "Renal",
+      "Respiratory",
+      "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0002315",
+      "HP:0003326",
+      "HP:0025143",
+      "HP:0002018",
+      "HP:0002013",
+      "HP:0000509",
+      "HP:0000952",
+      "HP:0001919",
+      "HP:0100520",
+      "HP:0040223",
+      "HP:0033677",
+      "HP:0001287",
+      "HP:0005521",
+      "HP:0001873"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "RARE"
+    ],
+    "genes": [],
+    "treatments": [
+      "Antibiotic pharmacotherapy",
+      "Intensive supportive care for severe leptospirosis",
+      "Adjunctive corticosteroid therapy (uncertain benefit)",
+      "Extracorporeal life support rescue",
+      "Butyrate adjunctive strategy (preclinical)",
+      "Recombinant vaccine strategy development (investigational prevention)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Leptospirosis.yaml",
+    "page_url": "../pages/disorders/Leptospirosis.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 15,
+    "num_genes": 0,
+    "num_treatments": 6,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Li-Fraumeni Syndrome",
@@ -38313,6 +38533,75 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "9",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Spondylocarpotarsal Synostosis Syndrome",
+    "disease_id": "MONDO:0010094",
+    "category": "Mendelian",
+    "parents": [
+      "Skeletal Dysplasia"
+    ],
+    "creation_date": "2026-03-04T20:22:00Z",
+    "updated_date": "2026-03-04T20:48:00Z",
+    "subtypes": [],
+    "description": "Spondylocarpotarsal synostosis syndrome is a rare autosomal recessive FLNB-related skeletal dysplasia with disproportionate short stature, progressive vertebral fusion, and carpal/tarsal synostosis.\n",
+    "pathophysiology": [
+      "FLNB Loss-of-Function with Filamin B Deficiency",
+      "Impaired FLNB Dimerization and Protein Stability",
+      "Progressive Vertebral and Carpal Joint Fusion"
+    ],
+    "cell_types": [
+      "Chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000138"
+    ],
+    "biological_processes": [
+      "skeletal system morphogenesis",
+      "cartilage development",
+      "embryonic skeletal joint development",
+      "ossification"
+    ],
+    "phenotypes": [
+      "Short Stature",
+      "Vertebral Fusion",
+      "Carpal Synostosis",
+      "Tarsal Synostosis",
+      "Scoliosis",
+      "Hyperlordosis",
+      "Sensorineural Hearing Impairment"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Growth",
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0004322",
+      "HP:0002948",
+      "HP:0009702",
+      "HP:0008368",
+      "HP:0002650",
+      "HP:0003307",
+      "HP:0000407"
+    ],
+    "frequencies": [],
+    "genes": [
+      "FLNB Biallelic Truncating Variants"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Spondylocarpotarsal_Synostosis_Syndrome.yaml",
+    "page_url": "../pages/disorders/Spondylocarpotarsal_Synostosis_Syndrome.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
   },
   {
     "name": "Spondyloepimetaphyseal Dysplasia Strudwick Type",
