@@ -23763,6 +23763,82 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Larsen Syndrome",
+    "disease_id": "MONDO:0007875",
+    "category": "Mendelian",
+    "parents": [
+      "Skeletal Dysplasia"
+    ],
+    "creation_date": "2026-03-04T19:58:20Z",
+    "updated_date": "2026-03-04T20:18:00Z",
+    "subtypes": [],
+    "description": "Larsen syndrome is an FLNB-associated autosomal dominant skeletal dysplasia characterized by congenital large-joint dislocations, craniofacial dysmorphism, and high-risk cervical spine deformity.\n",
+    "pathophysiology": [
+      "FLNB Variant Clustering in Functional Protein Domains",
+      "Gain-of-Function Actin-Binding Dysregulation",
+      "Impaired Chondrocyte Differentiation in FLNB Deficiency Models",
+      "Disrupted Endochondral Ossification in FLNB Deficiency Models"
+    ],
+    "cell_types": [
+      "Chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000138"
+    ],
+    "biological_processes": [
+      "actin filament organization",
+      "Cartilage Development",
+      "Endochondral Ossification"
+    ],
+    "phenotypes": [
+      "Large Joint Dislocations",
+      "Prominent Forehead",
+      "Depressed Nasal Bridge",
+      "Hypertelorism",
+      "Multiple Carpal Ossification Centers",
+      "Broad Distal Phalanx of Finger",
+      "Talipes Equinovarus",
+      "Cervical Kyphosis",
+      "Kyphoscoliosis"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0005008",
+      "HP:0011220",
+      "HP:0005280",
+      "HP:0000316",
+      "HP:0006067",
+      "HP:0009836",
+      "HP:0001762",
+      "HP:0002947",
+      "HP:0002751"
+    ],
+    "frequencies": [],
+    "genes": [
+      "FLNB Pathogenic Variants"
+    ],
+    "treatments": [
+      "Cervical Spine Surgical Stabilization",
+      "Conservative and Supportive Management for Nonoperative Cases"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Larsen_Syndrome.yaml",
+    "page_url": "../pages/disorders/Larsen_Syndrome.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Laryngotracheoesophageal Cleft",
     "disease_id": "MONDO:0016060",
     "category": "Complex",
@@ -38313,6 +38389,75 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "9",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Spondylocarpotarsal Synostosis Syndrome",
+    "disease_id": "MONDO:0010094",
+    "category": "Mendelian",
+    "parents": [
+      "Skeletal Dysplasia"
+    ],
+    "creation_date": "2026-03-04T20:22:00Z",
+    "updated_date": "2026-03-04T20:48:00Z",
+    "subtypes": [],
+    "description": "Spondylocarpotarsal synostosis syndrome is a rare autosomal recessive FLNB-related skeletal dysplasia with disproportionate short stature, progressive vertebral fusion, and carpal/tarsal synostosis.\n",
+    "pathophysiology": [
+      "FLNB Loss-of-Function with Filamin B Deficiency",
+      "Impaired FLNB Dimerization and Protein Stability",
+      "Progressive Vertebral and Carpal Joint Fusion"
+    ],
+    "cell_types": [
+      "Chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000138"
+    ],
+    "biological_processes": [
+      "skeletal system morphogenesis",
+      "cartilage development",
+      "embryonic skeletal joint development",
+      "ossification"
+    ],
+    "phenotypes": [
+      "Short Stature",
+      "Vertebral Fusion",
+      "Carpal Synostosis",
+      "Tarsal Synostosis",
+      "Scoliosis",
+      "Hyperlordosis",
+      "Sensorineural Hearing Impairment"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Growth",
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0004322",
+      "HP:0002948",
+      "HP:0009702",
+      "HP:0008368",
+      "HP:0002650",
+      "HP:0003307",
+      "HP:0000407"
+    ],
+    "frequencies": [],
+    "genes": [
+      "FLNB Biallelic Truncating Variants"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Spondylocarpotarsal_Synostosis_Syndrome.yaml",
+    "page_url": "../pages/disorders/Spondylocarpotarsal_Synostosis_Syndrome.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
   },
   {
     "name": "Spondyloepimetaphyseal Dysplasia Strudwick Type",
