@@ -1,5 +1,5 @@
 ---
-reference_id: "clinicaltrials:NCT04652882"
+reference_id: clinicaltrials:NCT04652882
 title: "A Multicenter, Double-blind, Randomized Study to Evaluate the Effects of Tasimelteon vs. Placebo in Participants With Delayed Sleep-Wake Phase Disorder (DSWPD)"
 content_type: summary
 ---
