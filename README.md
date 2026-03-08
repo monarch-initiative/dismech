@@ -131,11 +131,69 @@ YAML files are rendered to browsable HTML pages with clickable ontology term lin
 uv run python -m dismech.render --all
 ```
 
-## For Contributors
+## Agentic Curation Guide
 
-Want to help curate disorder entries? This project uses **Claude Code** for AI-assisted curation.
+This knowledge base is curated with **Claude Code** — an AI agent that knows the schema, validates ontology terms, and checks evidence against PubMed abstracts. There are two ways to start curating:
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) to get started as an agent manager.
+### Route 1: Clone the repo and use Claude Code CLI
+
+Best for power users who want full control, deep research providers, and iterative curation sessions.
+
+**Prerequisites:** A Claude Pro/Max subscription and `just` installed ([installation](https://github.com/casey/just#installation)).
+
+```bash
+# 1. Clone and enter the repo
+git clone https://github.com/monarch-initiative/dismech.git
+cd dismech
+
+# 2. Launch Claude Code
+claude
+
+# 3. Ask it anything — or run a curation skill directly
+> Give me a tour of the dismech project
+> What disorders are missing ontology terms?
+> /curate Parkinson Disease
+```
+
+The `/curate` command triggers a full curation workflow: deep literature research, YAML generation, ontology term binding, evidence validation, and a ready-to-review PR.
+
+You can also ask the agent open-ended questions, request targeted edits, or run QC:
+
+```
+> Add MAXO treatment terms to the Asthma entry
+> Validate references in kb/disorders/Lupus.yaml
+> Which files have the lowest compliance scores?
+```
+
+**Optional — deep research provider:** For comprehensive literature search, set up an [Edison Scientific](https://platform.edisonscientific.com/) API key:
+```bash
+export EDISON_API_KEY=your_key_here
+```
+
+### Route 2: Use Claude Code on the web
+
+Best for quick contributions — no local setup required.
+
+1. Go to **[claude.ai/code](https://claude.ai/code)**
+2. Open the `monarch-initiative/dismech` repository
+3. **Set up an environment** with the following settings:
+   - **Allow access to external websites** — needed for fetching PubMed abstracts, ClinicalTrials.gov data, and ontology lookups
+   - **Set `EDISON_API_KEY`** — for deep literature research via [Edison Scientific](https://platform.edisonscientific.com/) (sign up → Account → Profile → Create new token)
+4. Interact with the agent in the web UI — ask questions, request edits, or run `/curate`
+5. When you're done, click the **Create pull request** button to submit your changes for review
+
+That's it. The web UI handles git branching, commits, and PR creation automatically.
+
+### What happens during curation
+
+Regardless of which route you use, the agent follows the same workflow:
+
+1. **Research** — gathers pathophysiology, phenotypes, treatments, and genetic factors from the literature
+2. **Draft** — generates a structured YAML file with ontology term bindings and PubMed-backed evidence
+3. **Validate** — runs schema validation, ontology term checks, and reference verification (`just qc`)
+4. **Submit** — commits changes and opens a pull request for human review
+
+For detailed contribution guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Schema Documentation
 
