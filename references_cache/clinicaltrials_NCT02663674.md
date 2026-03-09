@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT02663674
+reference_id: "clinicaltrials:NCT02663674"
 title: "A Randomized, Double-blind, Placebo-controlled Clinical Trial of Fluconazole as Early Empiric Treatment of Coccidioidomycosis Pneumonia (Valley Fever) in Adults Presenting With Community Acquired Pneumonia (CAP) in Endemic Areas (FLEET-Valley Fever)"
 content_type: summary
 ---

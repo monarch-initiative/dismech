@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1183/16000617.0234-2023
+reference_id: "DOI:10.1183/16000617.0234-2023"
 title: Biomarkers in bronchiectasis
 authors:
 - Emma Johnson
