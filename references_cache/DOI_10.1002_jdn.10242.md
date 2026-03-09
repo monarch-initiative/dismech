@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/jdn.10242"
+reference_id: DOI:10.1002/jdn.10242
 title: GABAergic neurons maturation is regulated by a delicate network
 authors:
 - Mingxing Gao

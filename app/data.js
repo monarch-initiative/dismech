@@ -10431,7 +10431,7 @@ window.searchData = [
       "Antibody Deficiency Disorder"
     ],
     "creation_date": "2026-03-06T00:00:00Z",
-    "updated_date": "2026-03-07T12:00:00Z",
+    "updated_date": "2026-03-06T00:00:00Z",
     "subtypes": [],
     "description": "Common variable immunodeficiency (CVID) is the most prevalent symptomatic primary immunodeficiency, characterized by defective B cell differentiation, hypogammaglobulinemia, and failure of antibody production. Patients present with recurrent bacterial infections, particularly of the respiratory and gastrointestinal tracts, and have increased susceptibility to autoimmune manifestations, granulomatous disease, and lymphoproliferative disorders. CVID is best understood as an umbrella diagnosis with heterogeneous genetic and immunologic etiologies spanning monogenic, digenic, and polygenic models.",
     "pathophysiology": [
@@ -10472,17 +10472,12 @@ window.searchData = [
       "Lymphadenopathy",
       "Autoimmune Hemolytic Anemia",
       "Autoimmune Thrombocytopenia",
-      "Granulomatous Disease",
-      "Chronic Diarrhea",
-      "Lymphoma",
-      "CD4+ T Cell Lymphopenia"
+      "Granulomatous Disease"
     ],
     "phenotype_categories": [
       "Immunologic",
       "Respiratory",
-      "Hematologic",
-      "Gastrointestinal",
-      "Neoplastic"
+      "Hematologic"
     ],
     "phenotype_hpo_categories": [
       "Blood",
@@ -10491,7 +10486,6 @@ window.searchData = [
       "Digestive",
       "Immune",
       "Metabolism",
-      "Neoplasm",
       "Respiratory"
     ],
     "phenotype_ids": [
@@ -10504,15 +10498,10 @@ window.searchData = [
       "HP:0002716",
       "HP:0001890",
       "HP:0001973",
-      "HP:0002955",
-      "HP:0002028",
-      "HP:0002665",
-      "HP:0005403"
+      "HP:0002955"
     ],
     "frequencies": [
-      "VERY_FREQUENT",
-      "FREQUENT",
-      "OCCASIONAL"
+      "VERY_FREQUENT"
     ],
     "genes": [
       "TNFRSF13B (TACI) Mutations",
@@ -10530,7 +10519,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Common_Variable_Immunodeficiency.yaml",
     "page_url": "../pages/disorders/Common_Variable_Immunodeficiency.html",
-    "num_phenotypes": 13,
+    "num_phenotypes": 10,
     "num_pathophysiology": 4,
     "num_genes": 5,
     "num_treatments": 3,
@@ -10734,6 +10723,92 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "4",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Cori Forbes Disease",
+    "disease_id": "MONDO:0009291",
+    "category": "Mendelian",
+    "parents": [
+      "Glycogen Storage Disease"
+    ],
+    "creation_date": "2026-03-08T00:00:00Z",
+    "updated_date": "2026-03-08T00:00:00Z",
+    "subtypes": [
+      "GSD IIIa",
+      "GSD IIIb"
+    ],
+    "description": "Cori Forbes Disease (Glycogen Storage Disease Type III, GSD III) is an autosomal recessive disorder of glycogen metabolism caused by deficiency of the glycogen debranching enzyme (amylo-1,6-glucosidase, 4-alpha-glucanotransferase) encoded by the AGL gene. The enzyme deficiency leads to accumulation of abnormally structured glycogen (limit dextrin) in liver, skeletal muscle, and cardiac muscle. The disease presents primarily with hepatomegaly, fasting hypoglycemia, hyperlipidemia, and growth retardation in childhood. Myopathy and cardiomyopathy become increasingly prominent with age. GSD IIIa (approximately 85% of cases) affects both liver and muscle, while GSD IIIb affects liver only. Hepatic fibrosis and cirrhosis may develop in adulthood, and hepatocellular carcinoma is a recognized complication.\n",
+    "pathophysiology": [
+      "Glycogen debranching enzyme deficiency",
+      "Hepatic glycogen accumulation and fibrosis",
+      "Skeletal and cardiac myopathy"
+    ],
+    "cell_types": [
+      "Hepatocyte",
+      "Skeletal muscle cell",
+      "Cardiac muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0000188",
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "Glycogen catabolic process",
+      "Glucose metabolic process",
+      "Glycogen metabolic process",
+      "Carbohydrate metabolic process"
+    ],
+    "phenotypes": [
+      "Hepatomegaly",
+      "Fasting hypoglycemia",
+      "Hyperlipidemia",
+      "Myopathy",
+      "Hypertrophic cardiomyopathy",
+      "Elevated circulating creatine kinase concentration",
+      "Hepatic fibrosis",
+      "Failure to thrive",
+      "Elevated circulating hepatic transaminase concentration"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Growth",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0002240",
+      "HP:0003162",
+      "HP:0003077",
+      "HP:0003198",
+      "HP:0001639",
+      "HP:0003236",
+      "HP:0001395",
+      "HP:0001508",
+      "HP:0002910"
+    ],
+    "frequencies": [
+      "HP_0040281",
+      "HP_0040282"
+    ],
+    "genes": [],
+    "treatments": [
+      "Dietary management",
+      "Liver transplantation",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cori_Forbes_Disease.yaml",
+    "page_url": "../pages/disorders/Cori_Forbes_Disease.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 3,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
   },
   {
     "name": "Coronary Artery Disease",
@@ -13209,6 +13284,108 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "5",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Dilated Cardiomyopathy",
+    "disease_id": "MONDO:0005021",
+    "category": "Complex",
+    "parents": [
+      "Cardiovascular Disease",
+      "Genetic Disorder"
+    ],
+    "creation_date": "2026-03-06T00:00:00Z",
+    "updated_date": "2026-03-08T00:00:00Z",
+    "subtypes": [
+      "Familial Dilated Cardiomyopathy",
+      "Idiopathic Dilated Cardiomyopathy",
+      "Peripartum Cardiomyopathy",
+      "Alcoholic Cardiomyopathy",
+      "Tachycardia-Induced Cardiomyopathy"
+    ],
+    "description": "Mutations in genes encoding sarcomeric proteins (e.g., TTN, MYH7, TNNT2) and cytoskeletal proteins (e.g., DES, LMNA) disrupt force generation and transmission within cardiomyocytes, leading to impaired contractility and progressive ventricular dilation. Truncating variants in TTN are the most common genetic cause, found in approximately 15% of familial DCM cases.\n",
+    "pathophysiology": [
+      "Sarcomeric and Cytoskeletal Dysfunction",
+      "Neurohormonal Activation",
+      "Myocardial Fibrosis",
+      "RNA Splicing Dysregulation",
+      "Immune and Inflammatory Activation",
+      "Polygenic Risk and Common Variant Burden",
+      "Mitochondrial Dysfunction"
+    ],
+    "cell_types": [
+      "cardiomyocyte",
+      "cardiac fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000746",
+      "CL:0002548"
+    ],
+    "biological_processes": [
+      "cardiac muscle contraction",
+      "renin-angiotensin regulation of aldosterone production",
+      "extracellular matrix organization",
+      "mitochondrion organization"
+    ],
+    "phenotypes": [
+      "Dilated cardiomyopathy",
+      "Congestive heart failure",
+      "Left ventricular systolic dysfunction",
+      "Dyspnea",
+      "Palpitations",
+      "Arrhythmia",
+      "Fatigue",
+      "Peripheral edema"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Respiratory",
+      "General"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Metabolism",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001644",
+      "HP:0001635",
+      "HP:0025169",
+      "HP:0002094",
+      "HP:0001962",
+      "HP:0011675",
+      "HP:0012378",
+      "HP:0012398"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "TTN Truncating Variants",
+      "LMNA Mutations",
+      "MYH7 Mutations",
+      "RBM20 Mutations"
+    ],
+    "treatments": [
+      "ACE Inhibitors / ARBs",
+      "Beta-Blockers",
+      "SGLT2 Inhibitors",
+      "Cardiac Resynchronization Therapy",
+      "Heart Transplantation",
+      "Implantable Cardioverter-Defibrillator",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Dilated_Cardiomyopathy.yaml",
+    "page_url": "../pages/disorders/Dilated_Cardiomyopathy.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 7,
+    "num_genes": 4,
+    "num_treatments": 7,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
   },
   {
     "name": "Dorsalgia",
@@ -18053,6 +18230,169 @@ window.searchData = [
     "num_treatments": 7,
     "causal_graph_edges": "9",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Glycogen Storage Disease Type I",
+    "disease_id": "MONDO:0002413",
+    "category": "Mendelian",
+    "parents": [
+      "Glycogen Storage Disease",
+      "Inborn Error of Carbohydrate Metabolism"
+    ],
+    "creation_date": "2026-03-08T12:00:00Z",
+    "updated_date": "2026-03-08T18:00:00Z",
+    "subtypes": [
+      "GSD Ia (glucose-6-phosphatase deficiency)",
+      "GSD Ib (glucose-6-phosphate transporter deficiency)"
+    ],
+    "description": "Glycogen storage disease type I (GSD I), also known as von Gierke disease, is an autosomal recessive disorder of glucose metabolism caused by deficiency of the glucose-6-phosphatase system. GSD Ia results from mutations in G6PC1 encoding the catalytic subunit glucose-6-phosphatase-alpha, while GSD Ib results from mutations in SLC37A4 encoding the glucose-6-phosphate transporter (G6PT). Both subtypes lead to impaired hydrolysis of glucose-6-phosphate to glucose, blocking the final step of both glycogenolysis and gluconeogenesis, resulting in fasting hypoglycemia, hepatomegaly, nephromegaly, lactic acidosis, hyperlipidemia, and hyperuricemia. GSD Ib additionally features neutropenia and neutrophil dysfunction leading to recurrent infections and inflammatory bowel disease.\n",
+    "pathophysiology": [
+      "Impaired glucose-6-phosphate hydrolysis and fasting hypoglycemia",
+      "Secondary metabolic derangements",
+      "Neutropenia and neutrophil dysfunction in GSD Ib",
+      "Hepatocellular adenoma development"
+    ],
+    "cell_types": [
+      "Hepatocyte",
+      "Neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "Gluconeogenesis",
+      "Glycogen catabolic process",
+      "Glucose homeostasis"
+    ],
+    "phenotypes": [
+      "Hepatomegaly",
+      "Fasting hypoglycemia",
+      "Lactic acidosis",
+      "Hypertriglyceridemia",
+      "Hyperuricemia",
+      "Nephromegaly",
+      "Short stature",
+      "Hepatocellular adenoma",
+      "Hyperlipidemia",
+      "Epistaxis",
+      "Neutropenia (GSD Ib)",
+      "Recurrent infections (GSD Ib)",
+      "Oral ulcers (GSD Ib)",
+      "Anemia",
+      "Osteoporosis",
+      "Gout",
+      "Proteinuria",
+      "Renal insufficiency",
+      "Hepatic steatosis",
+      "Diarrhea",
+      "Pancreatitis",
+      "Seizures",
+      "Delayed puberty",
+      "Systemic hypertension",
+      "Pulmonary hypertension",
+      "Xanthomas",
+      "Menorrhagia"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Metabolic",
+      "Renal",
+      "Growth",
+      "Neoplastic",
+      "Hematologic",
+      "Immunologic",
+      "Musculoskeletal",
+      "Neurological",
+      "Endocrine",
+      "Cardiovascular",
+      "Dermatologic",
+      "Gynecologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Endocrine",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002240",
+      "HP:0003162",
+      "HP:0003128",
+      "HP:0002155",
+      "HP:0002149",
+      "HP:0000105",
+      "HP:0004322",
+      "HP:0012028",
+      "HP:0003077",
+      "HP:0000421",
+      "HP:0001875",
+      "HP:0002719",
+      "HP:0000155",
+      "HP:0001903",
+      "HP:0000939",
+      "HP:0001997",
+      "HP:0000093",
+      "HP:0000083",
+      "HP:0001397",
+      "HP:0002014",
+      "HP:0001733",
+      "HP:0001250",
+      "HP:0000823",
+      "HP:0000822",
+      "HP:0002092",
+      "HP:0000991",
+      "HP:0000132"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "G6PC1",
+      "SLC37A4"
+    ],
+    "treatments": [
+      "Uncooked cornstarch therapy",
+      "Granulocyte colony-stimulating factor (G-CSF)",
+      "Empagliflozin for GSD Ib neutropenia",
+      "Allopurinol",
+      "Lipid-lowering medications",
+      "ACE inhibitors for renal protection",
+      "Liver transplantation",
+      "Citrate supplementation",
+      "Kidney transplantation",
+      "Gene therapy (investigational)",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Blood glucose",
+      "Blood lactate",
+      "Serum triglycerides",
+      "Serum uric acid",
+      "Serum cholesterol",
+      "Glucose-6-phosphatase enzyme activity"
+    ],
+    "source_file": "Glycogen_Storage_Disease_Type_I.yaml",
+    "page_url": "../pages/disorders/Glycogen_Storage_Disease_Type_I.html",
+    "num_phenotypes": 27,
+    "num_pathophysiology": 4,
+    "num_genes": 2,
+    "num_treatments": 11,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
   },
   {
     "name": "Gorlin Syndrome",
@@ -24243,6 +24583,84 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Lafora_Disease",
+    "disease_id": "MONDO:0009697",
+    "category": "Mendelian",
+    "parents": [
+      "Progressive Myoclonus Epilepsy",
+      "Glycogen Storage Disease"
+    ],
+    "creation_date": "2026-03-08T00:00:00Z",
+    "updated_date": "2026-03-08T00:00:00Z",
+    "subtypes": [
+      "EPM2A-related Lafora disease",
+      "NHLRC1-related Lafora disease"
+    ],
+    "description": "Lafora disease is a rare, fatal form of progressive myoclonus epilepsy (PME type 2) with autosomal recessive inheritance, typically presenting in late childhood or adolescence (ages 12-17). It is caused by biallelic pathogenic variants in EPM2A (encoding laforin, a dual-specificity glycogen phosphatase) or NHLRC1/EPM2B (encoding malin, an E3 ubiquitin ligase). The hallmark pathological feature is the accumulation of Lafora bodies - insoluble, poorly branched polyglucosan inclusions - in neurons, astrocytes, and other tissues. The disease is characterized by progressive myoclonus, epileptic seizures (generalized tonic-clonic, absence, and occipital), visual hallucinations, and relentless cognitive decline leading to dementia and death within approximately 10 years of onset. There is currently no disease-modifying therapy.\n",
+    "pathophysiology": [
+      "Lafora body formation through aberrant glycogen metabolism",
+      "Malin-laforin complex dysfunction in glycogen regulation"
+    ],
+    "cell_types": [
+      "Neuron",
+      "Astrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000127"
+    ],
+    "biological_processes": [
+      "Glycogen metabolic process",
+      "Protein ubiquitination"
+    ],
+    "phenotypes": [
+      "Myoclonus",
+      "Seizures",
+      "Generalized tonic-clonic seizures",
+      "Absence seizures",
+      "Visual hallucinations",
+      "Progressive cognitive decline and dementia",
+      "Progressive neurologic deterioration",
+      "Ataxia"
+    ],
+    "phenotype_categories": [
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001336",
+      "HP:0001250",
+      "HP:0002069",
+      "HP:0002121",
+      "HP:0002367",
+      "HP:0000726",
+      "HP:0002344",
+      "HP:0001251"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Antiseizure medications",
+      "Supportive and palliative care",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Lafora_Disease.yaml",
+    "page_url": "../pages/disorders/Lafora_Disease.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 2,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "2"
+  },
+  {
     "name": "Lane Hamilton Syndrome",
     "disease_id": "MONDO:0800124",
     "category": "Complex",
@@ -27772,7 +28190,7 @@ window.searchData = [
       "meningeal neoplasm"
     ],
     "creation_date": "2026-03-03T21:32:57Z",
-    "updated_date": "2026-03-06T18:34:37Z",
+    "updated_date": "2026-03-03T22:06:09Z",
     "subtypes": [
       "Atypical meningioma (WHO grade II)",
       "Anaplastic meningioma (WHO grade III)"
@@ -27785,14 +28203,8 @@ window.searchData = [
       "NY-ESO-1-Associated Immune Vulnerability in Malignant Meningioma",
       "NY-ESO-1-Dependent TCR-T Cytolysis Susceptibility"
     ],
-    "cell_types": [
-      "meningioma tumor cell",
-      "CD8+ alpha-beta T cell"
-    ],
-    "cell_type_ids": [
-      "CL:0001063",
-      "CL:0000625"
-    ],
+    "cell_types": [],
+    "cell_type_ids": [],
     "biological_processes": [
       "fatty acid transport",
       "fatty acid beta-oxidation",
@@ -27809,11 +28221,9 @@ window.searchData = [
       "Neurologic"
     ],
     "phenotype_hpo_categories": [
-      "Neoplasm",
       "Nervous System"
     ],
     "phenotype_ids": [
-      "HP:0002664",
       "HP:0001250",
       "HP:0002315"
     ],
@@ -27821,14 +28231,6 @@ window.searchData = [
       "OCCASIONAL"
     ],
     "genes": [
-      "NF2",
-      "TERT",
-      "CDKN2A",
-      "CDKN2B",
-      "AKT1",
-      "SMO",
-      "KLF4",
-      "POLR2A",
       "NOTCH3",
       "CD36",
       "CTAG1B (NY-ESO-1)"
@@ -27848,7 +28250,7 @@ window.searchData = [
     "page_url": "../pages/disorders/Meningioma.html",
     "num_phenotypes": 4,
     "num_pathophysiology": 5,
-    "num_genes": 11,
+    "num_genes": 3,
     "num_treatments": 5,
     "causal_graph_edges": "3",
     "causal_graph_longest_path": "2"
@@ -34980,6 +35382,95 @@ window.searchData = [
     "page_url": "../pages/disorders/Polymyositis.html",
     "num_phenotypes": 4,
     "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Pompe Disease",
+    "disease_id": "MONDO:0009290",
+    "category": "Mendelian",
+    "parents": [
+      "Glycogen Storage Disease",
+      "Lysosomal Storage Disease"
+    ],
+    "creation_date": "2026-03-08T00:00:00Z",
+    "updated_date": "2026-03-09T00:00:00Z",
+    "subtypes": [
+      "Infantile-onset Pompe disease (IOPD)",
+      "Late-onset Pompe disease (LOPD)"
+    ],
+    "description": "Pompe disease (glycogen storage disease type II, acid maltase deficiency) is an autosomal recessive lysosomal storage disorder caused by deficiency of acid alpha-glucosidase (GAA), the enzyme responsible for lysosomal glycogen degradation. GAA deficiency leads to progressive glycogen accumulation in lysosomes, particularly in skeletal muscle, cardiac muscle, and smooth muscle. The disease spans a clinical continuum from severe infantile-onset Pompe disease (IOPD), characterized by hypertrophic cardiomyopathy, generalized hypotonia, and death within the first year if untreated, to late-onset Pompe disease (LOPD), presenting with progressive proximal myopathy and respiratory insufficiency. Enzyme replacement therapy with recombinant human GAA (alglucosidase alfa, avalglucosidase alfa) has transformed outcomes, particularly in IOPD when initiated early.\n",
+    "pathophysiology": [
+      "Lysosomal glycogen accumulation",
+      "Autophagy dysregulation"
+    ],
+    "cell_types": [
+      "Skeletal muscle fiber",
+      "Cardiac muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0008002",
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "Glycogen catabolic process",
+      "Lysosome organization",
+      "Autophagy"
+    ],
+    "phenotypes": [
+      "Hypertrophic cardiomyopathy",
+      "Generalized hypotonia",
+      "Progressive proximal myopathy",
+      "Respiratory insufficiency",
+      "Elevated creatine kinase",
+      "Hepatomegaly",
+      "Macroglossia",
+      "Failure to thrive",
+      "Motor delay"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Growth",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001639",
+      "HP:0001252",
+      "HP:0003701",
+      "HP:0002747",
+      "HP:0003236",
+      "HP:0002240",
+      "HP:0000158",
+      "HP:0001508",
+      "HP:0001270"
+    ],
+    "frequencies": [
+      "HP_0040281",
+      "HP_0040282"
+    ],
+    "genes": [
+      "GAA gene mutations"
+    ],
+    "treatments": [
+      "Enzyme replacement therapy (ERT)",
+      "Respiratory support",
+      "Physical therapy and rehabilitation",
+      "Dietary management"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Pompe_Disease.yaml",
+    "page_url": "../pages/disorders/Pompe_Disease.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 2,
     "num_genes": 1,
     "num_treatments": 4,
     "causal_graph_edges": "0",

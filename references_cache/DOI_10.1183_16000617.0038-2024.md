@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1183/16000617.0038-2024"
+reference_id: DOI:10.1183/16000617.0038-2024
 title: Infection and the microbiome in bronchiectasis
 authors:
 - Micheál Mac Aogáin
