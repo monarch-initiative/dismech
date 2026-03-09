@@ -1,5 +1,4 @@
 import pytest
-from pathlib import Path
 from dismech.render import collect_reports
 
 
@@ -36,7 +35,9 @@ def test_collect_reports_empty_dir(tmp_path):
 
 def test_collect_reports_fallback_title(reports_dir):
     disorder_dir = reports_dir / "reports" / "Test_Disorder"
-    (disorder_dir / "03-no-heading.md").write_text("Just some text without a heading.\n")
+    (disorder_dir / "03-no-heading.md").write_text(
+        "Just some text without a heading.\n"
+    )
     results = collect_reports("Test_Disorder", reports_root=reports_dir / "reports")
     no_heading = [r for r in results if r["filename"] == "03-no-heading.md"][0]
     assert no_heading["title"] == "03-no-heading"
