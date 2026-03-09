@@ -21137,7 +21137,7 @@ window.searchData = [
       "Limb Development Disorders"
     ],
     "creation_date": "2026-02-13T00:31:42Z",
-    "updated_date": "2026-02-13T00:59:22Z",
+    "updated_date": "2026-03-08T00:00:00Z",
     "subtypes": [],
     "description": "Holt-Oram syndrome (HOS) is an autosomal dominant heart-hand syndrome caused by mutations in TBX5, a T-box transcription factor critical for upper limb and cardiac development. It is characterized by preaxial radial ray upper limb malformations (ranging from triphalangeal thumb to phocomelia) and congenital heart defects (predominantly atrial septal defects). Cardiac conduction abnormalities may occur independently of structural heart disease. The phenotype is highly variable even within families due to genetic background and stochastic modifiers.\n",
     "pathophysiology": [
@@ -21159,9 +21159,12 @@ window.searchData = [
       "Atrial Septal Defect",
       "Ventricular Septal Defect",
       "Cardiac Conduction Abnormalities",
-      "Radial Hypoplasia"
+      "Radial Hypoplasia",
+      "Proarrhythmic Activity in TBX5-Null Cardiomyocytes"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Cellular"
+    ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
       "Limbs",
@@ -21187,7 +21190,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Holt-Oram_Syndrome.yaml",
     "page_url": "../pages/disorders/Holt-Oram_Syndrome.html",
-    "num_phenotypes": 5,
+    "num_phenotypes": 6,
     "num_pathophysiology": 2,
     "num_genes": 1,
     "num_treatments": 3,
