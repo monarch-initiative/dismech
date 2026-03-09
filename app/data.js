@@ -10736,6 +10736,92 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Cori Forbes Disease",
+    "disease_id": "MONDO:0009291",
+    "category": "Mendelian",
+    "parents": [
+      "Glycogen Storage Disease"
+    ],
+    "creation_date": "2026-03-08T00:00:00Z",
+    "updated_date": "2026-03-08T00:00:00Z",
+    "subtypes": [
+      "GSD IIIa",
+      "GSD IIIb"
+    ],
+    "description": "Cori Forbes Disease (Glycogen Storage Disease Type III, GSD III) is an autosomal recessive disorder of glycogen metabolism caused by deficiency of the glycogen debranching enzyme (amylo-1,6-glucosidase, 4-alpha-glucanotransferase) encoded by the AGL gene. The enzyme deficiency leads to accumulation of abnormally structured glycogen (limit dextrin) in liver, skeletal muscle, and cardiac muscle. The disease presents primarily with hepatomegaly, fasting hypoglycemia, hyperlipidemia, and growth retardation in childhood. Myopathy and cardiomyopathy become increasingly prominent with age. GSD IIIa (approximately 85% of cases) affects both liver and muscle, while GSD IIIb affects liver only. Hepatic fibrosis and cirrhosis may develop in adulthood, and hepatocellular carcinoma is a recognized complication.\n",
+    "pathophysiology": [
+      "Glycogen debranching enzyme deficiency",
+      "Hepatic glycogen accumulation and fibrosis",
+      "Skeletal and cardiac myopathy"
+    ],
+    "cell_types": [
+      "Hepatocyte",
+      "Skeletal muscle cell",
+      "Cardiac muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0000188",
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "Glycogen catabolic process",
+      "Glucose metabolic process",
+      "Glycogen metabolic process",
+      "Carbohydrate metabolic process"
+    ],
+    "phenotypes": [
+      "Hepatomegaly",
+      "Fasting hypoglycemia",
+      "Hyperlipidemia",
+      "Myopathy",
+      "Hypertrophic cardiomyopathy",
+      "Elevated circulating creatine kinase concentration",
+      "Hepatic fibrosis",
+      "Failure to thrive",
+      "Elevated circulating hepatic transaminase concentration"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Growth",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0002240",
+      "HP:0003162",
+      "HP:0003077",
+      "HP:0003198",
+      "HP:0001639",
+      "HP:0003236",
+      "HP:0001395",
+      "HP:0001508",
+      "HP:0002910"
+    ],
+    "frequencies": [
+      "HP_0040281",
+      "HP_0040282"
+    ],
+    "genes": [],
+    "treatments": [
+      "Dietary management",
+      "Liver transplantation",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cori_Forbes_Disease.yaml",
+    "page_url": "../pages/disorders/Cori_Forbes_Disease.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 3,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Coronary Artery Disease",
     "disease_id": "MONDO:1060134",
     "category": "Complex",
@@ -24241,6 +24327,84 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "13",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Lafora_Disease",
+    "disease_id": "MONDO:0009697",
+    "category": "Mendelian",
+    "parents": [
+      "Progressive Myoclonus Epilepsy",
+      "Glycogen Storage Disease"
+    ],
+    "creation_date": "2026-03-08T00:00:00Z",
+    "updated_date": "2026-03-08T00:00:00Z",
+    "subtypes": [
+      "EPM2A-related Lafora disease",
+      "NHLRC1-related Lafora disease"
+    ],
+    "description": "Lafora disease is a rare, fatal form of progressive myoclonus epilepsy (PME type 2) with autosomal recessive inheritance, typically presenting in late childhood or adolescence (ages 12-17). It is caused by biallelic pathogenic variants in EPM2A (encoding laforin, a dual-specificity glycogen phosphatase) or NHLRC1/EPM2B (encoding malin, an E3 ubiquitin ligase). The hallmark pathological feature is the accumulation of Lafora bodies - insoluble, poorly branched polyglucosan inclusions - in neurons, astrocytes, and other tissues. The disease is characterized by progressive myoclonus, epileptic seizures (generalized tonic-clonic, absence, and occipital), visual hallucinations, and relentless cognitive decline leading to dementia and death within approximately 10 years of onset. There is currently no disease-modifying therapy.\n",
+    "pathophysiology": [
+      "Lafora body formation through aberrant glycogen metabolism",
+      "Malin-laforin complex dysfunction in glycogen regulation"
+    ],
+    "cell_types": [
+      "Neuron",
+      "Astrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000127"
+    ],
+    "biological_processes": [
+      "Glycogen metabolic process",
+      "Protein ubiquitination"
+    ],
+    "phenotypes": [
+      "Myoclonus",
+      "Seizures",
+      "Generalized tonic-clonic seizures",
+      "Absence seizures",
+      "Visual hallucinations",
+      "Progressive cognitive decline and dementia",
+      "Progressive neurologic deterioration",
+      "Ataxia"
+    ],
+    "phenotype_categories": [
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001336",
+      "HP:0001250",
+      "HP:0002069",
+      "HP:0002121",
+      "HP:0002367",
+      "HP:0000726",
+      "HP:0002344",
+      "HP:0001251"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Antiseizure medications",
+      "Supportive and palliative care",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Lafora_Disease.yaml",
+    "page_url": "../pages/disorders/Lafora_Disease.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 2,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Lane Hamilton Syndrome",
