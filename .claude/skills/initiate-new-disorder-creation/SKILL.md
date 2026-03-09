@@ -33,7 +33,12 @@ ls kb/disorders/*yaml
 ```
 If it exists, edit the existing file instead of creating a new one.
 
-### Step 2: Create initial YAML file
+### Step 2a: Setup git worktree
+
+The preferred mode of working is to use git worktrees, unless the user has expressed
+a preference not to do this in advance.
+
+### Step 2b: Create initial YAML file
 
 Create an initial yaml file using the underscore form of the disease, e.g.
 
@@ -178,7 +183,7 @@ uv run runoak -i sqlite:obo:go relationships --direction both GO:nnnnnnn
 ```
 
 
-### Step 6: Final review and validation
+### Step 6: Validation
 
 Strict validation check (adherence to schema, term and reference checks):
 
@@ -191,6 +196,32 @@ Compliance report (completeness, term and evidence coverage):
 ```bash
 just compliance kb/disorders/<Disease_Name>.yaml
 ```
+
+### Step 7: Review
+
+Use the `dismech-pr-review/` to do an initial round of review. Use a subagent for fresh context
+(note that we haven't made the PR yet, but we want to do our own "red team" before making the actual PR
+
+### Step 8: Make a PR
+
+IF THE USER asks, then go ahead and make a PR on behalf of the user
+
+### Step 9: Check reviews on the PR
+
+Some time (~5 mins) after making the PR, a review will appear. You should prioritize in order:
+
+1. reviews from a human/curator -- always take precedence
+2. reviews from claude -- high quality but sometimes focuses on wrong thing
+3. copilot -- useful for targeted line-level edits but in general lower quality
+
+Follow these priorities but use judgment. If something doesn't sit right, ask for clarification on the PR.
+Be proactive. If the review says "moderate" go ahead and fix it as you are fixing things anyway.
+Ignore things that seem super-minor but if there is no cost in making a fix and you agree, do it.
+
+Once you have made the changes, respond in PR saying what you did, and commit/push (always in the same branch)
+
+
+
 
 
 ## File Naming Convention

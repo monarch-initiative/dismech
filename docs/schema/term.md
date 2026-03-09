@@ -1,69 +1,86 @@
 
 
-# Slot: term 
+# Class: Term 
 
 
-_Optional structured ontology term reference_
+_A structured reference to an ontology term_
 
 
 
 
 
-URI: [dismech:term](https://w3id.org/monarch-initiative/dismech/term)
-Alias: term
+URI: [dismech:Term](https://w3id.org/monarch-initiative/dismech/Term)
+
+
+
+
+
+```mermaid
+ classDiagram
+    class Term
+    click Term href "../Term/"
+      Term : id
+        
+      Term : label
+        
+      
+```
+
+
+
 
 <!-- no inheritance hierarchy -->
 
 
+## Slots
 
-
-
-## Applicable Classes
-
-| Name | Description | Modifies Slot |
-| --- | --- | --- |
-| [GeneDescriptor](GeneDescriptor.md) | A descriptor for genes, bindable to HGNC or other gene databases |  yes  |
-| [PhenotypeDescriptor](PhenotypeDescriptor.md) | A descriptor for phenotypes, bindable to Human Phenotype Ontology (HP) |  yes  |
-| [AssayDescriptor](AssayDescriptor.md) | A descriptor for assays, bindable to OBI |  yes  |
-| [Descriptor](Descriptor.md) | Base class for structured descriptors that allow a preferred term, optional d... |  no  |
-| [ProteinComplexDescriptor](ProteinComplexDescriptor.md) | A descriptor for protein complexes that gene products participate in, bindabl... |  yes  |
-| [OrganismDescriptor](OrganismDescriptor.md) | A descriptor for organisms, bindable to NCBITaxon |  yes  |
-| [GOEnrichmentTerm](GOEnrichmentTerm.md) | GO term enrichment result with statistical metrics |  no  |
-| [LifeCycleStageDescriptor](LifeCycleStageDescriptor.md) | A descriptor for parasite life cycle stages, bindable to OPL |  yes  |
-| [RegimenDescriptor](RegimenDescriptor.md) | A descriptor for treatment regimens, bindable to NCIT |  yes  |
-| [HistopathologyFindingDescriptor](HistopathologyFindingDescriptor.md) | A descriptor for histopathologic findings, bindable to NCIT Morphologic Findi... |  yes  |
-| [GeneProductDescriptor](GeneProductDescriptor.md) | A descriptor for gene products (proteins, fusion proteins, oncoproteins), bin... |  yes  |
-| [ICD10CMMapping](ICD10CMMapping.md) | ICD-10-CM diagnosis code mapping |  yes  |
-| [AnatomicalEntityDescriptor](AnatomicalEntityDescriptor.md) | A descriptor for anatomical locations, bindable to UBERON |  yes  |
-| [DiseaseDescriptor](DiseaseDescriptor.md) | A descriptor for the focal disease, bindable to MONDO |  yes  |
-| [TriggerDescriptor](TriggerDescriptor.md) | A descriptor for triggers/causes |  yes  |
-| [BiologicalProcessDescriptor](BiologicalProcessDescriptor.md) | A descriptor for biological processes, bindable to Gene Ontology (GO) |  yes  |
-| [CellularComponentDescriptor](CellularComponentDescriptor.md) | A descriptor for cellular components, bindable to GO cellular component |  yes  |
-| [MondoMapping](MondoMapping.md) | MONDO disease ontology mapping |  yes  |
-| [CellTypeDescriptor](CellTypeDescriptor.md) | A descriptor for cell types, bindable to Cell Ontology (CL) |  yes  |
-| [EnvironmentDescriptor](EnvironmentDescriptor.md) | A descriptor for environmental contexts/settings, bindable to ENVO |  yes  |
-| [ConditionDescriptor](ConditionDescriptor.md) | A descriptor for a condition or disease, optionally bound to MONDO |  yes  |
-| [TermMapping](TermMapping.md) | Mapping from this disease entry to an external term or code |  yes  |
-| [ChemicalEntityDescriptor](ChemicalEntityDescriptor.md) | A descriptor for chemical entities, bindable to CHEBI |  yes  |
-| [ICD11FMapping](ICD11FMapping.md) | ICD-11 Foundation diagnosis code mapping |  yes  |
-| [TreatmentDescriptor](TreatmentDescriptor.md) | A descriptor for treatments/medical actions, bindable to Medical Action Ontol... |  yes  |
-| [ExposureDescriptor](ExposureDescriptor.md) | A descriptor for exposure events, bindable to ECTO or XCO |  yes  |
-| [HostDescriptor](HostDescriptor.md) | A descriptor for hosts in an infectious agent life cycle |  no  |
-| [CriteriaItem](CriteriaItem.md) | A criterion element (clinical feature, test result, imaging requirement) |  no  |
-| [BiomarkerDescriptor](BiomarkerDescriptor.md) | A descriptor for biomarkers, bindable to NCIT |  yes  |
-| [InheritanceDescriptor](InheritanceDescriptor.md) | A descriptor for inheritance patterns, bindable to HPO mode of inheritance te... |  yes  |
-| [SampleTypeDescriptor](SampleTypeDescriptor.md) | A descriptor for biological sample types (tissue and/or cell type) |  no  |
+| Name | Cardinality and Range | Description | Inheritance |
+| ---  | --- | --- | --- |
+| [id](id.md) | 1 <br/> [Uriorcurie](Uriorcurie.md) | Ontology term identifier (CURIE) | direct |
+| [label](label.md) | 0..1 <br/> [String](String.md) | Human-readable label for the ontology term | direct |
 
 
 
 
 
+## Usages
 
-## Properties
+| used by | used in | type | used |
+| ---  | --- | --- | --- |
+| [Descriptor](Descriptor.md) | [term](term.md) | range | [Term](Term.md) |
+| [CellTypeDescriptor](CellTypeDescriptor.md) | [term](term.md) | range | [Term](Term.md) |
+| [BiologicalProcessDescriptor](BiologicalProcessDescriptor.md) | [term](term.md) | range | [Term](Term.md) |
+| [AnatomicalEntityDescriptor](AnatomicalEntityDescriptor.md) | [term](term.md) | range | [Term](Term.md) |
+| [ChemicalEntityDescriptor](ChemicalEntityDescriptor.md) | [term](term.md) | range | [Term](Term.md) |
+| [GeneDescriptor](GeneDescriptor.md) | [term](term.md) | range | [Term](Term.md) |
+| [CellularComponentDescriptor](CellularComponentDescriptor.md) | [term](term.md) | range | [Term](Term.md) |
+| [ProteinComplexDescriptor](ProteinComplexDescriptor.md) | [term](term.md) | range | [Term](Term.md) |
+| [AssayDescriptor](AssayDescriptor.md) | [term](term.md) | range | [Term](Term.md) |
+| [TriggerDescriptor](TriggerDescriptor.md) | [term](term.md) | range | [Term](Term.md) |
+| [DiseaseDescriptor](DiseaseDescriptor.md) | [term](term.md) | range | [Term](Term.md) |
+| [BiomarkerDescriptor](BiomarkerDescriptor.md) | [term](term.md) | range | [Term](Term.md) |
+| [GeneProductDescriptor](GeneProductDescriptor.md) | [term](term.md) | range | [Term](Term.md) |
+| [HistopathologyFindingDescriptor](HistopathologyFindingDescriptor.md) | [term](term.md) | range | [Term](Term.md) |
+| [LifeCycleStageDescriptor](LifeCycleStageDescriptor.md) | [term](term.md) | range | [Term](Term.md) |
+| [PhenotypeDescriptor](PhenotypeDescriptor.md) | [term](term.md) | range | [Term](Term.md) |
+| [InheritanceDescriptor](InheritanceDescriptor.md) | [term](term.md) | range | [Term](Term.md) |
+| [TreatmentDescriptor](TreatmentDescriptor.md) | [term](term.md) | range | [Term](Term.md) |
+| [RegimenDescriptor](RegimenDescriptor.md) | [term](term.md) | range | [Term](Term.md) |
+| [ExposureDescriptor](ExposureDescriptor.md) | [term](term.md) | range | [Term](Term.md) |
+| [EnvironmentDescriptor](EnvironmentDescriptor.md) | [term](term.md) | range | [Term](Term.md) |
+| [OrganismDescriptor](OrganismDescriptor.md) | [term](term.md) | range | [Term](Term.md) |
+| [HostDescriptor](HostDescriptor.md) | [term](term.md) | range | [Term](Term.md) |
+| [SampleTypeDescriptor](SampleTypeDescriptor.md) | [term](term.md) | range | [Term](Term.md) |
+| [CriteriaItem](CriteriaItem.md) | [term](term.md) | range | [Term](Term.md) |
+| [TermMapping](TermMapping.md) | [term](term.md) | range | [Term](Term.md) |
+| [ICD10CMMapping](ICD10CMMapping.md) | [term](term.md) | range | [Term](Term.md) |
+| [ICD11FMapping](ICD11FMapping.md) | [term](term.md) | range | [Term](Term.md) |
+| [MondoMapping](MondoMapping.md) | [term](term.md) | range | [Term](Term.md) |
+| [ConditionDescriptor](ConditionDescriptor.md) | [term](term.md) | range | [Term](Term.md) |
+| [GOEnrichmentTerm](GOEnrichmentTerm.md) | [term](term.md) | range | [Term](Term.md) |
 
-* Range: [Term](Term.md)
 
-* Recommended: True
+
 
 
 
@@ -87,29 +104,64 @@ Alias: term
 
 | Mapping Type | Mapped Value |
 | ---  | ---  |
-| self | dismech:term |
-| native | dismech:term |
+| self | dismech:Term |
+| native | dismech:Term |
+
+
 
 
 
 
 ## LinkML Source
 
+<!-- TODO: investigate https://stackoverflow.com/questions/37606292/how-to-create-tabbed-code-blocks-in-mkdocs-or-sphinx -->
+
+### Direct
+
 <details>
 ```yaml
-name: term
-description: Optional structured ontology term reference
+name: Term
+description: A structured reference to an ontology term
 from_schema: https://w3id.org/monarch-initiative/dismech
-rank: 1000
-alias: term
-domain_of:
-- Descriptor
-- TermMapping
-- ConditionDescriptor
-- GOEnrichmentTerm
-range: Term
-recommended: true
-inlined: true
+slots:
+- id
+- label
+
+```
+</details>
+
+### Induced
+
+<details>
+```yaml
+name: Term
+description: A structured reference to an ontology term
+from_schema: https://w3id.org/monarch-initiative/dismech
+attributes:
+  id:
+    name: id
+    description: Ontology term identifier (CURIE)
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    identifier: true
+    alias: id
+    owner: Term
+    domain_of:
+    - Term
+    range: uriorcurie
+    required: true
+  label:
+    name: label
+    description: Human-readable label for the ontology term
+    comments:
+    - This is automatically validated by the linkml-term-validator tool.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: label
+    owner: Term
+    domain_of:
+    - Term
+    range: string
 
 ```
 </details>
