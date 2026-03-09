@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1186/s12969-023-00793-z"
+reference_id: DOI:10.1186/s12969-023-00793-z
 title: "A novel mutation in the proteoglycan 4 gene causing CACP syndrome: two sisters report"
 authors:
 - İlknur Bağrul

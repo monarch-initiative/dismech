@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3389/fnmol.2023.1185796"
+reference_id: DOI:10.3389/fnmol.2023.1185796
 title: An updated catalog of CTCF variants associated with neurodevelopmental disorder phenotypes
 authors:
 - Emma Price

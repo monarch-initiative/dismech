@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1590/1678-4685-gmb-2017-0172"
+reference_id: DOI:10.1590/1678-4685-gmb-2017-0172
 title: "Large deletion in PIGL: a common mutational mechanism in CHIME syndrome?"
 authors:
 - José RM Ceroni

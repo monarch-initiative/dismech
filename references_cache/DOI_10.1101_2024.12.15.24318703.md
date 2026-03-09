@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2024.12.15.24318703"
+reference_id: DOI:10.1101/2024.12.15.24318703
 title: "Clinical Features, Outcomes of Treatments, Inflammasome Function and Longitudinal Clonal Dynamics into
                   <i>NLRP3</i>
                   Mosaicism: Evidence from the Largest Cryopyrin-associated Periodic Syndromes Cohort to Date"

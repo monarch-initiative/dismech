@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1186/s13023-020-01401-z"
+reference_id: DOI:10.1186/s13023-020-01401-z
 title: The Glycosylphosphatidylinositol biosynthesis pathway in human diseases
 authors:
 - Tenghui Wu

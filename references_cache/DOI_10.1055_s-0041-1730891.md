@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1055/s-0041-1730891"
+reference_id: DOI:10.1055/s-0041-1730891
 title: Pathophysiology of Bronchiectasis
 authors:
 - Holly R. Keir
