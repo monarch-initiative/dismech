@@ -10431,7 +10431,7 @@ window.searchData = [
       "Antibody Deficiency Disorder"
     ],
     "creation_date": "2026-03-06T00:00:00Z",
-    "updated_date": "2026-03-07T12:00:00Z",
+    "updated_date": "2026-03-06T00:00:00Z",
     "subtypes": [],
     "description": "Common variable immunodeficiency (CVID) is the most prevalent symptomatic primary immunodeficiency, characterized by defective B cell differentiation, hypogammaglobulinemia, and failure of antibody production. Patients present with recurrent bacterial infections, particularly of the respiratory and gastrointestinal tracts, and have increased susceptibility to autoimmune manifestations, granulomatous disease, and lymphoproliferative disorders. CVID is best understood as an umbrella diagnosis with heterogeneous genetic and immunologic etiologies spanning monogenic, digenic, and polygenic models.",
     "pathophysiology": [
@@ -10472,17 +10472,12 @@ window.searchData = [
       "Lymphadenopathy",
       "Autoimmune Hemolytic Anemia",
       "Autoimmune Thrombocytopenia",
-      "Granulomatous Disease",
-      "Chronic Diarrhea",
-      "Lymphoma",
-      "CD4+ T Cell Lymphopenia"
+      "Granulomatous Disease"
     ],
     "phenotype_categories": [
       "Immunologic",
       "Respiratory",
-      "Hematologic",
-      "Gastrointestinal",
-      "Neoplastic"
+      "Hematologic"
     ],
     "phenotype_hpo_categories": [
       "Blood",
@@ -10491,7 +10486,6 @@ window.searchData = [
       "Digestive",
       "Immune",
       "Metabolism",
-      "Neoplasm",
       "Respiratory"
     ],
     "phenotype_ids": [
@@ -10504,15 +10498,10 @@ window.searchData = [
       "HP:0002716",
       "HP:0001890",
       "HP:0001973",
-      "HP:0002955",
-      "HP:0002028",
-      "HP:0002665",
-      "HP:0005403"
+      "HP:0002955"
     ],
     "frequencies": [
-      "VERY_FREQUENT",
-      "FREQUENT",
-      "OCCASIONAL"
+      "VERY_FREQUENT"
     ],
     "genes": [
       "TNFRSF13B (TACI) Mutations",
@@ -10530,7 +10519,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Common_Variable_Immunodeficiency.yaml",
     "page_url": "../pages/disorders/Common_Variable_Immunodeficiency.html",
-    "num_phenotypes": 13,
+    "num_phenotypes": 10,
     "num_pathophysiology": 4,
     "num_genes": 5,
     "num_treatments": 3,
@@ -13295,6 +13284,108 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "5",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Dilated Cardiomyopathy",
+    "disease_id": "MONDO:0005021",
+    "category": "Complex",
+    "parents": [
+      "Cardiovascular Disease",
+      "Genetic Disorder"
+    ],
+    "creation_date": "2026-03-06T00:00:00Z",
+    "updated_date": "2026-03-08T00:00:00Z",
+    "subtypes": [
+      "Familial Dilated Cardiomyopathy",
+      "Idiopathic Dilated Cardiomyopathy",
+      "Peripartum Cardiomyopathy",
+      "Alcoholic Cardiomyopathy",
+      "Tachycardia-Induced Cardiomyopathy"
+    ],
+    "description": "Mutations in genes encoding sarcomeric proteins (e.g., TTN, MYH7, TNNT2) and cytoskeletal proteins (e.g., DES, LMNA) disrupt force generation and transmission within cardiomyocytes, leading to impaired contractility and progressive ventricular dilation. Truncating variants in TTN are the most common genetic cause, found in approximately 15% of familial DCM cases.\n",
+    "pathophysiology": [
+      "Sarcomeric and Cytoskeletal Dysfunction",
+      "Neurohormonal Activation",
+      "Myocardial Fibrosis",
+      "RNA Splicing Dysregulation",
+      "Immune and Inflammatory Activation",
+      "Polygenic Risk and Common Variant Burden",
+      "Mitochondrial Dysfunction"
+    ],
+    "cell_types": [
+      "cardiomyocyte",
+      "cardiac fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000746",
+      "CL:0002548"
+    ],
+    "biological_processes": [
+      "cardiac muscle contraction",
+      "renin-angiotensin regulation of aldosterone production",
+      "extracellular matrix organization",
+      "mitochondrion organization"
+    ],
+    "phenotypes": [
+      "Dilated cardiomyopathy",
+      "Congestive heart failure",
+      "Left ventricular systolic dysfunction",
+      "Dyspnea",
+      "Palpitations",
+      "Arrhythmia",
+      "Fatigue",
+      "Peripheral edema"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Respiratory",
+      "General"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Metabolism",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001644",
+      "HP:0001635",
+      "HP:0025169",
+      "HP:0002094",
+      "HP:0001962",
+      "HP:0011675",
+      "HP:0012378",
+      "HP:0012398"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "TTN Truncating Variants",
+      "LMNA Mutations",
+      "MYH7 Mutations",
+      "RBM20 Mutations"
+    ],
+    "treatments": [
+      "ACE Inhibitors / ARBs",
+      "Beta-Blockers",
+      "SGLT2 Inhibitors",
+      "Cardiac Resynchronization Therapy",
+      "Heart Transplantation",
+      "Implantable Cardioverter-Defibrillator",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Dilated_Cardiomyopathy.yaml",
+    "page_url": "../pages/disorders/Dilated_Cardiomyopathy.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 7,
+    "num_genes": 4,
+    "num_treatments": 7,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
   },
   {
     "name": "Dorsalgia",
@@ -28099,7 +28190,7 @@ window.searchData = [
       "meningeal neoplasm"
     ],
     "creation_date": "2026-03-03T21:32:57Z",
-    "updated_date": "2026-03-06T18:34:37Z",
+    "updated_date": "2026-03-03T22:06:09Z",
     "subtypes": [
       "Atypical meningioma (WHO grade II)",
       "Anaplastic meningioma (WHO grade III)"
@@ -28112,14 +28203,8 @@ window.searchData = [
       "NY-ESO-1-Associated Immune Vulnerability in Malignant Meningioma",
       "NY-ESO-1-Dependent TCR-T Cytolysis Susceptibility"
     ],
-    "cell_types": [
-      "meningioma tumor cell",
-      "CD8+ alpha-beta T cell"
-    ],
-    "cell_type_ids": [
-      "CL:0001063",
-      "CL:0000625"
-    ],
+    "cell_types": [],
+    "cell_type_ids": [],
     "biological_processes": [
       "fatty acid transport",
       "fatty acid beta-oxidation",
@@ -28136,11 +28221,9 @@ window.searchData = [
       "Neurologic"
     ],
     "phenotype_hpo_categories": [
-      "Neoplasm",
       "Nervous System"
     ],
     "phenotype_ids": [
-      "HP:0002664",
       "HP:0001250",
       "HP:0002315"
     ],
@@ -28148,14 +28231,6 @@ window.searchData = [
       "OCCASIONAL"
     ],
     "genes": [
-      "NF2",
-      "TERT",
-      "CDKN2A",
-      "CDKN2B",
-      "AKT1",
-      "SMO",
-      "KLF4",
-      "POLR2A",
       "NOTCH3",
       "CD36",
       "CTAG1B (NY-ESO-1)"
@@ -28175,7 +28250,7 @@ window.searchData = [
     "page_url": "../pages/disorders/Meningioma.html",
     "num_phenotypes": 4,
     "num_pathophysiology": 5,
-    "num_genes": 11,
+    "num_genes": 3,
     "num_treatments": 5,
     "causal_graph_edges": "3",
     "causal_graph_longest_path": "2"
