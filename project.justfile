@@ -902,6 +902,55 @@ embed-mechanisms-all:
     just embed-mechanisms-data
     @echo "=== Done! Open app/embeddings/mechanisms.html ==="
 
+# ============== Reactome Pathways ==============
+
+reactome_dir := "pathways/reactome"
+
+# Fetch Reactome disease pathway data for a single disease
+# Examples:
+#   just reactome-fetch "cystic fibrosis"
+#   just reactome-fetch DOID:13636
+#   just reactome-fetch "chronic myeloid leukemia" --format md
+[group('Reactome')]
+reactome-fetch query *args="":
+    uv run python scripts/fetch_reactome_disease.py "{{query}}" {{args}}
+
+# Fetch Reactome data for all diseases overlapping with dismech KB
+[group('Reactome')]
+reactome-fetch-all:
+    uv run python scripts/fetch_reactome_disease.py --all-overlap
+
+# List cached Reactome disease files
+[group('Reactome')]
+reactome-list:
+    @echo "Cached Reactome disease pathways:"
+    @ls -1 {{reactome_dir}}/*.yaml 2>/dev/null | xargs -I {} basename {} .yaml | sort || echo "  (none yet — run 'just reactome-fetch-all')"
+
+# Show Reactome summary for a disease (prints to stdout)
+[group('Reactome')]
+reactome-show query:
+    uv run python scripts/fetch_reactome_disease.py "{{query}}" --format md -o /dev/stdout
+
+# Normalize all term and enum cache files for deterministic diffs
+# Sorts term caches by CURIE (via linkml-term-validator migrate-cache)
+# and sorts enum membership caches by CURIE.
+# See: https://github.com/linkml/linkml-term-validator/issues/15
+[group('QC')]
+normalize-cache:
+    #!/usr/bin/env bash
+    set -e
+    echo "Normalizing term caches..."
+    uv run linkml-term-validator migrate-cache --cache-dir cache --sort-only
+    echo "Normalizing enum caches..."
+    for f in cache/enums/*.csv; do
+        header=$(head -1 "$f")
+        tail -n+2 "$f" | sort > /tmp/_sorted_enum.csv
+        echo "$header" > "$f"
+        cat /tmp/_sorted_enum.csv >> "$f"
+    done
+    rm -f /tmp/_sorted_enum.csv
+    echo "✓ All caches normalized"
+
 # Compare dismech phenotypes against OMIM/Orphanet for a single disease
 [group('Analysis')]
 d2p-compare disease:
@@ -916,3 +965,11 @@ d2p-compare-all:
 [group('Analysis')]
 d2p-compare-json disease:
     uv run python -m dismech.d2p_compare compare "{{disease}}" --format json
+
+# Run causal perturbation analysis on a disorder
+# Examples:
+#   just perturb kb/disorders/CKD-Mineral_Bone_Disorder.yaml --gene CASR --effect LoF
+#   just perturb kb/disorders/CKD-Mineral_Bone_Disorder.yaml --all
+[group('Analysis')]
+perturb file *args="":
+    uv run python -m dismech.perturb {{file}} {{args}}

@@ -1,10 +1,10 @@
 ---
 provider: falcon
 model: Edison Scientific Literature
-cached: false
-start_time: '2026-01-08T14:44:11.431595'
-end_time: '2026-01-08T14:52:09.311447'
-duration_seconds: 477.88
+cached: true
+start_time: '2026-02-27T11:49:36.286235'
+end_time: '2026-02-27T11:49:36.288818'
+duration_seconds: 0.0
 template_file: templates/disease_pathophysiology_research.md
 template_variables:
   disease_name: Maple Syrup Urine Disease
