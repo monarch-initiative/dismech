@@ -31,6 +31,7 @@ All evidence items follow this YAML structure:
 ```yaml
 evidence:
   - reference: PMID:12345678  # or clinicaltrials:NCT05813288
+    reference_title: "Title of the cited paper"
     supports: SUPPORT  # SUPPORT, REFUTE, PARTIAL, NO_EVIDENCE, WRONG_STATEMENT
     snippet: "Exact quoted text from the abstract or trial summary"
     explanation: "Why this evidence supports/refutes the claim"
@@ -274,6 +275,7 @@ clinical_trials:
         label: Dyspnea
   evidence:
   - reference: clinicaltrials:NCT05813288
+    reference_title: "A Study of Dexpramipexole in Participants With Inadequately Controlled Severe Eosinophilic Asthma"
     supports: SUPPORT
     snippet: "The objective of this clinical study is to investigate the safety, tolerability, and efficacy of dexpramipexole in participants with inadequately controlled severe eosinophilic asthma."
     explanation: "This trial directly evaluates a therapeutic approach for severe eosinophilic asthma"

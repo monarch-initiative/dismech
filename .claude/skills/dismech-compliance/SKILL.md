@@ -173,6 +173,7 @@ Look up: `uv run runoak -i sqlite:obo:maxo search "corticosteroid"`
 ```yaml
 evidence:
   - reference: PMID:12345678
+    reference_title: "Title of the cited paper"
     supports: SUPPORT
     snippet: "Exact quote from abstract"
     explanation: "Why this supports the claim"

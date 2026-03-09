@@ -126,15 +126,18 @@ pathophysiology:
 - `fibrotic_response` — Conserved fibrotic response: tissue injury → inflammation → mesenchymal cell activation → myofibroblast → excessive ECM → organ dysfunction
 
 ### Evidence Items
-All evidence must have PMID references and support classification:
+All evidence must have PMID references with titles and support classification:
 ```yaml
 evidence:
   - reference: PMID:12345678
+    reference_title: "Title of the cited paper"
     supports: SUPPORT  # or REFUTE, PARTIAL, NO_EVIDENCE, WRONG_STATEMENT
     evidence_source: HUMAN_CLINICAL  # or MODEL_ORGANISM, IN_VITRO, COMPUTATIONAL
     snippet: "Quoted text from the paper"
     explanation: "Why this evidence supports/refutes the claim"
 ```
+
+**IMPORTANT**: The `reference_title` field is validated by the linkml-reference-validator against the actual publication title from PubMed. This catches wrong-PMID errors that are invisible with bare identifiers. Always include it when adding evidence.
 
 **IMPORTANT**: The `evidence_source` field classifies **the type of evidence presented in the cited publication**, NOT how the curation was performed. Even if an AI agent is curating the entry, `evidence_source` describes what kind of study the paper reports (human clinical trial, animal model, cell culture, computational simulation, etc.).
 
@@ -355,6 +358,7 @@ evidence:
 ```yaml
 evidence:
   - reference: PMID:12345678
+    reference_title: "Title of the paper"
     snippet: "X causes Y through the Z mechanism, as demonstrated by..."  # Exact quote from abstract
 ```
 

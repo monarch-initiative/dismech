@@ -123,6 +123,7 @@ phenotypes:
   description: <Description from research>
   evidence:
   - reference: PMID:XXXXXXXX
+    reference_title: "<Title of the cited paper>"
     supports: <SUPPORT | REFUTE | PARTIAL>
     evidence_source: <HUMAN_CLINICAL | MODEL_ORGANISM | IN_VITRO | COMPUTATIONAL>
     snippet: "<Exact quote from abstract>"
