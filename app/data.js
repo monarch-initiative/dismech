@@ -20914,6 +20914,126 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Hidradenitis Suppurativa",
+    "disease_id": "MONDO:0006559",
+    "category": "Complex",
+    "parents": [
+      "Dermatological Disease",
+      "Inflammatory Disease"
+    ],
+    "creation_date": "2026-03-09T20:00:00Z",
+    "updated_date": "2026-03-10T02:00:00Z",
+    "subtypes": [],
+    "description": "Aberrant keratinization of the hair follicle infundibulum leads to follicular plugging. Hyperproliferative keratinocytes produce excess keratin that occludes the follicular ostium. This is the initiating event in HS pathogenesis.\n",
+    "pathophysiology": [
+      "Follicular Hyperkeratosis",
+      "Follicular Rupture",
+      "Innate Immune Hyperactivation",
+      "Abscess Formation",
+      "Th17-Driven Adaptive Inflammation",
+      "Epigenetic Reprogramming of Keratinocytes",
+      "Tertiary Lymphoid Structure Formation",
+      "Sinus Tract Formation",
+      "Tissue Destruction and Scarring"
+    ],
+    "cell_types": [
+      "Keratinocyte",
+      "Neutrophil",
+      "Macrophage",
+      "T-helper 17 Cell",
+      "Plasma Cell",
+      "Fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000312",
+      "CL:0000775",
+      "CL:0000235",
+      "CL:0000899",
+      "CL:0000786",
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "Keratinization",
+      "Innate Immune Response",
+      "Inflammatory Response",
+      "T-helper 17 Cell Differentiation",
+      "Cell Population Proliferation",
+      "Adaptive Immune Response"
+    ],
+    "phenotypes": [
+      "Recurrent Skin Abscesses",
+      "Draining Sinus Tract Formation",
+      "Scarring",
+      "Chronic Pain",
+      "Inflammatory Skin Nodules",
+      "Folliculitis",
+      "Purulent Skin Drainage",
+      "Depression",
+      "Diminished Health-Related Quality of Life"
+    ],
+    "phenotype_categories": [
+      "Dermatological",
+      "Pain",
+      "Psychiatric",
+      "Quality of Life"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Immune",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002722",
+      "HP:6000095",
+      "HP:0000987",
+      "HP:0012532",
+      "HP:0200036",
+      "HP:0025084",
+      "HP:6001119",
+      "HP:0000716",
+      "HP:0033665"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "NCSTN",
+      "PSEN1",
+      "PSENEN"
+    ],
+    "treatments": [
+      "Anti-TNF Biologic Therapy (Adalimumab)",
+      "Anti-IL-17 Biologic Therapy (Secukinumab)",
+      "Dual IL-17A/F Biologic Therapy (Bimekizumab)",
+      "IRAK4 Degrader (KT-474)",
+      "Antibiotics",
+      "Surgical Intervention",
+      "Hormonal Therapy",
+      "Lifestyle Modification"
+    ],
+    "environmental": [
+      "Smoking",
+      "Obesity"
+    ],
+    "biochemical": [
+      "TNF-alpha",
+      "IL-17",
+      "IL-1beta",
+      "CXCL13"
+    ],
+    "source_file": "Hidradenitis_Suppurativa.yaml",
+    "page_url": "../pages/disorders/Hidradenitis_Suppurativa.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 9,
+    "num_genes": 3,
+    "num_treatments": 8,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Hirschsprung Disease",
     "disease_id": "MONDO:0018309",
     "category": "Genetic",
