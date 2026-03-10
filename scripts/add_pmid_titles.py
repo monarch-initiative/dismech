@@ -181,7 +181,6 @@ def main():
     total_pub_restructured = 0
     total_pub_missing = 0
     files_changed = 0
-    missing_pmids = set()
 
     for f in files:
         stats = process_file(f, dry_run=args.dry_run)
