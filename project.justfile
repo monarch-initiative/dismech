@@ -4,6 +4,7 @@
 schema_path := "src/dismech/schema/dismech.yaml"
 kb_dir := "kb/disorders"
 comorbidity_dir := "kb/comorbidities"
+ref_validator_config := "conf/reference_validator_config.yaml"
 
 # Validate all disorder YAML files (schema + terms + references)
 # Runs all validations and reports ALL errors at the end
@@ -29,7 +30,7 @@ validate-all:
             errors+="  [TERMS] $term_output\n"
         fi
         # Reference validation
-        ref_output=$(uv run linkml-reference-validator validate data "$f" --schema {{schema_path}} --target-class Disease 2>&1)
+        ref_output=$(uv run linkml-reference-validator validate data "$f" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} 2>&1)
         if echo "$ref_output" | grep -q "\[ERROR\]"; then
             errors+="  [REFERENCES]\n$(echo "$ref_output" | grep -A2 "\[ERROR\]")\n"
         fi
@@ -63,7 +64,7 @@ validate file:
     uv run linkml-term-validator validate-data {{file}} -s {{schema_path}} -t Disease --labels --no-dynamic-enums -c {{oak_config}}
     echo "Reference validation..."
     just fix-references-cache
-    uv run linkml-reference-validator validate data {{file}} --schema {{schema_path}} --target-class Disease
+    uv run linkml-reference-validator validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
     echo "✓ All validations passed for {{file}}"
 
 # Schema-only validation (fast, structure check)
@@ -108,7 +109,7 @@ validate-comorbidity file:
     uv run linkml-term-validator validate-data {{file}} -s {{schema_path}} -t ComorbidityAssociation --labels --no-dynamic-enums -c {{oak_config}}
     echo "Reference validation..."
     just fix-references-cache
-    uv run linkml-reference-validator validate data {{file}} --schema {{schema_path}} --target-class ComorbidityAssociation
+    uv run linkml-reference-validator validate data {{file}} --schema {{schema_path}} --target-class ComorbidityAssociation --config {{ref_validator_config}}
     echo "✓ All validations passed for {{file}}"
 
 # Full validation of all comorbidity YAML files (schema + terms + references)
@@ -137,7 +138,7 @@ validate-comorbidities-all:
             errors+="  [TERMS] $term_output\n"
         fi
         # Reference validation
-        ref_output=$(uv run linkml-reference-validator validate data "$f" --schema {{schema_path}} --target-class ComorbidityAssociation 2>&1 || true)
+        ref_output=$(uv run linkml-reference-validator validate data "$f" --schema {{schema_path}} --target-class ComorbidityAssociation --config {{ref_validator_config}} 2>&1 || true)
         if echo "$ref_output" | grep -q "\[ERROR\]"; then
             errors+="  [REFERENCES]\n$(echo "$ref_output" | grep -A2 "\[ERROR\]")\n"
         elif ! echo "$ref_output" | grep -q "All validations passed"; then
@@ -311,7 +312,7 @@ gen-dashboard:
 [group('QC')]
 validate-references file:
     @just fix-references-cache
-    uv run linkml-reference-validator validate data {{file}} --schema {{schema_path}} --target-class Disease
+    uv run linkml-reference-validator validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
 
 # Validate ALL snippet/reference pairs against PubMed across all disorder files
 # Warning: First run may take a while as it fetches ~1400 uncached PMIDs from PubMed
@@ -324,8 +325,8 @@ validate-references-all:
     total_errors=0
     for f in {{kb_dir}}/*.yaml; do
         echo "Checking: $f"
-        if ! uv run linkml-reference-validator validate data "$f" --schema {{schema_path}} --target-class Disease 2>&1 | grep -q "All validations passed"; then
-            errors=$(uv run linkml-reference-validator validate data "$f" --schema {{schema_path}} --target-class Disease 2>&1 | grep -c "ERROR" || true)
+        if ! uv run linkml-reference-validator validate data "$f" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} 2>&1 | grep -q "All validations passed"; then
+            errors=$(uv run linkml-reference-validator validate data "$f" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} 2>&1 | grep -c "ERROR" || true)
             if [ "$errors" -gt 0 ]; then
                 echo "  Found $errors errors in $f"
                 total_errors=$((total_errors + errors))
