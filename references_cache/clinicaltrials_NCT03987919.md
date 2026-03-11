@@ -1,5 +1,5 @@
 ---
-reference_id: "clinicaltrials:NCT03987919"
+reference_id: clinicaltrials:NCT03987919
 title: "A Phase 3, Randomized, Open-Label Trial Comparing Efficacy and Safety of Tirzepatide Versus Semaglutide Once Weekly as Add-on Therapy to Metformin in Patients With Type 2 Diabetes"
 content_type: summary
 ---

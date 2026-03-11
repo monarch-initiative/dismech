@@ -1,5 +1,5 @@
 ---
-reference_id: "clinicaltrials:NCT01886378"
+reference_id: clinicaltrials:NCT01886378
 title: An Open-label Phase 2 Study to Assess Safety and Clinical Effects of UX007 in Subjects With Long-Chain Fatty Acid Oxidation Disorders (LC-FAOD)
 content_type: summary
 ---

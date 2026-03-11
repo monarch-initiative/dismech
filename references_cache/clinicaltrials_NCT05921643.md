@@ -1,5 +1,5 @@
 ---
-reference_id: "clinicaltrials:NCT05921643"
+reference_id: clinicaltrials:NCT05921643
 title: "Short- and Medium-term Evaluation of Mastoid Filling Using Bioactive Glass\""
 content_type: summary
 ---

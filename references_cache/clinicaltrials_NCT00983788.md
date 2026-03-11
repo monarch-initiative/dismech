@@ -1,5 +1,5 @@
 ---
-reference_id: "clinicaltrials:NCT00983788"
+reference_id: clinicaltrials:NCT00983788
 title: Evaluation of the Effect of Bezafibrate on Muscle Metabolism During Exercise in Patients With CPTII and VLCAD Deficiency
 content_type: summary
 ---

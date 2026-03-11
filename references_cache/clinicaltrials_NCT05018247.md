@@ -1,5 +1,5 @@
 ---
-reference_id: "clinicaltrials:NCT05018247"
+reference_id: clinicaltrials:NCT05018247
 title: "A Prospective, Randomized Trial of Early Revascularization in Stable Ischemic Heart Disease Guided by Positron Emission Tomography of Artery Specific Integrated Comprehensive Quantitative Myocardial Perfusion"
 content_type: summary
 ---

@@ -1,5 +1,5 @@
 ---
-reference_id: "clinicaltrials:NCT01483144"
+reference_id: clinicaltrials:NCT01483144
 title: "Phase III Trial of the Safety and Efficacy of Eflornithine Combined With Sulindac Compared to Eflornithine, Sulindac as Single Agents in Patients With Familial Adenomatous Polyposis"
 content_type: summary
 ---
