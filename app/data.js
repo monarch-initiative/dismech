@@ -19841,6 +19841,137 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Hand Foot and Mouth Disease",
+    "disease_id": "MONDO:0005779",
+    "category": "Infectious",
+    "parents": [
+      "Enterovirus infection",
+      "Viral exanthem"
+    ],
+    "creation_date": "2026-03-09T12:00:00Z",
+    "updated_date": "2026-03-10T16:31:31Z",
+    "subtypes": [],
+    "description": "A common acute viral illness predominantly affecting children under 5 years old, caused by enteroviruses (most commonly Coxsackievirus A16 and Enterovirus A71), characterized by fever, oral enanthema (painful mouth ulcers), and a vesicular exanthem on the hands, feet, and buttocks. Usually self-limiting, but EV-A71 strains can cause severe neurological and cardiopulmonary complications.",
+    "pathophysiology": [
+      "Receptor-mediated viral entry and endosomal uncoating",
+      "Viremia and systemic dissemination",
+      "Enteroviral mucocutaneous injury",
+      "Innate immune sensing and viral evasion",
+      "Blood-brain barrier disruption and neuroinvasion",
+      "Brainstem neuroinflammation",
+      "Brainstem structural injury",
+      "Sympathetic nervous system overactivation",
+      "Catecholamine excess",
+      "Host metabolic reprogramming by EV-A71"
+    ],
+    "cell_types": [
+      "keratinocyte",
+      "endothelial cell",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000312",
+      "CL:0000115",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "receptor-mediated endocytosis of virus by host cell",
+      "symbiont entry into host cell",
+      "innate immune response",
+      "type I interferon-mediated signaling pathway",
+      "defense response to virus",
+      "inflammatory response",
+      "catecholamine secretion",
+      "glycolytic process"
+    ],
+    "phenotypes": [
+      "Vesicular exanthem on hands and feet",
+      "Maculopapular exanthem",
+      "Onychomadesis",
+      "Oral enanthema",
+      "Drooling",
+      "Decreased appetite",
+      "Sore throat",
+      "Fever",
+      "Malaise",
+      "Irritability",
+      "Aseptic meningitis",
+      "Brainstem encephalitis",
+      "Acute flaccid paralysis",
+      "Seizures",
+      "Neurogenic pulmonary edema",
+      "Myocarditis",
+      "Dehydration"
+    ],
+    "phenotype_categories": [
+      "Integument",
+      "Digestive",
+      "Constitutional",
+      "Nervous System",
+      "Respiratory",
+      "Cardiovascular",
+      "Metabolism"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0200037",
+      "HP:0040186",
+      "HP:0025088",
+      "HP:0000155",
+      "HP:0002307",
+      "HP:0004396",
+      "HP:0025439",
+      "HP:0001945",
+      "HP:0033834",
+      "HP:0000737",
+      "HP:0001287",
+      "HP:0002383",
+      "HP:0003470",
+      "HP:0001250",
+      "HP:0100598",
+      "HP:0012819",
+      "HP:0001944"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "SCARB2 polymorphisms and disease severity"
+    ],
+    "treatments": [
+      "Supportive care",
+      "Antipyretic and analgesic therapy",
+      "EV-A71 inactivated vaccine"
+    ],
+    "environmental": [
+      "Childcare and school settings",
+      "Tropical and subtropical climate",
+      "Poor hygiene and sanitation"
+    ],
+    "biochemical": [],
+    "source_file": "Hand_Foot_and_Mouth_Disease.yaml",
+    "page_url": "../pages/disorders/Hand_Foot_and_Mouth_Disease.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Hashimoto's Thyroiditis",
     "disease_id": "MONDO:0007699",
     "category": "Complex",
@@ -21772,6 +21903,129 @@ window.searchData = [
     "num_treatments": 7,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Hyperlipidemia",
+    "disease_id": "MONDO:0021187",
+    "category": "Complex",
+    "parents": [
+      "Metabolic Disease",
+      "Cardiovascular Risk Factor"
+    ],
+    "creation_date": "2026-03-03T12:00:00Z",
+    "updated_date": "2026-03-06T19:31:42Z",
+    "subtypes": [
+      "Familial Hypercholesterolemia",
+      "Familial Combined Hyperlipidemia",
+      "Hypertriglyceridemia",
+      "Mixed Hyperlipidemia"
+    ],
+    "description": "Impaired hepatic clearance of LDL cholesterol due to reduced LDL receptor expression or function. Mutations in the LDLR gene reduce receptor-mediated endocytosis of LDL particles, leading to their accumulation in the bloodstream and accelerated atherogenesis.\n",
+    "pathophysiology": [
+      "LDL Receptor-Mediated Cholesterol Clearance Deficiency",
+      "PCSK9-Mediated LDL Receptor Degradation",
+      "Dysregulated Hepatic Lipogenesis and VLDL Overproduction",
+      "Impaired Lipoprotein Lipase Activity and ApoC-III Dysregulation",
+      "Oxidized LDL Infiltration of Arterial Intima",
+      "Macrophage Recruitment to Arterial Intima",
+      "Macrophage-Derived Foam Cell Formation",
+      "Atherosclerotic Plaque Development"
+    ],
+    "cell_types": [
+      "Hepatocyte",
+      "Macrophage",
+      "Endothelial cell",
+      "Macrophage-derived foam cell",
+      "Vascular smooth muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0000235",
+      "CL:0000115",
+      "CL:0000517",
+      "CL:0000359"
+    ],
+    "biological_processes": [
+      "Receptor-mediated endocytosis",
+      "Cholesterol metabolic process",
+      "Inflammatory response",
+      "Lipid biosynthetic process",
+      "Lipid metabolic process",
+      "Macrophage-derived foam cell differentiation"
+    ],
+    "phenotypes": [
+      "Elevated Triglycerides",
+      "Premature Atherosclerosis",
+      "Xanthomas",
+      "Corneal Arcus",
+      "Coronary Artery Disease",
+      "Decreased HDL Cholesterol",
+      "Increased LDL Cholesterol"
+    ],
+    "phenotype_categories": [
+      "CARDIOVASCULAR",
+      "DERMATOLOGIC",
+      "OPHTHALMOLOGIC"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye",
+      "Integument",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0002155",
+      "HP:0004416",
+      "HP:0000991",
+      "HP:0001084",
+      "HP:0001677",
+      "HP:0003233",
+      "HP:0003141"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "LDLR",
+      "PCSK9",
+      "APOB",
+      "LPL",
+      "APOE",
+      "APOC3"
+    ],
+    "treatments": [
+      "Statin Therapy",
+      "PCSK9 Inhibitors",
+      "Ezetimibe",
+      "Fibrates",
+      "Lifestyle Modification",
+      "Omega-3 Fatty Acids",
+      "Bempedoic Acid",
+      "ApoC-III Inhibitors"
+    ],
+    "environmental": [
+      "High Saturated Fat Diet",
+      "Sedentary Lifestyle",
+      "Obesity"
+    ],
+    "biochemical": [
+      "Total Cholesterol",
+      "LDL Cholesterol",
+      "Triglycerides",
+      "HDL Cholesterol",
+      "TC:HDL-C Ratio",
+      "Apolipoprotein C-III"
+    ],
+    "source_file": "Hyperlipidemia.yaml",
+    "page_url": "../pages/disorders/Hyperlipidemia.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 8,
+    "num_genes": 6,
+    "num_treatments": 8,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Hypertensive Heart Disease",
@@ -25055,6 +25309,138 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Lead Poisoning",
+    "disease_id": "MONDO:0018019",
+    "category": "Environmental",
+    "parents": [
+      "heavy metal poisoning"
+    ],
+    "creation_date": "2026-03-10T20:45:26Z",
+    "updated_date": "2026-03-10T23:12:33Z",
+    "subtypes": [
+      "Acute Lead Poisoning",
+      "Chronic Lead Poisoning"
+    ],
+    "description": "Lead poisoning is a toxic condition caused by acute or chronic exposure to lead, a non-essential heavy metal encountered through deteriorating lead-based paint, contaminated drinking water, battery manufacture and recycling, mining and smelting, electronic waste, and other occupational or environmental sources. Children are especially vulnerable because lead disrupts nervous system development even at relatively low blood lead concentrations. Lead toxicity reflects calcium mimicry, inhibition of heme biosynthesis, oxidative stress, mitochondrial dysfunction, and chronic accumulation in bone and kidney. Clinical manifestations include abdominal pain, constipation, anemia, cognitive impairment, peripheral neuropathy, nephropathy, and hypertension.",
+    "pathophysiology": [
+      "Lead absorption",
+      "Systemic lead distribution",
+      "Bone sequestration of lead",
+      "Inhibition of delta-aminolevulinic acid dehydratase",
+      "Erythrocyte pyrimidine 5'-nucleotidase deficiency",
+      "Hemolytic erythrocyte injury",
+      "Calcium mimicry in neuronal signaling",
+      "Protein kinase C dysregulation",
+      "Mitochondrial dysfunction",
+      "Oxidative stress response",
+      "Proximal tubular lead accumulation",
+      "Chronic tubulointerstitial nephropathy"
+    ],
+    "cell_types": [
+      "osteoblast",
+      "erythrocyte",
+      "neuron",
+      "proximal tubule cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000062",
+      "CL:0000232",
+      "CL:0000540",
+      "CL:0002306"
+    ],
+    "biological_processes": [
+      "transmembrane transport",
+      "calcium ion homeostasis",
+      "heme biosynthetic process",
+      "pyrimidine-containing compound biosynthetic process",
+      "mitochondrion organization",
+      "response to oxidative stress",
+      "renal absorption"
+    ],
+    "phenotypes": [
+      "Abdominal pain",
+      "Constipation",
+      "Anemia",
+      "Encephalopathy",
+      "Cognitive impairment",
+      "Developmental delay",
+      "Behavioral changes",
+      "Peripheral neuropathy",
+      "Hypertension",
+      "Chronic kidney disease",
+      "Gout",
+      "Gingival lead line"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Hematologic",
+      "Nervous System",
+      "Cardiovascular",
+      "Renal",
+      "Metabolic",
+      "Oral"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002027",
+      "HP:0002019",
+      "HP:0001903",
+      "HP:0001298",
+      "HP:0100543",
+      "HP:0001263",
+      "HP:0000708",
+      "HP:0009830",
+      "HP:0000822",
+      "HP:0012622",
+      "HP:0001997",
+      "HP:0000168"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Exposure cessation and source control",
+      "Succimer chelation",
+      "Calcium disodium edetate chelation",
+      "Dimercaprol chelation"
+    ],
+    "environmental": [
+      "Lead-based paint",
+      "Household dust",
+      "Contaminated drinking water",
+      "Contaminated spices and turmeric",
+      "Lead-soldered food and drink cans",
+      "Battery manufacture",
+      "Mining",
+      "E-waste recycling",
+      "Lead-adulterated oral opium",
+      "Lead-adulterated heroin"
+    ],
+    "biochemical": [
+      "Blood Lead Level",
+      "Zinc Protoporphyrin"
+    ],
+    "source_file": "Lead_Poisoning.yaml",
+    "page_url": "../pages/disorders/Lead_Poisoning.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 12,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Leishmaniasis",
