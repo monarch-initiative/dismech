@@ -16,7 +16,6 @@ Or via the wrapper script in scripts/run_reference_validator.py.
 
 import logging
 from functools import wraps
-from typing import Optional
 
 logger = logging.getLogger("linkml_reference_validator.patch")
 
