@@ -1,19 +1,19 @@
 ---
-reference_id: "DOI:10.1177/2050313x231204197"
+reference_id: "DOI:10.1177/2050313X231204197"
 title: "Palmoplantar keratoderma, pseudo-ainhum and knuckle pads in an African patient: A case report"
 authors:
 - Kellicia Courtney Govender
 - Somasundram Pillay
 journal: SAGE Open Medical Case Reports
 year: '2023'
-doi: 10.1177/2050313x231204197
+doi: 10.1177/2050313X231204197
 content_type: abstract_only
 ---
 
 # Palmoplantar keratoderma, pseudo-ainhum and knuckle pads in an African patient: A case report
 **Authors:** Kellicia Courtney Govender, Somasundram Pillay
 **Journal:** SAGE Open Medical Case Reports (2023)
-**DOI:** [10.1177/2050313x231204197](https://doi.org/10.1177/2050313x231204197)
+**DOI:** [10.1177/2050313X231204197](https://doi.org/10.1177/2050313X231204197)
 
 ## Content
 
