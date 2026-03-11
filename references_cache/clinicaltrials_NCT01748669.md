@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT01748669
+reference_id: "clinicaltrials:NCT01748669"
 title: Effectiveness of Garlic Oil in the Treatment of Arsenical Palmer Keratosis
 content_type: summary
 ---

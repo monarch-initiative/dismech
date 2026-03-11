@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1272/jnms.jnms.2023_90-104
+reference_id: "DOI:10.1272/jnms.jnms.2023_90-104"
 title: The Role of the Spleen in Portal Hypertension
 authors:
 - Hiroshi Yoshida
