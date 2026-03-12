@@ -4,7 +4,7 @@
 
 ## Target Disease
 - **Disease Name:** Hospital-Acquired Acute Kidney Injury
-- **MONDO ID:**  (if available)
+- **MONDO ID:** MONDO:0002492
 - **Category:** Complex
 
 ## Research Objectives
