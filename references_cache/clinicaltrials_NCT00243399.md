@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT00243399
+reference_id: "clinicaltrials:NCT00243399"
 title: A Pilot Trial of Oxandrolone for the Treatment of Bone Marrow Aplasia in Patients With Fanconi Anemia
 content_type: summary
 ---
