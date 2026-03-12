@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT01573013
+reference_id: "clinicaltrials:NCT01573013"
 title: "Interactions of Lead Intoxication and Iron Deficiency in Morocco: The Effects of Iron Fortification With and Without NaEDTA on Lead Burden, Iron Status and Cognition in Children"
 content_type: summary
 ---

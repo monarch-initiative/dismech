@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05355402
+reference_id: "clinicaltrials:NCT05355402"
 title: "A Randomized, Double-blind, Placebo-Controlled, Phase 2b Study of ISIS 678354 in Patients With Hypertriglyceridemia and Atherosclerotic Cardiovascular Disease (Established or at Increased Risk for), and/or With Severe Hypertriglyceridemia"
 content_type: summary
 ---
