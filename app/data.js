@@ -41081,59 +41081,62 @@ window.searchData = [
     "category": "Mendelian",
     "parents": [
       "Ophthalmological Disease",
-      "Retinal Dystrophy"
+      "Retinal Dystrophy",
+      "Inherited macular dystrophy",
+      "ABCA4-related retinal dystrophy"
     ],
-    "creation_date": "2026-02-27T12:00:00Z",
-    "updated_date": "2026-02-28T02:57:04Z",
+    "creation_date": "2026-02-26T00:00:00Z",
+    "updated_date": "2026-03-13T23:10:00Z",
     "subtypes": [
-      "Stargardt Disease Type 1 (STGD1)",
-      "Stargardt Disease Type 3 (STGD3)",
-      "Stargardt Disease Type 4 (STGD4)"
+      "Stargardt disease 1 (STGD1)",
+      "Stargardt disease 3 (STGD3)",
+      "Stargardt disease 4 (STGD4)"
     ],
-    "description": "Loss-of-function mutations in the ABCA4 gene impair the ATP-binding cassette transporter responsible for flipping N-retinylidene-phosphatidylethanolamine (N-Ret-PE) and phosphatidylethanolamine across photoreceptor disc membranes. This leads to accumulation of toxic retinoid byproducts in photoreceptor outer segments.\n",
+    "description": "Stargardt disease (STGD1) is the most common inherited macular dystrophy, typically presenting in childhood or adolescence with progressive bilateral central vision loss. It is caused most commonly by biallelic loss-of-function mutations in ABCA4, which encodes a retina-specific ATP-binding cassette transporter required to clear N-retinylidene-phosphatidylethanolamine from photoreceptor disc membranes. ABCA4 dysfunction promotes toxic bisretinoid and lipofuscin accumulation in retinal pigment epithelium, causing RPE injury followed by secondary photoreceptor degeneration, macular atrophy, and characteristic fundus flecks.\n",
     "pathophysiology": [
-      "ABCA4 Transporter Dysfunction",
-      "Lipofuscin and A2E Accumulation in RPE",
-      "RPE Endo-Lysosomal Dysfunction",
-      "Photoreceptor Degeneration"
+      "ABCA4 transporter dysfunction",
+      "Retinoid-adduct retention and bisretinoid precursor formation",
+      "Lipofuscin and A2E accumulation in RPE",
+      "RPE endo-lysosomal dysfunction",
+      "RPE dysfunction and atrophy",
+      "Secondary macular photoreceptor degeneration"
     ],
     "cell_types": [
-      "Retinal Cone Cell",
-      "Retinal Rod Cell",
-      "Retinal Pigment Epithelial Cell"
+      "photoreceptor cell",
+      "retinal cone cell",
+      "retinal rod cell",
+      "retinal pigment epithelial cell"
     ],
     "cell_type_ids": [
+      "CL:0000210",
       "CL:0000573",
       "CL:0000604",
       "CL:0002586"
     ],
     "biological_processes": [
-      "ATPase-coupled transmembrane transporter activity",
-      "Retinoid Metabolic Process",
-      "Lipid Transport",
-      "Response to Oxidative Stress",
-      "Phototransduction",
-      "Lysosome Organization",
-      "Phagocytosis",
-      "Visual Perception",
-      "Retinal Metabolic Process"
+      "lipid transport",
+      "retinoid metabolic process",
+      "response to oxidative stress",
+      "phagocytosis",
+      "lysosome organization",
+      "visual perception"
     ],
     "phenotypes": [
-      "Progressive Central Vision Loss",
-      "Macular Dystrophy",
-      "Fundus Flecks",
-      "Central Scotoma",
-      "Dyschromatopsia",
-      "Photophobia",
-      "Macular Atrophy",
-      "Abnormal Electroretinogram",
-      "Bull's Eye Maculopathy",
-      "Retinal Pigment Epithelial Atrophy",
-      "Retinal Pigment Epithelial Mottling",
+      "Macular dystrophy",
+      "Macular atrophy",
+      "Retinal flecks",
+      "Reduced visual acuity",
+      "Central scotoma",
+      "Color vision defect",
+      "Abnormal fundus autofluorescence",
+      "Bull's eye maculopathy",
+      "Retinal pigment epithelial atrophy",
+      "Retinal pigment epithelial mottling",
+      "Abnormal electroretinogram",
+      "Retinal thinning on OCT",
+      "Photoreceptor outer segment loss on macular OCT",
       "Nyctalopia",
-      "Reduced Visual Acuity",
-      "Retinal Thinning on OCT",
-      "Photoreceptor Outer Segment Loss on Macular OCT"
+      "Photophobia"
     ],
     "phenotype_categories": [
       "Ophthalmological"
@@ -41143,21 +41146,21 @@ window.searchData = [
       "Nervous System"
     ],
     "phenotype_ids": [
-      "HP:0000529",
       "HP:0007754",
-      "HP:0011507",
-      "HP:0000603",
-      "HP:0007641",
-      "HP:0000613",
       "HP:0007401",
-      "HP:0000512",
+      "HP:0012045",
+      "HP:0007663",
+      "HP:0000603",
+      "HP:0000551",
+      "HP:0030602",
       "HP:0011504",
       "HP:0007722",
       "HP:0007814",
-      "HP:0000662",
-      "HP:0007663",
+      "HP:0000512",
       "HP:0030329",
-      "HP:0030610"
+      "HP:0030610",
+      "HP:0000662",
+      "HP:0000613"
     ],
     "frequencies": [
       "OBLIGATE",
@@ -41171,16 +41174,17 @@ window.searchData = [
       "PROM1"
     ],
     "treatments": [
-      "Low Vision Rehabilitation",
-      "Genetic Counseling",
-      "Gene Therapy (Investigational)",
-      "Visual Cycle Modulators (Investigational)",
-      "Stem Cell Therapy (Investigational)",
-      "Lysosomal Re-acidification (Investigational)"
+      "Low vision rehabilitation",
+      "Genetic counseling",
+      "Gene therapy (investigational)",
+      "Visual cycle modulators (investigational)",
+      "Stem cell therapy (investigational)",
+      "Lysosomal re-acidification (investigational)",
+      "Complement inhibition (investigational)"
     ],
     "environmental": [],
     "biochemical": [
-      "A2E (Bisretinoid)",
+      "A2E (bisretinoid)",
       "Lipofuscin",
       "All-trans-retinal",
       "Phosphatidylethanolamine"
@@ -41188,11 +41192,11 @@ window.searchData = [
     "source_file": "Stargardt_Disease.yaml",
     "page_url": "../pages/disorders/Stargardt_Disease.html",
     "num_phenotypes": 15,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 6,
     "num_genes": 3,
-    "num_treatments": 6,
-    "causal_graph_edges": "15",
-    "causal_graph_longest_path": "4"
+    "num_treatments": 7,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Stickler Syndrome Type 1",
