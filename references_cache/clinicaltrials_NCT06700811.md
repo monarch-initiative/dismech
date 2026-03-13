@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT06700811
+reference_id: "clinicaltrials:NCT06700811"
 title: Phase 1 Study of Ketogenic Diet for Prevention of Epileptic Spasms in Infantile Onset Genetic Epilepsies
 content_type: summary
 ---
