@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT04244006
+reference_id: "clinicaltrials:NCT04244006"
 title: A Randomized Double-blinded Pilot Study of the Efficacy and Safety of Dupilumab Versus Placebo in Patients With Netherton Syndrome
 content_type: summary
 ---
