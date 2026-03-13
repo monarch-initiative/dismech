@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05507021
+reference_id: "clinicaltrials:NCT05507021"
 title: "A Clinical Trial to Evaluate the Efficacy and Safety of Lactobacillus Plantarum DSM 33464 (SmartGuard <TM>/MegametalliQ <TM>) to Reduce Blood Lead Levels in Young Women of Child-bearing Age (18 to 40 Years Old)"
 content_type: summary
 ---

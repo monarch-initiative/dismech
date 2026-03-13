@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT02993406
+reference_id: "clinicaltrials:NCT02993406"
 title: "A Randomized, Double-blind, Placebo-controlled Study to Assess the Effects of Bempedoic Acid (ETC-1002) on the Occurrence of Major Cardiovascular Events in Patients With, or at High Risk for, Cardiovascular Disease Who Are Statin Intolerant"
 content_type: summary
 ---
