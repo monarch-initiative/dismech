@@ -175,35 +175,76 @@ treatments:
 - Use a more nuanced `preferred_term` only when the ontology term is genuinely too broad to convey the intended meaning.
 - A `modifier` may be used to capture the semantics of some preferred terms.
 
-### Treatment Terms (MAXO)
-Treatments can be annotated with Medical Action Ontology (MAXO) terms:
+### Treatment Terms (NCIT preferred, MAXO fallback)
+
+Treatments can use either **NCIT** (NCI Thesaurus Therapeutic Procedure hierarchy) or **MAXO** (Medical Action Ontology) terms. **NCIT is preferred** when a specific pre-composed term exists, as it provides inheritance to useful grouping classes (Pharmacotherapy, Biological Therapy, Surgical Procedure, etc.).
+
+**Decision rule:**
+1. Search NCIT first for a pre-composed specific term (e.g., NCIT:C15261 Immunosuppressive Therapy)
+2. If no specific NCIT term exists, use the most specific MAXO term available
+3. Avoid post-composing with a generic MAXO term + a more specific `preferred_term` when NCIT has a ready-made term
+
 ```yaml
+# PREFERRED: NCIT pre-composed specific term
 treatments:
+- name: Immunosuppressive Therapy
+  treatment_term:
+    preferred_term: immunosuppressive therapy
+    term:
+      id: NCIT:C15261
+      label: Immunosuppressive Therapy
+
+# FALLBACK: MAXO when no specific NCIT term exists
 - name: Physical Therapy
-  description: Rehabilitation exercises to improve mobility.
   treatment_term:
     preferred_term: physical therapy
     term:
       id: MAXO:0000011
       label: physical therapy
+
+# AVOID (post-composition anti-pattern):
+- name: Immunosuppressive Therapy
+  treatment_term:
+    preferred_term: immunosuppressive therapy  # more specific than the term below
+    term:
+      id: MAXO:0000058   # too generic
+      label: pharmacotherapy
 ```
 
-Common MAXO terms:
-- `MAXO:0000058` - pharmacotherapy (drug treatments)
-- `MAXO:0000004` - surgical procedure
+**Key NCIT treatment terms** (under NCIT:C49236 Therapeutic Procedure):
+- `NCIT:C122080` - Systemic Corticosteroid Therapy
+- `NCIT:C15261` - Immunosuppressive Therapy
+- `NCIT:C15262` - Immunotherapy
+- `NCIT:C15490` - Monoclonal Antibody Therapy
+- `NCIT:C15577` - Anti-Tumor Necrosis Factor Therapy
+- `NCIT:C15620` - Antibiotic Therapy
+- `NCIT:C15246` - Heart Transplantation
+- `NCIT:C15265` - Kidney Transplantation
+- `NCIT:C16186` - Orthopedic Surgical Procedure
+- `NCIT:C126102` - Chimeric Antigen Receptor T-Cell Therapy
+- `NCIT:C198585` - Bisphosphonate Therapy
+
+**Common MAXO terms** (use when NCIT lacks a specific pre-composed term):
+- `MAXO:0000058` - pharmacotherapy (generic; prefer specific NCIT terms for drug classes)
+- `MAXO:0000004` - surgical procedure (generic; prefer specific NCIT surgical terms)
 - `MAXO:0000011` - physical therapy
 - `MAXO:0000079` - genetic counseling
 - `MAXO:0000088` - dietary intervention
 - `MAXO:0000647` - chemotherapy
 - `MAXO:0000014` - radiation therapy
 - `MAXO:0001017` - vaccination
-- `MAXO:0010039` - organ transplantation
+- `MAXO:0010039` - organ transplantation (generic; prefer NCIT:C15246/C15265 for specific organs)
 - `MAXO:0000950` - supportive care
 
-Use OAK to search for MAXO terms:
+Search for terms using OAK:
 ```bash
+uv run runoak -i sqlite:obo:ncit search "immunosuppressive therapy"
 uv run runoak -i sqlite:obo:maxo search "physical therapy"
+# Verify a term is under NCIT:C49236 (Therapeutic Procedure):
+uv run runoak -i sqlite:obo:ncit ancestors NCIT:C15261 --predicates i
 ```
+
+**Note on DRON (Drug Ontology):** DRON provides very specific drug formulation/administration terms (e.g., drug dosage forms). This level of specificity is generally not needed in dismech, which focuses on treatment categories rather than specific formulations. Use CHEBI for specific drug molecules and NCIT for drug classes or therapy types.
 
 ### Clinical Trials
 
