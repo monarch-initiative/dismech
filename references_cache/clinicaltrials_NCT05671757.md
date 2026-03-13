@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05671757
+reference_id: "clinicaltrials:NCT05671757"
 title: "Targeting CD38 With Daratumumab in Primary Antiphospholipid Syndrome: A Phase 1b Dose Escalation Safety Trial (ITN093AI)"
 content_type: summary
 ---

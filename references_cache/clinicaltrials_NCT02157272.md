@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT02157272
+reference_id: "clinicaltrials:NCT02157272"
 title: "A Prospective, Randomized Clinical Trial Comparing Rivaroxaban vs Warfarin in High Risk Patients With Antiphospholipid Syndrome"
 content_type: summary
 ---
