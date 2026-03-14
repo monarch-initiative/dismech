@@ -34140,6 +34140,84 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "PTCH1-related nevoid basal cell carcinoma syndrome",
+    "disease_id": "MONDO:0958174",
+    "category": "Mendelian",
+    "parents": [
+      "nevoid basal cell carcinoma syndrome",
+      "hereditary cancer predisposition syndrome",
+      "Hedgehog pathway disease"
+    ],
+    "creation_date": "2026-03-04T09:02:38Z",
+    "updated_date": "2026-03-05T03:00:54Z",
+    "subtypes": [],
+    "description": "PTCH1-related nevoid basal cell carcinoma syndrome (basal cell nevus syndrome 1) is an autosomal dominant hereditary cancer predisposition syndrome caused by germline pathogenic variants in PTCH1. The primary molecular defect is loss of PTCH1-mediated suppression of smoothened signaling, leading to increased Hedgehog pathway output and GLI-dependent proliferative signaling in susceptible tissues. Clinically, this form is typically associated with high basal cell carcinoma burden, frequent odontogenic keratocysts, and lower medulloblastoma risk than SUFU-related disease.",
+    "pathophysiology": [
+      "PTCH1 Loss with SMO Disinhibition",
+      "SMO-Targetable Dependence"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "smoothened signaling pathway",
+      "negative regulation of smoothened signaling pathway"
+    ],
+    "phenotypes": [
+      "Multiple Basal Cell Carcinomas",
+      "Odontogenic Keratocysts of the Jaw",
+      "Medulloblastoma",
+      "Abnormal Rib Morphology"
+    ],
+    "phenotype_categories": [
+      "Dermatologic",
+      "Dental",
+      "Oncologic",
+      "Skeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Head and Neck",
+      "Integument",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002671",
+      "HP:0010603",
+      "HP:0002885",
+      "HP:0000772"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [
+      "PTCH1"
+    ],
+    "treatments": [
+      "Vismodegib",
+      "Sonidegib",
+      "Surgical Excision",
+      "Sunlight Avoidance",
+      "Genetic Counseling"
+    ],
+    "environmental": [
+      "Ultraviolet Radiation",
+      "Ionizing Radiation"
+    ],
+    "biochemical": [],
+    "source_file": "PTCH1-related_Nevoid_Basal_Cell_Carcinoma_Syndrome.yaml",
+    "page_url": "../pages/disorders/PTCH1-related_nevoid_basal_cell_carcinoma_syndrome.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "1"
+  },
+  {
     "name": "Pallister-Hall Syndrome",
     "disease_id": "MONDO:0007804",
     "category": "Mendelian",
@@ -38936,6 +39014,82 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "SUFU-related nevoid basal cell carcinoma syndrome",
+    "disease_id": "MONDO:0958189",
+    "category": "Mendelian",
+    "parents": [
+      "nevoid basal cell carcinoma syndrome",
+      "hereditary cancer predisposition syndrome",
+      "Hedgehog pathway disease"
+    ],
+    "creation_date": "2026-03-04T09:02:38Z",
+    "updated_date": "2026-03-05T03:00:54Z",
+    "subtypes": [],
+    "description": "SUFU-related nevoid basal cell carcinoma syndrome (basal cell nevus syndrome 2) is an autosomal dominant hereditary cancer predisposition syndrome caused by germline pathogenic variants in SUFU. The defining molecular lesion is loss of SUFU-mediated suppression of GLI transcriptional activity, producing downstream Hedgehog pathway dysregulation. Compared with PTCH1-related disease, this form shows substantially higher early-childhood medulloblastoma risk, lower jaw-cyst and BCC burden, and distinct surveillance priorities.",
+    "pathophysiology": [
+      "SUFU Loss with GLI Derepression",
+      "Downstream-Pathway Therapeutic Constraint"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "negative regulation of smoothened signaling pathway",
+      "smoothened signaling pathway"
+    ],
+    "phenotypes": [
+      "Medulloblastoma",
+      "Meningioma",
+      "Ovarian Fibroma",
+      "Basal Cell Carcinoma",
+      "Odontogenic Keratocysts of the Jaw"
+    ],
+    "phenotype_categories": [
+      "Oncologic",
+      "Genitourinary",
+      "Dermatologic",
+      "Dental"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Genitourinary",
+      "Head and Neck",
+      "Integument",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002885",
+      "HP:0002858",
+      "HP:0010618",
+      "HP:0002671",
+      "HP:0010603"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL",
+      "RARE"
+    ],
+    "genes": [
+      "SUFU"
+    ],
+    "treatments": [
+      "Surgery and Chemotherapy-Centered Medulloblastoma Management",
+      "Genetic Counseling"
+    ],
+    "environmental": [
+      "Ionizing Radiation"
+    ],
+    "biochemical": [],
+    "source_file": "SUFU-related_Nevoid_Basal_Cell_Carcinoma_Syndrome.yaml",
+    "page_url": "../pages/disorders/SUFU-related_nevoid_basal_cell_carcinoma_syndrome.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "1"
+  },
+  {
     "name": "Salla Disease",
     "disease_id": "MONDO:0011449",
     "category": "Mendelian",
@@ -41081,59 +41235,62 @@ window.searchData = [
     "category": "Mendelian",
     "parents": [
       "Ophthalmological Disease",
-      "Retinal Dystrophy"
+      "Retinal Dystrophy",
+      "Inherited macular dystrophy",
+      "ABCA4-related retinal dystrophy"
     ],
-    "creation_date": "2026-02-27T12:00:00Z",
-    "updated_date": "2026-02-28T02:57:04Z",
+    "creation_date": "2026-02-26T00:00:00Z",
+    "updated_date": "2026-03-13T23:10:00Z",
     "subtypes": [
-      "Stargardt Disease Type 1 (STGD1)",
-      "Stargardt Disease Type 3 (STGD3)",
-      "Stargardt Disease Type 4 (STGD4)"
+      "Stargardt disease 1 (STGD1)",
+      "Stargardt disease 3 (STGD3)",
+      "Stargardt disease 4 (STGD4)"
     ],
-    "description": "Loss-of-function mutations in the ABCA4 gene impair the ATP-binding cassette transporter responsible for flipping N-retinylidene-phosphatidylethanolamine (N-Ret-PE) and phosphatidylethanolamine across photoreceptor disc membranes. This leads to accumulation of toxic retinoid byproducts in photoreceptor outer segments.\n",
+    "description": "Stargardt disease (STGD1) is the most common inherited macular dystrophy, typically presenting in childhood or adolescence with progressive bilateral central vision loss. It is caused most commonly by biallelic loss-of-function mutations in ABCA4, which encodes a retina-specific ATP-binding cassette transporter required to clear N-retinylidene-phosphatidylethanolamine from photoreceptor disc membranes. ABCA4 dysfunction promotes toxic bisretinoid and lipofuscin accumulation in retinal pigment epithelium, causing RPE injury followed by secondary photoreceptor degeneration, macular atrophy, and characteristic fundus flecks.\n",
     "pathophysiology": [
-      "ABCA4 Transporter Dysfunction",
-      "Lipofuscin and A2E Accumulation in RPE",
-      "RPE Endo-Lysosomal Dysfunction",
-      "Photoreceptor Degeneration"
+      "ABCA4 transporter dysfunction",
+      "Retinoid-adduct retention and bisretinoid precursor formation",
+      "Lipofuscin and A2E accumulation in RPE",
+      "RPE endo-lysosomal dysfunction",
+      "RPE dysfunction and atrophy",
+      "Secondary macular photoreceptor degeneration"
     ],
     "cell_types": [
-      "Retinal Cone Cell",
-      "Retinal Rod Cell",
-      "Retinal Pigment Epithelial Cell"
+      "photoreceptor cell",
+      "retinal cone cell",
+      "retinal rod cell",
+      "retinal pigment epithelial cell"
     ],
     "cell_type_ids": [
+      "CL:0000210",
       "CL:0000573",
       "CL:0000604",
       "CL:0002586"
     ],
     "biological_processes": [
-      "ATPase-coupled transmembrane transporter activity",
-      "Retinoid Metabolic Process",
-      "Lipid Transport",
-      "Response to Oxidative Stress",
-      "Phototransduction",
-      "Lysosome Organization",
-      "Phagocytosis",
-      "Visual Perception",
-      "Retinal Metabolic Process"
+      "lipid transport",
+      "retinoid metabolic process",
+      "response to oxidative stress",
+      "phagocytosis",
+      "lysosome organization",
+      "visual perception"
     ],
     "phenotypes": [
-      "Progressive Central Vision Loss",
-      "Macular Dystrophy",
-      "Fundus Flecks",
-      "Central Scotoma",
-      "Dyschromatopsia",
-      "Photophobia",
-      "Macular Atrophy",
-      "Abnormal Electroretinogram",
-      "Bull's Eye Maculopathy",
-      "Retinal Pigment Epithelial Atrophy",
-      "Retinal Pigment Epithelial Mottling",
+      "Macular dystrophy",
+      "Macular atrophy",
+      "Retinal flecks",
+      "Reduced visual acuity",
+      "Central scotoma",
+      "Color vision defect",
+      "Abnormal fundus autofluorescence",
+      "Bull's eye maculopathy",
+      "Retinal pigment epithelial atrophy",
+      "Retinal pigment epithelial mottling",
+      "Abnormal electroretinogram",
+      "Retinal thinning on OCT",
+      "Photoreceptor outer segment loss on macular OCT",
       "Nyctalopia",
-      "Reduced Visual Acuity",
-      "Retinal Thinning on OCT",
-      "Photoreceptor Outer Segment Loss on Macular OCT"
+      "Photophobia"
     ],
     "phenotype_categories": [
       "Ophthalmological"
@@ -41143,21 +41300,21 @@ window.searchData = [
       "Nervous System"
     ],
     "phenotype_ids": [
-      "HP:0000529",
       "HP:0007754",
-      "HP:0011507",
-      "HP:0000603",
-      "HP:0007641",
-      "HP:0000613",
       "HP:0007401",
-      "HP:0000512",
+      "HP:0012045",
+      "HP:0007663",
+      "HP:0000603",
+      "HP:0000551",
+      "HP:0030602",
       "HP:0011504",
       "HP:0007722",
       "HP:0007814",
-      "HP:0000662",
-      "HP:0007663",
+      "HP:0000512",
       "HP:0030329",
-      "HP:0030610"
+      "HP:0030610",
+      "HP:0000662",
+      "HP:0000613"
     ],
     "frequencies": [
       "OBLIGATE",
@@ -41171,16 +41328,17 @@ window.searchData = [
       "PROM1"
     ],
     "treatments": [
-      "Low Vision Rehabilitation",
-      "Genetic Counseling",
-      "Gene Therapy (Investigational)",
-      "Visual Cycle Modulators (Investigational)",
-      "Stem Cell Therapy (Investigational)",
-      "Lysosomal Re-acidification (Investigational)"
+      "Low vision rehabilitation",
+      "Genetic counseling",
+      "Gene therapy (investigational)",
+      "Visual cycle modulators (investigational)",
+      "Stem cell therapy (investigational)",
+      "Lysosomal re-acidification (investigational)",
+      "Complement inhibition (investigational)"
     ],
     "environmental": [],
     "biochemical": [
-      "A2E (Bisretinoid)",
+      "A2E (bisretinoid)",
       "Lipofuscin",
       "All-trans-retinal",
       "Phosphatidylethanolamine"
@@ -41188,11 +41346,11 @@ window.searchData = [
     "source_file": "Stargardt_Disease.yaml",
     "page_url": "../pages/disorders/Stargardt_Disease.html",
     "num_phenotypes": 15,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 6,
     "num_genes": 3,
-    "num_treatments": 6,
-    "causal_graph_edges": "15",
-    "causal_graph_longest_path": "4"
+    "num_treatments": 7,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Stickler Syndrome Type 1",
