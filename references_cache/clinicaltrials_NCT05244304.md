@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05244304
+reference_id: "clinicaltrials:NCT05244304"
 title: "Phase 3, Multicenter, Randomized, Double-Masked, Placebo-Controlled Study to Evaluate the Safety and Efficacy of Tinlarebant in the Treatment of Stargardt Disease in Adolescent Subjects"
 content_type: summary
 ---
