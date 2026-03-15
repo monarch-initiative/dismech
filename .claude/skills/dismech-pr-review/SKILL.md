@@ -92,3 +92,35 @@ Put non-genetic data in `biochemical` or appropriate sections.
 
 11. Evidence at Cell-Type Granularity
 When possible, consider evidence at the cell-type level and annotate `cell_types` accordingly.
+
+## Review Decision: Formal GitHub Review
+
+After completing the review, you MUST submit a formal GitHub review (not just a comment).
+Use `gh pr review` with one of the three events below.
+
+### APPROVE
+Submit `--approve` when **all** of the following hold:
+- Schema/term validation passes (`just validate` + `just validate-terms-file`)
+- No fabricated snippets or wrong PMIDs
+- No major ontology placement errors (GO MF in BP slot, HGNC CURIE wrong case, etc.)
+- All pathophysiology entries are atomic (not chained multi-step sentences)
+- At most minor wording / completeness issues
+
+### REQUEST_CHANGES
+Submit `--request-changes` when **any one** of the following is true:
+- Schema validation failure
+- Fabricated or paraphrased snippet (not an exact quote from the cited abstract)
+- Wrong PMID (paper topic does not match the claim being evidenced)
+- Significant ontology misuse (e.g., GO MF term in `biological_processes`, wrong HGNC CURIE case)
+- Pathophysiology entries bundled into chains rather than single atomic events
+
+### COMMENT + reassign to @cmungall
+Submit `--comment` and reassign the PR/issue to `@cmungall` when:
+- An ambiguous biological claim requires human domain expertise to adjudicate
+- It is genuinely unclear whether an issue is blocking or merely cosmetic
+- There are conflicting signals between different validation checks
+
+### Strictness policy
+Do NOT defer fixable problems with "can be addressed in a future PR". The curating agent
+can act on feedback immediately. If something is wrong, request changes. Only approve when
+the entry is genuinely ready to merge.
