@@ -8955,7 +8955,7 @@ window.searchData = [
       "B-cell neoplasm"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-01-26T04:02:22Z",
+    "updated_date": "2026-03-13T12:00:00Z",
     "subtypes": [
       "IGHV Mutated CLL",
       "IGHV Unmutated CLL"
@@ -13339,7 +13339,7 @@ window.searchData = [
       "B-cell non-Hodgkin lymphoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-02-27T21:52:56Z",
+    "updated_date": "2026-03-13T12:00:00Z",
     "subtypes": [
       "Germinal Center B-cell (GCB) Type",
       "Activated B-cell (ABC) Type",
@@ -27966,7 +27966,7 @@ window.searchData = [
       "B-cell non-Hodgkin lymphoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-01-26T04:02:22Z",
+    "updated_date": "2026-03-15T17:11:27Z",
     "subtypes": [
       "Classical Mantle Cell Lymphoma",
       "Leukemic Non-Nodal Mantle Cell Lymphoma",
@@ -27974,11 +27974,16 @@ window.searchData = [
     ],
     "description": "Mantle cell lymphoma (MCL) is an aggressive B-cell non-Hodgkin lymphoma characterized by the t(11;14)(q13;q32) translocation, which juxtaposes the CCND1 (cyclin D1) gene with the immunoglobulin heavy chain enhancer, leading to constitutive cyclin D1 overexpression. MCL typically presents at advanced stage with lymphadenopathy, bone marrow involvement, and frequently gastrointestinal tract infiltration. While historically considered incurable with median survival of 3-5 years, outcomes have improved with BTK inhibitors (ibrutinib, acalabrutinib), high-dose therapy with stem cell transplant in younger patients, and emerging therapies including CAR-T cells.",
     "pathophysiology": [
-      "CCND1 Translocation and Cyclin D1 Overexpression",
-      "Cell Cycle Dysregulation",
-      "BTK and BCR Signaling Dependence",
-      "NF-kB Activation",
-      "Uncontrolled B-cell Proliferation"
+      "CCND1/IGH translocation",
+      "Cyclin D1 overexpression",
+      "G1/S cell-cycle acceleration",
+      "DNA damage response pathway inactivation",
+      "Genetic instability",
+      "Microenvironmental crosstalk in marrow and secondary lymphoid organs",
+      "B-cell receptor signaling activation",
+      "B-cell survival advantage",
+      "Malignant B-cell expansion",
+      "Widespread tissue infiltration by malignant B cells"
     ],
     "cell_types": [
       "B cell"
@@ -27988,18 +27993,22 @@ window.searchData = [
     ],
     "biological_processes": [
       "G1/S transition of mitotic cell cycle",
-      "cell population proliferation",
       "B cell activation",
-      "apoptotic process"
+      "apoptotic process",
+      "cell population proliferation"
     ],
     "phenotypes": [
       "Generalized Lymphadenopathy",
       "Splenomegaly",
+      "Hepatomegaly",
       "Gastrointestinal Involvement",
+      "Fever",
       "Night Sweats",
       "Weight Loss",
       "Fatigue",
-      "Anemia"
+      "Anemia",
+      "Peripheral Blood Lymphocytosis",
+      "Thrombocytopenia"
     ],
     "phenotype_categories": [
       "Lymphatic",
@@ -28015,19 +28024,25 @@ window.searchData = [
       "Digestive",
       "Growth",
       "Immune",
+      "Metabolism",
       "Neoplasm"
     ],
     "phenotype_ids": [
       "HP:0008940",
       "HP:0001744",
+      "HP:0002240",
       "HP:0007378",
+      "HP:0001945",
       "HP:0030166",
       "HP:0001824",
       "HP:0012378",
-      "HP:0001903"
+      "HP:0001903",
+      "HP:0100827",
+      "HP:0001873"
     ],
     "frequencies": [
       "VERY_FREQUENT",
+      "OCCASIONAL",
       "FREQUENT"
     ],
     "genes": [
@@ -28050,12 +28065,12 @@ window.searchData = [
     ],
     "source_file": "Mantle_Cell_Lymphoma.yaml",
     "page_url": "../pages/disorders/Mantle_Cell_Lymphoma.html",
-    "num_phenotypes": 7,
-    "num_pathophysiology": 5,
+    "num_phenotypes": 11,
+    "num_pathophysiology": 10,
     "num_genes": 3,
     "num_treatments": 6,
-    "causal_graph_edges": "3",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Maple Syrup Urine Disease",
