@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT04275778
+reference_id: "clinicaltrials:NCT04275778"
 title: Evaluation of the Benefit of Adjuvant Treatment With Hydroxychloroquine to the Usual Medical Management for Obtaining an Uncomplicated Term Pregnancy in Primary Obstetric Antiphospholipid Syndrome
 content_type: summary
 ---

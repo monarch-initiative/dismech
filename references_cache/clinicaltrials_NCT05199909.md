@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05199909
+reference_id: "clinicaltrials:NCT05199909"
 title: "Prospective, Single Arm and Open Clinical Observation of Zanubrutinib in the Treatment of Antiphospholipid Syndrome With Secondary Thrombocytopenia"
 content_type: summary
 ---
