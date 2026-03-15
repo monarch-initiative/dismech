@@ -14,6 +14,10 @@ Use all appropriate skills. What follows are some specific guidelines
 aimed to catch common suboptimal things we see in PRs a lot. This list
 is not complete and you should always consult skills and comparable entries.
 
+## Things NOT to flag
+
+- **`updated_date`**: Do NOT flag or request updates to `updated_date` in reviews. Change tracking is handled via separate git logs and traces.
+
 ## Common things to suggest fixing
 
 1. Debundle Pathophysiology Entries
