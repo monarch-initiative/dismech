@@ -8955,7 +8955,7 @@ window.searchData = [
       "B-cell neoplasm"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-01-26T04:02:22Z",
+    "updated_date": "2026-03-13T12:00:00Z",
     "subtypes": [
       "IGHV Mutated CLL",
       "IGHV Unmutated CLL"
