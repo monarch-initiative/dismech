@@ -8955,7 +8955,7 @@ window.searchData = [
       "B-cell neoplasm"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-01-26T04:02:22Z",
+    "updated_date": "2026-03-13T12:00:00Z",
     "subtypes": [
       "IGHV Mutated CLL",
       "IGHV Unmutated CLL"
@@ -13339,7 +13339,7 @@ window.searchData = [
       "B-cell non-Hodgkin lymphoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-02-27T21:52:56Z",
+    "updated_date": "2026-03-13T12:00:00Z",
     "subtypes": [
       "Germinal Center B-cell (GCB) Type",
       "Activated B-cell (ABC) Type",
@@ -23530,6 +23530,95 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Inherited Threoninemia",
+    "disease_id": "MONDO:0010118",
+    "category": "Mendelian",
+    "parents": [
+      "Inborn Error of Metabolism",
+      "Amino Acid Metabolism Disorder"
+    ],
+    "creation_date": "2026-03-11T00:00:00Z",
+    "updated_date": "2026-03-11T15:30:00Z",
+    "subtypes": [],
+    "description": "Inherited threoninemia is an extremely rare inborn error of amino acid metabolism characterized by markedly elevated concentrations of threonine in plasma, urine, and cerebrospinal fluid. First described in 1978, the condition is proposed to result from deficient hepatic threonine dehydratase (EC 4.2.1.16) activity, blocking conversion of threonine to 2-ketobutyrate. Excess threonine may secondarily perturb glycine-serine-threonine interconversion at serine hydroxymethyltransferase, potentially causing secondary hyperglycinemia and a non-ketotic hyperglycinemia-like neurological phenotype. Clinical features reported in affected individuals include seizures, intellectual disability, failure to thrive, lethargy, and feeding difficulties. A separate phenotypic association with Leber congenital amaurosis and hepatomegaly has been reported in siblings with hyperthreoninemia, though the causal relationship remains uncertain. No causative gene has been identified at the molecular level; the disorder is defined by enzyme activity and metabolite measurements. Consanguinity has been noted in reported families, consistent with autosomal recessive inheritance.\n",
+    "pathophysiology": [
+      "Hepatic threonine dehydratase deficiency",
+      "Secondary hyperglycinemia via glycine-serine-threonine interconversion"
+    ],
+    "cell_types": [
+      "hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "threonine catabolic process",
+      "glycine metabolic process"
+    ],
+    "phenotypes": [
+      "Hyperthreoninemia",
+      "Hyperthreoninuria",
+      "Nonketotic hyperglycinemia",
+      "Seizures",
+      "Intellectual disability",
+      "Hepatomegaly",
+      "Lethargy",
+      "Poor suck",
+      "Failure to thrive",
+      "Retinal dystrophy (Leber congenital amaurosis phenotype)"
+    ],
+    "phenotype_categories": [
+      "Metabolic",
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0003354",
+      "HP:0003296",
+      "HP:0008288",
+      "HP:0001250",
+      "HP:0001249",
+      "HP:0002240",
+      "HP:0001254",
+      "HP:0002033",
+      "HP:0001508",
+      "HP:0000556"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "Threonine dehydratase (enzyme level)"
+    ],
+    "treatments": [
+      "Dietary threonine restriction",
+      "Anticonvulsant therapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Plasma threonine",
+      "Urinary threonine",
+      "CSF threonine"
+    ],
+    "source_file": "Inherited_Threoninemia.yaml",
+    "page_url": "../pages/disorders/Inherited_Threoninemia.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "1",
+    "causal_graph_longest_path": "1"
+  },
+  {
     "name": "Irritable Bowel Syndrome",
     "disease_id": "MONDO:0005052",
     "category": "Complex",
@@ -27966,7 +28055,7 @@ window.searchData = [
       "B-cell non-Hodgkin lymphoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-01-26T04:02:22Z",
+    "updated_date": "2026-03-15T17:11:27Z",
     "subtypes": [
       "Classical Mantle Cell Lymphoma",
       "Leukemic Non-Nodal Mantle Cell Lymphoma",
@@ -27974,11 +28063,16 @@ window.searchData = [
     ],
     "description": "Mantle cell lymphoma (MCL) is an aggressive B-cell non-Hodgkin lymphoma characterized by the t(11;14)(q13;q32) translocation, which juxtaposes the CCND1 (cyclin D1) gene with the immunoglobulin heavy chain enhancer, leading to constitutive cyclin D1 overexpression. MCL typically presents at advanced stage with lymphadenopathy, bone marrow involvement, and frequently gastrointestinal tract infiltration. While historically considered incurable with median survival of 3-5 years, outcomes have improved with BTK inhibitors (ibrutinib, acalabrutinib), high-dose therapy with stem cell transplant in younger patients, and emerging therapies including CAR-T cells.",
     "pathophysiology": [
-      "CCND1 Translocation and Cyclin D1 Overexpression",
-      "Cell Cycle Dysregulation",
-      "BTK and BCR Signaling Dependence",
-      "NF-kB Activation",
-      "Uncontrolled B-cell Proliferation"
+      "CCND1/IGH translocation",
+      "Cyclin D1 overexpression",
+      "G1/S cell-cycle acceleration",
+      "DNA damage response pathway inactivation",
+      "Genetic instability",
+      "Microenvironmental crosstalk in marrow and secondary lymphoid organs",
+      "B-cell receptor signaling activation",
+      "B-cell survival advantage",
+      "Malignant B-cell expansion",
+      "Widespread tissue infiltration by malignant B cells"
     ],
     "cell_types": [
       "B cell"
@@ -27988,18 +28082,22 @@ window.searchData = [
     ],
     "biological_processes": [
       "G1/S transition of mitotic cell cycle",
-      "cell population proliferation",
       "B cell activation",
-      "apoptotic process"
+      "apoptotic process",
+      "cell population proliferation"
     ],
     "phenotypes": [
       "Generalized Lymphadenopathy",
       "Splenomegaly",
+      "Hepatomegaly",
       "Gastrointestinal Involvement",
+      "Fever",
       "Night Sweats",
       "Weight Loss",
       "Fatigue",
-      "Anemia"
+      "Anemia",
+      "Peripheral Blood Lymphocytosis",
+      "Thrombocytopenia"
     ],
     "phenotype_categories": [
       "Lymphatic",
@@ -28015,19 +28113,25 @@ window.searchData = [
       "Digestive",
       "Growth",
       "Immune",
+      "Metabolism",
       "Neoplasm"
     ],
     "phenotype_ids": [
       "HP:0008940",
       "HP:0001744",
+      "HP:0002240",
       "HP:0007378",
+      "HP:0001945",
       "HP:0030166",
       "HP:0001824",
       "HP:0012378",
-      "HP:0001903"
+      "HP:0001903",
+      "HP:0100827",
+      "HP:0001873"
     ],
     "frequencies": [
       "VERY_FREQUENT",
+      "OCCASIONAL",
       "FREQUENT"
     ],
     "genes": [
@@ -28050,12 +28154,12 @@ window.searchData = [
     ],
     "source_file": "Mantle_Cell_Lymphoma.yaml",
     "page_url": "../pages/disorders/Mantle_Cell_Lymphoma.html",
-    "num_phenotypes": 7,
-    "num_pathophysiology": 5,
+    "num_phenotypes": 11,
+    "num_pathophysiology": 10,
     "num_genes": 3,
     "num_treatments": 6,
-    "causal_graph_edges": "3",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Maple Syrup Urine Disease",
