@@ -2462,30 +2462,52 @@ window.searchData = [
       "Autoimmune Disease"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-02-16T20:19:38Z",
+    "updated_date": "2026-03-13T14:31:00Z",
     "subtypes": [
       "Primary APS",
       "Secondary APS",
-      "Asymptomatic APS"
+      "Asymptomatic APS",
+      "Catastrophic APS"
     ],
     "description": "A systemic autoimmune disorder characterized by the presence of antiphospholipid antibodies that increase the risk of blood clots and other complications.",
     "pathophysiology": [
-      "Antibody Production",
-      "Blood Clot Formation",
-      "Impaired Blood Flow",
-      "Organ Damage",
-      "Pregnancy Complications",
-      "Chronic Complications"
+      "Autoantibody generation against beta2GPI and phospholipid complexes",
+      "Cell-surface beta2GPI binding",
+      "Innate receptor signaling",
+      "Endothelial activation",
+      "Monocyte tissue factor induction",
+      "Platelet activation",
+      "Complement activation",
+      "Impaired fibrinolysis",
+      "Arterial and venous thrombosis",
+      "Placental immune injury",
+      "Pregnancy morbidity",
+      "Organ ischemia and damage accrual",
+      "Catastrophic microvascular thrombosis"
     ],
     "cell_types": [
       "B cell",
-      "T cell"
+      "T cell",
+      "endothelial cell",
+      "monocyte",
+      "platelet",
+      "trophoblast cell"
     ],
     "cell_type_ids": [
       "CL:0000236",
-      "CL:0000084"
+      "CL:0000084",
+      "CL:0000115",
+      "CL:0000576",
+      "CL:0000233",
+      "CL:0000351"
     ],
-    "biological_processes": [],
+    "biological_processes": [
+      "immunoglobulin production",
+      "platelet activation",
+      "complement activation",
+      "blood coagulation",
+      "fibrinolysis"
+    ],
     "phenotypes": [
       "Deep Vein Thrombosis",
       "Preterm Birth",
@@ -2493,7 +2515,6 @@ window.searchData = [
       "Cardiac Valve Disease",
       "Preeclampsia",
       "Thrombocytopenia",
-      "Cardiac Valve Disease",
       "Livedo Reticularis",
       "Migraine Headaches",
       "Pulmonary Embolism",
@@ -2532,7 +2553,11 @@ window.searchData = [
       "HLA-DR7",
       "HLA-DR4"
     ],
-    "treatments": [],
+    "treatments": [
+      "Long-term warfarin anticoagulation",
+      "Heparin plus low-dose aspirin in pregnancy",
+      "Adjunct hydroxychloroquine"
+    ],
     "environmental": [
       "Smoking",
       "Infection"
@@ -2546,12 +2571,12 @@ window.searchData = [
     ],
     "source_file": "Antiphospholipid_Syndrome.yaml",
     "page_url": "../pages/disorders/Antiphospholipid_Syndrome.html",
-    "num_phenotypes": 11,
-    "num_pathophysiology": 6,
+    "num_phenotypes": 10,
+    "num_pathophysiology": 13,
     "num_genes": 2,
-    "num_treatments": 0,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "1"
+    "num_treatments": 3,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Apert Syndrome",
@@ -3966,7 +3991,7 @@ window.searchData = [
       "Hematologic Disease"
     ],
     "creation_date": "2025-12-19T01:12:52Z",
-    "updated_date": "2026-02-17T21:53:14Z",
+    "updated_date": "2026-03-13T12:00:00Z",
     "subtypes": [],
     "description": "An acquired hemolytic anemia caused by autoantibodies against red blood cell surface antigens. Classified as warm (IgG, 70-80%) or cold (IgM, cold agglutinin disease) based on antibody thermal amplitude. May be primary or secondary to underlying disease.",
     "pathophysiology": [
@@ -10634,6 +10659,127 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Contact Dermatitis",
+    "disease_id": "MONDO:0005480",
+    "category": "Complex",
+    "parents": [
+      "Dermatological Disease",
+      "Inflammatory Disease"
+    ],
+    "creation_date": "2026-03-13T18:40:33Z",
+    "updated_date": "2026-03-14T23:13:30Z",
+    "subtypes": [
+      "Allergic Contact Dermatitis",
+      "Irritant Contact Dermatitis"
+    ],
+    "description": "Contact dermatitis is an exogenous inflammatory eczema triggered by direct skin exposure to irritants or sensitizing allergens. The umbrella disorder includes irritant contact dermatitis, driven by barrier injury and innate inflammation, and allergic contact dermatitis, driven by hapten-specific type IV T-cell immunity after sensitization.",
+    "pathophysiology": [
+      "Irritant exposure and toxic insult",
+      "Epidermal barrier disruption",
+      "Keratinocyte activation and proinflammatory mediator release",
+      "Innate inflammatory cell recruitment",
+      "Hapten exposure",
+      "Skin innate immune activation during sensitization",
+      "Breakdown of regulatory T-cell-mediated hapten tolerance",
+      "Allergen-specific T-cell priming",
+      "Re-exposure-driven effector T-cell recruitment",
+      "Resident memory T-cell flare activation",
+      "Mixed type 1 and type 3 cytokine and chemokine amplification",
+      "Fibroblast CXCL9/CXCL10 reinforcement",
+      "Complement-associated sensory neuron activation"
+    ],
+    "cell_types": [
+      "keratinocyte",
+      "dendritic cell",
+      "Langerhans cell",
+      "regulatory T cell",
+      "CD8-positive, alpha-beta T cell",
+      "CD8-positive effector T cell",
+      "resident memory CD8-positive T cell",
+      "T cell",
+      "neutrophil",
+      "fibroblast",
+      "sensory neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000312",
+      "CL:0000451",
+      "CL:0000453",
+      "CL:0000815",
+      "CL:0000625",
+      "CL:0000084",
+      "CL:0000775",
+      "CL:0000057",
+      "CL:0000101"
+    ],
+    "biological_processes": [
+      "keratinocyte activation",
+      "inflammatory response",
+      "dendritic cell antigen processing and presentation",
+      "T cell activation",
+      "type IV hypersensitivity",
+      "chemokine production"
+    ],
+    "phenotypes": [
+      "Contact dermatitis",
+      "Pruritus",
+      "Erythema",
+      "Scaling skin"
+    ],
+    "phenotype_categories": [
+      "Dermatological"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Immune",
+      "Integument"
+    ],
+    "phenotype_ids": [
+      "HP:0032282",
+      "HP:0000989",
+      "HP:0010783",
+      "HP:0040189"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT"
+    ],
+    "genes": [
+      "FLG loss-of-function variants and allergic sensitization susceptibility",
+      "FLG loss-of-function variants and irritant contact dermatitis susceptibility"
+    ],
+    "treatments": [
+      "Allergen and irritant avoidance",
+      "Topical corticosteroids",
+      "Topical calcineurin inhibitors",
+      "Systemic corticosteroids"
+    ],
+    "environmental": [
+      "Wet work and detergent exposure",
+      "Nickel exposure",
+      "Fragrance exposure",
+      "Isothiazolinone exposure",
+      "Mastisol adhesive exposure",
+      "2-octyl cyanoacrylate adhesive exposure",
+      "Para-phenylenediamine exposure",
+      "Rubber accelerator exposure",
+      "Biocide exposure",
+      "Repeated and high-concentration allergen exposure",
+      "Toxicodendron exposure",
+      "Lime and other psoralen-rich citrus exposure with ultraviolet light",
+      "Mare's milk soap exposure"
+    ],
+    "biochemical": [],
+    "source_file": "Contact_Dermatitis.yaml",
+    "page_url": "../pages/disorders/Contact_Dermatitis.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 13,
+    "num_genes": 2,
+    "num_treatments": 4,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Acute Myeloid Leukemia, Core Binding Factor",
     "disease_id": "MONDO:0015166",
     "category": "",
@@ -15859,71 +16005,129 @@ window.searchData = [
       "Cardiovascular Disease"
     ],
     "creation_date": "2026-03-06T00:00:00Z",
-    "updated_date": "2026-03-06T06:25:00Z",
-    "subtypes": [],
-    "description": "Familial hypercholesterolemia (FH) is a common autosomal dominant disorder of lipid metabolism characterized by significantly elevated serum low-density lipoprotein (LDL) cholesterol levels from birth, leading to premature atherosclerotic cardiovascular disease. Most cases are caused by mutations in LDLR encoding the LDL receptor, though mutations in APOB and PCSK9 also contribute. Heterozygous FH affects approximately 1 in 250 individuals, making it one of the most common Mendelian disorders. Homozygous FH is rare but causes severe cardiovascular disease in childhood. Lifelong LDL cholesterol-lowering treatment substantially improves cardiovascular outcomes.\n",
+    "updated_date": "2026-03-13T00:00:00Z",
+    "subtypes": [
+      "Heterozygous Familial Hypercholesterolemia",
+      "Homozygous Familial Hypercholesterolemia"
+    ],
+    "description": "Familial hypercholesterolemia (FH) is a common autosomal dominant disorder of lipid metabolism characterized by significantly elevated serum low-density lipoprotein (LDL) cholesterol levels from birth, leading to premature atherosclerotic cardiovascular disease. Most cases are caused by mutations in LDLR encoding the LDL receptor, though mutations in APOB, PCSK9, LDLRAP1, and rarely APOE also contribute. Heterozygous FH (HeFH) affects approximately 1 in 250 individuals, making it one of the most common Mendelian disorders. Homozygous FH (HoFH) is rare (~1 in 250,000-360,000) but causes severe cardiovascular disease in childhood. The severity broadly reflects gene dosage and residual LDL receptor pathway activity. Lifelong LDL cholesterol-lowering treatment with combination therapy substantially improves cardiovascular outcomes and longevity. Recent LDLR-independent therapies such as evinacumab (anti-ANGPTL3) have expanded treatment options for HoFH patients with minimal residual LDLR function.\n",
     "pathophysiology": [
       "Impaired LDL Receptor Function",
-      "Accelerated Atherosclerosis"
+      "PCSK9-Mediated LDLR Degradation",
+      "Accelerated Atherosclerosis",
+      "Cholesterol Homeostasis Disruption"
     ],
     "cell_types": [
       "hepatocyte",
       "macrophage",
-      "vascular associated smooth muscle cell"
+      "vascular associated smooth muscle cell",
+      "endothelial cell"
     ],
     "cell_type_ids": [
       "CL:0000182",
       "CL:0000235",
-      "CL:0000359"
+      "CL:0000359",
+      "CL:0000115"
     ],
     "biological_processes": [
       "cholesterol metabolic process",
-      "lipid metabolic process"
+      "low-density lipoprotein particle clearance",
+      "receptor-mediated endocytosis",
+      "lipid metabolic process",
+      "inflammatory response",
+      "cholesterol homeostasis"
     ],
     "phenotypes": [
       "Hypercholesterolemia",
       "Premature Coronary Artery Disease",
-      "Tendon Xanthomas"
+      "Coronary Artery Atherosclerosis",
+      "Angina Pectoris",
+      "Myocardial Infarction",
+      "Aortic Valve Stenosis",
+      "Atherosclerosis",
+      "Peripheral Arterial Stenosis",
+      "Ischemic Stroke",
+      "Tendon Xanthomas",
+      "Xanthelasma",
+      "Corneal Arcus"
     ],
     "phenotype_categories": [
       "Metabolic",
       "Cardiovascular",
-      "Dermatologic"
+      "Dermatologic",
+      "Ophthalmologic"
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
+      "Eye",
+      "Head and Neck",
       "Integument",
       "Metabolism",
-      "Musculoskeletal"
+      "Musculoskeletal",
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0003124",
       "HP:0005181",
-      "HP:0010874"
+      "HP:0001677",
+      "HP:0001681",
+      "HP:0001658",
+      "HP:0001650",
+      "HP:0002621",
+      "HP:0004950",
+      "HP:0002140",
+      "HP:0010874",
+      "HP:0001114",
+      "HP:0001084"
     ],
     "frequencies": [
+      "OBLIGATE",
       "VERY_FREQUENT",
-      "FREQUENT"
+      "FREQUENT",
+      "OCCASIONAL"
     ],
     "genes": [
       "LDLR",
       "APOB",
-      "PCSK9"
+      "PCSK9",
+      "LDLRAP1",
+      "APOE",
+      "Polygenic Hypercholesterolemia"
     ],
     "treatments": [
-      "Statin Therapy",
+      "High-Intensity Statin Therapy",
+      "Ezetimibe",
       "PCSK9 Inhibitor Therapy",
+      "Inclisiran",
+      "Bempedoic Acid",
+      "Evinacumab (Anti-ANGPTL3)",
+      "Lomitapide",
       "LDL Apheresis",
-      "Genetic Counseling"
+      "Liver Transplantation",
+      "Dietary Modification",
+      "Exercise and Physical Activity",
+      "Smoking Cessation",
+      "Nutritional Counseling",
+      "Genetic Counseling and Cascade Screening"
     ],
-    "environmental": [],
+    "environmental": [
+      "High Saturated Fat Diet",
+      "Smoking and Tobacco Use",
+      "Physical Inactivity",
+      "Obesity and Metabolic Syndrome",
+      "Diabetes Mellitus",
+      "Hypertension",
+      "Social Determinants of Health",
+      "Occupational Factors",
+      "Alcohol Consumption"
+    ],
     "biochemical": [],
     "source_file": "Familial_Hypercholesterolemia.yaml",
     "page_url": "../pages/disorders/Familial_Hypercholesterolemia.html",
-    "num_phenotypes": 3,
-    "num_pathophysiology": 2,
-    "num_genes": 3,
-    "num_treatments": 4,
+    "num_phenotypes": 12,
+    "num_pathophysiology": 4,
+    "num_genes": 6,
+    "num_treatments": 14,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
   },
@@ -19841,6 +20045,137 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Hand Foot and Mouth Disease",
+    "disease_id": "MONDO:0005779",
+    "category": "Infectious",
+    "parents": [
+      "Enterovirus infection",
+      "Viral exanthem"
+    ],
+    "creation_date": "2026-03-09T12:00:00Z",
+    "updated_date": "2026-03-10T16:31:31Z",
+    "subtypes": [],
+    "description": "A common acute viral illness predominantly affecting children under 5 years old, caused by enteroviruses (most commonly Coxsackievirus A16 and Enterovirus A71), characterized by fever, oral enanthema (painful mouth ulcers), and a vesicular exanthem on the hands, feet, and buttocks. Usually self-limiting, but EV-A71 strains can cause severe neurological and cardiopulmonary complications.",
+    "pathophysiology": [
+      "Receptor-mediated viral entry and endosomal uncoating",
+      "Viremia and systemic dissemination",
+      "Enteroviral mucocutaneous injury",
+      "Innate immune sensing and viral evasion",
+      "Blood-brain barrier disruption and neuroinvasion",
+      "Brainstem neuroinflammation",
+      "Brainstem structural injury",
+      "Sympathetic nervous system overactivation",
+      "Catecholamine excess",
+      "Host metabolic reprogramming by EV-A71"
+    ],
+    "cell_types": [
+      "keratinocyte",
+      "endothelial cell",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000312",
+      "CL:0000115",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "receptor-mediated endocytosis of virus by host cell",
+      "symbiont entry into host cell",
+      "innate immune response",
+      "type I interferon-mediated signaling pathway",
+      "defense response to virus",
+      "inflammatory response",
+      "catecholamine secretion",
+      "glycolytic process"
+    ],
+    "phenotypes": [
+      "Vesicular exanthem on hands and feet",
+      "Maculopapular exanthem",
+      "Onychomadesis",
+      "Oral enanthema",
+      "Drooling",
+      "Decreased appetite",
+      "Sore throat",
+      "Fever",
+      "Malaise",
+      "Irritability",
+      "Aseptic meningitis",
+      "Brainstem encephalitis",
+      "Acute flaccid paralysis",
+      "Seizures",
+      "Neurogenic pulmonary edema",
+      "Myocarditis",
+      "Dehydration"
+    ],
+    "phenotype_categories": [
+      "Integument",
+      "Digestive",
+      "Constitutional",
+      "Nervous System",
+      "Respiratory",
+      "Cardiovascular",
+      "Metabolism"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0200037",
+      "HP:0040186",
+      "HP:0025088",
+      "HP:0000155",
+      "HP:0002307",
+      "HP:0004396",
+      "HP:0025439",
+      "HP:0001945",
+      "HP:0033834",
+      "HP:0000737",
+      "HP:0001287",
+      "HP:0002383",
+      "HP:0003470",
+      "HP:0001250",
+      "HP:0100598",
+      "HP:0012819",
+      "HP:0001944"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "SCARB2 polymorphisms and disease severity"
+    ],
+    "treatments": [
+      "Supportive care",
+      "Antipyretic and analgesic therapy",
+      "EV-A71 inactivated vaccine"
+    ],
+    "environmental": [
+      "Childcare and school settings",
+      "Tropical and subtropical climate",
+      "Poor hygiene and sanitation"
+    ],
+    "biochemical": [],
+    "source_file": "Hand_Foot_and_Mouth_Disease.yaml",
+    "page_url": "../pages/disorders/Hand_Foot_and_Mouth_Disease.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Hashimoto's Thyroiditis",
     "disease_id": "MONDO:0007699",
     "category": "Complex",
@@ -21508,6 +21843,104 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Hospital-Acquired Acute Kidney Injury",
+    "disease_id": "MONDO:0002492",
+    "category": "Complex",
+    "parents": [
+      "Renal Disease"
+    ],
+    "creation_date": "2026-03-09T12:00:00Z",
+    "updated_date": "2026-03-12T12:00:00Z",
+    "subtypes": [
+      "Sepsis-Associated AKI",
+      "Nephrotoxic AKI",
+      "Postoperative AKI",
+      "Contrast-Induced AKI"
+    ],
+    "description": "Hospital-acquired acute kidney injury (HA-AKI) is a common and serious clinical syndrome defined as AKI developing after hospital admission, typically diagnosed using KDIGO serum creatinine and urine output criteria. It represents a convergent endpoint arising from overlapping inpatient insults including sepsis, nephrotoxic drug exposure, perioperative hemodynamic instability, and contrast media administration. HA-AKI affects 10-25% of hospitalized patients overall and up to 50-60% of ICU patients, with in-hospital mortality rates of 30-45% for ICU-acquired cases. Despite advances in recognition and supportive care, effective preventive and therapeutic strategies remain limited, and HA-AKI is an independent risk factor for progression to chronic kidney disease.\n",
+    "pathophysiology": [
+      "Ischemic Tubular Injury",
+      "Nephrotoxic Injury",
+      "Sepsis-Associated AKI",
+      "Mitochondrial Dysfunction"
+    ],
+    "cell_types": [
+      "Proximal Tubular Epithelial Cell",
+      "Peritubular Capillary Endothelial Cell",
+      "Glomerular Endothelial Cell",
+      "Kidney Resident Macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:0002306",
+      "CL:1001033",
+      "CL:0002188",
+      "CL:1000698"
+    ],
+    "biological_processes": [
+      "Ischemic Response",
+      "Programmed Necrotic Cell Death",
+      "Apoptotic Process",
+      "Response to Oxidative Stress",
+      "Inflammatory Response",
+      "Cell Death"
+    ],
+    "phenotypes": [
+      "Oliguria",
+      "Elevated Serum Creatinine",
+      "Metabolic Acidosis",
+      "Hyperkalemia",
+      "Fluid Overload",
+      "Azotemia",
+      "Proteinuria"
+    ],
+    "phenotype_categories": [
+      "Genitourinary",
+      "Metabolism"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0100520",
+      "HP:0003259",
+      "HP:0001942",
+      "HP:0002153",
+      "HP:0000969",
+      "HP:0002157",
+      "HP:0000093"
+    ],
+    "frequencies": [],
+    "genes": [
+      "FTO",
+      "SHROOM3",
+      "APOE",
+      "NR5A2",
+      "CHRNA7"
+    ],
+    "treatments": [
+      "Fluid Resuscitation",
+      "Nephrotoxin Avoidance",
+      "Renal Replacement Therapy",
+      "AKI Care Bundles"
+    ],
+    "environmental": [
+      "Nephrotoxic Drug Exposure",
+      "Contrast Media Exposure",
+      "Sepsis",
+      "Major Surgery"
+    ],
+    "biochemical": [],
+    "source_file": "Hospital-Acquired_Acute_Kidney_Injury.yaml",
+    "page_url": "../pages/disorders/Hospital-Acquired_Acute_Kidney_Injury.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 4,
+    "num_genes": 5,
+    "num_treatments": 4,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Houge-Janssens Syndrome",
     "disease_id": "MONDO:0957553",
     "category": "Mendelian",
@@ -21772,6 +22205,129 @@ window.searchData = [
     "num_treatments": 7,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Hyperlipidemia",
+    "disease_id": "MONDO:0021187",
+    "category": "Complex",
+    "parents": [
+      "Metabolic Disease",
+      "Cardiovascular Risk Factor"
+    ],
+    "creation_date": "2026-03-03T12:00:00Z",
+    "updated_date": "2026-03-06T19:31:42Z",
+    "subtypes": [
+      "Familial Hypercholesterolemia",
+      "Familial Combined Hyperlipidemia",
+      "Hypertriglyceridemia",
+      "Mixed Hyperlipidemia"
+    ],
+    "description": "Impaired hepatic clearance of LDL cholesterol due to reduced LDL receptor expression or function. Mutations in the LDLR gene reduce receptor-mediated endocytosis of LDL particles, leading to their accumulation in the bloodstream and accelerated atherogenesis.\n",
+    "pathophysiology": [
+      "LDL Receptor-Mediated Cholesterol Clearance Deficiency",
+      "PCSK9-Mediated LDL Receptor Degradation",
+      "Dysregulated Hepatic Lipogenesis and VLDL Overproduction",
+      "Impaired Lipoprotein Lipase Activity and ApoC-III Dysregulation",
+      "Oxidized LDL Infiltration of Arterial Intima",
+      "Macrophage Recruitment to Arterial Intima",
+      "Macrophage-Derived Foam Cell Formation",
+      "Atherosclerotic Plaque Development"
+    ],
+    "cell_types": [
+      "Hepatocyte",
+      "Macrophage",
+      "Endothelial cell",
+      "Macrophage-derived foam cell",
+      "Vascular smooth muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0000235",
+      "CL:0000115",
+      "CL:0000517",
+      "CL:0000359"
+    ],
+    "biological_processes": [
+      "Receptor-mediated endocytosis",
+      "Cholesterol metabolic process",
+      "Inflammatory response",
+      "Lipid biosynthetic process",
+      "Lipid metabolic process",
+      "Macrophage-derived foam cell differentiation"
+    ],
+    "phenotypes": [
+      "Elevated Triglycerides",
+      "Premature Atherosclerosis",
+      "Xanthomas",
+      "Corneal Arcus",
+      "Coronary Artery Disease",
+      "Decreased HDL Cholesterol",
+      "Increased LDL Cholesterol"
+    ],
+    "phenotype_categories": [
+      "CARDIOVASCULAR",
+      "DERMATOLOGIC",
+      "OPHTHALMOLOGIC"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye",
+      "Integument",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0002155",
+      "HP:0004416",
+      "HP:0000991",
+      "HP:0001084",
+      "HP:0001677",
+      "HP:0003233",
+      "HP:0003141"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "LDLR",
+      "PCSK9",
+      "APOB",
+      "LPL",
+      "APOE",
+      "APOC3"
+    ],
+    "treatments": [
+      "Statin Therapy",
+      "PCSK9 Inhibitors",
+      "Ezetimibe",
+      "Fibrates",
+      "Lifestyle Modification",
+      "Omega-3 Fatty Acids",
+      "Bempedoic Acid",
+      "ApoC-III Inhibitors"
+    ],
+    "environmental": [
+      "High Saturated Fat Diet",
+      "Sedentary Lifestyle",
+      "Obesity"
+    ],
+    "biochemical": [
+      "Total Cholesterol",
+      "LDL Cholesterol",
+      "Triglycerides",
+      "HDL Cholesterol",
+      "TC:HDL-C Ratio",
+      "Apolipoprotein C-III"
+    ],
+    "source_file": "Hyperlipidemia.yaml",
+    "page_url": "../pages/disorders/Hyperlipidemia.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 8,
+    "num_genes": 6,
+    "num_treatments": 8,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Hypertensive Heart Disease",
@@ -25055,6 +25611,138 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Lead Poisoning",
+    "disease_id": "MONDO:0018019",
+    "category": "Environmental",
+    "parents": [
+      "heavy metal poisoning"
+    ],
+    "creation_date": "2026-03-10T20:45:26Z",
+    "updated_date": "2026-03-10T23:12:33Z",
+    "subtypes": [
+      "Acute Lead Poisoning",
+      "Chronic Lead Poisoning"
+    ],
+    "description": "Lead poisoning is a toxic condition caused by acute or chronic exposure to lead, a non-essential heavy metal encountered through deteriorating lead-based paint, contaminated drinking water, battery manufacture and recycling, mining and smelting, electronic waste, and other occupational or environmental sources. Children are especially vulnerable because lead disrupts nervous system development even at relatively low blood lead concentrations. Lead toxicity reflects calcium mimicry, inhibition of heme biosynthesis, oxidative stress, mitochondrial dysfunction, and chronic accumulation in bone and kidney. Clinical manifestations include abdominal pain, constipation, anemia, cognitive impairment, peripheral neuropathy, nephropathy, and hypertension.",
+    "pathophysiology": [
+      "Lead absorption",
+      "Systemic lead distribution",
+      "Bone sequestration of lead",
+      "Inhibition of delta-aminolevulinic acid dehydratase",
+      "Erythrocyte pyrimidine 5'-nucleotidase deficiency",
+      "Hemolytic erythrocyte injury",
+      "Calcium mimicry in neuronal signaling",
+      "Protein kinase C dysregulation",
+      "Mitochondrial dysfunction",
+      "Oxidative stress response",
+      "Proximal tubular lead accumulation",
+      "Chronic tubulointerstitial nephropathy"
+    ],
+    "cell_types": [
+      "osteoblast",
+      "erythrocyte",
+      "neuron",
+      "proximal tubule cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000062",
+      "CL:0000232",
+      "CL:0000540",
+      "CL:0002306"
+    ],
+    "biological_processes": [
+      "transmembrane transport",
+      "calcium ion homeostasis",
+      "heme biosynthetic process",
+      "pyrimidine-containing compound biosynthetic process",
+      "mitochondrion organization",
+      "response to oxidative stress",
+      "renal absorption"
+    ],
+    "phenotypes": [
+      "Abdominal pain",
+      "Constipation",
+      "Anemia",
+      "Encephalopathy",
+      "Cognitive impairment",
+      "Developmental delay",
+      "Behavioral changes",
+      "Peripheral neuropathy",
+      "Hypertension",
+      "Chronic kidney disease",
+      "Gout",
+      "Gingival lead line"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Hematologic",
+      "Nervous System",
+      "Cardiovascular",
+      "Renal",
+      "Metabolic",
+      "Oral"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002027",
+      "HP:0002019",
+      "HP:0001903",
+      "HP:0001298",
+      "HP:0100543",
+      "HP:0001263",
+      "HP:0000708",
+      "HP:0009830",
+      "HP:0000822",
+      "HP:0012622",
+      "HP:0001997",
+      "HP:0000168"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Exposure cessation and source control",
+      "Succimer chelation",
+      "Calcium disodium edetate chelation",
+      "Dimercaprol chelation"
+    ],
+    "environmental": [
+      "Lead-based paint",
+      "Household dust",
+      "Contaminated drinking water",
+      "Contaminated spices and turmeric",
+      "Lead-soldered food and drink cans",
+      "Battery manufacture",
+      "Mining",
+      "E-waste recycling",
+      "Lead-adulterated oral opium",
+      "Lead-adulterated heroin"
+    ],
+    "biochemical": [
+      "Blood Lead Level",
+      "Zinc Protoporphyrin"
+    ],
+    "source_file": "Lead_Poisoning.yaml",
+    "page_url": "../pages/disorders/Lead_Poisoning.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 12,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Leishmaniasis",
@@ -33573,6 +34261,84 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "PTCH1-related nevoid basal cell carcinoma syndrome",
+    "disease_id": "MONDO:0958174",
+    "category": "Mendelian",
+    "parents": [
+      "nevoid basal cell carcinoma syndrome",
+      "hereditary cancer predisposition syndrome",
+      "Hedgehog pathway disease"
+    ],
+    "creation_date": "2026-03-04T09:02:38Z",
+    "updated_date": "2026-03-05T03:00:54Z",
+    "subtypes": [],
+    "description": "PTCH1-related nevoid basal cell carcinoma syndrome (basal cell nevus syndrome 1) is an autosomal dominant hereditary cancer predisposition syndrome caused by germline pathogenic variants in PTCH1. The primary molecular defect is loss of PTCH1-mediated suppression of smoothened signaling, leading to increased Hedgehog pathway output and GLI-dependent proliferative signaling in susceptible tissues. Clinically, this form is typically associated with high basal cell carcinoma burden, frequent odontogenic keratocysts, and lower medulloblastoma risk than SUFU-related disease.",
+    "pathophysiology": [
+      "PTCH1 Loss with SMO Disinhibition",
+      "SMO-Targetable Dependence"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "smoothened signaling pathway",
+      "negative regulation of smoothened signaling pathway"
+    ],
+    "phenotypes": [
+      "Multiple Basal Cell Carcinomas",
+      "Odontogenic Keratocysts of the Jaw",
+      "Medulloblastoma",
+      "Abnormal Rib Morphology"
+    ],
+    "phenotype_categories": [
+      "Dermatologic",
+      "Dental",
+      "Oncologic",
+      "Skeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Head and Neck",
+      "Integument",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002671",
+      "HP:0010603",
+      "HP:0002885",
+      "HP:0000772"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [
+      "PTCH1"
+    ],
+    "treatments": [
+      "Vismodegib",
+      "Sonidegib",
+      "Surgical Excision",
+      "Sunlight Avoidance",
+      "Genetic Counseling"
+    ],
+    "environmental": [
+      "Ultraviolet Radiation",
+      "Ionizing Radiation"
+    ],
+    "biochemical": [],
+    "source_file": "PTCH1-related_Nevoid_Basal_Cell_Carcinoma_Syndrome.yaml",
+    "page_url": "../pages/disorders/PTCH1-related_nevoid_basal_cell_carcinoma_syndrome.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "1"
+  },
+  {
     "name": "Pallister-Hall Syndrome",
     "disease_id": "MONDO:0007804",
     "category": "Mendelian",
@@ -38369,6 +39135,82 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "SUFU-related nevoid basal cell carcinoma syndrome",
+    "disease_id": "MONDO:0958189",
+    "category": "Mendelian",
+    "parents": [
+      "nevoid basal cell carcinoma syndrome",
+      "hereditary cancer predisposition syndrome",
+      "Hedgehog pathway disease"
+    ],
+    "creation_date": "2026-03-04T09:02:38Z",
+    "updated_date": "2026-03-05T03:00:54Z",
+    "subtypes": [],
+    "description": "SUFU-related nevoid basal cell carcinoma syndrome (basal cell nevus syndrome 2) is an autosomal dominant hereditary cancer predisposition syndrome caused by germline pathogenic variants in SUFU. The defining molecular lesion is loss of SUFU-mediated suppression of GLI transcriptional activity, producing downstream Hedgehog pathway dysregulation. Compared with PTCH1-related disease, this form shows substantially higher early-childhood medulloblastoma risk, lower jaw-cyst and BCC burden, and distinct surveillance priorities.",
+    "pathophysiology": [
+      "SUFU Loss with GLI Derepression",
+      "Downstream-Pathway Therapeutic Constraint"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "negative regulation of smoothened signaling pathway",
+      "smoothened signaling pathway"
+    ],
+    "phenotypes": [
+      "Medulloblastoma",
+      "Meningioma",
+      "Ovarian Fibroma",
+      "Basal Cell Carcinoma",
+      "Odontogenic Keratocysts of the Jaw"
+    ],
+    "phenotype_categories": [
+      "Oncologic",
+      "Genitourinary",
+      "Dermatologic",
+      "Dental"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Genitourinary",
+      "Head and Neck",
+      "Integument",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002885",
+      "HP:0002858",
+      "HP:0010618",
+      "HP:0002671",
+      "HP:0010603"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL",
+      "RARE"
+    ],
+    "genes": [
+      "SUFU"
+    ],
+    "treatments": [
+      "Surgery and Chemotherapy-Centered Medulloblastoma Management",
+      "Genetic Counseling"
+    ],
+    "environmental": [
+      "Ionizing Radiation"
+    ],
+    "biochemical": [],
+    "source_file": "SUFU-related_Nevoid_Basal_Cell_Carcinoma_Syndrome.yaml",
+    "page_url": "../pages/disorders/SUFU-related_nevoid_basal_cell_carcinoma_syndrome.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "1"
+  },
+  {
     "name": "Salla Disease",
     "disease_id": "MONDO:0011449",
     "category": "Mendelian",
@@ -40514,59 +41356,62 @@ window.searchData = [
     "category": "Mendelian",
     "parents": [
       "Ophthalmological Disease",
-      "Retinal Dystrophy"
+      "Retinal Dystrophy",
+      "Inherited macular dystrophy",
+      "ABCA4-related retinal dystrophy"
     ],
-    "creation_date": "2026-02-27T12:00:00Z",
-    "updated_date": "2026-02-28T02:57:04Z",
+    "creation_date": "2026-02-26T00:00:00Z",
+    "updated_date": "2026-03-13T23:10:00Z",
     "subtypes": [
-      "Stargardt Disease Type 1 (STGD1)",
-      "Stargardt Disease Type 3 (STGD3)",
-      "Stargardt Disease Type 4 (STGD4)"
+      "Stargardt disease 1 (STGD1)",
+      "Stargardt disease 3 (STGD3)",
+      "Stargardt disease 4 (STGD4)"
     ],
-    "description": "Loss-of-function mutations in the ABCA4 gene impair the ATP-binding cassette transporter responsible for flipping N-retinylidene-phosphatidylethanolamine (N-Ret-PE) and phosphatidylethanolamine across photoreceptor disc membranes. This leads to accumulation of toxic retinoid byproducts in photoreceptor outer segments.\n",
+    "description": "Stargardt disease (STGD1) is the most common inherited macular dystrophy, typically presenting in childhood or adolescence with progressive bilateral central vision loss. It is caused most commonly by biallelic loss-of-function mutations in ABCA4, which encodes a retina-specific ATP-binding cassette transporter required to clear N-retinylidene-phosphatidylethanolamine from photoreceptor disc membranes. ABCA4 dysfunction promotes toxic bisretinoid and lipofuscin accumulation in retinal pigment epithelium, causing RPE injury followed by secondary photoreceptor degeneration, macular atrophy, and characteristic fundus flecks.\n",
     "pathophysiology": [
-      "ABCA4 Transporter Dysfunction",
-      "Lipofuscin and A2E Accumulation in RPE",
-      "RPE Endo-Lysosomal Dysfunction",
-      "Photoreceptor Degeneration"
+      "ABCA4 transporter dysfunction",
+      "Retinoid-adduct retention and bisretinoid precursor formation",
+      "Lipofuscin and A2E accumulation in RPE",
+      "RPE endo-lysosomal dysfunction",
+      "RPE dysfunction and atrophy",
+      "Secondary macular photoreceptor degeneration"
     ],
     "cell_types": [
-      "Retinal Cone Cell",
-      "Retinal Rod Cell",
-      "Retinal Pigment Epithelial Cell"
+      "photoreceptor cell",
+      "retinal cone cell",
+      "retinal rod cell",
+      "retinal pigment epithelial cell"
     ],
     "cell_type_ids": [
+      "CL:0000210",
       "CL:0000573",
       "CL:0000604",
       "CL:0002586"
     ],
     "biological_processes": [
-      "ATPase-coupled transmembrane transporter activity",
-      "Retinoid Metabolic Process",
-      "Lipid Transport",
-      "Response to Oxidative Stress",
-      "Phototransduction",
-      "Lysosome Organization",
-      "Phagocytosis",
-      "Visual Perception",
-      "Retinal Metabolic Process"
+      "lipid transport",
+      "retinoid metabolic process",
+      "response to oxidative stress",
+      "phagocytosis",
+      "lysosome organization",
+      "visual perception"
     ],
     "phenotypes": [
-      "Progressive Central Vision Loss",
-      "Macular Dystrophy",
-      "Fundus Flecks",
-      "Central Scotoma",
-      "Dyschromatopsia",
-      "Photophobia",
-      "Macular Atrophy",
-      "Abnormal Electroretinogram",
-      "Bull's Eye Maculopathy",
-      "Retinal Pigment Epithelial Atrophy",
-      "Retinal Pigment Epithelial Mottling",
+      "Macular dystrophy",
+      "Macular atrophy",
+      "Retinal flecks",
+      "Reduced visual acuity",
+      "Central scotoma",
+      "Color vision defect",
+      "Abnormal fundus autofluorescence",
+      "Bull's eye maculopathy",
+      "Retinal pigment epithelial atrophy",
+      "Retinal pigment epithelial mottling",
+      "Abnormal electroretinogram",
+      "Retinal thinning on OCT",
+      "Photoreceptor outer segment loss on macular OCT",
       "Nyctalopia",
-      "Reduced Visual Acuity",
-      "Retinal Thinning on OCT",
-      "Photoreceptor Outer Segment Loss on Macular OCT"
+      "Photophobia"
     ],
     "phenotype_categories": [
       "Ophthalmological"
@@ -40576,21 +41421,21 @@ window.searchData = [
       "Nervous System"
     ],
     "phenotype_ids": [
-      "HP:0000529",
       "HP:0007754",
-      "HP:0011507",
-      "HP:0000603",
-      "HP:0007641",
-      "HP:0000613",
       "HP:0007401",
-      "HP:0000512",
+      "HP:0012045",
+      "HP:0007663",
+      "HP:0000603",
+      "HP:0000551",
+      "HP:0030602",
       "HP:0011504",
       "HP:0007722",
       "HP:0007814",
-      "HP:0000662",
-      "HP:0007663",
+      "HP:0000512",
       "HP:0030329",
-      "HP:0030610"
+      "HP:0030610",
+      "HP:0000662",
+      "HP:0000613"
     ],
     "frequencies": [
       "OBLIGATE",
@@ -40604,16 +41449,17 @@ window.searchData = [
       "PROM1"
     ],
     "treatments": [
-      "Low Vision Rehabilitation",
-      "Genetic Counseling",
-      "Gene Therapy (Investigational)",
-      "Visual Cycle Modulators (Investigational)",
-      "Stem Cell Therapy (Investigational)",
-      "Lysosomal Re-acidification (Investigational)"
+      "Low vision rehabilitation",
+      "Genetic counseling",
+      "Gene therapy (investigational)",
+      "Visual cycle modulators (investigational)",
+      "Stem cell therapy (investigational)",
+      "Lysosomal re-acidification (investigational)",
+      "Complement inhibition (investigational)"
     ],
     "environmental": [],
     "biochemical": [
-      "A2E (Bisretinoid)",
+      "A2E (bisretinoid)",
       "Lipofuscin",
       "All-trans-retinal",
       "Phosphatidylethanolamine"
@@ -40621,11 +41467,11 @@ window.searchData = [
     "source_file": "Stargardt_Disease.yaml",
     "page_url": "../pages/disorders/Stargardt_Disease.html",
     "num_phenotypes": 15,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 6,
     "num_genes": 3,
-    "num_treatments": 6,
-    "causal_graph_edges": "15",
-    "causal_graph_longest_path": "4"
+    "num_treatments": 7,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Stickler Syndrome Type 1",
