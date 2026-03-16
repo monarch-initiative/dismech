@@ -3,12 +3,6 @@ name: Claude Code Review
 on:
   pull_request:
     types: [opened, synchronize]
-    # Optional: Only run on specific file changes
-    # paths:
-    #   - "src/**/*.ts"
-    #   - "src/**/*.tsx"
-    #   - "src/**/*.js"
-    #   - "src/**/*.jsx"
 
 concurrency:
   group: claude-review-${{ github.event.pull_request.number }}
@@ -16,12 +10,6 @@ concurrency:
 
 jobs:
   claude-review:
-    # Optional: Filter by PR author
-    # if: |
-    #   github.event.pull_request.user.login == 'external-contributor' ||
-    #   github.event.pull_request.user.login == 'new-developer' ||
-    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
-    
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -47,9 +35,42 @@ jobs:
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}
 
-            Please review this pull request.
-            - Biological and clinical validity
-            - Conformance with guidelines
-            - Completeness
+            Review this pull request using the dismech-pr-review skill.
 
-            Be constructive and helpful in your feedback.
+            Focus on:
+            - Biological and clinical validity
+            - Ontology term accuracy and specificity
+            - Evidence quality (PMIDs real, snippets are exact quotes, evidence_source correct)
+            - Schema conformance and completeness
+            - Adherence to dismech conventions (see CLAUDE.md and skills)
+
+            Be constructive and specific. For each issue found, indicate severity:
+            - 🔴 CRITICAL: Must fix (wrong data, hallucinated PMIDs, broken validation)
+            - 🟡 IMPORTANT: Should fix (ontology mismatches, evidence_source errors, missing fields)
+            - 🔵 SUGGESTION: Nice to have (style, additional phenotypes, deeper coverage)
+
+            After reviewing, set the GitHub PR review status:
+
+            **If there are any 🔴 CRITICAL or 🟡 IMPORTANT issues:**
+            Submit your review as REQUEST_CHANGES using the GitHub CLI:
+            ```
+            gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews \
+              -f event=REQUEST_CHANGES \
+              -f body="<your review summary>"
+            ```
+
+            **If there are only 🔵 SUGGESTIONs or no issues:**
+            Submit your review as APPROVE (approve the PR):
+            ```
+            gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews \
+              -f event=APPROVE \
+              -f body="<your review summary>"
+            ```
+
+            Always include a summary checklist at the top of your review:
+            - [ ] Schema validation would pass
+            - [ ] All PMIDs verified as real
+            - [ ] Evidence snippets are exact quotes
+            - [ ] Ontology terms correct and specific
+            - [ ] evidence_source classifications correct
+            - [ ] No pathophysiology bundling (atomic entries only)
