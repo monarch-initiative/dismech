@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT01415752
+reference_id: "clinicaltrials:NCT01415752"
 title: "Intergroup Randomized Phase 2 Four Arm Study In Patients ≥ 60 With Previously Untreated Mantle Cell Lymphoma Of Therapy With: Arm A = Rituximab+ Bendamustine Followed By Rituximab Consolidation (RB → R); Arm B = Rituximab + Bendamustine + Bortezomib Followed By Rituximab Consolidation (RBV→ R), Arm C = Rituximab + Bendamustine Followed By Lenalidomide + Rituximab Consolidation (RB → LR) or Arm D = Rituximab + Bendamustine + Bortezomib Followed By Lenalidomide + Rituximab Consolidation (RBV → LR)"
 content_type: summary
 ---
