@@ -384,18 +384,22 @@ Fully automated — no human review of intermediate results.
 
 **Input**: Gene symbols (e.g., `PTCH1 SMO SUFU GLI3`)
 
-**API Discovery (Phase 1 deliverable)**: The correct GO-CAM API approach needs to be
-validated as part of Phase 1. Candidate approaches, in order of preference:
+**API approach (validated in Phase 1)**: Two-step static index + model detail API:
 
-1. **REST API gene-product lookup**: `api.geneontology.org/api/gp/{gene_id}/models` —
-   may require specific identifier formats (UniProt vs HGNC). Needs testing.
-2. **SPARQL endpoint**: `rdf.geneontology.org/sparql` — query for models containing
-   specific gene products via `enabled_by` relations. More flexible but more complex.
-3. **Bulk model index**: Download the GO-CAM model index and filter locally by gene
-   product. Slower but reliable.
+1. **Static index**: `go-cam-browser.geneontology.org/data.json` — complete index of all
+   GO-CAM models (1,862 as of Mar 2026, 1,093 human) with gene labels, gene IDs, GO terms,
+   organism, and model IDs. Searchable locally, cached, no API fragility.
+2. **Model detail**: `api.geneontology.org/api/go-cam/{model_id}` — returns full JSON with
+   individuals (activities, gene products, locations, processes) and facts (RO-typed causal
+   edges between activity units).
 
-Phase 1 will evaluate these approaches against known Gorlin GO-CAM models (where we
-have model IDs to verify against) and select the most reliable one.
+Approaches that did NOT work: REST gene-product endpoint (`/api/gp/{id}/models`) returns
+500 errors; SPARQL endpoint (`rdf.geneontology.org/sparql`) returns 524 timeouts.
+
+**Coverage note**: GO-CAM `enabled_by` links are curated for genes that *perform* molecular
+functions, not genes that act as inhibitors/substrates. PTCH1 (inhibitor of SMO) and
+BRAF/RAF1/KRAS are not yet in GO-CAMs as `enabled_by` actors. The hedgehog and RAS-MAPK
+pathways are reachable via SMO, SUFU, GLI1/2, PTPN11, SOS1, and HRAS.
 
 **Process** (once API approach is validated):
 1. Query for GO-CAM models involving each input gene

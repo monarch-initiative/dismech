@@ -27,12 +27,20 @@ This work supports two pivotal use cases identified at the Mar 10, 2026 CZI meet
 ## Phases and Progress
 
 ### Phase 1: GO-CAM Programmatic Access
-- [ ] Build `scripts/fetch_gocam_models.py`
-- [ ] Test against Gorlin GO-CAM models (known IDs)
-- [ ] Test against Noonan genes (PTPN11, SOS1, RAF1, BRAF)
-- [ ] Verify output structure matches module YAML format
+- [x] Build `scripts/fetch_gocam_models.py`
+- [x] Test against Gorlin GO-CAM models (SMO, SUFU, GLI1, GLI2 — 6 models found)
+- [x] Test against Noonan genes (PTPN11, SOS1, HRAS — 12 models found)
+- [x] Verify output structure matches module YAML format
 
 **Demo**: Automated GO-CAM model discovery and parsing from gene lists.
+
+**Findings**:
+- GO-CAM browser static index (`data.json`) has 1,862 models (1,093 human) — reliable and fast
+- Model detail API (`api.geneontology.org/api/go-cam/{id}`) returns full JSON with activities and causal edges
+- SPARQL and REST gene-product endpoints are unreliable (500s, timeouts)
+- PTCH1 has no GO-CAM models yet (acts as inhibitor, not `enabled_by` actor)
+- BRAF/RAF1/KRAS also not yet curated into GO-CAMs
+- Coverage is good for: PTPN11, SOS1, HRAS, SMO, SUFU, GLI1, GLI2
 
 ### Phase 2: Data Model and Worked Examples
 - [ ] Finalize module YAML structure
