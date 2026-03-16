@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT04491604
+reference_id: "clinicaltrials:NCT04491604"
 title: "A Phase III Efficacy and Safety Study of Beremagene Geperpavec (B-VEC, Previously \"KB103\") for the Treatment of Dystrophic Epidermolysis Bullosa (DEB)"
 content_type: summary
 ---
