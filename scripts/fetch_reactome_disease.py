@@ -23,6 +23,7 @@ import sys
 import urllib.request
 from collections import defaultdict
 from dataclasses import dataclass, field
+from html import unescape
 from pathlib import Path
 
 import yaml
@@ -233,6 +234,16 @@ def parse_variant_tsv(doid: str) -> list[VariantRecord]:
     return records
 
 
+def _looks_human_gene(symbol: str) -> bool:
+    """Return True if symbol looks like a human HGNC gene symbol.
+
+    Human gene symbols are typically uppercase or mixed-case (e.g. TP53, BRCA1, eIF4E).
+    Filters out all-lowercase symbols (bacterial/viral genes like ptpA, tetX, env, gag)
+    and single-character symbols.
+    """
+    return len(symbol) >= 2 and not symbol.islower()
+
+
 def get_pathway_participants(pathway_id: str) -> list[str]:
     """Get gene names from pathway participants via Content Service API."""
     participants = fetch_json(f"{CONTENT_SERVICE}/data/participants/{pathway_id}")
@@ -242,7 +253,9 @@ def get_pathway_participants(pathway_id: str) -> list[str]:
             rdn = r.get("displayName", "")
             parts = rdn.split(" ", 1)
             if len(parts) > 1 and parts[0].startswith("UniProt:"):
-                genes.add(parts[1])
+                symbol = parts[1]
+                if _looks_human_gene(symbol):
+                    genes.add(symbol)
     return sorted(genes)
 
 
@@ -295,8 +308,8 @@ def build_disease_summary(query: str) -> ReactomeDisease:
     doid_bare = doid.replace("DOID:", "")
     for d in diseases_list:
         if d.get("identifier") == doid_bare and d.get("databaseName") == "DOID":
-            disease.definition = d.get("definition", "")
-            disease.synonyms = d.get("synonym", [])
+            disease.definition = unescape(d.get("definition", ""))
+            disease.synonyms = [unescape(s) for s in d.get("synonym", [])]
             break
 
     # Parse variant data
@@ -399,12 +412,11 @@ def _search_disease_pathways(name: str, doid_bare: str) -> list[DiseasePathway]:
                         continue
                     # Check that at least one specific term appears in the pathway name
                     pname_raw = e.get("name", "")
-                    pname_clean = (
+                    pname_clean = unescape(
                         pname_raw.replace('<span class="highlighting" >', "")
                         .replace("</span>", "")
-                        .lower()
-                    )
-                    if specific_terms and not any(
+                    ).lower()
+                    if specific_terms and not all(
                         t in pname_clean for t in specific_terms
                     ):
                         continue
@@ -429,7 +441,11 @@ def _search_disease_pathways(name: str, doid_bare: str) -> list[DiseasePathway]:
             continue
         pid, pname = parts[0], parts[1]
         pname_lower = pname.lower()
-        if name_lower in pname_lower or doid_bare in line:
+        # Match DOID only against dedicated disease identifier fields (index 2+),
+        # not as a substring of the whole line (which would match within Reactome IDs).
+        disease_fields = parts[2:]
+        doid_exact_match = any(f.strip() == doid_bare or f.strip() == f"DOID:{doid_bare}" for f in disease_fields)
+        if name_lower in pname_lower or doid_exact_match:
             if pid not in pathways:
                 pathways[pid] = DiseasePathway(stable_id=pid, name=pname)
         elif len(name_terms) >= 2 and all(t in pname_lower for t in name_terms):
