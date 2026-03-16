@@ -927,7 +927,9 @@ reactome-fetch-all:
 [group('Reactome')]
 reactome-list:
     @echo "Cached Reactome disease pathways:"
-    @ls -1 {{reactome_dir}}/*.yaml 2>/dev/null | xargs -I {} basename {} .yaml | sort || echo "  (none yet — run 'just reactome-fetch-all')"
+    @ls {{reactome_dir}}/*.yaml 2>/dev/null | grep -q . \
+      && ls -1 {{reactome_dir}}/*.yaml | xargs -I {} basename {} .yaml | sort \
+      || echo "  (none yet — run 'just reactome-fetch-all')"
 
 # Show Reactome summary for a disease (prints to stdout)
 [group('Reactome')]
@@ -953,7 +955,6 @@ normalize-cache:
     done
     rm -f /tmp/_sorted_enum.csv
     echo "✓ All caches normalized"
-
 # Compare dismech phenotypes against OMIM/Orphanet for a single disease
 [group('Analysis')]
 d2p-compare disease:
