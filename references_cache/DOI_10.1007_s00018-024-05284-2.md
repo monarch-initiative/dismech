@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00018-024-05284-2
+reference_id: "DOI:10.1007/s00018-024-05284-2"
 title: The GPI-anchor biosynthesis pathway is critical for syncytiotrophoblast differentiation and placental development
 authors:
 - Andrea Álvarez-Sánchez
