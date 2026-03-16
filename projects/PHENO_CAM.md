@@ -1,0 +1,83 @@
+# Pheno-CAM: Phenotype Causal Activity Models
+
+## Overview
+
+Pheno-CAMs are structured causal models that connect disease-causing mutations through
+molecular mechanisms (grounded in GO-CAMs) to clinical phenotypes (HPO). They extend
+dismech's pathophysiology representation with formal molecular grounding, perturbation
+state tracking, and reusable mechanistic modules.
+
+- **Design spec**: [docs/pheno-cam-design.md](../docs/pheno-cam-design.md)
+- **Branch**: `pheno-cam`
+- **Data directory**: `causal_models/` (modules + disease overlays)
+- **Key script**: `scripts/fetch_gocam_models.py`
+- **Skill**: `.claude/skills/pheno-cam/`
+
+## Background
+
+The dismech `pathophysiology` entries capture causal relationships but lack formal molecular
+grounding, normal-vs-perturbed state distinction, and typed causal edges. Pheno-CAMs add
+these by layering disease-specific perturbation overlays on top of reusable normal-biology
+modules derived from GO-CAMs.
+
+This work supports two pivotal use cases identified at the Mar 10, 2026 CZI meeting:
+1. **Variant interpretation**: predict how a variant perturbs the causal model
+2. **Drug target identification**: find intervention points in the perturbation cascade
+
+## Phases and Progress
+
+### Phase 1: GO-CAM Programmatic Access
+- [ ] Build `scripts/fetch_gocam_models.py`
+- [ ] Test against Gorlin GO-CAM models (known IDs)
+- [ ] Test against Noonan genes (PTPN11, SOS1, RAF1, BRAF)
+- [ ] Verify output structure matches module YAML format
+
+**Demo**: Automated GO-CAM model discovery and parsing from gene lists.
+
+### Phase 2: Data Model and Worked Examples
+- [ ] Finalize module YAML structure
+- [ ] Finalize disease perturbation YAML structure
+- [ ] Create Gorlin Syndrome module + disease file
+- [ ] Create Noonan Syndrome module + disease file
+- [ ] Demonstrate module reuse (Noonan ↔ CFC syndrome shared RAS/MAPK module)
+
+**Demo**: Formal causal models for Gorlin and Noonan with hypothesis groups and
+perturbation state propagation.
+
+### Phase 3: Skill-Driven Curation
+- [ ] Rework `pheno-cam` skill with automated workflow
+- [ ] Curate Parkinson's Disease (complex/temporal test case)
+- [ ] Iterate data model based on what breaks
+
+**Demo**: End-to-end skill-driven pheno-CAM creation for Parkinson's.
+
+### Phase 4: Visualization and Validation
+- [ ] Extend D3+Dagre renderer with new node types
+- [ ] Build LinkML schema for causal models
+- [ ] Add validation hook for `causal_models/`
+- [ ] Add pheno-CAM tab to disorder HTML pages
+
+**Demo**: Interactive pheno-CAM graphs on disorder pages.
+
+### Phase 5: Pivotal Use Case Prototyping
+- [ ] Variant interpretation: trace perturbation cascade from novel variant
+- [ ] Drug target identification: find intervention points for perturbed nodes
+
+**Demo**: Working variant interpretation and drug target examples.
+
+## Worked Examples
+
+| Disease | Phase | Why |
+|---|---|---|
+| Gorlin Syndrome | 2 | Two hypothesis groups (PTCH1/SUFU), Hh pathway, existing GO-CAMs |
+| Noonan Syndrome | 2 | RASopathy, multiple genes, cardiac + developmental, Reactome data |
+| Parkinson's Disease | 3 | Multiple hypotheses, progressive, rich KB entry, module reuse |
+
+## Key Decisions
+
+- **Separate data layer** (`causal_models/`) rather than modifying `kb/disorders/` —
+  avoids disrupting existing pipeline, allows aggressive iteration
+- **Shared module library** for normal biology, disease-specific overlays for perturbation
+- **Fully automated GO-CAM integration** — no human review of intermediate steps
+- **Controlled vocabulary** for perturbation states with ontology mappings where available
+- **Migration path**: eventual `causal_model:` field in Disease schema
