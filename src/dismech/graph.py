@@ -274,6 +274,20 @@ def _extract_node_metadata(item: dict[str, Any]) -> dict[str, Any]:
             if (label := loc.get("preferred_term") or (loc.get("term", {}) or {}).get("label", ""))
         ]
 
+    # PDB structures (treatments)
+    pdb_structures = item.get("pdb_structures", []) or []
+    if pdb_structures:
+        meta["pdb_structures"] = [
+            {
+                k: s[k]
+                for k in ("pdb_id", "description", "resolution_angstrom",
+                           "method", "ligand", "target_protein")
+                if k in s and s[k] is not None
+            }
+            for s in pdb_structures
+            if isinstance(s, dict) and s.get("pdb_id")
+        ]
+
     return meta
 
 
