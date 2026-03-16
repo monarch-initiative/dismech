@@ -8955,7 +8955,7 @@ window.searchData = [
       "B-cell neoplasm"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-01-26T04:02:22Z",
+    "updated_date": "2026-03-13T12:00:00Z",
     "subtypes": [
       "IGHV Mutated CLL",
       "IGHV Unmutated CLL"
@@ -13339,7 +13339,7 @@ window.searchData = [
       "B-cell non-Hodgkin lymphoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-02-27T21:52:56Z",
+    "updated_date": "2026-03-13T12:00:00Z",
     "subtypes": [
       "Germinal Center B-cell (GCB) Type",
       "Activated B-cell (ABC) Type",
@@ -14050,6 +14050,141 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Dystrophic Epidermolysis Bullosa",
+    "disease_id": "MONDO:0006543",
+    "category": "Mendelian",
+    "parents": [
+      "Dermatological Disease",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-03-10T12:00:00Z",
+    "updated_date": "2026-03-15T21:59:08Z",
+    "subtypes": [
+      "Dominant Dystrophic Epidermolysis Bullosa (DDEB)",
+      "Recessive Dystrophic Epidermolysis Bullosa, Severe Generalized (RDEB-sev gen)",
+      "Recessive Dystrophic Epidermolysis Bullosa, Intermediate (RDEB-intermediate)",
+      "Recessive Dystrophic Epidermolysis Bullosa Inversa"
+    ],
+    "description": "Dystrophic epidermolysis bullosa (DEB) is caused by mutations in COL7A1 encoding type VII collagen, the major structural component of anchoring fibrils at the dermal-epidermal junction. Both autosomal dominant (DDEB) and autosomal recessive (RDEB) forms exist. RDEB severe generalized is characterized by generalized blistering, progressive scarring with pseudosyndactyly, esophageal strictures, and a lifetime squamous cell carcinoma risk exceeding 90%.",
+    "pathophysiology": [
+      "COL7A1 Mutations and Loss of Type VII Collagen",
+      "Defective Anchoring Fibrils and Loss of Dermal-Epidermal Adhesion",
+      "Chronic Wound-Inflammation-Fibrosis Cycle",
+      "Progressive Scarring and Pseudosyndactyly",
+      "Esophageal and Mucosal Blistering",
+      "Malnutrition and Growth Failure",
+      "Chronic Wounds and Aggressive Squamous Cell Carcinoma"
+    ],
+    "cell_types": [
+      "keratinocyte",
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000312",
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "collagen fibril organization",
+      "extracellular matrix organization",
+      "cell-matrix adhesion",
+      "wound healing",
+      "inflammatory response",
+      "response to transforming growth factor beta",
+      "immune response"
+    ],
+    "phenotypes": [
+      "Skin Blistering",
+      "Atrophic Scarring",
+      "Milia",
+      "Nail Dystrophy",
+      "Pseudosyndactyly",
+      "Esophageal Stricture",
+      "Dysphagia",
+      "Microstomia",
+      "Growth Retardation",
+      "Anemia",
+      "Cutaneous Squamous Cell Carcinoma",
+      "Corneal Erosions",
+      "Dental Caries",
+      "Osteoporosis",
+      "Constipation"
+    ],
+    "phenotype_categories": [
+      "Integument",
+      "Musculoskeletal",
+      "Digestive",
+      "Head and Neck",
+      "Growth",
+      "Blood",
+      "Neoplasm",
+      "Eye"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Digestive",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0008066",
+      "HP:0001075",
+      "HP:0001056",
+      "HP:0008404",
+      "HP:0010554",
+      "HP:0002043",
+      "HP:0002015",
+      "HP:0000160",
+      "HP:0001510",
+      "HP:0001903",
+      "HP:0006739",
+      "HP:0200020",
+      "HP:0000670",
+      "HP:0000939",
+      "HP:0002019"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "COL7A1"
+    ],
+    "treatments": [
+      "Beremagene Geperpavec (Vyjuvek)",
+      "Prademagene Zamikeracel (Zevaskyn)",
+      "Recombinant Type VII Collagen (PTR-01)",
+      "Losartan",
+      "Rigosertib",
+      "Gentamicin Readthrough Therapy",
+      "Wound Care and Specialized Dressings",
+      "Esophageal Dilation",
+      "Nutritional Support",
+      "SCC Surveillance",
+      "Surgical Excision of SCC",
+      "Pain Management",
+      "Physical and Occupational Therapy",
+      "Allogeneic Bone Marrow Transplantation",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Dystrophic_Epidermolysis_Bullosa.yaml",
+    "page_url": "../pages/disorders/Dystrophic_Epidermolysis_Bullosa.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 15,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "EBV-Associated Gastric Cancer",
@@ -15018,6 +15153,222 @@ window.searchData = [
     "num_treatments": 8,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Epidermolysis Bullosa",
+    "disease_id": "MONDO:0006541",
+    "category": "Mendelian",
+    "parents": [
+      "Dermatological Disease",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-03-10T12:00:00Z",
+    "updated_date": "2026-03-16T01:13:18Z",
+    "subtypes": [
+      "Epidermolysis Bullosa Simplex",
+      "Junctional Epidermolysis Bullosa",
+      "Dystrophic Epidermolysis Bullosa",
+      "Kindler Epidermolysis Bullosa"
+    ],
+    "description": "Epidermolysis bullosa (EB) is an inherited, heterogeneous group of rare genetic dermatoses characterized by mucocutaneous fragility and blister formation, inducible by often minimal trauma. Over 30 subtypes are recognized, grouped into four major categories based on the plane of cleavage within the skin. This is the umbrella entry covering shared concepts across all EB types.",
+    "pathophysiology": [
+      "Basement Membrane Zone Structural Disruption",
+      "Mechanical Fragility and Blister Formation",
+      "Wound Healing Impairment and Chronic Wounds",
+      "Secondary Complications"
+    ],
+    "cell_types": [
+      "keratinocyte",
+      "epidermal cell",
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000312",
+      "CL:0000362",
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "cell-substrate adhesion",
+      "epidermis development",
+      "cell adhesion",
+      "wound healing",
+      "inflammatory response",
+      "collagen fibril organization"
+    ],
+    "phenotypes": [
+      "Skin Fragility and Blistering",
+      "Mucosal Involvement",
+      "Nail Dystrophy",
+      "Milia",
+      "Scarring",
+      "Failure to Thrive",
+      "Anemia",
+      "Pain"
+    ],
+    "phenotype_categories": [
+      "Integument",
+      "Growth",
+      "Blood",
+      "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Constitutional",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0008066",
+      "HP:0011830",
+      "HP:0008404",
+      "HP:0001056",
+      "HP:0100699",
+      "HP:0001508",
+      "HP:0001903",
+      "HP:0012531"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "KRT5",
+      "KRT14",
+      "COL7A1",
+      "LAMB3",
+      "LAMA3",
+      "LAMC2",
+      "COL17A1",
+      "ITGA6",
+      "ITGB4",
+      "FERMT1"
+    ],
+    "treatments": [
+      "Wound Care and Dressing Management",
+      "Pain Management",
+      "Nutritional Support",
+      "Infection Prevention and Treatment",
+      "Genetic Counseling",
+      "Vyjuvek (Beremagene Geperpavec)",
+      "Filsuvez (Birch Triterpenes)",
+      "Zevaskyn (Prademagene Zamikeracel / pz-cel)"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Type VII Collagen",
+      "Laminin-332",
+      "Keratin 5 and Keratin 14"
+    ],
+    "source_file": "Epidermolysis_Bullosa.yaml",
+    "page_url": "../pages/disorders/Epidermolysis_Bullosa.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 4,
+    "num_genes": 10,
+    "num_treatments": 8,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Epidermolysis Bullosa Simplex",
+    "disease_id": "MONDO:0017610",
+    "category": "Mendelian",
+    "parents": [
+      "Dermatological Disease",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-03-10T00:00:00Z",
+    "updated_date": "2026-03-16T01:13:18Z",
+    "subtypes": [
+      "EBS Localized (formerly Weber-Cockayne)",
+      "EBS Intermediate (formerly Koebner)",
+      "EBS Severe (formerly Dowling-Meara)",
+      "EBS with Muscular Dystrophy",
+      "EBS Autosomal Recessive (KRT14 null)"
+    ],
+    "description": "Epidermolysis bullosa simplex (EBS) is the most common form of EB, characterized by intraepidermal blistering within the basal cell layer. Most cases are caused by dominant-negative mutations in KRT5 or KRT14 encoding keratins 5 and 14 in basal keratinocytes. Blisters generally heal without significant scarring. Subtypes range from localized palmoplantar blistering to severe generalized forms with herpetiform blistering, and include EBS with muscular dystrophy caused by PLEC mutations.",
+    "pathophysiology": [
+      "KRT5/KRT14 Mutations Disrupt Keratin Intermediate Filament Network",
+      "Dominant-Negative Disruption of Filament Assembly",
+      "Mechanical Stress-Induced Keratinocyte Cytolysis",
+      "PLEC Mutations Disrupt Hemidesmosome-Cytoskeleton Linkage",
+      "Heat Sensitivity of Mutant Keratin Networks"
+    ],
+    "cell_types": [
+      "epidermal cell",
+      "skeletal muscle fiber"
+    ],
+    "cell_type_ids": [
+      "CL:0000362",
+      "CL:0008002"
+    ],
+    "biological_processes": [
+      "intermediate filament organization",
+      "intermediate filament cytoskeleton organization",
+      "cell death",
+      "cell-substrate junction organization",
+      "response to heat"
+    ],
+    "phenotypes": [
+      "Skin Blistering",
+      "Heat-Exacerbated Blistering",
+      "Palmoplantar Keratoderma",
+      "Herpetiform Blistering Pattern",
+      "Nail Dystrophy",
+      "Milia",
+      "Muscular Dystrophy"
+    ],
+    "phenotype_categories": [
+      "Integument",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Integument",
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0008066",
+      "HP:0000982",
+      "HP:0008404",
+      "HP:0001056",
+      "HP:0003560"
+    ],
+    "frequencies": [
+      "OCCASIONAL",
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OBLIGATE"
+    ],
+    "genes": [
+      "KRT5",
+      "KRT14",
+      "PLEC",
+      "DST",
+      "EXPH5",
+      "KLHL24"
+    ],
+    "treatments": [
+      "Wound Care",
+      "Avoidance of Heat and Friction",
+      "Antiperspirants for Palmoplantar Disease",
+      "Pain Management",
+      "Physical Therapy",
+      "Genetic Counseling",
+      "Diacerein (Anti-IL-1beta Therapy)",
+      "Sulforaphane (Nrf2 Activator, Preclinical)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Epidermolysis_Bullosa_Simplex.yaml",
+    "page_url": "../pages/disorders/Epidermolysis_Bullosa_Simplex.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 5,
+    "num_genes": 6,
+    "num_treatments": 8,
+    "causal_graph_edges": "3",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Epilepsy",
@@ -23530,6 +23881,95 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Inherited Threoninemia",
+    "disease_id": "MONDO:0010118",
+    "category": "Mendelian",
+    "parents": [
+      "Inborn Error of Metabolism",
+      "Amino Acid Metabolism Disorder"
+    ],
+    "creation_date": "2026-03-11T00:00:00Z",
+    "updated_date": "2026-03-11T15:30:00Z",
+    "subtypes": [],
+    "description": "Inherited threoninemia is an extremely rare inborn error of amino acid metabolism characterized by markedly elevated concentrations of threonine in plasma, urine, and cerebrospinal fluid. First described in 1978, the condition is proposed to result from deficient hepatic threonine dehydratase (EC 4.2.1.16) activity, blocking conversion of threonine to 2-ketobutyrate. Excess threonine may secondarily perturb glycine-serine-threonine interconversion at serine hydroxymethyltransferase, potentially causing secondary hyperglycinemia and a non-ketotic hyperglycinemia-like neurological phenotype. Clinical features reported in affected individuals include seizures, intellectual disability, failure to thrive, lethargy, and feeding difficulties. A separate phenotypic association with Leber congenital amaurosis and hepatomegaly has been reported in siblings with hyperthreoninemia, though the causal relationship remains uncertain. No causative gene has been identified at the molecular level; the disorder is defined by enzyme activity and metabolite measurements. Consanguinity has been noted in reported families, consistent with autosomal recessive inheritance.\n",
+    "pathophysiology": [
+      "Hepatic threonine dehydratase deficiency",
+      "Secondary hyperglycinemia via glycine-serine-threonine interconversion"
+    ],
+    "cell_types": [
+      "hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "threonine catabolic process",
+      "glycine metabolic process"
+    ],
+    "phenotypes": [
+      "Hyperthreoninemia",
+      "Hyperthreoninuria",
+      "Nonketotic hyperglycinemia",
+      "Seizures",
+      "Intellectual disability",
+      "Hepatomegaly",
+      "Lethargy",
+      "Poor suck",
+      "Failure to thrive",
+      "Retinal dystrophy (Leber congenital amaurosis phenotype)"
+    ],
+    "phenotype_categories": [
+      "Metabolic",
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0003354",
+      "HP:0003296",
+      "HP:0008288",
+      "HP:0001250",
+      "HP:0001249",
+      "HP:0002240",
+      "HP:0001254",
+      "HP:0002033",
+      "HP:0001508",
+      "HP:0000556"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "Threonine dehydratase (enzyme level)"
+    ],
+    "treatments": [
+      "Dietary threonine restriction",
+      "Anticonvulsant therapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Plasma threonine",
+      "Urinary threonine",
+      "CSF threonine"
+    ],
+    "source_file": "Inherited_Threoninemia.yaml",
+    "page_url": "../pages/disorders/Inherited_Threoninemia.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "1",
+    "causal_graph_longest_path": "1"
+  },
+  {
     "name": "Irritable Bowel Syndrome",
     "disease_id": "MONDO:0005052",
     "category": "Complex",
@@ -24260,6 +24700,136 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Junctional Epidermolysis Bullosa",
+    "disease_id": "MONDO:0017612",
+    "category": "Mendelian",
+    "parents": [
+      "Dermatological Disease",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-03-10T12:00:00Z",
+    "updated_date": "2026-03-16T01:13:18Z",
+    "subtypes": [
+      "JEB Severe (Herlitz)",
+      "JEB Intermediate (Non-Herlitz / Generalized Atrophic Benign EB)",
+      "JEB with Pyloric Atresia",
+      "JEB Late Onset"
+    ],
+    "description": "Junctional epidermolysis bullosa (JEB) is caused by mutations in genes encoding components of the dermal-epidermal junction at the lamina lucida, including laminin-332 (LAMA3, LAMB3, LAMC2), type XVII collagen (COL17A1), and integrin alpha-6-beta-4 (ITGA6, ITGB4). All forms are autosomal recessive. JEB severe (Herlitz) carries near-90% first-year mortality, while JEB intermediate is a chronic but survivable blistering disorder.",
+    "pathophysiology": [
+      "Laminin-332 Deficiency",
+      "COL17A1 (BP180) Deficiency",
+      "Integrin Alpha-6-Beta-4 Deficiency",
+      "Loss of Lamina Lucida Adhesion",
+      "Exuberant Granulation Tissue Formation",
+      "Enamel Hypoplasia from Ameloblast-BMZ Defects"
+    ],
+    "cell_types": [
+      "keratinocyte",
+      "smooth muscle cell",
+      "epidermal cell",
+      "fibroblast",
+      "ameloblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000312",
+      "CL:0000192",
+      "CL:0000362",
+      "CL:0000057",
+      "CL:0000059"
+    ],
+    "biological_processes": [
+      "cell-substrate adhesion",
+      "extracellular matrix organization",
+      "integrin-mediated signaling pathway",
+      "cell-matrix adhesion",
+      "cell adhesion",
+      "wound healing",
+      "odontogenesis"
+    ],
+    "phenotypes": [
+      "Generalized Skin Blistering and Erosions",
+      "Exuberant Granulation Tissue",
+      "Nail Dystrophy or Absent Nails",
+      "Enamel Hypoplasia",
+      "Dental Caries",
+      "Scarring Alopecia",
+      "Hoarse Cry and Laryngeal Involvement",
+      "Failure to Thrive",
+      "Congenital Pyloric Atresia",
+      "Urethral and Bladder Involvement",
+      "Respiratory Complications",
+      "Anemia"
+    ],
+    "phenotype_categories": [
+      "Integument",
+      "Head and Neck",
+      "Respiratory",
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Blood"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Digestive",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Musculoskeletal",
+      "Respiratory",
+      "Voice"
+    ],
+    "phenotype_ids": [
+      "HP:0008066",
+      "HP:6000956",
+      "HP:0008404",
+      "HP:0006297",
+      "HP:0000670",
+      "HP:0004552",
+      "HP:0001609",
+      "HP:0001508",
+      "HP:0004399",
+      "HP:0000795",
+      "HP:0002093",
+      "HP:0001903"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "LAMB3",
+      "LAMA3",
+      "LAMC2",
+      "COL17A1",
+      "ITGA6",
+      "ITGB4"
+    ],
+    "treatments": [
+      "Wound Care",
+      "Nutritional Support",
+      "Tracheostomy",
+      "Ex Vivo Gene Therapy",
+      "Filsuvez (Birch Triterpenes) Topical Gel",
+      "Dental Management",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Junctional_Epidermolysis_Bullosa.yaml",
+    "page_url": "../pages/disorders/Junctional_Epidermolysis_Bullosa.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 6,
+    "num_genes": 6,
+    "num_treatments": 7,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "2"
+  },
+  {
     "name": "KIT Mutant Melanoma",
     "disease_id": "MONDO:0003865",
     "category": "",
@@ -24739,6 +25309,112 @@ window.searchData = [
     "num_genes": 2,
     "num_treatments": 5,
     "causal_graph_edges": "4",
+    "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Kindler Epidermolysis Bullosa",
+    "disease_id": "MONDO:0008260",
+    "category": "Mendelian",
+    "parents": [
+      "Dermatological Disease",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-03-10T00:00:00Z",
+    "updated_date": "2026-03-16T01:13:18Z",
+    "subtypes": [
+      "Early Blistering-Predominant Phase",
+      "Late Poikiloderma-Predominant Phase"
+    ],
+    "description": "Kindler epidermolysis bullosa (Kindler syndrome) is the rarest form of EB, caused by autosomal recessive loss-of-function mutations in FERMT1 encoding kindlin-1, a focal adhesion protein critical for integrin activation. Characterized by mixed-level cleavage planes, childhood skin blistering that improves with age, progressive poikiloderma, photosensitivity, and mucosal involvement. Approximately 400 cases have been identified worldwide.",
+    "pathophysiology": [
+      "FERMT1 Mutations and Loss of Kindlin-1",
+      "Defective Focal Adhesion and Integrin Activation",
+      "Impaired Keratinocyte Migration and Wound Healing",
+      "Progressive Poikiloderma and Skin Atrophy",
+      "Mucosal Involvement"
+    ],
+    "cell_types": [
+      "keratinocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000312"
+    ],
+    "biological_processes": [
+      "focal adhesion assembly",
+      "integrin-mediated signaling pathway",
+      "cell-matrix adhesion",
+      "wound healing",
+      "cell migration",
+      "response to oxidative stress",
+      "epidermis development"
+    ],
+    "phenotypes": [
+      "Skin Blistering",
+      "Poikiloderma",
+      "Cutaneous Photosensitivity",
+      "Progressive Skin Atrophy",
+      "Palmoplantar Keratoderma",
+      "Nail Dystrophy",
+      "Colitis",
+      "Esophageal Stenosis",
+      "Urethral Stenosis",
+      "Periodontal Disease",
+      "Squamous Cell Carcinoma Risk"
+    ],
+    "phenotype_categories": [
+      "Integument",
+      "Digestive",
+      "Genitourinary",
+      "Head and Neck",
+      "Neoplasm"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Genitourinary",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Limbs",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0008066",
+      "HP:0001029",
+      "HP:0000992",
+      "HP:0004334",
+      "HP:0000982",
+      "HP:0008404",
+      "HP:0002583",
+      "HP:0002043",
+      "HP:0008661",
+      "HP:0000704",
+      "HP:0002860"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "FERMT1"
+    ],
+    "treatments": [
+      "Wound Care and Skin Protection",
+      "Photoprotection",
+      "Gastrointestinal Management",
+      "Dental Care",
+      "Squamous Cell Carcinoma Surveillance",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Kindler_Epidermolysis_Bullosa.yaml",
+    "page_url": "../pages/disorders/Kindler_Epidermolysis_Bullosa.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "3",
     "causal_graph_longest_path": "2"
   },
   {
@@ -27966,7 +28642,7 @@ window.searchData = [
       "B-cell non-Hodgkin lymphoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-01-26T04:02:22Z",
+    "updated_date": "2026-03-15T17:11:27Z",
     "subtypes": [
       "Classical Mantle Cell Lymphoma",
       "Leukemic Non-Nodal Mantle Cell Lymphoma",
@@ -27974,11 +28650,16 @@ window.searchData = [
     ],
     "description": "Mantle cell lymphoma (MCL) is an aggressive B-cell non-Hodgkin lymphoma characterized by the t(11;14)(q13;q32) translocation, which juxtaposes the CCND1 (cyclin D1) gene with the immunoglobulin heavy chain enhancer, leading to constitutive cyclin D1 overexpression. MCL typically presents at advanced stage with lymphadenopathy, bone marrow involvement, and frequently gastrointestinal tract infiltration. While historically considered incurable with median survival of 3-5 years, outcomes have improved with BTK inhibitors (ibrutinib, acalabrutinib), high-dose therapy with stem cell transplant in younger patients, and emerging therapies including CAR-T cells.",
     "pathophysiology": [
-      "CCND1 Translocation and Cyclin D1 Overexpression",
-      "Cell Cycle Dysregulation",
-      "BTK and BCR Signaling Dependence",
-      "NF-kB Activation",
-      "Uncontrolled B-cell Proliferation"
+      "CCND1/IGH translocation",
+      "Cyclin D1 overexpression",
+      "G1/S cell-cycle acceleration",
+      "DNA damage response pathway inactivation",
+      "Genetic instability",
+      "Microenvironmental crosstalk in marrow and secondary lymphoid organs",
+      "B-cell receptor signaling activation",
+      "B-cell survival advantage",
+      "Malignant B-cell expansion",
+      "Widespread tissue infiltration by malignant B cells"
     ],
     "cell_types": [
       "B cell"
@@ -27988,18 +28669,22 @@ window.searchData = [
     ],
     "biological_processes": [
       "G1/S transition of mitotic cell cycle",
-      "cell population proliferation",
       "B cell activation",
-      "apoptotic process"
+      "apoptotic process",
+      "cell population proliferation"
     ],
     "phenotypes": [
       "Generalized Lymphadenopathy",
       "Splenomegaly",
+      "Hepatomegaly",
       "Gastrointestinal Involvement",
+      "Fever",
       "Night Sweats",
       "Weight Loss",
       "Fatigue",
-      "Anemia"
+      "Anemia",
+      "Peripheral Blood Lymphocytosis",
+      "Thrombocytopenia"
     ],
     "phenotype_categories": [
       "Lymphatic",
@@ -28015,19 +28700,25 @@ window.searchData = [
       "Digestive",
       "Growth",
       "Immune",
+      "Metabolism",
       "Neoplasm"
     ],
     "phenotype_ids": [
       "HP:0008940",
       "HP:0001744",
+      "HP:0002240",
       "HP:0007378",
+      "HP:0001945",
       "HP:0030166",
       "HP:0001824",
       "HP:0012378",
-      "HP:0001903"
+      "HP:0001903",
+      "HP:0100827",
+      "HP:0001873"
     ],
     "frequencies": [
       "VERY_FREQUENT",
+      "OCCASIONAL",
       "FREQUENT"
     ],
     "genes": [
@@ -28050,12 +28741,12 @@ window.searchData = [
     ],
     "source_file": "Mantle_Cell_Lymphoma.yaml",
     "page_url": "../pages/disorders/Mantle_Cell_Lymphoma.html",
-    "num_phenotypes": 7,
-    "num_pathophysiology": 5,
+    "num_phenotypes": 11,
+    "num_pathophysiology": 10,
     "num_genes": 3,
     "num_treatments": 6,
-    "causal_graph_edges": "3",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Maple Syrup Urine Disease",
