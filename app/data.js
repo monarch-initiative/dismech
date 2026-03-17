@@ -1648,7 +1648,7 @@ window.searchData = [
       "Neurodegenerative Disorders"
     ],
     "creation_date": "2026-03-14T00:00:00Z",
-    "updated_date": "2026-03-14T00:00:00Z",
+    "updated_date": "2026-03-16T00:00:00Z",
     "subtypes": [
       "Type I (Infantile)",
       "Type II (Juvenile/Adult)"
@@ -1657,47 +1657,64 @@ window.searchData = [
     "pathophysiology": [
       "GFAP Aggregation and Rosenthal Fiber Formation",
       "Astrocyte Dysfunction and Non-Cell-Autonomous Neurodegeneration",
-      "Oxidative Stress and White Matter Pathology"
+      "Oxidative Stress and White Matter Pathology",
+      "Glutamate Excitotoxicity",
+      "GFAP Post-Translational Modifications and Aggregation"
     ],
     "cell_types": [
       "Astrocyte",
-      "Oligodendrocyte"
+      "Oligodendrocyte",
+      "Neuron"
     ],
     "cell_type_ids": [
       "CL:0000127",
-      "CL:0000128"
+      "CL:0000128",
+      "CL:0000540"
     ],
     "biological_processes": [
       "Protein Aggregation",
       "Myelination",
-      "Inflammatory Response"
+      "Autophagy",
+      "Oxidative Stress Response",
+      "Neurotransmitter Transport",
+      "Protein Ubiquitination"
     ],
     "phenotypes": [
       "Macrocephaly",
+      "Frontal-Predominant Leukoencephalopathy",
       "Seizures",
       "Spasticity",
       "Dysphagia",
       "Dysarthria",
       "Ataxia",
-      "Psychomotor Regression"
+      "Psychomotor Regression",
+      "Autonomic Dysfunction",
+      "Failure to Thrive",
+      "Nystagmus"
     ],
     "phenotype_categories": [
       "Clinical"
     ],
     "phenotype_hpo_categories": [
       "Digestive",
+      "Eye",
+      "Growth",
       "Head and Neck",
       "Musculoskeletal",
       "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0000256",
+      "HP:0002352",
       "HP:0001250",
       "HP:0001257",
       "HP:0002015",
       "HP:0001260",
       "HP:0001251",
-      "HP:0002376"
+      "HP:0002376",
+      "HP:0012332",
+      "HP:0001508",
+      "HP:0000639"
     ],
     "frequencies": [],
     "genes": [
@@ -1711,8 +1728,8 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Alexander_Disease.yaml",
     "page_url": "../pages/disorders/Alexander_Disease.html",
-    "num_phenotypes": 7,
-    "num_pathophysiology": 3,
+    "num_phenotypes": 11,
+    "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 2,
     "causal_graph_edges": "0",
@@ -10378,6 +10395,138 @@ window.searchData = [
     "num_phenotypes": 14,
     "num_pathophysiology": 4,
     "num_genes": 5,
+    "num_treatments": 3,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Cockayne Syndrome",
+    "disease_id": "MONDO:0016006",
+    "category": "Genetic",
+    "parents": [
+      "DNA Repair Disorder",
+      "Progeroid Syndrome",
+      "Neurodevelopmental Disorder"
+    ],
+    "creation_date": "2026-03-15T23:04:21Z",
+    "updated_date": "2026-03-16T12:00:00Z",
+    "subtypes": [
+      "Cockayne syndrome type I",
+      "Cockayne syndrome type II",
+      "Cockayne syndrome type III"
+    ],
+    "description": "Cockayne syndrome is an ultra-rare autosomal recessive multisystem DNA repair disorder caused primarily by ERCC6 or ERCC8 dysfunction. It is a segmental progeroid syndrome with defective transcription-coupled nucleotide excision repair (TC-NER), resulting in progressive neurodevelopmental and neurodegenerative manifestations, cachectic dwarfism, photosensitivity, and premature aging across multiple organ systems.",
+    "pathophysiology": [
+      "Defective Transcription-Coupled Nucleotide Excision Repair",
+      "Impaired Neural Progenitor Migration",
+      "Disturbed Developmental GABA Switch",
+      "Impaired Neuronal Network Formation",
+      "Impaired Oligodendrocyte Maturation",
+      "NRF2 Pathway Repression",
+      "Arachidonic Acid Metabolism Activation",
+      "Mitochondrial DNA Maintenance Deficiency",
+      "Peripheral Demyelinating Neuropathy Susceptibility",
+      "Accelerated Cellular Senescence"
+    ],
+    "cell_types": [
+      "neural progenitor cell",
+      "neuron",
+      "oligodendrocyte precursor cell",
+      "fibroblast",
+      "Schwann cell"
+    ],
+    "cell_type_ids": [
+      "CL:0011020",
+      "CL:0000540",
+      "CL:0002453",
+      "CL:0000057",
+      "CL:0002573"
+    ],
+    "biological_processes": [
+      "transcription-coupled nucleotide-excision repair",
+      "autophagy",
+      "gamma-aminobutyric acid signaling pathway",
+      "nervous system development",
+      "oligodendrocyte differentiation",
+      "myelination",
+      "response to oxidative stress",
+      "arachidonate metabolic process",
+      "mitochondrial DNA replication",
+      "cellular senescence"
+    ],
+    "phenotypes": [
+      "Microcephaly",
+      "Intellectual Disability",
+      "CNS Demyelination",
+      "Progressive Peripheral Demyelination",
+      "Ataxia",
+      "Spasticity",
+      "Intracranial Calcification",
+      "Sensorineural Hearing Impairment",
+      "Pigmentary Retinopathy",
+      "Optic Atrophy",
+      "Cataracts",
+      "Cutaneous Photosensitivity",
+      "Short Stature (Cachectic Dwarfism)",
+      "Failure to Thrive",
+      "Progeroid Facial Appearance",
+      "Deeply Set Eyes"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Ophthalmologic",
+      "Dermatologic",
+      "Growth",
+      "Craniofacial"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000252",
+      "HP:0001249",
+      "HP:0007305",
+      "HP:0011096",
+      "HP:0001251",
+      "HP:0001257",
+      "HP:0430048",
+      "HP:0000407",
+      "HP:0000580",
+      "HP:0000648",
+      "HP:0000518",
+      "HP:0000992",
+      "HP:0004322",
+      "HP:0001508",
+      "HP:0005328",
+      "HP:0000490"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "ERCC6",
+      "ERCC8"
+    ],
+    "treatments": [
+      "Nicotinamide Supplementation",
+      "Genetic Counseling",
+      "Supportive Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cockayne_Syndrome.yaml",
+    "page_url": "../pages/disorders/Cockayne_Syndrome.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 10,
+    "num_genes": 2,
     "num_treatments": 3,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
