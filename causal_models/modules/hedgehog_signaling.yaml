@@ -4,8 +4,9 @@ module:
   description: >
     Core Hedgehog signal transduction from ligand reception at the primary cilium
     through SMO activation, SUFU-mediated GLI sequestration, and GLI transcription
-    factor processing. Includes the GPR161/PKA negative regulatory arm and the
-    GLI activator vs. repressor balance.
+    factor processing. Includes the GPR161/PKA negative regulatory arm with
+    GSK3B/BTRC-mediated GLI3 repressor processing, DYRK2/MAPK1 intermediaries
+    for SUFU release, and BBSome/IFT-B ciliary transport.
 
   sources:
   - type: go_cam
@@ -26,6 +27,9 @@ module:
   - type: go_cam
     id: "gomodel:693b3c0900000716"
     name: "GPR161 ciliary export via beta-arrestin/BBSome (Human)"
+  - type: go_cam
+    id: "gomodel:693b3c0900000157"
+    name: "GLI3 repressor processing via PKA/GSK3B/BTRC (Human)"
   - type: literature
     reference: PMID:19032739
   - type: literature
@@ -59,6 +63,33 @@ module:
     process:
       id: GO:0007224
       label: smoothened signaling pathway
+
+  # --- SMO effector kinases ---
+  - id: mapk1_kinase
+    gene:
+      symbol: MAPK1
+      hgnc_id: HGNC:6871
+    molecular_function:
+      id: GO:0004674
+      label: protein serine/threonine kinase activity
+    location:
+      id: GO:0005737
+      label: cytoplasm
+    # MAPK1/ERK2 mediates SMO-dependent release of GLI1 from SUFU
+    # (from gomodel:693b3c0900001389)
+
+  - id: dyrk2_kinase
+    gene:
+      symbol: DYRK2
+      hgnc_id: HGNC:3093
+    molecular_function:
+      id: GO:0004674
+      label: protein serine/threonine kinase activity
+    location:
+      id: GO:0005737
+      label: cytoplasm
+    # DYRK2 mediates SMO-dependent release of GLI3 from SUFU
+    # (from gomodel:693b3c0900001501)
 
   # --- SUFU sequestration of GLI proteins ---
   - id: sufu_sequestering_gli1
@@ -111,6 +142,7 @@ module:
       label: smoothened signaling pathway
 
   - id: gli3a_activation
+    display_name: GLI3A
     gene:
       symbol: GLI3
       hgnc_id: HGNC:4319
@@ -125,6 +157,7 @@ module:
       label: smoothened signaling pathway
 
   - id: gli3r_production
+    display_name: GLI3R
     gene:
       symbol: GLI3
       hgnc_id: HGNC:4319
@@ -138,10 +171,30 @@ module:
       id: GO:0045879
       label: negative regulation of smoothened signaling pathway
     # GLI3R is produced by proteolytic processing when Hh signaling is OFF.
-    # PKA/GSK3B/CK1 phosphorylation targets GLI3 for partial proteasomal
-    # degradation to the repressor form.
+    # PKA → GSK3B → BTRC phosphorylation/ubiquitination cascade targets GLI3
+    # for partial proteasomal degradation to the repressor form.
 
   # --- GPR161/PKA negative regulatory arm ---
+  - id: bbsome_transport
+    complex: BBSome
+    molecular_function:
+      id: GO:0140597
+      label: protein carrier chaperone activity
+    location:
+      id: GO:0098804
+      label: non-motile cilium membrane
+    # BBSome mediates GPR161 ciliary export (from gomodel:693b3c0900000716)
+
+  - id: iftb_transport
+    complex: IFT-B
+    molecular_function:
+      id: GO:0140597
+      label: protein carrier chaperone activity
+    location:
+      id: GO:0098804
+      label: non-motile cilium membrane
+    # IFT-B complex works with BBSome for GPR161 export (from gomodel:693b3c0900000716)
+
   - id: gpr161_activity
     gene:
       symbol: GPR161
@@ -167,6 +220,36 @@ module:
       id: GO:0045879
       label: negative regulation of smoothened signaling pathway
 
+  # --- GLI3 repressor processing cascade ---
+  - id: gsk3b_kinase
+    gene:
+      symbol: GSK3B
+      hgnc_id: HGNC:4617
+    molecular_function:
+      id: GO:0004674
+      label: protein serine/threonine kinase activity
+    location:
+      id: GO:0005737
+      label: cytoplasm
+    # GSK3B phosphorylates GLI3 after PKA priming, creating the degron
+    # recognized by BTRC (from gomodel:693b3c0900000157)
+
+  - id: btrc_ubiquitination
+    gene:
+      symbol: BTRC
+      hgnc_id: HGNC:1144
+    molecular_function:
+      id: GO:1990756
+      label: ubiquitin-like ligase-substrate adaptor activity
+    substrate:
+      symbol: GLI3
+      hgnc_id: HGNC:4319
+    location:
+      id: GO:0005737
+      label: cytoplasm
+    # BTRC/beta-TrCP recognizes phospho-degron on GLI3 and targets it for
+    # partial proteasomal processing to repressor form (from gomodel:693b3c0900000157)
+
   edges:
   # PTCH1 constitutively inhibits SMO (literature-grounded, not in GO-CAMs)
   - source: ptch1_inhibition
@@ -182,16 +265,38 @@ module:
       reference: PMID:28596197
       snippet: "Heterozygous germline variants in PTCH1 and SUFU encoding components of the Sonic hedgehog pathway explain the majority of cases."
 
-  # SMO inhibits GPR161 (removes it from cilium)
+  # --- SMO positive arm: ciliary transport → GPR161 removal ---
+  # SMO activates BBSome-mediated ciliary transport
   - source: smo_activity
-    target: gpr161_activity
+    target: bbsome_transport
     relation:
-      id: RO:0002409
-      label: directly inhibits
+      id: RO:0002629
+      label: directly positively regulates
     evidence:
     - type: go_cam
-      id: "gomodel:693b3c0900001389"
+      id: "gomodel:693b3c0900000716"
 
+  # BBSome recruits IFT-B for retrograde transport
+  - source: bbsome_transport
+    target: iftb_transport
+    relation:
+      id: RO:0002629
+      label: directly positively regulates
+    evidence:
+    - type: go_cam
+      id: "gomodel:693b3c0900000716"
+
+  # IFT-B removes GPR161 from cilium
+  - source: iftb_transport
+    target: gpr161_activity
+    relation:
+      id: RO:0002630
+      label: directly negatively regulates
+    evidence:
+    - type: go_cam
+      id: "gomodel:693b3c0900000716"
+
+  # --- GPR161/PKA/GLI3R negative regulatory arm ---
   # GPR161 activates PKA (via cAMP)
   - source: gpr161_activity
     target: pka_activity
@@ -202,17 +307,37 @@ module:
     - type: go_cam
       id: "gomodel:693b3c0900000331"
 
-  # PKA promotes GLI3R production (phosphorylation primes for proteolytic processing)
+  # PKA phosphorylates GLI3 (priming for GSK3B)
   - source: pka_activity
+    target: gsk3b_kinase
+    relation:
+      id: RO:0002413
+      label: directly provides input for
+    evidence:
+    - type: go_cam
+      id: "gomodel:693b3c0900000157"
+
+  # GSK3B further phosphorylates GLI3 (creating BTRC degron)
+  - source: gsk3b_kinase
+    target: btrc_ubiquitination
+    relation:
+      id: RO:0002413
+      label: directly provides input for
+    evidence:
+    - type: go_cam
+      id: "gomodel:693b3c0900000157"
+
+  # BTRC ubiquitinates GLI3 → partial proteasomal processing to GLI3R
+  - source: btrc_ubiquitination
     target: gli3r_production
     relation:
       id: RO:0002629
       label: directly positively regulates
     evidence:
     - type: go_cam
-      id: "gomodel:693b3c0900000331"
+      id: "gomodel:693b3c0900000157"
 
-  # PKA inhibits GLI1 (phosphorylation targets for degradation via SCF/BTRC)
+  # PKA inhibits GLI1 (phosphorylation targets for full degradation via SCF/BTRC)
   - source: pka_activity
     target: gli1_activation
     relation:
@@ -222,8 +347,19 @@ module:
     - type: go_cam
       id: "gomodel:693b3c0900000434"
 
-  # SMO activates MAPK1/DYRK2 which inhibits SUFU sequestration of GLI1
+  # --- SMO positive arm: kinase-mediated SUFU release ---
+  # SMO activates MAPK1/ERK2 (mediates GLI1 release from SUFU)
   - source: smo_activity
+    target: mapk1_kinase
+    relation:
+      id: RO:0002629
+      label: directly positively regulates
+    evidence:
+    - type: go_cam
+      id: "gomodel:693b3c0900001389"
+
+  # MAPK1 inhibits SUFU sequestration of GLI1
+  - source: mapk1_kinase
     target: sufu_sequestering_gli1
     relation:
       id: RO:0002630
@@ -232,8 +368,18 @@ module:
     - type: go_cam
       id: "gomodel:693b3c0900001389"
 
-  # SMO activates DYRK2 which inhibits SUFU sequestration of GLI3
+  # SMO activates DYRK2 (mediates GLI3 release from SUFU)
   - source: smo_activity
+    target: dyrk2_kinase
+    relation:
+      id: RO:0002629
+      label: directly positively regulates
+    evidence:
+    - type: go_cam
+      id: "gomodel:693b3c0900001501"
+
+  # DYRK2 inhibits SUFU sequestration of GLI3
+  - source: dyrk2_kinase
     target: sufu_sequestering_gli3
     relation:
       id: RO:0002630

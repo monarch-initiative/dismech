@@ -1,0 +1,1408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pheno-CAM: Cardiofaciocutaneous Syndrome</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8f9fa; }
+#header {
+  padding: 16px 24px; background: white; border-bottom: 1px solid #dee2e6;
+  display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
+}
+#header h1 { font-size: 20px; color: #212529; }
+#header .disease-term { color: #6c757d; font-size: 14px; }
+#controls { display: flex; align-items: center; gap: 12px; }
+#controls label { font-size: 13px; color: #495057; font-weight: 600; }
+#controls select { font-size: 13px; padding: 4px 8px; border-radius: 4px; border: 1px solid #ced4da; }
+#hg-info { font-size: 12px; color: #6c757d; max-width: 500px; }
+#canvas { width: 100%; height: calc(100vh - 70px); }
+svg { width: 100%; height: 100%; }
+
+.node rect {
+  rx: 6; ry: 6; stroke-width: 2; cursor: pointer;
+  transition: opacity 0.3s;
+}
+.node text { font-size: 11px; pointer-events: none; }
+.node .gene-label { font-weight: 700; font-size: 13px; }
+.node .func-label { font-size: 10px; fill: #495057; }
+.node .state-badge {
+  font-size: 9px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.edge path { fill: none; stroke-width: 1.5; }
+.edge marker { fill: #868e96; }
+.edge .edge-label { font-size: 9px; fill: #868e96; }
+
+.intermediate-node rect {
+  rx: 6; ry: 6; fill: #ede0f7; stroke: #6f42c1; stroke-width: 2; cursor: pointer;
+}
+.intermediate-node text { font-size: 11px; pointer-events: none; }
+.intermediate-node .gene-label { font-weight: 700; font-size: 12px; fill: #3d1f6d; }
+.intermediate-node .func-label { font-size: 9px; fill: #6f42c1; }
+.intermediate-node .state-badge { font-size: 9px; font-weight: 700; fill: #3d1f6d; }
+
+.phenotype-node rect {
+  rx: 12; ry: 12; fill: #fff3cd; stroke: #ffc107; stroke-width: 2;
+}
+.phenotype-node text { font-size: 11px; font-weight: 600; fill: #856404; }
+.phenotype-edge path { fill: none; stroke: #ffc107; stroke-width: 1.5; stroke-dasharray: 5,3; }
+.intermediate-edge path { fill: none; stroke: #6f42c1; stroke-width: 1.5; }
+.intermediate-to-pheno-edge path { fill: none; stroke: #ffc107; stroke-width: 1.5; stroke-dasharray: 5,3; }
+
+/* Perturbation state colors */
+.state-normal rect { fill: #f8f9fa; stroke: #dee2e6; }
+.state-absent rect { fill: #f8d7da; stroke: #dc3545; stroke-dasharray: 4,2; }
+.state-decreased rect { fill: #fde8e8; stroke: #e57373; }
+.state-increased rect { fill: #d4edda; stroke: #28a745; }
+.state-constitutively_active rect { fill: #c3e6cb; stroke: #1b5e20; stroke-width: 3; }
+.state-substrate_accumulated rect { fill: #fff3cd; stroke: #ff8f00; }
+.state-haploinsufficient rect { fill: #fde8e8; stroke: #e57373; stroke-dasharray: 4,2; }
+
+.state-primary rect { stroke-width: 3; }
+.state-primary .gene-label { text-decoration: underline; }
+
+/* Legend */
+#legend {
+  position: absolute; bottom: 16px; left: 16px; background: white;
+  border: 1px solid #dee2e6; border-radius: 8px; padding: 12px 16px;
+  font-size: 11px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+#legend h3 { font-size: 12px; margin-bottom: 8px; color: #495057; }
+.legend-item { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
+.legend-swatch {
+  width: 20px; height: 14px; border-radius: 3px; flex-shrink: 0;
+}
+
+/* Tooltip */
+#tooltip {
+  position: absolute; display: none; background: white; border: 1px solid #dee2e6;
+  border-radius: 6px; padding: 12px 16px; font-size: 12px; max-width: 420px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15); pointer-events: none; z-index: 100;
+  line-height: 1.4;
+}
+#tooltip .tt-title { font-weight: 700; margin-bottom: 6px; font-size: 13px; }
+#tooltip .tt-subtitle { color: #6c757d; font-size: 11px; margin-bottom: 6px; }
+#tooltip .tt-detail { color: #495057; margin: 3px 0; }
+#tooltip .tt-detail b { color: #212529; }
+#tooltip .tt-section { margin-top: 8px; padding-top: 6px; border-top: 1px solid #e9ecef; }
+#tooltip .tt-evidence { font-size: 11px; color: #6c757d; font-style: italic; margin-top: 4px; }
+#tooltip .tt-ref { font-size: 10px; color: #0d6efd; }
+#tooltip .tt-state { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: 600; }
+#tooltip .tt-state-increased { background: #d4edda; color: #155724; }
+#tooltip .tt-state-decreased { background: #fde8e8; color: #721c24; }
+#tooltip .tt-state-absent { background: #f8d7da; color: #721c24; }
+#tooltip .tt-state-constitutively_active { background: #c3e6cb; color: #155724; }
+#tooltip .tt-state-substrate_accumulated { background: #fff3cd; color: #856404; }
+
+.edge path.edge-hover { stroke: transparent; stroke-width: 12; cursor: pointer; fill: none; }
+</style>
+</head>
+<body>
+<div id="header">
+  <div>
+    <h1>Pheno-CAM: Cardiofaciocutaneous Syndrome</h1>
+    <span class="disease-term">MONDO:0015280 &mdash; cardiofaciocutaneous syndrome</span>
+  </div>
+  <div id="controls">
+    <label for="hg-select">Hypothesis:</label>
+    <select id="hg-select"></select>
+  </div>
+  <div id="hg-info"></div>
+</div>
+<div id="canvas"><svg></svg></div>
+<div id="legend">
+  <h3>Perturbation States</h3>
+  <div class="legend-item"><div class="legend-swatch" style="background:#f8f9fa;border:1px solid #dee2e6"></div> Normal</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#c3e6cb;border:2px solid #1b5e20"></div> Constitutively active</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#d4edda;border:1px solid #28a745"></div> Increased</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#fde8e8;border:1px solid #e57373"></div> Decreased</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#f8d7da;border:1px dashed #dc3545"></div> Absent</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#fff3cd;border:1px solid #ff8f00"></div> Accumulated</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#ede0f7;border:2px solid #6f42c1"></div> Intermediate</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#fff3cd;border:2px solid #ffc107;border-radius:8px"></div> Phenotype</div>
+  <div class="legend-item" style="margin-top:6px"><div style="width:20px;height:2px;background:#1b5e20"></div> <b>Bold border</b> = primary site</div>
+</div>
+<div id="tooltip"></div>
+<script>
+const DATA = {
+  "disease_name": "Cardiofaciocutaneous Syndrome",
+  "disease_id": "cardiofaciocutaneous_syndrome",
+  "disease_term": {
+    "id": "MONDO:0015280",
+    "label": "cardiofaciocutaneous syndrome"
+  },
+  "nodes": [
+    {
+      "id": "ras_mapk_cascade:rtk_activation",
+      "gene": "EGFR",
+      "hgnc_id": "HGNC:3236",
+      "complex": "",
+      "display_name": "",
+      "function": "epidermal growth factor-activated receptor activity",
+      "function_id": "GO:0005006",
+      "function_short": "EGF receptor",
+      "location": "plasma membrane",
+      "location_id": "GO:0005886",
+      "process": "epidermal growth factor receptor signaling pathway",
+      "process_id": "GO:0007173",
+      "substrate": "",
+      "substrate_hgnc": "",
+      "label": "EGFR\nEGF receptor",
+      "short_label": "EGFR",
+      "type": "activity"
+    },
+    {
+      "id": "ras_mapk_cascade:shp2_phosphatase",
+      "gene": "PTPN11",
+      "hgnc_id": "HGNC:9644",
+      "complex": "",
+      "display_name": "",
+      "function": "protein tyrosine phosphatase activity",
+      "function_id": "GO:0004725",
+      "function_short": "Tyr phosphatase",
+      "location": "cytosol",
+      "location_id": "GO:0005829",
+      "process": "Ras protein signal transduction",
+      "process_id": "GO:0007265",
+      "substrate": "",
+      "substrate_hgnc": "",
+      "label": "PTPN11\nTyr phosphatase",
+      "short_label": "PTPN11",
+      "type": "activity"
+    },
+    {
+      "id": "ras_mapk_cascade:grb2_adaptor",
+      "gene": "GRB2",
+      "hgnc_id": "HGNC:4566",
+      "complex": "",
+      "display_name": "",
+      "function": "protein-macromolecule adaptor activity",
+      "function_id": "GO:0030674",
+      "function_short": "adaptor",
+      "location": "cytosol",
+      "location_id": "GO:0005829",
+      "process": "",
+      "process_id": "",
+      "substrate": "",
+      "substrate_hgnc": "",
+      "label": "GRB2\nadaptor",
+      "short_label": "GRB2",
+      "type": "activity"
+    },
+    {
+      "id": "ras_mapk_cascade:sos1_gef",
+      "gene": "SOS1",
+      "hgnc_id": "HGNC:11187",
+      "complex": "",
+      "display_name": "",
+      "function": "Ras guanyl-nucleotide exchange factor activity",
+      "function_id": "GO:0005088",
+      "function_short": "Ras GEF",
+      "location": "plasma membrane",
+      "location_id": "GO:0005886",
+      "process": "Ras protein signal transduction",
+      "process_id": "GO:0007265",
+      "substrate": "",
+      "substrate_hgnc": "",
+      "label": "SOS1\nRas GEF",
+      "short_label": "SOS1",
+      "type": "activity"
+    },
+    {
+      "id": "ras_mapk_cascade:ras_gtpase",
+      "gene": "HRAS",
+      "hgnc_id": "HGNC:5173",
+      "complex": "",
+      "display_name": "",
+      "function": "GTPase activity",
+      "function_id": "GO:0003924",
+      "function_short": "GTPase",
+      "location": "plasma membrane",
+      "location_id": "GO:0005886",
+      "process": "Ras protein signal transduction",
+      "process_id": "GO:0007265",
+      "substrate": "",
+      "substrate_hgnc": "",
+      "label": "HRAS\nGTPase",
+      "short_label": "HRAS",
+      "type": "activity"
+    },
+    {
+      "id": "ras_mapk_cascade:raf_kinase",
+      "gene": "RAF1",
+      "hgnc_id": "HGNC:9829",
+      "complex": "",
+      "display_name": "",
+      "function": "protein serine/threonine kinase activity",
+      "function_id": "GO:0004674",
+      "function_short": "Ser/Thr kinase",
+      "location": "cytosol",
+      "location_id": "GO:0005829",
+      "process": "MAPK cascade",
+      "process_id": "GO:0000165",
+      "substrate": "",
+      "substrate_hgnc": "",
+      "label": "RAF1\nSer/Thr kinase",
+      "short_label": "RAF1",
+      "type": "activity"
+    },
+    {
+      "id": "ras_mapk_cascade:mek_kinase",
+      "gene": "MAP2K1",
+      "hgnc_id": "HGNC:6840",
+      "complex": "",
+      "display_name": "",
+      "function": "MAP kinase kinase activity",
+      "function_id": "GO:0004708",
+      "function_short": "MAP2K (MEK)",
+      "location": "cytosol",
+      "location_id": "GO:0005829",
+      "process": "MAPK cascade",
+      "process_id": "GO:0000165",
+      "substrate": "",
+      "substrate_hgnc": "",
+      "label": "MAP2K1\nMAP2K (MEK)",
+      "short_label": "MAP2K1",
+      "type": "activity"
+    },
+    {
+      "id": "ras_mapk_cascade:erk_kinase",
+      "gene": "MAPK1",
+      "hgnc_id": "HGNC:6871",
+      "complex": "",
+      "display_name": "",
+      "function": "MAP kinase activity",
+      "function_id": "GO:0004707",
+      "function_short": "MAPK (ERK)",
+      "location": "cytosol",
+      "location_id": "GO:0005829",
+      "process": "MAPK cascade",
+      "process_id": "GO:0000165",
+      "substrate": "",
+      "substrate_hgnc": "",
+      "label": "MAPK1\nMAPK (ERK)",
+      "short_label": "MAPK1",
+      "type": "activity"
+    },
+    {
+      "id": "ras_mapk_cascade:lztr1_ubiquitination",
+      "gene": "LZTR1",
+      "hgnc_id": "HGNC:6742",
+      "complex": "",
+      "display_name": "",
+      "function": "ubiquitin-like ligase-substrate adaptor activity",
+      "function_id": "GO:1990756",
+      "function_short": "ubiquitin ligase adaptor",
+      "location": "cytosol",
+      "location_id": "GO:0005829",
+      "process": "protein ubiquitination",
+      "process_id": "GO:0016567",
+      "substrate": "HRAS",
+      "substrate_hgnc": "HGNC:5173",
+      "label": "LZTR1 [HRAS]\nubiquitin ligase adaptor",
+      "short_label": "LZTR1 [HRAS]",
+      "type": "activity"
+    }
+  ],
+  "edges": [
+    {
+      "source": "ras_mapk_cascade:rtk_activation",
+      "target": "ras_mapk_cascade:shp2_phosphatase",
+      "relation": "directly positively regulates",
+      "relation_id": "RO:0002629",
+      "evidence": [
+        {
+          "type": "GO-CAM",
+          "id": "gomodel:68d5ebd600002406"
+        }
+      ]
+    },
+    {
+      "source": "ras_mapk_cascade:rtk_activation",
+      "target": "ras_mapk_cascade:grb2_adaptor",
+      "relation": "directly positively regulates",
+      "relation_id": "RO:0002629",
+      "evidence": [
+        {
+          "type": "GO-CAM",
+          "id": "gomodel:67c10cc400009089"
+        }
+      ]
+    },
+    {
+      "source": "ras_mapk_cascade:shp2_phosphatase",
+      "target": "ras_mapk_cascade:ras_gtpase",
+      "relation": "directly positively regulates",
+      "relation_id": "RO:0002629",
+      "evidence": [
+        {
+          "type": "literature",
+          "id": "PMID:17143285",
+          "snippet": "SHP2 is required for RAS-ERK MAP kinase (MAPK) cascade activation, and Noonan syndrome mutants enhance ERK activation ex vivo and in mice."
+        }
+      ]
+    },
+    {
+      "source": "ras_mapk_cascade:grb2_adaptor",
+      "target": "ras_mapk_cascade:sos1_gef",
+      "relation": "directly positively regulates",
+      "relation_id": "RO:0002629",
+      "evidence": [
+        {
+          "type": "GO-CAM",
+          "id": "gomodel:67c10cc400009089"
+        },
+        {
+          "type": "GO-CAM",
+          "id": "gomodel:662af8fa00002332"
+        }
+      ]
+    },
+    {
+      "source": "ras_mapk_cascade:sos1_gef",
+      "target": "ras_mapk_cascade:ras_gtpase",
+      "relation": "directly positively regulates",
+      "relation_id": "RO:0002629",
+      "evidence": [
+        {
+          "type": "literature",
+          "id": "PMID:17143285",
+          "snippet": "Noonan syndrome-associated SOS1 mutations are hypermorphs encoding products that enhance RAS and ERK activation."
+        }
+      ]
+    },
+    {
+      "source": "ras_mapk_cascade:ras_gtpase",
+      "target": "ras_mapk_cascade:raf_kinase",
+      "relation": "directly positively regulates",
+      "relation_id": "RO:0002629",
+      "evidence": [
+        {
+          "type": "literature",
+          "id": "PMID:17603483",
+          "snippet": "...have missense mutations in RAF1, which encodes a serine-threonine kinase that activates MEK1 and MEK2."
+        }
+      ]
+    },
+    {
+      "source": "ras_mapk_cascade:raf_kinase",
+      "target": "ras_mapk_cascade:mek_kinase",
+      "relation": "directly positively regulates",
+      "relation_id": "RO:0002629",
+      "evidence": [
+        {
+          "type": "literature",
+          "id": "PMID:17603483",
+          "snippet": "...have missense mutations in RAF1, which encodes a serine-threonine kinase that activates MEK1 and MEK2."
+        }
+      ]
+    },
+    {
+      "source": "ras_mapk_cascade:mek_kinase",
+      "target": "ras_mapk_cascade:erk_kinase",
+      "relation": "directly positively regulates",
+      "relation_id": "RO:0002629",
+      "evidence": [
+        {
+          "type": "GO-CAM",
+          "id": "gomodel:67c10cc400009089"
+        }
+      ]
+    },
+    {
+      "source": "ras_mapk_cascade:lztr1_ubiquitination",
+      "target": "ras_mapk_cascade:ras_gtpase",
+      "relation": "directly negatively regulates",
+      "relation_id": "RO:0002630",
+      "evidence": [
+        {
+          "type": "GO-CAM",
+          "id": "gomodel:68b0f0d000006733"
+        }
+      ]
+    }
+  ],
+  "hypothesis_groups": [
+    {
+      "id": "braf_driven",
+      "name": "BRAF-driven (kinase-impaired paradoxical activation)",
+      "frequency": "~75%",
+      "description": "Germline BRAF mutations in CFC are distinct from the somatic V600E seen in cancer. Most CFC mutations (Q257R, E501G) are kinase-impaired but activate the pathway through enhanced RAF dimerization, driving constitutive MEK-ERK signaling via a paradoxical activation mechanism.",
+      "states": {
+        "ras_mapk_cascade:raf_kinase": {
+          "state": "constitutively_active",
+          "mechanism": "gain_of_function",
+          "variant_class": "missense variant",
+          "is_primary": true,
+          "provenance": "primary_mutation",
+          "cause": "",
+          "evidence_refs": [
+            "PMID:16439621"
+          ],
+          "evidence_snippet": "The majority of cases (18 out of 23) are caused by mutations in BRAF, a gene frequently mutated in cancer. Of the 11 mutations identified, two result in amino acid substitutions that occur in tumors, but most are unique and suggest previously unknown mechanisms of B-Raf activation."
+        },
+        "ras_mapk_cascade:mek_kinase": {
+          "state": "increased",
+          "mechanism": "",
+          "variant_class": "",
+          "is_primary": false,
+          "provenance": "topology_inferred",
+          "cause": "ras_mapk_cascade:raf_kinase",
+          "evidence_refs": [],
+          "evidence_snippet": ""
+        },
+        "ras_mapk_cascade:erk_kinase": {
+          "state": "increased",
+          "mechanism": "",
+          "variant_class": "",
+          "is_primary": false,
+          "provenance": "topology_inferred",
+          "cause": "ras_mapk_cascade:mek_kinase",
+          "evidence_refs": [],
+          "evidence_snippet": ""
+        }
+      }
+    },
+    {
+      "id": "mek1_driven",
+      "name": "MAP2K1-driven (MEK1 gain-of-function)",
+      "frequency": "~14%",
+      "description": "Gain-of-function mutations in MAP2K1 (MEK1) increase kinase activity, directly hyperactivating ERK signaling without requiring upstream RAS or RAF perturbation.",
+      "states": {
+        "ras_mapk_cascade:mek_kinase": {
+          "state": "constitutively_active",
+          "mechanism": "gain_of_function",
+          "variant_class": "missense variant",
+          "is_primary": true,
+          "provenance": "primary_mutation",
+          "cause": "",
+          "evidence_refs": [
+            "PMID:16439621"
+          ],
+          "evidence_snippet": "three of five individuals without BRAF mutations had missense mutations in either MEK1 or MEK2, downstream effectors of B-Raf"
+        },
+        "ras_mapk_cascade:erk_kinase": {
+          "state": "increased",
+          "mechanism": "",
+          "variant_class": "",
+          "is_primary": false,
+          "provenance": "topology_inferred",
+          "cause": "ras_mapk_cascade:mek_kinase",
+          "evidence_refs": [],
+          "evidence_snippet": ""
+        }
+      }
+    },
+    {
+      "id": "mek2_driven",
+      "name": "MAP2K2-driven (MEK2 gain-of-function)",
+      "frequency": "~5%",
+      "description": "Gain-of-function mutations in MAP2K2 (MEK2) similarly increase MEK kinase activity and ERK activation. MAP2K2 cases may have a lower seizure prevalence than BRAF or MAP2K1 cases.",
+      "states": {
+        "ras_mapk_cascade:mek_kinase": {
+          "state": "constitutively_active",
+          "mechanism": "gain_of_function",
+          "variant_class": "missense variant",
+          "is_primary": true,
+          "provenance": "primary_mutation",
+          "cause": "",
+          "evidence_refs": [
+            "PMID:16439621"
+          ],
+          "evidence_snippet": "three of five individuals without BRAF mutations had missense mutations in either MEK1 or MEK2, downstream effectors of B-Raf"
+        },
+        "ras_mapk_cascade:erk_kinase": {
+          "state": "increased",
+          "mechanism": "",
+          "variant_class": "",
+          "is_primary": false,
+          "provenance": "topology_inferred",
+          "cause": "ras_mapk_cascade:mek_kinase",
+          "evidence_refs": [],
+          "evidence_snippet": ""
+        }
+      }
+    },
+    {
+      "id": "kras_driven",
+      "name": "KRAS-driven (GTPase gain-of-function)",
+      "frequency": "<2%",
+      "description": "Rare activating KRAS mutations cause CFC syndrome with phenotypic overlap with Noonan syndrome. These mutations impair GTPase activity, keeping KRAS in the active GTP-bound state.",
+      "states": {
+        "ras_mapk_cascade:ras_gtpase": {
+          "state": "constitutively_active",
+          "mechanism": "gain_of_function",
+          "variant_class": "missense variant",
+          "is_primary": true,
+          "provenance": "primary_mutation",
+          "cause": "",
+          "evidence_refs": [],
+          "evidence_snippet": ""
+        },
+        "ras_mapk_cascade:raf_kinase": {
+          "state": "increased",
+          "mechanism": "",
+          "variant_class": "",
+          "is_primary": false,
+          "provenance": "topology_inferred",
+          "cause": "ras_mapk_cascade:ras_gtpase",
+          "evidence_refs": [],
+          "evidence_snippet": ""
+        },
+        "ras_mapk_cascade:mek_kinase": {
+          "state": "increased",
+          "mechanism": "",
+          "variant_class": "",
+          "is_primary": false,
+          "provenance": "topology_inferred",
+          "cause": "ras_mapk_cascade:raf_kinase",
+          "evidence_refs": [],
+          "evidence_snippet": ""
+        },
+        "ras_mapk_cascade:erk_kinase": {
+          "state": "increased",
+          "mechanism": "",
+          "variant_class": "",
+          "is_primary": false,
+          "provenance": "topology_inferred",
+          "cause": "ras_mapk_cascade:mek_kinase",
+          "evidence_refs": [],
+          "evidence_snippet": ""
+        }
+      }
+    }
+  ],
+  "phenotype_routes": [
+    {
+      "id": "pulmonic_stenosis_route",
+      "name": "Pulmonic stenosis pathway",
+      "description": "Sustained ERK signaling perturbs semilunar valve development, leading to pulmonary valve dysplasia and stenosis. Shared mechanism with Noonan syndrome.",
+      "intermediate_ids": [
+        "inter:pulmonic_stenosis_route:0"
+      ],
+      "intermediates": [
+        {
+          "name": "Endocardial-mesenchymal transition dysregulation",
+          "gene": "",
+          "process": "cardiac epithelial to mesenchymal transition",
+          "state": "increased"
+        }
+      ],
+      "phenotype_label": "Pulmonic stenosis",
+      "phenotype_id": "HP:0001642",
+      "tissue": "vascular associated smooth muscle cell / pulmonary valve",
+      "tissue_detail": {
+        "cell_type_label": "vascular associated smooth muscle cell",
+        "cell_type_id": "CL:0000359",
+        "anatomy_label": "pulmonary valve",
+        "anatomy_id": "UBERON:0002146"
+      },
+      "evidence": []
+    },
+    {
+      "id": "ectodermal_route",
+      "name": "Ectodermal abnormality pathway",
+      "description": "ERK hyperactivation disrupts keratinocyte differentiation and hair follicle cycling, producing the characteristic sparse/curly hair, keratosis pilaris, and ichthyosis that distinguish CFC from Noonan syndrome.",
+      "intermediate_ids": [
+        "inter:ectodermal_route:0"
+      ],
+      "intermediates": [
+        {
+          "name": "Keratinocyte differentiation disruption",
+          "gene": "",
+          "process": "keratinocyte differentiation",
+          "state": "increased"
+        }
+      ],
+      "phenotype_label": "Keratosis pilaris",
+      "phenotype_id": "HP:0032152",
+      "tissue": "keratinocyte / skin of body",
+      "tissue_detail": {
+        "cell_type_label": "keratinocyte",
+        "cell_type_id": "CL:0000312",
+        "anatomy_label": "skin of body",
+        "anatomy_id": "UBERON:0002097"
+      },
+      "evidence": []
+    },
+    {
+      "id": "craniofacial_route",
+      "name": "Craniofacial dysmorphism pathway",
+      "description": "ERK signaling dysregulation during neural crest cell migration and craniofacial patterning produces characteristic facial features (high forehead, bitemporal narrowing, downslanting palpebral fissures).",
+      "intermediate_ids": [
+        "inter:craniofacial_route:0"
+      ],
+      "intermediates": [
+        {
+          "name": "Neural crest patterning disruption",
+          "gene": "",
+          "process": "neural crest cell differentiation",
+          "state": "increased"
+        }
+      ],
+      "phenotype_label": "Abnormal facial shape",
+      "phenotype_id": "HP:0001999",
+      "tissue": "skin of head",
+      "tissue_detail": {
+        "anatomy_label": "skin of head",
+        "anatomy_id": "UBERON:0001084"
+      },
+      "evidence": []
+    },
+    {
+      "id": "neurodevelopmental_route",
+      "name": "Neurodevelopmental delay pathway",
+      "description": "Sustained RAS-MAPK signaling perturbs cortical neuronal differentiation and synaptic maturation. CFC has more severe cognitive impairment than other RASopathies, possibly due to direct perturbation at the RAF/MEK level rather than upstream modulation.",
+      "intermediate_ids": [
+        "inter:neurodevelopmental_route:0"
+      ],
+      "intermediates": [
+        {
+          "name": "Cortical layer development abnormality",
+          "gene": "",
+          "process": "cerebral cortex development",
+          "state": "increased"
+        }
+      ],
+      "phenotype_label": "Intellectual disability",
+      "phenotype_id": "HP:0001249",
+      "tissue": "frontal cortex",
+      "tissue_detail": {
+        "anatomy_label": "frontal cortex",
+        "anatomy_id": "UBERON:0001870"
+      },
+      "evidence": [
+        {
+          "type": "literature",
+          "reference": "PMID:38136934",
+          "snippet": "Neurological involvement in CFC is more severe than in other RASopathies."
+        }
+      ]
+    },
+    {
+      "id": "short_stature_route",
+      "name": "Short stature pathway",
+      "description": "RAS-MAPK hyperactivation disrupts GH/IGF1 signaling and growth plate chondrocyte differentiation. Shared mechanism with Noonan syndrome.",
+      "intermediate_ids": [
+        "inter:short_stature_route:0"
+      ],
+      "intermediates": [
+        {
+          "name": "Growth plate signaling disruption",
+          "gene": "",
+          "process": "endochondral bone growth",
+          "state": "increased"
+        }
+      ],
+      "phenotype_label": "Short stature",
+      "phenotype_id": "HP:0004322",
+      "tissue": "hypertrophic chondrocyte / growth plate cartilage",
+      "tissue_detail": {
+        "cell_type_label": "hypertrophic chondrocyte",
+        "cell_type_id": "CL:0000743",
+        "anatomy_label": "growth plate cartilage",
+        "anatomy_id": "UBERON:0006658"
+      },
+      "evidence": []
+    },
+    {
+      "id": "seizure_route",
+      "name": "Epilepsy pathway",
+      "description": "ERK-mediated disruption of cortical excitatory/inhibitory balance contributes to epilepsy. Gene-specific frequencies suggest pathway position matters: BRAF 57%, MAP2K1 61%, MAP2K2 30%.",
+      "intermediate_ids": [
+        "inter:seizure_route:0"
+      ],
+      "intermediates": [
+        {
+          "name": "Cortical excitation/inhibition imbalance",
+          "gene": "",
+          "process": "cerebral cortex development",
+          "state": "increased"
+        }
+      ],
+      "phenotype_label": "Seizures",
+      "phenotype_id": "HP:0001250",
+      "tissue": "frontal cortex",
+      "tissue_detail": {
+        "anatomy_label": "frontal cortex",
+        "anatomy_id": "UBERON:0001870"
+      },
+      "evidence": []
+    }
+  ],
+  "intermediate_nodes": [
+    {
+      "id": "inter:pulmonic_stenosis_route:0",
+      "name": "Endocardial-mesenchymal transition dysregulation",
+      "gene": "",
+      "hgnc_id": "",
+      "process": "cardiac epithelial to mesenchymal transition",
+      "process_id": "GO:0060317",
+      "state": "increased",
+      "short_label": "Endocardial-mesenchymal t...",
+      "type": "intermediate",
+      "route_id": "pulmonic_stenosis_route",
+      "route_name": "Pulmonic stenosis pathway",
+      "driven_by": [
+        "ras_mapk_cascade:erk_kinase"
+      ],
+      "driven_by_labels": [
+        "MAPK1"
+      ],
+      "tissue": "vascular associated smooth muscle cell / pulmonary valve",
+      "tissue_detail": {
+        "cell_type_label": "vascular associated smooth muscle cell",
+        "cell_type_id": "CL:0000359",
+        "anatomy_label": "pulmonary valve",
+        "anatomy_id": "UBERON:0002146"
+      },
+      "route_evidence": []
+    },
+    {
+      "id": "inter:ectodermal_route:0",
+      "name": "Keratinocyte differentiation disruption",
+      "gene": "",
+      "hgnc_id": "",
+      "process": "keratinocyte differentiation",
+      "process_id": "GO:0030216",
+      "state": "increased",
+      "short_label": "Keratinocyte differentiat...",
+      "type": "intermediate",
+      "route_id": "ectodermal_route",
+      "route_name": "Ectodermal abnormality pathway",
+      "driven_by": [
+        "ras_mapk_cascade:erk_kinase"
+      ],
+      "driven_by_labels": [
+        "MAPK1"
+      ],
+      "tissue": "keratinocyte / skin of body",
+      "tissue_detail": {
+        "cell_type_label": "keratinocyte",
+        "cell_type_id": "CL:0000312",
+        "anatomy_label": "skin of body",
+        "anatomy_id": "UBERON:0002097"
+      },
+      "route_evidence": []
+    },
+    {
+      "id": "inter:craniofacial_route:0",
+      "name": "Neural crest patterning disruption",
+      "gene": "",
+      "hgnc_id": "",
+      "process": "neural crest cell differentiation",
+      "process_id": "GO:0014033",
+      "state": "increased",
+      "short_label": "Neural crest patterning d...",
+      "type": "intermediate",
+      "route_id": "craniofacial_route",
+      "route_name": "Craniofacial dysmorphism pathway",
+      "driven_by": [
+        "ras_mapk_cascade:erk_kinase"
+      ],
+      "driven_by_labels": [
+        "MAPK1"
+      ],
+      "tissue": "skin of head",
+      "tissue_detail": {
+        "anatomy_label": "skin of head",
+        "anatomy_id": "UBERON:0001084"
+      },
+      "route_evidence": []
+    },
+    {
+      "id": "inter:neurodevelopmental_route:0",
+      "name": "Cortical layer development abnormality",
+      "gene": "",
+      "hgnc_id": "",
+      "process": "cerebral cortex development",
+      "process_id": "GO:0021987",
+      "state": "increased",
+      "short_label": "Cortical layer developmen...",
+      "type": "intermediate",
+      "route_id": "neurodevelopmental_route",
+      "route_name": "Neurodevelopmental delay pathway",
+      "driven_by": [
+        "ras_mapk_cascade:erk_kinase"
+      ],
+      "driven_by_labels": [
+        "MAPK1"
+      ],
+      "tissue": "frontal cortex",
+      "tissue_detail": {
+        "anatomy_label": "frontal cortex",
+        "anatomy_id": "UBERON:0001870"
+      },
+      "route_evidence": [
+        {
+          "type": "literature",
+          "reference": "PMID:38136934",
+          "snippet": "Neurological involvement in CFC is more severe than in other RASopathies."
+        }
+      ]
+    },
+    {
+      "id": "inter:short_stature_route:0",
+      "name": "Growth plate signaling disruption",
+      "gene": "",
+      "hgnc_id": "",
+      "process": "endochondral bone growth",
+      "process_id": "GO:0003416",
+      "state": "increased",
+      "short_label": "Growth plate signaling di...",
+      "type": "intermediate",
+      "route_id": "short_stature_route",
+      "route_name": "Short stature pathway",
+      "driven_by": [
+        "ras_mapk_cascade:erk_kinase"
+      ],
+      "driven_by_labels": [
+        "MAPK1"
+      ],
+      "tissue": "hypertrophic chondrocyte / growth plate cartilage",
+      "tissue_detail": {
+        "cell_type_label": "hypertrophic chondrocyte",
+        "cell_type_id": "CL:0000743",
+        "anatomy_label": "growth plate cartilage",
+        "anatomy_id": "UBERON:0006658"
+      },
+      "route_evidence": []
+    },
+    {
+      "id": "inter:seizure_route:0",
+      "name": "Cortical excitation/inhibition imbalance",
+      "gene": "",
+      "hgnc_id": "",
+      "process": "cerebral cortex development",
+      "process_id": "GO:0021987",
+      "state": "increased",
+      "short_label": "Cortical excitation/inhib...",
+      "type": "intermediate",
+      "route_id": "seizure_route",
+      "route_name": "Epilepsy pathway",
+      "driven_by": [
+        "ras_mapk_cascade:erk_kinase"
+      ],
+      "driven_by_labels": [
+        "MAPK1"
+      ],
+      "tissue": "frontal cortex",
+      "tissue_detail": {
+        "anatomy_label": "frontal cortex",
+        "anatomy_id": "UBERON:0001870"
+      },
+      "route_evidence": []
+    }
+  ],
+  "intermediate_edges": [
+    {
+      "source": "ras_mapk_cascade:erk_kinase",
+      "target": "inter:pulmonic_stenosis_route:0",
+      "edge_type": "activity_to_intermediate",
+      "source_label": "MAPK1",
+      "target_label": "Endocardial-mesenchymal t..."
+    },
+    {
+      "source": "inter:pulmonic_stenosis_route:0",
+      "target": "pheno:pulmonic_stenosis_route",
+      "edge_type": "intermediate_to_phenotype",
+      "source_label": "Endocardial-mesenchymal t...",
+      "target_label": "Pulmonic stenosis"
+    },
+    {
+      "source": "ras_mapk_cascade:erk_kinase",
+      "target": "inter:ectodermal_route:0",
+      "edge_type": "activity_to_intermediate",
+      "source_label": "MAPK1",
+      "target_label": "Keratinocyte differentiat..."
+    },
+    {
+      "source": "inter:ectodermal_route:0",
+      "target": "pheno:ectodermal_route",
+      "edge_type": "intermediate_to_phenotype",
+      "source_label": "Keratinocyte differentiat...",
+      "target_label": "Keratosis pilaris"
+    },
+    {
+      "source": "ras_mapk_cascade:erk_kinase",
+      "target": "inter:craniofacial_route:0",
+      "edge_type": "activity_to_intermediate",
+      "source_label": "MAPK1",
+      "target_label": "Neural crest patterning d..."
+    },
+    {
+      "source": "inter:craniofacial_route:0",
+      "target": "pheno:craniofacial_route",
+      "edge_type": "intermediate_to_phenotype",
+      "source_label": "Neural crest patterning d...",
+      "target_label": "Abnormal facial shape"
+    },
+    {
+      "source": "ras_mapk_cascade:erk_kinase",
+      "target": "inter:neurodevelopmental_route:0",
+      "edge_type": "activity_to_intermediate",
+      "source_label": "MAPK1",
+      "target_label": "Cortical layer developmen..."
+    },
+    {
+      "source": "inter:neurodevelopmental_route:0",
+      "target": "pheno:neurodevelopmental_route",
+      "edge_type": "intermediate_to_phenotype",
+      "source_label": "Cortical layer developmen...",
+      "target_label": "Intellectual disability"
+    },
+    {
+      "source": "ras_mapk_cascade:erk_kinase",
+      "target": "inter:short_stature_route:0",
+      "edge_type": "activity_to_intermediate",
+      "source_label": "MAPK1",
+      "target_label": "Growth plate signaling di..."
+    },
+    {
+      "source": "inter:short_stature_route:0",
+      "target": "pheno:short_stature_route",
+      "edge_type": "intermediate_to_phenotype",
+      "source_label": "Growth plate signaling di...",
+      "target_label": "Short stature"
+    },
+    {
+      "source": "ras_mapk_cascade:erk_kinase",
+      "target": "inter:seizure_route:0",
+      "edge_type": "activity_to_intermediate",
+      "source_label": "MAPK1",
+      "target_label": "Cortical excitation/inhib..."
+    },
+    {
+      "source": "inter:seizure_route:0",
+      "target": "pheno:seizure_route",
+      "edge_type": "intermediate_to_phenotype",
+      "source_label": "Cortical excitation/inhib...",
+      "target_label": "Seizures"
+    }
+  ]
+};
+
+// --- Layout with dagre ---
+function layoutGraph(data) {
+  const g = new dagre.graphlib.Graph({ compound: false });
+  g.setGraph({ rankdir: "LR", ranksep: 80, nodesep: 40, marginx: 40, marginy: 40 });
+  g.setDefaultEdgeLabel(() => ({}));
+
+  data.nodes.forEach(n => {
+    const w = Math.max(140, n.short_label.length * 8 + 30);
+    g.setNode(n.id, { label: n.short_label, width: w, height: 60 });
+  });
+  data.edges.forEach(e => {
+    g.setEdge(e.source, e.target);
+  });
+  // Add intermediate nodes
+  (data.intermediate_nodes || []).forEach(n => {
+    const w = Math.max(130, n.short_label.length * 7 + 24);
+    g.setNode(n.id, { label: n.short_label, width: w, height: 50 });
+  });
+  // Add intermediate edges (activity→inter, inter→inter, inter→phenotype)
+  (data.intermediate_edges || []).forEach(e => {
+    g.setEdge(e.source, e.target);
+  });
+  // Add phenotype nodes (no longer directly connected from activities)
+  data.phenotype_routes.forEach(pr => {
+    const pid = "pheno:" + pr.id;
+    g.setNode(pid, { label: pr.phenotype_label, width: 140, height: 40 });
+    // If route has no intermediates, fall back to direct connection
+    if (!pr.intermediate_ids || pr.intermediate_ids.length === 0) {
+      // No intermediates — shouldn't happen, but safety fallback
+    }
+  });
+
+  dagre.layout(g);
+  return g;
+}
+
+// --- Render ---
+function render() {
+  const svg = d3.select("svg");
+  svg.selectAll("*").remove();
+
+  const g = layoutGraph(DATA);
+  const graphInfo = g.graph();
+
+  // Zoom/pan
+  const zoom = d3.zoom().scaleExtent([0.3, 3]).on("zoom", (e) => {
+    container.attr("transform", e.transform);
+  });
+  svg.call(zoom);
+
+  const container = svg.append("g");
+
+  // Fit to view
+  const svgEl = svg.node();
+  const W = svgEl.clientWidth || 900;
+  const H = svgEl.clientHeight || 600;
+  const gW = graphInfo.width || 800;
+  const gH = graphInfo.height || 400;
+  const scale = Math.min(W / (gW + 80), H / (gH + 80), 1.2);
+  const tx = (W - gW * scale) / 2;
+  const ty = (H - gH * scale) / 2;
+  svg.call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+
+  // Arrow marker
+  svg.append("defs").append("marker")
+    .attr("id", "arrowhead").attr("viewBox", "0 0 10 10")
+    .attr("refX", 10).attr("refY", 5)
+    .attr("markerWidth", 8).attr("markerHeight", 8)
+    .attr("orient", "auto")
+    .append("path").attr("d", "M 0 0 L 10 5 L 0 10 z").attr("fill", "#868e96");
+
+  svg.select("defs").append("marker")
+    .attr("id", "arrowhead-phenotype").attr("viewBox", "0 0 10 10")
+    .attr("refX", 10).attr("refY", 5)
+    .attr("markerWidth", 8).attr("markerHeight", 8)
+    .attr("orient", "auto")
+    .append("path").attr("d", "M 0 0 L 10 5 L 0 10 z").attr("fill", "#ffc107");
+
+  svg.select("defs").append("marker")
+    .attr("id", "arrowhead-intermediate").attr("viewBox", "0 0 10 10")
+    .attr("refX", 10).attr("refY", 5)
+    .attr("markerWidth", 8).attr("markerHeight", 8)
+    .attr("orient", "auto")
+    .append("path").attr("d", "M 0 0 L 10 5 L 0 10 z").attr("fill", "#6f42c1");
+
+  // Draw module edges
+  const edgeGroup = container.append("g").attr("class", "edges");
+  // Build a lookup from node id to short_label for edge tooltips
+  const nodeLabels = {};
+  DATA.nodes.forEach(n => { nodeLabels[n.id] = n.short_label; });
+  (DATA.intermediate_nodes || []).forEach(n => { nodeLabels[n.id] = n.short_label; });
+
+  DATA.edges.forEach(e => {
+    const pts = g.edge(e.source, e.target);
+    if (!pts || !pts.points) return;
+    const line = d3.line().x(d => d.x).y(d => d.y).curve(d3.curveBasis);
+    const isNeg = e.relation_id === "RO:0002630" || e.relation_id === "RO:0002409";
+    const eg = edgeGroup.append("g").attr("class", "edge");
+    const pathD = line(pts.points);
+    eg.append("path")
+      .attr("d", pathD)
+      .attr("stroke", isNeg ? "#e57373" : "#868e96")
+      .attr("marker-end", "url(#arrowhead)");
+    // Invisible wider path for hover target
+    eg.append("path").attr("class", "edge-hover").attr("d", pathD);
+    // Label at midpoint
+    const mid = pts.points[Math.floor(pts.points.length / 2)];
+    const shortRel = e.relation.replace("directly ", "").replace("regulates", "reg.");
+    eg.append("text").attr("class", "edge-label")
+      .attr("x", mid.x).attr("y", mid.y - 6)
+      .attr("text-anchor", "middle").text(shortRel);
+    // Edge tooltip
+    eg.on("mouseover", (event) => {
+      const tt = d3.select("#tooltip");
+      tt.style("display", "block")
+        .style("left", (event.pageX + 12) + "px")
+        .style("top", (event.pageY - 10) + "px");
+      const srcLabel = nodeLabels[e.source] || e.source;
+      const tgtLabel = nodeLabels[e.target] || e.target;
+      let evHtml = "";
+      if (e.evidence && e.evidence.length) {
+        evHtml = `<div class="tt-section"><b>Evidence:</b>`;
+        e.evidence.forEach(ev => {
+          if (ev.type === "GO-CAM") {
+            evHtml += `<div class="tt-ref">📦 ${ev.id}</div>`;
+          } else {
+            evHtml += `<div class="tt-ref">📄 ${ev.id}</div>`;
+            if (ev.snippet) evHtml += `<div class="tt-evidence">"${ev.snippet}"</div>`;
+          }
+        });
+        evHtml += `</div>`;
+      }
+      tt.html(`<div class="tt-title">${srcLabel} → ${tgtLabel}</div>
+        <div class="tt-detail"><b>Relation:</b> ${e.relation}</div>
+        <div class="tt-detail"><b>Relation ID:</b> ${e.relation_id}</div>
+        ${evHtml}`);
+    }).on("mouseout", () => d3.select("#tooltip").style("display", "none"));
+  });
+
+  // Draw intermediate edges
+  const edgeTypeLabels = {
+    "activity_to_intermediate": "drives",
+    "intermediate_chain": "contributes to",
+    "intermediate_to_phenotype": "leads to",
+  };
+  (DATA.intermediate_edges || []).forEach(e => {
+    const pts = g.edge(e.source, e.target);
+    if (!pts || !pts.points) return;
+    const line = d3.line().x(d => d.x).y(d => d.y).curve(d3.curveBasis);
+    const pathD = line(pts.points);
+    let eg;
+    if (e.edge_type === "intermediate_to_phenotype") {
+      eg = edgeGroup.append("g").attr("class", "intermediate-to-pheno-edge");
+      eg.append("path").attr("d", pathD).attr("marker-end", "url(#arrowhead-phenotype)");
+    } else {
+      eg = edgeGroup.append("g").attr("class", "intermediate-edge");
+      eg.append("path").attr("d", pathD).attr("marker-end", "url(#arrowhead-intermediate)");
+    }
+    // Invisible wider path for hover target
+    eg.append("path").attr("class", "edge-hover").attr("d", pathD);
+    // Tooltip
+    const srcLabel = e.source_label || nodeLabels[e.source] || e.source;
+    const tgtLabel = e.target_label || nodeLabels[e.target] || e.target;
+    const relLabel = edgeTypeLabels[e.edge_type] || e.edge_type;
+    eg.on("mouseover", (event) => {
+      const tt = d3.select("#tooltip");
+      tt.style("display", "block")
+        .style("left", (event.pageX + 12) + "px")
+        .style("top", (event.pageY - 10) + "px");
+      tt.html(`<div class="tt-title">${srcLabel} → ${tgtLabel}</div>
+        <div class="tt-detail"><b>Relationship:</b> ${srcLabel} ${relLabel} ${tgtLabel}</div>
+        <div class="tt-detail" style="font-size:10px;color:#6c757d">Type: ${e.edge_type.replace(/_/g, " ")}</div>`);
+    }).on("mouseout", () => d3.select("#tooltip").style("display", "none"));
+  });
+
+  // Draw activity nodes
+  const nodeGroup = container.append("g").attr("class", "nodes");
+  const nodeMap = {};
+  DATA.nodes.forEach(n => {
+    const pos = g.node(n.id);
+    if (!pos) return;
+    const w = Math.max(140, n.short_label.length * 8 + 30);
+    const hw = w / 2;
+    const ng = nodeGroup.append("g")
+      .attr("class", "node state-normal")
+      .attr("transform", `translate(${pos.x - hw},${pos.y - 30})`)
+      .attr("data-id", n.id);
+    ng.append("rect").attr("width", w).attr("height", 60);
+    ng.append("text").attr("class", "gene-label")
+      .attr("x", hw).attr("y", 22).attr("text-anchor", "middle").text(n.short_label);
+    ng.append("text").attr("class", "func-label")
+      .attr("x", hw).attr("y", 36).attr("text-anchor", "middle")
+      .text(truncate(n.function_short || n.function, Math.floor(w / 6)));
+    // State badge (hidden by default)
+    ng.append("text").attr("class", "state-badge")
+      .attr("x", hw).attr("y", 52).attr("text-anchor", "middle").text("");
+    nodeMap[n.id] = ng;
+
+    // Tooltip
+    ng.on("mouseover", (event) => {
+      const tt = d3.select("#tooltip");
+      tt.style("display", "block")
+        .style("left", (event.pageX + 12) + "px")
+        .style("top", (event.pageY - 10) + "px");
+      const name = n.display_name || n.gene || n.complex || n.id.split(":")[1];
+      const geneInfo = n.gene ? `${n.gene} (${n.hgnc_id})` : (n.complex || "");
+      let html = `<div class="tt-title">${name}</div>`;
+      if (geneInfo) html += `<div class="tt-subtitle">${geneInfo}</div>`;
+      html += `<div class="tt-detail"><b>Function:</b> ${n.function || "—"}</div>`;
+      if (n.function_id) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${n.function_id}</div>`;
+      if (n.substrate) html += `<div class="tt-detail"><b>Substrate:</b> ${n.substrate} (${n.substrate_hgnc})</div>`;
+      html += `<div class="tt-detail"><b>Location:</b> ${n.location || "—"}</div>`;
+      if (n.location_id) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${n.location_id}</div>`;
+      if (n.process) html += `<div class="tt-detail"><b>Process:</b> ${n.process}</div>`;
+      if (n.process_id) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${n.process_id}</div>`;
+      // Show perturbation state if a hypothesis is selected
+      const hgIdx = +document.getElementById("hg-select").value;
+      const hg = DATA.hypothesis_groups[hgIdx];
+      if (hg && hg.states[n.id]) {
+        const st = hg.states[n.id];
+        const stClass = "tt-state tt-state-" + st.state;
+        html += `<div class="tt-section">`;
+        html += `<div class="tt-detail"><b>State:</b> <span class="${stClass}">${st.state.replace(/_/g, " ")}</span></div>`;
+        if (st.is_primary) {
+          html += `<div class="tt-detail"><b>Role:</b> Primary mutation site</div>`;
+          if (st.variant_class) html += `<div class="tt-detail"><b>Variant:</b> ${st.variant_class}</div>`;
+          if (st.mechanism) html += `<div class="tt-detail"><b>Mechanism:</b> ${st.mechanism.replace(/_/g, " ")}</div>`;
+        } else {
+          html += `<div class="tt-detail"><b>Role:</b> Propagated from ${st.cause ? nodeLabels[st.cause] || st.cause : "upstream"}</div>`;
+          if (st.provenance) html += `<div class="tt-detail"><b>Provenance:</b> ${st.provenance.replace(/_/g, " ")}</div>`;
+        }
+        if (st.evidence_refs && st.evidence_refs.length) {
+          html += `<div class="tt-detail"><b>Evidence:</b></div>`;
+          st.evidence_refs.forEach(r => { html += `<div class="tt-ref">📄 ${r}</div>`; });
+        }
+        if (st.evidence_snippet) html += `<div class="tt-evidence">"${st.evidence_snippet}"</div>`;
+        html += `</div>`;
+      }
+      html += `<div style="margin-top:6px;font-size:10px;color:#adb5bd">${n.id}</div>`;
+      tt.html(html);
+    }).on("mouseout", () => d3.select("#tooltip").style("display", "none"));
+  });
+
+  // Draw intermediate nodes
+  (DATA.intermediate_nodes || []).forEach(n => {
+    const pos = g.node(n.id);
+    if (!pos) return;
+    const w = Math.max(130, n.short_label.length * 7 + 24);
+    const hw = w / 2;
+    const ng = nodeGroup.append("g")
+      .attr("class", "intermediate-node")
+      .attr("transform", `translate(${pos.x - hw},${pos.y - 25})`);
+    ng.append("rect").attr("width", w).attr("height", 50);
+    ng.append("text").attr("class", "gene-label")
+      .attr("x", hw).attr("y", 18).attr("text-anchor", "middle")
+      .text(n.short_label);
+    ng.append("text").attr("class", "func-label")
+      .attr("x", hw).attr("y", 30).attr("text-anchor", "middle")
+      .text(truncate(n.process, Math.floor(w / 6)));
+    // State badge
+    const stateLabel = n.state ? n.state.replace(/_/g, " ") : "";
+    ng.append("text").attr("class", "state-badge")
+      .attr("x", hw).attr("y", 43).attr("text-anchor", "middle")
+      .text(stateLabel);
+    // Tooltip
+    ng.on("mouseover", (event) => {
+      const tt = d3.select("#tooltip");
+      tt.style("display", "block")
+        .style("left", (event.pageX + 12) + "px")
+        .style("top", (event.pageY - 10) + "px");
+      let html = `<div class="tt-title">${n.name}</div>`;
+      if (n.gene) html += `<div class="tt-subtitle">${n.gene} (${n.hgnc_id})</div>`;
+      if (n.process) html += `<div class="tt-detail"><b>Process:</b> ${n.process}</div>`;
+      if (n.process_id) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${n.process_id}</div>`;
+      if (n.state) {
+        const stClass = "tt-state tt-state-" + n.state;
+        html += `<div class="tt-detail"><b>State:</b> <span class="${stClass}">${n.state.replace(/_/g, " ")}</span></div>`;
+      }
+      // Driven by
+      if (n.driven_by_labels && n.driven_by_labels.length) {
+        html += `<div class="tt-detail"><b>Driven by:</b> ${n.driven_by_labels.join(", ")}</div>`;
+      } else if (n.driven_by && n.driven_by.length === 0) {
+        html += `<div class="tt-detail"><b>Driven by:</b> convergence of upstream intermediates</div>`;
+      }
+      // Route
+      html += `<div class="tt-detail"><b>Route:</b> ${n.route_name || n.route_id.replace(/_/g, " ")}</div>`;
+      // Tissue
+      if (n.tissue) {
+        html += `<div class="tt-detail"><b>Tissue:</b> ${n.tissue}</div>`;
+        const td = n.tissue_detail || {};
+        let tissueIds = [];
+        if (td.cell_type_id) tissueIds.push(td.cell_type_id);
+        if (td.anatomy_id) tissueIds.push(td.anatomy_id);
+        if (tissueIds.length) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${tissueIds.join(" / ")}</div>`;
+      }
+      // Route-level evidence
+      if (n.route_evidence && n.route_evidence.length) {
+        html += `<div class="tt-section"><b>Evidence:</b>`;
+        n.route_evidence.forEach(ev => {
+          html += `<div class="tt-ref">📄 ${ev.reference}</div>`;
+          if (ev.snippet) html += `<div class="tt-evidence">"${ev.snippet}"</div>`;
+        });
+        html += `</div>`;
+      }
+      html += `<div style="margin-top:6px;font-size:10px;color:#adb5bd">${n.id}</div>`;
+      tt.html(html);
+    }).on("mouseout", () => d3.select("#tooltip").style("display", "none"));
+  });
+
+  // Draw phenotype nodes
+  DATA.phenotype_routes.forEach(pr => {
+    const pid = "pheno:" + pr.id;
+    const pos = g.node(pid);
+    if (!pos) return;
+    const ng = nodeGroup.append("g")
+      .attr("class", "phenotype-node")
+      .attr("transform", `translate(${pos.x - 70},${pos.y - 20})`);
+    ng.append("rect").attr("width", 140).attr("height", 40);
+    ng.append("text")
+      .attr("x", 70).attr("y", 16).attr("text-anchor", "middle")
+      .text(truncate(pr.phenotype_label, 20));
+    ng.append("text")
+      .attr("x", 70).attr("y", 30).attr("text-anchor", "middle")
+      .style("font-size", "9px").style("fill", "#a17c10")
+      .text(pr.phenotype_id);
+
+    ng.on("mouseover", (event) => {
+      const tt = d3.select("#tooltip");
+      tt.style("display", "block")
+        .style("left", (event.pageX + 12) + "px")
+        .style("top", (event.pageY - 10) + "px");
+      let html = `<div class="tt-title">${pr.phenotype_label}</div>`;
+      html += `<div class="tt-subtitle">${pr.phenotype_id}</div>`;
+      html += `<div class="tt-detail"><b>Route:</b> ${pr.name}</div>`;
+      if (pr.tissue) {
+        html += `<div class="tt-detail"><b>Tissue:</b> ${pr.tissue}</div>`;
+        const td = pr.tissue_detail || {};
+        let tissueIds = [];
+        if (td.cell_type_id) tissueIds.push(td.cell_type_id);
+        if (td.anatomy_id) tissueIds.push(td.anatomy_id);
+        if (tissueIds.length) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${tissueIds.join(" / ")}</div>`;
+      }
+      html += `<div class="tt-detail" style="margin-top:6px">${pr.description}</div>`;
+      // Show intermediates
+      if (pr.intermediates && pr.intermediates.length) {
+        html += `<div class="tt-section"><b>Intermediates:</b>`;
+        pr.intermediates.forEach(inter => {
+          html += `<div class="tt-detail">• ${inter.name}`;
+          if (inter.gene) html += ` (${inter.gene})`;
+          if (inter.process) html += ` — ${inter.process}`;
+          html += `</div>`;
+        });
+        html += `</div>`;
+      }
+      // Route-level evidence
+      if (pr.evidence && pr.evidence.length) {
+        html += `<div class="tt-section"><b>Evidence:</b>`;
+        pr.evidence.forEach(ev => {
+          html += `<div class="tt-ref">📄 ${ev.reference}</div>`;
+          if (ev.snippet) html += `<div class="tt-evidence">"${ev.snippet}"</div>`;
+        });
+        html += `</div>`;
+      }
+      tt.html(html);
+    }).on("mouseout", () => d3.select("#tooltip").style("display", "none"));
+  });
+
+  // Store nodeMap for hypothesis switching
+  window._nodeMap = nodeMap;
+}
+
+function truncate(s, max) {
+  return s && s.length > max ? s.slice(0, max - 1) + "…" : (s || "");
+}
+
+// --- Hypothesis group switching ---
+function applyHypothesis(hgIdx) {
+  const hg = DATA.hypothesis_groups[hgIdx];
+  const nodeMap = window._nodeMap;
+  if (!nodeMap) return;
+
+  // Reset all nodes
+  DATA.nodes.forEach(n => {
+    const ng = nodeMap[n.id];
+    if (!ng) return;
+    ng.attr("class", "node state-normal");
+    ng.select(".state-badge").text("");
+  });
+
+  // Apply perturbation states
+  Object.entries(hg.states).forEach(([nodeId, info]) => {
+    const ng = nodeMap[nodeId];
+    if (!ng) return;
+    let cls = "node state-" + info.state;
+    if (info.is_primary) cls += " state-primary";
+    ng.attr("class", cls);
+    const label = info.state.replace(/_/g, " ");
+    ng.select(".state-badge").text(info.is_primary ? "⬤ " + label : label);
+  });
+
+  // Update info
+  d3.select("#hg-info").html(
+    `<b>${hg.frequency}</b> of cases. ${hg.description}`
+  );
+}
+
+// --- Init ---
+document.addEventListener("DOMContentLoaded", () => {
+  const sel = d3.select("#hg-select");
+  DATA.hypothesis_groups.forEach((hg, i) => {
+    sel.append("option").attr("value", i).text(hg.name);
+  });
+  sel.on("change", function() { applyHypothesis(+this.value); });
+
+  render();
+  if (DATA.hypothesis_groups.length > 0) applyHypothesis(0);
+});
+</script>
+</body>
+</html>

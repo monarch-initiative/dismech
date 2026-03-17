@@ -47,16 +47,17 @@ This work supports two pivotal use cases identified at the Mar 10, 2026 CZI meet
 - [x] Finalize disease perturbation YAML structure
 - [x] Create Gorlin Syndrome module (`hedgehog_signaling`) + disease file
 - [x] Create Noonan Syndrome module (`ras_mapk_cascade`) + disease file
-- [ ] Demonstrate module reuse (Noonan ↔ CFC syndrome shared RAS/MAPK module)
+- [x] Demonstrate module reuse (Noonan ↔ CFC syndrome shared RAS/MAPK module)
 
 **Created files**:
 - `causal_models/modules/hedgehog_signaling.yaml` — 9 activities, 9 edges, sourced from 6 GO-CAMs
 - `causal_models/modules/ras_mapk_cascade.yaml` — 9 activities, 9 edges, sourced from 5 GO-CAMs + literature
 - `causal_models/diseases/Gorlin_Syndrome.yaml` — 2 hypothesis groups (PTCH1/SUFU), 5 phenotype routes
 - `causal_models/diseases/Noonan_Syndrome.yaml` — 4 hypothesis groups (PTPN11/SOS1/RAF1/LZTR1), 6 phenotype routes
+- `causal_models/diseases/Cardiofaciocutaneous_Syndrome.yaml` — 4 hypothesis groups (BRAF/MEK1/MEK2/KRAS), 6 phenotype routes
 
-**Demo**: Formal causal models for Gorlin and Noonan with hypothesis groups and
-perturbation state propagation.
+**Demo**: Module reuse validated — CFC and Noonan import the same `ras_mapk_cascade`
+module but enter the cascade at different points (BRAF/MEK vs PTPN11/SOS1).
 
 ### Phase 3: Skill-Driven Curation
 - [ ] Rework `pheno-cam` skill with automated workflow
@@ -85,6 +86,7 @@ perturbation state propagation.
 |---|---|---|
 | Gorlin Syndrome | 2 | Two hypothesis groups (PTCH1/SUFU), Hh pathway, existing GO-CAMs |
 | Noonan Syndrome | 2 | RASopathy, multiple genes, cardiac + developmental, Reactome data |
+| CFC Syndrome | 2 | Module reuse demo — shares ras_mapk_cascade with Noonan, different entry points |
 | Parkinson's Disease | 3 | Multiple hypotheses, progressive, rich KB entry, module reuse |
 
 ## Key Decisions

@@ -36,39 +36,86 @@ disease_model:
         snippet: "Heterozygous germline variants in PTCH1 and SUFU encoding components of the Sonic hedgehog pathway explain the majority of cases."
 
     propagated_states:
+    # SMO becomes constitutively active (loss of inhibitor)
     - activity: hedgehog_signaling:smo_activity
       perturbed_state: constitutively_active
       cause: hedgehog_signaling:ptch1_inhibition
       provenance: topology_inferred
-      # Loss of inhibitor → constitutive activation
       evidence:
       - type: literature
         reference: PMID:19032739
         snippet: "NBCCS is caused by mutations in the PTCH1 gene and is transmitted as an autosomal dominant trait with complete penetrance and variable expressivity."
 
-    - activity: hedgehog_signaling:gpr161_activity
-      perturbed_state: absent
+    # --- Ciliary transport arm: SMO → BBSome → IFT-B → GPR161 removal ---
+    - activity: hedgehog_signaling:bbsome_transport
+      perturbed_state: increased
       cause: hedgehog_signaling:smo_activity
       provenance: topology_inferred
-      # SMO inhibits GPR161 → constitutively active SMO removes GPR161 from cilium
 
+    - activity: hedgehog_signaling:iftb_transport
+      perturbed_state: increased
+      cause: hedgehog_signaling:bbsome_transport
+      provenance: topology_inferred
+
+    - activity: hedgehog_signaling:gpr161_activity
+      perturbed_state: absent
+      cause: hedgehog_signaling:iftb_transport
+      provenance: topology_inferred
+      # IFT-B removes GPR161 from cilium → no cAMP production
+
+    # --- PKA/GLI3R processing arm collapses ---
     - activity: hedgehog_signaling:pka_activity
       perturbed_state: decreased
       cause: hedgehog_signaling:gpr161_activity
       provenance: topology_inferred
       # GPR161 absent → no cAMP → reduced PKA activity
 
-    - activity: hedgehog_signaling:sufu_sequestering_gli1
+    - activity: hedgehog_signaling:gsk3b_kinase
       perturbed_state: decreased
+      cause: hedgehog_signaling:pka_activity
+      provenance: topology_inferred
+      # No PKA priming → GSK3B cannot phosphorylate GLI3
+
+    - activity: hedgehog_signaling:btrc_ubiquitination
+      perturbed_state: decreased
+      cause: hedgehog_signaling:gsk3b_kinase
+      provenance: topology_inferred
+      # No phospho-degron → BTRC cannot target GLI3
+
+    - activity: hedgehog_signaling:gli3r_production
+      perturbed_state: absent
+      cause: hedgehog_signaling:btrc_ubiquitination
+      provenance: literature_grounded
+      # No BTRC activity → no GLI3 proteolytic processing to repressor form
+      evidence:
+      - type: literature
+        reference: PMID:19032739
+        snippet: "NBCCS is caused by mutations in the PTCH1 gene and is transmitted as an autosomal dominant trait with complete penetrance and variable expressivity."
+
+    # --- SMO effector kinase arm: SUFU release ---
+    - activity: hedgehog_signaling:mapk1_kinase
+      perturbed_state: increased
       cause: hedgehog_signaling:smo_activity
       provenance: topology_inferred
-      # SMO via MAPK1/DYRK2 inhibits SUFU sequestration
+
+    - activity: hedgehog_signaling:sufu_sequestering_gli1
+      perturbed_state: decreased
+      cause: hedgehog_signaling:mapk1_kinase
+      provenance: topology_inferred
+      # MAPK1 phosphorylates SUFU → releases GLI1
+
+    - activity: hedgehog_signaling:dyrk2_kinase
+      perturbed_state: increased
+      cause: hedgehog_signaling:smo_activity
+      provenance: topology_inferred
 
     - activity: hedgehog_signaling:sufu_sequestering_gli3
       perturbed_state: decreased
-      cause: hedgehog_signaling:smo_activity
+      cause: hedgehog_signaling:dyrk2_kinase
       provenance: topology_inferred
+      # DYRK2 phosphorylates SUFU → releases GLI3
 
+    # --- GLI transcription factors become active ---
     - activity: hedgehog_signaling:gli1_activation
       perturbed_state: increased
       cause: hedgehog_signaling:sufu_sequestering_gli1
@@ -81,16 +128,6 @@ disease_model:
       provenance: topology_inferred
       # Reduced SUFU sequestration → more GLI3 activator form
 
-    - activity: hedgehog_signaling:gli3r_production
-      perturbed_state: absent
-      cause: hedgehog_signaling:pka_activity
-      provenance: literature_grounded
-      # Reduced PKA → no GLI3 phosphorylation → no proteolytic processing to repressor
-      evidence:
-      - type: literature
-        reference: PMID:19032739
-        snippet: "NBCCS is caused by mutations in the PTCH1 gene and is transmitted as an autosomal dominant trait with complete penetrance and variable expressivity."
-
   # --- SUFU-driven (~10% of cases) ---
   - id: sufu_driven
     name: SUFU-driven
@@ -98,8 +135,10 @@ disease_model:
     description: >
       Germline SUFU loss-of-function frees GLI transcription factors from cytoplasmic
       sequestration. Unlike PTCH1 mutations, SMO activity is normal — the defect is
-      downstream at the GLI release step. SUFU mutations carry markedly higher
-      medulloblastoma risk (up to 20-fold) compared to PTCH1 mutations.
+      downstream at the GLI release step. The PKA/GSK3B/BTRC arm is intact, so GLI3R
+      still provides some transcriptional repression, partially buffering pathway
+      activation. SUFU mutations carry markedly higher medulloblastoma risk (up to
+      20-fold) compared to PTCH1 mutations.
 
     perturbations:
     - target_activity: hedgehog_signaling:sufu_sequestering_gli1
@@ -134,20 +173,21 @@ disease_model:
       # Loss of sequestration → GLI3 activator form accumulates
 
     # Note: GLI3R production is NOT affected in SUFU-driven disease —
-    # the PKA/GPR161 arm is intact because SMO is not constitutively active.
-    # This means GLI3R still provides some transcriptional repression,
-    # partially buffering the pathway activation. This may explain the
-    # different phenotype spectrum vs PTCH1-driven disease.
+    # the PKA/GPR161/GSK3B/BTRC arm is intact because SMO is not constitutively
+    # active. GLI3R still provides some transcriptional repression, partially
+    # buffering the pathway activation. This may explain the different phenotype
+    # spectrum vs PTCH1-driven disease.
 
   phenotype_routes:
   - id: bcc_route
     name: Basal cell carcinoma pathway
     description: >
-      Constitutive GLI activation drives CCND1 and BCL2 upregulation in basal
-      cells of the epidermis, promoting uncontrolled proliferation and resistance
-      to apoptosis.
+      Constitutive GLI activation drives CCND1 upregulation (promoting G1/S
+      cell cycle transition) and BCL2 upregulation (conferring apoptosis
+      resistance) in basal cells of the epidermis, leading to uncontrolled
+      basal cell proliferation and carcinogenesis.
     intermediates:
-    - name: CCND1 upregulation
+    - name: CCND1 (Cyclin D1) upregulation
       gene:
         symbol: CCND1
         hgnc_id: HGNC:1582
@@ -168,6 +208,13 @@ disease_model:
       biological_process:
         id: GO:0043066
         label: negative regulation of apoptotic process
+    - name: Uncontrolled basal cell proliferation
+      perturbed_state: increased
+      driven_by: []
+      # Driven by CCND1 + BCL2 convergence (not directly by module activities)
+      biological_process:
+        id: GO:0008283
+        label: cell population proliferation
     tissue:
       cell_type:
         id: CL:0002187
@@ -189,7 +236,9 @@ disease_model:
     name: Odontogenic keratocyst pathway
     description: >
       GLI-driven proliferation in dental lamina epithelium leads to recurrent
-      jaw cysts through aberrant tooth development signaling.
+      jaw cysts through aberrant tooth development signaling. Keratocysts
+      are the earliest manifestation (appearing in first decade) and occur
+      in ~90% of patients.
     intermediates:
     - name: Dental epithelial proliferation
       perturbed_state: increased
@@ -219,21 +268,32 @@ disease_model:
     name: Medulloblastoma pathway
     description: >
       Hedgehog pathway activation in cerebellar granule neuron precursors
-      drives SHH-subtype medulloblastoma. Risk is dramatically higher in
+      drives SHH-subtype medulloblastoma. MYCN upregulation is a key
+      proliferative driver in this tissue. Risk is dramatically higher in
       SUFU-driven disease (up to 20-fold vs PTCH1).
     intermediates:
-    - name: Granule precursor proliferation
+    - name: MYCN (N-Myc) upregulation
+      gene:
+        symbol: MYCN
+        hgnc_id: HGNC:7559
       perturbed_state: increased
       driven_by:
       - hedgehog_signaling:gli1_activation
       - hedgehog_signaling:gli3a_activation
       biological_process:
+        id: GO:0008283
+        label: cell population proliferation
+    - name: Cerebellar granule cell precursor hyperproliferation
+      perturbed_state: increased
+      driven_by: []
+      # Driven by MYCN + GLI convergence
+      biological_process:
         id: GO:0021930
         label: cerebellar granule cell precursor proliferation
     tissue:
       cell_type:
-        id: CL:0000598
-        label: pyramidal neuron
+        id: CL:0001031
+        label: cerebellar granule cell
       anatomy:
         id: UBERON:0002037
         label: cerebellum
@@ -254,8 +314,10 @@ disease_model:
     name: Skeletal anomaly pathway
     description: >
       Hedgehog signaling is critical for skeletal patterning during
-      embryogenesis. Constitutive activation leads to rib anomalies,
-      vertebral defects, and macrocephaly.
+      embryogenesis. GLI3 activator/repressor imbalance disrupts bone
+      morphogenesis, leading to rib anomalies, vertebral defects, and
+      macrocephaly. GLI3R loss is particularly significant — GLI3R is
+      the primary Hh-responsive patterning signal in limb/rib development.
     intermediates:
     - name: Skeletal patterning disruption
       perturbed_state: increased
@@ -264,6 +326,13 @@ disease_model:
       biological_process:
         id: GO:0060349
         label: bone morphogenesis
+    - name: GLI3 activator/repressor imbalance
+      perturbed_state: increased
+      driven_by:
+      - hedgehog_signaling:gli3r_production
+      biological_process:
+        id: GO:0048706
+        label: embryonic skeletal system development
     tissue:
       anatomy:
         id: UBERON:0004765
@@ -278,7 +347,8 @@ disease_model:
     name: Palmar/plantar pit pathway
     description: >
       Focal keratinization defects in palmar and plantar skin due to localized
-      Hedgehog pathway dysregulation in basal keratinocytes.
+      Hedgehog pathway dysregulation in basal keratinocytes. Palmar pits are
+      a hallmark diagnostic feature, present in ~80% of patients.
     intermediates:
     - name: Keratinocyte differentiation defect
       perturbed_state: increased
