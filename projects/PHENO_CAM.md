@@ -43,11 +43,17 @@ This work supports two pivotal use cases identified at the Mar 10, 2026 CZI meet
 - Coverage is good for: PTPN11, SOS1, HRAS, SMO, SUFU, GLI1, GLI2
 
 ### Phase 2: Data Model and Worked Examples
-- [ ] Finalize module YAML structure
-- [ ] Finalize disease perturbation YAML structure
-- [ ] Create Gorlin Syndrome module + disease file
-- [ ] Create Noonan Syndrome module + disease file
+- [x] Finalize module YAML structure
+- [x] Finalize disease perturbation YAML structure
+- [x] Create Gorlin Syndrome module (`hedgehog_signaling`) + disease file
+- [x] Create Noonan Syndrome module (`ras_mapk_cascade`) + disease file
 - [ ] Demonstrate module reuse (Noonan ↔ CFC syndrome shared RAS/MAPK module)
+
+**Created files**:
+- `causal_models/modules/hedgehog_signaling.yaml` — 9 activities, 9 edges, sourced from 6 GO-CAMs
+- `causal_models/modules/ras_mapk_cascade.yaml` — 9 activities, 9 edges, sourced from 5 GO-CAMs + literature
+- `causal_models/diseases/Gorlin_Syndrome.yaml` — 2 hypothesis groups (PTCH1/SUFU), 5 phenotype routes
+- `causal_models/diseases/Noonan_Syndrome.yaml` — 4 hypothesis groups (PTPN11/SOS1/RAF1/LZTR1), 6 phenotype routes
 
 **Demo**: Formal causal models for Gorlin and Noonan with hypothesis groups and
 perturbation state propagation.
