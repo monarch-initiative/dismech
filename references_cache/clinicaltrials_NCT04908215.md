@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT04908215
+reference_id: "clinicaltrials:NCT04908215"
 title: "A Randomised, Double-Blind, Vehicle-Controlled Phase 2 Study of Topically Applied INM-755 (Cannabinol) Cream in Patients With Epidermolysis Bullosa"
 content_type: summary
 ---
