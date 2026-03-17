@@ -315,7 +315,7 @@ window.searchData = [
       "non-small cell lung carcinoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-02-27T21:52:52Z",
+    "updated_date": "2026-03-07T19:27:08Z",
     "subtypes": [
       "EML4-ALK NSCLC",
       "Non-EML4 ALK Fusion NSCLC"
@@ -385,8 +385,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 2,
     "num_treatments": 5,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "3",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Acute Promyelocytic Leukemia, PML-RARA",
@@ -484,7 +484,7 @@ window.searchData = [
       "Cardiomyopathy"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-02-27T22:30:22Z",
+    "updated_date": "2026-03-07T18:42:39Z",
     "subtypes": [
       "ATTRm (hereditary)",
       "ATTRwt (wild-type/senile)"
@@ -682,7 +682,7 @@ window.searchData = [
       "Rhizomelic limb shortening syndrome"
     ],
     "creation_date": "2026-02-02T00:16:36Z",
-    "updated_date": "2026-02-27T21:52:52Z",
+    "updated_date": "2026-03-07T14:53:10Z",
     "subtypes": [],
     "description": "Achondroplasia is the most common form of short-limbed dwarfism, affecting approximately 1 in 15,000-40,000 live births. It is caused by gain-of-function mutations in FGFR3, with over 95% of cases resulting from the G380R (c.1138G>A) mutation. The constitutively active FGFR3 receptor inhibits chondrocyte proliferation and differentiation in growth plate cartilage, leading to impaired endochondral ossification and disproportionate short stature with rhizomelic limb shortening, macrocephaly, frontal bossing, and characteristic trident hand configuration. Vosoritide, a C-type natriuretic peptide analog that antagonizes FGFR3 signaling, was approved by the FDA in 2021 as the first disease-modifying therapy.\n",
     "pathophysiology": [
@@ -951,7 +951,7 @@ window.searchData = [
     "category": "",
     "parents": [],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-02-16T20:19:38Z",
+    "updated_date": "2026-03-07T18:42:39Z",
     "subtypes": [
       "AIDS-defining conditions"
     ],
@@ -1636,6 +1636,85 @@ window.searchData = [
     "num_pathophysiology": 2,
     "num_genes": 0,
     "num_treatments": 0,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Alexander Disease",
+    "disease_id": "MONDO:0008752",
+    "category": "Mendelian",
+    "parents": [
+      "Leukodystrophies",
+      "Neurodegenerative Disorders"
+    ],
+    "creation_date": "2026-03-14T00:00:00Z",
+    "updated_date": "2026-03-14T00:00:00Z",
+    "subtypes": [
+      "Type I (Infantile)",
+      "Type II (Juvenile/Adult)"
+    ],
+    "description": "Alexander disease is a rare, progressive neurodegenerative disorder caused by dominant gain-of-function mutations in GFAP (glial fibrillary acidic protein), the major intermediate filament of astrocytes. It is the only known primary genetic disorder of astrocytes. The hallmark pathological feature is the accumulation of Rosenthal fibers - cytoplasmic inclusions composed of GFAP aggregates complexed with small heat shock proteins alphaB-crystallin and HSP27 - within astrocytes. The disease presents along a clinical spectrum from a severe infantile form (Type I) with macrocephaly, seizures, and frontal leukodystrophy to milder adult-onset forms (Type II) with bulbar symptoms, autonomic dysfunction, and atypical MRI features.\n",
+    "pathophysiology": [
+      "GFAP Aggregation and Rosenthal Fiber Formation",
+      "Astrocyte Dysfunction and Non-Cell-Autonomous Neurodegeneration",
+      "Oxidative Stress and White Matter Pathology"
+    ],
+    "cell_types": [
+      "Astrocyte",
+      "Oligodendrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000127",
+      "CL:0000128"
+    ],
+    "biological_processes": [
+      "Protein Aggregation",
+      "Myelination",
+      "Inflammatory Response"
+    ],
+    "phenotypes": [
+      "Macrocephaly",
+      "Seizures",
+      "Spasticity",
+      "Dysphagia",
+      "Dysarthria",
+      "Ataxia",
+      "Psychomotor Regression"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000256",
+      "HP:0001250",
+      "HP:0001257",
+      "HP:0002015",
+      "HP:0001260",
+      "HP:0001251",
+      "HP:0002376"
+    ],
+    "frequencies": [],
+    "genes": [
+      "GFAP Gain-of-Function Mutations"
+    ],
+    "treatments": [
+      "Supportive Care",
+      "Antisense Oligonucleotide Therapy (Investigational)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Alexander_Disease.yaml",
+    "page_url": "../pages/disorders/Alexander_Disease.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 2,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
   },
@@ -3380,6 +3459,137 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Ataxia-telangiectasia",
+    "disease_id": "MONDO:0008840",
+    "category": "Mendelian",
+    "parents": [
+      "Combined immunodeficiency",
+      "Hereditary cerebellar ataxia",
+      "DNA repair disorder"
+    ],
+    "creation_date": "2026-03-15T23:04:29Z",
+    "updated_date": "2026-03-15T23:30:00Z",
+    "subtypes": [
+      "Classical ataxia-telangiectasia",
+      "Variant ataxia-telangiectasia"
+    ],
+    "description": "Ataxia-telangiectasia is a rare autosomal recessive multisystem disorder caused by biallelic pathogenic variants in ATM. Loss of ATM kinase function disrupts DNA double-strand break signaling, oxidative-stress responses, cell-cycle checkpoints, lymphocyte homeostasis, and tissue-specific stress responses in the cerebellum and respiratory tract. The clinical spectrum is dominated by progressive cerebellar ataxia, telangiectasia, combined immunodeficiency, recurrent sinopulmonary infection, elevated alpha-fetoprotein, marked radiosensitivity, and increased malignancy risk. Median age at symptom onset is approximately 1 year, with diagnosis typically delayed to age 5. Classical AT with absent ATM kinase activity causes severe childhood-onset disease, while variant AT with residual kinase activity follows a milder course.",
+    "pathophysiology": [
+      "ATM kinase deficiency and defective DNA damage signaling",
+      "Oxidative stress and microglia-driven cerebellar neurodegeneration",
+      "Combined immunodeficiency with lymphocyte depletion and dysfunction",
+      "Airway epithelial oxidative susceptibility and impaired innate immunity",
+      "Genomic instability and cancer predisposition"
+    ],
+    "cell_types": [
+      "neuron",
+      "B cell",
+      "Purkinje cell",
+      "microglial cell",
+      "granule cell",
+      "T cell",
+      "natural killer cell",
+      "airway epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000236",
+      "CL:0000121",
+      "CL:0000129",
+      "CL:0000120",
+      "CL:0000084",
+      "CL:0000623",
+      "CL:0002368"
+    ],
+    "biological_processes": [
+      "DNA damage response",
+      "double-strand break repair",
+      "cell cycle checkpoint signaling",
+      "response to oxidative stress",
+      "cytokine production",
+      "neuron apoptotic process",
+      "isotype switching",
+      "V(D)J recombination",
+      "B cell differentiation",
+      "innate immune response",
+      "apoptotic process"
+    ],
+    "phenotypes": [
+      "Progressive cerebellar ataxia",
+      "Cerebellar atrophy",
+      "Oculomotor apraxia",
+      "Telangiectasia",
+      "Combined immunodeficiency",
+      "Decreased circulating IgA concentration",
+      "Recurrent respiratory infections",
+      "Bronchiectasis",
+      "Elevated circulating alpha-fetoprotein concentration",
+      "Increased sensitivity to ionizing radiation",
+      "Lymphoma",
+      "Growth delay"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Vascular",
+      "Immunologic",
+      "Respiratory",
+      "Laboratory",
+      "Cellular",
+      "Oncologic",
+      "Growth"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Eye",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Neoplasm",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002073",
+      "HP:0001272",
+      "HP:0000657",
+      "HP:0001009",
+      "HP:0005387",
+      "HP:0002720",
+      "HP:0002205",
+      "HP:0002110",
+      "HP:0006254",
+      "HP:0011133",
+      "HP:0002665",
+      "HP:0001510"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "ATM"
+    ],
+    "treatments": [
+      "Physical therapy",
+      "Intra-erythrocyte dexamethasone sodium phosphate",
+      "Genetic counseling",
+      "Hematopoietic stem cell transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Ataxia_Telangiectasia.yaml",
+    "page_url": "../pages/disorders/Ataxia-telangiectasia.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Atelosteogenesis Type I",
     "disease_id": "MONDO:0007167",
     "category": "Mendelian",
@@ -4632,7 +4842,7 @@ window.searchData = [
       "cutaneous melanoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-02-27T21:52:53Z",
+    "updated_date": "2026-03-07T18:42:39Z",
     "subtypes": [],
     "description": "BRAF V600-mutant melanoma is a molecular subtype of cutaneous melanoma characterized by activating mutations in the BRAF oncogene, most commonly V600E (substitution of valine for glutamic acid at codon 600), with V600K being the second most common variant. These mutations result in constitutive activation of the BRAF kinase and downstream MAPK/ERK signaling pathway, driving uncontrolled melanocyte proliferation. BRAF V600 mutations occur in approximately 40-50% of cutaneous melanomas and are associated with intermittent sun exposure, younger patient age, and superficial spreading histology. This molecular subtype is paradigmatic for oncogene-targeted therapy, as the combination of BRAF and MEK inhibitors (dabrafenib plus trametinib) has transformed outcomes for patients with advanced disease.",
     "pathophysiology": [
@@ -9057,7 +9267,7 @@ window.searchData = [
       "myeloid leukemia"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-02-16T21:20:00Z",
+    "updated_date": "2026-03-07T19:27:08Z",
     "subtypes": [],
     "description": "Chronic myeloid leukemia (CML), BCR-ABL1 positive, is a myeloproliferative neoplasm characterized by the Philadelphia chromosome, resulting from a reciprocal translocation t(9;22)(q34;q11) that creates the BCR-ABL1 fusion gene. The constitutively active BCR-ABL1 tyrosine kinase drives uncontrolled myeloid cell proliferation. CML is the paradigmatic example of oncogene addiction and targeted therapy success, with tyrosine kinase inhibitors transforming it from a fatal disease to a manageable chronic condition. This entry covers BCR-ABL1 positive CML, which represents approximately 95% of all CML cases.",
     "pathophysiology": [
@@ -10171,6 +10381,120 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Coffin-Siris syndrome",
+    "disease_id": "MONDO:0015452",
+    "category": "Mendelian",
+    "parents": [
+      "chromatin remodeling disorder",
+      "neurodevelopmental disorder"
+    ],
+    "creation_date": "2026-03-15T23:04:34Z",
+    "updated_date": "2026-03-16T22:00:00Z",
+    "subtypes": [],
+    "description": "Coffin-Siris syndrome is a genetically heterogeneous autosomal dominant neurodevelopmental disorder caused by pathogenic variants in genes encoding subunits of the BAF/SWI-SNF chromatin remodeling complex. Core manifestations include developmental delay or intellectual disability, coarse facial features, hypoplasia or aplasia of the fifth digit nails or distal phalanges, hypotonia, feeding difficulties, hypertrichosis, sparse scalp hair, short stature, and additional congenital anomalies including cardiac, renal, and brain malformations. Epilepsy and hearing impairment are frequent complications.",
+    "pathophysiology": [
+      "BAF/SWI-SNF chromatin remodeling dysfunction",
+      "Cortical interneuron deficiency from ARID1B haploinsufficiency",
+      "Altered cell-cycle dynamics from ARID1B haploinsufficiency",
+      "Protein misfolding and aggregation of non-truncating ARID1B variants"
+    ],
+    "cell_types": [
+      "neural progenitor cell",
+      "GABAergic interneuron",
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0011020",
+      "CL:0000617",
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "chromatin remodeling",
+      "regulation of transcription by RNA polymerase II",
+      "nervous system development",
+      "GABAergic neuron differentiation",
+      "regulation of neuron apoptotic process",
+      "regulation of cell cycle process",
+      "protein folding"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Intellectual disability",
+      "Hypoplastic fifth fingernail",
+      "Coarse facial features",
+      "Hypotonia",
+      "Feeding difficulties in infancy",
+      "Hypertrichosis",
+      "Sparse scalp hair",
+      "Short stature",
+      "Microcephaly",
+      "Seizures",
+      "Hearing impairment",
+      "Dental anomalies",
+      "Congenital heart defects",
+      "Renal anomalies"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0008398",
+      "HP:0000280",
+      "HP:0001252",
+      "HP:0008872",
+      "HP:0000998",
+      "HP:0002209",
+      "HP:0004322",
+      "HP:0000252",
+      "HP:0001250",
+      "HP:0000365",
+      "HP:0006482",
+      "HP:0001627",
+      "HP:0000077"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ARID1B",
+      "SMARCA4",
+      "SMARCB1",
+      "SMARCE1",
+      "ARID1A",
+      "DPF2",
+      "ARID2",
+      "SOX11",
+      "SMARCC2",
+      "SMARCA2",
+      "BICRA"
+    ],
+    "treatments": [
+      "Multidisciplinary supportive care and surveillance",
+      "Speech and language therapy",
+      "Genetic counseling",
+      "Physical therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Coffin_Siris_Syndrome.yaml",
+    "page_url": "../pages/disorders/Coffin-Siris_syndrome.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 4,
+    "num_genes": 11,
+    "num_treatments": 4,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "1"
   },
   {
     "name": "Cogan Syndrome",
@@ -24911,7 +25235,7 @@ window.searchData = [
       "non-small cell lung carcinoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-02-27T22:30:28Z",
+    "updated_date": "2026-03-07T19:27:08Z",
     "subtypes": [
       "KRAS G12C Adenocarcinoma",
       "KRAS G12C with STK11/LKB1 Co-mutation",
@@ -24982,8 +25306,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 3,
     "num_treatments": 5,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "3",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Kaposi Sarcoma",
@@ -25618,6 +25942,102 @@ window.searchData = [
     "num_pathophysiology": 1,
     "num_genes": 1,
     "num_treatments": 4,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Krabbe Disease",
+    "disease_id": "MONDO:0009499",
+    "category": "Genetic",
+    "parents": [
+      "Leukodystrophy",
+      "Lysosomal Storage Disease",
+      "Sphingolipidosis"
+    ],
+    "creation_date": "2026-03-14T00:00:00Z",
+    "updated_date": "2026-03-16T00:00:00Z",
+    "subtypes": [],
+    "description": "Krabbe disease (globoid cell leukodystrophy) is a severe autosomal recessive lysosomal storage disorder caused by deficiency of galactosylceramidase (GALC), the enzyme responsible for degrading galactosylceramide and psychosine (galactosylsphingosine). Accumulation of psychosine is toxic to oligodendrocytes and Schwann cells, leading to progressive demyelination of the central and peripheral nervous systems. The infantile form presents in the first months of life with irritability, spasticity, and rapid neurological deterioration, while later-onset forms have a more variable and protracted course.\n",
+    "pathophysiology": [
+      "GALC Deficiency and Psychosine Accumulation",
+      "Demyelination",
+      "Neuroinflammation",
+      "Inflammasome Activation",
+      "Proteostasis Failure"
+    ],
+    "cell_types": [
+      "oligodendrocyte",
+      "Schwann cell",
+      "microglial cell",
+      "macrophage",
+      "astrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000128",
+      "CL:0002573",
+      "CL:0000129",
+      "CL:0000235",
+      "CL:0000127"
+    ],
+    "biological_processes": [
+      "galactosylceramide metabolic process",
+      "galactosylceramide catabolic process",
+      "sphingolipid catabolic process",
+      "myelination",
+      "central nervous system myelination",
+      "microglial cell activation",
+      "inflammatory response",
+      "autophagy"
+    ],
+    "phenotypes": [
+      "Leukodystrophy",
+      "Spasticity",
+      "Peripheral Neuropathy",
+      "Irritability in Infancy",
+      "Seizures",
+      "Developmental Regression",
+      "Optic Atrophy",
+      "Feeding Difficulties"
+    ],
+    "phenotype_categories": [
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002415",
+      "HP:0001257",
+      "HP:0007108",
+      "HP:0000737",
+      "HP:0001250",
+      "HP:0002376",
+      "HP:0000648",
+      "HP:0011968"
+    ],
+    "frequencies": [],
+    "genes": [
+      "GALC"
+    ],
+    "treatments": [
+      "Hematopoietic Stem Cell Transplantation",
+      "Gene Therapy (Investigational)",
+      "Supportive Care"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Psychosine (Galactosylsphingosine)",
+      "GALC Enzyme Activity"
+    ],
+    "source_file": "Krabbe_Disease.yaml",
+    "page_url": "../pages/disorders/Krabbe_Disease.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 3,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
   },
@@ -28017,6 +28437,94 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "MECP2 Duplication Syndrome",
+    "disease_id": "MONDO:0010436",
+    "category": "Genetic",
+    "parents": [
+      "Neurodevelopmental Disorder",
+      "X-linked Disorder"
+    ],
+    "creation_date": "2026-03-14T00:00:00Z",
+    "updated_date": "2026-03-14T00:00:00Z",
+    "subtypes": [],
+    "description": "MECP2 Duplication Syndrome is a severe X-linked neurodevelopmental disorder caused by interstitial chromosomal duplications at Xq28 encompassing the MECP2 gene. It is 100% penetrant in males and is associated with infantile hypotonia, severe intellectual disability, poor speech development, recurrent respiratory infections, epilepsy, progressive spasticity, and in some cases developmental regression. Carrier females are typically asymptomatic but may exhibit neuropsychiatric phenotypes. The condition is distinct from Rett syndrome, which results from loss-of-function MECP2 mutations.\n",
+    "pathophysiology": [
+      "MECP2 Overexpression and Neurodegeneration",
+      "Immune Dysfunction"
+    ],
+    "cell_types": [
+      "Neuron",
+      "Astrocyte",
+      "T cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000127",
+      "CL:0000084"
+    ],
+    "biological_processes": [
+      "Gene Expression Regulation",
+      "Neuron Apoptotic Process",
+      "Immune Response"
+    ],
+    "phenotypes": [
+      "Severe Intellectual Disability",
+      "Infantile Hypotonia",
+      "Recurrent Respiratory Infections",
+      "Epilepsy",
+      "Progressive Spasticity",
+      "Absent Speech",
+      "Gastrointestinal Dysmotility",
+      "Autistic Features",
+      "Developmental Regression"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Respiratory",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Immune",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0010864",
+      "HP:0008947",
+      "HP:0002205",
+      "HP:0001250",
+      "HP:0002191",
+      "HP:0001344",
+      "HP:0002019",
+      "HP:0000729",
+      "HP:0002376"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "MECP2"
+    ],
+    "treatments": [
+      "Seizure Management",
+      "Antibiotic Prophylaxis and Immunoglobulin Therapy",
+      "Physical Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "MECP2_Duplication_Syndrome.yaml",
+    "page_url": "../pages/disorders/MECP2_Duplication_Syndrome.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "MET Exon 14 Skipping Non-Small Cell Lung Cancer",
     "disease_id": "MONDO:0005061",
     "category": "",
@@ -29756,6 +30264,112 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "3",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Menkes Disease",
+    "disease_id": "MONDO:0010651",
+    "category": "Genetic",
+    "parents": [
+      "Copper metabolism disorder",
+      "Neurodevelopmental disease",
+      "Connective tissue disorder"
+    ],
+    "creation_date": "2026-03-15T23:36:00Z",
+    "updated_date": "2026-03-16T18:00:00Z",
+    "subtypes": [
+      "Occipital horn syndrome",
+      "ATP7A-related distal motor neuropathy"
+    ],
+    "description": "Menkes disease is an X-linked disorder of copper transport caused by pathogenic ATP7A variants. Loss of ATP7A function blocks copper export from enterocytes and other polarized epithelia, causing systemic copper deficiency with paradoxical copper trapping in selected tissues and poor copper delivery to the developing brain. Downstream deficiency of copper-dependent enzymes, including dopamine-beta-hydroxylase, cytochrome c oxidase, lysyl oxidase, and tyrosinase, drives progressive neurodevelopmental impairment, seizures, hypotonia, failure to thrive, connective-tissue fragility, and the characteristic kinky hair phenotype.",
+    "pathophysiology": [
+      "ATP7A-mediated copper export failure",
+      "Cuproenzyme deficiency and neurodevelopmental injury",
+      "Mitochondrial redox imbalance from copper accumulation",
+      "Lysyl oxidase deficiency and connective tissue fragility"
+    ],
+    "cell_types": [
+      "enterocyte",
+      "epithelial cell of proximal tubule",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000584",
+      "CL:0002306",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "copper ion transport",
+      "catecholamine biosynthetic process",
+      "oxidative phosphorylation",
+      "cellular response to oxidative stress",
+      "extracellular matrix organization"
+    ],
+    "phenotypes": [
+      "Neurodevelopmental delay",
+      "Seizures",
+      "Hypotonia",
+      "Failure to thrive",
+      "Pili torti",
+      "Cutis laxa",
+      "Cerebral atrophy",
+      "Arterial tortuosity",
+      "Internal jugular vein phlebectasia",
+      "Bladder diverticulum",
+      "Wormian bones",
+      "Subdural hemorrhage",
+      "Fair hair"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0012758",
+      "HP:0001250",
+      "HP:0001252",
+      "HP:0001508",
+      "HP:0003777",
+      "HP:0000973",
+      "HP:0002059",
+      "HP:0005116",
+      "HP:0002624",
+      "HP:0000015",
+      "HP:0002645",
+      "HP:0100309",
+      "HP:0002286"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "ATP7A pathogenic variants"
+    ],
+    "treatments": [
+      "Copper histidinate",
+      "ATP7A gene therapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum copper",
+      "Serum ceruloplasmin",
+      "Plasma DOPA:DHPG ratio"
+    ],
+    "source_file": "Menkes_Disease.yaml",
+    "page_url": "../pages/disorders/Menkes_Disease.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "1"
   },
   {
     "name": "Merkel Cell Carcinoma",
@@ -33189,6 +33803,107 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Niemann-Pick Disease Type C",
+    "disease_id": "MONDO:0018982",
+    "category": "Genetic",
+    "parents": [
+      "Lysosomal Storage Disorder",
+      "Sphingolipidosis",
+      "Neurodegeneration"
+    ],
+    "creation_date": "2026-03-14T00:00:00Z",
+    "updated_date": "2026-03-14T00:00:00Z",
+    "subtypes": [
+      "NPC1",
+      "NPC2"
+    ],
+    "description": "Mutations in NPC1 or NPC2 cause defective egress of LDL-derived cholesterol from late endosomes/lysosomes. The NPC1 protein contains a sterol-sensing domain homologous to SCAP and HMG-CoA reductase. Loss of function leads to massive accumulation of unesterified cholesterol in perinuclear lysosomes, disrupting normal cellular lipid homeostasis.\n",
+    "pathophysiology": [
+      "Impaired Intracellular Cholesterol Trafficking",
+      "Glycosphingolipid and Ganglioside Accumulation in Brain",
+      "Cerebellar Purkinje Cell Degeneration"
+    ],
+    "cell_types": [
+      "Hepatocyte",
+      "Neuron",
+      "Purkinje Cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0000540",
+      "CL:0000121"
+    ],
+    "biological_processes": [
+      "Intracellular Cholesterol Transport",
+      "Lipid Transport",
+      "Sphingolipid Biosynthetic Process",
+      "Nervous System Development"
+    ],
+    "phenotypes": [
+      "Vertical Supranuclear Gaze Palsy",
+      "Cerebellar Ataxia",
+      "Dysarthria",
+      "Dysphagia",
+      "Progressive Dementia",
+      "Dystonia",
+      "Seizures",
+      "Gelastic Cataplexy",
+      "Hepatosplenomegaly",
+      "Neonatal Cholestasis"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Immune",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000511",
+      "HP:0002073",
+      "HP:0001260",
+      "HP:0002015",
+      "HP:0000726",
+      "HP:0001332",
+      "HP:0001250",
+      "HP:0002071",
+      "HP:0001433",
+      "HP:0001396"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "NPC1",
+      "NPC2"
+    ],
+    "treatments": [
+      "Miglustat",
+      "Intrathecal 2-Hydroxypropyl-Beta-Cyclodextrin",
+      "Levacetylleucine",
+      "Supportive Care",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Unesterified Cholesterol Accumulation",
+      "Plasma Oxysterols"
+    ],
+    "source_file": "Niemann_Pick_Disease_Type_C.yaml",
+    "page_url": "../pages/disorders/Niemann-Pick_Disease_Type_C.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 3,
+    "num_genes": 2,
+    "num_treatments": 5,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Noma",
     "disease_id": "MONDO:0017124",
     "category": "Infectious Disease",
@@ -35622,6 +36337,92 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "Pelizaeus-Merzbacher Disease",
+    "disease_id": "MONDO:0010714",
+    "category": "Genetic",
+    "parents": [
+      "Leukodystrophy",
+      "X-linked Recessive Disorder"
+    ],
+    "creation_date": "2026-03-14T12:00:00Z",
+    "updated_date": "2026-03-14T12:00:00Z",
+    "subtypes": [
+      "Classic Pelizaeus-Merzbacher Disease",
+      "Connatal Pelizaeus-Merzbacher Disease",
+      "Transitional Pelizaeus-Merzbacher Disease",
+      "PLP1 Null Syndrome"
+    ],
+    "description": "Pelizaeus-Merzbacher disease (PMD) is an X-linked recessive hypomyelinating leukodystrophy caused by mutations in the PLP1 gene encoding proteolipid protein 1, the major structural protein of central nervous system myelin. PLP1 mutations lead to defective myelination through various mechanisms including protein misfolding, endoplasmic reticulum stress, oligodendrocyte apoptosis, and gene dosage effects. Clinical features include nystagmus, hypotonia, spasticity, ataxia, intellectual disability, and progressive motor deterioration. PMD is classified into connatal (severe), classic, and transitional forms based on age of onset and severity.\n",
+    "pathophysiology": [
+      "PLP1 Protein Misfolding and ER Stress",
+      "PLP1 Gene Duplication and Overexpression",
+      "Defective CNS Myelination"
+    ],
+    "cell_types": [
+      "oligodendrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000128"
+    ],
+    "biological_processes": [
+      "response to endoplasmic reticulum stress",
+      "myelination",
+      "CNS myelination"
+    ],
+    "phenotypes": [
+      "Nystagmus",
+      "Hypotonia",
+      "Progressive Spasticity",
+      "Ataxia",
+      "Intellectual Disability",
+      "Dysarthria",
+      "Head Titubation",
+      "Leukodystrophy",
+      "Delayed Motor Development"
+    ],
+    "phenotype_categories": [
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000639",
+      "HP:0001252",
+      "HP:0002191",
+      "HP:0001251",
+      "HP:0001249",
+      "HP:0001260",
+      "HP:0002599",
+      "HP:0002415",
+      "HP:0002194"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "PLP1"
+    ],
+    "treatments": [
+      "Supportive Care",
+      "Physical Therapy",
+      "Stem Cell Transplantation (Investigational)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Pelizaeus_Merzbacher_Disease.yaml",
+    "page_url": "../pages/disorders/Pelizaeus-Merzbacher_Disease.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Pemphigus Vulgaris",
     "disease_id": "MONDO:0008219",
     "category": "Autoimmune",
@@ -36197,7 +36998,7 @@ window.searchData = [
       "Inborn Error of Metabolism"
     ],
     "creation_date": "2025-12-19T14:27:56Z",
-    "updated_date": "2026-03-04T19:22:00Z",
+    "updated_date": "2026-03-07T16:35:08Z",
     "subtypes": [
       "Classic PKU",
       "Mild PKU",
