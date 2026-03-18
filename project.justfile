@@ -3,6 +3,7 @@
 # Default schema path
 schema_path := "src/dismech/schema/dismech.yaml"
 kb_dir := "kb/disorders"
+modules_dir := "kb/modules"
 comorbidity_dir := "kb/comorbidities"
 ref_validator_config := "conf/reference_validator_config.yaml"
 # Wrapper script that patches linkml-reference-validator for network resilience
@@ -165,6 +166,62 @@ validate-comorbidities-all:
         exit 1
     fi
 
+# Validate all mechanism module YAML files (schema + references)
+[group('QC')]
+validate-modules:
+    #!/usr/bin/env bash
+    shopt -s nullglob
+    files=({{modules_dir}}/*.yaml)
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "No module files found in {{modules_dir}}"
+        exit 0
+    fi
+    just fix-references-cache
+    failed_files=()
+    echo "Validating all mechanism module files..."
+    for f in "${files[@]}"; do
+        echo "=== $(basename $f) ==="
+        errors=""
+        # Schema validation (modules use the Disease class)
+        if ! uv run linkml-validate --schema {{schema_path}} --target-class Disease "$f" 2>&1 | grep -q "No issues found"; then
+            errors+="  [SCHEMA] $(uv run linkml-validate --schema {{schema_path}} --target-class Disease "$f" 2>&1 | grep -v "^$")\n"
+        fi
+        # Reference validation
+        ref_output=$({{ref_validator}} validate data "$f" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} 2>&1)
+        if echo "$ref_output" | grep -q "\[ERROR\]"; then
+            errors+="  [REFERENCES]\n$(echo "$ref_output" | grep -A2 "\[ERROR\]")\n"
+        fi
+        if [ -n "$errors" ]; then
+            failed_files+=("$f")
+            echo -e "$errors"
+        else
+            echo "  ✓ OK"
+        fi
+    done
+    echo ""
+    echo "================================"
+    if [ ${#failed_files[@]} -eq 0 ]; then
+        echo "✓ All module files validated successfully!"
+    else
+        echo "✗ ${#failed_files[@]} module file(s) with errors:"
+        for f in "${failed_files[@]}"; do
+            echo "  - $f"
+        done
+        exit 1
+    fi
+
+# Validate a single mechanism module file
+[group('QC')]
+validate-module file:
+    #!/usr/bin/env bash
+    set -e
+    echo "Schema validation..."
+    uv run linkml-validate --schema {{schema_path}} --target-class Disease {{file}}
+    echo "Reference validation..."
+    just fix-references-cache
+    {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
+    echo "✓ All validations passed for {{file}}"
+
 # Run term validation on schema (checks dynamic enum definitions)
 [group('QC')]
 validate-terms-schema:
@@ -203,9 +260,9 @@ validate-terms-legacy:
 validate-graphs:
     uv run python -m dismech.graph --validate {{kb_dir}}
 
-# Run all QC checks (full validation + deep-research report checks)
+# Run all QC checks (full validation + modules + deep-research report checks)
 [group('QC')]
-qc: validate-all qc-deep-research
+qc: validate-all validate-modules qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
