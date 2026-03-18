@@ -1,0 +1,23 @@
+---
+reference_id: "DOI:10.3390/biomedicines12051041"
+title: "Recent Advancements in Research on DNA Methylation and Testicular Germ Cell Tumors: Unveiling the Intricate Relationship"
+authors:
+- Alina-Teodora Nicu
+- Ileana Paula Ionel
+- Ileana Stoica
+- Liliana Burlibasa
+- Viorel Jinga
+journal: Biomedicines
+year: '2024'
+doi: 10.3390/biomedicines12051041
+content_type: abstract_only
+---
+
+# Recent Advancements in Research on DNA Methylation and Testicular Germ Cell Tumors: Unveiling the Intricate Relationship
+**Authors:** Alina-Teodora Nicu, Ileana Paula Ionel, Ileana Stoica, Liliana Burlibasa, Viorel Jinga
+**Journal:** Biomedicines (2024)
+**DOI:** [10.3390/biomedicines12051041](https://doi.org/10.3390/biomedicines12051041)
+
+## Content
+
+Testicular germ cell tumors (TGCTs) are the most common type of testicular cancer, with a particularly high incidence in the 15–45-year age category. Although highly treatable, resistance to therapy sometimes occurs, with devastating consequences for the patients. Additionally, the young age at diagnosis and the treatment itself pose a great threat to patients’ fertility. Despite extensive research concerning genetic and environmental risk factors, little is known about TGCT etiology. However, epigenetics has recently come into the spotlight as a major factor in TGCT initiation, progression, and even resistance to treatment. As such, recent studies have been focusing on epigenetic mechanisms, which have revealed their potential in the development of novel, non-invasive biomarkers. As the most studied epigenetic mechanism, DNA methylation was the first revelation in this particular field, and it continues to be a main target of investigations as research into its association with TGCT has contributed to a better understanding of this type of cancer and constantly reveals novel aspects that can be exploited through clinical applications. In addition to biomarker development, DNA methylation holds potential for developing novel treatments based on DNA methyltransferase inhibitors (DNMTis) and may even be of interest for fertility management in cancer survivors. This manuscript is structured as a literature review, which comprehensively explores the pivotal role of DNA methylation in the pathogenesis, progression, and treatment resistance of TGCTs.

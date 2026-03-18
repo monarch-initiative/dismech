@@ -1,0 +1,50 @@
+// CKD-MBD Extension: FGF23, Klotho, Vascular Calcification, Sclerostin
+// Couples to Peterson-Riggs (BIOMD0000000613) via shared variables
+
+model ckd_mbd_extension()
+  compartment Vasculature = 1;
+  compartment Bone = 1;
+  compartment Kidney = 1;
+  compartment VascularWall = 1;
+
+  species FGF23 in Vasculature; FGF23 = 50;
+  species sKlotho in Vasculature; sKlotho = 600;
+  species VascCa in VascularWall; VascCa = 0.01;
+  species SOST in Vasculature; SOST = 30;
+
+  ECCPhos_ext = 16.8;
+  PTH_ext = 53.9;
+  Calcitriol_ext = 1260;
+  GFR_ext = 6.0;
+  Ca_ext = 32.9;
+  OC_ext = 0.00115;
+
+  kin_FGF23 = 0.5;
+  Kphos_FGF23 = 18.0;
+  gamma_phos = 2.0;
+  Kcal_FGF23 = 800;
+  kout_FGF23 = 0.01;
+  FGF23_renal_clear = 0.7;
+  kin_Klotho = 6.0;
+  kout_Klotho = 0.01;
+  CaPO4_threshold = 500;
+  kin_VascCa = 0.0001;
+  kout_VascCa = 0.00005;
+  Klotho_protect = 300;
+  kin_SOST = 0.003;
+  kout_SOST = 0.0001;
+
+  FGF23_prod: -> FGF23; kin_FGF23 * (1 + 2*(ECCPhos_ext^gamma_phos/(Kphos_FGF23^gamma_phos + ECCPhos_ext^gamma_phos))) * (1 + 0.5*Calcitriol_ext/(Kcal_FGF23 + Calcitriol_ext));
+  FGF23_clear: FGF23 -> ; FGF23 * (kout_FGF23 * (FGF23_renal_clear * GFR_ext / 6.0 + (1 - FGF23_renal_clear)));
+  Klotho_prod: -> sKlotho; kin_Klotho * (GFR_ext / 6.0);
+  Klotho_clear: sKlotho -> ; kout_Klotho * sKlotho;
+  VascCa_deposit: -> VascCa; kin_VascCa * piecewise(Ca_ext*ECCPhos_ext - CaPO4_threshold, Ca_ext*ECCPhos_ext > CaPO4_threshold, 0) * (1/(1 + sKlotho/Klotho_protect));
+  VascCa_resorb: VascCa -> ; kout_VascCa * VascCa;
+  SOST_prod: -> SOST; kin_SOST * VascCa;
+  SOST_clear: SOST -> ; kout_SOST * SOST;
+
+  FGF23_AlphaOH_suppression := 1 / (1 + (FGF23/50)^1.5);
+  FGF23_phosphaturia := 1 + 0.5 * FGF23 / (50 + FGF23);
+  SOST_OB_suppression := 1 / (1 + (SOST/50)^1.0);
+  CaPO4_product := Ca_ext * ECCPhos_ext;
+end

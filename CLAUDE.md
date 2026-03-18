@@ -141,6 +141,40 @@ uv run runoak -i sqlite:obo:hp info HP:0040282 -O obo
 
 This prevents AI hallucination of fake or mismatched ontology terms.
 
+### `preferred_term` vs Ontology Term Labels
+
+Each descriptor (phenotype, cell type, treatment, etc.) has two distinct label fields with different rules:
+
+- **`term.label`**: MUST exactly match the canonical ontology term label. Verified with OAK. Never deviate from the official label.
+- **`preferred_term`**: The human-readable name used in display. **This CAN be more specific or nuanced than the ontology term** when the ontology does not fully capture the desired clinical or biological granularity.
+
+When the ontology provides only a broad parent term but you want to convey greater specificity, use a more descriptive `preferred_term` while still linking to the best-fit ontology term:
+
+```yaml
+# Example: cell type with preferred clinical name
+cell_types:
+- preferred_term: CD4+ regulatory T cell
+  term:
+    id: CL:0000815
+    label: regulatory T cell
+
+# Example: treatment more specific than generic MAXO term
+treatments:
+- name: Anti-TNF Biologic Therapy
+  description: Treatment with TNF inhibitors such as adalimumab or infliximab.
+  treatment_term:
+    preferred_term: anti-TNF biologic therapy
+    term:
+      id: MAXO:0000058
+      label: pharmacotherapy
+```
+
+**Guidelines:**
+- Always link to the most specific available ontology term, even if `preferred_term` is more granular.
+- If the ontology has a term that closely matches, prefer using its label as `preferred_term` for clarity.
+- Use a more nuanced `preferred_term` only when the ontology term is genuinely too broad to convey the intended meaning.
+- A `modifier` may be used to capture the semantics of some preferred terms.
+
 ### Treatment Terms (MAXO)
 Treatments can be annotated with Medical Action Ontology (MAXO) terms:
 ```yaml
@@ -208,6 +242,51 @@ just fetch-reference NCT05813288  # Caches trial data from ClinicalTrials.gov AP
 - `status`: Recruitment status (Recruiting, Completed, Terminated, Active not recruiting)
 - `target_phenotypes`: Phenotypes addressed by the trial (with HP ontology terms)
 - `evidence`: Evidence items validated against ClinicalTrials.gov
+
+### MorPhiC Cellular Phenotypes
+
+The MorPhiC Consortium (Molecular Phenotypes of Null Alleles in Cells) creates null alleles of human genes in iPSC-derived multicellular systems and measures their molecular and cellular phenotypes. MorPhiC data can enrich dismech entries with `category: Cellular` phenotypes.
+
+**When to add MorPhiC-derived phenotypes:**
+- The disorder involves a gene targeted by MorPhiC (check morphic.bio for gene lists)
+- iPSC-derived cellular models recapitulate disease-relevant phenotypes
+- Evidence source should be `IN_VITRO` for all MorPhiC-derived evidence
+
+**Pattern for cellular phenotypes:**
+```yaml
+phenotypes:
+- category: Cellular
+  name: Impaired Cardiomyocyte Differentiation
+  description: >
+    Gene-null iPSC-derived cardiomyocytes show impaired differentiation...
+  phenotype_term:
+    preferred_term: Impaired cardiomyocyte differentiation
+    term:
+      id: HP:0001637
+      label: Abnormal myocardium morphology
+  evidence:
+  - reference: PMID:39939790
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: "exact quote from paper"
+    explanation: "How MorPhiC data supports this phenotype"
+```
+
+**MorPhiC dataset references:**
+```yaml
+datasets:
+- accession: morphic:GENE_SYMBOL
+  title: MorPhiC null allele phenotyping of GENE in iPSC-derived cells
+  data_type: MULTI_OMICS_PERTURBATION
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  publication: PMID:39939790
+```
+
+Key MorPhiC anchor genes: ISL1, EOMES, GCM1, NKX2-1. Data available under CC BY 4.0.
 
 ## Testing
 

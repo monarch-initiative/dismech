@@ -1,0 +1,17 @@
+# Citations for Research Query
+
+**Query:** Codex secondary synthesis for Hemophilia B
+**Provider:** cyberian-codex
+**Generated:** 2026-02-17T08:39:53Z
+
+1. DOI:10.1002/14651858.cd014544.pub2
+2. DOI:10.1007/s13353-025-00952-w
+3. DOI:10.1007/s40140-024-00635-y
+4. DOI:10.1016/s0140-6736(24
+5. DOI:10.1056/nejmoa2302982
+6. DOI:10.1111/j.1365-2516.2005.01123.x
+7. DOI:10.1186/s13052-024-01819-2
+8. DOI:10.14302/issn.2372-6601.jhor-24-5108
+9. DOI:10.3389/fmed.2025.1618464
+10. DOI:10.3390/biom14070854
+11. DOI:10.57582/ijbf.250502.066

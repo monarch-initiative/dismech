@@ -1,0 +1,29 @@
+# Citations for Research Query
+
+**Query:** Codex secondary synthesis for Infectious Disease
+**Provider:** cyberian-codex
+**Generated:** 2026-02-17T08:39:53Z
+
+1. DOI:10.1002/mco2.662
+2. DOI:10.1016/j.xcrm.2024.101829
+3. DOI:10.1016/s2213-2600(23
+4. DOI:10.1073/pnas.1412487111
+5. DOI:10.1126/sciadv.abj2101
+6. DOI:10.1128/iai.00291-08
+7. DOI:10.1128/mbio.00681-25
+8. DOI:10.1128/microbiolspec.dmih2-0031-2016
+9. DOI:10.1146/annurev-immunol-082323-031642
+10. DOI:10.1164/ajrccm.161.supplement_1.ltta-23
+11. DOI:10.20944/preprints202405.1826.v1
+12. DOI:10.3389/fimmu.2012.00389
+13. DOI:10.3389/fimmu.2013.00185
+14. DOI:10.3389/fimmu.2014.00614
+15. DOI:10.3389/fimmu.2018.01330
+16. DOI:10.3389/fimmu.2022.963923
+17. DOI:10.3389/fimmu.2024.1303115
+18. DOI:10.3389/fimmu.2025.1696366
+19. DOI:10.3389/fmicb.2011.00012
+20. DOI:10.7759/cureus.54275
+21. PMID:17280841
+22. PMID:31996461
+23. PMID:40036700

@@ -1,0 +1,22 @@
+# Citations for Research Query
+
+**Query:** Codex secondary synthesis for Kniest Dysplasia
+**Provider:** cyberian-codex
+**Generated:** 2026-02-17T08:45:14Z
+
+1. DOI:10.1073/pnas.1300480110
+2. DOI:10.1126/sciadv.abg8583
+3. DOI:10.2214/ajr.123.4.805
+4. DOI:10.3892/mmr.2022.12615
+5. PMID:11680679
+6. PMID:11812423
+7. PMID:12954239
+8. PMID:15577070
+9. PMID:25592122
+10. PMID:3276736
+11. PMID:514691
+12. PMID:7700721
+13. PMID:7981752
+14. PMID:8484485
+15. PMID:8723084
+16. PMID:9524360
