@@ -6459,7 +6459,7 @@ window.searchData = [
       "non-Hodgkin lymphoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-03-18T00:00:00Z",
     "subtypes": [
       "Endemic Burkitt Lymphoma",
       "Sporadic Burkitt Lymphoma",
@@ -8458,7 +8458,7 @@ window.searchData = [
       "uterine cancer"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-02-27T21:52:54Z",
+    "updated_date": "2026-03-18T00:00:00Z",
     "subtypes": [
       "Squamous Cell Carcinoma",
       "Adenocarcinoma",
@@ -8482,7 +8482,7 @@ window.searchData = [
       "apoptotic process",
       "G1/S transition of mitotic cell cycle",
       "cell cycle checkpoint signaling",
-      "viral DNA integration into host DNA",
+      "viral genome integration into host DNA",
       "cell population proliferation"
     ],
     "phenotypes": [
@@ -18978,7 +18978,7 @@ window.searchData = [
       "diffuse glioma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-02-27T21:52:57Z",
+    "updated_date": "2026-03-18T00:00:00Z",
     "subtypes": [
       "Giant Cell Glioblastoma",
       "Gliosarcoma",
@@ -35582,25 +35582,33 @@ window.searchData = [
       "Metabolic Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-02-27T12:00:00Z",
+    "updated_date": "2026-03-17T00:00:00Z",
     "subtypes": [],
     "description": "Increased osteoclast-mediated bone resorption relative to osteoblast- mediated bone formation leads to net bone loss. This imbalance accelerates with aging and estrogen deficiency.\n",
     "pathophysiology": [
       "Bone Remodeling Imbalance",
       "RANKL/OPG Dysregulation",
-      "Microarchitectural Deterioration"
+      "Microarchitectural Deterioration",
+      "Osteocyte Mechanosensing Disruption in Microgravity",
+      "Microgravity-Accelerated Bone Resorption",
+      "Spaceflight-Induced Mitochondrial Stress in Bone"
     ],
     "cell_types": [
       "Osteoclast",
-      "Osteoblast"
+      "Osteoblast",
+      "Osteocyte"
     ],
     "cell_type_ids": [
       "CL:0000092",
-      "CL:0000062"
+      "CL:0000062",
+      "CL:0000137"
     ],
     "biological_processes": [
       "Bone Remodeling",
-      "Osteoclast Differentiation"
+      "Osteoclast Differentiation",
+      "Cellular Response to Mechanical Stimulus",
+      "Bone Resorption",
+      "Mitochondrion Organization"
     ],
     "phenotypes": [
       "Decreased Bone Mineral Density",
@@ -35650,7 +35658,8 @@ window.searchData = [
       "Vitamin D Deficiency",
       "Sedentary Lifestyle",
       "Smoking",
-      "Glucocorticoid Use"
+      "Glucocorticoid Use",
+      "Microgravity Exposure"
     ],
     "biochemical": [
       "Bone Turnover Markers",
@@ -35661,7 +35670,7 @@ window.searchData = [
     "source_file": "Osteoporosis.yaml",
     "page_url": "../pages/disorders/Osteoporosis.html",
     "num_phenotypes": 5,
-    "num_pathophysiology": 3,
+    "num_pathophysiology": 6,
     "num_genes": 4,
     "num_treatments": 7,
     "causal_graph_edges": "0",
@@ -46018,7 +46027,7 @@ window.searchData = [
       "ocular melanoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-02-27T21:53:05Z",
+    "updated_date": "2026-03-18T00:00:00Z",
     "subtypes": [
       "Choroidal Melanoma",
       "Ciliary Body Melanoma",
