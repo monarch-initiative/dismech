@@ -116,7 +116,7 @@ def process_file(filepath: Path, dry_run: bool = False) -> list[str]:
         i += 1
 
     if not dry_run and changes:
-        filtered = [l for l in new_lines if l is not None]
+        filtered = [line for line in new_lines if line is not None]
         filepath.write_text("\n".join(filtered))
 
     return changes
@@ -145,7 +145,7 @@ def main():
         else:
             print("OK")
 
-    print(f"\n=== Summary ===")
+    print("\n=== Summary ===")
     print(f"Label fixes applied: {total_fixes}")
     print(f"Obsolete terms (need manual fix): {total_obsolete}")
 
