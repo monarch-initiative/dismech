@@ -5432,6 +5432,87 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Bell's palsy",
+    "disease_id": "MONDO:0005665",
+    "category": "Complex",
+    "parents": [
+      "Neurological Disorder",
+      "Peripheral Neuropathy"
+    ],
+    "creation_date": "2026-03-18T15:33:50Z",
+    "updated_date": "2026-03-18T17:46:50Z",
+    "subtypes": [],
+    "description": "Bell's palsy is an acute idiopathic peripheral facial neuropathy causing sudden unilateral weakness of the muscles of facial expression. The leading mechanistic model invokes post-viral inflammatory edema of cranial nerve VII at the geniculate ganglion and within the narrow facial canal, producing transient compression, conduction block, and facial muscle dysfunction.",
+    "pathophysiology": [
+      "Putative post-viral immune activation in the geniculate ganglion",
+      "JAK-STAT-associated inflammatory signaling and immune-cell recruitment",
+      "Facial nerve edema within the facial canal",
+      "Intracanalicular compression and conduction block of cranial nerve VII",
+      "Incomplete recovery with aberrant reinnervation"
+    ],
+    "cell_types": [
+      "peripheral nervous system neuron",
+      "Schwann cell"
+    ],
+    "cell_type_ids": [
+      "CL:2000032",
+      "CL:0002573"
+    ],
+    "biological_processes": [
+      "response to virus",
+      "inflammatory response",
+      "JAK-STAT cascade"
+    ],
+    "phenotypes": [
+      "Facial weakness",
+      "Lagophthalmos",
+      "Abnormal taste sensation",
+      "Hyperacusis",
+      "Facial synkinesis"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Ophthalmologic",
+      "Auditory"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0030319",
+      "HP:0030001",
+      "HP:0000223",
+      "HP:0010780",
+      "HP:0034979"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "Common susceptibility locus at 6p21.1"
+    ],
+    "treatments": [
+      "Oral corticosteroids",
+      "Adjunctive antiviral therapy",
+      "Facial physical therapy",
+      "Botulinum toxin type A therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Bells_Palsy.yaml",
+    "page_url": "../pages/disorders/Bell's_palsy.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Benign Prostatic Hyperplasia",
     "disease_id": "MONDO:0010811",
     "category": "Complex",
