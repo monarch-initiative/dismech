@@ -420,3 +420,27 @@ just gen-dashboard
 ```
 
 The dashboard shows priority curation targets - the 10 files with lowest compliance scores.
+
+## Git Safety Rules
+
+### Never force-push someone else's branch
+If a PR was authored by another contributor, **do not** force-push, rebase, or reset their branch. Instead:
+1. Ask the original author to rebase/fix conflicts themselves
+2. Or create a separate fix commit on top of their work (no force-push)
+3. Only force-push branches that you (or your orchestrator) created
+
+### Always use targeted git add
+Never use `git add -A` or `git add .` in worktrees. Only stage files relevant to the task:
+```bash
+git add kb/disorders/ references_cache/ research/
+```
+This prevents committing generated files (HTML, schema docs, cache CSVs) that cause merge conflicts.
+
+### Commit and push as final step
+Every task should end with: validate → targeted git add → commit → push. Don't leave uncommitted work for someone else to discover.
+
+### Post PR comments explaining your changes
+After pushing fixes, comment on the PR summarizing:
+- What you changed and why
+- What you intentionally did NOT change, with reasoning
+- Validation results
