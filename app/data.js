@@ -32635,17 +32635,23 @@ window.searchData = [
       "Immune Disorder"
     ],
     "creation_date": "2025-12-06T01:38:31Z",
-    "updated_date": "2026-02-27T21:53:01Z",
+    "updated_date": "2026-03-18T00:00:00Z",
     "subtypes": [],
-    "description": "Exaggerated innate immune responses to microbial ligands, with exercise-triggered increases in proinflammatory signals, complement activation, and oxidative stress that contribute to post-exertional malaise.",
+    "description": "Dysregulated innate immune function, most reproducibly demonstrated by impaired natural killer cell cytotoxicity, forming part of the interconnected pathological responses in ME/CFS.",
     "pathophysiology": [
-      "Innate Immune Hyperreactivity",
+      "Innate Immune Dysregulation",
       "Natural Killer Cell Dysfunction",
       "T-Cell Immunometabolic Dysfunction",
-      "Endothelial Dysfunction and Coagulopathy",
+      "CD8+ T-Cell Exhaustion",
+      "Endothelial Dysfunction",
+      "Coagulopathy",
       "TRPM3 Ion Channel Dysfunction",
-      "Neuroinflammation and Cerebral Hypoperfusion",
-      "Mitochondrial Dysfunction"
+      "Neuroinflammation",
+      "Cerebral Hypoperfusion",
+      "Neuroaxonal Injury",
+      "Gut-Immune Dysbiosis",
+      "Mitochondrial Dysfunction",
+      "Central Catechol Pathway Dysregulation"
     ],
     "cell_types": [
       "Natural Killer Cell",
@@ -32653,7 +32659,9 @@ window.searchData = [
       "CD8+ T Cell",
       "CD4+ T Cell",
       "Endothelial Cell",
-      "Platelet"
+      "Platelet",
+      "Microglial Cell",
+      "Neuron"
     ],
     "cell_type_ids": [
       "CL:0000623",
@@ -32661,16 +32669,22 @@ window.searchData = [
       "CL:0000625",
       "CL:0000624",
       "CL:0000115",
-      "CL:0000233"
+      "CL:0000233",
+      "CL:0000129",
+      "CL:0000540"
     ],
     "biological_processes": [
       "Innate Immune Response",
-      "Complement Activation",
       "T Cell Activation",
-      "Glycolysis",
+      "Metabolic Reprogramming",
+      "Exhausted T Cell Differentiation",
+      "Chromatin Remodeling",
       "Blood Coagulation",
       "Platelet Activation",
       "Calcium Ion Transmembrane Transport",
+      "Neuroinflammatory Response",
+      "Immune Response",
+      "Inflammatory Response",
       "Fatty Acid Beta-Oxidation",
       "Response to Oxidative Stress"
     ],
@@ -32682,6 +32696,7 @@ window.searchData = [
       "Sleep Disturbance",
       "Myalgia",
       "Headache",
+      "Exercise Intolerance",
       "Recurrent Infections",
       "Gastrointestinal Symptoms",
       "Sensory Sensitivity"
@@ -32696,6 +32711,8 @@ window.searchData = [
     "phenotype_hpo_categories": [
       "Cardiovascular",
       "Constitutional",
+      "Digestive",
+      "Immune",
       "Nervous System"
     ],
     "phenotype_ids": [
@@ -32705,7 +32722,11 @@ window.searchData = [
       "HP:0001278",
       "HP:0002360",
       "HP:0003326",
-      "HP:0002315"
+      "HP:0002315",
+      "HP:0003546",
+      "HP:0002719",
+      "HP:0012719",
+      "HP:5200058"
     ],
     "frequencies": [
       "OBLIGATE",
@@ -32719,7 +32740,8 @@ window.searchData = [
     "treatments": [
       "Pacing",
       "Symptomatic Treatment",
-      "Low-Dose Naltrexone"
+      "Low-Dose Naltrexone",
+      "Intranasal Mechanical Stimulation (INMEST)"
     ],
     "environmental": [
       "Viral Infections",
@@ -32728,16 +32750,19 @@ window.searchData = [
     "biochemical": [
       "Natural Killer Cell Cytotoxicity",
       "Inflammatory Cytokines",
-      "Oxidative Stress Markers"
+      "Oxidative Stress Markers",
+      "Plasma Neurofilament Light Chain (NfL)",
+      "Thrombospondin-1 (THBS1)",
+      "Complement C9"
     ],
     "source_file": "Myalgic_Encephalomyelitis_Chronic_Fatigue_Syndrome.yaml",
     "page_url": "../pages/disorders/Myalgic_Encephalomyelitis_Chronic_Fatigue_Syndrome.html",
-    "num_phenotypes": 10,
-    "num_pathophysiology": 7,
+    "num_phenotypes": 11,
+    "num_pathophysiology": 13,
     "num_genes": 1,
-    "num_treatments": 3,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "num_treatments": 4,
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "1"
   },
   {
     "name": "Myasthenia Gravis",
@@ -36130,6 +36155,77 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "4",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "PRPH2-Related Retinopathy",
+    "disease_id": "MONDO:1040055",
+    "category": "Mendelian",
+    "parents": [
+      "Ophthalmological Disease",
+      "Retinal Dystrophy",
+      "Inherited retinal dystrophy"
+    ],
+    "creation_date": "2026-03-19T01:23:51Z",
+    "updated_date": "2026-03-19T01:44:42Z",
+    "subtypes": [
+      "Retinitis pigmentosa 7",
+      "Vitelliform macular dystrophy 3",
+      "Patterned macular dystrophy 1",
+      "Choroidal dystrophy, central areolar 2",
+      "Leber congenital amaurosis 18",
+      "Retinitis pigmentosa 7, digenic"
+    ],
+    "description": "PRPH2-related retinopathy is an inherited retinal disease family caused by pathogenic variants in PRPH2, a photoreceptor outer-segment rim tetraspanin that oligomerizes with ROM1. The disease spans rod-predominant retinitis pigmentosa, macular and pattern dystrophy phenotypes, central areolar choroidal dystrophy, and rarer early severe retinal degeneration. A shared PRPH2/ROM1 structural mechanism underlies these branches, but mutation-specific effects and modifier context produce marked intra- and interfamilial heterogeneity.",
+    "pathophysiology": [
+      "PRPH2 complex assembly defect",
+      "Photoreceptor outer segment morphogenesis and maintenance failure"
+    ],
+    "cell_types": [
+      "retinal rod cell",
+      "retinal cone cell",
+      "retinal pigment epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000604",
+      "CL:0000573",
+      "CL:0002586"
+    ],
+    "biological_processes": [],
+    "phenotypes": [
+      "Reduced visual acuity",
+      "Abnormal electroretinogram",
+      "Abnormal fundus autofluorescence imaging"
+    ],
+    "phenotype_categories": [
+      "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0007663",
+      "HP:0000512",
+      "HP:0030602"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "PRPH2 pathogenic variants",
+      "ROM1 modifier context"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "PRPH2-Related_Retinopathy.yaml",
+    "page_url": "../pages/disorders/PRPH2-Related_Retinopathy.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 2,
+    "num_genes": 2,
+    "num_treatments": 0,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "PTCH1-related nevoid basal cell carcinoma syndrome",
@@ -40377,6 +40473,81 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "2",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "RPGR-Related Retinopathy",
+    "disease_id": "MONDO:0100437",
+    "category": "Mendelian",
+    "parents": [
+      "Ophthalmological Disease",
+      "Retinal Dystrophy",
+      "Inherited retinal dystrophy"
+    ],
+    "creation_date": "2026-03-19T06:08:40Z",
+    "updated_date": "2026-03-19T06:08:40Z",
+    "subtypes": [
+      "Retinitis pigmentosa 3",
+      "X-linked cone-rod dystrophy 1",
+      "Cone dystrophy 1, X-linked"
+    ],
+    "description": "RPGR-related retinopathy is an X-linked inherited retinal dystrophy caused by pathogenic variation in RPGR, especially the retina-enriched RPGRORF15 isoform. Across rod-cone, cone-rod, and cone-dominant presentations, the shared proximal mechanism is defective photoreceptor connecting-cilium trafficking, which disrupts outer-segment protein delivery, drives progressive photoreceptor degeneration, and culminates in retinal remodeling. Variant position within RPGRORF15 shifts the phenotype toward rod-predominant retinitis pigmentosa or cone-predominant dystrophy, justifying a shared-mechanism umbrella with subtype branches.\n",
+    "pathophysiology": [
+      "RPGR dysfunction at the photoreceptor connecting cilium",
+      "Outer-segment cargo trafficking failure",
+      "Variant-position-dependent rod versus cone bias",
+      "Progressive photoreceptor loss and retinal remodeling"
+    ],
+    "cell_types": [
+      "photoreceptor cell",
+      "retinal rod cell",
+      "retinal cone cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000210",
+      "CL:0000604",
+      "CL:0000573"
+    ],
+    "biological_processes": [
+      "protein localization to cilium",
+      "cilium organization",
+      "intraciliary transport",
+      "photoreceptor cell maintenance"
+    ],
+    "phenotypes": [
+      "Night blindness",
+      "Progressive peripheral visual field loss",
+      "Reduced visual acuity",
+      "High myopia"
+    ],
+    "phenotype_categories": [
+      "Ophthalmic"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0000662",
+      "HP:0001133",
+      "HP:0007663",
+      "HP:0000545"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "RPGR"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "RPGR-Related_Retinopathy.yaml",
+    "page_url": "../pages/disorders/RPGR-Related_Retinopathy.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "3",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Rabies",
