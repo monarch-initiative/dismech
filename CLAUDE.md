@@ -444,6 +444,3 @@ After pushing fixes, comment on the PR summarizing:
 - What you changed and why
 - What you intentionally did NOT change, with reasoning
 - Validation results
-
-### No draft PRs
-Do not create draft PRs. Every PR should be created as ready-for-review. The Claude Code Review bot cannot set formal review status (APPROVE/REQUEST_CHANGES) on draft PRs. The review cycle itself serves as the quality gate — REQUEST_CHANGES is the signal that more work is needed.
