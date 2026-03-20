@@ -2117,7 +2117,7 @@ window.searchData = [
       "Neurodegenerative Disease"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-03-08T00:00:00Z",
+    "updated_date": "2026-03-17T00:00:00Z",
     "subtypes": [
       "Early-Onset Alzheimer's Disease",
       "Late-Onset Alzheimer's Disease"
@@ -5432,6 +5432,87 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Bell's palsy",
+    "disease_id": "MONDO:0005665",
+    "category": "Complex",
+    "parents": [
+      "Neurological Disorder",
+      "Peripheral Neuropathy"
+    ],
+    "creation_date": "2026-03-18T15:33:50Z",
+    "updated_date": "2026-03-18T17:46:50Z",
+    "subtypes": [],
+    "description": "Bell's palsy is an acute idiopathic peripheral facial neuropathy causing sudden unilateral weakness of the muscles of facial expression. The leading mechanistic model invokes post-viral inflammatory edema of cranial nerve VII at the geniculate ganglion and within the narrow facial canal, producing transient compression, conduction block, and facial muscle dysfunction.",
+    "pathophysiology": [
+      "Putative post-viral immune activation in the geniculate ganglion",
+      "JAK-STAT-associated inflammatory signaling and immune-cell recruitment",
+      "Facial nerve edema within the facial canal",
+      "Intracanalicular compression and conduction block of cranial nerve VII",
+      "Incomplete recovery with aberrant reinnervation"
+    ],
+    "cell_types": [
+      "peripheral nervous system neuron",
+      "Schwann cell"
+    ],
+    "cell_type_ids": [
+      "CL:2000032",
+      "CL:0002573"
+    ],
+    "biological_processes": [
+      "response to virus",
+      "inflammatory response",
+      "JAK-STAT cascade"
+    ],
+    "phenotypes": [
+      "Facial weakness",
+      "Lagophthalmos",
+      "Abnormal taste sensation",
+      "Hyperacusis",
+      "Facial synkinesis"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Ophthalmologic",
+      "Auditory"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0030319",
+      "HP:0030001",
+      "HP:0000223",
+      "HP:0010780",
+      "HP:0034979"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "Common susceptibility locus at 6p21.1"
+    ],
+    "treatments": [
+      "Oral corticosteroids",
+      "Adjunctive antiviral therapy",
+      "Facial physical therapy",
+      "Botulinum toxin type A therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Bells_Palsy.yaml",
+    "page_url": "../pages/disorders/Bell's_palsy.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Benign Prostatic Hyperplasia",
     "disease_id": "MONDO:0010811",
     "category": "Complex",
@@ -6459,7 +6540,7 @@ window.searchData = [
       "non-Hodgkin lymphoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-03-18T00:00:00Z",
     "subtypes": [
       "Endemic Burkitt Lymphoma",
       "Sporadic Burkitt Lymphoma",
@@ -8458,7 +8539,7 @@ window.searchData = [
       "uterine cancer"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-02-27T21:52:54Z",
+    "updated_date": "2026-03-18T00:00:00Z",
     "subtypes": [
       "Squamous Cell Carcinoma",
       "Adenocarcinoma",
@@ -8482,7 +8563,7 @@ window.searchData = [
       "apoptotic process",
       "G1/S transition of mitotic cell cycle",
       "cell cycle checkpoint signaling",
-      "viral DNA integration into host DNA",
+      "viral genome integration into host DNA",
       "cell population proliferation"
     ],
     "phenotypes": [
@@ -17067,7 +17148,7 @@ window.searchData = [
       "Congenital Disorder"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-02-17T21:53:14Z",
+    "updated_date": "2026-03-13T00:00:00Z",
     "subtypes": [
       "Core Complex Subtypes",
       "ID Complex Subtypes",
@@ -17117,7 +17198,8 @@ window.searchData = [
       "Skin Pigmentation Changes",
       "MYC-Driven HSPC Dysfunction",
       "Differentiation-Induced Genotoxic Stress",
-      "iPSC-Revealed p53-Driven Progenitor Exhaustion"
+      "iPSC-Revealed p53-Driven Progenitor Exhaustion",
+      "PCNA Monoubiquitination and ICL Pathway Choice"
     ],
     "cell_types": [
       "hematopoietic stem cell",
@@ -17130,13 +17212,16 @@ window.searchData = [
       "CL:0008001"
     ],
     "biological_processes": [
-      "response to aldehyde",
+      "interstrand cross-link repair",
+      "hemopoiesis",
+      "DNA damage response",
+      "cellular response to aldehyde",
       "cellular response to oxidative stress",
       "translesion synthesis",
       "homologous recombination",
       "protein ubiquitination",
       "protein monoubiquitination",
-      "interstrand cross-link repair",
+      "double-strand break repair via homologous recombination",
       "inflammatory response",
       "apoptotic process",
       "embryo development",
@@ -17416,10 +17501,10 @@ window.searchData = [
     "source_file": "Fanconi_Anemia.yaml",
     "page_url": "../pages/disorders/Fanconi_Anemia.html",
     "num_phenotypes": 92,
-    "num_pathophysiology": 22,
+    "num_pathophysiology": 23,
     "num_genes": 25,
     "num_treatments": 8,
-    "causal_graph_edges": "54",
+    "causal_graph_edges": "56",
     "causal_graph_longest_path": "5"
   },
   {
@@ -18876,6 +18961,80 @@ window.searchData = [
     "causal_graph_longest_path": "8"
   },
   {
+    "name": "Gilbert's Syndrome",
+    "disease_id": "MONDO:0007745",
+    "category": "Mendelian",
+    "parents": [
+      "Liver Disease",
+      "Inherited Metabolic Disorder"
+    ],
+    "creation_date": "2026-03-17T15:29:38Z",
+    "updated_date": "2026-03-18T00:00:00Z",
+    "subtypes": [],
+    "description": "A common, benign inherited condition characterized by mild, intermittent unconjugated hyperbilirubinemia in the absence of hemolysis or liver disease. Caused by reduced hepatic UGT1A1 enzyme activity, impairing bilirubin glucuronidation. The most prevalent cause in Western populations is a TA-repeat promoter polymorphism (UGT1A1*28) that reduces UGT1A1 transcription; in East Asian populations the UGT1A1*6 (Gly71Arg) coding variant predominates. No specific pharmacological treatment is required, but carriers must be identified before irinotecan chemotherapy to prevent severe toxicity.",
+    "pathophysiology": [
+      "Reduced UGT1A1 Activity and Impaired Bilirubin Glucuronidation",
+      "Fasting- and Stress-Induced Bilirubin Elevation",
+      "Bilirubin Antioxidant and Pleiotropic Effects"
+    ],
+    "cell_types": [
+      "Hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "Bilirubin conjugation",
+      "Bilirubin hepatic transport"
+    ],
+    "phenotypes": [
+      "Mild Unconjugated Hyperbilirubinemia",
+      "Jaundice",
+      "Fatigue and Nonspecific Gastrointestinal Symptoms"
+    ],
+    "phenotype_categories": [
+      "Biochemical",
+      "Clinical",
+      "Systemic"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Integument",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0008282",
+      "HP:0000952",
+      "HP:0012378"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "UGT1A1*28 Promoter Polymorphism",
+      "UGT1A1*6 Missense Variant (Gly71Arg)"
+    ],
+    "treatments": [
+      "Reassurance and Lifestyle Guidance",
+      "UGT1A1 Genotyping Prior to Irinotecan Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Unconjugated Bilirubin"
+    ],
+    "source_file": "Gilberts_Syndrome.yaml",
+    "page_url": "../pages/disorders/Gilbert's_Syndrome.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 3,
+    "num_genes": 2,
+    "num_treatments": 2,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Glaucoma",
     "disease_id": "MONDO:0005041",
     "category": "Complex",
@@ -18978,7 +19137,7 @@ window.searchData = [
       "diffuse glioma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-02-27T21:52:57Z",
+    "updated_date": "2026-03-18T00:00:00Z",
     "subtypes": [
       "Giant Cell Glioblastoma",
       "Gliosarcoma",
@@ -35582,25 +35741,33 @@ window.searchData = [
       "Metabolic Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-02-27T12:00:00Z",
+    "updated_date": "2026-03-17T00:00:00Z",
     "subtypes": [],
     "description": "Increased osteoclast-mediated bone resorption relative to osteoblast- mediated bone formation leads to net bone loss. This imbalance accelerates with aging and estrogen deficiency.\n",
     "pathophysiology": [
       "Bone Remodeling Imbalance",
       "RANKL/OPG Dysregulation",
-      "Microarchitectural Deterioration"
+      "Microarchitectural Deterioration",
+      "Osteocyte Mechanosensing Disruption in Microgravity",
+      "Microgravity-Accelerated Bone Resorption",
+      "Spaceflight-Induced Mitochondrial Stress in Bone"
     ],
     "cell_types": [
       "Osteoclast",
-      "Osteoblast"
+      "Osteoblast",
+      "Osteocyte"
     ],
     "cell_type_ids": [
       "CL:0000092",
-      "CL:0000062"
+      "CL:0000062",
+      "CL:0000137"
     ],
     "biological_processes": [
       "Bone Remodeling",
-      "Osteoclast Differentiation"
+      "Osteoclast Differentiation",
+      "Cellular Response to Mechanical Stimulus",
+      "Bone Resorption",
+      "Mitochondrion Organization"
     ],
     "phenotypes": [
       "Decreased Bone Mineral Density",
@@ -35650,7 +35817,8 @@ window.searchData = [
       "Vitamin D Deficiency",
       "Sedentary Lifestyle",
       "Smoking",
-      "Glucocorticoid Use"
+      "Glucocorticoid Use",
+      "Microgravity Exposure"
     ],
     "biochemical": [
       "Bone Turnover Markers",
@@ -35661,7 +35829,7 @@ window.searchData = [
     "source_file": "Osteoporosis.yaml",
     "page_url": "../pages/disorders/Osteoporosis.html",
     "num_phenotypes": 5,
-    "num_pathophysiology": 3,
+    "num_pathophysiology": 6,
     "num_genes": 4,
     "num_treatments": 7,
     "causal_graph_edges": "0",
@@ -36320,6 +36488,112 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "5",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Pancreatic Neuroendocrine Tumor",
+    "disease_id": "MONDO:0019954",
+    "category": "",
+    "parents": [
+      "pancreatic cancer",
+      "neuroendocrine tumor"
+    ],
+    "creation_date": "2026-03-18T00:00:00Z",
+    "updated_date": "2026-03-18T12:00:00Z",
+    "subtypes": [
+      "Insulinoma",
+      "Gastrinoma",
+      "Non-functional pNET",
+      "Hedgehog-high Subtype",
+      "Alpha-like Subtype",
+      "Hypoxia-high Subtype",
+      "Gastrin-high Subtype",
+      "Progenitor-like Subtype"
+    ],
+    "description": "Pancreatic neuroendocrine tumors (pNETs) are neoplasms arising from the islets of Langerhans or diffuse neuroendocrine cells of the pancreas. They account for 1-3% of all pancreatic neoplasms and exhibit substantial clinical and molecular heterogeneity, ranging from indolent, well-differentiated tumors to aggressive, poorly differentiated neuroendocrine carcinomas. pNETs can be functional (secreting hormones such as insulin, gastrin, glucagon, or VIP, causing distinct clinical syndromes) or non-functional (presenting with mass effect or incidental findings). Key genetic drivers include inactivating mutations in MEN1 (~44%), DAXX/ATRX (~43%), and mTOR pathway genes (PTEN, TSC2; ~14%). WHO grading is based on Ki-67 proliferation index and mitotic rate, stratifying tumors into G1 (<3%), G2 (3-20%), and G3 (>20%). Five-year survival varies from >90% for localized G1 tumors to <30% for metastatic high-grade disease. Recent molecular taxonomy identifies five transcriptional subtypes (Hedgehog-high, Alpha-like, Hypoxia-high, Gastrin-high, and Progenitor-like) with distinct clinical behaviors and therapeutic vulnerabilities.",
+    "pathophysiology": [
+      "MEN1 Tumor Suppressor Inactivation",
+      "DAXX/ATRX Chromatin Remodeling Deficiency",
+      "mTOR Pathway Activation",
+      "BEND2 Fusion-Driven Transcriptional Reprogramming",
+      "NOTCH3-Mediated Tumor-Stromal Signaling",
+      "Immune Microenvironment and Checkpoint Upregulation"
+    ],
+    "cell_types": [
+      "pancreatic endocrine cell",
+      "neuroendocrine cell",
+      "myofibroblast cell",
+      "CD8-positive, alpha-beta T cell"
+    ],
+    "cell_type_ids": [
+      "CL:0008024",
+      "CL:0000165",
+      "CL:0000186",
+      "CL:0000625"
+    ],
+    "biological_processes": [
+      "chromatin organization",
+      "cell population proliferation",
+      "telomere maintenance",
+      "TORC1 signaling",
+      "PI3K/AKT signaling",
+      "Notch signaling pathway"
+    ],
+    "phenotypes": [
+      "Pancreatic Mass",
+      "Hepatic Metastases",
+      "Hypoglycemia",
+      "Recurrent Peptic Ulcers",
+      "Diarrhea",
+      "Abdominal Pain",
+      "Unintentional Weight Loss"
+    ],
+    "phenotype_categories": [
+      "Neoplasm"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Metabolism",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0002894",
+      "HP:0002896",
+      "HP:0001943",
+      "HP:0004398",
+      "HP:0002014",
+      "HP:0002027",
+      "HP:0001824"
+    ],
+    "frequencies": [],
+    "genes": [
+      "MEN1",
+      "DAXX",
+      "ATRX",
+      "PTEN",
+      "TSC2",
+      "PIK3CA",
+      "BEND2"
+    ],
+    "treatments": [
+      "Surgical Resection",
+      "Somatostatin Analog Therapy",
+      "Everolimus (mTOR Inhibitor)",
+      "Sunitinib (Multi-Kinase Inhibitor)",
+      "PRRT (Peptide Receptor Radionuclide Therapy)",
+      "Temozolomide-Based Chemotherapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Pancreatic_Neuroendocrine_Tumor.yaml",
+    "page_url": "../pages/disorders/Pancreatic_Neuroendocrine_Tumor.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 6,
+    "num_genes": 7,
+    "num_treatments": 6,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
   },
   {
     "name": "Parkinson's Disease",
@@ -42045,7 +42319,7 @@ window.searchData = [
       "Bacterial enteritis"
     ],
     "creation_date": "2026-01-20T20:23:59Z",
-    "updated_date": "2026-02-16T20:19:38Z",
+    "updated_date": "2026-03-18T00:00:00Z",
     "subtypes": [],
     "description": "Shigella uses a plasmid-encoded Type III secretion system (T3SS/mxi-spa) to deliver bacterial effector proteins directly into host cells. The translocon proteins IpaB and IpaC assemble a funnel-shaped pore in target membranes through which the injectisome docks and delivers effectors. IpaC activates small GTPases and actin nucleation to promote bacterial uptake. IpaB mediates phagosomal membrane disruption and directly activates caspase-1 in macrophages, triggering pyroptotic cell death. This allows bacterial escape from the phagolysosome into the cytosol, where Shigella replicates and spreads.\n",
     "pathophysiology": [
@@ -42053,7 +42327,10 @@ window.searchData = [
       "Actin-based motility and cell-to-cell spread",
       "Inflammasome sensing and pyroptotic inflammation",
       "Bacterial toxin production and endothelial damage",
-      "Intestinal barrier dysfunction and increased permeability"
+      "Intestinal barrier dysfunction and increased permeability",
+      "Spaceflight-induced Hfq-mediated virulence enhancement in enteric Enterobacteriaceae",
+      "Microgravity-associated biofilm formation and antibiotic resistance in enteric bacteria",
+      "Spaceflight-induced immune dysregulation increases susceptibility to enteric infection"
     ],
     "cell_types": [
       "enterocyte",
@@ -42073,11 +42350,12 @@ window.searchData = [
       "apoptotic process",
       "actin filament polymerization",
       "regulation of cell shape",
-      "inflammasome complex",
-      "inflammatory response to bacterium",
+      "NLRP3 inflammasome complex assembly",
+      "response to bacterium",
       "translation",
       "tight junction assembly",
-      "ion transport"
+      "ion transport",
+      "inflammatory response"
     ],
     "phenotypes": [
       "Diarrhea",
@@ -42122,17 +42400,18 @@ window.searchData = [
     ],
     "environmental": [
       "Contaminated water or food",
-      "Poor sanitation and hygiene"
+      "Poor sanitation and hygiene",
+      "Spaceflight and microgravity environment"
     ],
     "biochemical": [
-      "Inflammatory cytokines (IL-1\u03b2, IL-18, IL-8)",
+      "Inflammatory cytokines (IL-1beta, IL-18, IL-8)",
       "Lipopolysaccharide (LPS)",
       "Electrolyte abnormalities (sodium, potassium, chloride)"
     ],
     "source_file": "Shigellosis.yaml",
     "page_url": "../pages/disorders/Shigellosis.html",
     "num_phenotypes": 5,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 8,
     "num_genes": 7,
     "num_treatments": 3,
     "causal_graph_edges": "0",
@@ -43175,7 +43454,7 @@ window.searchData = [
       "ABCA4-related retinal dystrophy"
     ],
     "creation_date": "2026-02-26T00:00:00Z",
-    "updated_date": "2026-03-13T23:10:00Z",
+    "updated_date": "2026-03-17T00:00:00Z",
     "subtypes": [
       "Stargardt disease 1 (STGD1)",
       "Stargardt disease 3 (STGD3)",
@@ -43271,7 +43550,9 @@ window.searchData = [
       "Lysosomal re-acidification (investigational)",
       "Complement inhibition (investigational)"
     ],
-    "environmental": [],
+    "environmental": [
+      "Spaceflight microgravity and cosmic radiation"
+    ],
     "biochemical": [
       "A2E (bisretinoid)",
       "Lipofuscin",
@@ -44471,6 +44752,113 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Thallium Poisoning",
+    "disease_id": "MONDO:0041996",
+    "category": "Environmental",
+    "parents": [
+      "heavy metal poisoning"
+    ],
+    "creation_date": "2026-03-17T21:02:44Z",
+    "updated_date": "2026-03-18T17:42:13Z",
+    "subtypes": [
+      "Acute Thallium Poisoning",
+      "Delayed neurocutaneous thallium poisoning"
+    ],
+    "description": "Thallium poisoning is a toxic condition caused by acute or chronic exposure to thallium, a highly toxic heavy metal encountered through industrial thallium salts, contaminated medicines or foods, older rodenticide use, and deliberate poisoning. Thallium is rapidly and nearly completely absorbed, distributes systemically, enters cells by mimicking potassium, interferes with energy production, inhibits sodium-potassium ATPase, and binds sulfhydryl-containing molecules. The resulting multisystem toxicity most characteristically causes a painful ascending peripheral neuropathy and delayed alopecia, often preceded by gastrointestinal symptoms and followed by persistent neurologic sequelae in severe cases.",
+    "pathophysiology": [
+      "Gastrointestinal absorption of thallium",
+      "Systemic thallium distribution",
+      "Potassium-mimetic cellular uptake",
+      "Bioenergetic failure",
+      "Sodium-potassium ATPase inhibition",
+      "Sulfhydryl-dependent molecular binding",
+      "Peripheral nervous system injury",
+      "Autonomic and central neurotoxicity",
+      "Keratin affinity and appendage accumulation",
+      "Hair follicle toxicity"
+    ],
+    "cell_types": [
+      "peripheral nervous system neuron",
+      "autonomic neuron",
+      "central nervous system neuron",
+      "keratinocyte",
+      "hair follicle cell"
+    ],
+    "cell_type_ids": [
+      "CL:2000032",
+      "CL:0000107",
+      "CL:2000029",
+      "CL:0000312",
+      "CL:0002559"
+    ],
+    "biological_processes": [
+      "transmembrane transport",
+      "abnormal localization",
+      "response to potassium ion",
+      "potassium ion transport",
+      "intracellular monoatomic ion homeostasis",
+      "glycolytic process",
+      "tricarboxylic acid cycle",
+      "oxidative phosphorylation",
+      "sodium ion transport",
+      "hair follicle development",
+      "hair cycle"
+    ],
+    "phenotypes": [
+      "Peripheral neuropathy",
+      "Alopecia",
+      "Abdominal pain",
+      "Constipation",
+      "Altered mental status"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Dermatologic",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Integument",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0009830",
+      "HP:0001596",
+      "HP:0002027",
+      "HP:0002019",
+      "HP:0001289"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Exposure cessation and source removal",
+      "Prussian blue therapy",
+      "Multiple-dose activated charcoal",
+      "Potassium supplementation",
+      "Extracorporeal elimination adjuncts"
+    ],
+    "environmental": [
+      "Industrial thallium salt exposure",
+      "Rodenticide exposure",
+      "Coal combustion and cement manufacturing exposure",
+      "Contaminated alternative medicine exposure",
+      "Deliberate beverage contamination"
+    ],
+    "biochemical": [],
+    "source_file": "Thallium_Poisoning.yaml",
+    "page_url": "../pages/disorders/Thallium_Poisoning.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 10,
+    "num_genes": 0,
+    "num_treatments": 5,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Thanatophoric Dysplasia Type 1",
@@ -46018,7 +46406,7 @@ window.searchData = [
       "ocular melanoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-02-27T21:53:05Z",
+    "updated_date": "2026-03-18T00:00:00Z",
     "subtypes": [
       "Choroidal Melanoma",
       "Ciliary Body Melanoma",
@@ -46658,7 +47046,7 @@ window.searchData = [
       "kidney neoplasm"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-02-16T20:19:38Z",
+    "updated_date": "2026-03-18T00:00:00Z",
     "subtypes": [
       "Favorable Histology Wilms Tumor",
       "Anaplastic Wilms Tumor",
