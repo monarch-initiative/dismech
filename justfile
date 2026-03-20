@@ -37,7 +37,7 @@ src := "src"
 dest := "project"
 pymodel := src / schema_name / "datamodel"
 source_schema_path := source_schema_dir / schema_name + ".yaml"
-docdir := "docs/elements"  # Directory for generated documentation
+docdir := "docs/schema"  # Directory for generated schema documentation
 merged_schema_path := "docs/schema" / schema_name + ".yaml"
 
 # ============== Project recipes ==============
@@ -72,7 +72,7 @@ update: _update-template _update-linkml
 [group('project management')]
 clean: _clean_project
   rm -rf tmp
-  rm -rf {{docdir}}/*.md
+  rm -rf {{docdir}}/*.md {{docdir}}/classes {{docdir}}/slots {{docdir}}/enums {{docdir}}/types
 
 # (Re-)Generate project and documentation locally
 [group('model development')]
@@ -95,7 +95,7 @@ lint:
 # Generate md documentation for the schema
 [group('model development')]
 gen-doc: _gen-yaml
-  uv run gen-doc {{gen_doc_args}} -d {{docdir}} {{source_schema_path}}
+  uv run gen-doc --subfolder-type-separation {{gen_doc_args}} -d {{docdir}} {{source_schema_path}}
 
 # Build docs and run test server
 [group('model development')]
@@ -127,7 +127,7 @@ gen-project:
 # created with linkml-project-copier v0.1.x to v0.2.0 or newer.
 # Use with care! - It may not work for customized projects.
 _post_upgrade_v020: && _post_upgrade_v020py
-  mv docs/*.md docs/elements
+  mv docs/*.md docs/schema
 
 _post_upgrade_v020py:
     #!{{shebang}}

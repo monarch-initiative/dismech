@@ -1,0 +1,22 @@
+---
+reference_id: "DOI:10.3233/jnd-230168"
+title: "Contribution of Complement, Microangiopathy and Inflammation in Idiopathic Inflammatory Myopathies"
+authors:
+- Masaya Honda
+- Fumitaka Shimizu
+- Ryota Sato
+- Masayuki Nakamori
+journal: Journal of Neuromuscular Diseases
+year: '2024'
+doi: 10.3233/jnd-230168
+content_type: abstract_only
+---
+
+# Contribution of Complement, Microangiopathy and Inflammation in Idiopathic Inflammatory Myopathies
+**Authors:** Masaya Honda, Fumitaka Shimizu, Ryota Sato, Masayuki Nakamori
+**Journal:** Journal of Neuromuscular Diseases (2024)
+**DOI:** [10.3233/jnd-230168](https://doi.org/10.3233/jnd-230168)
+
+## Content
+
+Purpose of review: Idiopathic inflammatory myopathies (IIMs) are a heterogeneous group characterized by muscle weakness and skin symptoms and are categorized into six subtypes: dermatomyositis (DM), polymyositis (PM), anti-synthetase syndrome (ASS), immune-mediated myopathy (IMNM), inclusion body myopathy (IBM), and overlap myositis. Myositis-specific autoantibodies were detected for the diagnosis and classification of IIM. This review highlights the pathogenic contributions of the complement system, microangiopathy, and inflammation in IIM. Recent findings: Deposition of complement around capillaries and/or the sarcolemma was observed in muscle biopsy specimens from patients with DM, ASS, and IMNM, suggesting the pathomechanism of complement-dependent muscle and endothelial cell injury. A recent study using human muscle microvascular endothelial cells showed that Jo-1 antibodies from ASS induce complement-dependent cellular cytotoxicity in vitro. Based on both clinical and pathological observations, antibody- and complement-mediated microangiopathy may contribute to the development of DM and anti-Jo-1 ASS. Juvenile DM is characterized by the loss of capillaries, perivascular inflammation, and small-vessel angiopathies, which may be related to microinfarction and perifascicular atrophy. Several serum biomarkers that reflect the IFN1 signature and microangiopathy are elevated in patients with DM. The pathological observation of myxovirus resistance protein A (MxA), which suggests a type 1 interferon (IFN1) signature in DM, supports the diagnosis and further understanding of the pathomechanism of IIM. A recent report showed that an increase in triggering receptor expressed on myeloid cells (TREM-1) around perimysial blood vessels and muscles in patients with IIM plays a role in triggering inflammation and promoting the migration of inflammatory cells by secreting proinflammatory cytokines, such as tumor necrosis factor α. Summary: The deposition of complement in muscles and capillaries is a characteristic feature of DM, ASS, and IMNM. Microangiopathy plays a pathogenic role in DM, possibly resulting in perifascicular atrophy. Further understanding of the detailed pathomechanism regarding complement, microangiopathy, and inflammation may lead to novel therapeutic approaches for IIM.

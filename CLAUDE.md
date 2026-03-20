@@ -85,6 +85,46 @@ Maps ontology prefixes to OAK adapters for term validation:
 
 ## Important Patterns
 
+### Mechanism Modules
+
+Mechanism modules (`kb/modules/`) define conserved pathological processes that recur across
+multiple disorders (e.g., the fibrotic response). A module uses the **same schema** as a
+regular dismech Disease entry — it has `pathophysiology` nodes with cell types, biological
+processes, evidence, and causal edges (`downstream`).
+
+**How conformance works:**
+
+Individual disorder entries declare that a pathophysiology node conforms to a module node
+using the `conforms_to` slot:
+
+```yaml
+# In kb/disorders/Liver_Cirrhosis.yaml
+pathophysiology:
+- name: Hepatic Stellate Cell Activation
+  conforms_to: "fibrotic_response#Mesenchymal Cell Activation"
+  cell_types:
+  - preferred_term: Hepatic Stellate Cell
+    term:
+      id: CL:0000632
+      label: hepatic stellate cell
+  biological_processes:
+  - preferred_term: TGF-beta Receptor Signaling
+    term:
+      id: GO:0007179
+      label: transforming growth factor beta receptor signaling pathway
+    modifier: INCREASED
+```
+
+**Key principles:**
+- **Same schema**: Modules validate against the `Disease` class, just like disorder files
+- **Not DRY**: Disorder entries fully duplicate content; conformance is for consistency checking, not inheritance
+- **Organ-specific substitution**: Module nodes define generic cell types (e.g., `fibroblast`); conforming disorder nodes substitute organ-specific types (e.g., `hepatic stellate cell`)
+- **Consistency checking**: If a node declares `conforms_to`, it should include the expected biological processes and causal edges from the module
+- **Reference format**: `"module_name#Node Name"` — module name matches the filename in `kb/modules/` (without `.yaml`), node name matches a pathophysiology `name` in that module
+
+**Available modules:**
+- `fibrotic_response` — Conserved fibrotic response: tissue injury → inflammation → mesenchymal cell activation → myofibroblast → excessive ECM → organ dysfunction
+
 ### Evidence Items
 All evidence must have PMID references and support classification:
 ```yaml
@@ -96,13 +136,30 @@ evidence:
     explanation: "Why this evidence supports/refutes the claim"
 ```
 
-Set `evidence_source` to clarify provenance:
+**IMPORTANT**: The `evidence_source` field classifies **the type of evidence presented in the cited publication**, NOT how the curation was performed. Even if an AI agent is curating the entry, `evidence_source` describes what kind of study the paper reports (human clinical trial, animal model, cell culture, computational simulation, etc.).
+
+Set `evidence_source` to clarify the publication's evidence type:
 - HUMAN_CLINICAL for direct human observations (default when not specified)
 - MODEL_ORGANISM when citing animal model recapitulation
 - IN_VITRO for cell-based experiments
-- COMPUTATIONAL for in silico predictions
+- COMPUTATIONAL for in silico predictions/simulations reported in the paper
 - OTHER for evidence types that do not fit the above categories
 Model organism evidence should not be the only support for human phenotypes; keep it distinct via `evidence_source`.
+
+### Entry Metadata Dates
+
+Each `Disease` entry should include lifecycle timestamps:
+
+```yaml
+creation_date: "2025-06-12T20:16:27Z"
+updated_date: "2025-07-03T11:05:10Z"
+```
+
+Rules:
+- Use ISO 8601 / RFC 3339 datetime strings.
+- Keep `creation_date` stable after first creation.
+- Update `updated_date` whenever curated content changes.
+- Prefer UTC (`Z` suffix) for consistency.
 
 Quick classification rules (use these before tagging):
 - HUMAN_CLINICAL: human patients, cohorts, case reports, clinical trials (NCT), epidemiology.
@@ -123,6 +180,40 @@ uv run runoak -i sqlite:obo:hp info HP:0040282 -O obo
 ```
 
 This prevents AI hallucination of fake or mismatched ontology terms.
+
+### `preferred_term` vs Ontology Term Labels
+
+Each descriptor (phenotype, cell type, treatment, etc.) has two distinct label fields with different rules:
+
+- **`term.label`**: MUST exactly match the canonical ontology term label. Verified with OAK. Never deviate from the official label.
+- **`preferred_term`**: The human-readable name used in display. **This CAN be more specific or nuanced than the ontology term** when the ontology does not fully capture the desired clinical or biological granularity.
+
+When the ontology provides only a broad parent term but you want to convey greater specificity, use a more descriptive `preferred_term` while still linking to the best-fit ontology term:
+
+```yaml
+# Example: cell type with preferred clinical name
+cell_types:
+- preferred_term: CD4+ regulatory T cell
+  term:
+    id: CL:0000815
+    label: regulatory T cell
+
+# Example: treatment more specific than generic MAXO term
+treatments:
+- name: Anti-TNF Biologic Therapy
+  description: Treatment with TNF inhibitors such as adalimumab or infliximab.
+  treatment_term:
+    preferred_term: anti-TNF biologic therapy
+    term:
+      id: MAXO:0000058
+      label: pharmacotherapy
+```
+
+**Guidelines:**
+- Always link to the most specific available ontology term, even if `preferred_term` is more granular.
+- If the ontology has a term that closely matches, prefer using its label as `preferred_term` for clarity.
+- Use a more nuanced `preferred_term` only when the ontology term is genuinely too broad to convey the intended meaning.
+- A `modifier` may be used to capture the semantics of some preferred terms.
 
 ### Treatment Terms (MAXO)
 Treatments can be annotated with Medical Action Ontology (MAXO) terms:
@@ -191,6 +282,51 @@ just fetch-reference NCT05813288  # Caches trial data from ClinicalTrials.gov AP
 - `status`: Recruitment status (Recruiting, Completed, Terminated, Active not recruiting)
 - `target_phenotypes`: Phenotypes addressed by the trial (with HP ontology terms)
 - `evidence`: Evidence items validated against ClinicalTrials.gov
+
+### MorPhiC Cellular Phenotypes
+
+The MorPhiC Consortium (Molecular Phenotypes of Null Alleles in Cells) creates null alleles of human genes in iPSC-derived multicellular systems and measures their molecular and cellular phenotypes. MorPhiC data can enrich dismech entries with `category: Cellular` phenotypes.
+
+**When to add MorPhiC-derived phenotypes:**
+- The disorder involves a gene targeted by MorPhiC (check morphic.bio for gene lists)
+- iPSC-derived cellular models recapitulate disease-relevant phenotypes
+- Evidence source should be `IN_VITRO` for all MorPhiC-derived evidence
+
+**Pattern for cellular phenotypes:**
+```yaml
+phenotypes:
+- category: Cellular
+  name: Impaired Cardiomyocyte Differentiation
+  description: >
+    Gene-null iPSC-derived cardiomyocytes show impaired differentiation...
+  phenotype_term:
+    preferred_term: Impaired cardiomyocyte differentiation
+    term:
+      id: HP:0001637
+      label: Abnormal myocardium morphology
+  evidence:
+  - reference: PMID:39939790
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: "exact quote from paper"
+    explanation: "How MorPhiC data supports this phenotype"
+```
+
+**MorPhiC dataset references:**
+```yaml
+datasets:
+- accession: morphic:GENE_SYMBOL
+  title: MorPhiC null allele phenotyping of GENE in iPSC-derived cells
+  data_type: MULTI_OMICS_PERTURBATION
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  publication: PMID:39939790
+```
+
+Key MorPhiC anchor genes: ISL1, EOMES, GCM1, NKX2-1. Data available under CC BY 4.0.
 
 ## Testing
 
@@ -284,3 +420,27 @@ just gen-dashboard
 ```
 
 The dashboard shows priority curation targets - the 10 files with lowest compliance scores.
+
+## Git Safety Rules
+
+### Never force-push someone else's branch
+If a PR was authored by another contributor, **do not** force-push, rebase, or reset their branch. Instead:
+1. Ask the original author to rebase/fix conflicts themselves
+2. Or create a separate fix commit on top of their work (no force-push)
+3. Only force-push branches that you (or your orchestrator) created
+
+### Always use targeted git add
+Never use `git add -A` or `git add .` in worktrees. Only stage files relevant to the task:
+```bash
+git add kb/disorders/ references_cache/ research/
+```
+This prevents committing generated files (HTML, schema docs, cache CSVs) that cause merge conflicts.
+
+### Commit and push as final step
+Every task should end with: validate → targeted git add → commit → push. Don't leave uncommitted work for someone else to discover.
+
+### Post PR comments explaining your changes
+After pushing fixes, comment on the PR summarizing:
+- What you changed and why
+- What you intentionally did NOT change, with reasoning
+- Validation results
