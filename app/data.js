@@ -21,7 +21,6 @@ window.searchData = [
     "cell_types": [],
     "cell_type_ids": [],
     "biological_processes": [
-      "catalytic activity",
       "isoleucine catabolic process",
       "branched-chain amino acid catabolic process",
       "response to starvation",
@@ -484,7 +483,7 @@ window.searchData = [
       "Cardiomyopathy"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-03-07T18:42:39Z",
+    "updated_date": "2026-03-17T00:00:00Z",
     "subtypes": [
       "ATTRm (hereditary)",
       "ATTRwt (wild-type/senile)"
@@ -2894,7 +2893,6 @@ window.searchData = [
       "CL:2000044"
     ],
     "biological_processes": [
-      "catalytic activity",
       "urea cycle",
       "nitric oxide biosynthetic process",
       "arginine biosynthetic process",
@@ -3134,7 +3132,6 @@ window.searchData = [
     ],
     "biological_processes": [
       "transmembrane transport",
-      "arsenic methylation",
       "pyruvate metabolic process",
       "glycolytic process",
       "response to oxidative stress",
@@ -5037,10 +5034,8 @@ window.searchData = [
       "innate immune response",
       "toll-like receptor signaling pathway",
       "I-kappaB kinase/NF-kappaB signaling",
-      "inflammasome complex assembly",
       "pyroptosis",
       "JAK-STAT cascade",
-      "VEGF-activated receptor activity",
       "tight junction organization",
       "extracellular matrix disassembly"
     ],
@@ -5643,7 +5638,6 @@ window.searchData = [
       "CL:0000746"
     ],
     "biological_processes": [
-      "catalytic activity",
       "isoleucine catabolic process",
       "branched-chain amino acid catabolic process",
       "ketone body metabolic process",
@@ -5976,7 +5970,6 @@ window.searchData = [
     ],
     "biological_processes": [
       "biotin metabolic process",
-      "protein biotinylation",
       "gluconeogenesis",
       "propionate catabolic process",
       "leucine catabolic process",
@@ -6467,7 +6460,6 @@ window.searchData = [
       "inflammatory response",
       "proteolysis",
       "mucus secretion",
-      "NLRP3 inflammasome complex assembly",
       "interleukin-1 beta production"
     ],
     "phenotypes": [
@@ -7954,8 +7946,7 @@ window.searchData = [
     ],
     "biological_processes": [
       "urea cycle",
-      "glutamine biosynthetic process",
-      "nitrogen compound metabolic process"
+      "glutamine biosynthetic process"
     ],
     "phenotypes": [
       "Hyperammonemia",
@@ -9522,7 +9513,6 @@ window.searchData = [
       "mitophagy",
       "mucus secretion",
       "cilium movement",
-      "NLRP3 inflammasome complex assembly",
       "cellular senescence"
     ],
     "phenotypes": [
@@ -9735,7 +9725,6 @@ window.searchData = [
       "CL:0000182"
     ],
     "biological_processes": [
-      "transmembrane transporter activity",
       "malate-aspartate shuttle",
       "cellular redox homeostasis",
       "glycolytic process",
@@ -9852,8 +9841,7 @@ window.searchData = [
       "arginine biosynthetic process",
       "glutamine biosynthetic process",
       "cellular response to nitrogen compound",
-      "protein tetramerization",
-      "nitrogen compound metabolic process"
+      "protein tetramerization"
     ],
     "phenotypes": [
       "Hyperammonemia",
@@ -11957,7 +11945,6 @@ window.searchData = [
       "Epithelial cell morphogenesis",
       "Plasma cell differentiation",
       "Cytokine production",
-      "Tight junction",
       "Defense response to bacterium"
     ],
     "phenotypes": [
@@ -12611,12 +12598,10 @@ window.searchData = [
       "CL:0000746"
     ],
     "biological_processes": [
-      "catalytic activity",
       "dicarboxylic acid metabolic process",
       "tricarboxylic acid cycle",
       "response to oxidative stress",
       "oxidative phosphorylation",
-      "histone demethylation",
       "DNA demethylation"
     ],
     "phenotypes": [
@@ -14300,7 +14285,6 @@ window.searchData = [
       "CL:0000127"
     ],
     "biological_processes": [
-      "voltage-gated sodium channel activity",
       "neuronal action potential",
       "synaptic transmission, GABAergic"
     ],
@@ -14389,7 +14373,7 @@ window.searchData = [
       "Neuromuscular Disease"
     ],
     "creation_date": "2026-01-07T17:31:51Z",
-    "updated_date": "2026-02-10T22:32:16Z",
+    "updated_date": "2026-03-17T00:00:00Z",
     "subtypes": [
       "Classic Duchenne",
       "Intermediate DMD"
@@ -16155,7 +16139,6 @@ window.searchData = [
     "biological_processes": [
       "Blood Pressure Regulation",
       "RAAS Pathway",
-      "Sympathetic Regulation",
       "Inflammatory Response",
       "ROS Metabolic Process"
     ],
@@ -16653,7 +16636,6 @@ window.searchData = [
       "CL:0000835"
     ],
     "biological_processes": [
-      "protein tyrosine kinase activity",
       "signal transduction",
       "cell population proliferation",
       "apoptotic process",
@@ -19716,8 +19698,7 @@ window.searchData = [
       "CL:0000775"
     ],
     "biological_processes": [
-      "Purine Metabolism",
-      "Inflammasome Activation"
+      "Purine Metabolism"
     ],
     "phenotypes": [
       "Acute Arthritis",
@@ -20350,7 +20331,6 @@ window.searchData = [
       "CL:0000127"
     ],
     "biological_processes": [
-      "histone H3-K27 methylation",
       "negative regulation of gene expression, epigenetic",
       "gene expression",
       "cell population proliferation",
@@ -22101,9 +22081,6 @@ window.searchData = [
     "biological_processes": [
       "cytoskeleton organization",
       "protein localization to plasma membrane",
-      "cytoskeletal anchor activity",
-      "structural constituent of cytoskeleton",
-      "spectrin binding",
       "erythrocyte homeostasis"
     ],
     "phenotypes": [
@@ -22478,7 +22455,6 @@ window.searchData = [
       "CL:0000182"
     ],
     "biological_processes": [
-      "protein biotinylation",
       "biotin metabolic process",
       "gluconeogenesis",
       "pyruvate metabolic process",
@@ -23357,7 +23333,6 @@ window.searchData = [
       "response to oxidative stress",
       "superoxide metabolic process",
       "mitochondrial electron transport",
-      "inflammasome complex assembly",
       "interleukin-1 beta production"
     ],
     "phenotypes": [
@@ -23475,7 +23450,6 @@ window.searchData = [
     "biological_processes": [
       "muscle contraction",
       "regulation of heart contraction",
-      "ATP hydrolysis activity",
       "extracellular matrix organization",
       "response to TGF-beta",
       "calcium ion transport",
@@ -23800,8 +23774,7 @@ window.searchData = [
     ],
     "biological_processes": [
       "DNA demethylation",
-      "myeloid cell differentiation",
-      "histone demethylation"
+      "myeloid cell differentiation"
     ],
     "phenotypes": [
       "Anemia",
@@ -23961,7 +23934,6 @@ window.searchData = [
       "CL:1000488"
     ],
     "biological_processes": [
-      "isocitrate dehydrogenase (NADP+) activity",
       "DNA methylation",
       "cell population proliferation"
     ],
@@ -25880,7 +25852,6 @@ window.searchData = [
       "endothelial cell activation",
       "leukocyte adhesion to vascular endothelial cell",
       "inflammatory response",
-      "NLRP3 inflammasome complex assembly",
       "interleukin-1 beta production",
       "tumor necrosis factor production",
       "interleukin-17 production",
@@ -26592,7 +26563,6 @@ window.searchData = [
       "myelination",
       "oxidative phosphorylation",
       "glycolytic process",
-      "histone demethylation",
       "DNA demethylation"
     ],
     "phenotypes": [
@@ -27679,8 +27649,6 @@ window.searchData = [
     ],
     "biological_processes": [
       "Protein lipoylation",
-      "Pyruvate dehydrogenase complex",
-      "Glycine cleavage complex",
       "Tricarboxylic acid cycle"
     ],
     "phenotypes": [
@@ -27762,7 +27730,6 @@ window.searchData = [
     ],
     "biological_processes": [
       "Protein lipoylation",
-      "Pyruvate dehydrogenase complex",
       "Tricarboxylic acid cycle"
     ],
     "phenotypes": [
@@ -28075,7 +28042,6 @@ window.searchData = [
       "CL:0002586"
     ],
     "biological_processes": [
-      "catalytic activity",
       "fatty acid beta-oxidation",
       "ketone body biosynthetic process",
       "response to oxidative stress",
@@ -28820,8 +28786,7 @@ window.searchData = [
       "CL:0000182"
     ],
     "biological_processes": [
-      "fatty acid beta-oxidation",
-      "medium-chain fatty acyl-CoA dehydrogenase activity"
+      "fatty acid beta-oxidation"
     ],
     "phenotypes": [
       "Hypoketotic hypoglycemia",
@@ -29476,7 +29441,6 @@ window.searchData = [
     "biological_processes": [
       "inflammatory response",
       "response to oxidative stress",
-      "histone deubiquitination",
       "DNA damage response",
       "Hippo signaling",
       "negative regulation of G1/S transition"
@@ -31055,7 +31019,6 @@ window.searchData = [
       "CL:0002306"
     ],
     "biological_processes": [
-      "catalytic activity",
       "methylmalonyl-CoA metabolic process",
       "propionate catabolic process",
       "tricarboxylic acid cycle",
@@ -32635,17 +32598,23 @@ window.searchData = [
       "Immune Disorder"
     ],
     "creation_date": "2025-12-06T01:38:31Z",
-    "updated_date": "2026-02-27T21:53:01Z",
+    "updated_date": "2026-03-18T00:00:00Z",
     "subtypes": [],
-    "description": "Exaggerated innate immune responses to microbial ligands, with exercise-triggered increases in proinflammatory signals, complement activation, and oxidative stress that contribute to post-exertional malaise.",
+    "description": "Dysregulated innate immune function, most reproducibly demonstrated by impaired natural killer cell cytotoxicity, forming part of the interconnected pathological responses in ME/CFS.",
     "pathophysiology": [
-      "Innate Immune Hyperreactivity",
+      "Innate Immune Dysregulation",
       "Natural Killer Cell Dysfunction",
       "T-Cell Immunometabolic Dysfunction",
-      "Endothelial Dysfunction and Coagulopathy",
+      "CD8+ T-Cell Exhaustion",
+      "Endothelial Dysfunction",
+      "Coagulopathy",
       "TRPM3 Ion Channel Dysfunction",
-      "Neuroinflammation and Cerebral Hypoperfusion",
-      "Mitochondrial Dysfunction"
+      "Neuroinflammation",
+      "Cerebral Hypoperfusion",
+      "Neuroaxonal Injury",
+      "Gut-Immune Dysbiosis",
+      "Mitochondrial Dysfunction",
+      "Central Catechol Pathway Dysregulation"
     ],
     "cell_types": [
       "Natural Killer Cell",
@@ -32653,7 +32622,9 @@ window.searchData = [
       "CD8+ T Cell",
       "CD4+ T Cell",
       "Endothelial Cell",
-      "Platelet"
+      "Platelet",
+      "Microglial Cell",
+      "Neuron"
     ],
     "cell_type_ids": [
       "CL:0000623",
@@ -32661,16 +32632,22 @@ window.searchData = [
       "CL:0000625",
       "CL:0000624",
       "CL:0000115",
-      "CL:0000233"
+      "CL:0000233",
+      "CL:0000129",
+      "CL:0000540"
     ],
     "biological_processes": [
       "Innate Immune Response",
-      "Complement Activation",
       "T Cell Activation",
-      "Glycolysis",
+      "Metabolic Reprogramming",
+      "Exhausted T Cell Differentiation",
+      "Chromatin Remodeling",
       "Blood Coagulation",
       "Platelet Activation",
       "Calcium Ion Transmembrane Transport",
+      "Neuroinflammatory Response",
+      "Immune Response",
+      "Inflammatory Response",
       "Fatty Acid Beta-Oxidation",
       "Response to Oxidative Stress"
     ],
@@ -32682,6 +32659,7 @@ window.searchData = [
       "Sleep Disturbance",
       "Myalgia",
       "Headache",
+      "Exercise Intolerance",
       "Recurrent Infections",
       "Gastrointestinal Symptoms",
       "Sensory Sensitivity"
@@ -32696,6 +32674,8 @@ window.searchData = [
     "phenotype_hpo_categories": [
       "Cardiovascular",
       "Constitutional",
+      "Digestive",
+      "Immune",
       "Nervous System"
     ],
     "phenotype_ids": [
@@ -32705,7 +32685,11 @@ window.searchData = [
       "HP:0001278",
       "HP:0002360",
       "HP:0003326",
-      "HP:0002315"
+      "HP:0002315",
+      "HP:0003546",
+      "HP:0002719",
+      "HP:0012719",
+      "HP:5200058"
     ],
     "frequencies": [
       "OBLIGATE",
@@ -32719,7 +32703,8 @@ window.searchData = [
     "treatments": [
       "Pacing",
       "Symptomatic Treatment",
-      "Low-Dose Naltrexone"
+      "Low-Dose Naltrexone",
+      "Intranasal Mechanical Stimulation (INMEST)"
     ],
     "environmental": [
       "Viral Infections",
@@ -32728,16 +32713,19 @@ window.searchData = [
     "biochemical": [
       "Natural Killer Cell Cytotoxicity",
       "Inflammatory Cytokines",
-      "Oxidative Stress Markers"
+      "Oxidative Stress Markers",
+      "Plasma Neurofilament Light Chain (NfL)",
+      "Thrombospondin-1 (THBS1)",
+      "Complement C9"
     ],
     "source_file": "Myalgic_Encephalomyelitis_Chronic_Fatigue_Syndrome.yaml",
     "page_url": "../pages/disorders/Myalgic_Encephalomyelitis_Chronic_Fatigue_Syndrome.html",
-    "num_phenotypes": 10,
-    "num_pathophysiology": 7,
+    "num_phenotypes": 11,
+    "num_pathophysiology": 13,
     "num_genes": 1,
-    "num_treatments": 3,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "num_treatments": 4,
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "1"
   },
   {
     "name": "Myasthenia Gravis",
@@ -33104,9 +33092,7 @@ window.searchData = [
     ],
     "biological_processes": [
       "Protein lipoylation",
-      "Pyruvate dehydrogenase complex",
-      "Tricarboxylic acid cycle",
-      "Glycine cleavage complex"
+      "Tricarboxylic acid cycle"
     ],
     "phenotypes": [
       "Neonatal hypotonia",
@@ -33615,7 +33601,6 @@ window.searchData = [
       "Skeletal Muscle Contraction",
       "Actin Filament Organization",
       "Skeletal Muscle Thin Filament Assembly",
-      "Actin Filament Binding",
       "Myofibril Assembly",
       "Sarcomere Organization",
       "skeletal muscle contraction",
@@ -34667,9 +34652,6 @@ window.searchData = [
       "CL:0000746"
     ],
     "biological_processes": [
-      "protein tyrosine phosphatase activity",
-      "Ras guanyl-nucleotide exchange factor activity",
-      "protein serine/threonine kinase activity",
       "Ras protein signal transduction",
       "protein ubiquitination",
       "regulation of proteolysis",
@@ -36132,6 +36114,77 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "PRPH2-Related Retinopathy",
+    "disease_id": "MONDO:1040055",
+    "category": "Mendelian",
+    "parents": [
+      "Ophthalmological Disease",
+      "Retinal Dystrophy",
+      "Inherited retinal dystrophy"
+    ],
+    "creation_date": "2026-03-19T01:23:51Z",
+    "updated_date": "2026-03-19T01:44:42Z",
+    "subtypes": [
+      "Retinitis pigmentosa 7",
+      "Vitelliform macular dystrophy 3",
+      "Patterned macular dystrophy 1",
+      "Choroidal dystrophy, central areolar 2",
+      "Leber congenital amaurosis 18",
+      "Retinitis pigmentosa 7, digenic"
+    ],
+    "description": "PRPH2-related retinopathy is an inherited retinal disease family caused by pathogenic variants in PRPH2, a photoreceptor outer-segment rim tetraspanin that oligomerizes with ROM1. The disease spans rod-predominant retinitis pigmentosa, macular and pattern dystrophy phenotypes, central areolar choroidal dystrophy, and rarer early severe retinal degeneration. A shared PRPH2/ROM1 structural mechanism underlies these branches, but mutation-specific effects and modifier context produce marked intra- and interfamilial heterogeneity.",
+    "pathophysiology": [
+      "PRPH2 complex assembly defect",
+      "Photoreceptor outer segment morphogenesis and maintenance failure"
+    ],
+    "cell_types": [
+      "retinal rod cell",
+      "retinal cone cell",
+      "retinal pigment epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000604",
+      "CL:0000573",
+      "CL:0002586"
+    ],
+    "biological_processes": [],
+    "phenotypes": [
+      "Reduced visual acuity",
+      "Abnormal electroretinogram",
+      "Abnormal fundus autofluorescence imaging"
+    ],
+    "phenotype_categories": [
+      "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0007663",
+      "HP:0000512",
+      "HP:0030602"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "PRPH2 pathogenic variants",
+      "ROM1 modifier context"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "PRPH2-Related_Retinopathy.yaml",
+    "page_url": "../pages/disorders/PRPH2-Related_Retinopathy.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 2,
+    "num_genes": 2,
+    "num_treatments": 0,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "2"
+  },
+  {
     "name": "PTCH1-related nevoid basal cell carcinoma syndrome",
     "disease_id": "MONDO:0958174",
     "category": "Mendelian",
@@ -37521,7 +37574,6 @@ window.searchData = [
       "CL:0017006"
     ],
     "biological_processes": [
-      "protein tyrosine kinase activity",
       "signal transduction",
       "B cell differentiation",
       "apoptotic process"
@@ -37728,9 +37780,7 @@ window.searchData = [
       "CL:0000166"
     ],
     "biological_processes": [
-      "succinate dehydrogenase activity",
       "response to hypoxia",
-      "receptor signaling protein tyrosine kinase activity",
       "catecholamine biosynthetic process"
     ],
     "phenotypes": [
@@ -38207,7 +38257,6 @@ window.searchData = [
       "CL:0000038"
     ],
     "biological_processes": [
-      "protein tyrosine kinase activity",
       "JAK-STAT signaling pathway",
       "erythrocyte differentiation",
       "blood coagulation"
@@ -38775,7 +38824,6 @@ window.searchData = [
       "CL:0000182"
     ],
     "biological_processes": [
-      "transmembrane transporter activity",
       "carnitine transmembrane transport",
       "fatty acid beta-oxidation",
       "extracellular matrix organization",
@@ -39387,7 +39435,6 @@ window.searchData = [
       "CL:0002306"
     ],
     "biological_processes": [
-      "catalytic activity",
       "tricarboxylic acid cycle",
       "urea cycle",
       "response to oxidative stress",
@@ -40379,6 +40426,81 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "RPGR-Related Retinopathy",
+    "disease_id": "MONDO:0100437",
+    "category": "Mendelian",
+    "parents": [
+      "Ophthalmological Disease",
+      "Retinal Dystrophy",
+      "Inherited retinal dystrophy"
+    ],
+    "creation_date": "2026-03-19T06:08:40Z",
+    "updated_date": "2026-03-19T06:08:40Z",
+    "subtypes": [
+      "Retinitis pigmentosa 3",
+      "X-linked cone-rod dystrophy 1",
+      "Cone dystrophy 1, X-linked"
+    ],
+    "description": "RPGR-related retinopathy is an X-linked inherited retinal dystrophy caused by pathogenic variation in RPGR, especially the retina-enriched RPGRORF15 isoform. Across rod-cone, cone-rod, and cone-dominant presentations, the shared proximal mechanism is defective photoreceptor connecting-cilium trafficking, which disrupts outer-segment protein delivery, drives progressive photoreceptor degeneration, and culminates in retinal remodeling. Variant position within RPGRORF15 shifts the phenotype toward rod-predominant retinitis pigmentosa or cone-predominant dystrophy, justifying a shared-mechanism umbrella with subtype branches.\n",
+    "pathophysiology": [
+      "RPGR dysfunction at the photoreceptor connecting cilium",
+      "Outer-segment cargo trafficking failure",
+      "Variant-position-dependent rod versus cone bias",
+      "Progressive photoreceptor loss and retinal remodeling"
+    ],
+    "cell_types": [
+      "photoreceptor cell",
+      "retinal rod cell",
+      "retinal cone cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000210",
+      "CL:0000604",
+      "CL:0000573"
+    ],
+    "biological_processes": [
+      "protein localization to cilium",
+      "cilium organization",
+      "intraciliary transport",
+      "photoreceptor cell maintenance"
+    ],
+    "phenotypes": [
+      "Night blindness",
+      "Progressive peripheral visual field loss",
+      "Reduced visual acuity",
+      "High myopia"
+    ],
+    "phenotype_categories": [
+      "Ophthalmic"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0000662",
+      "HP:0001133",
+      "HP:0007663",
+      "HP:0000545"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "RPGR"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "RPGR-Related_Retinopathy.yaml",
+    "page_url": "../pages/disorders/RPGR-Related_Retinopathy.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "3",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Rabies",
     "disease_id": "MONDO:0019173",
     "category": "Infectious Disease",
@@ -41166,7 +41288,6 @@ window.searchData = [
       "CL:1000217"
     ],
     "biological_processes": [
-      "protein tyrosine kinase activity",
       "fibroblast growth factor receptor signaling pathway"
     ],
     "phenotypes": [
@@ -44510,7 +44631,6 @@ window.searchData = [
     ],
     "biological_processes": [
       "Potassium ion transport",
-      "Voltage-gated potassium channel activity",
       "Regulation of neuron excitability",
       "Synaptic transmission",
       "Nervous system development",
@@ -46258,8 +46378,6 @@ window.searchData = [
       "CL:0000127"
     ],
     "biological_processes": [
-      "catalytic activity",
-      "transporter activity",
       "urea cycle",
       "glutamine biosynthetic process",
       "cellular response to osmotic stress",
