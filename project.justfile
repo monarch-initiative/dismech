@@ -1054,7 +1054,9 @@ show-field-pattern section field:
     echo "Pattern for '{{field}}' in '{{section}}' section:"
     count=0
     for f in {{kb_dir}}/*.yaml; do
-        match=$(grep -FA6 "{{field}}:" "$f" 2>/dev/null | head -7)
+        # Extract lines from the target section (top-level key) then grep within it
+        section_text=$(sed -n '/^{{section}}:/,/^[a-z_]*:/{ /^[a-z_]*:/!p; /^{{section}}:/p; }' "$f" 2>/dev/null)
+        match=$(echo "$section_text" | grep -FA6 "{{field}}:" 2>/dev/null | head -7)
         if [ -n "$match" ]; then
             echo "--- $(basename $f) ---"
             echo "$match"
