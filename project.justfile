@@ -1052,13 +1052,17 @@ find-disorder pattern:
 show-field-pattern section field:
     #!/usr/bin/env bash
     echo "Pattern for '{{field}}' in '{{section}}' section:"
+    count=0
     for f in {{kb_dir}}/*.yaml; do
-        match=$(grep -A6 "{{field}}:" "$f" 2>/dev/null | head -7)
+        match=$(grep -FA6 "{{field}}:" "$f" 2>/dev/null | head -7)
         if [ -n "$match" ]; then
             echo "--- $(basename $f) ---"
             echo "$match"
             echo ""
-            break
+            count=$((count+1))
+            if [ $count -ge 3 ]; then
+                break
+            fi
         fi
     done
 
