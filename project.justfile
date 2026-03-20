@@ -1034,3 +1034,43 @@ d2p-compare-json disease:
 [group('Analysis')]
 perturb file *args="":
     uv run python -m dismech.perturb {{file}} {{args}}
+
+# ============== Agent Helper Commands ==============
+# These commands help Claude Code agents explore the KB without requiring
+# manual permission approvals for common lookup patterns.
+
+# Check if a disorder exists (case-insensitive partial match)
+# Example: just find-disorder kleefstra
+[group('KB')]
+find-disorder pattern:
+    @ls -1 {{kb_dir}}/*.yaml 2>/dev/null | xargs -I {} basename {} .yaml | grep -i "{{pattern}}" || echo "No match found for '{{pattern}}'"
+
+# Show how a specific YAML field is used across existing disorder files
+# Example: just show-field-pattern genetic gene_term
+#          just show-field-pattern treatments treatment_term
+[group('KB')]
+show-field-pattern section field:
+    #!/usr/bin/env bash
+    echo "Pattern for '{{field}}' in '{{section}}' section:"
+    for f in {{kb_dir}}/*.yaml; do
+        match=$(grep -A6 "{{field}}:" "$f" 2>/dev/null | head -7)
+        if [ -n "$match" ]; then
+            echo "--- $(basename $f) ---"
+            echo "$match"
+            echo ""
+            break
+        fi
+    done
+
+# Find cached references matching a pattern (PMID, DOI, keyword)
+# Example: just find-cached-refs kleefstra
+#          just find-cached-refs 16826528
+[group('Research')]
+find-cached-refs pattern:
+    @ls -1 references_cache/*.md 2>/dev/null | grep -i "{{pattern}}" || echo "No cached refs matching '{{pattern}}'"
+
+# Check if deep research exists for a disorder
+# Example: just check-research Kleefstra_Syndrome
+[group('Research')]
+check-research disorder:
+    @ls -1 research/{{disorder}}* 2>/dev/null || echo "No research files found for '{{disorder}}'"
