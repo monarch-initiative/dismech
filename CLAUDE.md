@@ -85,6 +85,46 @@ Maps ontology prefixes to OAK adapters for term validation:
 
 ## Important Patterns
 
+### Mechanism Modules
+
+Mechanism modules (`kb/modules/`) define conserved pathological processes that recur across
+multiple disorders (e.g., the fibrotic response). A module uses the **same schema** as a
+regular dismech Disease entry — it has `pathophysiology` nodes with cell types, biological
+processes, evidence, and causal edges (`downstream`).
+
+**How conformance works:**
+
+Individual disorder entries declare that a pathophysiology node conforms to a module node
+using the `conforms_to` slot:
+
+```yaml
+# In kb/disorders/Liver_Cirrhosis.yaml
+pathophysiology:
+- name: Hepatic Stellate Cell Activation
+  conforms_to: "fibrotic_response#Mesenchymal Cell Activation"
+  cell_types:
+  - preferred_term: Hepatic Stellate Cell
+    term:
+      id: CL:0000632
+      label: hepatic stellate cell
+  biological_processes:
+  - preferred_term: TGF-beta Receptor Signaling
+    term:
+      id: GO:0007179
+      label: transforming growth factor beta receptor signaling pathway
+    modifier: INCREASED
+```
+
+**Key principles:**
+- **Same schema**: Modules validate against the `Disease` class, just like disorder files
+- **Not DRY**: Disorder entries fully duplicate content; conformance is for consistency checking, not inheritance
+- **Organ-specific substitution**: Module nodes define generic cell types (e.g., `fibroblast`); conforming disorder nodes substitute organ-specific types (e.g., `hepatic stellate cell`)
+- **Consistency checking**: If a node declares `conforms_to`, it should include the expected biological processes and causal edges from the module
+- **Reference format**: `"module_name#Node Name"` — module name matches the filename in `kb/modules/` (without `.yaml`), node name matches a pathophysiology `name` in that module
+
+**Available modules:**
+- `fibrotic_response` — Conserved fibrotic response: tissue injury → inflammation → mesenchymal cell activation → myofibroblast → excessive ECM → organ dysfunction
+
 ### Evidence Items
 All evidence must have PMID references and support classification:
 ```yaml
@@ -243,6 +283,51 @@ just fetch-reference NCT05813288  # Caches trial data from ClinicalTrials.gov AP
 - `target_phenotypes`: Phenotypes addressed by the trial (with HP ontology terms)
 - `evidence`: Evidence items validated against ClinicalTrials.gov
 
+### MorPhiC Cellular Phenotypes
+
+The MorPhiC Consortium (Molecular Phenotypes of Null Alleles in Cells) creates null alleles of human genes in iPSC-derived multicellular systems and measures their molecular and cellular phenotypes. MorPhiC data can enrich dismech entries with `category: Cellular` phenotypes.
+
+**When to add MorPhiC-derived phenotypes:**
+- The disorder involves a gene targeted by MorPhiC (check morphic.bio for gene lists)
+- iPSC-derived cellular models recapitulate disease-relevant phenotypes
+- Evidence source should be `IN_VITRO` for all MorPhiC-derived evidence
+
+**Pattern for cellular phenotypes:**
+```yaml
+phenotypes:
+- category: Cellular
+  name: Impaired Cardiomyocyte Differentiation
+  description: >
+    Gene-null iPSC-derived cardiomyocytes show impaired differentiation...
+  phenotype_term:
+    preferred_term: Impaired cardiomyocyte differentiation
+    term:
+      id: HP:0001637
+      label: Abnormal myocardium morphology
+  evidence:
+  - reference: PMID:39939790
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: "exact quote from paper"
+    explanation: "How MorPhiC data supports this phenotype"
+```
+
+**MorPhiC dataset references:**
+```yaml
+datasets:
+- accession: morphic:GENE_SYMBOL
+  title: MorPhiC null allele phenotyping of GENE in iPSC-derived cells
+  data_type: MULTI_OMICS_PERTURBATION
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  publication: PMID:39939790
+```
+
+Key MorPhiC anchor genes: ISL1, EOMES, GCM1, NKX2-1. Data available under CC BY 4.0.
+
 ## Testing
 
 Tests are in `tests/test_data.py`:
@@ -335,3 +420,27 @@ just gen-dashboard
 ```
 
 The dashboard shows priority curation targets - the 10 files with lowest compliance scores.
+
+## Git Safety Rules
+
+### Never force-push someone else's branch
+If a PR was authored by another contributor, **do not** force-push, rebase, or reset their branch. Instead:
+1. Ask the original author to rebase/fix conflicts themselves
+2. Or create a separate fix commit on top of their work (no force-push)
+3. Only force-push branches that you (or your orchestrator) created
+
+### Always use targeted git add
+Never use `git add -A` or `git add .` in worktrees. Only stage files relevant to the task:
+```bash
+git add kb/disorders/ references_cache/ research/
+```
+This prevents committing generated files (HTML, schema docs, cache CSVs) that cause merge conflicts.
+
+### Commit and push as final step
+Every task should end with: validate → targeted git add → commit → push. Don't leave uncommitted work for someone else to discover.
+
+### Post PR comments explaining your changes
+After pushing fixes, comment on the PR summarizing:
+- What you changed and why
+- What you intentionally did NOT change, with reasoning
+- Validation results

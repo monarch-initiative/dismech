@@ -3,7 +3,11 @@
 # Default schema path
 schema_path := "src/dismech/schema/dismech.yaml"
 kb_dir := "kb/disorders"
+modules_dir := "kb/modules"
 comorbidity_dir := "kb/comorbidities"
+ref_validator_config := "conf/reference_validator_config.yaml"
+# Wrapper script that patches linkml-reference-validator for network resilience
+ref_validator := "scripts/run_reference_validator.sh"
 
 # Validate all disorder YAML files (schema + terms + references)
 # Runs all validations and reports ALL errors at the end
@@ -29,7 +33,7 @@ validate-all:
             errors+="  [TERMS] $term_output\n"
         fi
         # Reference validation
-        ref_output=$(uv run linkml-reference-validator validate data "$f" --schema {{schema_path}} --target-class Disease 2>&1)
+        ref_output=$({{ref_validator}} validate data "$f" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} 2>&1)
         if echo "$ref_output" | grep -q "\[ERROR\]"; then
             errors+="  [REFERENCES]\n$(echo "$ref_output" | grep -A2 "\[ERROR\]")\n"
         fi
@@ -63,7 +67,7 @@ validate file:
     uv run linkml-term-validator validate-data {{file}} -s {{schema_path}} -t Disease --labels --no-dynamic-enums -c {{oak_config}}
     echo "Reference validation..."
     just fix-references-cache
-    uv run linkml-reference-validator validate data {{file}} --schema {{schema_path}} --target-class Disease
+    {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
     echo "✓ All validations passed for {{file}}"
 
 # Schema-only validation (fast, structure check)
@@ -108,7 +112,7 @@ validate-comorbidity file:
     uv run linkml-term-validator validate-data {{file}} -s {{schema_path}} -t ComorbidityAssociation --labels --no-dynamic-enums -c {{oak_config}}
     echo "Reference validation..."
     just fix-references-cache
-    uv run linkml-reference-validator validate data {{file}} --schema {{schema_path}} --target-class ComorbidityAssociation
+    {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class ComorbidityAssociation --config {{ref_validator_config}}
     echo "✓ All validations passed for {{file}}"
 
 # Full validation of all comorbidity YAML files (schema + terms + references)
@@ -137,7 +141,7 @@ validate-comorbidities-all:
             errors+="  [TERMS] $term_output\n"
         fi
         # Reference validation
-        ref_output=$(uv run linkml-reference-validator validate data "$f" --schema {{schema_path}} --target-class ComorbidityAssociation 2>&1 || true)
+        ref_output=$({{ref_validator}} validate data "$f" --schema {{schema_path}} --target-class ComorbidityAssociation --config {{ref_validator_config}} 2>&1 || true)
         if echo "$ref_output" | grep -q "\[ERROR\]"; then
             errors+="  [REFERENCES]\n$(echo "$ref_output" | grep -A2 "\[ERROR\]")\n"
         elif ! echo "$ref_output" | grep -q "All validations passed"; then
@@ -161,6 +165,62 @@ validate-comorbidities-all:
         done
         exit 1
     fi
+
+# Validate all mechanism module YAML files (schema + references)
+[group('QC')]
+validate-modules:
+    #!/usr/bin/env bash
+    shopt -s nullglob
+    files=({{modules_dir}}/*.yaml)
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "No module files found in {{modules_dir}}"
+        exit 0
+    fi
+    just fix-references-cache
+    failed_files=()
+    echo "Validating all mechanism module files..."
+    for f in "${files[@]}"; do
+        echo "=== $(basename $f) ==="
+        errors=""
+        # Schema validation (modules use the Disease class)
+        if ! uv run linkml-validate --schema {{schema_path}} --target-class Disease "$f" 2>&1 | grep -q "No issues found"; then
+            errors+="  [SCHEMA] $(uv run linkml-validate --schema {{schema_path}} --target-class Disease "$f" 2>&1 | grep -v "^$")\n"
+        fi
+        # Reference validation
+        ref_output=$({{ref_validator}} validate data "$f" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} 2>&1)
+        if echo "$ref_output" | grep -q "\[ERROR\]"; then
+            errors+="  [REFERENCES]\n$(echo "$ref_output" | grep -A2 "\[ERROR\]")\n"
+        fi
+        if [ -n "$errors" ]; then
+            failed_files+=("$f")
+            echo -e "$errors"
+        else
+            echo "  ✓ OK"
+        fi
+    done
+    echo ""
+    echo "================================"
+    if [ ${#failed_files[@]} -eq 0 ]; then
+        echo "✓ All module files validated successfully!"
+    else
+        echo "✗ ${#failed_files[@]} module file(s) with errors:"
+        for f in "${failed_files[@]}"; do
+            echo "  - $f"
+        done
+        exit 1
+    fi
+
+# Validate a single mechanism module file
+[group('QC')]
+validate-module file:
+    #!/usr/bin/env bash
+    set -e
+    echo "Schema validation..."
+    uv run linkml-validate --schema {{schema_path}} --target-class Disease {{file}}
+    echo "Reference validation..."
+    just fix-references-cache
+    {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
+    echo "✓ All validations passed for {{file}}"
 
 # Run term validation on schema (checks dynamic enum definitions)
 [group('QC')]
@@ -200,9 +260,9 @@ validate-terms-legacy:
 validate-graphs:
     uv run python -m dismech.graph --validate {{kb_dir}}
 
-# Run all QC checks (full validation + deep-research report checks)
+# Run all QC checks (full validation + modules + deep-research report checks)
 [group('QC')]
-qc: validate-all qc-deep-research
+qc: validate-all validate-modules qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -311,7 +371,7 @@ gen-dashboard:
 [group('QC')]
 validate-references file:
     @just fix-references-cache
-    uv run linkml-reference-validator validate data {{file}} --schema {{schema_path}} --target-class Disease
+    {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
 
 # Validate ALL snippet/reference pairs against PubMed across all disorder files
 # Warning: First run may take a while as it fetches ~1400 uncached PMIDs from PubMed
@@ -324,8 +384,8 @@ validate-references-all:
     total_errors=0
     for f in {{kb_dir}}/*.yaml; do
         echo "Checking: $f"
-        if ! uv run linkml-reference-validator validate data "$f" --schema {{schema_path}} --target-class Disease 2>&1 | grep -q "All validations passed"; then
-            errors=$(uv run linkml-reference-validator validate data "$f" --schema {{schema_path}} --target-class Disease 2>&1 | grep -c "ERROR" || true)
+        if ! {{ref_validator}} validate data "$f" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} 2>&1 | grep -q "All validations passed"; then
+            errors=$({{ref_validator}} validate data "$f" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} 2>&1 | grep -c "ERROR" || true)
             if [ "$errors" -gt 0 ]; then
                 echo "  Found $errors errors in $f"
                 total_errors=$((total_errors + errors))
@@ -902,6 +962,56 @@ embed-mechanisms-all:
     just embed-mechanisms-data
     @echo "=== Done! Open app/embeddings/mechanisms.html ==="
 
+# ============== Reactome Pathways ==============
+
+reactome_dir := "pathways/reactome"
+
+# Fetch Reactome disease pathway data for a single disease
+# Examples:
+#   just reactome-fetch "cystic fibrosis"
+#   just reactome-fetch DOID:13636
+#   just reactome-fetch "chronic myeloid leukemia" --format md
+[group('Reactome')]
+reactome-fetch query *args="":
+    uv run python scripts/fetch_reactome_disease.py "{{query}}" {{args}}
+
+# Fetch Reactome data for all diseases overlapping with dismech KB
+[group('Reactome')]
+reactome-fetch-all:
+    uv run python scripts/fetch_reactome_disease.py --all-overlap
+
+# List cached Reactome disease files
+[group('Reactome')]
+reactome-list:
+    @echo "Cached Reactome disease pathways:"
+    @ls {{reactome_dir}}/*.yaml 2>/dev/null | grep -q . \
+      && ls -1 {{reactome_dir}}/*.yaml | xargs -I {} basename {} .yaml | sort \
+      || echo "  (none yet — run 'just reactome-fetch-all')"
+
+# Show Reactome summary for a disease (prints to stdout)
+[group('Reactome')]
+reactome-show query:
+    uv run python scripts/fetch_reactome_disease.py "{{query}}" --format md -o /dev/stdout
+
+# Normalize all term and enum cache files for deterministic diffs
+# Sorts term caches by CURIE (via linkml-term-validator migrate-cache)
+# and sorts enum membership caches by CURIE.
+# See: https://github.com/linkml/linkml-term-validator/issues/15
+[group('QC')]
+normalize-cache:
+    #!/usr/bin/env bash
+    set -e
+    echo "Normalizing term caches..."
+    uv run linkml-term-validator migrate-cache --cache-dir cache --sort-only
+    echo "Normalizing enum caches..."
+    for f in cache/enums/*.csv; do
+        header=$(head -1 "$f")
+        tail -n+2 "$f" | sort > /tmp/_sorted_enum.csv
+        echo "$header" > "$f"
+        cat /tmp/_sorted_enum.csv >> "$f"
+    done
+    rm -f /tmp/_sorted_enum.csv
+    echo "✓ All caches normalized"
 # Compare dismech phenotypes against OMIM/Orphanet for a single disease
 [group('Analysis')]
 d2p-compare disease:
@@ -916,3 +1026,11 @@ d2p-compare-all:
 [group('Analysis')]
 d2p-compare-json disease:
     uv run python -m dismech.d2p_compare compare "{{disease}}" --format json
+
+# Run causal perturbation analysis on a disorder
+# Examples:
+#   just perturb kb/disorders/CKD-Mineral_Bone_Disorder.yaml --gene CASR --effect LoF
+#   just perturb kb/disorders/CKD-Mineral_Bone_Disorder.yaml --all
+[group('Analysis')]
+perturb file *args="":
+    uv run python -m dismech.perturb {{file}} {{args}}

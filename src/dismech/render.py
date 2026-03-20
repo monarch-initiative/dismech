@@ -9,11 +9,12 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Callable, Optional
 
+import markdown as markdown_lib
 import yaml
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from dismech.export.browser_export import HPO_TOP_LEVEL_CATEGORIES
-from dismech.graph import build_causal_graph, generate_mermaid
+from dismech.graph import build_causal_graph, generate_mermaid, graph_to_json
 
 _HPO_CATEGORY_CACHE_PATH = Path('app/hpo_category_cache.json')
 
@@ -402,6 +403,35 @@ def _collect_comorbidity_links(
     return links
 
 
+def collect_reports(disorder_slug: str, reports_root: Path = Path('reports')) -> list[dict]:
+    """Collect markdown report files for a disorder and convert to HTML.
+
+    Args:
+        disorder_slug: The slugified disorder name (matching a subdirectory under reports_root).
+        reports_root: Root directory containing per-disorder report subdirectories.
+
+    Returns:
+        List of dicts with keys 'title', 'html', 'filename', sorted by filename.
+    """
+    report_dir = reports_root / disorder_slug
+    if not report_dir.is_dir():
+        return []
+    md = markdown_lib.Markdown(extensions=['tables', 'fenced_code'])
+    results = []
+    for md_path in sorted(report_dir.glob('*.md')):
+        text = md_path.read_text()
+        md.reset()
+        html = md.convert(text)
+        title = md_path.stem
+        for line in text.splitlines():
+            stripped = line.strip()
+            if stripped.startswith('# ') and not stripped.startswith('##'):
+                title = stripped[2:].strip()
+                break
+        results.append({'title': title, 'html': html, 'filename': md_path.name})
+    return results
+
+
 def render_disorder(
     yaml_path: Path,
     output_path: Optional[Path] = None,
@@ -469,10 +499,12 @@ def render_disorder(
     # Build GitHub source URL
     source_file = f'https://github.com/monarch-initiative/dismech/blob/main/kb/disorders/{yaml_path.name}'
 
-    # Build causal graph and generate Mermaid code
+    # Build causal graph and generate Mermaid code + pathograph JSON
     graph = build_causal_graph(disorder)
     mermaid_code = generate_mermaid(graph)
+    pathograph_data = graph_to_json(graph, disorder)
     comorbidity_links = _collect_comorbidity_links(yaml_path.stem)
+    report_sections = collect_reports(slugify(disorder.get('name') or yaml_path.stem))
 
     # Group phenotypes by HPO broad category
     phenotype_groups = _group_phenotypes_by_category(
@@ -483,9 +515,11 @@ def render_disorder(
         yaml_content=yaml_content,
         source_file=source_file,
         mermaid_code=mermaid_code,
+        pathograph_data=pathograph_data,
         graph_issues=graph.integrity_issues,
         comorbidity_links=comorbidity_links,
         phenotype_groups=phenotype_groups,
+        report_sections=report_sections,
     )
 
     # Write output

@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT06818058
+reference_id: "clinicaltrials:NCT06818058"
 title: "A Phase II Multicentric, Randomized, Double-blind, Placebo-controlled Study of TAR-0520 Gel in EGFR Inhibitor-induced Folliculitis."
 content_type: summary
 ---
