@@ -1080,3 +1080,27 @@ find-cached-refs pattern:
 [group('Research')]
 check-research disorder:
     @ls -1 research/{{disorder}}* 2>/dev/null || echo "No research files found for '{{disorder}}'"
+
+# Generate a disorder review report (markdown + PDF) for expert review
+# Example: just disorder-report kb/disorders/Kleefstra_Syndrome.yaml
+# Output: Kleefstra_Syndrome_review.md and Kleefstra_Syndrome_review.pdf
+[group('Pages')]
+disorder-report file:
+    #!/usr/bin/env bash
+    set -e
+    mkdir -p reports
+    stem=$(basename "{{file}}" .yaml)
+    md_out="reports/${stem}_review.md"
+    pdf_out="reports/${stem}_review.pdf"
+    echo "Generating review report for {{file}}..."
+    uv run python scripts/render_review_pdf.py "{{file}}" --md-only -o "$md_out"
+    echo "  Markdown: $md_out"
+    if command -v pandoc >/dev/null 2>&1; then
+        pandoc "$md_out" -o "$pdf_out" --pdf-engine=xelatex \
+            -V geometry:margin=2.5cm -V geometry:bottom=3cm -V fontsize=11pt \
+            -V mainfont="Palatino" -V monofont="Menlo" \
+            --include-in-header=scripts/pdf_header.tex 2>/dev/null
+        echo "  PDF: $pdf_out"
+    else
+        echo "  (pandoc not found — skipping PDF generation)"
+    fi
