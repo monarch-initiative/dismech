@@ -1,6 +1,9 @@
 """Tests for KGX edge exporter."""
 
 import pytest
+
+pytest.importorskip("biolink_model", reason="biolink-model not installed (install with: uv sync --group export)")
+
 from biolink_model.datamodel.pydanticmodel_v2 import (
     Association,
     ChemicalOrDrugOrTreatmentToDiseaseOrPhenotypicFeatureAssociation,
