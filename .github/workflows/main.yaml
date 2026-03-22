@@ -68,6 +68,31 @@ jobs:
       - name: Install project
         run: uv sync --dev --group export
 
+      - name: Validate schema term references
+        run: |
+          uv run python - <<'PY'
+          from pathlib import Path
+          from linkml_term_validator.models import ValidationConfig
+          from linkml_term_validator.validator import EnumValidator
+
+          schema = Path("src/dismech/schema/dismech.yaml")
+          validator = EnumValidator(
+              ValidationConfig(oak_config_path=Path("conf/oak_config.yaml"))
+          )
+          result = validator.validate_schema(schema)
+          unresolved = [issue for issue in result.issues if issue.actual_label is None]
+
+          print(f"Checked {result.total_meanings_checked} schema meaning fields")
+
+          if unresolved:
+              print("Unresolved ontology terms found:")
+              for issue in unresolved:
+                  print(f"- {issue.enum_name}.{issue.value_name}: {issue.meaning}")
+              raise SystemExit(1)
+
+          print("All schema meaning fields resolved to ontology terms")
+          PY
+
       - name: Lint with ruff
         run: uvx ruff check .
 
