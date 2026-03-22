@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT02249767
+reference_id: "clinicaltrials:NCT02249767"
 title: "Bioequivalence Study of Tretinoin Gel 0.05% to Brand Tretinoin Gel"
 content_type: summary
 ---
