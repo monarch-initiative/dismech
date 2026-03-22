@@ -1,6 +1,6 @@
-# Checkpoint Inhibitors: Analysis and Design Pattern Proposal
+# Checkpoint Inhibitors: Drug Mechanism Design Pattern
 
-## Status: Initial Analysis
+## Status: Phase 1 Complete -- Module + 5 Pilot Entries
 
 ## 1. Landscape: Which Diseases Are Treated by Checkpoint Inhibitors?
 
@@ -141,21 +141,33 @@ treatments:
 | `angiogenesis_inhibition` | RCC, HCC, CRC | VEGF overproduction → neovascularization → anti-VEGF starves tumor |
 | `differentiation_therapy` | APL (ATRA/ATO) | Differentiation block → pharmacologic override → terminal differentiation |
 | `synthetic_lethality` | BRCA-mutant cancers (PARP inhibitors) | DNA repair deficiency → PARP inhibition → unrepaired damage → cell death |
+| `cdk_inhibition` | HR+ breast cancer, liposarcoma | Cyclin D-CDK4/6 overactivation → Rb phosphorylation → CDK4/6i arrests G1/S → senescence |
 
 ## 4. Implementation Plan
 
-- [ ] Verify MAXO terms for immune checkpoint inhibitor therapy (search for MAXO term more specific than pharmacotherapy)
-- [ ] Create `kb/modules/immune_checkpoint_blockade.yaml` with the conserved pathophysiology pattern
-- [ ] Update 3-5 pilot cancer entries to use `conforms_to` and `target_mechanisms`:
-  - MSI-High Colorectal Cancer (best current immune evasion modeling)
-  - Clear Cell Renal Cell Carcinoma
-  - Hepatocellular Carcinoma
-  - BRAF V600 Mutant Melanoma
-  - Nasopharyngeal Carcinoma
-- [ ] Add immune evasion pathophysiology nodes to cancers that currently only mention checkpoints in narrative
-- [ ] Standardize cell type and GO term usage across immune evasion nodes
+### Phase 1 (DONE)
+- [x] Verify MAXO terms -- no specific "immune checkpoint inhibitor therapy" term in MAXO; `MAXO:0000058` (pharmacotherapy) and `MAXO:0001002` (immunotherapy procedure) are the best available
+- [x] Create `kb/modules/immune_checkpoint_blockade.yaml` with 4-node conserved pattern:
+  - Neoantigen Generation (GO:0019882)
+  - Anti-Tumor T Cell Response (CL:0000625, GO:0042110, GO:0001913)
+  - Adaptive Immune Resistance (GO:0002710) -- **primary conforms_to target**
+  - T Cell Exhaustion and Immune Escape (CL:0011025, GO:0160083)
+- [x] Update 5 pilot cancer entries with `conforms_to` and `target_mechanisms`:
+  - MSI-High Colorectal Cancer -- 3 ICI treatments linked, 2 pathophys nodes with conforms_to
+  - Clear Cell Renal Cell Carcinoma -- new immune evasion node added, ICI treatment linked
+  - Hepatocellular Carcinoma -- new immune evasion node added, 2 ICI treatments linked (atezo+bev also targets angiogenesis)
+  - BRAF V600 Mutant Melanoma -- new immune evasion node added, ICI treatment linked
+  - Nasopharyngeal Carcinoma -- existing "Immune Evasion" node gets conforms_to, immunotherapy treatment linked
+- [x] Standardize: all immune evasion nodes use CL:0000625 (CD8+ T cell) and GO:0002710 (negative regulation of T cell mediated immunity)
+
+### Phase 2 (TODO)
+- [ ] Extend to remaining ~18 cancers with checkpoint inhibitor treatments
+- [ ] Add specific therapeutic_agent annotations to entries that currently lack them (NCIT/CHEBI IDs)
+- [ ] Create additional mechanism modules: `kinase_inhibition`, `angiogenesis_inhibition`, `synthetic_lethality`
 - [ ] Document the "drug mechanism module" pattern in CLAUDE.md
-- [ ] Consider schema changes if needed (e.g., a `mechanism_class` slot on Treatment)
+- [ ] Consider schema evolution: `mechanism_class` slot on Treatment, `conforms_to` on Treatment
+- [ ] Model irAE (immune-related adverse events) as cross-disease comorbidity pattern
+- [ ] Add CDK4/6 inhibitor mechanism module (from second analysis)
 
 ## 5. Key Questions
 
