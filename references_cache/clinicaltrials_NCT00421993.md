@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT00421993
+reference_id: "clinicaltrials:NCT00421993"
 title: "A Multi-Center, Randomized, Double-Blind, Parallel-Group Study to Demonstrate the Efficacy and Safety of Adapalene/Benzoyl Peroxide Topical Gel Compared With Adapalene Topical Gel, 0.1%; Benzoyl Peroxide Topical Gel, 2.5% and Topical Gel Vehicle in Subjects With Acne Vulgaris"
 content_type: summary
 ---
