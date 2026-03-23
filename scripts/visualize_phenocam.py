@@ -36,6 +36,15 @@ def load_module(module_id: str) -> dict:
         return yaml.safe_load(f)["module"]
 
 
+def _to_raw_yaml(data: dict) -> str:
+    """Serialize a dict to a compact YAML string for tooltip display."""
+    # Filter out empty/None values and internal fields
+    filtered = {k: v for k, v in data.items()
+                if v is not None and v != "" and v != [] and v != {}
+                and not k.startswith("_") and k != "raw_yaml"}
+    return yaml.dump(filtered, default_flow_style=False, sort_keys=False, allow_unicode=True).strip()
+
+
 def build_graph_data(disease: dict) -> dict:
     """Build a JSON-serializable graph structure for the visualization."""
     modules = {}
@@ -43,9 +52,20 @@ def build_graph_data(disease: dict) -> dict:
         mod = load_module(imp["module"])
         modules[mod["id"]] = mod
 
+    # Build module metadata for output
+    module_info = []
+    for mod_id, mod in modules.items():
+        module_info.append({
+            "id": mod_id,
+            "name": mod.get("name", ""),
+            "description": mod.get("description", "").strip(),
+            "sources": mod.get("sources", []),
+        })
+
     # Build nodes from module activities
     nodes = []
     for mod_id, mod in modules.items():
+        mod_name = mod.get("name", "")
         for act in mod.get("activities", []):
             node_id = f"{mod_id}:{act['id']}"
             display_name = act.get("display_name", "")
@@ -73,6 +93,21 @@ def build_graph_data(disease: dict) -> dict:
             hgnc_id = act.get("gene", {}).get("hgnc_id", "")
             substrate_hgnc = act.get("substrate", {}).get("hgnc_id", "")
 
+            # Build raw YAML for activity node
+            raw_data = {"id": node_id}
+            if gene:
+                raw_data["gene"] = {"symbol": gene, "hgnc_id": hgnc_id}
+            if complex_name:
+                raw_data["complex"] = complex_name
+            if mf_label:
+                raw_data["molecular_function"] = {"id": mf_id, "label": mf_label}
+            if loc_label:
+                raw_data["location"] = {"id": loc_id, "label": loc_label}
+            if proc_label:
+                raw_data["process"] = {"id": proc_id, "label": proc_label}
+            if substrate:
+                raw_data["substrate"] = {"symbol": substrate, "hgnc_id": substrate_hgnc}
+
             nodes.append({
                 "id": node_id,
                 "gene": gene,
@@ -88,10 +123,46 @@ def build_graph_data(disease: dict) -> dict:
                 "process_id": proc_id,
                 "substrate": substrate,
                 "substrate_hgnc": substrate_hgnc,
+                "module_id": mod_id,
+                "module_name": mod_name,
+                "raw_yaml": _to_raw_yaml(raw_data),
                 "label": f"{short_label}\n{func_short}",
                 "short_label": short_label,
                 "type": "activity",
             })
+
+    # Parse local_activities
+    for la in disease.get("local_activities", []):
+        la_id = la["id"]
+        gene_sym = la.get("gene", {}).get("symbol", "")
+        hgnc = la.get("gene", {}).get("hgnc_id", "")
+        bp_label = la.get("biological_process", {}).get("label", "")
+        bp_id = la.get("biological_process", {}).get("id", "")
+        display_name = la.get("display_name", "")
+        short_label = display_name or (gene_sym if gene_sym else la_id)
+
+        nodes.append({
+            "id": la_id,
+            "gene": gene_sym,
+            "hgnc_id": hgnc,
+            "complex": "",
+            "display_name": display_name,
+            "function": "",
+            "function_id": "",
+            "function_short": "",
+            "location": "",
+            "location_id": "",
+            "process": bp_label,
+            "process_id": bp_id,
+            "substrate": "",
+            "substrate_hgnc": "",
+            "module_id": None,
+            "module_name": "",
+            "raw_yaml": _to_raw_yaml(la),
+            "label": f"{short_label}\n{bp_label}" if bp_label else short_label,
+            "short_label": short_label,
+            "type": "local_activity",
+        })
 
     # Build edges from module edges
     edges = []
@@ -107,12 +178,25 @@ def build_graph_data(disease: dict) -> dict:
                         "id": ev.get("reference", ""),
                         "snippet": ev.get("snippet", ""),
                     })
+            edge_eco = edge.get("eco", {})
+            edge_raw = {
+                "source": edge["source"],
+                "target": edge["target"],
+                "relation": edge["relation"],
+            }
+            if edge_eco:
+                edge_raw["eco"] = edge_eco
+            if edge.get("evidence"):
+                edge_raw["evidence"] = edge["evidence"]
             edges.append({
                 "source": f"{mod_id}:{edge['source']}",
                 "target": f"{mod_id}:{edge['target']}",
                 "relation": edge["relation"]["label"],
                 "relation_id": edge["relation"]["id"],
+                "eco_id": edge_eco.get("id", ""),
+                "eco_label": edge_eco.get("label", ""),
                 "evidence": evidence_list,
+                "raw_yaml": _to_raw_yaml(edge_raw),
             })
 
     # Build hypothesis groups with perturbation data
@@ -124,12 +208,15 @@ def build_graph_data(disease: dict) -> dict:
             variant = p.get("variant_class", {}).get("label", "")
             ev_snippets = [e.get("snippet", "") for e in p.get("evidence", []) if e.get("snippet")]
             ev_refs = [e.get("reference", "") for e in p.get("evidence", []) if e.get("reference")]
+            eco = p.get("eco", {})
             states[p["target_activity"]] = {
                 "state": p["perturbed_state"],
                 "mechanism": p.get("mechanism", ""),
                 "variant_class": variant,
                 "is_primary": True,
                 "provenance": "primary_mutation",
+                "eco_id": eco.get("id", ""),
+                "eco_label": eco.get("label", ""),
                 "cause": "",
                 "evidence_refs": ev_refs,
                 "evidence_snippet": ev_snippets[0] if ev_snippets else "",
@@ -138,13 +225,16 @@ def build_graph_data(disease: dict) -> dict:
         for ps in hg.get("propagated_states", []):
             ev_snippets = [e.get("snippet", "") for e in ps.get("evidence", []) if e.get("snippet")]
             ev_refs = [e.get("reference", "") for e in ps.get("evidence", []) if e.get("reference")]
+            eco = ps.get("eco", {})
             states[ps["activity"]] = {
                 "state": ps["perturbed_state"],
                 "mechanism": "",
                 "variant_class": "",
                 "is_primary": False,
-                "provenance": ps.get("provenance", ""),
-                "cause": ps.get("cause", ""),
+                "provenance": eco.get("label", ps.get("provenance", "")),
+                "eco_id": eco.get("id", ""),
+                "eco_label": eco.get("label", ""),
+                "cause": ps.get("cause", ps.get("causes", [])),
                 "evidence_refs": ev_refs,
                 "evidence_snippet": ev_snippets[0] if ev_snippets else "",
             }
@@ -156,6 +246,32 @@ def build_graph_data(disease: dict) -> dict:
             "states": states,
         })
 
+    # Build edges for local activity nodes from propagated_states cause chains
+    local_activity_ids_for_edges = {la["id"] for la in disease.get("local_activities", [])}
+    seen_local_edges = set()
+    for hg in disease.get("hypothesis_groups", []):
+        for ps in hg.get("propagated_states", []):
+            if ps["activity"] not in local_activity_ids_for_edges:
+                continue
+            # Support cause as string or causes as list
+            raw_cause = ps.get("cause", "")
+            raw_causes = ps.get("causes", [])
+            cause_list = raw_causes if raw_causes else ([raw_cause] if raw_cause else [])
+            for cause in cause_list:
+                edge_key = (cause, ps["activity"])
+                if edge_key not in seen_local_edges:
+                    seen_local_edges.add(edge_key)
+                    edges.append({
+                        "source": cause,
+                        "target": ps["activity"],
+                        "relation": "causally upstream of, positive effect",
+                        "relation_id": "RO:0002304",
+                        "eco_id": ps.get("eco", {}).get("id", ""),
+                        "eco_label": ps.get("eco", {}).get("label", ""),
+                        "evidence": [],
+                        "raw_yaml": _to_raw_yaml({"source": cause, "target": ps["activity"]}),
+                    })
+
     # Build label lookup from activity nodes (for resolving driven_by references)
     node_label_lookup = {}
     for n in nodes:
@@ -166,6 +282,9 @@ def build_graph_data(disease: dict) -> dict:
     intermediate_nodes = []
     intermediate_edges = []
 
+    # Local activities are referenced by bare ID (no prefix needed)
+    local_activity_ids = {la["id"] for la in disease.get("local_activities", [])}
+
     for pr in disease.get("phenotype_routes", []):
         route_id = pr["id"]
         route_name = pr["name"]
@@ -175,6 +294,13 @@ def build_graph_data(disease: dict) -> dict:
         route_tissue_detail = _extract_tissue_detail(pr)
         route_evidence = _extract_route_evidence(pr)
 
+        # Build local intermediate ID → internal ID lookup for this route
+        local_id_map = {}
+        for i, inter in enumerate(raw_intermediates):
+            local_id = inter.get("id", "")
+            if local_id:
+                local_id_map[local_id] = f"inter:{route_id}:{i}"
+
         for i, inter in enumerate(raw_intermediates):
             inter_id = f"inter:{route_id}:{i}"
             gene_sym = inter.get("gene", {}).get("symbol", "")
@@ -182,10 +308,50 @@ def build_graph_data(disease: dict) -> dict:
             bp_label = inter.get("biological_process", {}).get("label", "")
             bp_id = inter.get("biological_process", {}).get("id", "")
             state = inter.get("perturbed_state", "")
-            driven_by = inter.get("driven_by", [])
+            raw_driven_by = inter.get("driven_by", [])
+
+            # Parse structured driven_by objects
+            driven_by_sources = []  # resolved source IDs
+            driven_by_details = []  # full detail for tooltips
+            for db_entry in raw_driven_by:
+                if isinstance(db_entry, str):
+                    # Legacy flat string format
+                    driven_by_sources.append(db_entry)
+                    driven_by_details.append({
+                        "source": db_entry,
+                        "relation": "",
+                        "relation_id": "",
+                        "eco_id": "",
+                        "eco_label": "",
+                        "evidence": [],
+                    })
+                elif isinstance(db_entry, dict):
+                    raw_src = db_entry.get("source", "")
+                    # Resolve local intermediate IDs (but not local activity IDs)
+                    if raw_src in local_activity_ids:
+                        resolved_src = raw_src
+                    else:
+                        resolved_src = local_id_map.get(raw_src, raw_src)
+                    driven_by_sources.append(resolved_src)
+                    db_rel = db_entry.get("relation", {})
+                    db_eco = db_entry.get("eco", {})
+                    db_ev = []
+                    for ev in db_entry.get("evidence", []):
+                        entry = {"type": ev.get("type", ""), "reference": ev.get("reference", "")}
+                        if ev.get("snippet"):
+                            entry["snippet"] = ev["snippet"]
+                        db_ev.append(entry)
+                    driven_by_details.append({
+                        "source": resolved_src,
+                        "relation": db_rel.get("label", ""),
+                        "relation_id": db_rel.get("id", ""),
+                        "eco_id": db_eco.get("id", ""),
+                        "eco_label": db_eco.get("label", ""),
+                        "evidence": db_ev,
+                    })
 
             # Resolve driven_by to human-readable labels
-            driven_by_labels = [node_label_lookup.get(src, src) for src in driven_by]
+            driven_by_labels = [node_label_lookup.get(src, src) for src in driven_by_sources]
 
             # Short label: gene symbol if present, otherwise abbreviated name
             if gene_sym:
@@ -193,6 +359,17 @@ def build_graph_data(disease: dict) -> dict:
             else:
                 name = inter.get("name", "")
                 short_label = name if len(name) <= 28 else name[:25] + "..."
+
+            # Build raw YAML for intermediate node
+            inter_raw = {"id": inter.get("id", inter_id), "name": inter.get("name", "")}
+            if gene_sym:
+                inter_raw["gene"] = {"symbol": gene_sym, "hgnc_id": hgnc}
+            if state:
+                inter_raw["perturbed_state"] = state
+            if raw_driven_by:
+                inter_raw["driven_by"] = raw_driven_by
+            if bp_label:
+                inter_raw["biological_process"] = {"id": bp_id, "label": bp_label}
 
             intermediate_nodes.append({
                 "id": inter_id,
@@ -203,31 +380,47 @@ def build_graph_data(disease: dict) -> dict:
                 "process_id": bp_id,
                 "state": state,
                 "short_label": short_label,
-                "type": "intermediate",
+                "type": "process",
                 "route_id": route_id,
                 "route_name": route_name,
-                "driven_by": driven_by,
+                "driven_by": driven_by_sources,
                 "driven_by_labels": driven_by_labels,
+                "driven_by_details": driven_by_details,
                 "tissue": route_tissue,
                 "tissue_detail": route_tissue_detail,
                 "route_evidence": route_evidence,
+                "raw_yaml": _to_raw_yaml(inter_raw),
             })
             # Also register in label lookup for edge resolution
             node_label_lookup[inter_id] = short_label
             inter_node_ids.append(inter_id)
 
-            # Edges: activity → intermediate (from driven_by)
-            if driven_by:
-                for src in driven_by:
+            # Edges: source → intermediate (from driven_by)
+            if driven_by_sources:
+                for db_detail in driven_by_details:
+                    src = db_detail["source"]
+                    ie_raw = {"source": src, "target": inter_id}
+                    if db_detail["relation"]:
+                        ie_raw["relation"] = {"id": db_detail["relation_id"], "label": db_detail["relation"]}
+                    if db_detail["eco_id"]:
+                        ie_raw["eco"] = {"id": db_detail["eco_id"], "label": db_detail["eco_label"]}
+                    if db_detail["evidence"]:
+                        ie_raw["evidence"] = db_detail["evidence"]
                     intermediate_edges.append({
                         "source": src,
                         "target": inter_id,
                         "edge_type": "activity_to_intermediate",
                         "source_label": node_label_lookup.get(src, src),
                         "target_label": short_label,
+                        "relation": db_detail["relation"],
+                        "relation_id": db_detail["relation_id"],
+                        "eco_id": db_detail["eco_id"],
+                        "eco_label": db_detail["eco_label"],
+                        "evidence": db_detail["evidence"],
+                        "raw_yaml": _to_raw_yaml(ie_raw),
                     })
             else:
-                # Convergence: connect from all preceding intermediates in this route
+                # No driven_by at all — fallback chain from preceding intermediates
                 for prev_id in inter_node_ids[:-1]:
                     intermediate_edges.append({
                         "source": prev_id,
@@ -235,22 +428,18 @@ def build_graph_data(disease: dict) -> dict:
                         "edge_type": "intermediate_chain",
                         "source_label": node_label_lookup.get(prev_id, prev_id),
                         "target_label": short_label,
+                        "relation": "",
+                        "relation_id": "",
+                        "eco_id": "",
+                        "eco_label": "",
+                        "evidence": [],
+                        "raw_yaml": _to_raw_yaml({"source": prev_id, "target": inter_id, "edge_type": "intermediate_chain"}),
                     })
 
-        # Edge from last intermediate → phenotype
-        tp = pr.get("target_phenotype", {})
-        pheno_node_id = f"pheno:{route_id}"
-        pheno_label = tp.get("preferred_term", "")
-        if inter_node_ids:
-            intermediate_edges.append({
-                "source": inter_node_ids[-1],
-                "target": pheno_node_id,
-                "edge_type": "intermediate_to_phenotype",
-                "source_label": node_label_lookup.get(inter_node_ids[-1], inter_node_ids[-1]),
-                "target_label": pheno_label,
-            })
-        # Also register phenotype in label lookup
-        node_label_lookup[pheno_node_id] = pheno_label
+        # Parse targets list (new format) with fallback to target_phenotype (old format)
+        targets = pr.get("targets", [])
+        if not targets and pr.get("target_phenotype"):
+            targets = [pr["target_phenotype"]]
 
         # Build intermediates summary for phenotype tooltip
         intermediates_summary = []
@@ -265,29 +454,128 @@ def build_graph_data(disease: dict) -> dict:
                     })
                     break
 
-        phenotype_routes.append({
-            "id": route_id,
-            "name": route_name,
-            "description": pr.get("description", "").strip(),
-            "intermediate_ids": inter_node_ids,
-            "intermediates": intermediates_summary,
-            "phenotype_label": pheno_label,
-            "phenotype_id": tp.get("term", {}).get("id", ""),
-            "tissue": route_tissue,
-            "tissue_detail": route_tissue_detail,
-            "evidence": route_evidence,
+        for ti, tp in enumerate(targets):
+            pheno_node_id = f"pheno:{route_id}:{ti}" if len(targets) > 1 else f"pheno:{route_id}"
+            pheno_label = tp.get("preferred_term", "")
+            pheno_state = tp.get("perturbed_state", "")
+            pheno_driven_by = tp.get("driven_by", [])
+            tp_rel = tp.get("relation", {})
+
+            # Edges from intermediates → phenotype (explicit driven_by or fallback)
+            has_incoming_edges = False
+            if pheno_driven_by:
+                has_incoming_edges = True
+                for db_entry in pheno_driven_by:
+                    raw_src = db_entry.get("source", "") if isinstance(db_entry, dict) else db_entry
+                    if raw_src in local_activity_ids:
+                        resolved_src = raw_src
+                    else:
+                        resolved_src = local_id_map.get(raw_src, raw_src)
+                    db_rel = db_entry.get("relation", {}) if isinstance(db_entry, dict) else {}
+                    db_eco = db_entry.get("eco", {}) if isinstance(db_entry, dict) else {}
+                    db_ev = db_entry.get("evidence", []) if isinstance(db_entry, dict) else []
+                    ie_raw = {"source": resolved_src, "target": pheno_node_id}
+                    if db_rel:
+                        ie_raw["relation"] = db_rel
+                    if db_eco:
+                        ie_raw["eco"] = db_eco
+                    if db_ev:
+                        ie_raw["evidence"] = db_ev
+                    intermediate_edges.append({
+                        "source": resolved_src,
+                        "target": pheno_node_id,
+                        "edge_type": "intermediate_to_phenotype",
+                        "source_label": node_label_lookup.get(resolved_src, resolved_src),
+                        "target_label": pheno_label,
+                        "relation": db_rel.get("label", ""),
+                        "relation_id": db_rel.get("id", ""),
+                        "eco_id": db_eco.get("id", ""),
+                        "eco_label": db_eco.get("label", ""),
+                        "evidence": db_ev,
+                        "raw_yaml": _to_raw_yaml(ie_raw),
+                    })
+            elif inter_node_ids:
+                has_incoming_edges = True
+                # Fallback: link last intermediate → phenotype (legacy)
+                ip_raw = {"source": inter_node_ids[-1], "target": pheno_node_id}
+                if tp_rel:
+                    ip_raw["relation"] = tp_rel
+                intermediate_edges.append({
+                    "source": inter_node_ids[-1],
+                    "target": pheno_node_id,
+                    "edge_type": "intermediate_to_phenotype",
+                    "source_label": node_label_lookup.get(inter_node_ids[-1], inter_node_ids[-1]),
+                    "target_label": pheno_label,
+                    "relation": tp_rel.get("label", ""),
+                    "relation_id": tp_rel.get("id", ""),
+                    "eco_id": "",
+                    "eco_label": "",
+                    "evidence": [],
+                    "raw_yaml": _to_raw_yaml(ip_raw),
+                })
+            # Also register phenotype in label lookup
+            node_label_lookup[pheno_node_id] = pheno_label
+
+            # Build raw YAML for phenotype route
+            pr_raw = {
+                "id": route_id,
+                "name": route_name,
+                "description": pr.get("description", "").strip(),
+                "target": tp,
+                "tissue": pr.get("tissue", {}),
+            }
+            if pr.get("evidence"):
+                pr_raw["evidence"] = pr["evidence"]
+
+            phenotype_routes.append({
+                "id": pheno_node_id.replace("pheno:", ""),
+                "name": route_name,
+                "description": pr.get("description", "").strip(),
+                "intermediate_ids": inter_node_ids,
+                "intermediates": intermediates_summary,
+                "phenotype_label": pheno_label,
+                "phenotype_state": pheno_state,
+                "phenotype_id": tp.get("term", {}).get("id", ""),
+                "phenotype_relation": tp_rel.get("label", ""),
+                "phenotype_relation_id": tp_rel.get("id", ""),
+                "tissue": route_tissue,
+                "tissue_detail": route_tissue_detail,
+                "evidence": route_evidence,
+                "unrouted": not has_incoming_edges,
+                "raw_yaml": _to_raw_yaml(pr_raw),
+            })
+
+    # Build disease node
+    disease_node_id = f"disease:{disease['id']}"
+    disease_node = {
+        "id": disease_node_id,
+        "name": disease["name"],
+        "term_id": disease.get("disease_term", {}).get("id", ""),
+        "term_label": disease.get("disease_term", {}).get("label", ""),
+    }
+
+    # Build phenotype → disease edges
+    phenotype_disease_edges = []
+    for pr in phenotype_routes:
+        pid = "pheno:" + pr["id"]
+        phenotype_disease_edges.append({
+            "source": pid,
+            "target": disease_node_id,
         })
 
     return {
         "disease_name": disease["name"],
         "disease_id": disease["id"],
         "disease_term": disease.get("disease_term", {}),
+        "modules": module_info,
         "nodes": nodes,
         "edges": edges,
         "hypothesis_groups": hypothesis_groups,
         "phenotype_routes": phenotype_routes,
         "intermediate_nodes": intermediate_nodes,
         "intermediate_edges": intermediate_edges,
+        "disease_node": disease_node,
+        "phenotype_disease_edges": phenotype_disease_edges,
     }
 
 
@@ -391,21 +679,41 @@ svg {{ width: 100%; height: 100%; }}
 .edge marker {{ fill: #868e96; }}
 .edge .edge-label {{ font-size: 9px; fill: #868e96; }}
 
-.intermediate-node rect {{
+.process-node rect {{
   rx: 6; ry: 6; fill: #ede0f7; stroke: #6f42c1; stroke-width: 2; cursor: pointer;
 }}
-.intermediate-node text {{ font-size: 11px; pointer-events: none; }}
-.intermediate-node .gene-label {{ font-weight: 700; font-size: 12px; fill: #3d1f6d; }}
-.intermediate-node .func-label {{ font-size: 9px; fill: #6f42c1; }}
-.intermediate-node .state-badge {{ font-size: 9px; font-weight: 700; fill: #3d1f6d; }}
+.process-node text {{ font-size: 11px; pointer-events: none; }}
+.process-node .gene-label {{ font-weight: 700; font-size: 12px; fill: #3d1f6d; }}
+.process-node .func-label {{ font-size: 9px; fill: #6f42c1; }}
+.process-node .state-badge {{ font-size: 9px; font-weight: 700; fill: #3d1f6d; }}
+.process-node.state-increased rect {{ fill: #d4edda; stroke: #28a745; }}
+.process-node.state-decreased rect {{ fill: #fde8e8; stroke: #e57373; }}
+.process-node.state-absent rect {{ fill: #f8d7da; stroke: #dc3545; stroke-dasharray: 4,2; }}
+.process-node.state-constitutively_active rect {{ fill: #c3e6cb; stroke: #1b5e20; stroke-width: 3; }}
+.process-node.state-increased .state-badge {{ fill: #155724; }}
+.process-node.state-decreased .state-badge {{ fill: #721c24; }}
+.process-node.state-absent .state-badge {{ fill: #721c24; }}
+
+.node.local-activity rect {{ fill: #e8daef; stroke: #6f42c1; }}
+.node.local-activity .gene-label {{ fill: #3d1f6d; }}
 
 .phenotype-node rect {{
   rx: 12; ry: 12; fill: #fff3cd; stroke: #ffc107; stroke-width: 2;
 }}
 .phenotype-node text {{ font-size: 11px; font-weight: 600; fill: #856404; }}
+.phenotype-node.state-increased rect {{ fill: #d4edda; stroke: #28a745; }}
+.phenotype-node.state-decreased rect {{ fill: #fde8e8; stroke: #e57373; }}
+.phenotype-node.state-absent rect {{ fill: #f8d7da; stroke: #dc3545; stroke-dasharray: 4,2; }}
+.phenotype-node .state-badge {{ font-size: 9px; font-weight: 700; fill: #155724; }}
+.phenotype-node.state-decreased .state-badge {{ fill: #721c24; }}
+.phenotype-node.unrouted rect {{ stroke-dasharray: 4,2; opacity: 0.7; }}
+.disease-node rect {{ rx: 12; ry: 12; fill: #cfe2ff; stroke: #0d6efd; stroke-width: 2; }}
+.disease-node text {{ font-size: 12px; font-weight: 700; fill: #084298; pointer-events: none; }}
+.disease-node .disease-term {{ font-size: 9px; fill: #6c757d; font-weight: 400; }}
 .phenotype-edge path {{ fill: none; stroke: #ffc107; stroke-width: 1.5; stroke-dasharray: 5,3; }}
-.intermediate-edge path {{ fill: none; stroke: #6f42c1; stroke-width: 1.5; }}
-.intermediate-to-pheno-edge path {{ fill: none; stroke: #ffc107; stroke-width: 1.5; stroke-dasharray: 5,3; }}
+.process-edge path {{ fill: none; stroke: #6f42c1; stroke-width: 1.5; }}
+.process-to-pheno-edge path {{ fill: none; stroke: #ffc107; stroke-width: 1.5; stroke-dasharray: 5,3; }}
+.pheno-disease-edge path {{ fill: none; stroke: #0d6efd; stroke-width: 1.5; stroke-dasharray: 5,3; }}
 
 /* Perturbation state colors */
 .state-normal rect {{ fill: #f8f9fa; stroke: #dee2e6; }}
@@ -451,6 +759,15 @@ svg {{ width: 100%; height: 100%; }}
 #tooltip .tt-state-absent {{ background: #f8d7da; color: #721c24; }}
 #tooltip .tt-state-constitutively_active {{ background: #c3e6cb; color: #155724; }}
 #tooltip .tt-state-substrate_accumulated {{ background: #fff3cd; color: #856404; }}
+#tooltip .tt-eco {{ font-size: 10px; color: #0d6efd; background: #e7f1ff; padding: 1px 6px; border-radius: 3px; display: inline-block; }}
+#tooltip.pinned {{ pointer-events: auto; border-color: #0d6efd; box-shadow: 0 4px 16px rgba(13,110,253,0.25); max-height: 80vh; overflow-y: auto; }}
+#tooltip .tt-close {{ position: absolute; top: 4px; right: 8px; cursor: pointer; font-size: 16px; color: #6c757d; display: none; }}
+#tooltip .tt-close:hover {{ color: #212529; }}
+#tooltip.pinned .tt-close {{ display: block; }}
+#tooltip .tt-raw {{ margin-top: 8px; }}
+#tooltip .tt-raw summary {{ font-size: 10px; color: #6c757d; cursor: pointer; user-select: none; }}
+#tooltip .tt-raw summary:hover {{ color: #495057; }}
+#tooltip .tt-raw pre {{ font-size: 9px; max-height: 300px; overflow-y: auto; background: #f8f9fa; padding: 8px; border-radius: 4px; white-space: pre-wrap; word-break: break-word; margin-top: 4px; font-family: 'SF Mono', Monaco, 'Courier New', monospace; }}
 
 .edge path.edge-hover {{ stroke: transparent; stroke-width: 12; cursor: pointer; fill: none; }}
 </style>
@@ -476,13 +793,61 @@ svg {{ width: 100%; height: 100%; }}
   <div class="legend-item"><div class="legend-swatch" style="background:#fde8e8;border:1px solid #e57373"></div> Decreased</div>
   <div class="legend-item"><div class="legend-swatch" style="background:#f8d7da;border:1px dashed #dc3545"></div> Absent</div>
   <div class="legend-item"><div class="legend-swatch" style="background:#fff3cd;border:1px solid #ff8f00"></div> Accumulated</div>
-  <div class="legend-item"><div class="legend-swatch" style="background:#ede0f7;border:2px solid #6f42c1"></div> Intermediate</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#e8daef;border:2px solid #6f42c1"></div> Local activity</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#ede0f7;border:2px solid #6f42c1"></div> Process</div>
   <div class="legend-item"><div class="legend-swatch" style="background:#fff3cd;border:2px solid #ffc107;border-radius:8px"></div> Phenotype</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#fff3cd;border:2px dashed #ffc107;border-radius:8px;opacity:0.7"></div> Unrouted phenotype</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#cfe2ff;border:2px solid #0d6efd;border-radius:8px"></div> Disease</div>
   <div class="legend-item" style="margin-top:6px"><div style="width:20px;height:2px;background:#1b5e20"></div> <b>Bold border</b> = primary site</div>
 </div>
-<div id="tooltip"></div>
+<div id="tooltip"><span class="tt-close">&times;</span></div>
 <script>
 const DATA = {graph_json};
+
+// --- Tooltip pin/unpin ---
+let _tooltipPinned = false;
+let _escHandler = null;
+let _backdropHandler = null;
+
+function pinTooltip(event) {{
+  event.stopPropagation();
+  const tt = document.getElementById("tooltip");
+  if (_tooltipPinned) {{
+    unpinTooltip();
+    return;          // toggle OFF — don't re-pin
+  }}
+  tt.classList.add("pinned");
+  _tooltipPinned = true;
+
+  // Close button
+  tt.querySelector(".tt-close").onclick = (e) => {{ e.stopPropagation(); unpinTooltip(); }};
+
+  // Escape to close
+  _escHandler = (e) => {{ if (e.key === "Escape") unpinTooltip(); }};
+  document.addEventListener("keydown", _escHandler);
+
+  // Click elsewhere to close (delayed to avoid immediate trigger)
+  setTimeout(() => {{
+    _backdropHandler = (e) => {{
+      if (!tt.contains(e.target)) unpinTooltip();
+    }};
+    document.addEventListener("click", _backdropHandler);
+  }}, 50);
+}}
+
+function unpinTooltip() {{
+  const tt = document.getElementById("tooltip");
+  tt.classList.remove("pinned");
+  tt.style.display = "none";
+  _tooltipPinned = false;
+  if (_escHandler) {{ document.removeEventListener("keydown", _escHandler); _escHandler = null; }}
+  if (_backdropHandler) {{ document.removeEventListener("click", _backdropHandler); _backdropHandler = null; }}
+}}
+
+function guardMouseout() {{
+  if (_tooltipPinned) return;
+  document.getElementById("tooltip").style.display = "none";
+}}
 
 // --- Layout with dagre ---
 function layoutGraph(data) {{
@@ -509,11 +874,15 @@ function layoutGraph(data) {{
   // Add phenotype nodes (no longer directly connected from activities)
   data.phenotype_routes.forEach(pr => {{
     const pid = "pheno:" + pr.id;
-    g.setNode(pid, {{ label: pr.phenotype_label, width: 140, height: 40 }});
-    // If route has no intermediates, fall back to direct connection
-    if (!pr.intermediate_ids || pr.intermediate_ids.length === 0) {{
-      // No intermediates — shouldn't happen, but safety fallback
-    }}
+    g.setNode(pid, {{ label: pr.phenotype_label, width: 140, height: 54 }});
+  }});
+  // Add disease node
+  if (data.disease_node) {{
+    g.setNode(data.disease_node.id, {{ label: data.disease_node.name, width: 180, height: 54 }});
+  }}
+  // Add phenotype → disease edges
+  (data.phenotype_disease_edges || []).forEach(e => {{
+    g.setEdge(e.source, e.target);
   }});
 
   dagre.layout(g);
@@ -569,6 +938,13 @@ function render() {{
     .attr("orient", "auto")
     .append("path").attr("d", "M 0 0 L 10 5 L 0 10 z").attr("fill", "#6f42c1");
 
+  svg.select("defs").append("marker")
+    .attr("id", "arrowhead-disease").attr("viewBox", "0 0 10 10")
+    .attr("refX", 10).attr("refY", 5)
+    .attr("markerWidth", 8).attr("markerHeight", 8)
+    .attr("orient", "auto")
+    .append("path").attr("d", "M 0 0 L 10 5 L 0 10 z").attr("fill", "#0d6efd");
+
   // Draw module edges
   const edgeGroup = container.append("g").attr("class", "edges");
   // Build a lookup from node id to short_label for edge tooltips
@@ -597,6 +973,7 @@ function render() {{
       .attr("text-anchor", "middle").text(shortRel);
     // Edge tooltip
     eg.on("mouseover", (event) => {{
+      if (_tooltipPinned) return;
       const tt = d3.select("#tooltip");
       tt.style("display", "block")
         .style("left", (event.pageX + 12) + "px")
@@ -616,11 +993,19 @@ function render() {{
         }});
         evHtml += `</div>`;
       }}
+      let ecoHtml = "";
+      if (e.eco_id) {{
+        ecoHtml = `<div class="tt-detail"><b>Evidence type:</b> <span class="tt-eco">${{e.eco_label}}</span></div>
+          <div class="tt-detail" style="font-size:10px;color:#6c757d">${{e.eco_id}}</div>`;
+      }}
+      const rawYaml = e.raw_yaml ? `<details class="tt-raw"><summary>Raw data (YAML)</summary><pre>${{e.raw_yaml}}</pre></details>` : "";
       tt.html(`<div class="tt-title">${{srcLabel}} → ${{tgtLabel}}</div>
         <div class="tt-detail"><b>Relation:</b> ${{e.relation}}</div>
-        <div class="tt-detail"><b>Relation ID:</b> ${{e.relation_id}}</div>
-        ${{evHtml}}`);
-    }}).on("mouseout", () => d3.select("#tooltip").style("display", "none"));
+        <div class="tt-detail" style="font-size:10px;color:#6c757d">${{e.relation_id}}</div>
+        ${{ecoHtml}}
+        ${{evHtml}}
+        ${{rawYaml}}`);
+    }}).on("mouseout", () => guardMouseout()).on("click", (event) => pinTooltip(event));
   }});
 
   // Draw intermediate edges
@@ -636,10 +1021,10 @@ function render() {{
     const pathD = line(pts.points);
     let eg;
     if (e.edge_type === "intermediate_to_phenotype") {{
-      eg = edgeGroup.append("g").attr("class", "intermediate-to-pheno-edge");
+      eg = edgeGroup.append("g").attr("class", "process-to-pheno-edge");
       eg.append("path").attr("d", pathD).attr("marker-end", "url(#arrowhead-phenotype)");
     }} else {{
-      eg = edgeGroup.append("g").attr("class", "intermediate-edge");
+      eg = edgeGroup.append("g").attr("class", "process-edge");
       eg.append("path").attr("d", pathD).attr("marker-end", "url(#arrowhead-intermediate)");
     }}
     // Invisible wider path for hover target
@@ -649,14 +1034,34 @@ function render() {{
     const tgtLabel = e.target_label || nodeLabels[e.target] || e.target;
     const relLabel = edgeTypeLabels[e.edge_type] || e.edge_type;
     eg.on("mouseover", (event) => {{
+      if (_tooltipPinned) return;
       const tt = d3.select("#tooltip");
       tt.style("display", "block")
         .style("left", (event.pageX + 12) + "px")
         .style("top", (event.pageY - 10) + "px");
-      tt.html(`<div class="tt-title">${{srcLabel}} → ${{tgtLabel}}</div>
-        <div class="tt-detail"><b>Relationship:</b> ${{srcLabel}} ${{relLabel}} ${{tgtLabel}}</div>
-        <div class="tt-detail" style="font-size:10px;color:#6c757d">Type: ${{e.edge_type.replace(/_/g, " ")}}</div>`);
-    }}).on("mouseout", () => d3.select("#tooltip").style("display", "none"));
+      let ieHtml = `<div class="tt-title">${{srcLabel}} → ${{tgtLabel}}</div>`;
+      if (e.relation) {{
+        ieHtml += `<div class="tt-detail"><b>Relation:</b> ${{e.relation}}</div>`;
+        if (e.relation_id) ieHtml += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${{e.relation_id}}</div>`;
+      }} else {{
+        ieHtml += `<div class="tt-detail"><b>Relationship:</b> ${{srcLabel}} ${{relLabel}} ${{tgtLabel}}</div>`;
+      }}
+      if (e.eco_label) {{
+        ieHtml += `<div class="tt-detail"><b>Evidence type:</b> <span class="tt-eco">${{e.eco_label}}</span></div>`;
+        if (e.eco_id) ieHtml += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${{e.eco_id}}</div>`;
+      }}
+      if (e.evidence && e.evidence.length) {{
+        ieHtml += `<div class="tt-section"><b>Evidence:</b>`;
+        e.evidence.forEach(ev => {{
+          ieHtml += `<div class="tt-ref">📄 ${{ev.reference}}</div>`;
+          if (ev.snippet) ieHtml += `<div class="tt-evidence">"${{ev.snippet}}"</div>`;
+        }});
+        ieHtml += `</div>`;
+      }}
+      ieHtml += `<div class="tt-detail" style="font-size:10px;color:#adb5bd;margin-top:4px">Type: ${{e.edge_type.replace(/_/g, " ")}}</div>`;
+      if (e.raw_yaml) ieHtml += `<details class="tt-raw"><summary>Raw data (YAML)</summary><pre>${{e.raw_yaml}}</pre></details>`;
+      tt.html(ieHtml);
+    }}).on("mouseout", () => guardMouseout()).on("click", (event) => pinTooltip(event));
   }});
 
   // Draw activity nodes
@@ -667,8 +1072,9 @@ function render() {{
     if (!pos) return;
     const w = Math.max(140, n.short_label.length * 8 + 30);
     const hw = w / 2;
+    const baseClass = n.type === "local_activity" ? "node local-activity state-normal" : "node state-normal";
     const ng = nodeGroup.append("g")
-      .attr("class", "node state-normal")
+      .attr("class", baseClass)
       .attr("transform", `translate(${{pos.x - hw}},${{pos.y - 30}})`)
       .attr("data-id", n.id);
     ng.append("rect").attr("width", w).attr("height", 60);
@@ -684,6 +1090,7 @@ function render() {{
 
     // Tooltip
     ng.on("mouseover", (event) => {{
+      if (_tooltipPinned) return;
       const tt = d3.select("#tooltip");
       tt.style("display", "block")
         .style("left", (event.pageX + 12) + "px")
@@ -692,6 +1099,7 @@ function render() {{
       const geneInfo = n.gene ? `${{n.gene}} (${{n.hgnc_id}})` : (n.complex || "");
       let html = `<div class="tt-title">${{name}}</div>`;
       if (geneInfo) html += `<div class="tt-subtitle">${{geneInfo}}</div>`;
+      if (n.module_name) html += `<div class="tt-detail"><b>Module:</b> ${{n.module_name}}</div>`;
       html += `<div class="tt-detail"><b>Function:</b> ${{n.function || "—"}}</div>`;
       if (n.function_id) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${{n.function_id}}</div>`;
       if (n.substrate) html += `<div class="tt-detail"><b>Substrate:</b> ${{n.substrate}} (${{n.substrate_hgnc}})</div>`;
@@ -712,8 +1120,13 @@ function render() {{
           if (st.variant_class) html += `<div class="tt-detail"><b>Variant:</b> ${{st.variant_class}}</div>`;
           if (st.mechanism) html += `<div class="tt-detail"><b>Mechanism:</b> ${{st.mechanism.replace(/_/g, " ")}}</div>`;
         }} else {{
-          html += `<div class="tt-detail"><b>Role:</b> Propagated from ${{st.cause ? nodeLabels[st.cause] || st.cause : "upstream"}}</div>`;
-          if (st.provenance) html += `<div class="tt-detail"><b>Provenance:</b> ${{st.provenance.replace(/_/g, " ")}}</div>`;
+          const causes = Array.isArray(st.cause) ? st.cause : (st.cause ? [st.cause] : []);
+          const causeLabels = causes.map(c => nodeLabels[c] || c).join(", ");
+          html += `<div class="tt-detail"><b>Role:</b> Propagated from ${{causeLabels || "upstream"}}</div>`;
+        }}
+        if (st.eco_label) {{
+          html += `<div class="tt-detail"><b>Evidence type:</b> <span class="tt-eco">${{st.eco_label}}</span></div>`;
+          if (st.eco_id) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${{st.eco_id}}</div>`;
         }}
         if (st.evidence_refs && st.evidence_refs.length) {{
           html += `<div class="tt-detail"><b>Evidence:</b></div>`;
@@ -723,8 +1136,9 @@ function render() {{
         html += `</div>`;
       }}
       html += `<div style="margin-top:6px;font-size:10px;color:#adb5bd">${{n.id}}</div>`;
+      if (n.raw_yaml) html += `<details class="tt-raw"><summary>Raw data (YAML)</summary><pre>${{n.raw_yaml}}</pre></details>`;
       tt.html(html);
-    }}).on("mouseout", () => d3.select("#tooltip").style("display", "none"));
+    }}).on("mouseout", () => guardMouseout()).on("click", (event) => pinTooltip(event));
   }});
 
   // Draw intermediate nodes
@@ -734,7 +1148,7 @@ function render() {{
     const w = Math.max(130, n.short_label.length * 7 + 24);
     const hw = w / 2;
     const ng = nodeGroup.append("g")
-      .attr("class", "intermediate-node")
+      .attr("class", "process-node" + (n.state ? " state-" + n.state : ""))
       .attr("transform", `translate(${{pos.x - hw}},${{pos.y - 25}})`);
     ng.append("rect").attr("width", w).attr("height", 50);
     ng.append("text").attr("class", "gene-label")
@@ -750,6 +1164,7 @@ function render() {{
       .text(stateLabel);
     // Tooltip
     ng.on("mouseover", (event) => {{
+      if (_tooltipPinned) return;
       const tt = d3.select("#tooltip");
       tt.style("display", "block")
         .style("left", (event.pageX + 12) + "px")
@@ -762,9 +1177,23 @@ function render() {{
         const stClass = "tt-state tt-state-" + n.state;
         html += `<div class="tt-detail"><b>State:</b> <span class="${{stClass}}">${{n.state.replace(/_/g, " ")}}</span></div>`;
       }}
-      // Driven by
-      if (n.driven_by_labels && n.driven_by_labels.length) {{
-        html += `<div class="tt-detail"><b>Driven by:</b> ${{n.driven_by_labels.join(", ")}}</div>`;
+      // Driven by (with relation and ECO details)
+      if (n.driven_by_details && n.driven_by_details.length) {{
+        html += `<div class="tt-section"><b>Driven by:</b>`;
+        n.driven_by_details.forEach((db, idx) => {{
+          const srcLabel = nodeLabels[db.source] || db.source;
+          html += `<div class="tt-detail" style="margin-left:8px">• ${{srcLabel}}`;
+          if (db.relation) html += ` <span style="font-size:10px;color:#6c757d">(${{db.relation}})</span>`;
+          html += `</div>`;
+          if (db.eco_label) html += `<div class="tt-detail" style="margin-left:16px"><span class="tt-eco">${{db.eco_label}}</span></div>`;
+          if (db.evidence && db.evidence.length) {{
+            db.evidence.forEach(ev => {{
+              html += `<div class="tt-ref" style="margin-left:16px">📄 ${{ev.reference}}</div>`;
+              if (ev.snippet) html += `<div class="tt-evidence" style="margin-left:16px">"${{ev.snippet}}"</div>`;
+            }});
+          }}
+        }});
+        html += `</div>`;
       }} else if (n.driven_by && n.driven_by.length === 0) {{
         html += `<div class="tt-detail"><b>Driven by:</b> convergence of upstream intermediates</div>`;
       }}
@@ -789,8 +1218,9 @@ function render() {{
         html += `</div>`;
       }}
       html += `<div style="margin-top:6px;font-size:10px;color:#adb5bd">${{n.id}}</div>`;
+      if (n.raw_yaml) html += `<details class="tt-raw"><summary>Raw data (YAML)</summary><pre>${{n.raw_yaml}}</pre></details>`;
       tt.html(html);
-    }}).on("mouseout", () => d3.select("#tooltip").style("display", "none"));
+    }}).on("mouseout", () => guardMouseout()).on("click", (event) => pinTooltip(event));
   }});
 
   // Draw phenotype nodes
@@ -798,10 +1228,13 @@ function render() {{
     const pid = "pheno:" + pr.id;
     const pos = g.node(pid);
     if (!pos) return;
+    let phenoCls = "phenotype-node";
+    if (pr.phenotype_state) phenoCls += " state-" + pr.phenotype_state;
+    if (pr.unrouted) phenoCls += " unrouted";
     const ng = nodeGroup.append("g")
-      .attr("class", "phenotype-node")
-      .attr("transform", `translate(${{pos.x - 70}},${{pos.y - 20}})`);
-    ng.append("rect").attr("width", 140).attr("height", 40);
+      .attr("class", phenoCls)
+      .attr("transform", `translate(${{pos.x - 70}},${{pos.y - 27}})`);
+    ng.append("rect").attr("width", 140).attr("height", 54);
     ng.append("text")
       .attr("x", 70).attr("y", 16).attr("text-anchor", "middle")
       .text(truncate(pr.phenotype_label, 20));
@@ -809,14 +1242,27 @@ function render() {{
       .attr("x", 70).attr("y", 30).attr("text-anchor", "middle")
       .style("font-size", "9px").style("fill", "#a17c10")
       .text(pr.phenotype_id);
+    const phenoStateLabel = pr.phenotype_state ? pr.phenotype_state.replace(/_/g, " ") : "";
+    ng.append("text").attr("class", "state-badge")
+      .attr("x", 70).attr("y", 44).attr("text-anchor", "middle")
+      .text(phenoStateLabel);
 
     ng.on("mouseover", (event) => {{
+      if (_tooltipPinned) return;
       const tt = d3.select("#tooltip");
       tt.style("display", "block")
         .style("left", (event.pageX + 12) + "px")
         .style("top", (event.pageY - 10) + "px");
       let html = `<div class="tt-title">${{pr.phenotype_label}}</div>`;
       html += `<div class="tt-subtitle">${{pr.phenotype_id}}</div>`;
+      if (pr.phenotype_state) {{
+        const stClass = "tt-state tt-state-" + pr.phenotype_state;
+        html += `<div class="tt-detail"><b>State:</b> <span class="${{stClass}}">${{pr.phenotype_state.replace(/_/g, " ")}}</span></div>`;
+      }}
+      if (pr.phenotype_relation) {{
+        html += `<div class="tt-detail"><b>Relation:</b> ${{pr.phenotype_relation}}</div>`;
+        if (pr.phenotype_relation_id) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${{pr.phenotype_relation_id}}</div>`;
+      }}
       html += `<div class="tt-detail"><b>Route:</b> ${{pr.name}}</div>`;
       if (pr.tissue) {{
         html += `<div class="tt-detail"><b>Tissue:</b> ${{pr.tissue}}</div>`;
@@ -847,9 +1293,51 @@ function render() {{
         }});
         html += `</div>`;
       }}
+      if (pr.raw_yaml) html += `<details class="tt-raw"><summary>Raw data (YAML)</summary><pre>${{pr.raw_yaml}}</pre></details>`;
       tt.html(html);
-    }}).on("mouseout", () => d3.select("#tooltip").style("display", "none"));
+    }}).on("mouseout", () => guardMouseout()).on("click", (event) => pinTooltip(event));
   }});
+
+  // Draw phenotype → disease edges
+  (DATA.phenotype_disease_edges || []).forEach(e => {{
+    const pts = g.edge(e.source, e.target);
+    if (!pts || !pts.points) return;
+    const line = d3.line().x(d => d.x).y(d => d.y).curve(d3.curveBasis);
+    const pathD = line(pts.points);
+    const eg = edgeGroup.append("g").attr("class", "pheno-disease-edge");
+    eg.append("path").attr("d", pathD).attr("marker-end", "url(#arrowhead-disease)");
+  }});
+
+  // Draw disease node (rendered last so it appears at the right)
+  if (DATA.disease_node) {{
+    const dpos = g.node(DATA.disease_node.id);
+    if (dpos) {{
+      const dw = 180, dh = 54;
+      const dng = nodeGroup.append("g")
+        .attr("class", "disease-node")
+        .attr("transform", `translate(${{dpos.x - dw/2}},${{dpos.y - dh/2}})`);
+      dng.append("rect").attr("width", dw).attr("height", dh);
+      dng.append("text")
+        .attr("x", dw/2).attr("y", 22).attr("text-anchor", "middle")
+        .text(DATA.disease_node.name);
+      dng.append("text").attr("class", "disease-term")
+        .attr("x", dw/2).attr("y", 38).attr("text-anchor", "middle")
+        .text(DATA.disease_node.term_id);
+      // Tooltip
+      dng.on("mouseover", (event) => {{
+        if (_tooltipPinned) return;
+        const tt = d3.select("#tooltip");
+        tt.style("display", "block")
+          .style("left", (event.pageX + 12) + "px")
+          .style("top", (event.pageY - 10) + "px");
+        const phenoCount = DATA.phenotype_routes.length;
+        let html = `<div class="tt-title">${{DATA.disease_node.name}}</div>`;
+        html += `<div class="tt-subtitle">${{DATA.disease_node.term_id}} — ${{DATA.disease_node.term_label}}</div>`;
+        html += `<div class="tt-detail"><b>Associated phenotypes:</b> ${{phenoCount}}</div>`;
+        tt.html(html);
+      }}).on("mouseout", () => guardMouseout()).on("click", (event) => pinTooltip(event));
+    }}
+  }}
 
   // Store nodeMap for hypothesis switching
   window._nodeMap = nodeMap;
@@ -869,15 +1357,19 @@ function applyHypothesis(hgIdx) {{
   DATA.nodes.forEach(n => {{
     const ng = nodeMap[n.id];
     if (!ng) return;
-    ng.attr("class", "node state-normal");
+    const base = n.type === "local_activity" ? "node local-activity" : "node";
+    ng.attr("class", base + " state-normal");
     ng.select(".state-badge").text("");
   }});
 
   // Apply perturbation states
+  const nodeTypeMap = {{}};
+  DATA.nodes.forEach(n => {{ nodeTypeMap[n.id] = n.type; }});
   Object.entries(hg.states).forEach(([nodeId, info]) => {{
     const ng = nodeMap[nodeId];
     if (!ng) return;
-    let cls = "node state-" + info.state;
+    const base = nodeTypeMap[nodeId] === "local_activity" ? "node local-activity" : "node";
+    let cls = base + " state-" + info.state;
     if (info.is_primary) cls += " state-primary";
     ng.attr("class", cls);
     const label = info.state.replace(/_/g, " ");
