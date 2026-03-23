@@ -1,0 +1,1858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pheno-CAM: Ehlers-Danlos Syndrome, COL5A1-related</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8f9fa; }
+#header {
+  padding: 16px 24px; background: white; border-bottom: 1px solid #dee2e6;
+  display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
+}
+#header h1 { font-size: 20px; color: #212529; }
+#header .disease-term { color: #6c757d; font-size: 14px; }
+#controls { display: flex; align-items: center; gap: 12px; }
+#controls label { font-size: 13px; color: #495057; font-weight: 600; }
+#controls select { font-size: 13px; padding: 4px 8px; border-radius: 4px; border: 1px solid #ced4da; }
+#hg-info { font-size: 12px; color: #6c757d; max-width: 500px; }
+#canvas { width: 100%; height: calc(100vh - 70px); }
+svg { width: 100%; height: 100%; }
+
+.node rect {
+  rx: 6; ry: 6; stroke-width: 2; cursor: pointer;
+  transition: opacity 0.3s;
+}
+.node text { font-size: 11px; pointer-events: none; }
+.node .gene-label { font-weight: 700; font-size: 13px; }
+.node .func-label { font-size: 10px; fill: #495057; }
+.node .state-badge {
+  font-size: 9px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.edge path { fill: none; stroke-width: 1.5; }
+.edge marker { fill: #868e96; }
+.edge .edge-label { font-size: 9px; fill: #868e96; }
+
+.process-node rect {
+  rx: 6; ry: 6; fill: #ede0f7; stroke: #6f42c1; stroke-width: 2; cursor: pointer;
+}
+.process-node text { font-size: 11px; pointer-events: none; }
+.process-node .gene-label { font-weight: 700; font-size: 12px; fill: #3d1f6d; }
+.process-node .func-label { font-size: 9px; fill: #6f42c1; }
+.process-node .state-badge { font-size: 9px; font-weight: 700; fill: #3d1f6d; }
+.process-node.state-increased rect { fill: #d4edda; stroke: #28a745; }
+.process-node.state-decreased rect { fill: #fde8e8; stroke: #e57373; }
+.process-node.state-absent rect { fill: #f8d7da; stroke: #dc3545; stroke-dasharray: 4,2; }
+.process-node.state-constitutively_active rect { fill: #c3e6cb; stroke: #1b5e20; stroke-width: 3; }
+.process-node.state-increased .state-badge { fill: #155724; }
+.process-node.state-decreased .state-badge { fill: #721c24; }
+.process-node.state-absent .state-badge { fill: #721c24; }
+
+.node.local-activity rect { fill: #e8daef; stroke: #6f42c1; }
+.node.local-activity .gene-label { fill: #3d1f6d; }
+
+.phenotype-node rect {
+  rx: 12; ry: 12; fill: #fff3cd; stroke: #ffc107; stroke-width: 2;
+}
+.phenotype-node text { font-size: 11px; font-weight: 600; fill: #856404; }
+.phenotype-node.state-increased rect { fill: #d4edda; stroke: #28a745; }
+.phenotype-node.state-decreased rect { fill: #fde8e8; stroke: #e57373; }
+.phenotype-node.state-absent rect { fill: #f8d7da; stroke: #dc3545; stroke-dasharray: 4,2; }
+.phenotype-node .state-badge { font-size: 9px; font-weight: 700; fill: #155724; }
+.phenotype-node.state-decreased .state-badge { fill: #721c24; }
+.phenotype-node.unrouted rect { stroke-dasharray: 4,2; opacity: 0.7; }
+.disease-node rect { rx: 12; ry: 12; fill: #cfe2ff; stroke: #0d6efd; stroke-width: 2; }
+.disease-node text { font-size: 12px; font-weight: 700; fill: #084298; pointer-events: none; }
+.disease-node .disease-term { font-size: 9px; fill: #6c757d; font-weight: 400; }
+.phenotype-edge path { fill: none; stroke: #ffc107; stroke-width: 1.5; stroke-dasharray: 5,3; }
+.process-edge path { fill: none; stroke: #6f42c1; stroke-width: 1.5; }
+.process-to-pheno-edge path { fill: none; stroke: #ffc107; stroke-width: 1.5; stroke-dasharray: 5,3; }
+.pheno-disease-edge path { fill: none; stroke: #0d6efd; stroke-width: 1.5; stroke-dasharray: 5,3; }
+
+/* Perturbation state colors */
+.state-normal rect { fill: #f8f9fa; stroke: #dee2e6; }
+.state-absent rect { fill: #f8d7da; stroke: #dc3545; stroke-dasharray: 4,2; }
+.state-decreased rect { fill: #fde8e8; stroke: #e57373; }
+.state-increased rect { fill: #d4edda; stroke: #28a745; }
+.state-constitutively_active rect { fill: #c3e6cb; stroke: #1b5e20; stroke-width: 3; }
+.state-substrate_accumulated rect { fill: #fff3cd; stroke: #ff8f00; }
+.state-haploinsufficient rect { fill: #fde8e8; stroke: #e57373; stroke-dasharray: 4,2; }
+
+.state-primary rect { stroke-width: 3; }
+.state-primary .gene-label { text-decoration: underline; }
+
+/* Legend */
+#legend {
+  position: absolute; bottom: 16px; left: 16px; background: white;
+  border: 1px solid #dee2e6; border-radius: 8px; padding: 12px 16px;
+  font-size: 11px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+#legend h3 { font-size: 12px; margin-bottom: 8px; color: #495057; }
+.legend-item { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
+.legend-swatch {
+  width: 20px; height: 14px; border-radius: 3px; flex-shrink: 0;
+}
+
+/* Tooltip */
+#tooltip {
+  position: absolute; display: none; background: white; border: 1px solid #dee2e6;
+  border-radius: 6px; padding: 12px 16px; font-size: 12px; max-width: 420px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15); pointer-events: none; z-index: 100;
+  line-height: 1.4;
+}
+#tooltip .tt-title { font-weight: 700; margin-bottom: 6px; font-size: 13px; }
+#tooltip .tt-subtitle { color: #6c757d; font-size: 11px; margin-bottom: 6px; }
+#tooltip .tt-detail { color: #495057; margin: 3px 0; }
+#tooltip .tt-detail b { color: #212529; }
+#tooltip .tt-section { margin-top: 8px; padding-top: 6px; border-top: 1px solid #e9ecef; }
+#tooltip .tt-evidence { font-size: 11px; color: #6c757d; font-style: italic; margin-top: 4px; }
+#tooltip .tt-ref { font-size: 10px; color: #0d6efd; }
+#tooltip .tt-state { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: 600; }
+#tooltip .tt-state-increased { background: #d4edda; color: #155724; }
+#tooltip .tt-state-decreased { background: #fde8e8; color: #721c24; }
+#tooltip .tt-state-absent { background: #f8d7da; color: #721c24; }
+#tooltip .tt-state-constitutively_active { background: #c3e6cb; color: #155724; }
+#tooltip .tt-state-substrate_accumulated { background: #fff3cd; color: #856404; }
+#tooltip .tt-eco { font-size: 10px; color: #0d6efd; background: #e7f1ff; padding: 1px 6px; border-radius: 3px; display: inline-block; }
+#tooltip.pinned { pointer-events: auto; border-color: #0d6efd; box-shadow: 0 4px 16px rgba(13,110,253,0.25); max-height: 80vh; overflow-y: auto; }
+#tooltip .tt-close { position: absolute; top: 4px; right: 8px; cursor: pointer; font-size: 16px; color: #6c757d; display: none; }
+#tooltip .tt-close:hover { color: #212529; }
+#tooltip.pinned .tt-close { display: block; }
+#tooltip .tt-raw { margin-top: 8px; }
+#tooltip .tt-raw summary { font-size: 10px; color: #6c757d; cursor: pointer; user-select: none; }
+#tooltip .tt-raw summary:hover { color: #495057; }
+#tooltip .tt-raw pre { font-size: 9px; max-height: 300px; overflow-y: auto; background: #f8f9fa; padding: 8px; border-radius: 4px; white-space: pre-wrap; word-break: break-word; margin-top: 4px; font-family: 'SF Mono', Monaco, 'Courier New', monospace; }
+
+.edge path.edge-hover { stroke: transparent; stroke-width: 12; cursor: pointer; fill: none; }
+</style>
+</head>
+<body>
+<div id="header">
+  <div>
+    <h1>Pheno-CAM: Ehlers-Danlos Syndrome, COL5A1-related</h1>
+    <span class="disease-term">MONDO:0007522 &mdash; Ehlers-Danlos syndrome, classic type</span>
+  </div>
+  <div id="controls">
+    <label for="hg-select">Hypothesis:</label>
+    <select id="hg-select"></select>
+  </div>
+  <div id="hg-info"></div>
+</div>
+<div id="canvas"><svg></svg></div>
+<div id="legend">
+  <h3>Perturbation States</h3>
+  <div class="legend-item"><div class="legend-swatch" style="background:#f8f9fa;border:1px solid #dee2e6"></div> Normal</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#c3e6cb;border:2px solid #1b5e20"></div> Constitutively active</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#d4edda;border:1px solid #28a745"></div> Increased</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#fde8e8;border:1px solid #e57373"></div> Decreased</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#f8d7da;border:1px dashed #dc3545"></div> Absent</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#fff3cd;border:1px solid #ff8f00"></div> Accumulated</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#e8daef;border:2px solid #6f42c1"></div> Local activity</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#ede0f7;border:2px solid #6f42c1"></div> Process</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#fff3cd;border:2px solid #ffc107;border-radius:8px"></div> Phenotype</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#fff3cd;border:2px dashed #ffc107;border-radius:8px;opacity:0.7"></div> Unrouted phenotype</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#cfe2ff;border:2px solid #0d6efd;border-radius:8px"></div> Disease</div>
+  <div class="legend-item" style="margin-top:6px"><div style="width:20px;height:2px;background:#1b5e20"></div> <b>Bold border</b> = primary site</div>
+</div>
+<div id="tooltip"><span class="tt-close">&times;</span></div>
+<script>
+const DATA = {
+  "disease_name": "Ehlers-Danlos Syndrome, COL5A1-related",
+  "disease_id": "ehlers_danlos_col5a1",
+  "disease_term": {
+    "id": "MONDO:0007522",
+    "label": "Ehlers-Danlos syndrome, classic type"
+  },
+  "modules": [
+    {
+      "id": "collagen_v_assembly",
+      "name": "Type V Collagen Assembly",
+      "description": "Collagen V heterotrimeric assembly (two alpha-1(V) + one alpha-2(V) chains), fibril nucleation, and integration into the extracellular matrix. Type V collagen nucleates heterotypic fibrils with type I collagen, regulating fibril diameter and spacing in connective tissues.",
+      "sources": [
+        {
+          "type": "literature",
+          "reference": "PMID:20847697"
+        },
+        {
+          "type": "literature",
+          "reference": "PMID:15095409"
+        },
+        {
+          "type": "literature",
+          "reference": "PMID:9042913"
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "id": "collagen_v_assembly:col5a1_structural",
+      "gene": "COL5A1",
+      "hgnc_id": "HGNC:2209",
+      "complex": "",
+      "display_name": "",
+      "function": "extracellular matrix structural constituent",
+      "function_id": "GO:0005201",
+      "function_short": "ECM structural",
+      "location": "endoplasmic reticulum lumen",
+      "location_id": "GO:0005788",
+      "process": "collagen fibril organization",
+      "process_id": "GO:0030199",
+      "substrate": "",
+      "substrate_hgnc": "",
+      "module_id": "collagen_v_assembly",
+      "module_name": "Type V Collagen Assembly",
+      "raw_yaml": "id: collagen_v_assembly:col5a1_structural\ngene:\n  symbol: COL5A1\n  hgnc_id: HGNC:2209\nmolecular_function:\n  id: GO:0005201\n  label: extracellular matrix structural constituent\nlocation:\n  id: GO:0005788\n  label: endoplasmic reticulum lumen\nprocess:\n  id: GO:0030199\n  label: collagen fibril organization",
+      "label": "COL5A1\nECM structural",
+      "short_label": "COL5A1",
+      "type": "activity"
+    },
+    {
+      "id": "collagen_v_assembly:col5a2_structural",
+      "gene": "COL5A2",
+      "hgnc_id": "HGNC:2210",
+      "complex": "",
+      "display_name": "",
+      "function": "extracellular matrix structural constituent",
+      "function_id": "GO:0005201",
+      "function_short": "ECM structural",
+      "location": "endoplasmic reticulum lumen",
+      "location_id": "GO:0005788",
+      "process": "collagen fibril organization",
+      "process_id": "GO:0030199",
+      "substrate": "",
+      "substrate_hgnc": "",
+      "module_id": "collagen_v_assembly",
+      "module_name": "Type V Collagen Assembly",
+      "raw_yaml": "id: collagen_v_assembly:col5a2_structural\ngene:\n  symbol: COL5A2\n  hgnc_id: HGNC:2210\nmolecular_function:\n  id: GO:0005201\n  label: extracellular matrix structural constituent\nlocation:\n  id: GO:0005788\n  label: endoplasmic reticulum lumen\nprocess:\n  id: GO:0030199\n  label: collagen fibril organization",
+      "label": "COL5A2\nECM structural",
+      "short_label": "COL5A2",
+      "type": "activity"
+    },
+    {
+      "id": "collagen_v_assembly:colv_heterotrimer",
+      "gene": "",
+      "hgnc_id": "",
+      "complex": "Type V collagen heterotrimer",
+      "display_name": "",
+      "function": "extracellular matrix structural constituent",
+      "function_id": "GO:0005201",
+      "function_short": "ECM structural",
+      "location": "extracellular matrix",
+      "location_id": "GO:0031012",
+      "process": "collagen fibril organization",
+      "process_id": "GO:0030199",
+      "substrate": "",
+      "substrate_hgnc": "",
+      "module_id": "collagen_v_assembly",
+      "module_name": "Type V Collagen Assembly",
+      "raw_yaml": "id: collagen_v_assembly:colv_heterotrimer\ncomplex: Type V collagen heterotrimer\nmolecular_function:\n  id: GO:0005201\n  label: extracellular matrix structural constituent\nlocation:\n  id: GO:0031012\n  label: extracellular matrix\nprocess:\n  id: GO:0030199\n  label: collagen fibril organization",
+      "label": "Type V collagen heterotrimer\nECM structural",
+      "short_label": "Type V collagen heterotrimer",
+      "type": "activity"
+    },
+    {
+      "id": "collagen_v_assembly:heterotypic_fibril_formation",
+      "gene": "",
+      "hgnc_id": "",
+      "complex": "Type I/V heterotypic fibril",
+      "display_name": "",
+      "function": "extracellular matrix structural constituent",
+      "function_id": "GO:0005201",
+      "function_short": "ECM structural",
+      "location": "extracellular matrix",
+      "location_id": "GO:0031012",
+      "process": "collagen fibril organization",
+      "process_id": "GO:0030199",
+      "substrate": "",
+      "substrate_hgnc": "",
+      "module_id": "collagen_v_assembly",
+      "module_name": "Type V Collagen Assembly",
+      "raw_yaml": "id: collagen_v_assembly:heterotypic_fibril_formation\ncomplex: Type I/V heterotypic fibril\nmolecular_function:\n  id: GO:0005201\n  label: extracellular matrix structural constituent\nlocation:\n  id: GO:0031012\n  label: extracellular matrix\nprocess:\n  id: GO:0030199\n  label: collagen fibril organization",
+      "label": "Type I/V heterotypic fibril\nECM structural",
+      "short_label": "Type I/V heterotypic fibril",
+      "type": "activity"
+    }
+  ],
+  "edges": [
+    {
+      "source": "collagen_v_assembly:col5a1_structural",
+      "target": "collagen_v_assembly:colv_heterotrimer",
+      "relation": "directly provides input for",
+      "relation_id": "RO:0002413",
+      "eco_id": "ECO:0000304",
+      "eco_label": "traceable author statement used in manual assertion",
+      "evidence": [
+        {
+          "type": "literature",
+          "id": "PMID:9042913",
+          "snippet": "The mutation causes the substitution of the most 5' cysteine residue by a serine within a highly conserved sequence of the pro(alpha)1(V) C-propeptide domain and causes reduction of collagen V by preventing incorporation of the mutant pro(alpha)1(V) chains in the collagen V trimers."
+        }
+      ],
+      "raw_yaml": "source: col5a1_structural\ntarget: colv_heterotrimer\nrelation:\n  id: RO:0002413\n  label: directly provides input for\neco:\n  id: ECO:0000304\n  label: traceable author statement used in manual assertion\nevidence:\n- type: literature\n  reference: PMID:9042913\n  snippet: The mutation causes the substitution of the most 5' cysteine residue by\n    a serine within a highly conserved sequence of the pro(alpha)1(V) C-propeptide\n    domain and causes reduction of collagen V by preventing incorporation of the mutant\n    pro(alpha)1(V) chains in the collagen V trimers."
+    },
+    {
+      "source": "collagen_v_assembly:col5a2_structural",
+      "target": "collagen_v_assembly:colv_heterotrimer",
+      "relation": "directly provides input for",
+      "relation_id": "RO:0002413",
+      "eco_id": "ECO:0000304",
+      "eco_label": "traceable author statement used in manual assertion",
+      "evidence": [
+        {
+          "type": "literature",
+          "id": "PMID:20847697",
+          "snippet": "In the majority of patients with molecularly characterized classic Ehlers-Danlos syndrome, the disease is caused by a mutation leading to a nonfunctional COL5A1 allele and resulting in haploinsufficiency of type V collagen."
+        }
+      ],
+      "raw_yaml": "source: col5a2_structural\ntarget: colv_heterotrimer\nrelation:\n  id: RO:0002413\n  label: directly provides input for\neco:\n  id: ECO:0000304\n  label: traceable author statement used in manual assertion\nevidence:\n- type: literature\n  reference: PMID:20847697\n  snippet: In the majority of patients with molecularly characterized classic Ehlers-Danlos\n    syndrome, the disease is caused by a mutation leading to a nonfunctional COL5A1\n    allele and resulting in haploinsufficiency of type V collagen."
+    },
+    {
+      "source": "collagen_v_assembly:colv_heterotrimer",
+      "target": "collagen_v_assembly:heterotypic_fibril_formation",
+      "relation": "directly positively regulates",
+      "relation_id": "RO:0002629",
+      "eco_id": "ECO:0000304",
+      "eco_label": "traceable author statement used in manual assertion",
+      "evidence": [
+        {
+          "type": "literature",
+          "id": "PMID:15095409",
+          "snippet": "a reduction of type V collagen, in the EDS derived cells, was associated with the assembly of significantly fewer fibrils compared to control and OI cells."
+        }
+      ],
+      "raw_yaml": "source: colv_heterotrimer\ntarget: heterotypic_fibril_formation\nrelation:\n  id: RO:0002629\n  label: directly positively regulates\neco:\n  id: ECO:0000304\n  label: traceable author statement used in manual assertion\nevidence:\n- type: literature\n  reference: PMID:15095409\n  snippet: a reduction of type V collagen, in the EDS derived cells, was associated\n    with the assembly of significantly fewer fibrils compared to control and OI cells."
+    }
+  ],
+  "hypothesis_groups": [
+    {
+      "id": "col5a1_haploinsufficiency",
+      "name": "COL5A1 haploinsufficiency",
+      "frequency": "~50% of cEDS",
+      "description": "Heterozygous loss-of-function variants in COL5A1 result in haploinsufficiency of the alpha-1(V) collagen chain. With only one functional allele, insufficient alpha-1(V) is produced to form normal quantities of type V collagen heterotrimers, impairing fibril nucleation and reducing ECM tensile strength throughout connective tissues.",
+      "states": {
+        "collagen_v_assembly:col5a1_structural": {
+          "state": "decreased",
+          "mechanism": "loss_of_function",
+          "variant_class": "loss of function variant",
+          "is_primary": true,
+          "provenance": "primary_mutation",
+          "eco_id": "ECO:0000315",
+          "eco_label": "mutant phenotype evidence used in manual assertion",
+          "cause": "",
+          "evidence_refs": [
+            "PMID:20847697"
+          ],
+          "evidence_snippet": "In the majority of patients with molecularly characterized classic Ehlers-Danlos syndrome, the disease is caused by a mutation leading to a nonfunctional COL5A1 allele and resulting in haploinsufficiency of type V collagen."
+        },
+        "collagen_v_assembly:colv_heterotrimer": {
+          "state": "decreased",
+          "mechanism": "",
+          "variant_class": "",
+          "is_primary": false,
+          "provenance": "traceable author statement used in manual assertion",
+          "eco_id": "ECO:0000304",
+          "eco_label": "traceable author statement used in manual assertion",
+          "cause": "collagen_v_assembly:col5a1_structural",
+          "evidence_refs": [
+            "PMID:9042913"
+          ],
+          "evidence_snippet": "The mutation causes the substitution of the most 5' cysteine residue by a serine within a highly conserved sequence of the pro(alpha)1(V) C-propeptide domain and causes reduction of collagen V by preventing incorporation of the mutant pro(alpha)1(V) chains in the collagen V trimers."
+        },
+        "collagen_v_assembly:heterotypic_fibril_formation": {
+          "state": "decreased",
+          "mechanism": "",
+          "variant_class": "",
+          "is_primary": false,
+          "provenance": "traceable author statement used in manual assertion",
+          "eco_id": "ECO:0000304",
+          "eco_label": "traceable author statement used in manual assertion",
+          "cause": "collagen_v_assembly:colv_heterotrimer",
+          "evidence_refs": [
+            "PMID:15095409"
+          ],
+          "evidence_snippet": "a reduction of type V collagen, in the EDS derived cells, was associated with the assembly of significantly fewer fibrils compared to control and OI cells."
+        }
+      }
+    }
+  ],
+  "phenotype_routes": [
+    {
+      "id": "joint_hypermobility_route",
+      "target_id": "joint_hypermobility",
+      "name": "Joint hypermobility pathway",
+      "description": "Reduced collagen fibril density in ligaments and joint capsules decreases tensile strength, permitting excessive joint excursion.",
+      "intermediate_ids": [
+        "inter:joint_hypermobility_route:0"
+      ],
+      "intermediates": [
+        {
+          "name": "Ligamentous ECM weakness",
+          "gene": "",
+          "process": "extracellular matrix organization",
+          "state": "decreased"
+        }
+      ],
+      "phenotype_label": "Joint hypermobility",
+      "phenotype_state": "increased",
+      "phenotype_id": "HP:0001382",
+      "phenotype_relation": "",
+      "phenotype_relation_id": "",
+      "tissue": "fibroblast / ligament",
+      "tissue_detail": {
+        "cell_type_label": "fibroblast",
+        "cell_type_id": "CL:0000057",
+        "anatomy_label": "ligament",
+        "anatomy_id": "UBERON:0000211"
+      },
+      "evidence": [],
+      "unrouted": false,
+      "raw_yaml": "id: joint_hypermobility_route\nname: Joint hypermobility pathway\ndescription: Reduced collagen fibril density in ligaments and joint capsules decreases\n  tensile strength, permitting excessive joint excursion.\ntarget:\n  id: joint_hypermobility\n  preferred_term: Joint hypermobility\n  perturbed_state: increased\n  term:\n    id: HP:0001382\n    label: Joint hypermobility\n  driven_by:\n  - source: ligament_ecm_weakness\n    relation:\n      id: RO:0003303\n      label: causes condition\n    eco:\n      id: ECO:0000305\n      label: curator inference used in manual assertion\n    evidence: []"
+    },
+    {
+      "id": "skin_hyperextensibility_route",
+      "target_id": "skin_hyperextensibility",
+      "name": "Skin hyperextensibility pathway",
+      "description": "Reduced dermal collagen fibril density allows abnormal skin stretching and fragility.",
+      "intermediate_ids": [
+        "inter:skin_hyperextensibility_route:0"
+      ],
+      "intermediates": [
+        {
+          "name": "Dermal ECM weakness",
+          "gene": "",
+          "process": "extracellular matrix organization",
+          "state": "decreased"
+        }
+      ],
+      "phenotype_label": "Skin hyperextensibility",
+      "phenotype_state": "increased",
+      "phenotype_id": "HP:0000974",
+      "phenotype_relation": "",
+      "phenotype_relation_id": "",
+      "tissue": "skin fibroblast / dermis",
+      "tissue_detail": {
+        "cell_type_label": "skin fibroblast",
+        "cell_type_id": "CL:0002620",
+        "anatomy_label": "dermis",
+        "anatomy_id": "UBERON:0002067"
+      },
+      "evidence": [],
+      "unrouted": false,
+      "raw_yaml": "id: skin_hyperextensibility_route\nname: Skin hyperextensibility pathway\ndescription: Reduced dermal collagen fibril density allows abnormal skin stretching\n  and fragility.\ntarget:\n  id: skin_hyperextensibility\n  preferred_term: Skin hyperextensibility\n  perturbed_state: increased\n  term:\n    id: HP:0000974\n    label: Hyperextensible skin\n  driven_by:\n  - source: dermal_ecm_weakness\n    relation:\n      id: RO:0003303\n      label: causes condition\n    eco:\n      id: ECO:0000305\n      label: curator inference used in manual assertion\n    evidence: []"
+    },
+    {
+      "id": "wound_healing_route:0",
+      "target_id": "delayed_wound_healing",
+      "name": "Delayed wound healing / atrophic scarring pathway",
+      "description": "Impaired collagen deposition in wounds slows re-epithelialization and produces thin, papyraceous (cigarette-paper) scars.",
+      "intermediate_ids": [
+        "inter:wound_healing_route:0"
+      ],
+      "intermediates": [
+        {
+          "name": "Dermal repair defect",
+          "gene": "",
+          "process": "wound healing",
+          "state": "decreased"
+        }
+      ],
+      "phenotype_label": "Delayed wound healing",
+      "phenotype_state": "increased",
+      "phenotype_id": "HP:0001058",
+      "phenotype_relation": "",
+      "phenotype_relation_id": "",
+      "tissue": "skin fibroblast / dermis",
+      "tissue_detail": {
+        "cell_type_label": "skin fibroblast",
+        "cell_type_id": "CL:0002620",
+        "anatomy_label": "dermis",
+        "anatomy_id": "UBERON:0002067"
+      },
+      "evidence": [],
+      "unrouted": false,
+      "raw_yaml": "id: wound_healing_route\nname: Delayed wound healing / atrophic scarring pathway\ndescription: Impaired collagen deposition in wounds slows re-epithelialization and\n  produces thin, papyraceous (cigarette-paper) scars.\ntarget:\n  id: delayed_wound_healing\n  preferred_term: Delayed wound healing\n  perturbed_state: increased\n  term:\n    id: HP:0001058\n    label: Poor wound healing\n  driven_by:\n  - source: dermal_repair_defect\n    relation:\n      id: RO:0003303\n      label: causes condition\n    eco:\n      id: ECO:0000305\n      label: curator inference used in manual assertion\n    evidence: []"
+    },
+    {
+      "id": "wound_healing_route:1",
+      "target_id": "atrophic_scars",
+      "name": "Delayed wound healing / atrophic scarring pathway",
+      "description": "Impaired collagen deposition in wounds slows re-epithelialization and produces thin, papyraceous (cigarette-paper) scars.",
+      "intermediate_ids": [
+        "inter:wound_healing_route:0"
+      ],
+      "intermediates": [
+        {
+          "name": "Dermal repair defect",
+          "gene": "",
+          "process": "wound healing",
+          "state": "decreased"
+        }
+      ],
+      "phenotype_label": "Atrophic scars",
+      "phenotype_state": "increased",
+      "phenotype_id": "HP:0001075",
+      "phenotype_relation": "",
+      "phenotype_relation_id": "",
+      "tissue": "skin fibroblast / dermis",
+      "tissue_detail": {
+        "cell_type_label": "skin fibroblast",
+        "cell_type_id": "CL:0002620",
+        "anatomy_label": "dermis",
+        "anatomy_id": "UBERON:0002067"
+      },
+      "evidence": [],
+      "unrouted": false,
+      "raw_yaml": "id: wound_healing_route\nname: Delayed wound healing / atrophic scarring pathway\ndescription: Impaired collagen deposition in wounds slows re-epithelialization and\n  produces thin, papyraceous (cigarette-paper) scars.\ntarget:\n  id: atrophic_scars\n  preferred_term: Atrophic scars\n  perturbed_state: increased\n  term:\n    id: HP:0001075\n    label: Atrophic scars\n  driven_by:\n  - source: dermal_repair_defect\n    relation:\n      id: RO:0003303\n      label: causes condition\n    eco:\n      id: ECO:0000305\n      label: curator inference used in manual assertion\n    evidence: []"
+    },
+    {
+      "id": "easy_bruising_route",
+      "target_id": "easy_bruising",
+      "name": "Easy bruising pathway",
+      "description": "Perivascular connective tissue fragility increases capillary vulnerability to mechanical stress.",
+      "intermediate_ids": [
+        "inter:easy_bruising_route:0"
+      ],
+      "intermediates": [
+        {
+          "name": "Perivascular ECM weakness",
+          "gene": "",
+          "process": "extracellular matrix organization",
+          "state": "decreased"
+        }
+      ],
+      "phenotype_label": "Easy bruising",
+      "phenotype_state": "increased",
+      "phenotype_id": "HP:0000978",
+      "phenotype_relation": "",
+      "phenotype_relation_id": "",
+      "tissue": "blood vasculature",
+      "tissue_detail": {
+        "anatomy_label": "blood vasculature",
+        "anatomy_id": "UBERON:0004537"
+      },
+      "evidence": [],
+      "unrouted": false,
+      "raw_yaml": "id: easy_bruising_route\nname: Easy bruising pathway\ndescription: Perivascular connective tissue fragility increases capillary vulnerability\n  to mechanical stress.\ntarget:\n  id: easy_bruising\n  preferred_term: Easy bruising\n  perturbed_state: increased\n  term:\n    id: HP:0000978\n    label: Bruising susceptibility\n  driven_by:\n  - source: perivascular_ecm_weakness\n    relation:\n      id: RO:0003303\n      label: causes condition\n    eco:\n      id: ECO:0000305\n      label: curator inference used in manual assertion\n    evidence: []"
+    },
+    {
+      "id": "mvp_route",
+      "target_id": "mitral_valve_prolapse",
+      "name": "Mitral valve prolapse pathway",
+      "description": "Valve leaflet connective tissue laxity from reduced collagen fibrils predisposes to mitral valve prolapse.",
+      "intermediate_ids": [
+        "inter:mvp_route:0"
+      ],
+      "intermediates": [
+        {
+          "name": "Valve leaflet ECM weakness",
+          "gene": "",
+          "process": "extracellular matrix organization",
+          "state": "decreased"
+        }
+      ],
+      "phenotype_label": "Mitral valve prolapse",
+      "phenotype_state": "increased",
+      "phenotype_id": "HP:0001634",
+      "phenotype_relation": "",
+      "phenotype_relation_id": "",
+      "tissue": "mitral valve",
+      "tissue_detail": {
+        "anatomy_label": "mitral valve",
+        "anatomy_id": "UBERON:0002135"
+      },
+      "evidence": [],
+      "unrouted": false,
+      "raw_yaml": "id: mvp_route\nname: Mitral valve prolapse pathway\ndescription: Valve leaflet connective tissue laxity from reduced collagen fibrils\n  predisposes to mitral valve prolapse.\ntarget:\n  id: mitral_valve_prolapse\n  preferred_term: Mitral valve prolapse\n  perturbed_state: increased\n  term:\n    id: HP:0001634\n    label: Mitral valve prolapse\n  driven_by:\n  - source: valve_ecm_weakness\n    relation:\n      id: RO:0003303\n      label: causes condition\n    eco:\n      id: ECO:0000305\n      label: curator inference used in manual assertion\n    evidence: []"
+    },
+    {
+      "id": "joint_dislocation_route",
+      "target_id": "recurrent_joint_dislocations",
+      "name": "Recurrent joint dislocation pathway",
+      "description": "Chronic ligamentous laxity from ECM weakness leads to recurrent subluxations and dislocations, distinct from hypermobility in severity.",
+      "intermediate_ids": [
+        "inter:joint_dislocation_route:0"
+      ],
+      "intermediates": [
+        {
+          "name": "Severe ligamentous laxity",
+          "gene": "",
+          "process": "extracellular matrix organization",
+          "state": "decreased"
+        }
+      ],
+      "phenotype_label": "Recurrent joint dislocations",
+      "phenotype_state": "increased",
+      "phenotype_id": "HP:0001373",
+      "phenotype_relation": "",
+      "phenotype_relation_id": "",
+      "tissue": "fibroblast / ligament",
+      "tissue_detail": {
+        "cell_type_label": "fibroblast",
+        "cell_type_id": "CL:0000057",
+        "anatomy_label": "ligament",
+        "anatomy_id": "UBERON:0000211"
+      },
+      "evidence": [],
+      "unrouted": false,
+      "raw_yaml": "id: joint_dislocation_route\nname: Recurrent joint dislocation pathway\ndescription: Chronic ligamentous laxity from ECM weakness leads to recurrent subluxations\n  and dislocations, distinct from hypermobility in severity.\ntarget:\n  id: recurrent_joint_dislocations\n  preferred_term: Recurrent joint dislocations\n  perturbed_state: increased\n  term:\n    id: HP:0001373\n    label: Joint dislocation\n  driven_by:\n  - source: ligament_ecm_weakness_severe\n    relation:\n      id: RO:0003303\n      label: causes condition\n    eco:\n      id: ECO:0000305\n      label: curator inference used in manual assertion\n    evidence: []"
+    },
+    {
+      "id": "myopia_route",
+      "target_id": "myopia",
+      "name": "Myopia pathway",
+      "description": "Scleral connective tissue weakness may increase axial elongation of the eye.",
+      "intermediate_ids": [
+        "inter:myopia_route:0"
+      ],
+      "intermediates": [
+        {
+          "name": "Scleral ECM weakness",
+          "gene": "",
+          "process": "extracellular matrix organization",
+          "state": "decreased"
+        }
+      ],
+      "phenotype_label": "Myopia",
+      "phenotype_state": "increased",
+      "phenotype_id": "HP:0000545",
+      "phenotype_relation": "",
+      "phenotype_relation_id": "",
+      "tissue": "sclera",
+      "tissue_detail": {
+        "anatomy_label": "sclera",
+        "anatomy_id": "UBERON:0001773"
+      },
+      "evidence": [],
+      "unrouted": false,
+      "raw_yaml": "id: myopia_route\nname: Myopia pathway\ndescription: Scleral connective tissue weakness may increase axial elongation of the\n  eye.\ntarget:\n  id: myopia\n  preferred_term: Myopia\n  perturbed_state: increased\n  term:\n    id: HP:0000545\n    label: Myopia\n  driven_by:\n  - source: scleral_ecm_weakness\n    relation:\n      id: RO:0003303\n      label: causes condition\n    eco:\n      id: ECO:0000305\n      label: curator inference used in manual assertion\n    evidence: []"
+    }
+  ],
+  "intermediate_nodes": [
+    {
+      "id": "inter:joint_hypermobility_route:0",
+      "name": "Ligamentous ECM weakness",
+      "gene": "",
+      "hgnc_id": "",
+      "process": "extracellular matrix organization",
+      "process_id": "GO:0030198",
+      "state": "decreased",
+      "short_label": "Ligamentous ECM weakness",
+      "type": "process",
+      "route_id": "joint_hypermobility_route",
+      "route_name": "Joint hypermobility pathway",
+      "driven_by": [
+        "collagen_v_assembly:heterotypic_fibril_formation"
+      ],
+      "driven_by_labels": [
+        "Type I/V heterotypic fibril"
+      ],
+      "driven_by_details": [
+        {
+          "source": "collagen_v_assembly:heterotypic_fibril_formation",
+          "relation": "causally upstream of",
+          "relation_id": "RO:0002304",
+          "eco_id": "ECO:0000305",
+          "eco_label": "curator inference used in manual assertion",
+          "evidence": [
+            {
+              "type": "literature",
+              "reference": "PMID:34807421",
+              "snippet": "Currently, musculoskeletal manifestations related to joint hypermobility are perceived as the most prevalent determinants of the quality of life of affected individuals."
+            }
+          ]
+        }
+      ],
+      "tissue": "fibroblast / ligament",
+      "tissue_detail": {
+        "cell_type_label": "fibroblast",
+        "cell_type_id": "CL:0000057",
+        "anatomy_label": "ligament",
+        "anatomy_id": "UBERON:0000211"
+      },
+      "raw_yaml": "id: ligament_ecm_weakness\nname: Ligamentous ECM weakness\nperturbed_state: decreased\ndriven_by:\n- source: collagen_v_assembly:heterotypic_fibril_formation\n  relation:\n    id: RO:0002304\n    label: causally upstream of\n    positive effect: null\n  eco:\n    id: ECO:0000305\n    label: curator inference used in manual assertion\n  evidence:\n  - type: literature\n    reference: PMID:34807421\n    snippet: Currently, musculoskeletal manifestations related to joint hypermobility\n      are perceived as the most prevalent determinants of the quality of life of affected\n      individuals.\nbiological_process:\n  id: GO:0030198\n  label: extracellular matrix organization"
+    },
+    {
+      "id": "inter:skin_hyperextensibility_route:0",
+      "name": "Dermal ECM weakness",
+      "gene": "",
+      "hgnc_id": "",
+      "process": "extracellular matrix organization",
+      "process_id": "GO:0030198",
+      "state": "decreased",
+      "short_label": "Dermal ECM weakness",
+      "type": "process",
+      "route_id": "skin_hyperextensibility_route",
+      "route_name": "Skin hyperextensibility pathway",
+      "driven_by": [
+        "collagen_v_assembly:heterotypic_fibril_formation"
+      ],
+      "driven_by_labels": [
+        "Type I/V heterotypic fibril"
+      ],
+      "driven_by_details": [
+        {
+          "source": "collagen_v_assembly:heterotypic_fibril_formation",
+          "relation": "causally upstream of",
+          "relation_id": "RO:0002304",
+          "eco_id": "ECO:0000305",
+          "eco_label": "curator inference used in manual assertion",
+          "evidence": [
+            {
+              "type": "literature",
+              "reference": "PMID:20847697",
+              "snippet": "Classic Ehlers-Danlos syndrome is a heritable connective tissue disorder characterized by skin hyperextensibility, fragile and soft skin, delayed wound healing with formation of atrophic scars, easy bruising, and generalized joint hypermobility."
+            }
+          ]
+        }
+      ],
+      "tissue": "skin fibroblast / dermis",
+      "tissue_detail": {
+        "cell_type_label": "skin fibroblast",
+        "cell_type_id": "CL:0002620",
+        "anatomy_label": "dermis",
+        "anatomy_id": "UBERON:0002067"
+      },
+      "raw_yaml": "id: dermal_ecm_weakness\nname: Dermal ECM weakness\nperturbed_state: decreased\ndriven_by:\n- source: collagen_v_assembly:heterotypic_fibril_formation\n  relation:\n    id: RO:0002304\n    label: causally upstream of\n    positive effect: null\n  eco:\n    id: ECO:0000305\n    label: curator inference used in manual assertion\n  evidence:\n  - type: literature\n    reference: PMID:20847697\n    snippet: Classic Ehlers-Danlos syndrome is a heritable connective tissue disorder\n      characterized by skin hyperextensibility, fragile and soft skin, delayed wound\n      healing with formation of atrophic scars, easy bruising, and generalized joint\n      hypermobility.\nbiological_process:\n  id: GO:0030198\n  label: extracellular matrix organization"
+    },
+    {
+      "id": "inter:wound_healing_route:0",
+      "name": "Dermal repair defect",
+      "gene": "",
+      "hgnc_id": "",
+      "process": "wound healing",
+      "process_id": "GO:0042060",
+      "state": "decreased",
+      "short_label": "Dermal repair defect",
+      "type": "process",
+      "route_id": "wound_healing_route",
+      "route_name": "Delayed wound healing / atrophic scarring pathway",
+      "driven_by": [
+        "collagen_v_assembly:heterotypic_fibril_formation"
+      ],
+      "driven_by_labels": [
+        "Type I/V heterotypic fibril"
+      ],
+      "driven_by_details": [
+        {
+          "source": "collagen_v_assembly:heterotypic_fibril_formation",
+          "relation": "causally upstream of",
+          "relation_id": "RO:0002304",
+          "eco_id": "ECO:0000305",
+          "eco_label": "curator inference used in manual assertion",
+          "evidence": [
+            {
+              "type": "literature",
+              "reference": "PMID:20847697",
+              "snippet": "Classic Ehlers-Danlos syndrome is a heritable connective tissue disorder characterized by skin hyperextensibility, fragile and soft skin, delayed wound healing with formation of atrophic scars, easy bruising, and generalized joint hypermobility."
+            }
+          ]
+        }
+      ],
+      "tissue": "skin fibroblast / dermis",
+      "tissue_detail": {
+        "cell_type_label": "skin fibroblast",
+        "cell_type_id": "CL:0002620",
+        "anatomy_label": "dermis",
+        "anatomy_id": "UBERON:0002067"
+      },
+      "raw_yaml": "id: dermal_repair_defect\nname: Dermal repair defect\nperturbed_state: decreased\ndriven_by:\n- source: collagen_v_assembly:heterotypic_fibril_formation\n  relation:\n    id: RO:0002304\n    label: causally upstream of\n    positive effect: null\n  eco:\n    id: ECO:0000305\n    label: curator inference used in manual assertion\n  evidence:\n  - type: literature\n    reference: PMID:20847697\n    snippet: Classic Ehlers-Danlos syndrome is a heritable connective tissue disorder\n      characterized by skin hyperextensibility, fragile and soft skin, delayed wound\n      healing with formation of atrophic scars, easy bruising, and generalized joint\n      hypermobility.\nbiological_process:\n  id: GO:0042060\n  label: wound healing"
+    },
+    {
+      "id": "inter:easy_bruising_route:0",
+      "name": "Perivascular ECM weakness",
+      "gene": "",
+      "hgnc_id": "",
+      "process": "extracellular matrix organization",
+      "process_id": "GO:0030198",
+      "state": "decreased",
+      "short_label": "Perivascular ECM weakness",
+      "type": "process",
+      "route_id": "easy_bruising_route",
+      "route_name": "Easy bruising pathway",
+      "driven_by": [
+        "collagen_v_assembly:heterotypic_fibril_formation"
+      ],
+      "driven_by_labels": [
+        "Type I/V heterotypic fibril"
+      ],
+      "driven_by_details": [
+        {
+          "source": "collagen_v_assembly:heterotypic_fibril_formation",
+          "relation": "causally upstream of",
+          "relation_id": "RO:0002304",
+          "eco_id": "ECO:0000305",
+          "eco_label": "curator inference used in manual assertion",
+          "evidence": [
+            {
+              "type": "literature",
+              "reference": "PMID:19592142",
+              "snippet": "The bleeding tendency is most prominent in the Ehlers-Danlos syndrome (EDS), a heterogeneous group of HDCT sharing clinical manifestations of fragility in skin, ligaments, blood vessels and internal organs."
+            }
+          ]
+        }
+      ],
+      "tissue": "blood vasculature",
+      "tissue_detail": {
+        "anatomy_label": "blood vasculature",
+        "anatomy_id": "UBERON:0004537"
+      },
+      "raw_yaml": "id: perivascular_ecm_weakness\nname: Perivascular ECM weakness\nperturbed_state: decreased\ndriven_by:\n- source: collagen_v_assembly:heterotypic_fibril_formation\n  relation:\n    id: RO:0002304\n    label: causally upstream of\n    positive effect: null\n  eco:\n    id: ECO:0000305\n    label: curator inference used in manual assertion\n  evidence:\n  - type: literature\n    reference: PMID:19592142\n    snippet: The bleeding tendency is most prominent in the Ehlers-Danlos syndrome\n      (EDS), a heterogeneous group of HDCT sharing clinical manifestations of fragility\n      in skin, ligaments, blood vessels and internal organs.\nbiological_process:\n  id: GO:0030198\n  label: extracellular matrix organization"
+    },
+    {
+      "id": "inter:mvp_route:0",
+      "name": "Valve leaflet ECM weakness",
+      "gene": "",
+      "hgnc_id": "",
+      "process": "extracellular matrix organization",
+      "process_id": "GO:0030198",
+      "state": "decreased",
+      "short_label": "Valve leaflet ECM weakness",
+      "type": "process",
+      "route_id": "mvp_route",
+      "route_name": "Mitral valve prolapse pathway",
+      "driven_by": [
+        "collagen_v_assembly:heterotypic_fibril_formation"
+      ],
+      "driven_by_labels": [
+        "Type I/V heterotypic fibril"
+      ],
+      "driven_by_details": [
+        {
+          "source": "collagen_v_assembly:heterotypic_fibril_formation",
+          "relation": "causally upstream of",
+          "relation_id": "RO:0002304",
+          "eco_id": "ECO:0000305",
+          "eco_label": "curator inference used in manual assertion",
+          "evidence": []
+        }
+      ],
+      "tissue": "mitral valve",
+      "tissue_detail": {
+        "anatomy_label": "mitral valve",
+        "anatomy_id": "UBERON:0002135"
+      },
+      "raw_yaml": "id: valve_ecm_weakness\nname: Valve leaflet ECM weakness\nperturbed_state: decreased\ndriven_by:\n- source: collagen_v_assembly:heterotypic_fibril_formation\n  relation:\n    id: RO:0002304\n    label: causally upstream of\n    positive effect: null\n  eco:\n    id: ECO:0000305\n    label: curator inference used in manual assertion\n  evidence: []\nbiological_process:\n  id: GO:0030198\n  label: extracellular matrix organization"
+    },
+    {
+      "id": "inter:joint_dislocation_route:0",
+      "name": "Severe ligamentous laxity",
+      "gene": "",
+      "hgnc_id": "",
+      "process": "extracellular matrix organization",
+      "process_id": "GO:0030198",
+      "state": "decreased",
+      "short_label": "Severe ligamentous laxity",
+      "type": "process",
+      "route_id": "joint_dislocation_route",
+      "route_name": "Recurrent joint dislocation pathway",
+      "driven_by": [
+        "collagen_v_assembly:heterotypic_fibril_formation"
+      ],
+      "driven_by_labels": [
+        "Type I/V heterotypic fibril"
+      ],
+      "driven_by_details": [
+        {
+          "source": "collagen_v_assembly:heterotypic_fibril_formation",
+          "relation": "causally upstream of",
+          "relation_id": "RO:0002304",
+          "eco_id": "ECO:0000305",
+          "eco_label": "curator inference used in manual assertion",
+          "evidence": [
+            {
+              "type": "literature",
+              "reference": "PMID:20847697",
+              "snippet": "Classic Ehlers-Danlos syndrome is a heritable connective tissue disorder characterized by skin hyperextensibility, fragile and soft skin, delayed wound healing with formation of atrophic scars, easy bruising, and generalized joint hypermobility."
+            }
+          ]
+        }
+      ],
+      "tissue": "fibroblast / ligament",
+      "tissue_detail": {
+        "cell_type_label": "fibroblast",
+        "cell_type_id": "CL:0000057",
+        "anatomy_label": "ligament",
+        "anatomy_id": "UBERON:0000211"
+      },
+      "raw_yaml": "id: ligament_ecm_weakness_severe\nname: Severe ligamentous laxity\nperturbed_state: decreased\ndriven_by:\n- source: collagen_v_assembly:heterotypic_fibril_formation\n  relation:\n    id: RO:0002304\n    label: causally upstream of\n    positive effect: null\n  eco:\n    id: ECO:0000305\n    label: curator inference used in manual assertion\n  evidence:\n  - type: literature\n    reference: PMID:20847697\n    snippet: Classic Ehlers-Danlos syndrome is a heritable connective tissue disorder\n      characterized by skin hyperextensibility, fragile and soft skin, delayed wound\n      healing with formation of atrophic scars, easy bruising, and generalized joint\n      hypermobility.\nbiological_process:\n  id: GO:0030198\n  label: extracellular matrix organization"
+    },
+    {
+      "id": "inter:myopia_route:0",
+      "name": "Scleral ECM weakness",
+      "gene": "",
+      "hgnc_id": "",
+      "process": "extracellular matrix organization",
+      "process_id": "GO:0030198",
+      "state": "decreased",
+      "short_label": "Scleral ECM weakness",
+      "type": "process",
+      "route_id": "myopia_route",
+      "route_name": "Myopia pathway",
+      "driven_by": [
+        "collagen_v_assembly:heterotypic_fibril_formation"
+      ],
+      "driven_by_labels": [
+        "Type I/V heterotypic fibril"
+      ],
+      "driven_by_details": [
+        {
+          "source": "collagen_v_assembly:heterotypic_fibril_formation",
+          "relation": "causally upstream of",
+          "relation_id": "RO:0002304",
+          "eco_id": "ECO:0000305",
+          "eco_label": "curator inference used in manual assertion",
+          "evidence": []
+        }
+      ],
+      "tissue": "sclera",
+      "tissue_detail": {
+        "anatomy_label": "sclera",
+        "anatomy_id": "UBERON:0001773"
+      },
+      "raw_yaml": "id: scleral_ecm_weakness\nname: Scleral ECM weakness\nperturbed_state: decreased\ndriven_by:\n- source: collagen_v_assembly:heterotypic_fibril_formation\n  relation:\n    id: RO:0002304\n    label: causally upstream of\n    positive effect: null\n  eco:\n    id: ECO:0000305\n    label: curator inference used in manual assertion\n  evidence: []\nbiological_process:\n  id: GO:0030198\n  label: extracellular matrix organization"
+    }
+  ],
+  "intermediate_edges": [
+    {
+      "source": "collagen_v_assembly:heterotypic_fibril_formation",
+      "target": "inter:joint_hypermobility_route:0",
+      "edge_type": "activity_to_intermediate",
+      "source_label": "Type I/V heterotypic fibril",
+      "target_label": "Ligamentous ECM weakness",
+      "relation": "causally upstream of",
+      "relation_id": "RO:0002304",
+      "eco_id": "ECO:0000305",
+      "eco_label": "curator inference used in manual assertion",
+      "evidence": [
+        {
+          "type": "literature",
+          "reference": "PMID:34807421",
+          "snippet": "Currently, musculoskeletal manifestations related to joint hypermobility are perceived as the most prevalent determinants of the quality of life of affected individuals."
+        }
+      ],
+      "raw_yaml": "source: collagen_v_assembly:heterotypic_fibril_formation\ntarget: inter:joint_hypermobility_route:0\nrelation:\n  id: RO:0002304\n  label: causally upstream of\neco:\n  id: ECO:0000305\n  label: curator inference used in manual assertion\nevidence:\n- type: literature\n  reference: PMID:34807421\n  snippet: Currently, musculoskeletal manifestations related to joint hypermobility\n    are perceived as the most prevalent determinants of the quality of life of affected\n    individuals."
+    },
+    {
+      "source": "inter:joint_hypermobility_route:0",
+      "target": "pheno:joint_hypermobility_route",
+      "edge_type": "intermediate_to_phenotype",
+      "source_label": "Ligamentous ECM weakness",
+      "target_label": "Joint hypermobility",
+      "relation": "causes condition",
+      "relation_id": "RO:0003303",
+      "eco_id": "ECO:0000305",
+      "eco_label": "curator inference used in manual assertion",
+      "evidence": [],
+      "raw_yaml": "source: inter:joint_hypermobility_route:0\ntarget: pheno:joint_hypermobility_route\nrelation:\n  id: RO:0003303\n  label: causes condition\neco:\n  id: ECO:0000305\n  label: curator inference used in manual assertion"
+    },
+    {
+      "source": "collagen_v_assembly:heterotypic_fibril_formation",
+      "target": "inter:skin_hyperextensibility_route:0",
+      "edge_type": "activity_to_intermediate",
+      "source_label": "Type I/V heterotypic fibril",
+      "target_label": "Dermal ECM weakness",
+      "relation": "causally upstream of",
+      "relation_id": "RO:0002304",
+      "eco_id": "ECO:0000305",
+      "eco_label": "curator inference used in manual assertion",
+      "evidence": [
+        {
+          "type": "literature",
+          "reference": "PMID:20847697",
+          "snippet": "Classic Ehlers-Danlos syndrome is a heritable connective tissue disorder characterized by skin hyperextensibility, fragile and soft skin, delayed wound healing with formation of atrophic scars, easy bruising, and generalized joint hypermobility."
+        }
+      ],
+      "raw_yaml": "source: collagen_v_assembly:heterotypic_fibril_formation\ntarget: inter:skin_hyperextensibility_route:0\nrelation:\n  id: RO:0002304\n  label: causally upstream of\neco:\n  id: ECO:0000305\n  label: curator inference used in manual assertion\nevidence:\n- type: literature\n  reference: PMID:20847697\n  snippet: Classic Ehlers-Danlos syndrome is a heritable connective tissue disorder\n    characterized by skin hyperextensibility, fragile and soft skin, delayed wound\n    healing with formation of atrophic scars, easy bruising, and generalized joint\n    hypermobility."
+    },
+    {
+      "source": "inter:skin_hyperextensibility_route:0",
+      "target": "pheno:skin_hyperextensibility_route",
+      "edge_type": "intermediate_to_phenotype",
+      "source_label": "Dermal ECM weakness",
+      "target_label": "Skin hyperextensibility",
+      "relation": "causes condition",
+      "relation_id": "RO:0003303",
+      "eco_id": "ECO:0000305",
+      "eco_label": "curator inference used in manual assertion",
+      "evidence": [],
+      "raw_yaml": "source: inter:skin_hyperextensibility_route:0\ntarget: pheno:skin_hyperextensibility_route\nrelation:\n  id: RO:0003303\n  label: causes condition\neco:\n  id: ECO:0000305\n  label: curator inference used in manual assertion"
+    },
+    {
+      "source": "collagen_v_assembly:heterotypic_fibril_formation",
+      "target": "inter:wound_healing_route:0",
+      "edge_type": "activity_to_intermediate",
+      "source_label": "Type I/V heterotypic fibril",
+      "target_label": "Dermal repair defect",
+      "relation": "causally upstream of",
+      "relation_id": "RO:0002304",
+      "eco_id": "ECO:0000305",
+      "eco_label": "curator inference used in manual assertion",
+      "evidence": [
+        {
+          "type": "literature",
+          "reference": "PMID:20847697",
+          "snippet": "Classic Ehlers-Danlos syndrome is a heritable connective tissue disorder characterized by skin hyperextensibility, fragile and soft skin, delayed wound healing with formation of atrophic scars, easy bruising, and generalized joint hypermobility."
+        }
+      ],
+      "raw_yaml": "source: collagen_v_assembly:heterotypic_fibril_formation\ntarget: inter:wound_healing_route:0\nrelation:\n  id: RO:0002304\n  label: causally upstream of\neco:\n  id: ECO:0000305\n  label: curator inference used in manual assertion\nevidence:\n- type: literature\n  reference: PMID:20847697\n  snippet: Classic Ehlers-Danlos syndrome is a heritable connective tissue disorder\n    characterized by skin hyperextensibility, fragile and soft skin, delayed wound\n    healing with formation of atrophic scars, easy bruising, and generalized joint\n    hypermobility."
+    },
+    {
+      "source": "inter:wound_healing_route:0",
+      "target": "pheno:wound_healing_route:0",
+      "edge_type": "intermediate_to_phenotype",
+      "source_label": "Dermal repair defect",
+      "target_label": "Delayed wound healing",
+      "relation": "causes condition",
+      "relation_id": "RO:0003303",
+      "eco_id": "ECO:0000305",
+      "eco_label": "curator inference used in manual assertion",
+      "evidence": [],
+      "raw_yaml": "source: inter:wound_healing_route:0\ntarget: pheno:wound_healing_route:0\nrelation:\n  id: RO:0003303\n  label: causes condition\neco:\n  id: ECO:0000305\n  label: curator inference used in manual assertion"
+    },
+    {
+      "source": "inter:wound_healing_route:0",
+      "target": "pheno:wound_healing_route:1",
+      "edge_type": "intermediate_to_phenotype",
+      "source_label": "Dermal repair defect",
+      "target_label": "Atrophic scars",
+      "relation": "causes condition",
+      "relation_id": "RO:0003303",
+      "eco_id": "ECO:0000305",
+      "eco_label": "curator inference used in manual assertion",
+      "evidence": [],
+      "raw_yaml": "source: inter:wound_healing_route:0\ntarget: pheno:wound_healing_route:1\nrelation:\n  id: RO:0003303\n  label: causes condition\neco:\n  id: ECO:0000305\n  label: curator inference used in manual assertion"
+    },
+    {
+      "source": "collagen_v_assembly:heterotypic_fibril_formation",
+      "target": "inter:easy_bruising_route:0",
+      "edge_type": "activity_to_intermediate",
+      "source_label": "Type I/V heterotypic fibril",
+      "target_label": "Perivascular ECM weakness",
+      "relation": "causally upstream of",
+      "relation_id": "RO:0002304",
+      "eco_id": "ECO:0000305",
+      "eco_label": "curator inference used in manual assertion",
+      "evidence": [
+        {
+          "type": "literature",
+          "reference": "PMID:19592142",
+          "snippet": "The bleeding tendency is most prominent in the Ehlers-Danlos syndrome (EDS), a heterogeneous group of HDCT sharing clinical manifestations of fragility in skin, ligaments, blood vessels and internal organs."
+        }
+      ],
+      "raw_yaml": "source: collagen_v_assembly:heterotypic_fibril_formation\ntarget: inter:easy_bruising_route:0\nrelation:\n  id: RO:0002304\n  label: causally upstream of\neco:\n  id: ECO:0000305\n  label: curator inference used in manual assertion\nevidence:\n- type: literature\n  reference: PMID:19592142\n  snippet: The bleeding tendency is most prominent in the Ehlers-Danlos syndrome (EDS),\n    a heterogeneous group of HDCT sharing clinical manifestations of fragility in\n    skin, ligaments, blood vessels and internal organs."
+    },
+    {
+      "source": "inter:easy_bruising_route:0",
+      "target": "pheno:easy_bruising_route",
+      "edge_type": "intermediate_to_phenotype",
+      "source_label": "Perivascular ECM weakness",
+      "target_label": "Easy bruising",
+      "relation": "causes condition",
+      "relation_id": "RO:0003303",
+      "eco_id": "ECO:0000305",
+      "eco_label": "curator inference used in manual assertion",
+      "evidence": [],
+      "raw_yaml": "source: inter:easy_bruising_route:0\ntarget: pheno:easy_bruising_route\nrelation:\n  id: RO:0003303\n  label: causes condition\neco:\n  id: ECO:0000305\n  label: curator inference used in manual assertion"
+    },
+    {
+      "source": "collagen_v_assembly:heterotypic_fibril_formation",
+      "target": "inter:mvp_route:0",
+      "edge_type": "activity_to_intermediate",
+      "source_label": "Type I/V heterotypic fibril",
+      "target_label": "Valve leaflet ECM weakness",
+      "relation": "causally upstream of",
+      "relation_id": "RO:0002304",
+      "eco_id": "ECO:0000305",
+      "eco_label": "curator inference used in manual assertion",
+      "evidence": [],
+      "raw_yaml": "source: collagen_v_assembly:heterotypic_fibril_formation\ntarget: inter:mvp_route:0\nrelation:\n  id: RO:0002304\n  label: causally upstream of\neco:\n  id: ECO:0000305\n  label: curator inference used in manual assertion"
+    },
+    {
+      "source": "inter:mvp_route:0",
+      "target": "pheno:mvp_route",
+      "edge_type": "intermediate_to_phenotype",
+      "source_label": "Valve leaflet ECM weakness",
+      "target_label": "Mitral valve prolapse",
+      "relation": "causes condition",
+      "relation_id": "RO:0003303",
+      "eco_id": "ECO:0000305",
+      "eco_label": "curator inference used in manual assertion",
+      "evidence": [],
+      "raw_yaml": "source: inter:mvp_route:0\ntarget: pheno:mvp_route\nrelation:\n  id: RO:0003303\n  label: causes condition\neco:\n  id: ECO:0000305\n  label: curator inference used in manual assertion"
+    },
+    {
+      "source": "collagen_v_assembly:heterotypic_fibril_formation",
+      "target": "inter:joint_dislocation_route:0",
+      "edge_type": "activity_to_intermediate",
+      "source_label": "Type I/V heterotypic fibril",
+      "target_label": "Severe ligamentous laxity",
+      "relation": "causally upstream of",
+      "relation_id": "RO:0002304",
+      "eco_id": "ECO:0000305",
+      "eco_label": "curator inference used in manual assertion",
+      "evidence": [
+        {
+          "type": "literature",
+          "reference": "PMID:20847697",
+          "snippet": "Classic Ehlers-Danlos syndrome is a heritable connective tissue disorder characterized by skin hyperextensibility, fragile and soft skin, delayed wound healing with formation of atrophic scars, easy bruising, and generalized joint hypermobility."
+        }
+      ],
+      "raw_yaml": "source: collagen_v_assembly:heterotypic_fibril_formation\ntarget: inter:joint_dislocation_route:0\nrelation:\n  id: RO:0002304\n  label: causally upstream of\neco:\n  id: ECO:0000305\n  label: curator inference used in manual assertion\nevidence:\n- type: literature\n  reference: PMID:20847697\n  snippet: Classic Ehlers-Danlos syndrome is a heritable connective tissue disorder\n    characterized by skin hyperextensibility, fragile and soft skin, delayed wound\n    healing with formation of atrophic scars, easy bruising, and generalized joint\n    hypermobility."
+    },
+    {
+      "source": "inter:joint_dislocation_route:0",
+      "target": "pheno:joint_dislocation_route",
+      "edge_type": "intermediate_to_phenotype",
+      "source_label": "Severe ligamentous laxity",
+      "target_label": "Recurrent joint dislocations",
+      "relation": "causes condition",
+      "relation_id": "RO:0003303",
+      "eco_id": "ECO:0000305",
+      "eco_label": "curator inference used in manual assertion",
+      "evidence": [],
+      "raw_yaml": "source: inter:joint_dislocation_route:0\ntarget: pheno:joint_dislocation_route\nrelation:\n  id: RO:0003303\n  label: causes condition\neco:\n  id: ECO:0000305\n  label: curator inference used in manual assertion"
+    },
+    {
+      "source": "collagen_v_assembly:heterotypic_fibril_formation",
+      "target": "inter:myopia_route:0",
+      "edge_type": "activity_to_intermediate",
+      "source_label": "Type I/V heterotypic fibril",
+      "target_label": "Scleral ECM weakness",
+      "relation": "causally upstream of",
+      "relation_id": "RO:0002304",
+      "eco_id": "ECO:0000305",
+      "eco_label": "curator inference used in manual assertion",
+      "evidence": [],
+      "raw_yaml": "source: collagen_v_assembly:heterotypic_fibril_formation\ntarget: inter:myopia_route:0\nrelation:\n  id: RO:0002304\n  label: causally upstream of\neco:\n  id: ECO:0000305\n  label: curator inference used in manual assertion"
+    },
+    {
+      "source": "inter:myopia_route:0",
+      "target": "pheno:myopia_route",
+      "edge_type": "intermediate_to_phenotype",
+      "source_label": "Scleral ECM weakness",
+      "target_label": "Myopia",
+      "relation": "causes condition",
+      "relation_id": "RO:0003303",
+      "eco_id": "ECO:0000305",
+      "eco_label": "curator inference used in manual assertion",
+      "evidence": [],
+      "raw_yaml": "source: inter:myopia_route:0\ntarget: pheno:myopia_route\nrelation:\n  id: RO:0003303\n  label: causes condition\neco:\n  id: ECO:0000305\n  label: curator inference used in manual assertion"
+    }
+  ],
+  "disease_node": {
+    "id": "disease:ehlers_danlos_col5a1",
+    "name": "Ehlers-Danlos Syndrome, COL5A1-related",
+    "term_id": "MONDO:0007522",
+    "term_label": "Ehlers-Danlos syndrome, classic type"
+  },
+  "phenotype_disease_edges": [
+    {
+      "source": "pheno:joint_hypermobility_route",
+      "target": "disease:ehlers_danlos_col5a1",
+      "phenotype_label": "Joint hypermobility",
+      "relation": "has phenotype",
+      "relation_id": "RO:0002200",
+      "eco_id": "ECO:0000305",
+      "eco_label": "curator inference used in manual assertion",
+      "evidence": [],
+      "raw_yaml": "phenotype: joint_hypermobility\nrelation:\n  id: RO:0002200\n  label: has phenotype\neco:\n  id: ECO:0000305\n  label: curator inference used in manual assertion"
+    },
+    {
+      "source": "pheno:skin_hyperextensibility_route",
+      "target": "disease:ehlers_danlos_col5a1",
+      "phenotype_label": "Skin hyperextensibility",
+      "relation": "has phenotype",
+      "relation_id": "RO:0002200",
+      "eco_id": "ECO:0000305",
+      "eco_label": "curator inference used in manual assertion",
+      "evidence": [],
+      "raw_yaml": "phenotype: skin_hyperextensibility\nrelation:\n  id: RO:0002200\n  label: has phenotype\neco:\n  id: ECO:0000305\n  label: curator inference used in manual assertion"
+    },
+    {
+      "source": "pheno:wound_healing_route:0",
+      "target": "disease:ehlers_danlos_col5a1",
+      "phenotype_label": "Delayed wound healing",
+      "relation": "has phenotype",
+      "relation_id": "RO:0002200",
+      "eco_id": "ECO:0000305",
+      "eco_label": "curator inference used in manual assertion",
+      "evidence": [],
+      "raw_yaml": "phenotype: delayed_wound_healing\nrelation:\n  id: RO:0002200\n  label: has phenotype\neco:\n  id: ECO:0000305\n  label: curator inference used in manual assertion"
+    },
+    {
+      "source": "pheno:wound_healing_route:1",
+      "target": "disease:ehlers_danlos_col5a1",
+      "phenotype_label": "Atrophic scars",
+      "relation": "has phenotype",
+      "relation_id": "RO:0002200",
+      "eco_id": "ECO:0000305",
+      "eco_label": "curator inference used in manual assertion",
+      "evidence": [],
+      "raw_yaml": "phenotype: atrophic_scars\nrelation:\n  id: RO:0002200\n  label: has phenotype\neco:\n  id: ECO:0000305\n  label: curator inference used in manual assertion"
+    },
+    {
+      "source": "pheno:easy_bruising_route",
+      "target": "disease:ehlers_danlos_col5a1",
+      "phenotype_label": "Easy bruising",
+      "relation": "has phenotype",
+      "relation_id": "RO:0002200",
+      "eco_id": "ECO:0000305",
+      "eco_label": "curator inference used in manual assertion",
+      "evidence": [],
+      "raw_yaml": "phenotype: easy_bruising\nrelation:\n  id: RO:0002200\n  label: has phenotype\neco:\n  id: ECO:0000305\n  label: curator inference used in manual assertion"
+    },
+    {
+      "source": "pheno:mvp_route",
+      "target": "disease:ehlers_danlos_col5a1",
+      "phenotype_label": "Mitral valve prolapse",
+      "relation": "has phenotype",
+      "relation_id": "RO:0002200",
+      "eco_id": "ECO:0000305",
+      "eco_label": "curator inference used in manual assertion",
+      "evidence": [],
+      "raw_yaml": "phenotype: mitral_valve_prolapse\nrelation:\n  id: RO:0002200\n  label: has phenotype\neco:\n  id: ECO:0000305\n  label: curator inference used in manual assertion"
+    },
+    {
+      "source": "pheno:joint_dislocation_route",
+      "target": "disease:ehlers_danlos_col5a1",
+      "phenotype_label": "Recurrent joint dislocations",
+      "relation": "has phenotype",
+      "relation_id": "RO:0002200",
+      "eco_id": "ECO:0000305",
+      "eco_label": "curator inference used in manual assertion",
+      "evidence": [],
+      "raw_yaml": "phenotype: recurrent_joint_dislocations\nrelation:\n  id: RO:0002200\n  label: has phenotype\neco:\n  id: ECO:0000305\n  label: curator inference used in manual assertion"
+    },
+    {
+      "source": "pheno:myopia_route",
+      "target": "disease:ehlers_danlos_col5a1",
+      "phenotype_label": "Myopia",
+      "relation": "has phenotype",
+      "relation_id": "RO:0002200",
+      "eco_id": "ECO:0000305",
+      "eco_label": "curator inference used in manual assertion",
+      "evidence": [],
+      "raw_yaml": "phenotype: myopia\nrelation:\n  id: RO:0002200\n  label: has phenotype\neco:\n  id: ECO:0000305\n  label: curator inference used in manual assertion"
+    }
+  ]
+};
+
+// --- Tooltip pin/unpin ---
+let _tooltipPinned = false;
+let _escHandler = null;
+let _backdropHandler = null;
+
+function pinTooltip(event) {
+  event.stopPropagation();
+  const tt = document.getElementById("tooltip");
+  if (_tooltipPinned) {
+    unpinTooltip();
+    return;          // toggle OFF — don't re-pin
+  }
+  tt.classList.add("pinned");
+  _tooltipPinned = true;
+
+  // Close button
+  tt.querySelector(".tt-close").onclick = (e) => { e.stopPropagation(); unpinTooltip(); };
+
+  // Escape to close
+  _escHandler = (e) => { if (e.key === "Escape") unpinTooltip(); };
+  document.addEventListener("keydown", _escHandler);
+
+  // Click elsewhere to close (delayed to avoid immediate trigger)
+  setTimeout(() => {
+    _backdropHandler = (e) => {
+      if (!tt.contains(e.target)) unpinTooltip();
+    };
+    document.addEventListener("click", _backdropHandler);
+  }, 50);
+}
+
+function unpinTooltip() {
+  const tt = document.getElementById("tooltip");
+  tt.classList.remove("pinned");
+  tt.style.display = "none";
+  _tooltipPinned = false;
+  if (_escHandler) { document.removeEventListener("keydown", _escHandler); _escHandler = null; }
+  if (_backdropHandler) { document.removeEventListener("click", _backdropHandler); _backdropHandler = null; }
+}
+
+function guardMouseout() {
+  if (_tooltipPinned) return;
+  document.getElementById("tooltip").style.display = "none";
+}
+
+// --- Layout with dagre ---
+function layoutGraph(data) {
+  const g = new dagre.graphlib.Graph({ compound: false });
+  g.setGraph({ rankdir: "LR", ranksep: 80, nodesep: 40, marginx: 40, marginy: 40 });
+  g.setDefaultEdgeLabel(() => ({}));
+
+  data.nodes.forEach(n => {
+    const w = Math.max(140, n.short_label.length * 8 + 30);
+    g.setNode(n.id, { label: n.short_label, width: w, height: 60 });
+  });
+  data.edges.forEach(e => {
+    g.setEdge(e.source, e.target);
+  });
+  // Add intermediate nodes
+  (data.intermediate_nodes || []).forEach(n => {
+    const w = Math.max(130, n.short_label.length * 7 + 24);
+    g.setNode(n.id, { label: n.short_label, width: w, height: 50 });
+  });
+  // Add intermediate edges (activity→inter, inter→inter, inter→phenotype)
+  (data.intermediate_edges || []).forEach(e => {
+    g.setEdge(e.source, e.target);
+  });
+  // Add phenotype nodes (no longer directly connected from activities)
+  data.phenotype_routes.forEach(pr => {
+    const pid = "pheno:" + pr.id;
+    g.setNode(pid, { label: pr.phenotype_label, width: 140, height: 54 });
+  });
+  // Add disease node
+  if (data.disease_node) {
+    g.setNode(data.disease_node.id, { label: data.disease_node.name, width: 180, height: 54 });
+  }
+  // Add phenotype → disease edges
+  (data.phenotype_disease_edges || []).forEach(e => {
+    g.setEdge(e.source, e.target);
+  });
+
+  dagre.layout(g);
+  return g;
+}
+
+// --- Render ---
+function render() {
+  const svg = d3.select("svg");
+  svg.selectAll("*").remove();
+
+  const g = layoutGraph(DATA);
+  const graphInfo = g.graph();
+
+  // Zoom/pan
+  const zoom = d3.zoom().scaleExtent([0.3, 3]).on("zoom", (e) => {
+    container.attr("transform", e.transform);
+  });
+  svg.call(zoom);
+
+  const container = svg.append("g");
+
+  // Fit to view
+  const svgEl = svg.node();
+  const W = svgEl.clientWidth || 900;
+  const H = svgEl.clientHeight || 600;
+  const gW = graphInfo.width || 800;
+  const gH = graphInfo.height || 400;
+  const scale = Math.min(W / (gW + 80), H / (gH + 80), 1.2);
+  const tx = (W - gW * scale) / 2;
+  const ty = (H - gH * scale) / 2;
+  svg.call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+
+  // Arrow marker
+  svg.append("defs").append("marker")
+    .attr("id", "arrowhead").attr("viewBox", "0 0 10 10")
+    .attr("refX", 10).attr("refY", 5)
+    .attr("markerWidth", 8).attr("markerHeight", 8)
+    .attr("orient", "auto")
+    .append("path").attr("d", "M 0 0 L 10 5 L 0 10 z").attr("fill", "#868e96");
+
+  svg.select("defs").append("marker")
+    .attr("id", "arrowhead-phenotype").attr("viewBox", "0 0 10 10")
+    .attr("refX", 10).attr("refY", 5)
+    .attr("markerWidth", 8).attr("markerHeight", 8)
+    .attr("orient", "auto")
+    .append("path").attr("d", "M 0 0 L 10 5 L 0 10 z").attr("fill", "#ffc107");
+
+  svg.select("defs").append("marker")
+    .attr("id", "arrowhead-intermediate").attr("viewBox", "0 0 10 10")
+    .attr("refX", 10).attr("refY", 5)
+    .attr("markerWidth", 8).attr("markerHeight", 8)
+    .attr("orient", "auto")
+    .append("path").attr("d", "M 0 0 L 10 5 L 0 10 z").attr("fill", "#6f42c1");
+
+  svg.select("defs").append("marker")
+    .attr("id", "arrowhead-disease").attr("viewBox", "0 0 10 10")
+    .attr("refX", 10).attr("refY", 5)
+    .attr("markerWidth", 8).attr("markerHeight", 8)
+    .attr("orient", "auto")
+    .append("path").attr("d", "M 0 0 L 10 5 L 0 10 z").attr("fill", "#0d6efd");
+
+  // Draw module edges
+  const edgeGroup = container.append("g").attr("class", "edges");
+  // Build a lookup from node id to short_label for edge tooltips
+  const nodeLabels = {};
+  DATA.nodes.forEach(n => { nodeLabels[n.id] = n.short_label; });
+  (DATA.intermediate_nodes || []).forEach(n => { nodeLabels[n.id] = n.short_label; });
+
+  DATA.edges.forEach(e => {
+    const pts = g.edge(e.source, e.target);
+    if (!pts || !pts.points) return;
+    const line = d3.line().x(d => d.x).y(d => d.y).curve(d3.curveBasis);
+    const isNeg = e.relation_id === "RO:0002630" || e.relation_id === "RO:0002409";
+    const eg = edgeGroup.append("g").attr("class", "edge");
+    const pathD = line(pts.points);
+    eg.append("path")
+      .attr("d", pathD)
+      .attr("stroke", isNeg ? "#e57373" : "#868e96")
+      .attr("marker-end", "url(#arrowhead)");
+    // Invisible wider path for hover target
+    eg.append("path").attr("class", "edge-hover").attr("d", pathD);
+    // Label at midpoint
+    const mid = pts.points[Math.floor(pts.points.length / 2)];
+    const shortRel = e.relation.replace("directly ", "").replace("regulates", "reg.");
+    eg.append("text").attr("class", "edge-label")
+      .attr("x", mid.x).attr("y", mid.y - 6)
+      .attr("text-anchor", "middle").text(shortRel);
+    // Edge tooltip
+    eg.on("mouseover", (event) => {
+      if (_tooltipPinned) return;
+      const tt = d3.select("#tooltip");
+      tt.style("display", "block")
+        .style("left", (event.pageX + 12) + "px")
+        .style("top", (event.pageY - 10) + "px");
+      const srcLabel = nodeLabels[e.source] || e.source;
+      const tgtLabel = nodeLabels[e.target] || e.target;
+      let evHtml = "";
+      if (e.evidence && e.evidence.length) {
+        evHtml = `<div class="tt-section"><b>Evidence:</b>`;
+        e.evidence.forEach(ev => {
+          if (ev.type === "GO-CAM") {
+            evHtml += `<div class="tt-ref">📦 ${ev.id}</div>`;
+          } else {
+            evHtml += `<div class="tt-ref">📄 ${ev.id}</div>`;
+            if (ev.snippet) evHtml += `<div class="tt-evidence">"${ev.snippet}"</div>`;
+          }
+        });
+        evHtml += `</div>`;
+      }
+      let ecoHtml = "";
+      if (e.eco_id) {
+        ecoHtml = `<div class="tt-detail"><b>Evidence type:</b> <span class="tt-eco">${e.eco_label}</span></div>
+          <div class="tt-detail" style="font-size:10px;color:#6c757d">${e.eco_id}</div>`;
+      }
+      const rawYaml = e.raw_yaml ? `<details class="tt-raw"><summary>Raw data (YAML)</summary><pre>${e.raw_yaml}</pre></details>` : "";
+      tt.html(`<div class="tt-title">${srcLabel} → ${tgtLabel}</div>
+        <div class="tt-detail"><b>Relation:</b> ${e.relation}</div>
+        <div class="tt-detail" style="font-size:10px;color:#6c757d">${e.relation_id}</div>
+        ${ecoHtml}
+        ${evHtml}
+        ${rawYaml}`);
+    }).on("mouseout", () => guardMouseout()).on("click", (event) => pinTooltip(event));
+  });
+
+  // Draw intermediate edges
+  const edgeTypeLabels = {
+    "activity_to_intermediate": "drives",
+    "intermediate_chain": "contributes to",
+    "intermediate_to_phenotype": "leads to",
+  };
+  (DATA.intermediate_edges || []).forEach(e => {
+    const pts = g.edge(e.source, e.target);
+    if (!pts || !pts.points) return;
+    const line = d3.line().x(d => d.x).y(d => d.y).curve(d3.curveBasis);
+    const pathD = line(pts.points);
+    let eg;
+    if (e.edge_type === "intermediate_to_phenotype") {
+      eg = edgeGroup.append("g").attr("class", "process-to-pheno-edge");
+      eg.append("path").attr("d", pathD).attr("marker-end", "url(#arrowhead-phenotype)");
+    } else {
+      eg = edgeGroup.append("g").attr("class", "process-edge");
+      eg.append("path").attr("d", pathD).attr("marker-end", "url(#arrowhead-intermediate)");
+    }
+    // Invisible wider path for hover target
+    eg.append("path").attr("class", "edge-hover").attr("d", pathD);
+    // Tooltip
+    const srcLabel = e.source_label || nodeLabels[e.source] || e.source;
+    const tgtLabel = e.target_label || nodeLabels[e.target] || e.target;
+    const relLabel = edgeTypeLabels[e.edge_type] || e.edge_type;
+    eg.on("mouseover", (event) => {
+      if (_tooltipPinned) return;
+      const tt = d3.select("#tooltip");
+      tt.style("display", "block")
+        .style("left", (event.pageX + 12) + "px")
+        .style("top", (event.pageY - 10) + "px");
+      let ieHtml = `<div class="tt-title">${srcLabel} → ${tgtLabel}</div>`;
+      if (e.relation) {
+        ieHtml += `<div class="tt-detail"><b>Relation:</b> ${e.relation}</div>`;
+        if (e.relation_id) ieHtml += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${e.relation_id}</div>`;
+      } else {
+        ieHtml += `<div class="tt-detail"><b>Relationship:</b> ${srcLabel} ${relLabel} ${tgtLabel}</div>`;
+      }
+      if (e.eco_label) {
+        ieHtml += `<div class="tt-detail"><b>Evidence type:</b> <span class="tt-eco">${e.eco_label}</span></div>`;
+        if (e.eco_id) ieHtml += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${e.eco_id}</div>`;
+      }
+      if (e.evidence && e.evidence.length) {
+        ieHtml += `<div class="tt-section"><b>Evidence:</b>`;
+        e.evidence.forEach(ev => {
+          ieHtml += `<div class="tt-ref">📄 ${ev.reference}</div>`;
+          if (ev.snippet) ieHtml += `<div class="tt-evidence">"${ev.snippet}"</div>`;
+        });
+        ieHtml += `</div>`;
+      }
+      ieHtml += `<div class="tt-detail" style="font-size:10px;color:#adb5bd;margin-top:4px">Type: ${e.edge_type.replace(/_/g, " ")}</div>`;
+      if (e.raw_yaml) ieHtml += `<details class="tt-raw"><summary>Raw data (YAML)</summary><pre>${e.raw_yaml}</pre></details>`;
+      tt.html(ieHtml);
+    }).on("mouseout", () => guardMouseout()).on("click", (event) => pinTooltip(event));
+  });
+
+  // Draw activity nodes
+  const nodeGroup = container.append("g").attr("class", "nodes");
+  const nodeMap = {};
+  DATA.nodes.forEach(n => {
+    const pos = g.node(n.id);
+    if (!pos) return;
+    const w = Math.max(140, n.short_label.length * 8 + 30);
+    const hw = w / 2;
+    const baseClass = n.type === "local_activity" ? "node local-activity state-normal" : "node state-normal";
+    const ng = nodeGroup.append("g")
+      .attr("class", baseClass)
+      .attr("transform", `translate(${pos.x - hw},${pos.y - 30})`)
+      .attr("data-id", n.id);
+    ng.append("rect").attr("width", w).attr("height", 60);
+    ng.append("text").attr("class", "gene-label")
+      .attr("x", hw).attr("y", 22).attr("text-anchor", "middle").text(n.short_label);
+    ng.append("text").attr("class", "func-label")
+      .attr("x", hw).attr("y", 36).attr("text-anchor", "middle")
+      .text(truncate(n.function_short || n.function, Math.floor(w / 6)));
+    // State badge (hidden by default)
+    ng.append("text").attr("class", "state-badge")
+      .attr("x", hw).attr("y", 52).attr("text-anchor", "middle").text("");
+    nodeMap[n.id] = ng;
+
+    // Tooltip
+    ng.on("mouseover", (event) => {
+      if (_tooltipPinned) return;
+      const tt = d3.select("#tooltip");
+      tt.style("display", "block")
+        .style("left", (event.pageX + 12) + "px")
+        .style("top", (event.pageY - 10) + "px");
+      const name = n.display_name || n.gene || n.complex || n.id.split(":")[1];
+      const geneInfo = n.gene ? `${n.gene} (${n.hgnc_id})` : (n.complex || "");
+      let html = `<div class="tt-title">${name}</div>`;
+      if (geneInfo) html += `<div class="tt-subtitle">${geneInfo}</div>`;
+      if (n.module_name) html += `<div class="tt-detail"><b>Module:</b> ${n.module_name}</div>`;
+      html += `<div class="tt-detail"><b>Function:</b> ${n.function || "—"}</div>`;
+      if (n.function_id) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${n.function_id}</div>`;
+      if (n.substrate) html += `<div class="tt-detail"><b>Substrate:</b> ${n.substrate} (${n.substrate_hgnc})</div>`;
+      html += `<div class="tt-detail"><b>Location:</b> ${n.location || "—"}</div>`;
+      if (n.location_id) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${n.location_id}</div>`;
+      if (n.process) html += `<div class="tt-detail"><b>Process:</b> ${n.process}</div>`;
+      if (n.process_id) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${n.process_id}</div>`;
+      // Show perturbation state if a hypothesis is selected
+      const hgIdx = +document.getElementById("hg-select").value;
+      const hg = DATA.hypothesis_groups[hgIdx];
+      if (hg && hg.states[n.id]) {
+        const st = hg.states[n.id];
+        const stClass = "tt-state tt-state-" + st.state;
+        html += `<div class="tt-section">`;
+        html += `<div class="tt-detail"><b>State:</b> <span class="${stClass}">${st.state.replace(/_/g, " ")}</span></div>`;
+        if (st.is_primary) {
+          html += `<div class="tt-detail"><b>Role:</b> Primary mutation site</div>`;
+          if (st.variant_class) html += `<div class="tt-detail"><b>Variant:</b> ${st.variant_class}</div>`;
+          if (st.mechanism) html += `<div class="tt-detail"><b>Mechanism:</b> ${st.mechanism.replace(/_/g, " ")}</div>`;
+        } else {
+          const causes = Array.isArray(st.cause) ? st.cause : (st.cause ? [st.cause] : []);
+          const causeLabels = causes.map(c => nodeLabels[c] || c).join(", ");
+          html += `<div class="tt-detail"><b>Role:</b> Propagated from ${causeLabels || "upstream"}</div>`;
+        }
+        if (st.eco_label) {
+          html += `<div class="tt-detail"><b>Evidence type:</b> <span class="tt-eco">${st.eco_label}</span></div>`;
+          if (st.eco_id) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${st.eco_id}</div>`;
+        }
+        if (st.evidence_refs && st.evidence_refs.length) {
+          html += `<div class="tt-detail"><b>Evidence:</b></div>`;
+          st.evidence_refs.forEach(r => { html += `<div class="tt-ref">📄 ${r}</div>`; });
+        }
+        if (st.evidence_snippet) html += `<div class="tt-evidence">"${st.evidence_snippet}"</div>`;
+        html += `</div>`;
+      }
+      html += `<div style="margin-top:6px;font-size:10px;color:#adb5bd">${n.id}</div>`;
+      if (n.raw_yaml) html += `<details class="tt-raw"><summary>Raw data (YAML)</summary><pre>${n.raw_yaml}</pre></details>`;
+      tt.html(html);
+    }).on("mouseout", () => guardMouseout()).on("click", (event) => pinTooltip(event));
+  });
+
+  // Draw intermediate nodes
+  (DATA.intermediate_nodes || []).forEach(n => {
+    const pos = g.node(n.id);
+    if (!pos) return;
+    const w = Math.max(130, n.short_label.length * 7 + 24);
+    const hw = w / 2;
+    const ng = nodeGroup.append("g")
+      .attr("class", "process-node" + (n.state ? " state-" + n.state : ""))
+      .attr("transform", `translate(${pos.x - hw},${pos.y - 25})`);
+    ng.append("rect").attr("width", w).attr("height", 50);
+    ng.append("text").attr("class", "gene-label")
+      .attr("x", hw).attr("y", 18).attr("text-anchor", "middle")
+      .text(n.short_label);
+    ng.append("text").attr("class", "func-label")
+      .attr("x", hw).attr("y", 30).attr("text-anchor", "middle")
+      .text(truncate(n.process, Math.floor(w / 6)));
+    // State badge
+    const stateLabel = n.state ? n.state.replace(/_/g, " ") : "";
+    ng.append("text").attr("class", "state-badge")
+      .attr("x", hw).attr("y", 43).attr("text-anchor", "middle")
+      .text(stateLabel);
+    // Tooltip
+    ng.on("mouseover", (event) => {
+      if (_tooltipPinned) return;
+      const tt = d3.select("#tooltip");
+      tt.style("display", "block")
+        .style("left", (event.pageX + 12) + "px")
+        .style("top", (event.pageY - 10) + "px");
+      let html = `<div class="tt-title">${n.name}</div>`;
+      if (n.gene) html += `<div class="tt-subtitle">${n.gene} (${n.hgnc_id})</div>`;
+      if (n.process) html += `<div class="tt-detail"><b>Process:</b> ${n.process}</div>`;
+      if (n.process_id) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${n.process_id}</div>`;
+      if (n.state) {
+        const stClass = "tt-state tt-state-" + n.state;
+        html += `<div class="tt-detail"><b>State:</b> <span class="${stClass}">${n.state.replace(/_/g, " ")}</span></div>`;
+      }
+      // Driven by (with relation and ECO details)
+      if (n.driven_by_details && n.driven_by_details.length) {
+        html += `<div class="tt-section"><b>Driven by:</b>`;
+        n.driven_by_details.forEach((db, idx) => {
+          const srcLabel = nodeLabels[db.source] || db.source;
+          html += `<div class="tt-detail" style="margin-left:8px">• ${srcLabel}`;
+          if (db.relation) html += ` <span style="font-size:10px;color:#6c757d">(${db.relation})</span>`;
+          html += `</div>`;
+          if (db.eco_label) html += `<div class="tt-detail" style="margin-left:16px"><span class="tt-eco">${db.eco_label}</span></div>`;
+          if (db.evidence && db.evidence.length) {
+            db.evidence.forEach(ev => {
+              html += `<div class="tt-ref" style="margin-left:16px">📄 ${ev.reference}</div>`;
+              if (ev.snippet) html += `<div class="tt-evidence" style="margin-left:16px">"${ev.snippet}"</div>`;
+            });
+          }
+        });
+        html += `</div>`;
+      } else if (n.driven_by && n.driven_by.length === 0) {
+        html += `<div class="tt-detail"><b>Driven by:</b> convergence of upstream intermediates</div>`;
+      }
+      // Route
+      html += `<div class="tt-detail"><b>Route:</b> ${n.route_name || n.route_id.replace(/_/g, " ")}</div>`;
+      // Tissue
+      if (n.tissue) {
+        html += `<div class="tt-detail"><b>Tissue:</b> ${n.tissue}</div>`;
+        const td = n.tissue_detail || {};
+        let tissueIds = [];
+        if (td.cell_type_id) tissueIds.push(td.cell_type_id);
+        if (td.anatomy_id) tissueIds.push(td.anatomy_id);
+        if (tissueIds.length) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${tissueIds.join(" / ")}</div>`;
+      }
+      html += `<div style="margin-top:6px;font-size:10px;color:#adb5bd">${n.id}</div>`;
+      if (n.raw_yaml) html += `<details class="tt-raw"><summary>Raw data (YAML)</summary><pre>${n.raw_yaml}</pre></details>`;
+      tt.html(html);
+    }).on("mouseout", () => guardMouseout()).on("click", (event) => pinTooltip(event));
+  });
+
+  // Draw phenotype nodes
+  DATA.phenotype_routes.forEach(pr => {
+    const pid = "pheno:" + pr.id;
+    const pos = g.node(pid);
+    if (!pos) return;
+    let phenoCls = "phenotype-node";
+    if (pr.phenotype_state) phenoCls += " state-" + pr.phenotype_state;
+    if (pr.unrouted) phenoCls += " unrouted";
+    const ng = nodeGroup.append("g")
+      .attr("class", phenoCls)
+      .attr("transform", `translate(${pos.x - 70},${pos.y - 27})`);
+    ng.append("rect").attr("width", 140).attr("height", 54);
+    ng.append("text")
+      .attr("x", 70).attr("y", 16).attr("text-anchor", "middle")
+      .text(truncate(pr.phenotype_label, 20));
+    ng.append("text")
+      .attr("x", 70).attr("y", 30).attr("text-anchor", "middle")
+      .style("font-size", "9px").style("fill", "#a17c10")
+      .text(pr.phenotype_id);
+    const phenoStateLabel = pr.phenotype_state ? pr.phenotype_state.replace(/_/g, " ") : "";
+    ng.append("text").attr("class", "state-badge")
+      .attr("x", 70).attr("y", 44).attr("text-anchor", "middle")
+      .text(phenoStateLabel);
+
+    ng.on("mouseover", (event) => {
+      if (_tooltipPinned) return;
+      const tt = d3.select("#tooltip");
+      tt.style("display", "block")
+        .style("left", (event.pageX + 12) + "px")
+        .style("top", (event.pageY - 10) + "px");
+      let html = `<div class="tt-title">${pr.phenotype_label}</div>`;
+      html += `<div class="tt-subtitle">${pr.phenotype_id}</div>`;
+      if (pr.phenotype_state) {
+        const stClass = "tt-state tt-state-" + pr.phenotype_state;
+        html += `<div class="tt-detail"><b>State:</b> <span class="${stClass}">${pr.phenotype_state.replace(/_/g, " ")}</span></div>`;
+      }
+      if (pr.phenotype_relation) {
+        html += `<div class="tt-detail"><b>Relation:</b> ${pr.phenotype_relation}</div>`;
+        if (pr.phenotype_relation_id) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${pr.phenotype_relation_id}</div>`;
+      }
+      html += `<div class="tt-detail"><b>Route:</b> ${pr.name}</div>`;
+      if (pr.tissue) {
+        html += `<div class="tt-detail"><b>Tissue:</b> ${pr.tissue}</div>`;
+        const td = pr.tissue_detail || {};
+        let tissueIds = [];
+        if (td.cell_type_id) tissueIds.push(td.cell_type_id);
+        if (td.anatomy_id) tissueIds.push(td.anatomy_id);
+        if (tissueIds.length) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${tissueIds.join(" / ")}</div>`;
+      }
+      html += `<div class="tt-detail" style="margin-top:6px">${pr.description}</div>`;
+      // Show intermediates
+      if (pr.intermediates && pr.intermediates.length) {
+        html += `<div class="tt-section"><b>Intermediates:</b>`;
+        pr.intermediates.forEach(inter => {
+          html += `<div class="tt-detail">• ${inter.name}`;
+          if (inter.gene) html += ` (${inter.gene})`;
+          if (inter.process) html += ` — ${inter.process}`;
+          html += `</div>`;
+        });
+        html += `</div>`;
+      }
+      // Route-level evidence
+      if (pr.evidence && pr.evidence.length) {
+        html += `<div class="tt-section"><b>Evidence:</b>`;
+        pr.evidence.forEach(ev => {
+          html += `<div class="tt-ref">📄 ${ev.reference}</div>`;
+          if (ev.snippet) html += `<div class="tt-evidence">"${ev.snippet}"</div>`;
+        });
+        html += `</div>`;
+      }
+      if (pr.raw_yaml) html += `<details class="tt-raw"><summary>Raw data (YAML)</summary><pre>${pr.raw_yaml}</pre></details>`;
+      tt.html(html);
+    }).on("mouseout", () => guardMouseout()).on("click", (event) => pinTooltip(event));
+  });
+
+  // Draw phenotype → disease edges
+  (DATA.phenotype_disease_edges || []).forEach(e => {
+    const pts = g.edge(e.source, e.target);
+    if (!pts || !pts.points) return;
+    const line = d3.line().x(d => d.x).y(d => d.y).curve(d3.curveBasis);
+    const pathD = line(pts.points);
+    const eg = edgeGroup.append("g").attr("class", "pheno-disease-edge");
+    eg.append("path").attr("d", pathD).attr("marker-end", "url(#arrowhead-disease)");
+    // Invisible wider path for hover target
+    eg.append("path").attr("class", "edge-hover").attr("d", pathD);
+    // Tooltip
+    eg.on("mouseover", (event) => {
+      if (_tooltipPinned) return;
+      const tt = d3.select("#tooltip");
+      tt.style("display", "block")
+        .style("left", (event.pageX + 12) + "px")
+        .style("top", (event.pageY - 10) + "px");
+      const phenoLabel = e.phenotype_label || nodeLabels[e.source] || e.source;
+      const diseaseLabel = DATA.disease_node ? DATA.disease_node.name : e.target;
+      let html = `<div class="tt-title">${phenoLabel} → ${diseaseLabel}</div>`;
+      if (e.relation) {
+        html += `<div class="tt-detail"><b>Relation:</b> ${e.relation}</div>`;
+        if (e.relation_id) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${e.relation_id}</div>`;
+      }
+      if (e.eco_label) {
+        html += `<div class="tt-detail"><b>Evidence type:</b> <span class="tt-eco">${e.eco_label}</span></div>`;
+        if (e.eco_id) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${e.eco_id}</div>`;
+      }
+      if (e.evidence && e.evidence.length) {
+        html += `<div class="tt-section"><b>Evidence:</b>`;
+        e.evidence.forEach(ev => {
+          html += `<div class="tt-ref">📄 ${ev.reference}</div>`;
+          if (ev.snippet) html += `<div class="tt-evidence">"${ev.snippet}"</div>`;
+        });
+        html += `</div>`;
+      }
+      if (e.raw_yaml) html += `<details class="tt-raw"><summary>Raw data (YAML)</summary><pre>${e.raw_yaml}</pre></details>`;
+      tt.html(html);
+    }).on("mouseout", () => guardMouseout()).on("click", (event) => pinTooltip(event));
+  });
+
+  // Draw disease node (rendered last so it appears at the right)
+  if (DATA.disease_node) {
+    const dpos = g.node(DATA.disease_node.id);
+    if (dpos) {
+      const dw = 180, dh = 54;
+      const dng = nodeGroup.append("g")
+        .attr("class", "disease-node")
+        .attr("transform", `translate(${dpos.x - dw/2},${dpos.y - dh/2})`);
+      dng.append("rect").attr("width", dw).attr("height", dh);
+      dng.append("text")
+        .attr("x", dw/2).attr("y", 22).attr("text-anchor", "middle")
+        .text(DATA.disease_node.name);
+      dng.append("text").attr("class", "disease-term")
+        .attr("x", dw/2).attr("y", 38).attr("text-anchor", "middle")
+        .text(DATA.disease_node.term_id);
+      // Tooltip
+      dng.on("mouseover", (event) => {
+        if (_tooltipPinned) return;
+        const tt = d3.select("#tooltip");
+        tt.style("display", "block")
+          .style("left", (event.pageX + 12) + "px")
+          .style("top", (event.pageY - 10) + "px");
+        const phenoCount = DATA.phenotype_routes.length;
+        let html = `<div class="tt-title">${DATA.disease_node.name}</div>`;
+        html += `<div class="tt-subtitle">${DATA.disease_node.term_id} — ${DATA.disease_node.term_label}</div>`;
+        html += `<div class="tt-detail"><b>Associated phenotypes:</b> ${phenoCount}</div>`;
+        tt.html(html);
+      }).on("mouseout", () => guardMouseout()).on("click", (event) => pinTooltip(event));
+    }
+  }
+
+  // Store nodeMap for hypothesis switching
+  window._nodeMap = nodeMap;
+}
+
+function truncate(s, max) {
+  return s && s.length > max ? s.slice(0, max - 1) + "…" : (s || "");
+}
+
+// --- Hypothesis group switching ---
+function applyHypothesis(hgIdx) {
+  const hg = DATA.hypothesis_groups[hgIdx];
+  const nodeMap = window._nodeMap;
+  if (!nodeMap) return;
+
+  // Reset all nodes
+  DATA.nodes.forEach(n => {
+    const ng = nodeMap[n.id];
+    if (!ng) return;
+    const base = n.type === "local_activity" ? "node local-activity" : "node";
+    ng.attr("class", base + " state-normal");
+    ng.select(".state-badge").text("");
+  });
+
+  // Apply perturbation states
+  const nodeTypeMap = {};
+  DATA.nodes.forEach(n => { nodeTypeMap[n.id] = n.type; });
+  Object.entries(hg.states).forEach(([nodeId, info]) => {
+    const ng = nodeMap[nodeId];
+    if (!ng) return;
+    const base = nodeTypeMap[nodeId] === "local_activity" ? "node local-activity" : "node";
+    let cls = base + " state-" + info.state;
+    if (info.is_primary) cls += " state-primary";
+    ng.attr("class", cls);
+    const label = info.state.replace(/_/g, " ");
+    ng.select(".state-badge").text(info.is_primary ? "⬤ " + label : label);
+  });
+
+  // Update info
+  d3.select("#hg-info").html(
+    `<b>${hg.frequency}</b> of cases. ${hg.description}`
+  );
+}
+
+// --- Init ---
+document.addEventListener("DOMContentLoaded", () => {
+  const sel = d3.select("#hg-select");
+  DATA.hypothesis_groups.forEach((hg, i) => {
+    sel.append("option").attr("value", i).text(hg.name);
+  });
+  sel.on("change", function() { applyHypothesis(+this.value); });
+
+  render();
+  if (DATA.hypothesis_groups.length > 0) applyHypothesis(0);
+});
+</script>
+</body>
+</html>

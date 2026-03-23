@@ -46,7 +46,15 @@ def _to_raw_yaml(data: dict) -> str:
 
 
 def build_graph_data(disease: dict) -> dict:
-    """Build a JSON-serializable graph structure for the visualization."""
+    """Build a JSON-serializable graph structure for the visualization.
+
+    perturbed_state vocabulary:
+      increased            — quantitative increase in activity level
+      decreased            — quantitative decrease in activity level
+      absent               — activity completely eliminated
+      constitutively_active — active regardless of upstream input (GoF)
+      substrate_accumulated — substrate accumulates due to impaired degradation
+    """
     modules = {}
     for imp in disease.get("imports", []):
         mod = load_module(imp["module"])
@@ -88,8 +96,8 @@ def build_graph_data(disease: dict) -> dict:
 
             mf_id = act.get("molecular_function", {}).get("id", "")
             loc_id = act.get("location", {}).get("id", "")
-            proc_label = act.get("process", {}).get("label", "")
-            proc_id = act.get("process", {}).get("id", "")
+            proc_label = act.get("biological_process", {}).get("label", "")
+            proc_id = act.get("biological_process", {}).get("id", "")
             hgnc_id = act.get("gene", {}).get("hgnc_id", "")
             substrate_hgnc = act.get("substrate", {}).get("hgnc_id", "")
 
@@ -131,35 +139,54 @@ def build_graph_data(disease: dict) -> dict:
                 "type": "activity",
             })
 
-    # Parse local_activities
-    for la in disease.get("local_activities", []):
+    # Parse disease-level activities (formerly local_activities)
+    for la in disease.get("activities", []):
         la_id = la["id"]
         gene_sym = la.get("gene", {}).get("symbol", "")
         hgnc = la.get("gene", {}).get("hgnc_id", "")
+        complex_name = la.get("complex", "")
+        display_name = la.get("display_name", "")
+        mf_label = la.get("molecular_function", {}).get("label", "")
+        mf_id = la.get("molecular_function", {}).get("id", "")
+        loc_label = la.get("location", {}).get("label", "")
+        loc_id = la.get("location", {}).get("id", "")
         bp_label = la.get("biological_process", {}).get("label", "")
         bp_id = la.get("biological_process", {}).get("id", "")
-        display_name = la.get("display_name", "")
-        short_label = display_name or (gene_sym if gene_sym else la_id)
+        substrate = la.get("substrate", {}).get("symbol", "")
+        substrate_hgnc = la.get("substrate", {}).get("hgnc_id", "")
+
+        # Label priority: same as module activities
+        if display_name:
+            short_label = display_name
+        elif substrate:
+            primary = gene_sym or complex_name
+            short_label = f"{primary} [{substrate}]"
+        else:
+            short_label = gene_sym or complex_name or la_id
+
+        func_short = _shorten_function(mf_label, substrate) if mf_label else ""
+        # For display: prefer MF short label, fall back to BP label
+        secondary_label = func_short or bp_label
 
         nodes.append({
             "id": la_id,
             "gene": gene_sym,
             "hgnc_id": hgnc,
-            "complex": "",
+            "complex": complex_name,
             "display_name": display_name,
-            "function": "",
-            "function_id": "",
-            "function_short": "",
-            "location": "",
-            "location_id": "",
+            "function": mf_label,
+            "function_id": mf_id,
+            "function_short": func_short,
+            "location": loc_label,
+            "location_id": loc_id,
             "process": bp_label,
             "process_id": bp_id,
-            "substrate": "",
-            "substrate_hgnc": "",
+            "substrate": substrate,
+            "substrate_hgnc": substrate_hgnc,
             "module_id": None,
             "module_name": "",
             "raw_yaml": _to_raw_yaml(la),
-            "label": f"{short_label}\n{bp_label}" if bp_label else short_label,
+            "label": f"{short_label}\n{secondary_label}" if secondary_label else short_label,
             "short_label": short_label,
             "type": "local_activity",
         })
@@ -199,6 +226,21 @@ def build_graph_data(disease: dict) -> dict:
                 "raw_yaml": _to_raw_yaml(edge_raw),
             })
 
+    # Build module edge lookup by target (for inferring propagation cause)
+    module_edges_by_target = {}
+    for mod_id, mod in modules.items():
+        for edge in mod.get("edges", []):
+            qualified_target = f"{mod_id}:{edge['target']}"
+            qualified_source = f"{mod_id}:{edge['source']}"
+            if qualified_target not in module_edges_by_target:
+                module_edges_by_target[qualified_target] = []
+            module_edges_by_target[qualified_target].append({
+                "source": qualified_source,
+                "relation": edge.get("relation", {}),
+                "eco": edge.get("eco", {}),
+                "evidence": edge.get("evidence", []),
+            })
+
     # Build hypothesis groups with perturbation data
     hypothesis_groups = []
     for hg in disease.get("hypothesis_groups", []):
@@ -221,23 +263,84 @@ def build_graph_data(disease: dict) -> dict:
                 "evidence_refs": ev_refs,
                 "evidence_snippet": ev_snippets[0] if ev_snippets else "",
             }
-        # Propagated states
+        # Propagated states (driven_by format)
         for ps in hg.get("propagated_states", []):
-            ev_snippets = [e.get("snippet", "") for e in ps.get("evidence", []) if e.get("snippet")]
-            ev_refs = [e.get("reference", "") for e in ps.get("evidence", []) if e.get("reference")]
-            eco = ps.get("eco", {})
-            states[ps["activity"]] = {
-                "state": ps["perturbed_state"],
-                "mechanism": "",
-                "variant_class": "",
-                "is_primary": False,
-                "provenance": eco.get("label", ps.get("provenance", "")),
-                "eco_id": eco.get("id", ""),
-                "eco_label": eco.get("label", ""),
-                "cause": ps.get("cause", ps.get("causes", [])),
-                "evidence_refs": ev_refs,
-                "evidence_snippet": ev_snippets[0] if ev_snippets else "",
-            }
+            # Validate: one propagated state per activity per hypothesis
+            if ps["activity"] in states:
+                raise ValueError(
+                    f"Duplicate propagated state for activity '{ps['activity']}' "
+                    f"in hypothesis '{hg['id']}' of disease '{disease['id']}'"
+                )
+            # Extract cause(s) and evidence from driven_by entries
+            driven_by = ps.get("driven_by", [])
+            # No explicit driven_by: infer cause from module edges or old format
+            if not driven_by:
+                # Try to infer cause from module topology
+                activity_id = ps["activity"]
+                inferred_sources = []
+                if activity_id in module_edges_by_target:
+                    # Find module edges whose source is already perturbed
+                    for me in module_edges_by_target[activity_id]:
+                        if me["source"] in states:
+                            inferred_sources.append(me["source"])
+                if inferred_sources:
+                    # Use module edge info for the inferred cause
+                    cause_list = inferred_sources
+                    # Get eco/evidence from the first matching module edge
+                    first_me = next(
+                        me for me in module_edges_by_target[activity_id]
+                        if me["source"] in states
+                    )
+                    eco = first_me.get("eco", {})
+                    ev_snippets = [e.get("snippet", "") for e in first_me.get("evidence", []) if e.get("snippet")]
+                    ev_refs = [e.get("reference", "") for e in first_me.get("evidence", []) if e.get("reference")]
+                else:
+                    # Fallback for old cause/causes format
+                    raw_cause = ps.get("cause", "")
+                    raw_causes = ps.get("causes", [])
+                    cause_list = raw_causes if raw_causes else ([raw_cause] if raw_cause else [])
+                    eco = ps.get("eco", {})
+                    ev_snippets = [e.get("snippet", "") for e in ps.get("evidence", []) if e.get("snippet")]
+                    ev_refs = [e.get("reference", "") for e in ps.get("evidence", []) if e.get("reference")]
+                states[ps["activity"]] = {
+                    "state": ps["perturbed_state"],
+                    "mechanism": "",
+                    "variant_class": "",
+                    "is_primary": False,
+                    "provenance": eco.get("label", ps.get("provenance", "")),
+                    "eco_id": eco.get("id", ""),
+                    "eco_label": eco.get("label", ""),
+                    "cause": cause_list[0] if len(cause_list) == 1 else cause_list,
+                    "evidence_refs": ev_refs,
+                    "evidence_snippet": ev_snippets[0] if ev_snippets else "",
+                }
+            else:
+                # New driven_by format: extract from first entry for display
+                all_sources = [db.get("source", "") for db in driven_by]
+                all_ev_snippets = []
+                all_ev_refs = []
+                first_eco = {}
+                for db in driven_by:
+                    eco = db.get("eco", {})
+                    if not first_eco and eco:
+                        first_eco = eco
+                    for ev in db.get("evidence", []):
+                        if ev.get("snippet"):
+                            all_ev_snippets.append(ev["snippet"])
+                        if ev.get("reference"):
+                            all_ev_refs.append(ev["reference"])
+                states[ps["activity"]] = {
+                    "state": ps["perturbed_state"],
+                    "mechanism": "",
+                    "variant_class": "",
+                    "is_primary": False,
+                    "provenance": first_eco.get("label", ps.get("provenance", "")),
+                    "eco_id": first_eco.get("id", ""),
+                    "eco_label": first_eco.get("label", ""),
+                    "cause": all_sources[0] if len(all_sources) == 1 else all_sources,
+                    "evidence_refs": all_ev_refs,
+                    "evidence_snippet": all_ev_snippets[0] if all_ev_snippets else "",
+                }
         hypothesis_groups.append({
             "id": hg["id"],
             "name": hg["name"],
@@ -246,31 +349,54 @@ def build_graph_data(disease: dict) -> dict:
             "states": states,
         })
 
-    # Build edges for local activity nodes from propagated_states cause chains
-    local_activity_ids_for_edges = {la["id"] for la in disease.get("local_activities", [])}
+    # Build edges for disease-level activity nodes from propagated_states driven_by
+    local_activity_ids_for_edges = {la["id"] for la in disease.get("activities", [])}
     seen_local_edges = set()
     for hg in disease.get("hypothesis_groups", []):
         for ps in hg.get("propagated_states", []):
             if ps["activity"] not in local_activity_ids_for_edges:
                 continue
-            # Support cause as string or causes as list
-            raw_cause = ps.get("cause", "")
-            raw_causes = ps.get("causes", [])
-            cause_list = raw_causes if raw_causes else ([raw_cause] if raw_cause else [])
-            for cause in cause_list:
-                edge_key = (cause, ps["activity"])
-                if edge_key not in seen_local_edges:
-                    seen_local_edges.add(edge_key)
-                    edges.append({
-                        "source": cause,
-                        "target": ps["activity"],
-                        "relation": "causally upstream of, positive effect",
-                        "relation_id": "RO:0002304",
-                        "eco_id": ps.get("eco", {}).get("id", ""),
-                        "eco_label": ps.get("eco", {}).get("label", ""),
-                        "evidence": [],
-                        "raw_yaml": _to_raw_yaml({"source": cause, "target": ps["activity"]}),
-                    })
+            # Read driven_by (new format) with fallback to cause/causes (old format)
+            driven_by = ps.get("driven_by", [])
+            if driven_by:
+                for db in driven_by:
+                    source = db.get("source", "")
+                    if not source:
+                        continue
+                    edge_key = (source, ps["activity"])
+                    if edge_key not in seen_local_edges:
+                        seen_local_edges.add(edge_key)
+                        db_rel = db.get("relation", {})
+                        db_eco = db.get("eco", {})
+                        edges.append({
+                            "source": source,
+                            "target": ps["activity"],
+                            "relation": db_rel.get("label", "causally upstream of, positive effect"),
+                            "relation_id": db_rel.get("id", "RO:0002304"),
+                            "eco_id": db_eco.get("id", ""),
+                            "eco_label": db_eco.get("label", ""),
+                            "evidence": db.get("evidence", []),
+                            "raw_yaml": _to_raw_yaml({"source": source, "target": ps["activity"]}),
+                        })
+            else:
+                # Fallback: old cause/causes format
+                raw_cause = ps.get("cause", "")
+                raw_causes = ps.get("causes", [])
+                cause_list = raw_causes if raw_causes else ([raw_cause] if raw_cause else [])
+                for cause in cause_list:
+                    edge_key = (cause, ps["activity"])
+                    if edge_key not in seen_local_edges:
+                        seen_local_edges.add(edge_key)
+                        edges.append({
+                            "source": cause,
+                            "target": ps["activity"],
+                            "relation": "causally upstream of, positive effect",
+                            "relation_id": "RO:0002304",
+                            "eco_id": ps.get("eco", {}).get("id", ""),
+                            "eco_label": ps.get("eco", {}).get("label", ""),
+                            "evidence": [],
+                            "raw_yaml": _to_raw_yaml({"source": cause, "target": ps["activity"]}),
+                        })
 
     # Build label lookup from activity nodes (for resolving driven_by references)
     node_label_lookup = {}
@@ -290,9 +416,9 @@ def build_graph_data(disease: dict) -> dict:
         route_name = pr["name"]
         raw_intermediates = pr.get("intermediates", [])
         inter_node_ids = []  # track IDs for chaining
-        route_tissue = _extract_tissue(pr)
-        route_tissue_detail = _extract_tissue_detail(pr)
-        route_evidence = _extract_route_evidence(pr)
+        # Tissue is now on individual intermediates, but fall back to route-level for old format
+        route_tissue_fallback = _extract_tissue(pr) if pr.get("tissue") else ""
+        route_tissue_detail_fallback = _extract_tissue_detail(pr) if pr.get("tissue") else {}
 
         # Build local intermediate ID → internal ID lookup for this route
         local_id_map = {}
@@ -371,6 +497,10 @@ def build_graph_data(disease: dict) -> dict:
             if bp_label:
                 inter_raw["biological_process"] = {"id": bp_id, "label": bp_label}
 
+            # Tissue: read from intermediate, fall back to route-level
+            inter_tissue = _extract_tissue(inter) if inter.get("tissue") else route_tissue_fallback
+            inter_tissue_detail = _extract_tissue_detail(inter) if inter.get("tissue") else route_tissue_detail_fallback
+
             intermediate_nodes.append({
                 "id": inter_id,
                 "name": inter.get("name", ""),
@@ -386,9 +516,9 @@ def build_graph_data(disease: dict) -> dict:
                 "driven_by": driven_by_sources,
                 "driven_by_labels": driven_by_labels,
                 "driven_by_details": driven_by_details,
-                "tissue": route_tissue,
-                "tissue_detail": route_tissue_detail,
-                "route_evidence": route_evidence,
+                "tissue": inter_tissue,
+                "tissue_detail": inter_tissue_detail,
+
                 "raw_yaml": _to_raw_yaml(inter_raw),
             })
             # Also register in label lookup for edge resolution
@@ -516,19 +646,32 @@ def build_graph_data(disease: dict) -> dict:
             # Also register phenotype in label lookup
             node_label_lookup[pheno_node_id] = pheno_label
 
+            # Derive tissue for phenotype route from its intermediates
+            # Use first intermediate's tissue, or fall back to route-level
+            pheno_tissue = ""
+            pheno_tissue_detail = {}
+            for inode in intermediate_nodes:
+                if inode["id"] in inter_node_ids and inode.get("tissue"):
+                    pheno_tissue = inode["tissue"]
+                    pheno_tissue_detail = inode["tissue_detail"]
+                    break
+            if not pheno_tissue:
+                pheno_tissue = route_tissue_fallback
+                pheno_tissue_detail = route_tissue_detail_fallback
+
             # Build raw YAML for phenotype route
             pr_raw = {
                 "id": route_id,
                 "name": route_name,
                 "description": pr.get("description", "").strip(),
                 "target": tp,
-                "tissue": pr.get("tissue", {}),
             }
             if pr.get("evidence"):
                 pr_raw["evidence"] = pr["evidence"]
 
             phenotype_routes.append({
                 "id": pheno_node_id.replace("pheno:", ""),
+                "target_id": tp.get("id", ""),  # explicit target ID for disease driven_by matching
                 "name": route_name,
                 "description": pr.get("description", "").strip(),
                 "intermediate_ids": inter_node_ids,
@@ -538,9 +681,9 @@ def build_graph_data(disease: dict) -> dict:
                 "phenotype_id": tp.get("term", {}).get("id", ""),
                 "phenotype_relation": tp_rel.get("label", ""),
                 "phenotype_relation_id": tp_rel.get("id", ""),
-                "tissue": route_tissue,
-                "tissue_detail": route_tissue_detail,
-                "evidence": route_evidence,
+                "tissue": pheno_tissue,
+                "tissue_detail": pheno_tissue_detail,
+                "evidence": [],
                 "unrouted": not has_incoming_edges,
                 "raw_yaml": _to_raw_yaml(pr_raw),
             })
@@ -554,13 +697,44 @@ def build_graph_data(disease: dict) -> dict:
         "term_label": disease.get("disease_term", {}).get("label", ""),
     }
 
-    # Build phenotype → disease edges
+    # Build phenotype → disease edges from disease-level has_phenotype
+    disease_has_phenotype = {}
+    for db in disease.get("has_phenotype", []):
+        src = db.get("phenotype", "")
+        if src:
+            db_rel = db.get("relation", {})
+            db_eco = db.get("eco", {})
+            db_ev = []
+            for ev in db.get("evidence", []):
+                entry = {"type": ev.get("type", ""), "reference": ev.get("reference", "")}
+                if ev.get("snippet"):
+                    entry["snippet"] = ev["snippet"]
+                db_ev.append(entry)
+            disease_has_phenotype[src] = {
+                "relation": db_rel.get("label", ""),
+                "relation_id": db_rel.get("id", ""),
+                "eco_id": db_eco.get("id", ""),
+                "eco_label": db_eco.get("label", ""),
+                "evidence": db_ev,
+                "raw_yaml": _to_raw_yaml(db),
+            }
+
     phenotype_disease_edges = []
     for pr in phenotype_routes:
         pid = "pheno:" + pr["id"]
+        target_id = pr.get("target_id", "")
+        db_info = disease_has_phenotype.get(target_id, {})
+        edge_evidence = db_info.get("evidence", [])
         phenotype_disease_edges.append({
             "source": pid,
             "target": disease_node_id,
+            "phenotype_label": pr["phenotype_label"],
+            "relation": db_info.get("relation", ""),
+            "relation_id": db_info.get("relation_id", ""),
+            "eco_id": db_info.get("eco_id", ""),
+            "eco_label": db_info.get("eco_label", ""),
+            "evidence": edge_evidence,
+            "raw_yaml": db_info.get("raw_yaml", ""),
         })
 
     return {
@@ -601,11 +775,12 @@ def _shorten_function(mf_label: str, substrate: str = "") -> str:
     short = short.replace("protein tyrosine phosphatase activity", "Tyr phosphatase")
     short = short.replace("MAP kinase kinase activity", "MAP2K (MEK)")
     short = short.replace("MAP kinase activity", "MAPK (ERK)")
+    short = short.replace("extracellular matrix structural constituent", "ECM structural")
     return short
 
 
-def _extract_tissue(pr: dict) -> str:
-    tissue = pr.get("tissue", {})
+def _extract_tissue(node: dict) -> str:
+    tissue = node.get("tissue", {})
     parts = []
     if "cell_type" in tissue:
         parts.append(tissue["cell_type"].get("label", ""))
@@ -614,9 +789,9 @@ def _extract_tissue(pr: dict) -> str:
     return " / ".join(p for p in parts if p)
 
 
-def _extract_tissue_detail(pr: dict) -> dict:
+def _extract_tissue_detail(node: dict) -> dict:
     """Extract full tissue detail with ontology IDs."""
-    tissue = pr.get("tissue", {})
+    tissue = node.get("tissue", {})
     detail = {}
     ct = tissue.get("cell_type", {})
     if ct:
@@ -628,16 +803,6 @@ def _extract_tissue_detail(pr: dict) -> dict:
         detail["anatomy_id"] = anat.get("id", "")
     return detail
 
-
-def _extract_route_evidence(pr: dict) -> list:
-    """Extract evidence from a phenotype route."""
-    result = []
-    for ev in pr.get("evidence", []):
-        entry = {"type": ev.get("type", ""), "reference": ev.get("reference", "")}
-        if ev.get("snippet"):
-            entry["snippet"] = ev["snippet"]
-        result.append(entry)
-    return result
 
 
 HTML_TEMPLATE = """<!DOCTYPE html>
@@ -1208,15 +1373,6 @@ function render() {{
         if (td.anatomy_id) tissueIds.push(td.anatomy_id);
         if (tissueIds.length) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${{tissueIds.join(" / ")}}</div>`;
       }}
-      // Route-level evidence
-      if (n.route_evidence && n.route_evidence.length) {{
-        html += `<div class="tt-section"><b>Evidence:</b>`;
-        n.route_evidence.forEach(ev => {{
-          html += `<div class="tt-ref">📄 ${{ev.reference}}</div>`;
-          if (ev.snippet) html += `<div class="tt-evidence">"${{ev.snippet}}"</div>`;
-        }});
-        html += `</div>`;
-      }}
       html += `<div style="margin-top:6px;font-size:10px;color:#adb5bd">${{n.id}}</div>`;
       if (n.raw_yaml) html += `<details class="tt-raw"><summary>Raw data (YAML)</summary><pre>${{n.raw_yaml}}</pre></details>`;
       tt.html(html);
@@ -1306,6 +1462,37 @@ function render() {{
     const pathD = line(pts.points);
     const eg = edgeGroup.append("g").attr("class", "pheno-disease-edge");
     eg.append("path").attr("d", pathD).attr("marker-end", "url(#arrowhead-disease)");
+    // Invisible wider path for hover target
+    eg.append("path").attr("class", "edge-hover").attr("d", pathD);
+    // Tooltip
+    eg.on("mouseover", (event) => {{
+      if (_tooltipPinned) return;
+      const tt = d3.select("#tooltip");
+      tt.style("display", "block")
+        .style("left", (event.pageX + 12) + "px")
+        .style("top", (event.pageY - 10) + "px");
+      const phenoLabel = e.phenotype_label || nodeLabels[e.source] || e.source;
+      const diseaseLabel = DATA.disease_node ? DATA.disease_node.name : e.target;
+      let html = `<div class="tt-title">${{phenoLabel}} → ${{diseaseLabel}}</div>`;
+      if (e.relation) {{
+        html += `<div class="tt-detail"><b>Relation:</b> ${{e.relation}}</div>`;
+        if (e.relation_id) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${{e.relation_id}}</div>`;
+      }}
+      if (e.eco_label) {{
+        html += `<div class="tt-detail"><b>Evidence type:</b> <span class="tt-eco">${{e.eco_label}}</span></div>`;
+        if (e.eco_id) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${{e.eco_id}}</div>`;
+      }}
+      if (e.evidence && e.evidence.length) {{
+        html += `<div class="tt-section"><b>Evidence:</b>`;
+        e.evidence.forEach(ev => {{
+          html += `<div class="tt-ref">📄 ${{ev.reference}}</div>`;
+          if (ev.snippet) html += `<div class="tt-evidence">"${{ev.snippet}}"</div>`;
+        }});
+        html += `</div>`;
+      }}
+      if (e.raw_yaml) html += `<details class="tt-raw"><summary>Raw data (YAML)</summary><pre>${{e.raw_yaml}}</pre></details>`;
+      tt.html(html);
+    }}).on("mouseout", () => guardMouseout()).on("click", (event) => pinTooltip(event));
   }});
 
   // Draw disease node (rendered last so it appears at the right)
