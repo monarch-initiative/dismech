@@ -773,6 +773,65 @@ def build_graph_data(disease: dict) -> dict:
     for i, hg in enumerate(result["hypothesis_groups"]):
         result["hypothesis_colors"][hg["id"]] = HYPOTHESIS_COLORS[i % len(HYPOTHESIS_COLORS)]
 
+    # Build module membership and boundary data for panel rendering
+    module_nodes = {}  # module_id -> list of node IDs
+    for n in result["nodes"]:
+        if n["module_id"]:
+            module_nodes.setdefault(n["module_id"], []).append(n["id"])
+
+    # Identify module-internal edges (both source and target in same module)
+    # vs boundary edges (source in module, target outside or vice versa)
+    node_module = {}
+    for n in result["nodes"]:
+        if n["module_id"]:
+            node_module[n["id"]] = n["module_id"]
+
+    for e in result["edges"]:
+        src_mod = node_module.get(e["source"])
+        tgt_mod = node_module.get(e["target"])
+        if src_mod and tgt_mod and src_mod == tgt_mod:
+            e["edge_context"] = "module_internal"
+            e["module_id"] = src_mod
+        else:
+            e["edge_context"] = "cross_boundary"
+            e["module_id"] = None
+
+    result["module_nodes"] = module_nodes
+
+    # Annotate perturbation targets for port dot rendering
+    for hg in result["hypothesis_groups"]:
+        hg["perturbation_targets"] = []
+        for raw_hg in disease.get("hypothesis_groups", []):
+            if raw_hg["id"] == hg["id"]:
+                for p in raw_hg.get("perturbations", []):
+                    hg["perturbation_targets"].append(p["target_activity"])
+                break
+
+    # Identify module output nodes (have edges leaving the module)
+    module_outputs = {}  # module_id -> list of {node_id, short_label}
+    for mod_id, node_ids in module_nodes.items():
+        node_set = set(node_ids)
+        outputs = set()
+        # Check module edges
+        for e in result["edges"]:
+            if e["source"] in node_set and e["target"] not in node_set:
+                outputs.add(e["source"])
+        # Check cross-boundary driven_by edges
+        for e in result["intermediate_edges"]:
+            if e["source"] in node_set:
+                outputs.add(e["source"])
+        # Also check disease-local activity driven_by (edges from module to local activities)
+        for e in result["edges"]:
+            if e.get("edge_context") == "cross_boundary" and e["source"] in node_set:
+                outputs.add(e["source"])
+
+        node_label_map = {n["id"]: n["short_label"] for n in result["nodes"]}
+        module_outputs[mod_id] = [
+            {"id": nid, "label": node_label_map.get(nid, nid)}
+            for nid in sorted(outputs)
+        ]
+    result["module_outputs"] = module_outputs
+
     return result
 
 
