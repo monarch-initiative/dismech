@@ -253,7 +253,6 @@ def build_graph_data(disease: dict) -> dict:
             eco = p.get("eco", {})
             states[p["target_activity"]] = {
                 "state": p["perturbed_state"],
-                "mechanism": p.get("mechanism", ""),
                 "variant_class": variant,
                 "is_primary": True,
                 "provenance": "primary_mutation",
@@ -304,7 +303,6 @@ def build_graph_data(disease: dict) -> dict:
                     ev_refs = [e.get("reference", "") for e in ps.get("evidence", []) if e.get("reference")]
                 states[ps["activity"]] = {
                     "state": ps["perturbed_state"],
-                    "mechanism": "",
                     "variant_class": "",
                     "is_primary": False,
                     "provenance": eco.get("label", ps.get("provenance", "")),
@@ -331,7 +329,6 @@ def build_graph_data(disease: dict) -> dict:
                             all_ev_refs.append(ev["reference"])
                 states[ps["activity"]] = {
                     "state": ps["perturbed_state"],
-                    "mechanism": "",
                     "variant_class": "",
                     "is_primary": False,
                     "provenance": first_eco.get("label", ps.get("provenance", "")),
@@ -1283,7 +1280,6 @@ function render() {{
         if (st.is_primary) {{
           html += `<div class="tt-detail"><b>Role:</b> Primary mutation site</div>`;
           if (st.variant_class) html += `<div class="tt-detail"><b>Variant:</b> ${{st.variant_class}}</div>`;
-          if (st.mechanism) html += `<div class="tt-detail"><b>Mechanism:</b> ${{st.mechanism.replace(/_/g, " ")}}</div>`;
         }} else {{
           const causes = Array.isArray(st.cause) ? st.cause : (st.cause ? [st.cause] : []);
           const causeLabels = causes.map(c => nodeLabels[c] || c).join(", ");

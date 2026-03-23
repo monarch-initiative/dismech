@@ -75,6 +75,9 @@ A module defines normal biology with:
 **Activities** — gene products performing molecular functions:
 ```yaml
 - id: shp2_phosphatase
+  source:
+    type: go_cam
+    id: "gomodel:67c10cc400009089"
   gene:
     symbol: PTPN11
     hgnc_id: HGNC:9644
@@ -146,7 +149,6 @@ perturbations:
     id: GENO:0000134
     label: loss of function variant
   perturbed_state: decreased
-  mechanism: loss_of_function
   eco:
     id: ECO:0000315
     label: mutant phenotype evidence used in manual assertion

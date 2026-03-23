@@ -117,6 +117,7 @@ For multi-subunit complexes, `complex` replaces `gene`:
 | `biological_process` | no | GO term `{id, label}` — process it participates in |
 | `substrate` | no | `{symbol, hgnc_id}` — for activities acting on a specific target (e.g., LZTR1 ubiquitinating HRAS) |
 | `display_name` | no | Override label for visualization |
+| `source` | no | Provenance — `{type, id}` for GO-CAM or `{type, reference}` for literature |
 
 ### Edges
 
@@ -235,7 +236,6 @@ perturbations:
     id: GENO:0000134
     label: loss of function variant
   perturbed_state: decreased
-  mechanism: loss_of_function
   eco:
     id: ECO:0000315
     label: mutant phenotype evidence used in manual assertion
@@ -252,7 +252,6 @@ Activities are referenced as `module_id:activity_id` (e.g., `collagen_v_assembly
 | `target_activity` | yes | `module_id:activity_id` reference |
 | `variant_class` | yes | GENO term `{id, label}` |
 | `perturbed_state` | yes | How the activity is altered (see [Controlled Vocabularies](#controlled-vocabularies)) |
-| `mechanism` | yes | Molecular consequence: `loss_of_function`, `gain_of_function` |
 | `eco` | yes | Evidence code `{id, label}` |
 | `evidence` | yes | Supporting evidence |
 
