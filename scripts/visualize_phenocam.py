@@ -734,7 +734,7 @@ def build_graph_data(disease: dict) -> dict:
             "raw_yaml": db_info.get("raw_yaml", ""),
         })
 
-    return {
+    result = {
         "disease_name": disease["name"],
         "disease_id": disease["id"],
         "disease_term": disease.get("disease_term", {}),
@@ -748,6 +748,32 @@ def build_graph_data(disease: dict) -> dict:
         "disease_node": disease_node,
         "phenotype_disease_edges": phenotype_disease_edges,
     }
+
+    # Compute hypothesis ancestry for edge coloring
+    node_ancestry = _compute_hypothesis_ancestry(result)
+
+    # Annotate each edge with its hypothesis colors
+    hg_ids = [hg["id"] for hg in result["hypothesis_groups"]]
+    for e in result["edges"]:
+        e["hypothesis_ids"] = sorted(node_ancestry.get(e["source"], set()) & set(hg_ids))
+    for e in result["intermediate_edges"]:
+        e["hypothesis_ids"] = sorted(node_ancestry.get(e["source"], set()) & set(hg_ids))
+    for e in result["phenotype_disease_edges"]:
+        e["hypothesis_ids"] = sorted(node_ancestry.get(e["source"], set()) & set(hg_ids))
+
+    # Annotate nodes with hypothesis ancestry
+    for n in result["nodes"]:
+        n["hypothesis_ids"] = sorted(node_ancestry.get(n["id"], set()))
+    for n in result["intermediate_nodes"]:
+        n["hypothesis_ids"] = sorted(node_ancestry.get(n["id"], set()))
+
+    # Add hypothesis color palette to data
+    HYPOTHESIS_COLORS = ["#e74c3c", "#3498db", "#1abc9c", "#e67e22", "#9b59b6", "#2ecc71"]
+    result["hypothesis_colors"] = {}
+    for i, hg in enumerate(result["hypothesis_groups"]):
+        result["hypothesis_colors"][hg["id"]] = HYPOTHESIS_COLORS[i % len(HYPOTHESIS_COLORS)]
+
+    return result
 
 
 def _shorten_function(mf_label: str, substrate: str = "") -> str:
@@ -800,6 +826,42 @@ def _extract_tissue_detail(node: dict) -> dict:
         detail["anatomy_id"] = anat.get("id", "")
     return detail
 
+
+def _compute_hypothesis_ancestry(graph_data: dict) -> dict:
+    """Compute which hypothesis(es) can reach each node via perturbation chains.
+
+    Returns a dict mapping node_id -> set of hypothesis_ids that perturb it.
+    """
+    node_ancestry = {}  # node_id -> set of hypothesis_ids
+
+    for hg in graph_data["hypothesis_groups"]:
+        hg_id = hg["id"]
+        # Seed: only primary perturbation nodes (not propagated states)
+        perturbed_nodes = {
+            nid for nid, info in hg["states"].items() if info["is_primary"]
+        }
+
+        # BFS forward through edges to find all reachable nodes
+        visited = set()
+        queue = list(perturbed_nodes)
+        while queue:
+            node = queue.pop(0)
+            if node in visited:
+                continue
+            visited.add(node)
+            node_ancestry.setdefault(node, set()).add(hg_id)
+            # Find edges where this node is the source
+            for e in graph_data["edges"]:
+                if e["source"] == node and e["target"] not in visited:
+                    queue.append(e["target"])
+            for e in graph_data["intermediate_edges"]:
+                if e["source"] == node and e["target"] not in visited:
+                    queue.append(e["target"])
+            for e in graph_data["phenotype_disease_edges"]:
+                if e["source"] == node and e["target"] not in visited:
+                    queue.append(e["target"])
+
+    return node_ancestry
 
 
 HTML_TEMPLATE = """<!DOCTYPE html>
