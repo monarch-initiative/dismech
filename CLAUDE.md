@@ -85,6 +85,46 @@ Maps ontology prefixes to OAK adapters for term validation:
 
 ## Important Patterns
 
+### Mechanism Modules
+
+Mechanism modules (`kb/modules/`) define conserved pathological processes that recur across
+multiple disorders (e.g., the fibrotic response). A module uses the **same schema** as a
+regular dismech Disease entry — it has `pathophysiology` nodes with cell types, biological
+processes, evidence, and causal edges (`downstream`).
+
+**How conformance works:**
+
+Individual disorder entries declare that a pathophysiology node conforms to a module node
+using the `conforms_to` slot:
+
+```yaml
+# In kb/disorders/Liver_Cirrhosis.yaml
+pathophysiology:
+- name: Hepatic Stellate Cell Activation
+  conforms_to: "fibrotic_response#Mesenchymal Cell Activation"
+  cell_types:
+  - preferred_term: Hepatic Stellate Cell
+    term:
+      id: CL:0000632
+      label: hepatic stellate cell
+  biological_processes:
+  - preferred_term: TGF-beta Receptor Signaling
+    term:
+      id: GO:0007179
+      label: transforming growth factor beta receptor signaling pathway
+    modifier: INCREASED
+```
+
+**Key principles:**
+- **Same schema**: Modules validate against the `Disease` class, just like disorder files
+- **Not DRY**: Disorder entries fully duplicate content; conformance is for consistency checking, not inheritance
+- **Organ-specific substitution**: Module nodes define generic cell types (e.g., `fibroblast`); conforming disorder nodes substitute organ-specific types (e.g., `hepatic stellate cell`)
+- **Consistency checking**: If a node declares `conforms_to`, it should include the expected biological processes and causal edges from the module
+- **Reference format**: `"module_name#Node Name"` — module name matches the filename in `kb/modules/` (without `.yaml`), node name matches a pathophysiology `name` in that module
+
+**Available modules:**
+- `fibrotic_response` — Conserved fibrotic response: tissue injury → inflammation → mesenchymal cell activation → myofibroblast → excessive ECM → organ dysfunction
+
 ### Evidence Items
 All evidence must have PMID references and support classification:
 ```yaml
@@ -380,3 +420,27 @@ just gen-dashboard
 ```
 
 The dashboard shows priority curation targets - the 10 files with lowest compliance scores.
+
+## Git Safety Rules
+
+### Never force-push someone else's branch
+If a PR was authored by another contributor, **do not** force-push, rebase, or reset their branch. Instead:
+1. Ask the original author to rebase/fix conflicts themselves
+2. Or create a separate fix commit on top of their work (no force-push)
+3. Only force-push branches that you (or your orchestrator) created
+
+### Always use targeted git add
+Never use `git add -A` or `git add .` in worktrees. Only stage files relevant to the task:
+```bash
+git add kb/disorders/ references_cache/ research/
+```
+This prevents committing generated files (HTML, schema docs, cache CSVs) that cause merge conflicts.
+
+### Commit and push as final step
+Every task should end with: validate → targeted git add → commit → push. Don't leave uncommitted work for someone else to discover.
+
+### Post PR comments explaining your changes
+After pushing fixes, comment on the PR summarizing:
+- What you changed and why
+- What you intentionally did NOT change, with reasoning
+- Validation results
