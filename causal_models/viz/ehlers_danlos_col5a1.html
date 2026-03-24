@@ -1388,7 +1388,10 @@ const DATA = {
         "label": "Type I/V heterotypic fibril"
       }
     ]
-  }
+  },
+  "perturbation_target_nodes": [
+    "collagen_v_assembly:col5a1_structural"
+  ]
 };
 
 // --- Tooltip pin/unpin ---
@@ -1520,8 +1523,9 @@ function layoutGraph(data) {
   const nodeToModule = {};
   data.nodes.forEach(n => { if (n.module_id) nodeToModule[n.id] = n.module_id; });
 
-  // Add free-flowing nodes (non-module)
-  data.nodes.filter(n => !moduleNodeIds.has(n.id)).forEach(n => {
+  // Add free-flowing nodes (non-module) + perturbation targets
+  const pertTargets = new Set(data.perturbation_target_nodes || []);
+  data.nodes.filter(n => !moduleNodeIds.has(n.id) || pertTargets.has(n.id)).forEach(n => {
     const w = Math.max(140, n.short_label.length * 8 + 30);
     og.setNode(n.id, { label: n.short_label, width: w, height: 60 });
   });
@@ -1549,6 +1553,22 @@ function layoutGraph(data) {
     const src = moduleNodeIds.has(e.source) ? "module:" + nodeToModule[e.source] : e.source;
     const tgt = moduleNodeIds.has(e.target) ? "module:" + nodeToModule[e.target] : e.target;
     if (og.hasNode(src) && og.hasNode(tgt)) og.setEdge(src, tgt);
+  });
+
+  // Add edges from perturbation targets to their module-internal neighbors
+  data.edges.forEach(e => {
+    if (e.edge_context === "module_internal") {
+      // If source is a perturbation target, add edge from source to module panel
+      if (pertTargets.has(e.source) && !pertTargets.has(e.target)) {
+        const tgtMod = nodeToModule[e.target];
+        if (tgtMod) og.setEdge(e.source, "module:" + tgtMod);
+      }
+      // If target is a perturbation target, add edge from module panel to target
+      if (pertTargets.has(e.target) && !pertTargets.has(e.source)) {
+        const srcMod = nodeToModule[e.source];
+        if (srcMod) og.setEdge("module:" + srcMod, e.target);
+      }
+    }
   });
 
   // Add intermediate edges
@@ -1830,10 +1850,11 @@ function drawModulePanels(container, og, moduleLayouts, nodeGroup, edgeGroup, no
         .attr("font-size", "9px").attr("fill", "#8090c0").attr("text-anchor", "end")
         .text((DATA.module_nodes[mod.id] || []).length + " activities");
 
-      // Draw internal nodes at translated positions
+      // Draw internal nodes at translated positions (skip perturbation targets)
       const mg = ml.graph;
       const modNodeSet = new Set((DATA.module_nodes || {})[mod.id] || []);
-      DATA.nodes.filter(n => modNodeSet.has(n.id)).forEach(n => {
+      const pertTargets = new Set(DATA.perturbation_target_nodes || []);
+      DATA.nodes.filter(n => modNodeSet.has(n.id) && !pertTargets.has(n.id)).forEach(n => {
         const ipos = mg.node(n.id);
         if (!ipos) return;
         const nx = px + ipos.x;
@@ -1911,7 +1932,7 @@ function drawModulePanels(container, og, moduleLayouts, nodeGroup, edgeGroup, no
         if (hasEntry) {
           barG.append("circle")
             .attr("cx", bx).attr("cy", leftPortY + 6)
-            .attr("r", 4)
+            .attr("r", 5)
             .attr("fill", hgColors[hg.id] || "#999")
             .attr("stroke", "white").attr("stroke-width", 1);
           leftPortY += 14;
@@ -1924,7 +1945,7 @@ function drawModulePanels(container, og, moduleLayouts, nodeGroup, edgeGroup, no
       outputs.forEach(out => {
         barG.append("circle")
           .attr("cx", bx + barW).attr("cy", rightPortY + 6)
-          .attr("r", 4)
+          .attr("r", 5)
           .attr("fill", "#28a745")
           .attr("stroke", "white").attr("stroke-width", 1);
         barG.append("text")
@@ -1942,8 +1963,9 @@ function drawFreeNodes(og, nodeGroup, nodeLabels, nodeMap) {
   const hgColors = DATA.hypothesis_colors || {};
   const moduleNodeIds = new Set();
   Object.values(DATA.module_nodes || {}).forEach(ids => ids.forEach(id => moduleNodeIds.add(id)));
+  const pertTargets = new Set(DATA.perturbation_target_nodes || []);
 
-  DATA.nodes.filter(n => !moduleNodeIds.has(n.id)).forEach(n => {
+  DATA.nodes.filter(n => !moduleNodeIds.has(n.id) || pertTargets.has(n.id)).forEach(n => {
     const pos = og.node(n.id);
     if (!pos) return;
     const w = Math.max(140, n.short_label.length * 8 + 30);
@@ -2020,23 +2042,65 @@ function resolveEdgeEndpoint(nodeId, og, moduleNodeIds, nodeToModule) {
 
 // --- Edge drawing dispatcher ---
 function drawEdges(og, moduleLayouts, edgeGroup, nodeLabels, moduleNodeIds, nodeToModule) {
+  const pertTargets = new Set(DATA.perturbation_target_nodes || []);
+
+  // Helper: resolve a node position, using internal global position if in expanded module
+  function resolvePos(nodeId) {
+    const inModule = moduleNodeIds.has(nodeId) && !pertTargets.has(nodeId);
+    const modExpanded = inModule && _moduleState[nodeToModule[nodeId]] === "expanded";
+    if (modExpanded) {
+      const nd = DATA.nodes.find(n => n.id === nodeId);
+      if (nd && nd._gx !== undefined) return { x: nd._gx, y: nd._gy };
+    }
+    // Fall back to outer graph position
+    const ogId = inModule ? "module:" + nodeToModule[nodeId] : nodeId;
+    const ogPos = og.node(ogId);
+    return ogPos ? { x: ogPos.x, y: ogPos.y } : null;
+  }
+
   // Cross-boundary module edges
   DATA.edges.filter(e => e.edge_context !== "module_internal").forEach(e => {
-    const srcId = moduleNodeIds.has(e.source) ? "module:" + nodeToModule[e.source] : e.source;
-    const tgtId = moduleNodeIds.has(e.target) ? "module:" + nodeToModule[e.target] : e.target;
-    const pts = og.edge(srcId, tgtId);
-    if (!pts || !pts.points) return;
-    drawSingleEdge(edgeGroup, pts.points, e, nodeLabels, "solid");
+    const srcInModule = moduleNodeIds.has(e.source) && !pertTargets.has(e.source);
+    const tgtInModule = moduleNodeIds.has(e.target) && !pertTargets.has(e.target);
+    const srcModExpanded = srcInModule && _moduleState[nodeToModule[e.source]] === "expanded";
+    const tgtModExpanded = tgtInModule && _moduleState[nodeToModule[e.target]] === "expanded";
+
+    if (srcModExpanded || tgtModExpanded) {
+      const srcPos = resolvePos(e.source);
+      const tgtPos = resolvePos(e.target);
+      if (srcPos && tgtPos) {
+        drawSingleEdge(edgeGroup, [srcPos, tgtPos], e, nodeLabels, "solid");
+      }
+    } else {
+      const srcId = srcInModule ? "module:" + nodeToModule[e.source] : e.source;
+      const tgtId = tgtInModule ? "module:" + nodeToModule[e.target] : e.target;
+      const pts = og.edge(srcId, tgtId);
+      if (!pts || !pts.points) return;
+      drawSingleEdge(edgeGroup, pts.points, e, nodeLabels, "solid");
+    }
   });
 
   // Intermediate edges
   (DATA.intermediate_edges || []).forEach(e => {
-    const srcId = moduleNodeIds.has(e.source) ? "module:" + nodeToModule[e.source] : e.source;
-    const tgtId = moduleNodeIds.has(e.target) ? "module:" + nodeToModule[e.target] : e.target;
-    const pts = og.edge(srcId, tgtId);
-    if (!pts || !pts.points) return;
+    const srcInModule = moduleNodeIds.has(e.source) && !pertTargets.has(e.source);
+    const tgtInModule = moduleNodeIds.has(e.target) && !pertTargets.has(e.target);
+    const srcModExpanded = srcInModule && _moduleState[nodeToModule[e.source]] === "expanded";
+    const tgtModExpanded = tgtInModule && _moduleState[nodeToModule[e.target]] === "expanded";
     const dashStyle = e.edge_type === "intermediate_to_phenotype" ? "dashed" : "solid";
-    drawSingleEdge(edgeGroup, pts.points, e, nodeLabels, dashStyle);
+
+    if (srcModExpanded || tgtModExpanded) {
+      const srcPos = resolvePos(e.source);
+      const tgtPos = resolvePos(e.target);
+      if (srcPos && tgtPos) {
+        drawSingleEdge(edgeGroup, [srcPos, tgtPos], e, nodeLabels, dashStyle);
+      }
+    } else {
+      const srcId = srcInModule ? "module:" + nodeToModule[e.source] : e.source;
+      const tgtId = tgtInModule ? "module:" + nodeToModule[e.target] : e.target;
+      const pts = og.edge(srcId, tgtId);
+      if (!pts || !pts.points) return;
+      drawSingleEdge(edgeGroup, pts.points, e, nodeLabels, dashStyle);
+    }
   });
 }
 
@@ -2270,11 +2334,13 @@ function render() {
   DATA.nodes.forEach(n => { nodeLabels[n.id] = n.short_label; });
   (DATA.intermediate_nodes || []).forEach(n => { nodeLabels[n.id] = n.short_label; });
 
+  // Panel backgrounds must be drawn FIRST so nodes/edges render on top
+  const panelBgGroup = container.append("g").attr("class", "panel-backgrounds");
   const edgeGroup = container.append("g").attr("class", "edges");
   const nodeGroup = container.append("g").attr("class", "nodes");
   const nodeMap = {};
 
-  drawModulePanels(container, og, moduleLayouts, nodeGroup, edgeGroup, nodeLabels, nodeMap);
+  drawModulePanels(panelBgGroup, og, moduleLayouts, nodeGroup, edgeGroup, nodeLabels, nodeMap);
   drawFreeNodes(og, nodeGroup, nodeLabels, nodeMap);
   drawEdges(og, moduleLayouts, edgeGroup, nodeLabels, moduleNodeIds, nodeToModule);
   drawIntermediateNodes(og, nodeGroup, nodeLabels, nodeMap);
