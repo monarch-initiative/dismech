@@ -939,10 +939,19 @@ body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
 }}
 #header h1 {{ font-size: 20px; color: #212529; }}
 #header .disease-term {{ color: #6c757d; font-size: 14px; }}
-#controls {{ display: flex; align-items: center; gap: 12px; }}
-#controls label {{ font-size: 13px; color: #495057; font-weight: 600; }}
-#controls select {{ font-size: 13px; padding: 4px 8px; border-radius: 4px; border: 1px solid #ced4da; }}
-#hg-info {{ font-size: 12px; color: #6c757d; max-width: 500px; }}
+#hypothesis-legend {{
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  font-size: 12px;
+}}
+.hg-legend-item {{
+  display: flex; align-items: center; gap: 6px;
+}}
+.hg-legend-swatch {{
+  width: 24px; height: 3px; border-radius: 2px;
+}}
+.hg-legend-freq {{
+  font-size: 10px; color: #6c757d;
+}}
 #canvas {{ width: 100%; height: calc(100vh - 70px); }}
 svg {{ width: 100%; height: 100%; }}
 
@@ -1010,6 +1019,18 @@ svg {{ width: 100%; height: 100%; }}
 .state-primary rect {{ stroke-width: 3; }}
 .state-primary .gene-label {{ text-decoration: underline; }}
 
+/* Module panels */
+.module-panel rect {{ cursor: default; }}
+.module-header {{ cursor: pointer; }}
+.module-header:hover rect {{ fill: #dde0f0; }}
+
+.state-split rect {{
+  fill: #f0e6ff;
+  stroke: #9b59b6;
+  stroke-width: 2;
+  stroke-dasharray: 4,2;
+}}
+
 /* Legend */
 #legend {{
   position: absolute; bottom: 16px; left: 16px; background: white;
@@ -1061,11 +1082,7 @@ svg {{ width: 100%; height: 100%; }}
     <h1>Pheno-CAM: {disease_name}</h1>
     <span class="disease-term">{disease_term_id} &mdash; {disease_term_label}</span>
   </div>
-  <div id="controls">
-    <label for="hg-select">Hypothesis:</label>
-    <select id="hg-select"></select>
-  </div>
-  <div id="hg-info"></div>
+  <div id="hypothesis-legend"></div>
 </div>
 <div id="canvas"><svg></svg></div>
 <div id="legend">
@@ -1132,272 +1149,167 @@ function guardMouseout() {{
   document.getElementById("tooltip").style.display = "none";
 }}
 
-// --- Layout with dagre ---
-function layoutGraph(data) {{
-  const g = new dagre.graphlib.Graph({{ compound: false }});
-  g.setGraph({{ rankdir: "LR", ranksep: 80, nodesep: 40, marginx: 40, marginy: 40 }});
-  g.setDefaultEdgeLabel(() => ({{}}));
+// --- Layout constants ---
+const PANEL_PADDING = 20;
+const PANEL_HEADER_HEIGHT = 30;
 
-  data.nodes.forEach(n => {{
+// Module collapse state
+const _moduleState = {{}};
+
+function initModuleState(data) {{
+  (data.modules || []).forEach(m => {{
+    _moduleState[m.id] = "expanded";
+  }});
+}}
+
+function toggleModule(moduleId) {{
+  _moduleState[moduleId] = _moduleState[moduleId] === "expanded" ? "collapsed" : "expanded";
+  render();
+}}
+
+// --- Two-pass dagre layout ---
+function layoutGraph(data) {{
+  // Pass 1: Layout each expanded module's internal graph
+  const moduleLayouts = {{}};
+
+  (data.modules || []).forEach(mod => {{
+    const modNodes = (data.module_nodes || {{}})[mod.id] || [];
+    if (_moduleState[mod.id] !== "expanded" || modNodes.length === 0) return;
+
+    const mg = new dagre.graphlib.Graph();
+    mg.setGraph({{ rankdir: "LR", ranksep: 60, nodesep: 30, marginx: PANEL_PADDING, marginy: PANEL_PADDING }});
+    mg.setDefaultEdgeLabel(() => ({{}}));
+
+    const modNodeSet = new Set(modNodes);
+    data.nodes.filter(n => modNodeSet.has(n.id)).forEach(n => {{
+      const w = Math.max(140, n.short_label.length * 8 + 30);
+      mg.setNode(n.id, {{ label: n.short_label, width: w, height: 60 }});
+    }});
+
+    data.edges.filter(e => e.module_id === mod.id).forEach(e => {{
+      if (mg.hasNode(e.source) && mg.hasNode(e.target)) {{
+        mg.setEdge(e.source, e.target);
+      }}
+    }});
+
+    dagre.layout(mg);
+    const gInfo = mg.graph();
+    moduleLayouts[mod.id] = {{
+      graph: mg,
+      width: gInfo.width + PANEL_PADDING * 2,
+      height: gInfo.height + PANEL_PADDING * 2 + PANEL_HEADER_HEIGHT,
+    }};
+  }});
+
+  // Pass 2: Layout outer graph
+  const og = new dagre.graphlib.Graph();
+  og.setGraph({{ rankdir: "LR", ranksep: 80, nodesep: 40, marginx: 40, marginy: 40 }});
+  og.setDefaultEdgeLabel(() => ({{}}));
+
+  // Add module panels as single large nodes
+  const moduleNodeIds = new Set();
+  (data.modules || []).forEach(mod => {{
+    const modNodes = (data.module_nodes || {{}})[mod.id] || [];
+    modNodes.forEach(nid => moduleNodeIds.add(nid));
+
+    if (_moduleState[mod.id] === "expanded" && moduleLayouts[mod.id]) {{
+      const ml = moduleLayouts[mod.id];
+      og.setNode("module:" + mod.id, {{
+        label: mod.name,
+        width: ml.width,
+        height: ml.height,
+      }});
+    }} else {{
+      const outputs = (data.module_outputs || {{}})[mod.id] || [];
+      const portCount = Math.max(outputs.length, 2);
+      og.setNode("module:" + mod.id, {{
+        label: mod.name,
+        width: 260,
+        height: Math.max(40, portCount * 14 + 20),
+      }});
+    }}
+  }});
+
+  const nodeToModule = {{}};
+  data.nodes.forEach(n => {{ if (n.module_id) nodeToModule[n.id] = n.module_id; }});
+
+  // Add free-flowing nodes (non-module)
+  data.nodes.filter(n => !moduleNodeIds.has(n.id)).forEach(n => {{
     const w = Math.max(140, n.short_label.length * 8 + 30);
-    g.setNode(n.id, {{ label: n.short_label, width: w, height: 60 }});
+    og.setNode(n.id, {{ label: n.short_label, width: w, height: 60 }});
   }});
-  data.edges.forEach(e => {{
-    g.setEdge(e.source, e.target);
-  }});
+
   // Add intermediate nodes
   (data.intermediate_nodes || []).forEach(n => {{
     const w = Math.max(130, n.short_label.length * 7 + 24);
-    g.setNode(n.id, {{ label: n.short_label, width: w, height: 50 }});
+    og.setNode(n.id, {{ label: n.short_label, width: w, height: 50 }});
   }});
-  // Add intermediate edges (activity→inter, inter→inter, inter→phenotype)
-  (data.intermediate_edges || []).forEach(e => {{
-    g.setEdge(e.source, e.target);
-  }});
-  // Add phenotype nodes (no longer directly connected from activities)
+
+  // Add phenotype nodes
   data.phenotype_routes.forEach(pr => {{
     const pid = "pheno:" + pr.id;
-    g.setNode(pid, {{ label: pr.phenotype_label, width: 140, height: 54 }});
+    og.setNode(pid, {{ label: pr.phenotype_label, width: 140, height: 54 }});
   }});
+
   // Add disease node
   if (data.disease_node) {{
-    g.setNode(data.disease_node.id, {{ label: data.disease_node.name, width: 180, height: 54 }});
+    og.setNode(data.disease_node.id, {{ label: data.disease_node.name, width: 180, height: 54 }});
   }}
-  // Add phenotype → disease edges
-  (data.phenotype_disease_edges || []).forEach(e => {{
-    g.setEdge(e.source, e.target);
+
+  // Add outer edges: cross-boundary module edges route to/from module panel node
+  data.edges.forEach(e => {{
+    if (e.edge_context === "module_internal") return;
+    const src = moduleNodeIds.has(e.source) ? "module:" + nodeToModule[e.source] : e.source;
+    const tgt = moduleNodeIds.has(e.target) ? "module:" + nodeToModule[e.target] : e.target;
+    if (og.hasNode(src) && og.hasNode(tgt)) og.setEdge(src, tgt);
   }});
 
-  dagre.layout(g);
-  return g;
+  // Add intermediate edges
+  (data.intermediate_edges || []).forEach(e => {{
+    const src = moduleNodeIds.has(e.source) ? "module:" + nodeToModule[e.source] : e.source;
+    const tgt = moduleNodeIds.has(e.target) ? "module:" + nodeToModule[e.target] : e.target;
+    if (og.hasNode(src) && og.hasNode(tgt)) og.setEdge(src, tgt);
+  }});
+
+  // Add phenotype-disease edges
+  (data.phenotype_disease_edges || []).forEach(e => {{
+    if (og.hasNode(e.source) && og.hasNode(e.target)) og.setEdge(e.source, e.target);
+  }});
+
+  dagre.layout(og);
+
+  return {{ outer: og, modules: moduleLayouts, moduleNodeIds: moduleNodeIds, nodeToModule: nodeToModule }};
 }}
 
-// --- Render ---
-function render() {{
-  const svg = d3.select("svg");
-  svg.selectAll("*").remove();
-
-  const g = layoutGraph(DATA);
-  const graphInfo = g.graph();
-
-  // Zoom/pan
-  const zoom = d3.zoom().scaleExtent([0.3, 3]).on("zoom", (e) => {{
-    container.attr("transform", e.transform);
-  }});
-  svg.call(zoom);
-
-  const container = svg.append("g");
-
-  // Fit to view
-  const svgEl = svg.node();
-  const W = svgEl.clientWidth || 900;
-  const H = svgEl.clientHeight || 600;
-  const gW = graphInfo.width || 800;
-  const gH = graphInfo.height || 400;
-  const scale = Math.min(W / (gW + 80), H / (gH + 80), 1.2);
-  const tx = (W - gW * scale) / 2;
-  const ty = (H - gH * scale) / 2;
-  svg.call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
-
-  // Arrow marker
-  svg.append("defs").append("marker")
-    .attr("id", "arrowhead").attr("viewBox", "0 0 10 10")
-    .attr("refX", 10).attr("refY", 5)
-    .attr("markerWidth", 8).attr("markerHeight", 8)
-    .attr("orient", "auto")
-    .append("path").attr("d", "M 0 0 L 10 5 L 0 10 z").attr("fill", "#868e96");
-
-  svg.select("defs").append("marker")
-    .attr("id", "arrowhead-phenotype").attr("viewBox", "0 0 10 10")
-    .attr("refX", 10).attr("refY", 5)
-    .attr("markerWidth", 8).attr("markerHeight", 8)
-    .attr("orient", "auto")
-    .append("path").attr("d", "M 0 0 L 10 5 L 0 10 z").attr("fill", "#ffc107");
-
-  svg.select("defs").append("marker")
-    .attr("id", "arrowhead-intermediate").attr("viewBox", "0 0 10 10")
-    .attr("refX", 10).attr("refY", 5)
-    .attr("markerWidth", 8).attr("markerHeight", 8)
-    .attr("orient", "auto")
-    .append("path").attr("d", "M 0 0 L 10 5 L 0 10 z").attr("fill", "#6f42c1");
-
-  svg.select("defs").append("marker")
-    .attr("id", "arrowhead-disease").attr("viewBox", "0 0 10 10")
-    .attr("refX", 10).attr("refY", 5)
-    .attr("markerWidth", 8).attr("markerHeight", 8)
-    .attr("orient", "auto")
-    .append("path").attr("d", "M 0 0 L 10 5 L 0 10 z").attr("fill", "#0d6efd");
-
-  // Draw module edges
-  const edgeGroup = container.append("g").attr("class", "edges");
-  // Build a lookup from node id to short_label for edge tooltips
-  const nodeLabels = {{}};
-  DATA.nodes.forEach(n => {{ nodeLabels[n.id] = n.short_label; }});
-  (DATA.intermediate_nodes || []).forEach(n => {{ nodeLabels[n.id] = n.short_label; }});
-
-  DATA.edges.forEach(e => {{
-    const pts = g.edge(e.source, e.target);
-    if (!pts || !pts.points) return;
-    const line = d3.line().x(d => d.x).y(d => d.y).curve(d3.curveBasis);
-    const isNeg = e.relation_id === "RO:0002630" || e.relation_id === "RO:0002409";
-    const eg = edgeGroup.append("g").attr("class", "edge");
-    const pathD = line(pts.points);
-    eg.append("path")
-      .attr("d", pathD)
-      .attr("stroke", isNeg ? "#e57373" : "#868e96")
-      .attr("marker-end", "url(#arrowhead)");
-    // Invisible wider path for hover target
-    eg.append("path").attr("class", "edge-hover").attr("d", pathD);
-    // Label at midpoint
-    const mid = pts.points[Math.floor(pts.points.length / 2)];
-    const shortRel = e.relation.replace("directly ", "").replace("regulates", "reg.");
-    eg.append("text").attr("class", "edge-label")
-      .attr("x", mid.x).attr("y", mid.y - 6)
-      .attr("text-anchor", "middle").text(shortRel);
-    // Edge tooltip
-    eg.on("mouseover", (event) => {{
-      if (_tooltipPinned) return;
-      const tt = d3.select("#tooltip");
-      tt.style("display", "block")
-        .style("left", (event.pageX + 12) + "px")
-        .style("top", (event.pageY - 10) + "px");
-      const srcLabel = nodeLabels[e.source] || e.source;
-      const tgtLabel = nodeLabels[e.target] || e.target;
-      let evHtml = "";
-      if (e.evidence && e.evidence.length) {{
-        evHtml = `<div class="tt-section"><b>Evidence:</b>`;
-        e.evidence.forEach(ev => {{
-          if (ev.type === "GO-CAM") {{
-            evHtml += `<div class="tt-ref">📦 ${{ev.id}}</div>`;
-          }} else {{
-            evHtml += `<div class="tt-ref">📄 ${{ev.id}}</div>`;
-            if (ev.snippet) evHtml += `<div class="tt-evidence">"${{ev.snippet}}"</div>`;
-          }}
-        }});
-        evHtml += `</div>`;
-      }}
-      let ecoHtml = "";
-      if (e.eco_id) {{
-        ecoHtml = `<div class="tt-detail"><b>Evidence type:</b> <span class="tt-eco">${{e.eco_label}}</span></div>
-          <div class="tt-detail" style="font-size:10px;color:#6c757d">${{e.eco_id}}</div>`;
-      }}
-      const rawYaml = e.raw_yaml ? `<details class="tt-raw"><summary>Raw data (YAML)</summary><pre>${{e.raw_yaml}}</pre></details>` : "";
-      tt.html(`<div class="tt-title">${{srcLabel}} → ${{tgtLabel}}</div>
-        <div class="tt-detail"><b>Relation:</b> ${{e.relation}}</div>
-        <div class="tt-detail" style="font-size:10px;color:#6c757d">${{e.relation_id}}</div>
-        ${{ecoHtml}}
-        ${{evHtml}}
-        ${{rawYaml}}`);
-    }}).on("mouseout", () => guardMouseout()).on("click", (event) => pinTooltip(event));
-  }});
-
-  // Draw intermediate edges
-  const edgeTypeLabels = {{
-    "activity_to_intermediate": "drives",
-    "intermediate_chain": "contributes to",
-    "intermediate_to_phenotype": "leads to",
-  }};
-  (DATA.intermediate_edges || []).forEach(e => {{
-    const pts = g.edge(e.source, e.target);
-    if (!pts || !pts.points) return;
-    const line = d3.line().x(d => d.x).y(d => d.y).curve(d3.curveBasis);
-    const pathD = line(pts.points);
-    let eg;
-    if (e.edge_type === "intermediate_to_phenotype") {{
-      eg = edgeGroup.append("g").attr("class", "process-to-pheno-edge");
-      eg.append("path").attr("d", pathD).attr("marker-end", "url(#arrowhead-phenotype)");
-    }} else {{
-      eg = edgeGroup.append("g").attr("class", "process-edge");
-      eg.append("path").attr("d", pathD).attr("marker-end", "url(#arrowhead-intermediate)");
-    }}
-    // Invisible wider path for hover target
-    eg.append("path").attr("class", "edge-hover").attr("d", pathD);
-    // Tooltip
-    const srcLabel = e.source_label || nodeLabels[e.source] || e.source;
-    const tgtLabel = e.target_label || nodeLabels[e.target] || e.target;
-    const relLabel = edgeTypeLabels[e.edge_type] || e.edge_type;
-    eg.on("mouseover", (event) => {{
-      if (_tooltipPinned) return;
-      const tt = d3.select("#tooltip");
-      tt.style("display", "block")
-        .style("left", (event.pageX + 12) + "px")
-        .style("top", (event.pageY - 10) + "px");
-      let ieHtml = `<div class="tt-title">${{srcLabel}} → ${{tgtLabel}}</div>`;
-      if (e.relation) {{
-        ieHtml += `<div class="tt-detail"><b>Relation:</b> ${{e.relation}}</div>`;
-        if (e.relation_id) ieHtml += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${{e.relation_id}}</div>`;
-      }} else {{
-        ieHtml += `<div class="tt-detail"><b>Relationship:</b> ${{srcLabel}} ${{relLabel}} ${{tgtLabel}}</div>`;
-      }}
-      if (e.eco_label) {{
-        ieHtml += `<div class="tt-detail"><b>Evidence type:</b> <span class="tt-eco">${{e.eco_label}}</span></div>`;
-        if (e.eco_id) ieHtml += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${{e.eco_id}}</div>`;
-      }}
-      if (e.evidence && e.evidence.length) {{
-        ieHtml += `<div class="tt-section"><b>Evidence:</b>`;
-        e.evidence.forEach(ev => {{
-          ieHtml += `<div class="tt-ref">📄 ${{ev.reference}}</div>`;
-          if (ev.snippet) ieHtml += `<div class="tt-evidence">"${{ev.snippet}}"</div>`;
-        }});
-        ieHtml += `</div>`;
-      }}
-      ieHtml += `<div class="tt-detail" style="font-size:10px;color:#adb5bd;margin-top:4px">Type: ${{e.edge_type.replace(/_/g, " ")}}</div>`;
-      if (e.raw_yaml) ieHtml += `<details class="tt-raw"><summary>Raw data (YAML)</summary><pre>${{e.raw_yaml}}</pre></details>`;
-      tt.html(ieHtml);
-    }}).on("mouseout", () => guardMouseout()).on("click", (event) => pinTooltip(event));
-  }});
-
-  // Draw activity nodes
-  const nodeGroup = container.append("g").attr("class", "nodes");
-  const nodeMap = {{}};
-  DATA.nodes.forEach(n => {{
-    const pos = g.node(n.id);
-    if (!pos) return;
-    const w = Math.max(140, n.short_label.length * 8 + 30);
-    const hw = w / 2;
-    const baseClass = n.type === "local_activity" ? "node local-activity state-normal" : "node state-normal";
-    const ng = nodeGroup.append("g")
-      .attr("class", baseClass)
-      .attr("transform", `translate(${{pos.x - hw}},${{pos.y - 30}})`)
-      .attr("data-id", n.id);
-    ng.append("rect").attr("width", w).attr("height", 60);
-    ng.append("text").attr("class", "gene-label")
-      .attr("x", hw).attr("y", 22).attr("text-anchor", "middle").text(n.short_label);
-    ng.append("text").attr("class", "func-label")
-      .attr("x", hw).attr("y", 36).attr("text-anchor", "middle")
-      .text(truncate(n.function_short || n.function, Math.floor(w / 6)));
-    // State badge (hidden by default)
-    ng.append("text").attr("class", "state-badge")
-      .attr("x", hw).attr("y", 52).attr("text-anchor", "middle").text("");
-    nodeMap[n.id] = ng;
-
-    // Tooltip
-    ng.on("mouseover", (event) => {{
-      if (_tooltipPinned) return;
-      const tt = d3.select("#tooltip");
-      tt.style("display", "block")
-        .style("left", (event.pageX + 12) + "px")
-        .style("top", (event.pageY - 10) + "px");
-      const name = n.display_name || n.gene || n.complex || n.id.split(":")[1];
-      const geneInfo = n.gene ? `${{n.gene}} (${{n.hgnc_id}})` : (n.complex || "");
-      let html = `<div class="tt-title">${{name}}</div>`;
-      if (geneInfo) html += `<div class="tt-subtitle">${{geneInfo}}</div>`;
-      if (n.module_name) html += `<div class="tt-detail"><b>Module:</b> ${{n.module_name}}</div>`;
-      html += `<div class="tt-detail"><b>Function:</b> ${{n.function || "—"}}</div>`;
-      if (n.function_id) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${{n.function_id}}</div>`;
-      if (n.substrate) html += `<div class="tt-detail"><b>Substrate:</b> ${{n.substrate}} (${{n.substrate_hgnc}})</div>`;
-      html += `<div class="tt-detail"><b>Location:</b> ${{n.location || "—"}}</div>`;
-      if (n.location_id) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${{n.location_id}}</div>`;
-      if (n.process) html += `<div class="tt-detail"><b>Process:</b> ${{n.process}}</div>`;
-      if (n.process_id) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${{n.process_id}}</div>`;
-      // Show perturbation state if a hypothesis is selected
-      const hgIdx = +document.getElementById("hg-select").value;
-      const hg = DATA.hypothesis_groups[hgIdx];
-      if (hg && hg.states[n.id]) {{
+// --- Tooltip helpers ---
+function attachActivityTooltip(ng, n, nodeLabels) {{
+  ng.on("mouseover", (event) => {{
+    if (_tooltipPinned) return;
+    const tt = d3.select("#tooltip");
+    tt.style("display", "block")
+      .style("left", (event.pageX + 12) + "px")
+      .style("top", (event.pageY - 10) + "px");
+    const name = n.display_name || n.gene || n.complex || n.id.split(":")[1];
+    const geneInfo = n.gene ? `${{n.gene}} (${{n.hgnc_id}})` : (n.complex || "");
+    let html = `<div class="tt-title">${{name}}</div>`;
+    if (geneInfo) html += `<div class="tt-subtitle">${{geneInfo}}</div>`;
+    if (n.module_name) html += `<div class="tt-detail"><b>Module:</b> ${{n.module_name}}</div>`;
+    html += `<div class="tt-detail"><b>Function:</b> ${{n.function || "—"}}</div>`;
+    if (n.function_id) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${{n.function_id}}</div>`;
+    if (n.substrate) html += `<div class="tt-detail"><b>Substrate:</b> ${{n.substrate}} (${{n.substrate_hgnc}})</div>`;
+    html += `<div class="tt-detail"><b>Location:</b> ${{n.location || "—"}}</div>`;
+    if (n.location_id) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${{n.location_id}}</div>`;
+    if (n.process) html += `<div class="tt-detail"><b>Process:</b> ${{n.process}}</div>`;
+    if (n.process_id) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${{n.process_id}}</div>`;
+    // Show perturbation state across all hypotheses
+    const hgColors = DATA.hypothesis_colors || {{}};
+    DATA.hypothesis_groups.forEach(hg => {{
+      if (hg.states[n.id]) {{
         const st = hg.states[n.id];
         const stClass = "tt-state tt-state-" + st.state;
+        const color = hgColors[hg.id] || "#999";
         html += `<div class="tt-section">`;
-        html += `<div class="tt-detail"><b>State:</b> <span class="${{stClass}}">${{st.state.replace(/_/g, " ")}}</span></div>`;
+        html += `<div class="tt-detail"><span style="display:inline-block;width:10px;height:10px;background:${{color}};border-radius:2px;margin-right:4px"></span><b>${{hg.name}}:</b> <span class="${{stClass}}">${{st.state.replace(/_/g, " ")}}</span></div>`;
         if (st.is_primary) {{
           html += `<div class="tt-detail"><b>Role:</b> Primary mutation site</div>`;
           if (st.variant_class) html += `<div class="tt-detail"><b>Variant:</b> ${{st.variant_class}}</div>`;
@@ -1417,15 +1329,417 @@ function render() {{
         if (st.evidence_snippet) html += `<div class="tt-evidence">"${{st.evidence_snippet}}"</div>`;
         html += `</div>`;
       }}
-      html += `<div style="margin-top:6px;font-size:10px;color:#adb5bd">${{n.id}}</div>`;
-      if (n.raw_yaml) html += `<details class="tt-raw"><summary>Raw data (YAML)</summary><pre>${{n.raw_yaml}}</pre></details>`;
-      tt.html(html);
-    }}).on("mouseout", () => guardMouseout()).on("click", (event) => pinTooltip(event));
+    }});
+    html += `<div style="margin-top:6px;font-size:10px;color:#adb5bd">${{n.id}}</div>`;
+    if (n.raw_yaml) html += `<details class="tt-raw"><summary>Raw data (YAML)</summary><pre>${{n.raw_yaml}}</pre></details>`;
+    tt.html(html);
+  }}).on("mouseout", () => guardMouseout()).on("click", (event) => pinTooltip(event));
+}}
+
+function attachEdgeTooltip(eg, e, nodeLabels) {{
+  const edgeTypeLabels = {{
+    "activity_to_intermediate": "drives",
+    "intermediate_chain": "contributes to",
+    "intermediate_to_phenotype": "leads to",
+  }};
+  eg.on("mouseover", (event) => {{
+    if (_tooltipPinned) return;
+    const tt = d3.select("#tooltip");
+    tt.style("display", "block")
+      .style("left", (event.pageX + 12) + "px")
+      .style("top", (event.pageY - 10) + "px");
+    const srcLabel = e.source_label || nodeLabels[e.source] || e.source;
+    const tgtLabel = e.target_label || nodeLabels[e.target] || e.target;
+    let html = `<div class="tt-title">${{srcLabel}} → ${{tgtLabel}}</div>`;
+    if (e.relation) {{
+      html += `<div class="tt-detail"><b>Relation:</b> ${{e.relation}}</div>`;
+      if (e.relation_id) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${{e.relation_id}}</div>`;
+    }} else if (e.edge_type) {{
+      const relLabel = edgeTypeLabels[e.edge_type] || e.edge_type;
+      html += `<div class="tt-detail"><b>Relationship:</b> ${{srcLabel}} ${{relLabel}} ${{tgtLabel}}</div>`;
+    }}
+    if (e.eco_label) {{
+      html += `<div class="tt-detail"><b>Evidence type:</b> <span class="tt-eco">${{e.eco_label}}</span></div>`;
+      if (e.eco_id) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${{e.eco_id}}</div>`;
+    }}
+    if (e.evidence && e.evidence.length) {{
+      html += `<div class="tt-section"><b>Evidence:</b>`;
+      e.evidence.forEach(ev => {{
+        if (ev.type === "GO-CAM") {{
+          html += `<div class="tt-ref">📦 ${{ev.id}}</div>`;
+        }} else {{
+          const ref = ev.id || ev.reference || "";
+          html += `<div class="tt-ref">📄 ${{ref}}</div>`;
+          const snip = ev.snippet;
+          if (snip) html += `<div class="tt-evidence">"${{snip}}"</div>`;
+        }}
+      }});
+      html += `</div>`;
+    }}
+    if (e.edge_type) html += `<div class="tt-detail" style="font-size:10px;color:#adb5bd;margin-top:4px">Type: ${{e.edge_type.replace(/_/g, " ")}}</div>`;
+    if (e.raw_yaml) html += `<details class="tt-raw"><summary>Raw data (YAML)</summary><pre>${{e.raw_yaml}}</pre></details>`;
+    tt.html(html);
+  }}).on("mouseout", () => guardMouseout()).on("click", (event) => pinTooltip(event));
+}}
+
+// --- Arrow marker definitions ---
+function defineArrowMarkers(defs) {{
+  const hgColors = DATA.hypothesis_colors || {{}};
+  _defineArrow(defs, "arrow-gray", "#ccc");
+  _defineTBar(defs, "tbar-gray", "#ccc");
+  Object.entries(hgColors).forEach(([hgId, color]) => {{
+    _defineArrow(defs, "arrow-" + hgId, color);
+    _defineTBar(defs, "tbar-" + hgId, color);
+  }});
+  _defineArrow(defs, "arrow-disease", "#0d6efd");
+}}
+
+function _defineArrow(defs, id, color) {{
+  defs.append("marker")
+    .attr("id", id).attr("viewBox", "0 0 10 10")
+    .attr("refX", 10).attr("refY", 5)
+    .attr("markerWidth", 8).attr("markerHeight", 8)
+    .attr("orient", "auto")
+    .append("path").attr("d", "M 0 0 L 10 5 L 0 10 z").attr("fill", color);
+}}
+
+function _defineTBar(defs, id, color) {{
+  defs.append("marker")
+    .attr("id", id).attr("viewBox", "0 0 10 10")
+    .attr("refX", 5).attr("refY", 5)
+    .attr("markerWidth", 8).attr("markerHeight", 10)
+    .attr("orient", "auto")
+    .append("line")
+    .attr("x1", 5).attr("y1", 0).attr("x2", 5).attr("y2", 10)
+    .attr("stroke", color).attr("stroke-width", 2);
+}}
+
+// --- Edge drawing with hypothesis colors ---
+function offsetPath(points, offset) {{
+  if (offset === 0 || points.length < 2) return points;
+  return points.map((p, i) => {{
+    let dx, dy;
+    if (i === 0) {{
+      dx = points[1].x - p.x;
+      dy = points[1].y - p.y;
+    }} else if (i === points.length - 1) {{
+      dx = p.x - points[i - 1].x;
+      dy = p.y - points[i - 1].y;
+    }} else {{
+      dx = points[i + 1].x - points[i - 1].x;
+      dy = points[i + 1].y - points[i - 1].y;
+    }}
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    const px = -dy / len;
+    const py = dx / len;
+    return {{ x: p.x + px * offset, y: p.y + py * offset }};
+  }});
+}}
+
+function drawSingleEdge(edgeGroup, points, edgeData, nodeLabels, dashStyle) {{
+  const hypothesisIds = edgeData.hypothesis_ids || [];
+  const hgColors = DATA.hypothesis_colors || {{}};
+  const isNeg = edgeData.relation_id === "RO:0002630" || edgeData.relation_id === "RO:0002305";
+
+  let strokeDash = "";
+  if (dashStyle === "dashed") strokeDash = "6,3";
+  else if (dashStyle === "dotted") strokeDash = "2,3";
+
+  if (hypothesisIds.length === 0) {{
+    const line = d3.line().x(d => d.x).y(d => d.y).curve(d3.curveBasis);
+    const eg = edgeGroup.append("g").attr("class", "edge");
+    const pathD = line(points);
+    eg.append("path")
+      .attr("d", pathD)
+      .attr("stroke", "#ccc")
+      .attr("stroke-width", 1)
+      .attr("fill", "none")
+      .attr("stroke-dasharray", strokeDash)
+      .attr("marker-end", isNeg ? "url(#tbar-gray)" : "url(#arrow-gray)");
+    eg.append("path").attr("class", "edge-hover").attr("d", pathD);
+    attachEdgeTooltip(eg, edgeData, nodeLabels);
+    // Label at midpoint
+    if (edgeData.relation) {{
+      const mid = points[Math.floor(points.length / 2)];
+      const shortRel = edgeData.relation.replace("directly ", "").replace("regulates", "reg.");
+      eg.append("text").attr("class", "edge-label")
+        .attr("x", mid.x).attr("y", mid.y - 6)
+        .attr("text-anchor", "middle").text(shortRel);
+    }}
+    return;
+  }}
+
+  const numLines = hypothesisIds.length;
+  const OFFSET = 2;
+  const totalSpread = (numLines - 1) * OFFSET;
+
+  hypothesisIds.forEach((hgId, idx) => {{
+    const offset = -totalSpread / 2 + idx * OFFSET;
+    const color = hgColors[hgId] || "#999";
+    const offsetPts = offsetPath(points, offset);
+    const line = d3.line().x(d => d.x).y(d => d.y).curve(d3.curveBasis);
+    const eg = edgeGroup.append("g").attr("class", "edge");
+    const pathD = line(offsetPts);
+    eg.append("path")
+      .attr("d", pathD)
+      .attr("stroke", color)
+      .attr("stroke-width", 1.5)
+      .attr("fill", "none")
+      .attr("stroke-dasharray", strokeDash)
+      .attr("marker-end", isNeg ? "url(#tbar-" + hgId + ")" : "url(#arrow-" + hgId + ")");
+    if (idx === 0) {{
+      eg.append("path").attr("class", "edge-hover").attr("d", pathD);
+      attachEdgeTooltip(eg, edgeData, nodeLabels);
+      // Label at midpoint
+      if (edgeData.relation) {{
+        const mid = points[Math.floor(points.length / 2)];
+        const shortRel = edgeData.relation.replace("directly ", "").replace("regulates", "reg.");
+        eg.append("text").attr("class", "edge-label")
+          .attr("x", mid.x).attr("y", mid.y - 6)
+          .attr("text-anchor", "middle").text(shortRel);
+      }}
+    }}
+  }});
+}}
+
+// --- Module panels ---
+function drawModulePanels(container, og, moduleLayouts, nodeGroup, edgeGroup, nodeLabels, nodeMap) {{
+  (DATA.modules || []).forEach(mod => {{
+    const modNodeId = "module:" + mod.id;
+    const outerPos = og.node(modNodeId);
+    if (!outerPos) return;
+
+    const isExpanded = _moduleState[mod.id] === "expanded";
+    const panelG = container.append("g").attr("class", "module-panel");
+
+    if (isExpanded && moduleLayouts[mod.id]) {{
+      const ml = moduleLayouts[mod.id];
+      const px = outerPos.x - ml.width / 2;
+      const py = outerPos.y - ml.height / 2;
+
+      panelG.append("rect")
+        .attr("x", px).attr("y", py)
+        .attr("width", ml.width).attr("height", ml.height)
+        .attr("rx", 10).attr("fill", "#fafbff")
+        .attr("stroke", "#8090c0").attr("stroke-width", 2);
+
+      const headerG = panelG.append("g")
+        .attr("class", "module-header")
+        .style("cursor", "pointer")
+        .on("click", () => toggleModule(mod.id));
+
+      headerG.append("rect")
+        .attr("x", px).attr("y", py)
+        .attr("width", ml.width).attr("height", 26)
+        .attr("rx", 10).attr("fill", "#e8ecf8");
+
+      headerG.append("text")
+        .attr("x", px + 12).attr("y", py + 18)
+        .attr("font-size", "10px").attr("font-weight", "700").attr("fill", "#3050a0")
+        .text("▼ " + mod.name);
+
+      headerG.append("text")
+        .attr("x", px + ml.width - 12).attr("y", py + 18)
+        .attr("font-size", "9px").attr("fill", "#8090c0").attr("text-anchor", "end")
+        .text((DATA.module_nodes[mod.id] || []).length + " activities");
+
+      // Draw internal nodes at translated positions
+      const mg = ml.graph;
+      const modNodeSet = new Set((DATA.module_nodes || {{}})[mod.id] || []);
+      DATA.nodes.filter(n => modNodeSet.has(n.id)).forEach(n => {{
+        const ipos = mg.node(n.id);
+        if (!ipos) return;
+        const nx = px + ipos.x;
+        const ny = py + PANEL_HEADER_HEIGHT + ipos.y;
+        const w = Math.max(140, n.short_label.length * 8 + 30);
+        const hw = w / 2;
+
+        const ng = nodeGroup.append("g")
+          .attr("class", "node state-normal")
+          .attr("transform", `translate(${{nx - hw}},${{ny - 30}})`)
+          .attr("data-id", n.id);
+        ng.append("rect").attr("width", w).attr("height", 60);
+        ng.append("text").attr("class", "gene-label")
+          .attr("x", hw).attr("y", 22).attr("text-anchor", "middle").text(n.short_label);
+        ng.append("text").attr("class", "func-label")
+          .attr("x", hw).attr("y", 36).attr("text-anchor", "middle")
+          .text(truncate(n.function_short || n.function, Math.floor(w / 6)));
+        ng.append("text").attr("class", "state-badge")
+          .attr("x", hw).attr("y", 52).attr("text-anchor", "middle").text("");
+        nodeMap[n.id] = ng;
+        n._gx = nx;
+        n._gy = ny;
+
+        attachActivityTooltip(ng, n, nodeLabels);
+      }});
+
+      // Draw module-internal edges
+      DATA.edges.filter(e => e.module_id === mod.id).forEach(e => {{
+        const srcPos = mg.node(e.source);
+        const tgtPos = mg.node(e.target);
+        if (!srcPos || !tgtPos) return;
+        const pts = mg.edge(e.source, e.target);
+        if (!pts || !pts.points) return;
+        const globalPts = pts.points.map(p => ({{
+          x: px + p.x,
+          y: py + PANEL_HEADER_HEIGHT + p.y
+        }}));
+        drawSingleEdge(edgeGroup, globalPts, e, nodeLabels, "solid");
+      }});
+
+    }} else {{
+      // Collapsed: draw summary bar
+      const barW = outerPos.width || 260;
+      const barH = outerPos.height || 40;
+      const bx = outerPos.x - barW / 2;
+      const by = outerPos.y - barH / 2;
+
+      const barG = panelG.append("g")
+        .style("cursor", "pointer")
+        .on("click", () => toggleModule(mod.id));
+
+      barG.append("rect")
+        .attr("x", bx).attr("y", by)
+        .attr("width", barW).attr("height", barH)
+        .attr("rx", 10).attr("fill", "#e8ecf8")
+        .attr("stroke", "#8090c0").attr("stroke-width", 2);
+
+      barG.append("text")
+        .attr("x", bx + 12).attr("y", by + barH / 2 + 4)
+        .attr("font-size", "10px").attr("font-weight", "700").attr("fill", "#3050a0")
+        .text("▶ " + mod.name);
+
+      barG.append("text")
+        .attr("x", bx + barW - 12).attr("y", by + barH / 2 + 4)
+        .attr("font-size", "9px").attr("fill", "#8090c0").attr("text-anchor", "end")
+        .text((DATA.module_nodes[mod.id] || []).length + " activities");
+
+      // Left port dots (perturbation entry points)
+      const hgColors = DATA.hypothesis_colors || {{}};
+      let leftPortY = by + 8;
+      DATA.hypothesis_groups.forEach(hg => {{
+        const targets = hg.perturbation_targets || [];
+        const modNodes = new Set((DATA.module_nodes || {{}})[mod.id] || []);
+        const hasEntry = targets.some(t => modNodes.has(t));
+        if (hasEntry) {{
+          barG.append("circle")
+            .attr("cx", bx).attr("cy", leftPortY + 6)
+            .attr("r", 4)
+            .attr("fill", hgColors[hg.id] || "#999")
+            .attr("stroke", "white").attr("stroke-width", 1);
+          leftPortY += 14;
+        }}
+      }});
+
+      // Right port dots (output activities)
+      const outputs = (DATA.module_outputs || {{}})[mod.id] || [];
+      let rightPortY = by + 8;
+      outputs.forEach(out => {{
+        barG.append("circle")
+          .attr("cx", bx + barW).attr("cy", rightPortY + 6)
+          .attr("r", 4)
+          .attr("fill", "#28a745")
+          .attr("stroke", "white").attr("stroke-width", 1);
+        barG.append("text")
+          .attr("x", bx + barW + 8).attr("y", rightPortY + 10)
+          .attr("font-size", "7px").attr("fill", "#6c757d")
+          .text(out.label);
+        rightPortY += 14;
+      }});
+    }}
+  }});
+}}
+
+// --- Free-flowing nodes ---
+function drawFreeNodes(og, nodeGroup, nodeLabels, nodeMap) {{
+  const hgColors = DATA.hypothesis_colors || {{}};
+  const moduleNodeIds = new Set();
+  Object.values(DATA.module_nodes || {{}}).forEach(ids => ids.forEach(id => moduleNodeIds.add(id)));
+
+  DATA.nodes.filter(n => !moduleNodeIds.has(n.id)).forEach(n => {{
+    const pos = og.node(n.id);
+    if (!pos) return;
+    const w = Math.max(140, n.short_label.length * 8 + 30);
+    const hw = w / 2;
+
+    let isPerturbation = false;
+    let pertHgId = null;
+    let pertFreq = "";
+    let pertVariant = "";
+    DATA.hypothesis_groups.forEach(hg => {{
+      if (hg.states[n.id] && hg.states[n.id].is_primary) {{
+        isPerturbation = true;
+        pertHgId = hg.id;
+        pertFreq = hg.frequency;
+        pertVariant = hg.states[n.id].variant_class;
+      }}
+    }});
+
+    const baseClass = n.type === "local_activity" ? "node local-activity state-normal" : "node state-normal";
+    const ng = nodeGroup.append("g")
+      .attr("class", baseClass)
+      .attr("transform", `translate(${{pos.x - hw}},${{pos.y - 30}})`)
+      .attr("data-id", n.id);
+
+    ng.append("rect").attr("width", w).attr("height", 60);
+
+    if (isPerturbation && pertHgId) {{
+      ng.select("rect")
+        .attr("stroke", hgColors[pertHgId] || "#999")
+        .attr("stroke-width", 2.5);
+      if (pertFreq) {{
+        ng.append("rect")
+          .attr("x", w - 36).attr("y", 2).attr("width", 34).attr("height", 14)
+          .attr("rx", 7).attr("fill", hgColors[pertHgId] || "#999");
+        ng.append("text")
+          .attr("x", w - 19).attr("y", 12)
+          .attr("text-anchor", "middle").attr("font-size", "7px")
+          .attr("fill", "white").attr("font-weight", "600")
+          .text(pertFreq);
+      }}
+    }}
+
+    ng.append("text").attr("class", "gene-label")
+      .attr("x", hw).attr("y", 22).attr("text-anchor", "middle").text(n.short_label);
+    ng.append("text").attr("class", "func-label")
+      .attr("x", hw).attr("y", 36).attr("text-anchor", "middle")
+      .text(truncate(n.function_short || n.function, Math.floor(w / 6)));
+    ng.append("text").attr("class", "state-badge")
+      .attr("x", hw).attr("y", 52).attr("text-anchor", "middle").text("");
+    nodeMap[n.id] = ng;
+    n._gx = pos.x;
+    n._gy = pos.y;
+
+    attachActivityTooltip(ng, n, nodeLabels);
+  }});
+}}
+
+// --- Edge drawing dispatcher ---
+function drawEdges(og, moduleLayouts, edgeGroup, nodeLabels, moduleNodeIds, nodeToModule) {{
+  // Cross-boundary module edges
+  DATA.edges.filter(e => e.edge_context !== "module_internal").forEach(e => {{
+    const srcId = moduleNodeIds.has(e.source) ? "module:" + nodeToModule[e.source] : e.source;
+    const tgtId = moduleNodeIds.has(e.target) ? "module:" + nodeToModule[e.target] : e.target;
+    const pts = og.edge(srcId, tgtId);
+    if (!pts || !pts.points) return;
+    drawSingleEdge(edgeGroup, pts.points, e, nodeLabels, "solid");
   }});
 
-  // Draw intermediate nodes
+  // Intermediate edges
+  (DATA.intermediate_edges || []).forEach(e => {{
+    const srcId = moduleNodeIds.has(e.source) ? "module:" + nodeToModule[e.source] : e.source;
+    const tgtId = moduleNodeIds.has(e.target) ? "module:" + nodeToModule[e.target] : e.target;
+    const pts = og.edge(srcId, tgtId);
+    if (!pts || !pts.points) return;
+    const dashStyle = e.edge_type === "intermediate_to_phenotype" ? "dashed" : "solid";
+    drawSingleEdge(edgeGroup, pts.points, e, nodeLabels, dashStyle);
+  }});
+}}
+
+// --- Draw intermediate nodes ---
+function drawIntermediateNodes(og, nodeGroup, nodeLabels, nodeMap) {{
   (DATA.intermediate_nodes || []).forEach(n => {{
-    const pos = g.node(n.id);
+    const pos = og.node(n.id);
     if (!pos) return;
     const w = Math.max(130, n.short_label.length * 7 + 24);
     const hw = w / 2;
@@ -1439,7 +1753,6 @@ function render() {{
     ng.append("text").attr("class", "func-label")
       .attr("x", hw).attr("y", 30).attr("text-anchor", "middle")
       .text(truncate(n.process, Math.floor(w / 6)));
-    // State badge
     const stateLabel = n.state ? n.state.replace(/_/g, " ") : "";
     ng.append("text").attr("class", "state-badge")
       .attr("x", hw).attr("y", 43).attr("text-anchor", "middle")
@@ -1459,7 +1772,6 @@ function render() {{
         const stClass = "tt-state tt-state-" + n.state;
         html += `<div class="tt-detail"><b>State:</b> <span class="${{stClass}}">${{n.state.replace(/_/g, " ")}}</span></div>`;
       }}
-      // Driven by (with relation and ECO details)
       if (n.driven_by_details && n.driven_by_details.length) {{
         html += `<div class="tt-section"><b>Driven by:</b>`;
         n.driven_by_details.forEach((db, idx) => {{
@@ -1479,9 +1791,7 @@ function render() {{
       }} else if (n.driven_by && n.driven_by.length === 0) {{
         html += `<div class="tt-detail"><b>Driven by:</b> convergence of upstream intermediates</div>`;
       }}
-      // Route
       html += `<div class="tt-detail"><b>Route:</b> ${{n.route_name || n.route_id.replace(/_/g, " ")}}</div>`;
-      // Tissue
       if (n.tissue) {{
         html += `<div class="tt-detail"><b>Tissue:</b> ${{n.tissue}}</div>`;
         const td = n.tissue_detail || {{}};
@@ -1495,11 +1805,13 @@ function render() {{
       tt.html(html);
     }}).on("mouseout", () => guardMouseout()).on("click", (event) => pinTooltip(event));
   }});
+}}
 
-  // Draw phenotype nodes
+// --- Draw phenotype nodes ---
+function drawPhenotypeNodes(og, nodeGroup, nodeLabels) {{
   DATA.phenotype_routes.forEach(pr => {{
     const pid = "pheno:" + pr.id;
-    const pos = g.node(pid);
+    const pos = og.node(pid);
     if (!pos) return;
     let phenoCls = "phenotype-node";
     if (pr.phenotype_state) phenoCls += " state-" + pr.phenotype_state;
@@ -1546,7 +1858,6 @@ function render() {{
         if (tissueIds.length) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${{tissueIds.join(" / ")}}</div>`;
       }}
       html += `<div class="tt-detail" style="margin-top:6px">${{pr.description}}</div>`;
-      // Show intermediates
       if (pr.intermediates && pr.intermediates.length) {{
         html += `<div class="tt-section"><b>Intermediates:</b>`;
         pr.intermediates.forEach(inter => {{
@@ -1557,7 +1868,6 @@ function render() {{
         }});
         html += `</div>`;
       }}
-      // Route-level evidence
       if (pr.evidence && pr.evidence.length) {{
         html += `<div class="tt-section"><b>Evidence:</b>`;
         pr.evidence.forEach(ev => {{
@@ -1570,51 +1880,21 @@ function render() {{
       tt.html(html);
     }}).on("mouseout", () => guardMouseout()).on("click", (event) => pinTooltip(event));
   }});
+}}
 
-  // Draw phenotype → disease edges
+// --- Draw phenotype → disease edges ---
+function drawPhenotypeDiseaseEdges(og, edgeGroup, nodeLabels) {{
   (DATA.phenotype_disease_edges || []).forEach(e => {{
-    const pts = g.edge(e.source, e.target);
+    const pts = og.edge(e.source, e.target);
     if (!pts || !pts.points) return;
-    const line = d3.line().x(d => d.x).y(d => d.y).curve(d3.curveBasis);
-    const pathD = line(pts.points);
-    const eg = edgeGroup.append("g").attr("class", "pheno-disease-edge");
-    eg.append("path").attr("d", pathD).attr("marker-end", "url(#arrowhead-disease)");
-    // Invisible wider path for hover target
-    eg.append("path").attr("class", "edge-hover").attr("d", pathD);
-    // Tooltip
-    eg.on("mouseover", (event) => {{
-      if (_tooltipPinned) return;
-      const tt = d3.select("#tooltip");
-      tt.style("display", "block")
-        .style("left", (event.pageX + 12) + "px")
-        .style("top", (event.pageY - 10) + "px");
-      const phenoLabel = e.phenotype_label || nodeLabels[e.source] || e.source;
-      const diseaseLabel = DATA.disease_node ? DATA.disease_node.name : e.target;
-      let html = `<div class="tt-title">${{phenoLabel}} → ${{diseaseLabel}}</div>`;
-      if (e.relation) {{
-        html += `<div class="tt-detail"><b>Relation:</b> ${{e.relation}}</div>`;
-        if (e.relation_id) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${{e.relation_id}}</div>`;
-      }}
-      if (e.eco_label) {{
-        html += `<div class="tt-detail"><b>Evidence type:</b> <span class="tt-eco">${{e.eco_label}}</span></div>`;
-        if (e.eco_id) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${{e.eco_id}}</div>`;
-      }}
-      if (e.evidence && e.evidence.length) {{
-        html += `<div class="tt-section"><b>Evidence:</b>`;
-        e.evidence.forEach(ev => {{
-          html += `<div class="tt-ref">📄 ${{ev.reference}}</div>`;
-          if (ev.snippet) html += `<div class="tt-evidence">"${{ev.snippet}}"</div>`;
-        }});
-        html += `</div>`;
-      }}
-      if (e.raw_yaml) html += `<details class="tt-raw"><summary>Raw data (YAML)</summary><pre>${{e.raw_yaml}}</pre></details>`;
-      tt.html(html);
-    }}).on("mouseout", () => guardMouseout()).on("click", (event) => pinTooltip(event));
+    drawSingleEdge(edgeGroup, pts.points, e, nodeLabels, "dotted");
   }});
+}}
 
-  // Draw disease node (rendered last so it appears at the right)
+// --- Draw disease node ---
+function drawDiseaseNode(og, nodeGroup) {{
   if (DATA.disease_node) {{
-    const dpos = g.node(DATA.disease_node.id);
+    const dpos = og.node(DATA.disease_node.id);
     if (dpos) {{
       const dw = 180, dh = 54;
       const dng = nodeGroup.append("g")
@@ -1627,7 +1907,6 @@ function render() {{
       dng.append("text").attr("class", "disease-term")
         .attr("x", dw/2).attr("y", 38).attr("text-anchor", "middle")
         .text(DATA.disease_node.term_id);
-      // Tooltip
       dng.on("mouseover", (event) => {{
         if (_tooltipPinned) return;
         const tt = d3.select("#tooltip");
@@ -1642,22 +1921,74 @@ function render() {{
       }}).on("mouseout", () => guardMouseout()).on("click", (event) => pinTooltip(event));
     }}
   }}
-
-  // Store nodeMap for hypothesis switching
-  window._nodeMap = nodeMap;
 }}
 
 function truncate(s, max) {{
   return s && s.length > max ? s.slice(0, max - 1) + "…" : (s || "");
 }}
 
-// --- Hypothesis group switching ---
-function applyHypothesis(hgIdx) {{
-  const hg = DATA.hypothesis_groups[hgIdx];
+// --- Render ---
+function render() {{
+  const svg = d3.select("svg");
+  svg.selectAll("*").remove();
+
+  const layout = layoutGraph(DATA);
+  const og = layout.outer;
+  const moduleLayouts = layout.modules;
+  const moduleNodeIds = layout.moduleNodeIds;
+  const nodeToModule = layout.nodeToModule;
+  const graphInfo = og.graph();
+
+  // Zoom/pan
+  const zoom = d3.zoom().scaleExtent([0.3, 3]).on("zoom", (e) => {{
+    container.attr("transform", e.transform);
+  }});
+  svg.call(zoom);
+  const container = svg.append("g");
+
+  // Fit to view
+  const svgEl = svg.node();
+  const W = svgEl.clientWidth || 900;
+  const H = svgEl.clientHeight || 600;
+  const gW = graphInfo.width || 800;
+  const gH = graphInfo.height || 400;
+  const scale = Math.min(W / (gW + 80), H / (gH + 80), 1.2);
+  const tx = (W - gW * scale) / 2;
+  const ty = (H - gH * scale) / 2;
+  svg.call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+
+  // Arrow markers
+  const defs = svg.append("defs");
+  defineArrowMarkers(defs);
+
+  // Build label lookups
+  const nodeLabels = {{}};
+  DATA.nodes.forEach(n => {{ nodeLabels[n.id] = n.short_label; }});
+  (DATA.intermediate_nodes || []).forEach(n => {{ nodeLabels[n.id] = n.short_label; }});
+
+  const edgeGroup = container.append("g").attr("class", "edges");
+  const nodeGroup = container.append("g").attr("class", "nodes");
+  const nodeMap = {{}};
+
+  drawModulePanels(container, og, moduleLayouts, nodeGroup, edgeGroup, nodeLabels, nodeMap);
+  drawFreeNodes(og, nodeGroup, nodeLabels, nodeMap);
+  drawEdges(og, moduleLayouts, edgeGroup, nodeLabels, moduleNodeIds, nodeToModule);
+  drawIntermediateNodes(og, nodeGroup, nodeLabels, nodeMap);
+  drawPhenotypeNodes(og, nodeGroup, nodeLabels);
+  drawDiseaseNode(og, nodeGroup);
+  drawPhenotypeDiseaseEdges(og, edgeGroup, nodeLabels);
+
+  window._nodeMap = nodeMap;
+  applyAllHypotheses();
+}}
+
+// --- Apply all hypotheses simultaneously ---
+function applyAllHypotheses() {{
   const nodeMap = window._nodeMap;
   if (!nodeMap) return;
+  const hgColors = DATA.hypothesis_colors || {{}};
 
-  // Reset all nodes
+  // Reset all module nodes to normal
   DATA.nodes.forEach(n => {{
     const ng = nodeMap[n.id];
     if (!ng) return;
@@ -1666,36 +1997,58 @@ function applyHypothesis(hgIdx) {{
     ng.select(".state-badge").text("");
   }});
 
-  // Apply perturbation states
-  const nodeTypeMap = {{}};
-  DATA.nodes.forEach(n => {{ nodeTypeMap[n.id] = n.type; }});
-  Object.entries(hg.states).forEach(([nodeId, info]) => {{
-    const ng = nodeMap[nodeId];
-    if (!ng) return;
-    const base = nodeTypeMap[nodeId] === "local_activity" ? "node local-activity" : "node";
-    let cls = base + " state-" + info.state;
-    if (info.is_primary) cls += " state-primary";
-    ng.attr("class", cls);
-    const label = info.state.replace(/_/g, " ");
-    ng.select(".state-badge").text(info.is_primary ? "⬤ " + label : label);
+  // Collect all states across all hypotheses
+  const nodeStates = {{}};
+  DATA.hypothesis_groups.forEach(hg => {{
+    Object.entries(hg.states).forEach(([nodeId, info]) => {{
+      if (!nodeStates[nodeId]) nodeStates[nodeId] = {{}};
+      nodeStates[nodeId][hg.id] = info;
+    }});
   }});
 
-  // Update info
-  d3.select("#hg-info").html(
-    `<b>${{hg.frequency}}</b> of cases. ${{hg.description}}`
-  );
+  Object.entries(nodeStates).forEach(([nodeId, hgStates]) => {{
+    const ng = nodeMap[nodeId];
+    if (!ng) return;
+    const nodeType = DATA.nodes.find(n => n.id === nodeId);
+    const base = nodeType && nodeType.type === "local_activity" ? "node local-activity" : "node";
+
+    const states = Object.values(hgStates);
+    const uniqueStates = [...new Set(states.map(s => s.state))];
+
+    if (uniqueStates.length === 1) {{
+      const state = uniqueStates[0];
+      const isPrimary = states.some(s => s.is_primary);
+      let cls = base + " state-" + state;
+      if (isPrimary) cls += " state-primary";
+      ng.attr("class", cls);
+      const label = state.replace(/_/g, " ");
+      ng.select(".state-badge").text(isPrimary ? "● " + label : label);
+    }} else {{
+      ng.attr("class", base + " state-split");
+      const labels = Object.entries(hgStates).map(([hgId, info]) => {{
+        return info.state.replace(/_/g, " ");
+      }}).join(" / ");
+      ng.select(".state-badge").text(labels);
+    }}
+  }});
 }}
 
 // --- Init ---
 document.addEventListener("DOMContentLoaded", () => {{
-  const sel = d3.select("#hg-select");
-  DATA.hypothesis_groups.forEach((hg, i) => {{
-    sel.append("option").attr("value", i).text(hg.name);
+  const hgColors = DATA.hypothesis_colors || {{}};
+  const legendEl = document.getElementById("hypothesis-legend");
+  DATA.hypothesis_groups.forEach(hg => {{
+    const color = hgColors[hg.id] || "#999";
+    const item = document.createElement("div");
+    item.className = "hg-legend-item";
+    item.innerHTML = '<div class="hg-legend-swatch" style="background:' + color + '"></div>'
+      + '<span>' + hg.name + '</span>'
+      + (hg.frequency ? '<span class="hg-legend-freq">(' + hg.frequency + ')</span>' : '');
+    legendEl.appendChild(item);
   }});
-  sel.on("change", function() {{ applyHypothesis(+this.value); }});
 
+  initModuleState(DATA);
   render();
-  if (DATA.hypothesis_groups.length > 0) applyHypothesis(0);
 }});
 </script>
 </body>
