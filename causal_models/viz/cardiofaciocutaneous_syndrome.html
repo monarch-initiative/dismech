@@ -94,10 +94,8 @@ svg { width: 100%; height: 100%; }
 .state-primary rect { stroke-width: 3; }
 .state-primary .gene-label { text-decoration: underline; }
 
-/* Module panels */
-.module-panel rect { cursor: default; }
-.module-header { cursor: pointer; }
-.module-header:hover rect { fill: #dde0f0; }
+/* Module background shading */
+.module-bg rect { pointer-events: none; }
 
 .state-split rect {
   fill: #f0e6ff;
@@ -1697,12 +1695,7 @@ const DATA = {
         "label": "MAPK1"
       }
     ]
-  },
-  "perturbation_target_nodes": [
-    "ras_mapk_cascade:mek_kinase",
-    "ras_mapk_cascade:raf_kinase",
-    "ras_mapk_cascade:ras_gtpase"
-  ]
+  }
 };
 
 // --- Tooltip pin/unpin ---
@@ -1750,153 +1743,52 @@ function guardMouseout() {
   document.getElementById("tooltip").style.display = "none";
 }
 
-// --- Layout constants ---
-const PANEL_PADDING = 20;
-const PANEL_HEADER_HEIGHT = 30;
-
-// Module collapse state
-const _moduleState = {};
-
-function initModuleState(data) {
-  (data.modules || []).forEach(m => {
-    _moduleState[m.id] = "expanded";
-  });
-}
-
-function toggleModule(moduleId) {
-  _moduleState[moduleId] = _moduleState[moduleId] === "expanded" ? "collapsed" : "expanded";
-  render();
-}
-
-// --- Two-pass dagre layout ---
+// --- Single-pass dagre layout ---
 function layoutGraph(data) {
-  // Pass 1: Layout each expanded module's internal graph
-  const moduleLayouts = {};
+  const g = new dagre.graphlib.Graph();
+  g.setGraph({ rankdir: "LR", ranksep: 80, nodesep: 40, marginx: 40, marginy: 40 });
+  g.setDefaultEdgeLabel(() => ({}));
 
-  (data.modules || []).forEach(mod => {
-    const modNodes = (data.module_nodes || {})[mod.id] || [];
-    if (_moduleState[mod.id] !== "expanded" || modNodes.length === 0) return;
-
-    const mg = new dagre.graphlib.Graph();
-    mg.setGraph({ rankdir: "LR", ranksep: 60, nodesep: 30, marginx: PANEL_PADDING, marginy: PANEL_PADDING });
-    mg.setDefaultEdgeLabel(() => ({}));
-
-    const modNodeSet = new Set(modNodes);
-    data.nodes.filter(n => modNodeSet.has(n.id)).forEach(n => {
-      const w = Math.max(140, n.short_label.length * 8 + 30);
-      mg.setNode(n.id, { label: n.short_label, width: w, height: 60 });
-    });
-
-    data.edges.filter(e => e.module_id === mod.id).forEach(e => {
-      if (mg.hasNode(e.source) && mg.hasNode(e.target)) {
-        mg.setEdge(e.source, e.target);
-      }
-    });
-
-    dagre.layout(mg);
-    const gInfo = mg.graph();
-    moduleLayouts[mod.id] = {
-      graph: mg,
-      width: gInfo.width + PANEL_PADDING * 2,
-      height: gInfo.height + PANEL_PADDING * 2 + PANEL_HEADER_HEIGHT,
-    };
-  });
-
-  // Pass 2: Layout outer graph
-  const og = new dagre.graphlib.Graph();
-  og.setGraph({ rankdir: "LR", ranksep: 80, nodesep: 40, marginx: 40, marginy: 40 });
-  og.setDefaultEdgeLabel(() => ({}));
-
-  // Add module panels as single large nodes
-  const moduleNodeIds = new Set();
-  (data.modules || []).forEach(mod => {
-    const modNodes = (data.module_nodes || {})[mod.id] || [];
-    modNodes.forEach(nid => moduleNodeIds.add(nid));
-
-    if (_moduleState[mod.id] === "expanded" && moduleLayouts[mod.id]) {
-      const ml = moduleLayouts[mod.id];
-      og.setNode("module:" + mod.id, {
-        label: mod.name,
-        width: ml.width,
-        height: ml.height,
-      });
-    } else {
-      const outputs = (data.module_outputs || {})[mod.id] || [];
-      const portCount = Math.max(outputs.length, 2);
-      og.setNode("module:" + mod.id, {
-        label: mod.name,
-        width: 260,
-        height: Math.max(40, portCount * 14 + 20),
-      });
-    }
-  });
-
-  const nodeToModule = {};
-  data.nodes.forEach(n => { if (n.module_id) nodeToModule[n.id] = n.module_id; });
-
-  // Add free-flowing nodes (non-module) + perturbation targets
-  const pertTargets = new Set(data.perturbation_target_nodes || []);
-  data.nodes.filter(n => !moduleNodeIds.has(n.id) || pertTargets.has(n.id)).forEach(n => {
+  // ALL activity nodes (module + disease-local)
+  data.nodes.forEach(n => {
     const w = Math.max(140, n.short_label.length * 8 + 30);
-    og.setNode(n.id, { label: n.short_label, width: w, height: 60 });
+    g.setNode(n.id, { label: n.short_label, width: w, height: 60 });
   });
 
-  // Add intermediate nodes
+  // ALL edges
+  data.edges.forEach(e => {
+    g.setEdge(e.source, e.target);
+  });
+
+  // Intermediate nodes
   (data.intermediate_nodes || []).forEach(n => {
     const w = Math.max(130, n.short_label.length * 7 + 24);
-    og.setNode(n.id, { label: n.short_label, width: w, height: 50 });
+    g.setNode(n.id, { label: n.short_label, width: w, height: 50 });
   });
 
-  // Add phenotype nodes
+  // Intermediate edges
+  (data.intermediate_edges || []).forEach(e => {
+    g.setEdge(e.source, e.target);
+  });
+
+  // Phenotype nodes
   data.phenotype_routes.forEach(pr => {
     const pid = "pheno:" + pr.id;
-    og.setNode(pid, { label: pr.phenotype_label, width: 140, height: 54 });
+    g.setNode(pid, { label: pr.phenotype_label, width: 140, height: 54 });
   });
 
-  // Add disease node
+  // Disease node
   if (data.disease_node) {
-    og.setNode(data.disease_node.id, { label: data.disease_node.name, width: 180, height: 54 });
+    g.setNode(data.disease_node.id, { label: data.disease_node.name, width: 180, height: 54 });
   }
 
-  // Add outer edges: cross-boundary module edges route to/from module panel node
-  data.edges.forEach(e => {
-    if (e.edge_context === "module_internal") return;
-    const src = moduleNodeIds.has(e.source) ? "module:" + nodeToModule[e.source] : e.source;
-    const tgt = moduleNodeIds.has(e.target) ? "module:" + nodeToModule[e.target] : e.target;
-    if (og.hasNode(src) && og.hasNode(tgt)) og.setEdge(src, tgt);
-  });
-
-  // Add edges from perturbation targets to their module-internal neighbors
-  data.edges.forEach(e => {
-    if (e.edge_context === "module_internal") {
-      // If source is a perturbation target, add edge from source to module panel
-      if (pertTargets.has(e.source) && !pertTargets.has(e.target)) {
-        const tgtMod = nodeToModule[e.target];
-        if (tgtMod) og.setEdge(e.source, "module:" + tgtMod);
-      }
-      // If target is a perturbation target, add edge from module panel to target
-      if (pertTargets.has(e.target) && !pertTargets.has(e.source)) {
-        const srcMod = nodeToModule[e.source];
-        if (srcMod) og.setEdge("module:" + srcMod, e.target);
-      }
-    }
-  });
-
-  // Add intermediate edges
-  (data.intermediate_edges || []).forEach(e => {
-    const src = moduleNodeIds.has(e.source) ? "module:" + nodeToModule[e.source] : e.source;
-    const tgt = moduleNodeIds.has(e.target) ? "module:" + nodeToModule[e.target] : e.target;
-    if (og.hasNode(src) && og.hasNode(tgt)) og.setEdge(src, tgt);
-  });
-
-  // Add phenotype-disease edges
+  // Phenotype-disease edges
   (data.phenotype_disease_edges || []).forEach(e => {
-    if (og.hasNode(e.source) && og.hasNode(e.target)) og.setEdge(e.source, e.target);
+    g.setEdge(e.source, e.target);
   });
 
-  dagre.layout(og);
-
-  return { outer: og, modules: moduleLayouts, moduleNodeIds: moduleNodeIds, nodeToModule: nodeToModule };
+  dagre.layout(g);
+  return g;
 }
 
 // --- Tooltip helpers ---
@@ -2120,178 +2012,53 @@ function drawSingleEdge(edgeGroup, points, edgeData, nodeLabels, dashStyle) {
   });
 }
 
-// --- Module panels ---
-function drawModulePanels(container, og, moduleLayouts, nodeGroup, edgeGroup, nodeLabels, nodeMap) {
-  (DATA.modules || []).forEach(mod => {
-    const modNodeId = "module:" + mod.id;
-    const outerPos = og.node(modNodeId);
-    if (!outerPos) return;
-
-    const isExpanded = _moduleState[mod.id] === "expanded";
-    const panelG = container.append("g").attr("class", "module-panel");
-
-    if (isExpanded && moduleLayouts[mod.id]) {
-      const ml = moduleLayouts[mod.id];
-      const px = outerPos.x - ml.width / 2;
-      const py = outerPos.y - ml.height / 2;
-
-      panelG.append("rect")
-        .attr("x", px).attr("y", py)
-        .attr("width", ml.width).attr("height", ml.height)
-        .attr("rx", 10).attr("fill", "#fafbff")
-        .attr("stroke", "#8090c0").attr("stroke-width", 2);
-
-      const headerG = panelG.append("g")
-        .attr("class", "module-header")
-        .style("cursor", "pointer")
-        .on("click", () => toggleModule(mod.id));
-
-      headerG.append("rect")
-        .attr("x", px).attr("y", py)
-        .attr("width", ml.width).attr("height", 26)
-        .attr("rx", 10).attr("fill", "#e8ecf8");
-
-      headerG.append("text")
-        .attr("x", px + 12).attr("y", py + 18)
-        .attr("font-size", "10px").attr("font-weight", "700").attr("fill", "#3050a0")
-        .text("▼ " + mod.name);
-
-      headerG.append("text")
-        .attr("x", px + ml.width - 12).attr("y", py + 18)
-        .attr("font-size", "9px").attr("fill", "#8090c0").attr("text-anchor", "end")
-        .text((DATA.module_nodes[mod.id] || []).length + " activities");
-
-      // Draw internal nodes at translated positions (skip perturbation targets)
-      const mg = ml.graph;
-      const modNodeSet = new Set((DATA.module_nodes || {})[mod.id] || []);
-      const pertTargets = new Set(DATA.perturbation_target_nodes || []);
-      DATA.nodes.filter(n => modNodeSet.has(n.id) && !pertTargets.has(n.id)).forEach(n => {
-        const ipos = mg.node(n.id);
-        if (!ipos) return;
-        const nx = px + ipos.x;
-        const ny = py + PANEL_HEADER_HEIGHT + ipos.y;
-        const w = Math.max(140, n.short_label.length * 8 + 30);
-        const hw = w / 2;
-
-        const ng = nodeGroup.append("g")
-          .attr("class", "node state-normal")
-          .attr("transform", `translate(${nx - hw},${ny - 30})`)
-          .attr("data-id", n.id);
-        ng.append("rect").attr("width", w).attr("height", 60);
-        ng.append("text").attr("class", "gene-label")
-          .attr("x", hw).attr("y", 22).attr("text-anchor", "middle").text(n.short_label);
-        ng.append("text").attr("class", "func-label")
-          .attr("x", hw).attr("y", 36).attr("text-anchor", "middle")
-          .text(truncate(n.function_short || n.function, Math.floor(w / 6)));
-        ng.append("text").attr("class", "state-badge")
-          .attr("x", hw).attr("y", 52).attr("text-anchor", "middle").text("");
-        nodeMap[n.id] = ng;
-        n._gx = nx;
-        n._gy = ny;
-
-        attachActivityTooltip(ng, n, nodeLabels);
-      });
-
-      // Draw module-internal edges
-      DATA.edges.filter(e => e.module_id === mod.id).forEach(e => {
-        const srcPos = mg.node(e.source);
-        const tgtPos = mg.node(e.target);
-        if (!srcPos || !tgtPos) return;
-        const pts = mg.edge(e.source, e.target);
-        if (!pts || !pts.points) return;
-        const globalPts = pts.points.map(p => ({
-          x: px + p.x,
-          y: py + PANEL_HEADER_HEIGHT + p.y
-        }));
-        drawSingleEdge(edgeGroup, globalPts, e, nodeLabels, "solid");
-      });
-
-    } else {
-      // Collapsed: draw summary bar
-      const barW = outerPos.width || 260;
-      const barH = outerPos.height || 40;
-      const bx = outerPos.x - barW / 2;
-      const by = outerPos.y - barH / 2;
-
-      const barG = panelG.append("g")
-        .style("cursor", "pointer")
-        .on("click", () => toggleModule(mod.id));
-
-      barG.append("rect")
-        .attr("x", bx).attr("y", by)
-        .attr("width", barW).attr("height", barH)
-        .attr("rx", 10).attr("fill", "#e8ecf8")
-        .attr("stroke", "#8090c0").attr("stroke-width", 2);
-
-      barG.append("text")
-        .attr("x", bx + 12).attr("y", by + barH / 2 + 4)
-        .attr("font-size", "10px").attr("font-weight", "700").attr("fill", "#3050a0")
-        .text("▶ " + mod.name);
-
-      barG.append("text")
-        .attr("x", bx + barW - 12).attr("y", by + barH / 2 + 4)
-        .attr("font-size", "9px").attr("fill", "#8090c0").attr("text-anchor", "end")
-        .text((DATA.module_nodes[mod.id] || []).length + " activities");
-
-      // Left port dots (perturbation entry points)
-      const hgColors = DATA.hypothesis_colors || {};
-      let leftPortY = by + 8;
-      DATA.hypothesis_groups.forEach(hg => {
-        const targets = hg.perturbation_targets || [];
-        const modNodes = new Set((DATA.module_nodes || {})[mod.id] || []);
-        const hasEntry = targets.some(t => modNodes.has(t));
-        if (hasEntry) {
-          barG.append("circle")
-            .attr("cx", bx).attr("cy", leftPortY + 6)
-            .attr("r", 5)
-            .attr("fill", hgColors[hg.id] || "#999")
-            .attr("stroke", "white").attr("stroke-width", 1);
-          leftPortY += 14;
-        }
-      });
-
-      // Right port dots (output activities)
-      const outputs = (DATA.module_outputs || {})[mod.id] || [];
-      let rightPortY = by + 8;
-      outputs.forEach(out => {
-        barG.append("circle")
-          .attr("cx", bx + barW).attr("cy", rightPortY + 6)
-          .attr("r", 5)
-          .attr("fill", "#28a745")
-          .attr("stroke", "white").attr("stroke-width", 1);
-        barG.append("text")
-          .attr("x", bx + barW + 8).attr("y", rightPortY + 10)
-          .attr("font-size", "7px").attr("fill", "#6c757d")
-          .text(out.label);
-        rightPortY += 14;
-      });
-    }
+// --- Module background shading ---
+function drawModuleBackgrounds(g, bgGroup) {
+  const moduleNodes = DATA.module_nodes || {};
+  Object.entries(moduleNodes).forEach(([modId, nodeIds]) => {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    nodeIds.forEach(nid => {
+      const pos = g.node(nid);
+      if (!pos) return;
+      const w = pos.width || 140;
+      const h = pos.height || 60;
+      minX = Math.min(minX, pos.x - w/2);
+      minY = Math.min(minY, pos.y - h/2);
+      maxX = Math.max(maxX, pos.x + w/2);
+      maxY = Math.max(maxY, pos.y + h/2);
+    });
+    if (minX === Infinity) return;
+    const pad = 20;
+    bgGroup.append("rect")
+      .attr("x", minX - pad).attr("y", minY - pad)
+      .attr("width", maxX - minX + pad * 2)
+      .attr("height", maxY - minY + pad * 2)
+      .attr("rx", 12)
+      .attr("fill", "#f4f6fc")
+      .attr("stroke", "#dde")
+      .attr("stroke-width", 0.5);
   });
 }
 
-// --- Free-flowing nodes ---
-function drawFreeNodes(og, nodeGroup, nodeLabels, nodeMap) {
+// --- Draw ALL activity nodes ---
+function drawAllNodes(g, nodeGroup, nodeLabels, nodeMap) {
   const hgColors = DATA.hypothesis_colors || {};
-  const moduleNodeIds = new Set();
-  Object.values(DATA.module_nodes || {}).forEach(ids => ids.forEach(id => moduleNodeIds.add(id)));
-  const pertTargets = new Set(DATA.perturbation_target_nodes || []);
 
-  DATA.nodes.filter(n => !moduleNodeIds.has(n.id) || pertTargets.has(n.id)).forEach(n => {
-    const pos = og.node(n.id);
+  DATA.nodes.forEach(n => {
+    const pos = g.node(n.id);
     if (!pos) return;
     const w = Math.max(140, n.short_label.length * 8 + 30);
     const hw = w / 2;
 
+    // Check if perturbation target
     let isPerturbation = false;
     let pertHgId = null;
     let pertFreq = "";
-    let pertVariant = "";
     DATA.hypothesis_groups.forEach(hg => {
       if (hg.states[n.id] && hg.states[n.id].is_primary) {
         isPerturbation = true;
         pertHgId = hg.id;
         pertFreq = hg.frequency;
-        pertVariant = hg.states[n.id].variant_class;
       }
     });
 
@@ -2327,91 +2094,26 @@ function drawFreeNodes(og, nodeGroup, nodeLabels, nodeMap) {
     ng.append("text").attr("class", "state-badge")
       .attr("x", hw).attr("y", 52).attr("text-anchor", "middle").text("");
     nodeMap[n.id] = ng;
-    n._gx = pos.x;
-    n._gy = pos.y;
 
     attachActivityTooltip(ng, n, nodeLabels);
   });
 }
 
-// --- Resolve edge endpoint for collapsed modules ---
-// Returns the module panel node position if nodeId is inside a collapsed module,
-// otherwise returns null (meaning use the node's own position).
-function resolveEdgeEndpoint(nodeId, og, moduleNodeIds, nodeToModule) {
-  if (moduleNodeIds.has(nodeId)) {
-    const modId = nodeToModule[nodeId];
-    if (_moduleState[modId] !== "expanded") {
-      const modNodeId = "module:" + modId;
-      const modPos = og.node(modNodeId);
-      if (modPos) {
-        return { x: modPos.x, y: modPos.y, resolved: true, moduleId: modId, originalId: nodeId };
-      }
-    }
-  }
-  return null;
-}
-
-// --- Edge drawing dispatcher ---
-function drawEdges(og, moduleLayouts, edgeGroup, nodeLabels, moduleNodeIds, nodeToModule) {
-  const pertTargets = new Set(DATA.perturbation_target_nodes || []);
-
-  // Helper: resolve a node position, using internal global position if in expanded module
-  function resolvePos(nodeId) {
-    const inModule = moduleNodeIds.has(nodeId) && !pertTargets.has(nodeId);
-    const modExpanded = inModule && _moduleState[nodeToModule[nodeId]] === "expanded";
-    if (modExpanded) {
-      const nd = DATA.nodes.find(n => n.id === nodeId);
-      if (nd && nd._gx !== undefined) return { x: nd._gx, y: nd._gy };
-    }
-    // Fall back to outer graph position
-    const ogId = inModule ? "module:" + nodeToModule[nodeId] : nodeId;
-    const ogPos = og.node(ogId);
-    return ogPos ? { x: ogPos.x, y: ogPos.y } : null;
-  }
-
-  // Cross-boundary module edges
-  DATA.edges.filter(e => e.edge_context !== "module_internal").forEach(e => {
-    const srcInModule = moduleNodeIds.has(e.source) && !pertTargets.has(e.source);
-    const tgtInModule = moduleNodeIds.has(e.target) && !pertTargets.has(e.target);
-    const srcModExpanded = srcInModule && _moduleState[nodeToModule[e.source]] === "expanded";
-    const tgtModExpanded = tgtInModule && _moduleState[nodeToModule[e.target]] === "expanded";
-
-    if (srcModExpanded || tgtModExpanded) {
-      const srcPos = resolvePos(e.source);
-      const tgtPos = resolvePos(e.target);
-      if (srcPos && tgtPos) {
-        drawSingleEdge(edgeGroup, [srcPos, tgtPos], e, nodeLabels, "solid");
-      }
-    } else {
-      const srcId = srcInModule ? "module:" + nodeToModule[e.source] : e.source;
-      const tgtId = tgtInModule ? "module:" + nodeToModule[e.target] : e.target;
-      const pts = og.edge(srcId, tgtId);
-      if (!pts || !pts.points) return;
-      drawSingleEdge(edgeGroup, pts.points, e, nodeLabels, "solid");
-    }
+// --- Draw ALL edges ---
+function drawAllEdges(g, edgeGroup, nodeLabels) {
+  // Module + cross-boundary edges
+  DATA.edges.forEach(e => {
+    const pts = g.edge(e.source, e.target);
+    if (!pts || !pts.points) return;
+    drawSingleEdge(edgeGroup, pts.points, e, nodeLabels, "solid");
   });
 
   // Intermediate edges
   (DATA.intermediate_edges || []).forEach(e => {
-    const srcInModule = moduleNodeIds.has(e.source) && !pertTargets.has(e.source);
-    const tgtInModule = moduleNodeIds.has(e.target) && !pertTargets.has(e.target);
-    const srcModExpanded = srcInModule && _moduleState[nodeToModule[e.source]] === "expanded";
-    const tgtModExpanded = tgtInModule && _moduleState[nodeToModule[e.target]] === "expanded";
+    const pts = g.edge(e.source, e.target);
+    if (!pts || !pts.points) return;
     const dashStyle = e.edge_type === "intermediate_to_phenotype" ? "dashed" : "solid";
-
-    if (srcModExpanded || tgtModExpanded) {
-      const srcPos = resolvePos(e.source);
-      const tgtPos = resolvePos(e.target);
-      if (srcPos && tgtPos) {
-        drawSingleEdge(edgeGroup, [srcPos, tgtPos], e, nodeLabels, dashStyle);
-      }
-    } else {
-      const srcId = srcInModule ? "module:" + nodeToModule[e.source] : e.source;
-      const tgtId = tgtInModule ? "module:" + nodeToModule[e.target] : e.target;
-      const pts = og.edge(srcId, tgtId);
-      if (!pts || !pts.points) return;
-      drawSingleEdge(edgeGroup, pts.points, e, nodeLabels, dashStyle);
-    }
+    drawSingleEdge(edgeGroup, pts.points, e, nodeLabels, dashStyle);
   });
 }
 
@@ -2611,12 +2313,8 @@ function render() {
   const svg = d3.select("svg");
   svg.selectAll("*").remove();
 
-  const layout = layoutGraph(DATA);
-  const og = layout.outer;
-  const moduleLayouts = layout.modules;
-  const moduleNodeIds = layout.moduleNodeIds;
-  const nodeToModule = layout.nodeToModule;
-  const graphInfo = og.graph();
+  const g = layoutGraph(DATA);
+  const graphInfo = g.graph();
 
   // Zoom/pan
   const zoom = d3.zoom().scaleExtent([0.3, 3]).on("zoom", (e) => {
@@ -2645,19 +2343,32 @@ function render() {
   DATA.nodes.forEach(n => { nodeLabels[n.id] = n.short_label; });
   (DATA.intermediate_nodes || []).forEach(n => { nodeLabels[n.id] = n.short_label; });
 
-  // Panel backgrounds must be drawn FIRST so nodes/edges render on top
-  const panelBgGroup = container.append("g").attr("class", "panel-backgrounds");
+  // Draw layers in order: backgrounds, edges, nodes
+  const bgGroup = container.append("g").attr("class", "backgrounds");
   const edgeGroup = container.append("g").attr("class", "edges");
   const nodeGroup = container.append("g").attr("class", "nodes");
   const nodeMap = {};
 
-  drawModulePanels(panelBgGroup, og, moduleLayouts, nodeGroup, edgeGroup, nodeLabels, nodeMap);
-  drawFreeNodes(og, nodeGroup, nodeLabels, nodeMap);
-  drawEdges(og, moduleLayouts, edgeGroup, nodeLabels, moduleNodeIds, nodeToModule);
-  drawIntermediateNodes(og, nodeGroup, nodeLabels, nodeMap);
-  drawPhenotypeNodes(og, nodeGroup, nodeLabels);
-  drawDiseaseNode(og, nodeGroup);
-  drawPhenotypeDiseaseEdges(og, edgeGroup, nodeLabels);
+  // Module background shading
+  drawModuleBackgrounds(g, bgGroup);
+
+  // Draw ALL activity nodes
+  drawAllNodes(g, nodeGroup, nodeLabels, nodeMap);
+
+  // Draw all edges (module + cross-boundary)
+  drawAllEdges(g, edgeGroup, nodeLabels);
+
+  // Draw intermediate nodes
+  drawIntermediateNodes(g, nodeGroup, nodeLabels, nodeMap);
+
+  // Draw phenotype nodes
+  drawPhenotypeNodes(g, nodeGroup, nodeLabels);
+
+  // Draw disease node
+  drawDiseaseNode(g, nodeGroup);
+
+  // Draw phenotype->disease edges
+  drawPhenotypeDiseaseEdges(g, edgeGroup, nodeLabels);
 
   window._nodeMap = nodeMap;
   applyAllHypotheses();
@@ -2728,7 +2439,6 @@ document.addEventListener("DOMContentLoaded", () => {
     legendEl.appendChild(item);
   });
 
-  initModuleState(DATA);
   render();
 });
 </script>
