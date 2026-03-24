@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fnins.2025.1598027
+reference_id: "DOI:10.3389/fnins.2025.1598027"
 title: "The sneeze reflex in physiological and pathological states: a mini review"
 authors:
 - Yang Rui
