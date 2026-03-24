@@ -21,7 +21,6 @@ window.searchData = [
     "cell_types": [],
     "cell_type_ids": [],
     "biological_processes": [
-      "catalytic activity",
       "isoleucine catabolic process",
       "branched-chain amino acid catabolic process",
       "response to starvation",
@@ -484,7 +483,7 @@ window.searchData = [
       "Cardiomyopathy"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-03-07T18:42:39Z",
+    "updated_date": "2026-03-17T00:00:00Z",
     "subtypes": [
       "ATTRm (hereditary)",
       "ATTRwt (wild-type/senile)"
@@ -765,13 +764,14 @@ window.searchData = [
       "Reflex Disorder"
     ],
     "creation_date": "2025-12-12T23:26:49Z",
-    "updated_date": "2026-02-17T21:53:14Z",
+    "updated_date": "2026-03-21T22:57:41Z",
     "subtypes": [],
     "description": "Abrupt luminance changes activate visual pathways that cross-activate trigeminal and autonomic circuits, leading to nasal prickle and sneezing in susceptible individuals.",
     "pathophysiology": [
       "Optic-Trigeminal Cross-Activation",
       "Parasympathetic Generalization",
       "Central Cortical Processing",
+      "Trigeminal Melanopsin Photosensitivity",
       "Brainstem Sneeze Circuit"
     ],
     "cell_types": [
@@ -789,7 +789,8 @@ window.searchData = [
     "biological_processes": [
       "Visual Perception",
       "Sensory Perception of Pain",
-      "Sensory Processing",
+      "Sensory Perception of Light Stimulus",
+      "Detection of Light Stimulus",
       "Respiratory Reflex"
     ],
     "phenotypes": [
@@ -834,11 +835,11 @@ window.searchData = [
     "source_file": "Achoo_Syndrome.yaml",
     "page_url": "../pages/disorders/Achoo_Syndrome.html",
     "num_phenotypes": 5,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 5,
     "num_genes": 6,
     "num_treatments": 1,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "1"
   },
   {
     "name": "Acne Vulgaris",
@@ -1284,7 +1285,7 @@ window.searchData = [
       "hepatocellular carcinoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-01-26T04:02:22Z",
+    "updated_date": "2026-03-20T12:00:00Z",
     "subtypes": [],
     "description": "Aflatoxin-related hepatocellular carcinoma (HCC) is a form of liver cancer strongly associated with dietary exposure to aflatoxin B1 (AFB1), a mycotoxin produced by Aspergillus fungi that contaminate stored grains and nuts in tropical regions. Aflatoxin exposure synergizes dramatically with chronic hepatitis B virus (HBV) infection, increasing HCC risk approximately 60-fold compared to either factor alone. The molecular signature of aflatoxin-related HCC is the TP53 R249S mutation, resulting from AFB1-DNA adduct formation at codon 249. This disease exemplifies gene-environment interaction in cancer etiology and is most prevalent in sub-Saharan Africa and Southeast Asia where both aflatoxin exposure and HBV infection are endemic.",
     "pathophysiology": [
@@ -2894,7 +2895,6 @@ window.searchData = [
       "CL:2000044"
     ],
     "biological_processes": [
-      "catalytic activity",
       "urea cycle",
       "nitric oxide biosynthetic process",
       "arginine biosynthetic process",
@@ -3134,7 +3134,6 @@ window.searchData = [
     ],
     "biological_processes": [
       "transmembrane transport",
-      "arsenic methylation",
       "pyruvate metabolic process",
       "glycolytic process",
       "response to oxidative stress",
@@ -5037,10 +5036,8 @@ window.searchData = [
       "innate immune response",
       "toll-like receptor signaling pathway",
       "I-kappaB kinase/NF-kappaB signaling",
-      "inflammasome complex assembly",
       "pyroptosis",
       "JAK-STAT cascade",
-      "VEGF-activated receptor activity",
       "tight junction organization",
       "extracellular matrix disassembly"
     ],
@@ -5643,7 +5640,6 @@ window.searchData = [
       "CL:0000746"
     ],
     "biological_processes": [
-      "catalytic activity",
       "isoleucine catabolic process",
       "branched-chain amino acid catabolic process",
       "ketone body metabolic process",
@@ -5976,7 +5972,6 @@ window.searchData = [
     ],
     "biological_processes": [
       "biotin metabolic process",
-      "protein biotinylation",
       "gluconeogenesis",
       "propionate catabolic process",
       "leucine catabolic process",
@@ -6467,7 +6462,6 @@ window.searchData = [
       "inflammatory response",
       "proteolysis",
       "mucus secretion",
-      "NLRP3 inflammasome complex assembly",
       "interleukin-1 beta production"
     ],
     "phenotypes": [
@@ -6675,6 +6669,110 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "CACNA1A-Related Disorder",
+    "disease_id": "MONDO:0100254",
+    "category": "Mendelian",
+    "parents": [
+      "Channelopathy",
+      "Cerebellar disorder",
+      "Neurodevelopmental disorder"
+    ],
+    "creation_date": "2026-03-20T12:00:00Z",
+    "updated_date": "2026-03-20T18:00:00Z",
+    "subtypes": [
+      "Episodic Ataxia Type 2",
+      "Familial Hemiplegic Migraine Type 1",
+      "Spinocerebellar Ataxia Type 6",
+      "Developmental and Epileptic Encephalopathy Type 42"
+    ],
+    "description": "CACNA1A-related disorder is a spectrum of neurological conditions caused by pathogenic variants in the CACNA1A gene encoding the alpha-1A subunit of P/Q-type voltage-gated calcium channels (Cav2.1). These channels are predominantly expressed at presynaptic terminals in the cerebellum and other brain regions, where they regulate neurotransmitter release. The phenotypic spectrum includes episodic ataxia type 2 (EA2), familial hemiplegic migraine type 1 (FHM1), spinocerebellar ataxia type 6 (SCA6), and developmental and epileptic encephalopathy type 42 (DEE42). Missense gain-of-function variants typically cause FHM1, loss-of-function variants cause EA2, and polyglutamine expansions in the C-terminus cause SCA6. Over half of CACNA1A-related epilepsies are refractory to current therapies.",
+    "pathophysiology": [
+      "P/Q-type Calcium Channel Dysfunction",
+      "Cortical Spreading Depression in FHM1",
+      "Polyglutamine Aggregation in SCA6",
+      "Mitochondrial Dysfunction in SCA6 Progression",
+      "Thalamocortical Circuit Disruption in DEE"
+    ],
+    "cell_types": [
+      "Purkinje cell",
+      "cerebellar granule cell",
+      "pyramidal neuron",
+      "thalamic excitatory neuron",
+      "inhibitory interneuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000121",
+      "CL:0001031",
+      "CL:0000598",
+      "CL:4023068",
+      "CL:0000498"
+    ],
+    "biological_processes": [
+      "Calcium ion transmembrane transport via voltage-gated calcium channel",
+      "Neurotransmitter release",
+      "Glutamate secretion",
+      "Synaptic transmission",
+      "Inclusion body assembly",
+      "Purkinje cell degeneration",
+      "Mitophagy",
+      "Oxidative stress response"
+    ],
+    "phenotypes": [
+      "Episodic Ataxia",
+      "Progressive Cerebellar Ataxia",
+      "Nystagmus",
+      "Migraine with Aura",
+      "Seizures",
+      "Dysarthria",
+      "Cerebellar Atrophy",
+      "Intellectual Disability",
+      "Cognitive Deficits",
+      "Psychiatric and Behavioral Symptoms"
+    ],
+    "phenotype_categories": [
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002131",
+      "HP:0002073",
+      "HP:0000639",
+      "HP:0002077",
+      "HP:0001250",
+      "HP:0001260",
+      "HP:0001272",
+      "HP:0001249",
+      "HP:0100543",
+      "HP:0000708"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "CACNA1A"
+    ],
+    "treatments": [
+      "Acetazolamide",
+      "4-Aminopyridine (Fampridine)",
+      "Migraine Prophylaxis"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "CACNA1A_Related_Disorder.yaml",
+    "page_url": "../pages/disorders/CACNA1A-Related_Disorder.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "CADASIL Type 1",
@@ -7954,8 +8052,7 @@ window.searchData = [
     ],
     "biological_processes": [
       "urea cycle",
-      "glutamine biosynthetic process",
-      "nitrogen compound metabolic process"
+      "glutamine biosynthetic process"
     ],
     "phenotypes": [
       "Hyperammonemia",
@@ -9522,7 +9619,6 @@ window.searchData = [
       "mitophagy",
       "mucus secretion",
       "cilium movement",
-      "NLRP3 inflammasome complex assembly",
       "cellular senescence"
     ],
     "phenotypes": [
@@ -9735,7 +9831,6 @@ window.searchData = [
       "CL:0000182"
     ],
     "biological_processes": [
-      "transmembrane transporter activity",
       "malate-aspartate shuttle",
       "cellular redox homeostasis",
       "glycolytic process",
@@ -9852,8 +9947,7 @@ window.searchData = [
       "arginine biosynthetic process",
       "glutamine biosynthetic process",
       "cellular response to nitrogen compound",
-      "protein tetramerization",
-      "nitrogen compound metabolic process"
+      "protein tetramerization"
     ],
     "phenotypes": [
       "Hyperammonemia",
@@ -11770,6 +11864,103 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Cowden Syndrome",
+    "disease_id": "MONDO:0016063",
+    "category": "Mendelian",
+    "parents": [
+      "Autosomal dominant hereditary syndrome",
+      "Hereditary cancer syndrome",
+      "PTEN hamartoma tumor syndrome"
+    ],
+    "creation_date": "2026-03-19T00:00:00Z",
+    "updated_date": "2026-03-19T00:00:00Z",
+    "subtypes": [
+      "Cowden Syndrome 1 (PTEN)",
+      "Cowden Syndrome 2 (KLLN)",
+      "Cowden Syndrome 3 (PIK3CA)",
+      "Cowden Syndrome 4 (SDHB)"
+    ],
+    "description": "PTEN (phosphatase and tensin homolog) is a tumor suppressor that dephosphorylates phosphatidylinositol-3,4,5-trisphosphate (PIP3) to PIP2, thereby inhibiting the PI3K/AKT/mTOR signaling axis. Germline loss-of-function mutations in PTEN lead to constitutive accumulation of PIP3 and unopposed activation of AKT and downstream mTOR complex 1 (mTORC1), resulting in excessive cell proliferation, survival, and growth that underlies hamartoma formation and elevated cancer risk across multiple organ systems.\n",
+    "pathophysiology": [
+      "PTEN Loss and PI3K/AKT/mTOR Pathway Activation",
+      "Hamartoma Formation",
+      "Increased Cancer Risk"
+    ],
+    "cell_types": [
+      "Epithelial cell",
+      "Fibroblast",
+      "Keratinocyte",
+      "Thyroid follicular cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000066",
+      "CL:0000057",
+      "CL:0000312",
+      "CL:0002258"
+    ],
+    "biological_processes": [
+      "PI3K/AKT signaling",
+      "TOR signaling",
+      "Cell proliferation",
+      "Negative regulation of apoptosis",
+      "Hamartomatous cell proliferation"
+    ],
+    "phenotypes": [
+      "Mucocutaneous Lesions",
+      "Macrocephaly",
+      "Breast Cancer Risk",
+      "Thyroid Abnormalities",
+      "Uterine Cancer Risk",
+      "Lhermitte-Duclos Disease",
+      "Gastrointestinal Hamartomatous Polyps"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Breast",
+      "Digestive",
+      "Endocrine",
+      "Genitourinary",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0010566",
+      "HP:0000256",
+      "HP:0003002",
+      "HP:0002890",
+      "HP:0012114",
+      "HP:0500009",
+      "HP:0004390"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PTEN",
+      "KLLN",
+      "PIK3CA",
+      "SDHB"
+    ],
+    "treatments": [
+      "Enhanced Cancer Surveillance",
+      "Prophylactic Mastectomy",
+      "mTOR Inhibitor Therapy",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cowden_Syndrome.yaml",
+    "page_url": "../pages/disorders/Cowden_Syndrome.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 3,
+    "num_genes": 4,
+    "num_treatments": 4,
+    "causal_graph_edges": "3",
+    "causal_graph_longest_path": "2"
+  },
+  {
     "name": "Crohn Disease",
     "disease_id": "MONDO:0005011",
     "category": "Complex",
@@ -11957,7 +12148,6 @@ window.searchData = [
       "Epithelial cell morphogenesis",
       "Plasma cell differentiation",
       "Cytokine production",
-      "Tight junction",
       "Defense response to bacterium"
     ],
     "phenotypes": [
@@ -12611,12 +12801,10 @@ window.searchData = [
       "CL:0000746"
     ],
     "biological_processes": [
-      "catalytic activity",
       "dicarboxylic acid metabolic process",
       "tricarboxylic acid cycle",
       "response to oxidative stress",
       "oxidative phosphorylation",
-      "histone demethylation",
       "DNA demethylation"
     ],
     "phenotypes": [
@@ -14300,7 +14488,6 @@ window.searchData = [
       "CL:0000127"
     ],
     "biological_processes": [
-      "voltage-gated sodium channel activity",
       "neuronal action potential",
       "synaptic transmission, GABAergic"
     ],
@@ -14389,7 +14576,7 @@ window.searchData = [
       "Neuromuscular Disease"
     ],
     "creation_date": "2026-01-07T17:31:51Z",
-    "updated_date": "2026-02-10T22:32:16Z",
+    "updated_date": "2026-03-17T00:00:00Z",
     "subtypes": [
       "Classic Duchenne",
       "Intermediate DMD"
@@ -16155,7 +16342,6 @@ window.searchData = [
     "biological_processes": [
       "Blood Pressure Regulation",
       "RAAS Pathway",
-      "Sympathetic Regulation",
       "Inflammatory Response",
       "ROS Metabolic Process"
     ],
@@ -16653,7 +16839,6 @@ window.searchData = [
       "CL:0000835"
     ],
     "biological_processes": [
-      "protein tyrosine kinase activity",
       "signal transduction",
       "cell population proliferation",
       "apoptotic process",
@@ -19716,8 +19901,7 @@ window.searchData = [
       "CL:0000775"
     ],
     "biological_processes": [
-      "Purine Metabolism",
-      "Inflammasome Activation"
+      "Purine Metabolism"
     ],
     "phenotypes": [
       "Acute Arthritis",
@@ -20083,6 +20267,106 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Green Tobacco Sickness",
+    "disease_id": null,
+    "category": "Environmental",
+    "parents": [
+      "Occupational Disease",
+      "Nicotine Poisoning"
+    ],
+    "creation_date": "2026-03-23T00:00:00Z",
+    "updated_date": "2026-03-23T20:00:00Z",
+    "subtypes": [],
+    "description": "Green tobacco sickness (GTS) is an occupational illness caused by dermal absorption of nicotine from contact with wet tobacco leaves. It predominantly affects tobacco farmworkers during harvesting, topping, and curing activities. The condition is a form of acute nicotine poisoning presenting with nausea, vomiting, dizziness, headache, and weakness. Symptoms typically onset 3-17 hours after exposure and resolve within 1-3 days with supportive care. GTS prevalence varies from 8.2 to 47% globally among tobacco harvesters.\n",
+    "pathophysiology": [
+      "Transdermal Nicotine Absorption",
+      "Nicotinic Acetylcholine Receptor Overstimulation",
+      "Autonomic Ganglia Dysfunction",
+      "Central Nervous System Effects",
+      "Neuromuscular Junction Disruption"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "Cholinergic Synaptic Transmission",
+      "Response to Nicotine",
+      "Neuromuscular Synaptic Transmission"
+    ],
+    "phenotypes": [
+      "Nausea and Vomiting",
+      "Dizziness",
+      "Headache",
+      "Weakness",
+      "Abdominal Pain",
+      "Diaphoresis",
+      "Pallor",
+      "Diarrhea",
+      "Chills",
+      "Hypotension",
+      "Excessive Salivation",
+      "Breathlessness"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Neurological",
+      "Musculoskeletal",
+      "Dermatological",
+      "Constitutional",
+      "Cardiovascular",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Head and Neck",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002017",
+      "HP:0002315",
+      "HP:0001324",
+      "HP:0002027",
+      "HP:0000975",
+      "HP:0000980",
+      "HP:0002014",
+      "HP:0025143",
+      "HP:0002615",
+      "HP:0003781",
+      "HP:0002094"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Chemical Exposure Avoidance",
+      "Supportive Care",
+      "Protective Clothing",
+      "Mecamylamine (Proposed)"
+    ],
+    "environmental": [
+      "Wet Tobacco Leaf Contact",
+      "Lack of Protective Clothing",
+      "Heat and Physical Exertion",
+      "Work Inexperience"
+    ],
+    "biochemical": [],
+    "source_file": "Green_Tobacco_Sickness.yaml",
+    "page_url": "../pages/disorders/Green_Tobacco_Sickness.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "2"
+  },
+  {
     "name": "Greig Cephalopolysyndactyly Syndrome",
     "disease_id": "MONDO:0008287",
     "category": "Mendelian",
@@ -20350,7 +20634,6 @@ window.searchData = [
       "CL:0000127"
     ],
     "biological_processes": [
-      "histone H3-K27 methylation",
       "negative regulation of gene expression, epigenetic",
       "gene expression",
       "cell population proliferation",
@@ -22101,9 +22384,6 @@ window.searchData = [
     "biological_processes": [
       "cytoskeleton organization",
       "protein localization to plasma membrane",
-      "cytoskeletal anchor activity",
-      "structural constituent of cytoskeleton",
-      "spectrin binding",
       "erythrocyte homeostasis"
     ],
     "phenotypes": [
@@ -22478,7 +22758,6 @@ window.searchData = [
       "CL:0000182"
     ],
     "biological_processes": [
-      "protein biotinylation",
       "biotin metabolic process",
       "gluconeogenesis",
       "pyruvate metabolic process",
@@ -23357,7 +23636,6 @@ window.searchData = [
       "response to oxidative stress",
       "superoxide metabolic process",
       "mitochondrial electron transport",
-      "inflammasome complex assembly",
       "interleukin-1 beta production"
     ],
     "phenotypes": [
@@ -23448,7 +23726,7 @@ window.searchData = [
       "Genetic Disorder"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-02-17T21:53:14Z",
+    "updated_date": "2026-03-18T00:11:29Z",
     "subtypes": [
       "Obstructive HCM",
       "Non-Obstructive HCM"
@@ -23475,7 +23753,6 @@ window.searchData = [
     "biological_processes": [
       "muscle contraction",
       "regulation of heart contraction",
-      "ATP hydrolysis activity",
       "extracellular matrix organization",
       "response to TGF-beta",
       "calcium ion transport",
@@ -23800,8 +24077,7 @@ window.searchData = [
     ],
     "biological_processes": [
       "DNA demethylation",
-      "myeloid cell differentiation",
-      "histone demethylation"
+      "myeloid cell differentiation"
     ],
     "phenotypes": [
       "Anemia",
@@ -23961,7 +24237,6 @@ window.searchData = [
       "CL:1000488"
     ],
     "biological_processes": [
-      "isocitrate dehydrogenase (NADP+) activity",
       "DNA methylation",
       "cell population proliferation"
     ],
@@ -25462,6 +25737,110 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Juvenile Polyposis Syndrome",
+    "disease_id": "MONDO:0017380",
+    "category": "Mendelian",
+    "parents": [
+      "Hereditary Cancer Syndrome",
+      "Polyposis Syndrome"
+    ],
+    "creation_date": "2026-03-16T16:05:09Z",
+    "updated_date": "2026-03-23T18:28:00Z",
+    "subtypes": [
+      "Juvenile polyposis of infancy",
+      "SMAD4-associated juvenile polyposis with hereditary hemorrhagic telangiectasia overlap"
+    ],
+    "description": "Juvenile polyposis syndrome (JPS) is an autosomal dominant hamartomatous polyposis syndrome caused primarily by pathogenic germline variants in BMPR1A or SMAD4. The disease is characterized by multiple juvenile polyps in the colon and other parts of the gastrointestinal tract, with rectal bleeding, anemia, and a substantial lifetime risk of colorectal and other gastrointestinal malignancies.",
+    "pathophysiology": [
+      "Germline BMPR1A loss-of-function predisposition",
+      "Germline SMAD4 loss-of-function predisposition",
+      "PTEN-BMPR1A contiguous deletion in juvenile polyposis of infancy",
+      "PI3K-AKT-mTOR pathway hyperactivation in juvenile polyposis of infancy",
+      "BMP/TGF-beta signaling dysregulation",
+      "Abnormal epithelial-mesenchymal crosstalk and epithelial homeostasis failure",
+      "Severe infantile pan-enteric polyposis and enteropathy",
+      "Hamartomatous juvenile polyp formation",
+      "Epithelial dysplasia and neoplastic transformation risk"
+    ],
+    "cell_types": [
+      "intestinal epithelial cell",
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0002563",
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "phosphatidylinositol 3-kinase signaling",
+      "TOR signaling",
+      "BMP signaling pathway",
+      "transforming growth factor beta receptor signaling pathway",
+      "epithelial cell proliferation",
+      "cell proliferation"
+    ],
+    "phenotypes": [
+      "Juvenile gastrointestinal polyposis",
+      "Gastrointestinal hemorrhage",
+      "Anemia",
+      "Diarrhea",
+      "Protein-losing enteropathy",
+      "Rectal prolapse",
+      "Telangiectasia",
+      "Colorectal cancer",
+      "Stomach cancer"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Hematologic",
+      "Dermatologic",
+      "Oncologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Integument",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0004784",
+      "HP:0002239",
+      "HP:0001903",
+      "HP:0002014",
+      "HP:0002243",
+      "HP:0002035",
+      "HP:0001009",
+      "HP:0003003",
+      "HP:0012126"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "BMPR1A",
+      "SMAD4",
+      "PTEN"
+    ],
+    "treatments": [
+      "Endoscopic surveillance and polypectomy",
+      "Surgical resection for severe polyp burden or bleeding",
+      "mTOR inhibitor therapy for juvenile polyposis of infancy",
+      "Genetic counseling and early surveillance of at-risk relatives"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Juvenile_Polyposis_Syndrome.yaml",
+    "page_url": "../pages/disorders/Juvenile_Polyposis_Syndrome.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 9,
+    "num_genes": 3,
+    "num_treatments": 4,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "KIT Mutant Melanoma",
     "disease_id": "MONDO:0003865",
     "category": "",
@@ -25880,7 +26259,6 @@ window.searchData = [
       "endothelial cell activation",
       "leukocyte adhesion to vascular endothelial cell",
       "inflammatory response",
-      "NLRP3 inflammasome complex assembly",
       "interleukin-1 beta production",
       "tumor necrosis factor production",
       "interleukin-17 production",
@@ -26482,14 +26860,15 @@ window.searchData = [
       "Osteoporotic spinal disease"
     ],
     "creation_date": "2026-02-06T20:38:12Z",
-    "updated_date": "2026-02-16T20:19:38Z",
+    "updated_date": "2026-03-21T22:56:42Z",
     "subtypes": [],
     "description": "Kummell disease (also known as Kummell's disease or delayed post-traumatic vertebral collapse) is a condition characterized by avascular necrosis of a vertebral body following minor spinal trauma. First described by Hermann Kummell in 1891, the disease presents with an initial period of relatively minor symptoms after trauma, followed by a symptom-free interval, and then progressive painful kyphosis with vertebral body collapse. The hallmark radiographic finding is the intravertebral vacuum cleft sign, representing gas (nitrogen) accumulation within the necrotic vertebral body. The condition predominantly affects elderly patients with osteoporosis and most commonly involves the thoracolumbar junction. Treatment ranges from conservative management to vertebral augmentation procedures (vertebroplasty or kyphoplasty) and, in severe cases, surgical stabilization.\n",
     "pathophysiology": [
       "Vertebral body avascular necrosis",
       "Basivertebral foramen microcirculation compromise",
       "Intravertebral vacuum cleft formation",
-      "Hypoxia-driven bone remodeling imbalance",
+      "Ischemia-induced HIF-1alpha signaling",
+      "Pro-inflammatory osteoclastogenic signaling",
       "Progressive vertebral body collapse"
     ],
     "cell_types": [
@@ -26510,8 +26889,6 @@ window.searchData = [
       "Angiogenesis",
       "Response to hypoxia",
       "Osteoclast differentiation",
-      "Osteoblast differentiation",
-      "Apoptotic process",
       "Bone remodeling"
     ],
     "phenotypes": [
@@ -26552,11 +26929,11 @@ window.searchData = [
     "source_file": "Kummell_Disease.yaml",
     "page_url": "../pages/disorders/Kummell_Disease.html",
     "num_phenotypes": 4,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 6,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "L-2-Hydroxyglutaric Aciduria",
@@ -26592,7 +26969,6 @@ window.searchData = [
       "myelination",
       "oxidative phosphorylation",
       "glycolytic process",
-      "histone demethylation",
       "DNA demethylation"
     ],
     "phenotypes": [
@@ -27679,8 +28055,6 @@ window.searchData = [
     ],
     "biological_processes": [
       "Protein lipoylation",
-      "Pyruvate dehydrogenase complex",
-      "Glycine cleavage complex",
       "Tricarboxylic acid cycle"
     ],
     "phenotypes": [
@@ -27762,7 +28136,6 @@ window.searchData = [
     ],
     "biological_processes": [
       "Protein lipoylation",
-      "Pyruvate dehydrogenase complex",
       "Tricarboxylic acid cycle"
     ],
     "phenotypes": [
@@ -28075,7 +28448,6 @@ window.searchData = [
       "CL:0002586"
     ],
     "biological_processes": [
-      "catalytic activity",
       "fatty acid beta-oxidation",
       "ketone body biosynthetic process",
       "response to oxidative stress",
@@ -28820,8 +29192,7 @@ window.searchData = [
       "CL:0000182"
     ],
     "biological_processes": [
-      "fatty acid beta-oxidation",
-      "medium-chain fatty acyl-CoA dehydrogenase activity"
+      "fatty acid beta-oxidation"
     ],
     "phenotypes": [
       "Hypoketotic hypoglycemia",
@@ -29476,7 +29847,6 @@ window.searchData = [
     "biological_processes": [
       "inflammatory response",
       "response to oxidative stress",
-      "histone deubiquitination",
       "DNA damage response",
       "Hippo signaling",
       "negative regulation of G1/S transition"
@@ -31055,7 +31425,6 @@ window.searchData = [
       "CL:0002306"
     ],
     "biological_processes": [
-      "catalytic activity",
       "methylmalonyl-CoA metabolic process",
       "propionate catabolic process",
       "tricarboxylic acid cycle",
@@ -32635,17 +33004,23 @@ window.searchData = [
       "Immune Disorder"
     ],
     "creation_date": "2025-12-06T01:38:31Z",
-    "updated_date": "2026-02-27T21:53:01Z",
+    "updated_date": "2026-03-18T00:00:00Z",
     "subtypes": [],
-    "description": "Exaggerated innate immune responses to microbial ligands, with exercise-triggered increases in proinflammatory signals, complement activation, and oxidative stress that contribute to post-exertional malaise.",
+    "description": "Dysregulated innate immune function, most reproducibly demonstrated by impaired natural killer cell cytotoxicity, forming part of the interconnected pathological responses in ME/CFS.",
     "pathophysiology": [
-      "Innate Immune Hyperreactivity",
+      "Innate Immune Dysregulation",
       "Natural Killer Cell Dysfunction",
       "T-Cell Immunometabolic Dysfunction",
-      "Endothelial Dysfunction and Coagulopathy",
+      "CD8+ T-Cell Exhaustion",
+      "Endothelial Dysfunction",
+      "Coagulopathy",
       "TRPM3 Ion Channel Dysfunction",
-      "Neuroinflammation and Cerebral Hypoperfusion",
-      "Mitochondrial Dysfunction"
+      "Neuroinflammation",
+      "Cerebral Hypoperfusion",
+      "Neuroaxonal Injury",
+      "Gut-Immune Dysbiosis",
+      "Mitochondrial Dysfunction",
+      "Central Catechol Pathway Dysregulation"
     ],
     "cell_types": [
       "Natural Killer Cell",
@@ -32653,7 +33028,9 @@ window.searchData = [
       "CD8+ T Cell",
       "CD4+ T Cell",
       "Endothelial Cell",
-      "Platelet"
+      "Platelet",
+      "Microglial Cell",
+      "Neuron"
     ],
     "cell_type_ids": [
       "CL:0000623",
@@ -32661,16 +33038,22 @@ window.searchData = [
       "CL:0000625",
       "CL:0000624",
       "CL:0000115",
-      "CL:0000233"
+      "CL:0000233",
+      "CL:0000129",
+      "CL:0000540"
     ],
     "biological_processes": [
       "Innate Immune Response",
-      "Complement Activation",
       "T Cell Activation",
-      "Glycolysis",
+      "Metabolic Reprogramming",
+      "Exhausted T Cell Differentiation",
+      "Chromatin Remodeling",
       "Blood Coagulation",
       "Platelet Activation",
       "Calcium Ion Transmembrane Transport",
+      "Neuroinflammatory Response",
+      "Immune Response",
+      "Inflammatory Response",
       "Fatty Acid Beta-Oxidation",
       "Response to Oxidative Stress"
     ],
@@ -32682,6 +33065,7 @@ window.searchData = [
       "Sleep Disturbance",
       "Myalgia",
       "Headache",
+      "Exercise Intolerance",
       "Recurrent Infections",
       "Gastrointestinal Symptoms",
       "Sensory Sensitivity"
@@ -32696,6 +33080,8 @@ window.searchData = [
     "phenotype_hpo_categories": [
       "Cardiovascular",
       "Constitutional",
+      "Digestive",
+      "Immune",
       "Nervous System"
     ],
     "phenotype_ids": [
@@ -32705,7 +33091,11 @@ window.searchData = [
       "HP:0001278",
       "HP:0002360",
       "HP:0003326",
-      "HP:0002315"
+      "HP:0002315",
+      "HP:0003546",
+      "HP:0002719",
+      "HP:0012719",
+      "HP:5200058"
     ],
     "frequencies": [
       "OBLIGATE",
@@ -32719,7 +33109,8 @@ window.searchData = [
     "treatments": [
       "Pacing",
       "Symptomatic Treatment",
-      "Low-Dose Naltrexone"
+      "Low-Dose Naltrexone",
+      "Intranasal Mechanical Stimulation (INMEST)"
     ],
     "environmental": [
       "Viral Infections",
@@ -32728,16 +33119,19 @@ window.searchData = [
     "biochemical": [
       "Natural Killer Cell Cytotoxicity",
       "Inflammatory Cytokines",
-      "Oxidative Stress Markers"
+      "Oxidative Stress Markers",
+      "Plasma Neurofilament Light Chain (NfL)",
+      "Thrombospondin-1 (THBS1)",
+      "Complement C9"
     ],
     "source_file": "Myalgic_Encephalomyelitis_Chronic_Fatigue_Syndrome.yaml",
     "page_url": "../pages/disorders/Myalgic_Encephalomyelitis_Chronic_Fatigue_Syndrome.html",
-    "num_phenotypes": 10,
-    "num_pathophysiology": 7,
+    "num_phenotypes": 11,
+    "num_pathophysiology": 13,
     "num_genes": 1,
-    "num_treatments": 3,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "num_treatments": 4,
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "1"
   },
   {
     "name": "Myasthenia Gravis",
@@ -33104,9 +33498,7 @@ window.searchData = [
     ],
     "biological_processes": [
       "Protein lipoylation",
-      "Pyruvate dehydrogenase complex",
-      "Tricarboxylic acid cycle",
-      "Glycine cleavage complex"
+      "Tricarboxylic acid cycle"
     ],
     "phenotypes": [
       "Neonatal hypotonia",
@@ -33615,7 +34007,6 @@ window.searchData = [
       "Skeletal Muscle Contraction",
       "Actin Filament Organization",
       "Skeletal Muscle Thin Filament Assembly",
-      "Actin Filament Binding",
       "Myofibril Assembly",
       "Sarcomere Organization",
       "skeletal muscle contraction",
@@ -34667,9 +35058,6 @@ window.searchData = [
       "CL:0000746"
     ],
     "biological_processes": [
-      "protein tyrosine phosphatase activity",
-      "Ras guanyl-nucleotide exchange factor activity",
-      "protein serine/threonine kinase activity",
       "Ras protein signal transduction",
       "protein ubiquitination",
       "regulation of proteolysis",
@@ -36132,6 +36520,77 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "PRPH2-Related Retinopathy",
+    "disease_id": "MONDO:1040055",
+    "category": "Mendelian",
+    "parents": [
+      "Ophthalmological Disease",
+      "Retinal Dystrophy",
+      "Inherited retinal dystrophy"
+    ],
+    "creation_date": "2026-03-19T01:23:51Z",
+    "updated_date": "2026-03-19T01:44:42Z",
+    "subtypes": [
+      "Retinitis pigmentosa 7",
+      "Vitelliform macular dystrophy 3",
+      "Patterned macular dystrophy 1",
+      "Choroidal dystrophy, central areolar 2",
+      "Leber congenital amaurosis 18",
+      "Retinitis pigmentosa 7, digenic"
+    ],
+    "description": "PRPH2-related retinopathy is an inherited retinal disease family caused by pathogenic variants in PRPH2, a photoreceptor outer-segment rim tetraspanin that oligomerizes with ROM1. The disease spans rod-predominant retinitis pigmentosa, macular and pattern dystrophy phenotypes, central areolar choroidal dystrophy, and rarer early severe retinal degeneration. A shared PRPH2/ROM1 structural mechanism underlies these branches, but mutation-specific effects and modifier context produce marked intra- and interfamilial heterogeneity.",
+    "pathophysiology": [
+      "PRPH2 complex assembly defect",
+      "Photoreceptor outer segment morphogenesis and maintenance failure"
+    ],
+    "cell_types": [
+      "retinal rod cell",
+      "retinal cone cell",
+      "retinal pigment epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000604",
+      "CL:0000573",
+      "CL:0002586"
+    ],
+    "biological_processes": [],
+    "phenotypes": [
+      "Reduced visual acuity",
+      "Abnormal electroretinogram",
+      "Abnormal fundus autofluorescence imaging"
+    ],
+    "phenotype_categories": [
+      "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0007663",
+      "HP:0000512",
+      "HP:0030602"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "PRPH2 pathogenic variants",
+      "ROM1 modifier context"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "PRPH2-Related_Retinopathy.yaml",
+    "page_url": "../pages/disorders/PRPH2-Related_Retinopathy.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 2,
+    "num_genes": 2,
+    "num_treatments": 0,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "2"
+  },
+  {
     "name": "PTCH1-related nevoid basal cell carcinoma syndrome",
     "disease_id": "MONDO:0958174",
     "category": "Mendelian",
@@ -36604,7 +37063,7 @@ window.searchData = [
       "Movement Disorder"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-02-27T22:30:31Z",
+    "updated_date": "2026-03-21T23:02:20Z",
     "subtypes": [],
     "description": "Progressive degeneration of dopaminergic neurons in the substantia nigra pars compacta leads to dopamine deficiency in the striatum, causing motor symptoms. Symptoms appear after 60-80% neuron loss.\n",
     "pathophysiology": [
@@ -37521,7 +37980,6 @@ window.searchData = [
       "CL:0017006"
     ],
     "biological_processes": [
-      "protein tyrosine kinase activity",
       "signal transduction",
       "B cell differentiation",
       "apoptotic process"
@@ -37728,9 +38186,7 @@ window.searchData = [
       "CL:0000166"
     ],
     "biological_processes": [
-      "succinate dehydrogenase activity",
       "response to hypoxia",
-      "receptor signaling protein tyrosine kinase activity",
       "catecholamine biosynthetic process"
     ],
     "phenotypes": [
@@ -38207,7 +38663,6 @@ window.searchData = [
       "CL:0000038"
     ],
     "biological_processes": [
-      "protein tyrosine kinase activity",
       "JAK-STAT signaling pathway",
       "erythrocyte differentiation",
       "blood coagulation"
@@ -38775,7 +39230,6 @@ window.searchData = [
       "CL:0000182"
     ],
     "biological_processes": [
-      "transmembrane transporter activity",
       "carnitine transmembrane transport",
       "fatty acid beta-oxidation",
       "extracellular matrix organization",
@@ -39387,7 +39841,6 @@ window.searchData = [
       "CL:0002306"
     ],
     "biological_processes": [
-      "catalytic activity",
       "tricarboxylic acid cycle",
       "urea cycle",
       "response to oxidative stress",
@@ -40379,6 +40832,81 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "RPGR-Related Retinopathy",
+    "disease_id": "MONDO:0100437",
+    "category": "Mendelian",
+    "parents": [
+      "Ophthalmological Disease",
+      "Retinal Dystrophy",
+      "Inherited retinal dystrophy"
+    ],
+    "creation_date": "2026-03-19T06:08:40Z",
+    "updated_date": "2026-03-19T06:08:40Z",
+    "subtypes": [
+      "Retinitis pigmentosa 3",
+      "X-linked cone-rod dystrophy 1",
+      "Cone dystrophy 1, X-linked"
+    ],
+    "description": "RPGR-related retinopathy is an X-linked inherited retinal dystrophy caused by pathogenic variation in RPGR, especially the retina-enriched RPGRORF15 isoform. Across rod-cone, cone-rod, and cone-dominant presentations, the shared proximal mechanism is defective photoreceptor connecting-cilium trafficking, which disrupts outer-segment protein delivery, drives progressive photoreceptor degeneration, and culminates in retinal remodeling. Variant position within RPGRORF15 shifts the phenotype toward rod-predominant retinitis pigmentosa or cone-predominant dystrophy, justifying a shared-mechanism umbrella with subtype branches.\n",
+    "pathophysiology": [
+      "RPGR dysfunction at the photoreceptor connecting cilium",
+      "Outer-segment cargo trafficking failure",
+      "Variant-position-dependent rod versus cone bias",
+      "Progressive photoreceptor loss and retinal remodeling"
+    ],
+    "cell_types": [
+      "photoreceptor cell",
+      "retinal rod cell",
+      "retinal cone cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000210",
+      "CL:0000604",
+      "CL:0000573"
+    ],
+    "biological_processes": [
+      "protein localization to cilium",
+      "cilium organization",
+      "intraciliary transport",
+      "photoreceptor cell maintenance"
+    ],
+    "phenotypes": [
+      "Night blindness",
+      "Progressive peripheral visual field loss",
+      "Reduced visual acuity",
+      "High myopia"
+    ],
+    "phenotype_categories": [
+      "Ophthalmic"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0000662",
+      "HP:0001133",
+      "HP:0007663",
+      "HP:0000545"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "RPGR"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "RPGR-Related_Retinopathy.yaml",
+    "page_url": "../pages/disorders/RPGR-Related_Retinopathy.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "3",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Rabies",
     "disease_id": "MONDO:0019173",
     "category": "Infectious Disease",
@@ -41166,7 +41694,6 @@ window.searchData = [
       "CL:1000217"
     ],
     "biological_processes": [
-      "protein tyrosine kinase activity",
       "fibroblast growth factor receptor signaling pathway"
     ],
     "phenotypes": [
@@ -43123,6 +43650,97 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Spaceflight Associated Neuro-Ocular Syndrome",
+    "disease_id": null,
+    "category": "Complex",
+    "parents": [
+      "Neuro-Ophthalmologic Disorder",
+      "Spaceflight-Induced Condition"
+    ],
+    "creation_date": "2026-03-17T00:00:00Z",
+    "updated_date": "2026-03-19T00:00:00Z",
+    "subtypes": [],
+    "description": "Spaceflight Associated Neuro-Ocular Syndrome (SANS) is a constellation of neuro-ophthalmic findings observed in astronauts during and after long-duration spaceflight. The syndrome includes optic disc edema, globe flattening, choroidal and retinal folds, hyperopic refractive shifts, and cotton wool spots. SANS is hypothesized to result from cephalad fluid shifts in microgravity leading to elevated intracranial pressure, cerebral venous congestion, and compartmentalization of cerebrospinal fluid within the optic nerve sheath. It is a major physiologic barrier to future planetary spaceflight missions.\n",
+    "pathophysiology": [
+      "Cephalad Fluid Shift in Microgravity",
+      "Elevated Intracranial Pressure",
+      "Optic Nerve Sheath Distension",
+      "CSF Compartmentalization",
+      "Choroidal Engorgement and Vascular Congestion",
+      "Retinal Oxidative Stress",
+      "Retinal Gene Expression Changes"
+    ],
+    "cell_types": [
+      "vascular endothelial cell",
+      "retinal ganglion cell",
+      "retinal astrocyte",
+      "choroidal cell of the eye"
+    ],
+    "cell_type_ids": [
+      "CL:0000071",
+      "CL:0000740",
+      "CL:4033015",
+      "CL:0000348"
+    ],
+    "biological_processes": [
+      "cerebrospinal fluid circulation",
+      "cerebrospinal fluid secretion",
+      "response to oxidative stress",
+      "phototransduction"
+    ],
+    "phenotypes": [
+      "Optic Disc Edema",
+      "Posterior Globe Flattening",
+      "Choroidal and Retinal Folds",
+      "Cotton Wool Spots",
+      "Hyperopic Refractive Shift",
+      "Optic Nerve Sheath Distension",
+      "Mildly Elevated Intracranial Pressure",
+      "Reduced Visual Acuity"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001085",
+      "HP:0012372",
+      "HP:0000610",
+      "HP:0031606",
+      "HP:0000540",
+      "HP:6001281",
+      "HP:0002516",
+      "HP:0007663"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Lower Body Negative Pressure",
+      "Mobile Lower Body Negative Pressure Suit"
+    ],
+    "environmental": [
+      "Microgravity Exposure",
+      "Elevated Ambient Carbon Dioxide"
+    ],
+    "biochemical": [],
+    "source_file": "Spaceflight_Associated_Neuro-Ocular_Syndrome.yaml",
+    "page_url": "../pages/disorders/Spaceflight_Associated_Neuro-Ocular_Syndrome.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 7,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "1"
+  },
+  {
     "name": "Spinal Muscular Atrophy",
     "disease_id": "MONDO:0001516",
     "category": "Genetic",
@@ -44510,7 +45128,6 @@ window.searchData = [
     ],
     "biological_processes": [
       "Potassium ion transport",
-      "Voltage-gated potassium channel activity",
       "Regulation of neuron excitability",
       "Synaptic transmission",
       "Nervous system development",
@@ -46258,8 +46875,6 @@ window.searchData = [
       "CL:0000127"
     ],
     "biological_processes": [
-      "catalytic activity",
-      "transporter activity",
       "urea cycle",
       "glutamine biosynthetic process",
       "cellular response to osmotic stress",
