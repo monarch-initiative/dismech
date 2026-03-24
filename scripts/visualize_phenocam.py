@@ -753,13 +753,20 @@ def build_graph_data(disease: dict) -> dict:
     node_ancestry = _compute_hypothesis_ancestry(result)
 
     # Annotate each edge with its hypothesis colors
-    hg_ids = [hg["id"] for hg in result["hypothesis_groups"]]
+    # An edge is colored for hypothesis H only if BOTH source and target are in H's ancestry
+    hg_ids = set(hg["id"] for hg in result["hypothesis_groups"])
     for e in result["edges"]:
-        e["hypothesis_ids"] = sorted(node_ancestry.get(e["source"], set()) & set(hg_ids))
+        src_hg = node_ancestry.get(e["source"], set()) & hg_ids
+        tgt_hg = node_ancestry.get(e["target"], set()) & hg_ids
+        e["hypothesis_ids"] = sorted(src_hg & tgt_hg)
     for e in result["intermediate_edges"]:
-        e["hypothesis_ids"] = sorted(node_ancestry.get(e["source"], set()) & set(hg_ids))
+        src_hg = node_ancestry.get(e["source"], set()) & hg_ids
+        tgt_hg = node_ancestry.get(e["target"], set()) & hg_ids
+        e["hypothesis_ids"] = sorted(src_hg & tgt_hg)
     for e in result["phenotype_disease_edges"]:
-        e["hypothesis_ids"] = sorted(node_ancestry.get(e["source"], set()) & set(hg_ids))
+        src_hg = node_ancestry.get(e["source"], set()) & hg_ids
+        tgt_hg = node_ancestry.get(e["target"], set()) & hg_ids
+        e["hypothesis_ids"] = sorted(src_hg & tgt_hg)
 
     # Annotate nodes with hypothesis ancestry
     for n in result["nodes"]:
@@ -890,35 +897,38 @@ def _compute_hypothesis_ancestry(graph_data: dict) -> dict:
     """Compute which hypothesis(es) can reach each node via perturbation chains.
 
     Returns a dict mapping node_id -> set of hypothesis_ids that perturb it.
+
+    For activity nodes (module + disease-local): uses the hypothesis's declared
+    states dict directly. A node belongs to hypothesis H only if H explicitly
+    lists it in propagated_states or perturbations — NOT by blind graph traversal.
+
+    For intermediate/phenotype/disease nodes: propagates forward from declared
+    states through intermediate_edges and phenotype_disease_edges only.
     """
     node_ancestry = {}  # node_id -> set of hypothesis_ids
 
     for hg in graph_data["hypothesis_groups"]:
         hg_id = hg["id"]
-        # Seed: only primary perturbation nodes (not propagated states)
-        perturbed_nodes = {
-            nid for nid, info in hg["states"].items() if info["is_primary"]
-        }
+        # Seed: all nodes declared as perturbed under this hypothesis
+        perturbed = set(hg["states"].keys())
+        for nid in perturbed:
+            node_ancestry.setdefault(nid, set()).add(hg_id)
 
-        # BFS forward through edges to find all reachable nodes
-        visited = set()
-        queue = list(perturbed_nodes)
+        # Propagate through intermediate and phenotype-disease edges only
+        visited = set(perturbed)
+        queue = list(perturbed)
         while queue:
             node = queue.pop(0)
-            if node in visited:
-                continue
-            visited.add(node)
-            node_ancestry.setdefault(node, set()).add(hg_id)
-            # Find edges where this node is the source
-            for e in graph_data["edges"]:
-                if e["source"] == node and e["target"] not in visited:
-                    queue.append(e["target"])
             for e in graph_data["intermediate_edges"]:
                 if e["source"] == node and e["target"] not in visited:
+                    visited.add(e["target"])
                     queue.append(e["target"])
+                    node_ancestry.setdefault(e["target"], set()).add(hg_id)
             for e in graph_data["phenotype_disease_edges"]:
                 if e["source"] == node and e["target"] not in visited:
+                    visited.add(e["target"])
                     queue.append(e["target"])
+                    node_ancestry.setdefault(e["target"], set()).add(hg_id)
 
     return node_ancestry
 
@@ -1350,7 +1360,26 @@ function offsetPath(points, offset) {{
   }});
 }}
 
-function drawSingleEdge(edgeGroup, points, edgeData, nodeLabels, dashStyle) {{
+function clipEndpoints(points, g, sourceId, targetId) {{
+  if (!points || points.length < 2) return points;
+  const pts = points.slice();
+  const srcPos = g.node(sourceId);
+  const tgtPos = g.node(targetId);
+  if (srcPos) {{
+    const srcW = srcPos.width || 140;
+    pts[0] = {{ x: srcPos.x + srcW / 2, y: pts[0].y }};
+  }}
+  if (tgtPos) {{
+    const tgtW = tgtPos.width || 140;
+    pts[pts.length - 1] = {{ x: tgtPos.x - tgtW / 2, y: pts[pts.length - 1].y }};
+  }}
+  return pts;
+}}
+
+function drawSingleEdge(edgeGroup, points, edgeData, nodeLabels, dashStyle, g, sourceId, targetId) {{
+  if (g && sourceId && targetId) {{
+    points = clipEndpoints(points, g, sourceId, targetId);
+  }}
   const hypothesisIds = edgeData.hypothesis_ids || [];
   const hgColors = DATA.hypothesis_colors || {{}};
   const isNeg = edgeData.relation_id === "RO:0002630" || edgeData.relation_id === "RO:0002305";
@@ -1384,7 +1413,7 @@ function drawSingleEdge(edgeGroup, points, edgeData, nodeLabels, dashStyle) {{
   }}
 
   const numLines = hypothesisIds.length;
-  const OFFSET = 2;
+  const OFFSET = 8;
   const totalSpread = (numLines - 1) * OFFSET;
 
   hypothesisIds.forEach((hgId, idx) => {{
@@ -1419,6 +1448,9 @@ function drawSingleEdge(edgeGroup, points, edgeData, nodeLabels, dashStyle) {{
 // --- Module background shading ---
 function drawModuleBackgrounds(g, bgGroup) {{
   const moduleNodes = DATA.module_nodes || {{}};
+  const moduleNameMap = {{}};
+  (DATA.modules || []).forEach(m => {{ moduleNameMap[m.id] = m.name; }});
+
   Object.entries(moduleNodes).forEach(([modId, nodeIds]) => {{
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     nodeIds.forEach(nid => {{
@@ -1432,15 +1464,22 @@ function drawModuleBackgrounds(g, bgGroup) {{
       maxY = Math.max(maxY, pos.y + h/2);
     }});
     if (minX === Infinity) return;
-    const pad = 20;
+    const pad = 24;
+    const labelHeight = 18;
     bgGroup.append("rect")
-      .attr("x", minX - pad).attr("y", minY - pad)
+      .attr("x", minX - pad).attr("y", minY - pad - labelHeight)
       .attr("width", maxX - minX + pad * 2)
-      .attr("height", maxY - minY + pad * 2)
+      .attr("height", maxY - minY + pad * 2 + labelHeight)
       .attr("rx", 12)
-      .attr("fill", "#f4f6fc")
-      .attr("stroke", "#dde")
-      .attr("stroke-width", 0.5);
+      .attr("fill", "#eef1f8")
+      .attr("stroke", "#c8cfe0")
+      .attr("stroke-width", 1);
+    const modName = moduleNameMap[modId] || modId;
+    bgGroup.append("text")
+      .attr("x", minX - pad + 12).attr("y", minY - pad - labelHeight + 14)
+      .attr("font-size", "10px").attr("font-weight", "600")
+      .attr("fill", "#7080a0")
+      .text(modName);
   }});
 }}
 
@@ -1479,13 +1518,10 @@ function drawAllNodes(g, nodeGroup, nodeLabels, nodeMap) {{
         .attr("stroke", hgColors[pertHgId] || "#999")
         .attr("stroke-width", 2.5);
       if (pertFreq) {{
-        ng.append("rect")
-          .attr("x", w - 36).attr("y", 2).attr("width", 34).attr("height", 14)
-          .attr("rx", 7).attr("fill", hgColors[pertHgId] || "#999");
         ng.append("text")
-          .attr("x", w - 19).attr("y", 12)
-          .attr("text-anchor", "middle").attr("font-size", "7px")
-          .attr("fill", "white").attr("font-weight", "600")
+          .attr("x", hw).attr("y", 74)
+          .attr("text-anchor", "middle").attr("font-size", "9px")
+          .attr("fill", "#495057").attr("font-weight", "600")
           .text(pertFreq);
       }}
     }}
@@ -1509,7 +1545,7 @@ function drawAllEdges(g, edgeGroup, nodeLabels) {{
   DATA.edges.forEach(e => {{
     const pts = g.edge(e.source, e.target);
     if (!pts || !pts.points) return;
-    drawSingleEdge(edgeGroup, pts.points, e, nodeLabels, "solid");
+    drawSingleEdge(edgeGroup, pts.points, e, nodeLabels, "solid", g, e.source, e.target);
   }});
 
   // Intermediate edges
@@ -1517,7 +1553,7 @@ function drawAllEdges(g, edgeGroup, nodeLabels) {{
     const pts = g.edge(e.source, e.target);
     if (!pts || !pts.points) return;
     const dashStyle = e.edge_type === "intermediate_to_phenotype" ? "dashed" : "solid";
-    drawSingleEdge(edgeGroup, pts.points, e, nodeLabels, dashStyle);
+    drawSingleEdge(edgeGroup, pts.points, e, nodeLabels, dashStyle, g, e.source, e.target);
   }});
 }}
 
@@ -1556,6 +1592,22 @@ function drawIntermediateNodes(og, nodeGroup, nodeLabels, nodeMap) {{
       if (n.state) {{
         const stClass = "tt-state tt-state-" + n.state;
         html += `<div class="tt-detail"><b>State:</b> <span class="${{stClass}}">${{n.state.replace(/_/g, " ")}}</span></div>`;
+      }}
+      if (n.hypothesis_ids && n.hypothesis_ids.length) {{
+        const hgColors = DATA.hypothesis_colors || {{}};
+        html += '<div class="tt-section"><b>Reached by:</b>';
+        n.hypothesis_ids.forEach(hgId => {{
+          const color = hgColors[hgId] || "#999";
+          const hg = DATA.hypothesis_groups.find(h => h.id === hgId);
+          const name = hg ? hg.name : hgId;
+          const freq = hg ? hg.frequency : "";
+          html += '<div class="tt-detail">';
+          html += '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + color + ';margin-right:4px"></span>';
+          html += name;
+          if (freq) html += ' (' + freq + ')';
+          html += '</div>';
+        }});
+        html += '</div>';
       }}
       if (n.driven_by_details && n.driven_by_details.length) {{
         html += `<div class="tt-section"><b>Driven by:</b>`;
@@ -1629,6 +1681,23 @@ function drawPhenotypeNodes(og, nodeGroup, nodeLabels) {{
         const stClass = "tt-state tt-state-" + pr.phenotype_state;
         html += `<div class="tt-detail"><b>State:</b> <span class="${{stClass}}">${{pr.phenotype_state.replace(/_/g, " ")}}</span></div>`;
       }}
+      const phenoEdge = (DATA.phenotype_disease_edges || []).find(e => e.source === pid);
+      if (phenoEdge && phenoEdge.hypothesis_ids && phenoEdge.hypothesis_ids.length) {{
+        const hgColors = DATA.hypothesis_colors || {{}};
+        html += '<div class="tt-section"><b>Reached by:</b>';
+        phenoEdge.hypothesis_ids.forEach(hgId => {{
+          const color = hgColors[hgId] || "#999";
+          const hg = DATA.hypothesis_groups.find(h => h.id === hgId);
+          const name = hg ? hg.name : hgId;
+          const freq = hg ? hg.frequency : "";
+          html += '<div class="tt-detail">';
+          html += '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + color + ';margin-right:4px"></span>';
+          html += name;
+          if (freq) html += ' (' + freq + ')';
+          html += '</div>';
+        }});
+        html += '</div>';
+      }}
       if (pr.phenotype_relation) {{
         html += `<div class="tt-detail"><b>Relation:</b> ${{pr.phenotype_relation}}</div>`;
         if (pr.phenotype_relation_id) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${{pr.phenotype_relation_id}}</div>`;
@@ -1672,7 +1741,7 @@ function drawPhenotypeDiseaseEdges(og, edgeGroup, nodeLabels) {{
   (DATA.phenotype_disease_edges || []).forEach(e => {{
     const pts = og.edge(e.source, e.target);
     if (!pts || !pts.points) return;
-    drawSingleEdge(edgeGroup, pts.points, e, nodeLabels, "dotted");
+    drawSingleEdge(edgeGroup, pts.points, e, nodeLabels, "dotted", og, e.source, e.target);
   }});
 }}
 
