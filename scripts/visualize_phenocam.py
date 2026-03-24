@@ -1714,6 +1714,23 @@ function drawFreeNodes(og, nodeGroup, nodeLabels, nodeMap) {{
   }});
 }}
 
+// --- Resolve edge endpoint for collapsed modules ---
+// Returns the module panel node position if nodeId is inside a collapsed module,
+// otherwise returns null (meaning use the node's own position).
+function resolveEdgeEndpoint(nodeId, og, moduleNodeIds, nodeToModule) {{
+  if (moduleNodeIds.has(nodeId)) {{
+    const modId = nodeToModule[nodeId];
+    if (_moduleState[modId] !== "expanded") {{
+      const modNodeId = "module:" + modId;
+      const modPos = og.node(modNodeId);
+      if (modPos) {{
+        return {{ x: modPos.x, y: modPos.y, resolved: true, moduleId: modId, originalId: nodeId }};
+      }}
+    }}
+  }}
+  return null;
+}}
+
 // --- Edge drawing dispatcher ---
 function drawEdges(og, moduleLayouts, edgeGroup, nodeLabels, moduleNodeIds, nodeToModule) {{
   // Cross-boundary module edges
