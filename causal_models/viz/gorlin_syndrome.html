@@ -714,8 +714,7 @@ const DATA = {
       "short_label": "GLI3 A/R imbalance",
       "type": "local_activity",
       "hypothesis_ids": [
-        "ptch1_driven",
-        "sufu_driven"
+        "ptch1_driven"
       ]
     }
   ],
@@ -1104,8 +1103,7 @@ const DATA = {
       "evidence": [],
       "raw_yaml": "source: hedgehog_signaling:gli3a_activation\ntarget: gli3_ar_imbalance",
       "hypothesis_ids": [
-        "ptch1_driven",
-        "sufu_driven"
+        "ptch1_driven"
       ],
       "edge_context": "cross_boundary",
       "module_id": null
@@ -2393,8 +2391,7 @@ const DATA = {
       "evidence": [],
       "raw_yaml": "source: gli3_ar_imbalance\ntarget: inter:skeletal_route:0\nrelation:\n  id: RO:0002304\n  label: causally upstream of, positive effect\neco:\n  id: ECO:0000305\n  label: curator inference used in manual assertion",
       "hypothesis_ids": [
-        "ptch1_driven",
-        "sufu_driven"
+        "ptch1_driven"
       ]
     },
     {
@@ -2427,8 +2424,7 @@ const DATA = {
       "evidence": [],
       "raw_yaml": "source: gli3_ar_imbalance\ntarget: pheno:skeletal_route:0\nrelation:\n  id: RO:0003303\n  label: causes condition\neco:\n  id: ECO:0000305\n  label: curator inference used in manual assertion",
       "hypothesis_ids": [
-        "ptch1_driven",
-        "sufu_driven"
+        "ptch1_driven"
       ]
     },
     {
@@ -3105,10 +3101,50 @@ function offsetPath(points, offset) {
   });
 }
 
-function drawSingleEdge(edgeGroup, points, edgeData, nodeLabels, dashStyle) {
+function clipToRect(cx, cy, hw, hh, px, py) {
+  // Find intersection of ray from (cx,cy) toward (px,py) with rect centered at (cx,cy)
+  const dx = px - cx, dy = py - cy;
+  if (dx === 0 && dy === 0) return { x: cx, y: cy };
+  // Scale factor to reach rect edge
+  const sx = hw / (Math.abs(dx) || 1);
+  const sy = hh / (Math.abs(dy) || 1);
+  const s = Math.min(sx, sy);
+  return { x: cx + dx * s, y: cy + dy * s };
+}
+
+function clipEndpoints(points, g, sourceId, targetId) {
+  if (!points || points.length < 2) return points;
+  const pts = points.slice();
+  const srcPos = g.node(sourceId);
+  const tgtPos = g.node(targetId);
+  if (srcPos) {
+    const hw = (srcPos.width || 140) / 2;
+    const hh = (srcPos.height || 60) / 2;
+    // Direction: from center toward next point
+    const next = pts[1];
+    pts[0] = clipToRect(srcPos.x, srcPos.y, hw, hh, next.x, next.y);
+  }
+  if (tgtPos) {
+    const hw = (tgtPos.width || 140) / 2;
+    const hh = (tgtPos.height || 60) / 2;
+    // Direction: from center toward previous point
+    const prev = pts[pts.length - 2];
+    const clipped = clipToRect(tgtPos.x, tgtPos.y, hw, hh, prev.x, prev.y);
+    // Push outward by marker size so arrowhead is visible outside the node
+    const edx = clipped.x - tgtPos.x, edy = clipped.y - tgtPos.y;
+    const elen = Math.sqrt(edx * edx + edy * edy) || 1;
+    pts[pts.length - 1] = { x: clipped.x + (edx / elen) * 4, y: clipped.y + (edy / elen) * 4 };
+  }
+  return pts;
+}
+
+function drawSingleEdge(edgeGroup, points, edgeData, nodeLabels, dashStyle, g, sourceId, targetId) {
+  if (g && sourceId && targetId) {
+    points = clipEndpoints(points, g, sourceId, targetId);
+  }
   const hypothesisIds = edgeData.hypothesis_ids || [];
   const hgColors = DATA.hypothesis_colors || {};
-  const isNeg = edgeData.relation_id === "RO:0002630" || edgeData.relation_id === "RO:0002305";
+  // All edges use regular arrowheads (no T-bar distinction for negative regulation)
 
   let strokeDash = "";
   if (dashStyle === "dashed") strokeDash = "6,3";
@@ -3124,7 +3160,7 @@ function drawSingleEdge(edgeGroup, points, edgeData, nodeLabels, dashStyle) {
       .attr("stroke-width", 1)
       .attr("fill", "none")
       .attr("stroke-dasharray", strokeDash)
-      .attr("marker-end", isNeg ? "url(#tbar-gray)" : "url(#arrow-gray)");
+      .attr("marker-end", "url(#arrow-gray)");
     eg.append("path").attr("class", "edge-hover").attr("d", pathD);
     attachEdgeTooltip(eg, edgeData, nodeLabels);
     // Label at midpoint
@@ -3139,7 +3175,7 @@ function drawSingleEdge(edgeGroup, points, edgeData, nodeLabels, dashStyle) {
   }
 
   const numLines = hypothesisIds.length;
-  const OFFSET = 2;
+  const OFFSET = 8;
   const totalSpread = (numLines - 1) * OFFSET;
 
   hypothesisIds.forEach((hgId, idx) => {
@@ -3155,7 +3191,7 @@ function drawSingleEdge(edgeGroup, points, edgeData, nodeLabels, dashStyle) {
       .attr("stroke-width", 1.5)
       .attr("fill", "none")
       .attr("stroke-dasharray", strokeDash)
-      .attr("marker-end", isNeg ? "url(#tbar-" + hgId + ")" : "url(#arrow-" + hgId + ")");
+      .attr("marker-end", "url(#arrow-" + hgId + ")");
     if (idx === 0) {
       eg.append("path").attr("class", "edge-hover").attr("d", pathD);
       attachEdgeTooltip(eg, edgeData, nodeLabels);
@@ -3174,6 +3210,9 @@ function drawSingleEdge(edgeGroup, points, edgeData, nodeLabels, dashStyle) {
 // --- Module background shading ---
 function drawModuleBackgrounds(g, bgGroup) {
   const moduleNodes = DATA.module_nodes || {};
+  const moduleNameMap = {};
+  (DATA.modules || []).forEach(m => { moduleNameMap[m.id] = m.name; });
+
   Object.entries(moduleNodes).forEach(([modId, nodeIds]) => {
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     nodeIds.forEach(nid => {
@@ -3187,15 +3226,22 @@ function drawModuleBackgrounds(g, bgGroup) {
       maxY = Math.max(maxY, pos.y + h/2);
     });
     if (minX === Infinity) return;
-    const pad = 20;
+    const pad = 24;
+    const labelHeight = 18;
     bgGroup.append("rect")
-      .attr("x", minX - pad).attr("y", minY - pad)
+      .attr("x", minX - pad).attr("y", minY - pad - labelHeight)
       .attr("width", maxX - minX + pad * 2)
-      .attr("height", maxY - minY + pad * 2)
+      .attr("height", maxY - minY + pad * 2 + labelHeight)
       .attr("rx", 12)
-      .attr("fill", "#f4f6fc")
-      .attr("stroke", "#dde")
-      .attr("stroke-width", 0.5);
+      .attr("fill", "#eef1f8")
+      .attr("stroke", "#c8cfe0")
+      .attr("stroke-width", 1);
+    const modName = moduleNameMap[modId] || modId;
+    bgGroup.append("text")
+      .attr("x", minX - pad + 12).attr("y", minY - pad - labelHeight + 14)
+      .attr("font-size", "10px").attr("font-weight", "600")
+      .attr("fill", "#7080a0")
+      .text(modName);
   });
 }
 
@@ -3234,13 +3280,10 @@ function drawAllNodes(g, nodeGroup, nodeLabels, nodeMap) {
         .attr("stroke", hgColors[pertHgId] || "#999")
         .attr("stroke-width", 2.5);
       if (pertFreq) {
-        ng.append("rect")
-          .attr("x", w - 36).attr("y", 2).attr("width", 34).attr("height", 14)
-          .attr("rx", 7).attr("fill", hgColors[pertHgId] || "#999");
         ng.append("text")
-          .attr("x", w - 19).attr("y", 12)
-          .attr("text-anchor", "middle").attr("font-size", "7px")
-          .attr("fill", "white").attr("font-weight", "600")
+          .attr("x", hw).attr("y", 74)
+          .attr("text-anchor", "middle").attr("font-size", "9px")
+          .attr("fill", "#495057").attr("font-weight", "600")
           .text(pertFreq);
       }
     }
@@ -3264,7 +3307,7 @@ function drawAllEdges(g, edgeGroup, nodeLabels) {
   DATA.edges.forEach(e => {
     const pts = g.edge(e.source, e.target);
     if (!pts || !pts.points) return;
-    drawSingleEdge(edgeGroup, pts.points, e, nodeLabels, "solid");
+    drawSingleEdge(edgeGroup, pts.points, e, nodeLabels, "solid", g, e.source, e.target);
   });
 
   // Intermediate edges
@@ -3272,7 +3315,7 @@ function drawAllEdges(g, edgeGroup, nodeLabels) {
     const pts = g.edge(e.source, e.target);
     if (!pts || !pts.points) return;
     const dashStyle = e.edge_type === "intermediate_to_phenotype" ? "dashed" : "solid";
-    drawSingleEdge(edgeGroup, pts.points, e, nodeLabels, dashStyle);
+    drawSingleEdge(edgeGroup, pts.points, e, nodeLabels, dashStyle, g, e.source, e.target);
   });
 }
 
@@ -3311,6 +3354,22 @@ function drawIntermediateNodes(og, nodeGroup, nodeLabels, nodeMap) {
       if (n.state) {
         const stClass = "tt-state tt-state-" + n.state;
         html += `<div class="tt-detail"><b>State:</b> <span class="${stClass}">${n.state.replace(/_/g, " ")}</span></div>`;
+      }
+      if (n.hypothesis_ids && n.hypothesis_ids.length) {
+        const hgColors = DATA.hypothesis_colors || {};
+        html += '<div class="tt-section"><b>Reached by:</b>';
+        n.hypothesis_ids.forEach(hgId => {
+          const color = hgColors[hgId] || "#999";
+          const hg = DATA.hypothesis_groups.find(h => h.id === hgId);
+          const name = hg ? hg.name : hgId;
+          const freq = hg ? hg.frequency : "";
+          html += '<div class="tt-detail">';
+          html += '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + color + ';margin-right:4px"></span>';
+          html += name;
+          if (freq) html += ' (' + freq + ')';
+          html += '</div>';
+        });
+        html += '</div>';
       }
       if (n.driven_by_details && n.driven_by_details.length) {
         html += `<div class="tt-section"><b>Driven by:</b>`;
@@ -3384,6 +3443,23 @@ function drawPhenotypeNodes(og, nodeGroup, nodeLabels) {
         const stClass = "tt-state tt-state-" + pr.phenotype_state;
         html += `<div class="tt-detail"><b>State:</b> <span class="${stClass}">${pr.phenotype_state.replace(/_/g, " ")}</span></div>`;
       }
+      const phenoEdge = (DATA.phenotype_disease_edges || []).find(e => e.source === pid);
+      if (phenoEdge && phenoEdge.hypothesis_ids && phenoEdge.hypothesis_ids.length) {
+        const hgColors = DATA.hypothesis_colors || {};
+        html += '<div class="tt-section"><b>Reached by:</b>';
+        phenoEdge.hypothesis_ids.forEach(hgId => {
+          const color = hgColors[hgId] || "#999";
+          const hg = DATA.hypothesis_groups.find(h => h.id === hgId);
+          const name = hg ? hg.name : hgId;
+          const freq = hg ? hg.frequency : "";
+          html += '<div class="tt-detail">';
+          html += '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + color + ';margin-right:4px"></span>';
+          html += name;
+          if (freq) html += ' (' + freq + ')';
+          html += '</div>';
+        });
+        html += '</div>';
+      }
       if (pr.phenotype_relation) {
         html += `<div class="tt-detail"><b>Relation:</b> ${pr.phenotype_relation}</div>`;
         if (pr.phenotype_relation_id) html += `<div class="tt-detail" style="font-size:10px;color:#6c757d">${pr.phenotype_relation_id}</div>`;
@@ -3427,7 +3503,7 @@ function drawPhenotypeDiseaseEdges(og, edgeGroup, nodeLabels) {
   (DATA.phenotype_disease_edges || []).forEach(e => {
     const pts = og.edge(e.source, e.target);
     if (!pts || !pts.points) return;
-    drawSingleEdge(edgeGroup, pts.points, e, nodeLabels, "dotted");
+    drawSingleEdge(edgeGroup, pts.points, e, nodeLabels, "dotted", og, e.source, e.target);
   });
 }
 

@@ -1360,18 +1360,39 @@ function offsetPath(points, offset) {{
   }});
 }}
 
+function clipToRect(cx, cy, hw, hh, px, py) {{
+  // Find intersection of ray from (cx,cy) toward (px,py) with rect centered at (cx,cy)
+  const dx = px - cx, dy = py - cy;
+  if (dx === 0 && dy === 0) return {{ x: cx, y: cy }};
+  // Scale factor to reach rect edge
+  const sx = hw / (Math.abs(dx) || 1);
+  const sy = hh / (Math.abs(dy) || 1);
+  const s = Math.min(sx, sy);
+  return {{ x: cx + dx * s, y: cy + dy * s }};
+}}
+
 function clipEndpoints(points, g, sourceId, targetId) {{
   if (!points || points.length < 2) return points;
   const pts = points.slice();
   const srcPos = g.node(sourceId);
   const tgtPos = g.node(targetId);
   if (srcPos) {{
-    const srcW = srcPos.width || 140;
-    pts[0] = {{ x: srcPos.x + srcW / 2, y: pts[0].y }};
+    const hw = (srcPos.width || 140) / 2;
+    const hh = (srcPos.height || 60) / 2;
+    // Direction: from center toward next point
+    const next = pts[1];
+    pts[0] = clipToRect(srcPos.x, srcPos.y, hw, hh, next.x, next.y);
   }}
   if (tgtPos) {{
-    const tgtW = tgtPos.width || 140;
-    pts[pts.length - 1] = {{ x: tgtPos.x - tgtW / 2, y: pts[pts.length - 1].y }};
+    const hw = (tgtPos.width || 140) / 2;
+    const hh = (tgtPos.height || 60) / 2;
+    // Direction: from center toward previous point
+    const prev = pts[pts.length - 2];
+    const clipped = clipToRect(tgtPos.x, tgtPos.y, hw, hh, prev.x, prev.y);
+    // Push outward by marker size so arrowhead is visible outside the node
+    const edx = clipped.x - tgtPos.x, edy = clipped.y - tgtPos.y;
+    const elen = Math.sqrt(edx * edx + edy * edy) || 1;
+    pts[pts.length - 1] = {{ x: clipped.x + (edx / elen) * 4, y: clipped.y + (edy / elen) * 4 }};
   }}
   return pts;
 }}
@@ -1382,7 +1403,7 @@ function drawSingleEdge(edgeGroup, points, edgeData, nodeLabels, dashStyle, g, s
   }}
   const hypothesisIds = edgeData.hypothesis_ids || [];
   const hgColors = DATA.hypothesis_colors || {{}};
-  const isNeg = edgeData.relation_id === "RO:0002630" || edgeData.relation_id === "RO:0002305";
+  // All edges use regular arrowheads (no T-bar distinction for negative regulation)
 
   let strokeDash = "";
   if (dashStyle === "dashed") strokeDash = "6,3";
@@ -1398,7 +1419,7 @@ function drawSingleEdge(edgeGroup, points, edgeData, nodeLabels, dashStyle, g, s
       .attr("stroke-width", 1)
       .attr("fill", "none")
       .attr("stroke-dasharray", strokeDash)
-      .attr("marker-end", isNeg ? "url(#tbar-gray)" : "url(#arrow-gray)");
+      .attr("marker-end", "url(#arrow-gray)");
     eg.append("path").attr("class", "edge-hover").attr("d", pathD);
     attachEdgeTooltip(eg, edgeData, nodeLabels);
     // Label at midpoint
@@ -1429,7 +1450,7 @@ function drawSingleEdge(edgeGroup, points, edgeData, nodeLabels, dashStyle, g, s
       .attr("stroke-width", 1.5)
       .attr("fill", "none")
       .attr("stroke-dasharray", strokeDash)
-      .attr("marker-end", isNeg ? "url(#tbar-" + hgId + ")" : "url(#arrow-" + hgId + ")");
+      .attr("marker-end", "url(#arrow-" + hgId + ")");
     if (idx === 0) {{
       eg.append("path").attr("class", "edge-hover").attr("d", pathD);
       attachEdgeTooltip(eg, edgeData, nodeLabels);
