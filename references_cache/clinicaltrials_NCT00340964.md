@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT00340964
+reference_id: "clinicaltrials:NCT00340964"
 title: "Positive Exposure: A Photography and Video Intervention for Individuals With Craniofacial Differences"
 content_type: summary
 ---

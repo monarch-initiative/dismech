@@ -245,6 +245,32 @@ Use OAK to search for MAXO terms:
 uv run runoak -i sqlite:obo:maxo search "physical therapy"
 ```
 
+### Subtype Naming Conventions
+
+The `name` field on `Subtype` (in `has_subtypes`) serves as the **foreign key target** — other sections
+(phenotypes, biochemical, genetic, prevalence, progression, histopathology) reference it via their
+`subtype` field. A validation test (`test_subtype_foreign_keys`) enforces that all `subtype` values
+match a defined `has_subtypes[].name`.
+
+**Naming rules for `name`:**
+- Keep names short and slug-friendly: `Type 1`, `MEN2A`, `Vascular EDS`, `FA-A`
+- Avoid parenthetical qualifiers, long descriptions, or special characters
+- Use `display_name` (optional) for verbose/human-readable labels when the `name` is too terse
+
+**Example:**
+```yaml
+has_subtypes:
+- name: Type 1
+  display_name: Type 1 (Non-neuronopathic)
+  description: Most common form, no CNS involvement...
+
+phenotypes:
+- name: Seizures
+  subtype: Type 1    # references the short name
+```
+
+**When `display_name` is set**, renderers show it instead of `name`. When absent, `name` is displayed directly.
+
 ### Clinical Trials
 
 Clinical trials can be added to disease entries with evidence validated against ClinicalTrials.gov:
