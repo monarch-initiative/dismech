@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT02377635
+reference_id: "clinicaltrials:NCT02377635"
 title: Selenium and Arsenic Pharmacodynamics
 content_type: summary
 ---
