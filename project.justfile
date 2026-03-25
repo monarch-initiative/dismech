@@ -447,8 +447,7 @@ quick-test:
 # List all disorders in the KB
 [group('KB')]
 list-disorders:
-    @echo "Disorders in the KB:"
-    @ls -1 {{kb_dir}}/*.yaml | xargs -I {} basename {} .yaml | sort
+    @for f in {{kb_dir}}/*.yaml; do basename "$f" .yaml; done | sort
 
 # Count disorders
 [group('KB')]
@@ -570,7 +569,7 @@ research-disorder provider disorder *args="":
     yaml_file="{{kb_dir}}/{{disorder}}.yaml"
     if [ ! -f "$yaml_file" ]; then
         echo "Error: Disorder file not found: $yaml_file"
-        ls -1 {{kb_dir}}/*.yaml | xargs -I {} basename {} .yaml | head -20
+        for f in {{kb_dir}}/*.yaml; do basename "$f" .yaml; done | sort | head -20
         exit 1
     fi
     disease_name=$(grep "^name:" "$yaml_file" | head -1 | sed 's/name: *//' | tr '_' ' ')
@@ -664,7 +663,7 @@ research-disorder-cyberian-codex disorder *args="":
     yaml_file="{{kb_dir}}/{{disorder}}.yaml"
     if [ ! -f "$yaml_file" ]; then
         echo "Error: Disorder file not found: $yaml_file"
-        ls -1 {{kb_dir}}/*.yaml | xargs -I {} basename {} .yaml | head -20
+        for f in {{kb_dir}}/*.yaml; do basename "$f" .yaml; done | sort | head -20
         exit 1
     fi
     disease_name=$(grep "^name:" "$yaml_file" | head -1 | sed 's/name: *//' | tr '_' ' ')
@@ -1043,7 +1042,7 @@ perturb file *args="":
 # Example: just find-disorder kleefstra
 [group('KB')]
 find-disorder pattern:
-    @ls -1 {{kb_dir}}/*.yaml 2>/dev/null | xargs -I {} basename {} .yaml | grep -i "{{pattern}}" || echo "No match found for '{{pattern}}'"
+    @for f in {{kb_dir}}/*.yaml; do basename "$f" .yaml; done | grep -i "{{pattern}}" || echo "No match found for '{{pattern}}'"
 
 # Show how a specific YAML field is used across existing disorder files
 # Example: just show-field-pattern genetic gene_term
@@ -1080,6 +1079,11 @@ find-cached-refs pattern:
 [group('Research')]
 check-research disorder:
     @ls -1 research/{{disorder}}* 2>/dev/null || echo "No research files found for '{{disorder}}'"
+
+# List all available deep research files
+[group('Research')]
+list-research:
+    @for f in research/*-deep-research-*.md; do [ -f "$f" ] && basename "$f"; done | grep -v '\.citations\.md$$' | sort || echo "No research files found"
 
 # Generate a disorder review report (markdown + PDF) for expert review
 # Example: just disorder-report kb/disorders/Kleefstra_Syndrome.yaml
