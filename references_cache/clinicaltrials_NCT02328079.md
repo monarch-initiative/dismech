@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT02328079
+reference_id: "clinicaltrials:NCT02328079"
 title: Antiviral Treatment in Facial Palsy. Randomized Control Trial
 content_type: summary
 ---
