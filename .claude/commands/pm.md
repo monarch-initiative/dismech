@@ -1,7 +1,9 @@
 ---
-description: Manage and drive forward an ongoing project, tracked in projects/ dir
+description: "[DEPRECATED - use projman skill] Manage projects in projects/ dir"
 argument-hint: [PROJECT_NAME]
 ---
+
+> **Note**: This command is deprecated. Use the `projman` skill instead, which adds GitHub Project sync capability. The skill will be triggered automatically when you work with projects.
 
 You should find either a file or a folder:
 

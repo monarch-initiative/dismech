@@ -8,6 +8,13 @@ see_also:
 
 imports:
   - linkml:types
+  - classifications/icdo_morphology
+  - classifications/harrisons_chapters
+  - classifications/lysosomal_storage
+  - classifications/mechanistic_nosology
+  - classifications/iuis_immunodeficiency
+  - classifications/channelopathies
+  - classifications/phenotype_category
 
 prefixes:
   linkml: https://w3id.org/linkml/
@@ -19,11 +26,17 @@ prefixes:
   UBERON: http://purl.obolibrary.org/obo/UBERON_
   CL: http://purl.obolibrary.org/obo/CL_
   MONDO: http://purl.obolibrary.org/obo/MONDO_
+  ICD10CM: http://purl.obolibrary.org/obo/ICD10CM_
+  icd11f: http://purl.obolibrary.org/obo/icd11f_
+  NCIT: http://purl.obolibrary.org/obo/NCIT_
+  OPL: http://purl.obolibrary.org/obo/OPL_
   GENO: http://purl.obolibrary.org/obo/GENO_
   ECTO: http://purl.obolibrary.org/obo/ECTO_
   ExO: http://purl.obolibrary.org/obo/ExO_
   ENVO: http://purl.obolibrary.org/obo/ENVO_
   XCO: http://purl.obolibrary.org/obo/XCO_
+  skos: http://www.w3.org/2004/02/skos/core#
+  xsd: http://www.w3.org/2001/XMLSchema#
   PMID: http://www.ncbi.nlm.nih.gov/pubmed/
   # Dataset repositories - omics
   geo: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=
@@ -35,86 +48,287 @@ prefixes:
   hca: https://data.humancellatlas.org/explore/projects/
   gtex: https://gtexportal.org/home/datasets/
   encode: https://www.encodeproject.org/experiments/
+  synapse: "https://www.synapse.org/#!Synapse:"
+  cellxgene: https://cellxgene.cziscience.com/collections/
   # Case-level phenotype collections
   phenopacket-store: https://github.com/monarch-initiative/phenopacket-store/tree/main/notebooks/
+  # Clinical trials
+  clinicaltrials: https://clinicaltrials.gov/study/
   # Genetic variation databases
   clinvar: https://www.ncbi.nlm.nih.gov/clinvar/variation/
   # Taxonomy
   NCBITaxon: http://purl.obolibrary.org/obo/NCBITaxon_
   # Gene identifiers
   HGNC: https://www.genenames.org/data/gene-symbol-report/#!/hgnc_id/
+  # Laboratory / clinical data element codes
+  LOINC: https://loinc.org/
+  # Functional genomics consortia
+  morphic: https://data.morphic.bio/
+  # Computational model repositories
+  # Spaceflight biology data repositories
+  osdr: https://osdr.nasa.gov/bio/repo/data/studies/OSD-
+  bigg: https://bigg.ucsd.edu/models/
+  vmh: https://www.vmh.life/#human/
+  biomodels: https://www.ebi.ac.uk/biomodels/
 
 default_prefix: dismech
 
 types:
   PMID:
-    typeof: string
+    base: str
+    uri: xsd:string
   FrequencyQuantity:
-    typeof: string
+    base: str
+    uri: xsd:string
 
 enums:
   EvidenceItemSupportEnum:
     description: The level of support for an evidence item
     permissible_values:
       WRONG_STATEMENT:
-        description: WRONG_STATEMENT
+        title: Wrong statement
+        description: >-
+          The annotated claim contains a demonstrable factual error (e.g., an incorrect
+          statistic or assertion); the cited evidence documents the correct information.
+          Use this when the claim is outright wrong, not merely contested.
       SUPPORT:
-        description: SUPPORT
+        title: Supports
+        description: The cited evidence directly supports the claim
       REFUTE:
-        description: REFUTE
+        title: Refutes
+        description: The cited evidence directly contradicts the claim
       NO_EVIDENCE:
-        description: NO_EVIDENCE
+        title: No evidence
+        description: The cited reference does not contain evidence relevant to the claim
       PARTIAL:
-        description: PARTIAL
+        title: Partially supports
+        description: The cited evidence partially or indirectly supports the claim
+  EvidenceSourceEnum:
+    description: The provenance/source of the evidence item
+    permissible_values:
+      HUMAN_CLINICAL:
+        title: Human clinical
+        description: Human clinical observations (patients, cohorts, case reports, clinical trials, epidemiology)
+      MODEL_ORGANISM:
+        title: Model organism
+        description: In vivo animal evidence (mouse, zebrafish, primate, veterinary case series including dog/cat/horse, other non-human animal models etc.)
+      IN_VITRO:
+        title: In vitro / ex vivo
+        description: In vitro or ex vivo assays (cell culture, organoids, tissue slices, biochemical assays)
+      COMPUTATIONAL:
+        title: Computational
+        description: In silico/modeling studies (simulation, docking, ML predictions, network inference) even when using clinical data inputs
+      OTHER:
+        title: Other
+        description: Evidence not fitting the above (e.g., expert consensus without data, image atlases without cohort context)
+  DefinitionTypeEnum:
+    description: The type of definition or criteria set
+    permissible_values:
+      DIAGNOSTIC_CRITERIA:
+        description: Published diagnostic criteria (clinical/serologic/imaging)
+      PHENOTYPE_ALGORITHM:
+        description: Algorithmic phenotype definition (e.g., PheKB-style)
+      CASE_DEFINITION:
+        description: Case definition for surveillance or reporting
+      OTHER:
+        description: Other definition type
+  MappingConsistencyEnum:
+    description: Consistency of a mapping relative to another reference source
+    permissible_values:
+      CONSISTENT:
+        description: Mapping is consistent with the reference source
+      INCONSISTENT:
+        description: Mapping conflicts with the reference source
+      MISSING:
+        description: Mapping is missing from the reference source
+      UNKNOWN:
+        description: Consistency not assessed or unclear
   FrequencyEnum:
     description: The frequency of an event or phenomenon
     permissible_values:
+      OBLIGATE:
+        title: Obligate (100%)
+        description: Present in all cases (100% of patients)
+        meaning: HP:0040280
+      VERY_FREQUENT:
+        title: Very frequent (80-99%)
+        description: Present in most cases (80-99% of patients)
+        meaning: HP:0040281
       FREQUENT:
-        description: Frequent
+        title: Frequent (30-79%)
+        description: Present in many cases (30-79% of patients)
         meaning: HP:0040282
       OCCASIONAL:
-        description: Occasional
+        title: Occasional (5-29%)
+        description: Present in some cases (5-29% of patients)
         meaning: HP:0040283
-      VERY_FREQUENT:
-        description: Very frequent
-        meaning: HP:0040281
       VERY_RARE:
-        description: Very rare
+        title: Very rare (<5%)
+        description: Present in rare cases (<5% of patients)
         meaning: HP:0040284
-      OBLIGATE:
-        description: Obligate
-        meaning: HP:0040280
   ClinicalSignificanceEnum:
     description: The clinical significance of a variant for a condition (ACMG guidelines)
     permissible_values:
       PATHOGENIC:
-        description: pathogenic_for_condition
+        title: Pathogenic
+        description: Variant is pathogenic for the condition (ACMG class 5)
         meaning: GENO:0000840
       LIKELY_PATHOGENIC:
-        description: likely_pathogenic_for_condition
+        title: Likely pathogenic
+        description: Variant is likely pathogenic for the condition (ACMG class 4)
         meaning: GENO:0000841
       BENIGN:
-        description: benign_for_condition
+        title: Benign
+        description: Variant is benign for the condition (ACMG class 1)
         meaning: GENO:0000843
       LIKELY_BENIGN:
-        description: likely_benign_for_condition
+        title: Likely benign
+        description: Variant is likely benign for the condition (ACMG class 2)
         meaning: GENO:0000844
       UNCERTAIN_SIGNIFICANCE:
-        description: has_uncertain_significance_for_condition
+        title: Uncertain significance
+        description: Clinical significance of the variant is uncertain (ACMG class 3)
         meaning: GENO:0000845
+  RegulatoryVariantCategoryEnum:
+    description: >-
+      Functional classification of non-coding gene regulatory variants
+      based on their impact on gene expression patterns. Adapted from
+      Cheng et al. 2024 (PMID:38436667). Includes traditional coding
+      variant categories for completeness.
+    permissible_values:
+      LOE:
+        title: Loss of expression
+        description: >-
+          Non-modular loss-of-expression. Diminishes or abolishes gene
+          expression across all cell types that intrinsically express the gene.
+          Analogous to coding amorphic or hypomorphic loss-of-function.
+        see_also:
+          - PMID:38436667
+        notes:
+          - "Defined in Cheng et al. 2024 (PMID:38436667) as non-modular LOE"
+      mLOE:
+        title: Modular loss of expression
+        description: >-
+          Modular loss-of-expression. Diminishes or abolishes gene expression
+          in only a subset of cell types or developmental windows. Represents
+          a disease mechanism largely unique to non-coding regulatory variants.
+        see_also:
+          - PMID:38436667
+        notes:
+          - "Defined in Cheng et al. 2024 (PMID:38436667) as modular LOE (mLOE)"
+      GOE:
+        title: Gain of ectopic expression
+        description: >-
+          Gain-of-ectopic-expression. Results in ectopic spatial and/or
+          temporal expression of a gene. Can arise from enhancer adoption,
+          novel TFBS creation, promoter switching, or repressor site disruption.
+        see_also:
+          - PMID:38436667
+        notes:
+          - "Defined in Cheng et al. 2024 (PMID:38436667) as gain-of-ectopic-expression (GOE)"
+      LOF:
+        title: Loss of function
+        description: >-
+          Coding loss-of-function. Loss of normal biological function via
+          complete (amorphic) or partial (hypomorphic) loss of protein activity.
+      GOF:
+        title: Gain of function
+        description: >-
+          Coding gain-of-function. Creates a protein with increased activity
+          (hypermorphic) or entirely new function (neomorphic).
+      DN:
+        title: Dominant negative
+        description: >-
+          Dominant-negative. Creates a protein that blocks the normal
+          function of the remaining wild-type protein (antimorphic).
+  RegulatoryElementTypeEnum:
+    description: >-
+      Type of gene regulatory element disrupted by a non-coding variant.
+    permissible_values:
+      PROMOTER:
+        title: Promoter
+        description: >-
+          Promoter-proximal element overlapping the transcription start site,
+          containing core TF binding elements (TATA, CAAT, GC, CACCC boxes).
+      ENHANCER:
+        title: Enhancer
+        description: >-
+          Distal regulatory element that upregulates transcriptional activity.
+          May be cell-type-specific or shared across cell types.
+      SILENCER:
+        title: Silencer
+        description: >-
+          Regulatory element that represses or silences gene transcription.
+      INSULATOR:
+        title: Insulator
+        description: >-
+          Boundary element (often CTCF-bound) that compartmentalizes adjacent
+          gene regulatory domains and limits enhancer-promoter interactions.
+      TAD_BOUNDARY:
+        title: TAD boundary
+        description: >-
+          Topologically associating domain boundary. Structural element
+          maintaining chromatin loop domains; disruption can cause enhancer
+          adoption or ectopic regulatory interactions.
+      LOCUS_CONTROL_REGION:
+        title: Locus control region
+        description: >-
+          A cluster of regulatory elements that controls expression of a
+          gene cluster (e.g., the beta-globin LCR).
   ModifierEnum:
     description: Qualifiers for direction, intensity, or pathological state of a descriptor
     permissible_values:
       INCREASED:
+        title: Increased
         description: Upregulated, hyperactive, elevated, or excessive
       DECREASED:
+        title: Decreased
         description: Downregulated, hypoactive, reduced, or deficient
       ABNORMAL:
+        title: Abnormal
         description: Qualitatively abnormal (e.g., misfolding, mislocalization, malformed)
       DYSREGULATED:
+        title: Dysregulated
         description: Regulation is impaired (may be increased or decreased)
       ABSENT:
+        title: Absent
         description: Not occurring or not present
+  PenetranceEnum:
+    description: Penetrance classification for inheritance
+    permissible_values:
+      COMPLETE:
+        title: Complete
+        description: All individuals with the variant express the phenotype
+      INCOMPLETE:
+        title: Incomplete
+        description: Not all individuals with the variant express the phenotype
+      UNKNOWN:
+        title: Unknown
+        description: Penetrance has not been determined
+  ExpressivityEnum:
+    description: Expressivity classification for inheritance
+    permissible_values:
+      VARIABLE:
+        title: Variable
+        description: Phenotype severity or features vary among individuals with the same variant
+      CONSISTENT:
+        title: Consistent
+        description: Phenotype is uniform among individuals with the same variant
+      UNKNOWN:
+        title: Unknown
+        description: Expressivity has not been determined
+  LateralityEnum:
+    description: Laterality qualifier for anatomical structures or procedures
+    permissible_values:
+      LEFT:
+        title: Left
+        description: Left side of the body
+      RIGHT:
+        title: Right
+        description: Right side of the body
+      BILATERAL:
+        title: Bilateral
+        description: Both sides of the body
   AssayTerm:
     description: A term representing an assay
     reachable_from:
@@ -131,6 +345,14 @@ enums:
       is_direct: false
       relationship_types:
         - rdfs:subClassOf
+  ProteinComplexTerm:
+    description: A term representing a protein complex
+    reachable_from:
+      source_nodes:
+        - GO:0032991  ## protein-containing complex
+      is_direct: false
+      relationship_types:
+        - rdfs:subClassOf
   BiologicalProcessTerm:
     description: A term representing a biological process or pathway
     reachable_from:
@@ -139,11 +361,20 @@ enums:
       is_direct: false
       relationship_types:
         - rdfs:subClassOf
+  MolecularFunctionTerm:
+    description: A term representing a molecular function
+    reachable_from:
+      source_nodes:
+        - GO:0003674  ## molecular_function
+      is_direct: false
+      relationship_types:
+        - rdfs:subClassOf
   ChemicalEntityTerm:
     description: A term representing a chemical entity
     reachable_from:
       source_nodes:
         - CHEBI:24431  ## chemical entity
+        - NCIT:C1909  ## Pharmacologic Substance
       is_direct: false
       relationship_types:
         - rdfs:subClassOf
@@ -153,6 +384,14 @@ enums:
       source_nodes:
         - HP:0000118  ## phenotypic abnormality
         - MONDO:0000001  ## disease (for complications/comorbidities)
+      is_direct: false
+      relationship_types:
+        - rdfs:subClassOf
+  InheritanceTerm:
+    description: A term representing mode of inheritance
+    reachable_from:
+      source_nodes:
+        - HP:0000005  ## mode of inheritance
       is_direct: false
       relationship_types:
         - rdfs:subClassOf
@@ -172,14 +411,33 @@ enums:
       is_direct: false
       relationship_types:
         - rdfs:subClassOf
+  RegimenTerm:
+    description: A term representing a treatment regimen (from NCIT)
+    reachable_from:
+      source_nodes:
+        - NCIT:C15697  ## Treatment Regimen
+      is_direct: false
+      relationship_types:
+        - rdfs:subClassOf
   GeographyTerm:
     description: A place or location
   PhaseTerm:
     description: A phase or stage
+  LifeCycleStageTerm:
+    description: A parasite life cycle stage term (from OPL)
+    reachable_from:
+      source_nodes:
+        - UBERON:0000105  ## life cycle stage
+      is_direct: false
+      relationship_types:
+        - rdfs:subClassOf
   TriggerTerm:
     description: A trigger
   GeneTerm:
-    description: A gene
+    description: A gene term from HGNC
+    comments:
+      - Uses HGNC gene nomenclature committee identifiers
+      - Validation requires exact label match with HGNC database
   CellTypeTerm:
     description: A cell type
     reachable_from:
@@ -188,11 +446,88 @@ enums:
       is_direct: false
       relationship_types:
         - rdfs:subClassOf
+  BiomarkerTerm:
+    description: >-
+      A biomarker term from NCIT. Includes proteins, gene products, fusion products,
+      and other molecular markers. No hierarchy constraint - validates term exists
+      and label matches.
+    comments:
+      - NCIT biomarkers span multiple hierarchies (proteins, genes, fusions, hormones)
+      - Validation checks term exists in NCIT with correct label
+  GeneProductTerm:
+    description: >-
+      A gene product term from NCIT. Includes proteins, fusion proteins, oncoproteins,
+      and other gene products involved in disease mechanisms.
+    reachable_from:
+      source_nodes:
+        - NCIT:C26548  ## Gene Product
+      is_direct: false
+      relationship_types:
+        - rdfs:subClassOf
+  HistopathologyFindingTerm:
+    description: >-
+      A histopathologic finding term from NCIT. Includes morphologic findings,
+      architectural patterns, growth patterns, cellular features, and grading.
+      Rooted at NCIT:C35867 (Morphologic Finding) and NCIT:C18000 (Histologic Grade).
+    comments:
+      - NCIT:C35867 Morphologic Finding - architectural patterns, dysplasia, necrosis, etc.
+      - NCIT:C18000 Histologic Grade - Fuhrman, Nottingham, WHO grades, etc.
+      - Also includes HP terms for rosettes (HP:0031925-HP:0031930)
+    reachable_from:
+      source_nodes:
+        - NCIT:C35867  ## Morphologic Finding
+        - NCIT:C18000  ## Histologic Grade
+        - NCIT:C4741   ## Neoplasm by Morphology
+        - NCIT:C7062   ## Neoplasm by Special Category
+        - NCIT:C36289  ## Hematopoietic System Finding (for blast findings)
+        - NCIT:C19955  ## Myeloproliferation (e.g., megakaryocyte proliferation)
+        - NCIT:C188218 ## Neuroendocrine Tumor (PCC/PGL histopathology)
+        - HP:0025461   ## Abnormal cell morphology (for rosettes, inclusion bodies)
+      is_direct: false
+      relationship_types:
+        - rdfs:subClassOf
   DiseaseTerm:
     description: A disease or medical condition
     reachable_from:
       source_nodes:
         - MONDO:0000001  ## disease
+      is_direct: false
+      relationship_types:
+        - rdfs:subClassOf
+  ICD10CMTerm:
+    description: An ICD-10-CM diagnosis code
+    reachable_from:
+      source_nodes:
+        - ICD10CM:A00-B99   ## Certain infectious and parasitic diseases
+        - ICD10CM:C00-D49   ## Neoplasms
+        - ICD10CM:D50-D89   ## Diseases of the blood and immune mechanism
+        - ICD10CM:E00-E89   ## Endocrine, nutritional and metabolic diseases
+        - ICD10CM:F01-F99   ## Mental, Behavioral and Neurodevelopmental disorders
+        - ICD10CM:G00-G99   ## Diseases of the nervous system
+        - ICD10CM:H00-H59   ## Diseases of the eye and adnexa
+        - ICD10CM:H60-H95   ## Diseases of the ear and mastoid process
+        - ICD10CM:I00-I99   ## Diseases of the circulatory system
+        - ICD10CM:J00-J99   ## Diseases of the respiratory system
+        - ICD10CM:K00-K95   ## Diseases of the digestive system
+        - ICD10CM:L00-L99   ## Diseases of the skin and subcutaneous tissue
+        - ICD10CM:M00-M99   ## Diseases of the musculoskeletal system and connective tissue
+        - ICD10CM:N00-N99   ## Diseases of the genitourinary system
+        - ICD10CM:O00-O9A   ## Pregnancy, childbirth and the puerperium
+        - ICD10CM:P00-P96   ## Certain conditions originating in the perinatal period
+        - ICD10CM:Q00-Q99   ## Congenital malformations, deformations and chromosomal abnormalities
+        - ICD10CM:R00-R99   ## Symptoms, signs and abnormal clinical findings
+        - ICD10CM:S00-T88   ## Injury, poisoning and other consequences
+        - ICD10CM:U00-U85   ## Codes for special purposes
+        - ICD10CM:V00-Y99   ## External causes of morbidity
+        - ICD10CM:Z00-Z99   ## Factors influencing health status
+      is_direct: false
+      relationship_types:
+        - rdfs:subClassOf
+  ICD11FTerm:
+    description: An ICD-11 Foundation diagnosis code
+    reachable_from:
+      source_nodes:
+        - icd11f:455013390  ## ICD Category
       is_direct: false
       relationship_types:
         - rdfs:subClassOf
@@ -225,9 +560,67 @@ enums:
     reachable_from:
       source_nodes:
         - NCBITaxon:1  ## root of taxonomy
+        - NCBITaxon:10239 ## viruses (may not always be accessible from root)
       is_direct: false
       relationship_types:
         - rdfs:subClassOf
+  OnsetEnum:
+    description: Age of onset categories from HPO
+    permissible_values:
+      ANTENATAL:
+        description: Antenatal onset
+        meaning: HP:0030674
+      EMBRYONAL:
+        description: Embryonal onset
+        meaning: HP:0011460
+      FETAL:
+        description: Fetal onset
+        meaning: HP:0011461
+      CONGENITAL:
+        description: Congenital onset
+        meaning: HP:0003577
+      NEONATAL:
+        description: Neonatal onset
+        meaning: HP:0003623
+      INFANTILE:
+        description: Infantile onset
+        meaning: HP:0003593
+      CHILDHOOD:
+        description: Childhood onset
+        meaning: HP:0011463
+      JUVENILE:
+        description: Juvenile onset
+        meaning: HP:0003621
+      YOUNG_ADULT:
+        description: Young adult onset
+        meaning: HP:0011462
+      MIDDLE_AGE:
+        description: Middle age onset
+        meaning: HP:0003596
+      LATE:
+        description: Late onset
+        meaning: HP:0003584
+      PUERPERAL:
+        description: Puerperal onset
+        meaning: HP:4000040
+  ZygosityEnum:
+    description: Zygosity categories from GENO
+    permissible_values:
+      HETEROZYGOUS:
+        description: Heterozygous
+        meaning: GENO:0000135
+      SIMPLE_HETEROZYGOUS:
+        description: Simple heterozygous
+        meaning: GENO:0000458
+      COMPOUND_HETEROZYGOUS:
+        description: Compound heterozygous
+        meaning: GENO:0000402
+      HOMOZYGOUS:
+        description: Homozygous
+        meaning: GENO:0000136
+      HEMIZYGOUS:
+        description: Hemizygous
+        meaning: GENO:0000134
   DatasetTypeEnum:
     description: Type of dataset or data resource
     permissible_values:
@@ -259,6 +652,233 @@ enums:
         description: GA4GH Phenopacket collection (case-level phenotype data)
       VARIANT_DATABASE:
         description: Curated genetic variant collection
+      MULTI_OMICS:
+        description: Integrated multi-omics profiling (e.g., combined transcriptomics, proteomics, metabolomics)
+      MULTI_OMICS_PERTURBATION:
+        description: >-
+          Multi-omics profiling of genetic perturbations (e.g., CRISPR knockout
+          combined with transcriptomic, chromatin accessibility, and cellular phenotyping)
+  CurationActionEnum:
+    description: Simple action types for curation audit trail
+    permissible_values:
+      CREATED:
+        description: Initial file creation
+      EDITED:
+        description: File modification
+
+  ClinicalTrialPhaseEnum:
+    description: Clinical trial phase categories per FDA/NIH standards
+    permissible_values:
+      PHASE_I:
+        description: Phase I - Initial safety and dosage assessment in small group (20-100 participants)
+      PHASE_II:
+        description: Phase II - Efficacy and side effects assessment in larger group (100-500 participants)
+      PHASE_III:
+        description: Phase III - Efficacy confirmation and monitoring in large population (1000-5000 participants)
+      PHASE_IV:
+        description: Phase IV - Post-market surveillance and additional benefits/risks studies
+      NOT_APPLICABLE:
+        description: Trial does not follow standard FDA phase classification (e.g., observational, device studies)
+
+  ClinicalTrialStatusEnum:
+    description: Clinical trial recruitment and status categories per ClinicalTrials.gov
+    permissible_values:
+      RECRUITING:
+        description: Currently enrolling participants
+      NOT_RECRUITING:
+        description: Not currently enrolling but may in the future
+      ACTIVE_NOT_RECRUITING:
+        description: Actively recruiting previously enrolled participants (closed to new enrollment)
+      COMPLETED:
+        description: Trial data collection and analysis completed
+      ENROLLING_BY_INVITATION:
+        description: Enrollment restricted to invited participants only
+      SUSPENDED:
+        description: Temporarily halted pending review or administrative action
+      TERMINATED:
+        description: Stopped before completion, may include safety or efficacy concerns
+      WITHDRAWN:
+        description: Closed before enrollment began (never enrolled participants)
+      UNKNOWN:
+        description: Status unknown or not provided
+
+  ComputationalModelTypeEnum:
+    description: Type of computational or in-silico model
+    permissible_values:
+      GENOME_SCALE_METABOLIC:
+        description: Genome-scale metabolic reconstruction (e.g., Recon3D, Harvey)
+      FLUX_BALANCE_ANALYSIS:
+        description: Constraint-based FBA model
+      KINETIC:
+        description: ODE-based kinetic model with rate equations
+      AGENT_BASED:
+        description: Agent-based simulation model
+      BOOLEAN_NETWORK:
+        description: Boolean gene regulatory network
+      PHYSIOLOGICAL:
+        description: Physiologically-based pharmacokinetic (PBPK) or organ model
+      DIGITAL_TWIN:
+        description: Patient-specific computational model
+      MACHINE_LEARNING:
+        description: ML/AI predictive model trained on disease data
+      PERTURBATION_PREDICTION:
+        description: Cell-based perturbation models (CRISPR screens, chemical perturbations) with gene expression readouts
+      FOUNDATION_MODEL:
+        description: Pre-trained single-cell foundation models (scGPT, Geneformer, scGenePT) for perturbation response prediction
+      STRUCTURAL_PREDICTION:
+        description: Protein structure prediction (AlphaFold, RoseTTAFold) or experimental structure (PDB X-ray, cryo-EM) used to understand disease mechanisms
+      MOLECULAR_DOCKING:
+        description: Computational docking or molecular dynamics simulation of drug candidates to protein targets, typically informed by PDB/AlphaFold structures
+
+  ThresholdDirectionEnum:
+    description: Whether a threshold activates when the variable goes above or below the value
+    permissible_values:
+      above:
+        description: Activates when the variable exceeds the threshold
+      below:
+        description: Activates when the variable falls below the threshold
+
+  CausalLinkTypeEnum:
+    description: Degree of mechanistic directness represented by a causal edge
+    permissible_values:
+      DIRECT:
+        description: Direct causal influence at the current graph granularity
+      INDIRECT_KNOWN_INTERMEDIATES:
+        description: Indirect relationship where one or more intermediates are known but omitted from the graph
+      INDIRECT_UNKNOWN_INTERMEDIATES:
+        description: Indirect relationship where at least one required intermediate mechanism is currently unknown
+      UNKNOWN:
+        description: Directness has not yet been determined
+
+  TreatmentEffectEnum:
+    description: How a treatment affects a pathophysiology mechanism node
+    permissible_values:
+      INHIBITS:
+        description: Blocks or decreases the mechanism (e.g., TKI inhibiting constitutive kinase activity)
+      ACTIVATES:
+        description: Promotes or increases the mechanism (e.g., enzyme replacement restoring a deficient pathway)
+      MODULATES:
+        description: Alters the mechanism without clear unidirectional effect
+      BYPASSES:
+        description: Works around the disrupted mechanism via an alternative pathway
+      RESTORES:
+        description: Restores normal function of a disrupted mechanism (e.g., gene therapy, enzyme replacement)
+
+  MechanisticHypothesisStatusEnum:
+    description: Curation/maturity status for a disease-level mechanistic hypothesis
+    permissible_values:
+      CANONICAL:
+        description: Widely accepted explanatory model used as the default disease mechanism
+      ALTERNATIVE:
+        description: Plausible competing or superimposed hypothesis with supporting evidence
+      EMERGING:
+        description: Early-stage hypothesis with limited or recently reported evidence
+      DEPRECATED:
+        description: Historical hypothesis no longer supported as the current model
+
+  ComorbidityDirectionEnum:
+    description: Directionality of a comorbidity/trajectory association
+    permissible_values:
+      A_BEFORE_B:
+        description: A precedes B
+      B_BEFORE_A:
+        description: B precedes A
+      BIDIRECTIONAL:
+        description: Evidence supports both directions
+      SAME_TIME:
+        description: Co-incident or same-time association
+      UNKNOWN:
+        description: Directionality is unknown or not established
+
+  CurationStatusEnum:
+    description: Curation workflow status for an association
+    permissible_values:
+      CANDIDATE:
+        description: Prioritized for curation
+      IN_PROGRESS:
+        description: Curation in progress
+      CURATED:
+        description: Curated with literature-backed evidence
+      DEFERRED:
+        description: Deferred or deprioritized
+
+  AssociationSignalSourceEnum:
+    description: Source of an association signal
+    permissible_values:
+      DISEASE_TRAJECTORIES:
+        description: Disease Trajectories (CSH/Austria)
+      COHD:
+        description: Columbia Open Health Data (COHD)
+      LITERATURE:
+        description: Published literature source
+      OTHER:
+        description: Other or unspecified source
+
+  AssociationSignalMethodEnum:
+    description: Method used to derive an association signal
+    permissible_values:
+      EHR_TEMPORAL_COMORBIDITY:
+        description: EHR-derived temporal comorbidity/trajectory signal
+      EHR_COHORT_ASSOCIATION:
+        description: EHR-derived cohort association (non-temporal)
+      LITERATURE_ASSOCIATION:
+        description: Association reported in the literature
+      COMPUTATIONAL_INFERENCE:
+        description: Computational inference or enrichment
+      OTHER:
+        description: Other or unspecified method
+
+  SexEnum:
+    description: Sex-specific stratum
+    permissible_values:
+      MALE:
+        description: Male
+      FEMALE:
+        description: Female
+      OTHER:
+        description: Other or nonbinary
+      UNKNOWN:
+        description: Unknown or not specified
+
+  ConditionCompositionEnum:
+    description: Composition type for a composite condition descriptor
+    permissible_values:
+      SINGLE:
+        description: Single condition (default)
+      UNION:
+        description: Union of multiple component conditions
+      CATEGORY:
+        description: Category code encompassing multiple conditions
+      OVERLAPS:
+        description: Overlapping condition set (non-exhaustive)
+      SUBSET_OF:
+        description: Subset of a broader condition group
+      OTHER:
+        description: Other or unspecified composition
+
+  AssociationMetricTypeEnum:
+    description: Type of association metric
+    permissible_values:
+      OR:
+        description: Odds ratio
+      AOR:
+        description: Adjusted odds ratio
+      RR:
+        description: Relative risk
+      HR:
+        description: Hazard ratio
+      PREVALENCE:
+        description: Prevalence proportion
+      INCIDENCE_RATE:
+        description: Incidence rate
+      IRR:
+        description: Incidence rate ratio
+      CHI_SQUARE:
+        description: Chi-square association statistic
+      LOG_OBS_EXP_RATIO:
+        description: Natural-log observed-to-expected co-occurrence ratio
+      OTHER:
+        description: Other or unspecified metric
 
 slots:
   name:
@@ -266,11 +886,18 @@ slots:
       - value: Adolescent Nephronophthisis
     identifier: true
     range: string
+  slug:
+    description: Canonical slug identifier (Title_Case_With_Underscores) for leaf conditions
+    range: string
   description:
     range: string
     # recommended: true
   preferred_term:
-    description: The preferred human-readable term for this descriptor
+    description: >-
+      The preferred human-readable term for this descriptor. This may be more specific
+      or nuanced than the linked ontology term label when the ontology does not fully
+      capture the desired granularity. Note that postcomposition using the modifier
+      slot may be appropriate for capturing the semantics of the preferred term.
     range: string
     required: true
   term:
@@ -281,6 +908,23 @@ slots:
   modifier:
     description: Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)
     range: ModifierEnum
+  located_in:
+    description: Anatomical location where this entity/process occurs or procedure is performed
+    range: AnatomicalEntityDescriptor
+    inlined: true
+  laterality:
+    description: Laterality qualifier (left, right, or bilateral)
+    range: LateralityEnum
+  therapeutic_agent:
+    description: >-
+      The drug, chemical, or therapeutic agent used in a treatment. Use when the MAXO term
+      is generic (e.g., pharmacotherapy) but specific drugs are involved.
+    range: ChemicalEntityDescriptor
+    inlined: true
+    multivalued: true
+    comments:
+      - Bind to CHEBI for specific chemicals/drugs
+      - Can also use NCIT for drug classes when CHEBI term unavailable
   qualifiers:
     description: >-
       List of predicate-value pairs for formal post-composition. Allows OWL-like
@@ -288,6 +932,7 @@ slots:
     multivalued: true
     range: Qualifier
     inlined_as_list: true
+    deprecated: Prefer explicit slots like located_in and laterality instead of generic qualifiers
   predicate:
     description: The relationship/predicate in a qualifier (e.g., RO:0002233 'has input')
     range: Descriptor
@@ -310,6 +955,11 @@ slots:
     range: EvidenceItem
     inlined_as_list: true
     recommended: true
+  distinguishing_features:
+    description: >-
+      Key clinical, laboratory, imaging, or epidemiological features that help differentiate a related condition from the focal disease
+    multivalued: true
+    range: string
   review_notes:
     examples:
       - value: Added an additional clinically relevant subtype.
@@ -334,6 +984,10 @@ slots:
     examples:
       - value: SUPPORT
     range: EvidenceItemSupportEnum
+  evidence_source:
+    description: Origin of the evidence item (human clinical, model organism, in vitro, or computational)
+    range: EvidenceSourceEnum
+    recommended: false
   snippet:
     description: An exact excerpt/quote from the referenced publication that supports or refutes the claim
     examples:
@@ -354,7 +1008,7 @@ slots:
     range: PublicationReference
     inlined_as_list: true
   findings:
-    description: Key findings or claims extracted from this reference
+    description: Key findings or claims extracted from this source (publication or dataset)
     multivalued: true
     range: Finding
     inlined_as_list: true
@@ -368,11 +1022,18 @@ slots:
   title:
     description: Title of the publication
     range: string
+    implements:
+      - linkml:title
+  found_in:
+    description: Deep-research output files where this reference was cited
+    multivalued: true
+    range: string
   subtype:
     examples:
       - value: Eyelid Myoclonia with Absences
     range: string
   population:
+    description: Population or cohort description (e.g., for prevalence or association signals)
     examples:
       - value: Global
     range: string
@@ -389,7 +1050,15 @@ slots:
     examples:
       - value: Active TB
     range: PhaseTerm
+  status:
+    description: Status or state of a clinical trial or other process
+    examples:
+      - value: Recruiting
+      - value: Completed
+      - value: Terminated
+    range: string
   age_range:
+    description: Age range or stratification, if applicable
     examples:
       - value: Childhood-Adolescence
     range: string
@@ -425,6 +1094,12 @@ slots:
     multivalued: true
     range: BiologicalProcessDescriptor
     inlined_as_list: true
+  molecular_functions:
+    examples:
+      - value: '[{preferred_term: Kinase Activity}]'
+    multivalued: true
+    range: MolecularFunctionDescriptor
+    inlined_as_list: true
   epidemiology:
     examples:
       - value: '[''Global'']'
@@ -439,6 +1114,16 @@ slots:
   role:
     examples:
       - value: Primary
+    range: string
+  conforms_to:
+    description: >-
+      Reference to a mechanism module that this pathophysiology node is an
+      organ-specific instance of. Value is a path relative to kb/modules/
+      (e.g., "fibrotic_response") plus an optional node name after a hash
+      (e.g., "fibrotic_response#Mesenchymal Cell Activation"). Used for
+      cross-disorder consistency checking: if a node declares conformance,
+      it should include the expected cell types, biological processes, and
+      causal edges defined in the referenced module node.
     range: string
   consequence:
     examples:
@@ -462,7 +1147,7 @@ slots:
     inlined_as_list: true
   downstream:
     examples:
-      - value: '[{target: Tissue Damage}]'
+      - value: '[{target: Tissue Damage, causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES, hypothesis_groups: [canonical_model]}]'
     multivalued: true
     range: CausalEdge
     inlined_as_list: true
@@ -481,17 +1166,52 @@ slots:
     multivalued: true
     inlined_as_list: true
     range: Subtype
+  classification:
+    description: >-
+      Classification scheme this subtype belongs to (e.g., 'complementation_group',
+      'pathway_tier', 'histological', 'molecular', 'clinical_phenotype').
+    range: string
+  children:
+    description: >-
+      Names of other subtypes in this list that are members/children of
+      this grouping subtype. Used to express cross-scheme relationships
+      (e.g., a pathway_tier subtype grouping complementation_group subtypes).
+    multivalued: true
+    range: string
+  subtype_frequency:
+    description: >-
+      Frequency of this subtype among all cases of the parent disease
+      (e.g., '60-70%', '~15%'). Distinct from phenotype frequency.
+    any_of:
+      - range: FrequencyEnum
+      - range: FrequencyQuantity
   cellular_components:
     examples:
       - value: '[{preferred_term: Peroxisome}]'
     multivalued: true
     range: CellularComponentDescriptor
     inlined_as_list: true
+  protein_complexes:
+    description: Protein complexes that gene products participate in
+    examples:
+      - value: '[{preferred_term: FA nuclear complex, term: {id: "GO:0043240", label: "Fanconi anaemia nuclear complex"}}]'
+    multivalued: true
+    range: ProteinComplexDescriptor
+    inlined_as_list: true
   chemical_entities:
     examples:
       - value: '[{preferred_term: Plasmalogen}]'
     multivalued: true
     range: ChemicalEntityDescriptor
+    inlined_as_list: true
+  gene_products:
+    description: >-
+      Gene products (proteins, fusion proteins, oncoproteins) involved in this
+      pathophysiology mechanism. Use NCIT terms for specific proteins.
+    examples:
+      - value: '[{preferred_term: BCR-ABL1 fusion protein, term: {id: NCIT:C16325, label: BCR/ABL1 Fusion Protein}}]'
+    multivalued: true
+    range: GeneProductDescriptor
     inlined_as_list: true
   triggers:
     examples:
@@ -513,16 +1233,36 @@ slots:
     description: The HP term for this phenotype
     range: PhenotypeDescriptor
     inlined: true
+  inheritance_term:
+    description: The HPO mode of inheritance term for this inheritance pattern
+    range: InheritanceDescriptor
+    inlined: true
+  gene_term:
+    description: The HGNC term for this gene
+    range: GeneDescriptor
+    inlined: true
   treatment_term:
     description: The MAXO term for this treatment/medical action
     range: TreatmentDescriptor
     inlined: true
+  regimen_term:
+    description: The NCIT term for this treatment regimen
+    range: RegimenDescriptor
+    inlined: true
   biomarker_term:
-    description: Ontology term for a biomarker (from NCIT, CHEBI, or LOINC)
-    range: Descriptor
+    description: Ontology term for a biomarker (from NCIT)
+    range: BiomarkerDescriptor
     inlined: true
     comments:
-      - Biomarkers may come from multiple ontologies (NCIT for proteins, CHEBI for chemicals, LOINC for lab tests)
+      - Use NCIT terms for biomarkers (proteins, genes, fusion products)
+      - NCIT:C16342 (Biomarker) is the root class for validation
+  finding_term:
+    description: Ontology term for a histopathologic finding (from NCIT or HP)
+    range: HistopathologyFindingDescriptor
+    inlined: true
+    comments:
+      - Use NCIT terms from Morphologic Finding (C35867) or Histologic Grade (C18000)
+      - Use HP terms for rosettes and cell morphology abnormalities (HP:0025461 descendants)
   diagnosis_term:
     description: The MAXO term for this diagnostic procedure
     range: TreatmentDescriptor
@@ -534,9 +1274,17 @@ slots:
     description: The MONDO term for a disease subtype
     range: DiseaseDescriptor
     inlined: true
+  infectious_agent_term:
+    description: The NCBITaxon term for this infectious agent
+    range: OrganismDescriptor
+    inlined: true
   exposure_term:
     description: The ECTO/XCO term for this exposure event
     range: ExposureDescriptor
+    inlined: true
+  life_cycle_stage_term:
+    description: The OPL term for this agent life cycle stage
+    range: LifeCycleStageDescriptor
     inlined: true
   environment_context:
     description: The ENVO term for the environmental context/setting
@@ -597,6 +1345,21 @@ slots:
     range: Inheritance
     multivalued: true
     inlined_as_list: true
+  penetrance:
+    description: Penetrance classification for this inheritance pattern
+    range: PenetranceEnum
+  penetrance_percentage:
+    description: Estimated penetrance percentage or range (e.g., 80-90)
+    range: FrequencyQuantity
+  expressivity:
+    description: Expressivity classification for this inheritance pattern
+    range: ExpressivityEnum
+  de_novo_rate:
+    description: Estimated percentage of de novo cases (e.g., 80)
+    range: FrequencyQuantity
+  parent_of_origin_effect:
+    description: Parent-of-origin effect or bias (e.g., paternal age effect)
+    range: string
   variants:
     multivalued: true
     inlined_as_list: true
@@ -652,6 +1415,18 @@ slots:
     multivalued: true
     inlined_as_list: true
     range: Phenotype
+  histopathology:
+    description: >-
+      Histopathologic findings including microscopic morphology, architectural patterns,
+      cellular features, growth patterns, and histologic grading.
+    multivalued: true
+    inlined_as_list: true
+    range: HistopathologyFinding
+    comments:
+      - Separate from phenotypes as these are tissue-level microscopic observations
+      - Use NCIT Morphologic Finding (C35867) or Histologic Grade (C18000) terms
+      - For cancer: includes grade, differentiation, growth patterns, necrosis
+      - For other diseases: may include architectural changes, cellular infiltrates
   biochemical:
     multivalued: true
     inlined_as_list: true
@@ -675,10 +1450,26 @@ slots:
     range: InfectiousAgent
     multivalued: true
     inlined_as_list: true
+  agent_life_cycle:
+    range: AgentLifeCycle
   transmission:
     multivalued: true
     inlined_as_list: true
     range: Transmission
+  life_cycle_stages:
+    multivalued: true
+    inlined_as_list: true
+    range: AgentLifeCycleStage
+  hosts:
+    multivalued: true
+    range: HostDescriptor
+    inlined_as_list: true
+    comments:
+      - Use NCBITaxon terms for host organisms
+      - Use the role slot to indicate definitive, intermediate, reservoir, or accidental host
+  vectors:
+    multivalued: true
+    range: string
   diagnosis:
     multivalued: true
     inlined_as_list: true
@@ -742,28 +1533,135 @@ slots:
       - value: '[''Genetic'', ''Environmental'', ''Infectious'', ''Autoimmune'', ''Metabolic'', ''Neoplastic'', ''Traumatic'', ''Iatrogenic'', ''Idiopathic'']'
     multivalued: true
     range: string
+  dataset_identifier:
+    description: >-
+      Native identifier for this variable in the source dataset or model
+      (e.g., SBML species ID, database column name, COBRA reaction ID).
+      When the parent context already specifies the dataset (e.g., a
+      ComputationalModel with model_id), this field gives the local name
+      within that dataset.
+    examples:
+      - value: ECCPhos
+      - value: Qbone
+    range: string
+  threshold:
+    description: >-
+      Numeric threshold at which this mapping activates (e.g., a phenotype
+      becomes clinically relevant when the variable crosses this value).
+    range: float
+  threshold_direction:
+    description: >-
+      Whether the threshold activates when the variable goes above or below the value.
+    range: ThresholdDirectionEnum
+  severity_scale:
+    description: >-
+      Ordered list of severity tiers, each a value-label pair. For "above" direction,
+      higher values mean greater severity; for "below", lower values mean greater severity.
+    multivalued: true
+    range: SeverityTier
+    inlined_as_list: true
   unit:
     examples:
       - value: cm
     range: string
   function:
     range: string
+  regulatory_category:
+    description: >-
+      Functional classification of a variant's impact on gene expression,
+      using the LOE/mLOE/GOE framework (Cheng et al. 2024, PMID:38436667)
+      or traditional coding categories (LOF/GOF/DN).
+    range: RegulatoryVariantCategoryEnum
+  regulatory_element_type:
+    description: >-
+      Type of gene regulatory element disrupted by a non-coding variant
+      (e.g., promoter, enhancer, silencer, insulator, TAD boundary).
+    range: RegulatoryElementTypeEnum
+  affected_cell_types:
+    description: >-
+      Cell types in which gene expression is specifically gained or lost.
+      Particularly relevant for mLOE variants (modular loss in specific
+      cell types) and GOE variants (ectopic gain in new cell types).
+    multivalued: true
+    inlined_as_list: true
+    range: CellTypeDescriptor
+  affected_developmental_stage:
+    description: >-
+      Developmental stage or temporal window in which expression is
+      modularly lost or ectopically gained. Relevant for variants with
+      temporal modularity (e.g., Hemophilia B Leyden).
+    range: string
+  regulatory_mechanism:
+    description: >-
+      The specific molecular mechanism by which the regulatory variant
+      exerts its effect (e.g., TFBS disruption, enhancer adoption,
+      promoter switching, repressor site loss, novel TFBS creation,
+      heterochromatin spreading).
+    range: string
   target:
     description: The name of the target element in a causal relationship
     range: string
     required: true
-  target_phenotypes:
-    description: Names of phenotypes that this treatment addresses or targets
+  hypothesis_groups:
+    description: Hypothesis identifiers or grouping labels that this edge belongs to
     multivalued: true
     range: string
+  causal_link_type:
+    description: Whether this edge is direct or indirect, and whether omitted intermediates are known
+    range: CausalLinkTypeEnum
+  intermediate_mechanisms:
+    description: Known or suspected intermediate mechanisms omitted from this edge for graph compression
+    multivalued: true
+    range: string
+  hypothesis_group_id:
+    description: Stable identifier for a disease-level mechanistic hypothesis grouping
+    range: string
+  hypothesis_label:
+    description: Human-readable label/title for a mechanistic hypothesis
+    range: string
+  applies_to_subtypes:
+    description: Disease subtypes for which this hypothesis is intended to apply
+    multivalued: true
+    range: string
+  target_phenotypes:
+    description: Phenotypes that this treatment or trial addresses or targets
+    multivalued: true
+    range: PhenotypeDescriptor
+    inlined_as_list: true
     comments:
       - Should reference phenotype names defined in the same disease's phenotypes list
-      - Enables linking treatments to the symptoms/manifestations they aim to manage
+      - Enables linking treatments/trials to the symptoms/manifestations they aim to manage
+      - Each phenotype can include ontology term references (HP)
+  target_mechanisms:
+    description: >-
+      Pathophysiology mechanism nodes that this treatment targets or modulates.
+      Links a treatment to specific steps in the disease's causal graph, enabling
+      inference about which downstream phenotypes should respond to therapy.
+    multivalued: true
+    range: TreatmentMechanismTarget
+    inlined_as_list: true
+    comments:
+      - Target names should match pathophysiology entry names in the same disease file
+      - Complements target_phenotypes by explaining WHERE in the causal chain the drug acts
+      - Analogous to DrugMechDB paths but anchored to dismech pathophysiology nodes
+  treatment_effect:
+    description: How the treatment affects the targeted mechanism
+    range: TreatmentEffectEnum
+  pdb_structures:
+    description: >-
+      Experimental or predicted 3D protein structures relevant to this treatment's
+      mechanism of action. Typically co-crystal structures of the drug bound to its
+      target protein, or AlphaFold predictions of the drug target.
+    multivalued: true
+    range: ProteinStructure
+    inlined_as_list: true
   # Dataset-related slots
   accession:
     description: Dataset accession identifier as a CURIE (e.g., geo:GSE67472)
     range: uriorcurie
     identifier: true
+    implements:
+      - linkml:authoritative_reference
   organism:
     description: The organism from which samples were derived
     range: OrganismDescriptor
@@ -807,10 +1705,431 @@ slots:
     multivalued: true
     range: Dataset
     inlined_as_list: true
+    recommended: true
+  clinical_trials:
+    description: Clinical trials relevant to disease treatment and research
+    multivalued: true
+    range: ClinicalTrial
+    inlined_as_list: true
+    recommended: false
+  creation_date:
+    description: >-
+      ISO 8601/RFC 3339 timestamp string for when this disease entry was first
+      created (e.g., 2025-06-12T20:16:27Z)
+    range: string
+    pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$'
+    recommended: true
+  updated_date:
+    description: >-
+      ISO 8601/RFC 3339 timestamp string for when this disease entry was last
+      updated (e.g., 2025-06-12T20:16:27Z)
+    range: string
+    pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$'
+    recommended: true
+  curation_history:
+    description: Audit trail of AI-assisted curation events
+    multivalued: true
+    range: CurationEvent
+    inlined_as_list: true
+  curation_timestamp:
+    description: ISO 8601 timestamp of the curation event
+    range: datetime
+  curation_model:
+    description: Model identifier used for curation (e.g., claude-opus-4-5-20251101)
+    range: string
+  curation_action:
+    description: Type of curation action performed
+    range: CurationActionEnum
+  curation_description:
+    description: Human-readable description of changes made
+    range: string
+  # Computational model slots
+  model_type:
+    description: Type of computational model
+    range: ComputationalModelTypeEnum
+  repository_url:
+    description: URL to model repository (GitHub, BiGG, VMH, BioModels)
+    range: uri
+  model_id:
+    description: Identifier within the repository (e.g., Recon3D, BIOMD0000000123)
+    range: string
+  base_model:
+    description: Parent/base model this is derived from (e.g., Recon3D, Harvey 1.0)
+    range: string
+  model_software:
+    description: Software/toolbox for running the model (e.g., COBRApy, COBRA Toolbox)
+    range: string
+  model_format:
+    description: File format (e.g., SBML, MATLAB, JSON, ONNX)
+    range: string
+  perturbations:
+    description: Gene knockouts, reaction deletions, or parameter changes modeling the disease
+    multivalued: true
+    range: GeneDescriptor
+    inlined_as_list: true
+  variables:
+    description: Variables/outputs of a computational model with ontology mappings
+    multivalued: true
+    range: ModelVariable
+    inlined_as_list: true
+  mappings_list:
+    description: Ontology term mappings for a model variable (LOINC, CHEBI, HP, etc.)
+    multivalued: true
+    range: ModelVariableDescriptor
+    inlined_as_list: true
+  computational_models:
+    description: Computational models (metabolic, mechanistic, ML, digital twins) for this disease
+    multivalued: true
+    range: ComputationalModel
+    inlined_as_list: true
+  classifications:
+    description: Classification assignments for this disease from various nosologies
+    range: DiseaseClassifications
+    inlined: true
+  definitions:
+    description: Definitions or diagnostic criteria for this disease
+    multivalued: true
+    range: Definition
+    inlined_as_list: true
+  mappings:
+    description: External identifier mappings for this disease (SSSOM-inspired)
+    range: DiseaseMappings
+    inlined: true
+  # Classification assignment slots
+  icdo_morphology:
+    description: ICD-O morphology classification (for neoplastic diseases)
+    range: ICDOMorphologyAssignment
+    inlined: true
+  harrisons_chapter:
+    description: Harrison's internal medicine chapter classification
+    range: HarrisonsChapterAssignment
+    inlined: true
+    multivalued: true
+  lysosomal_storage_category:
+    description: Lysosomal storage disease biochemical classification
+    range: LysosomalStorageAssignment
+    inlined: true
+  mechanistic_category:
+    description: Mechanistic/pathway-based disease classification
+    range: MechanisticNosologyAssignment
+    inlined: true
+    multivalued: true
+  iuis_category:
+    description: IUIS primary immunodeficiency classification
+    range: IUISAssignment
+    inlined: true
+  channelopathy_category:
+    description: Channelopathy organ system classification
+    range: ChannelopathyAssignment
+    inlined: true
+  classification_value:
+    description: The classification value assigned
+    range: string
+  icd10cm_mappings:
+    description: ICD-10-CM code mappings for this disease
+    multivalued: true
+    range: ICD10CMMapping
+    inlined_as_list: true
+  icd11f_mappings:
+    description: ICD-11 Foundation code mappings for this disease
+    multivalued: true
+    range: ICD11FMapping
+    inlined_as_list: true
+  mondo_mappings:
+    description: MONDO disease ontology mappings for this disease
+    multivalued: true
+    range: MondoMapping
+    inlined_as_list: true
+  mapping_predicate:
+    description: Relationship between this disease and the mapped term (e.g., skos:exactMatch)
+    range: uriorcurie
+  mapping_source:
+    description: Source of the mapping (e.g., MONDO, ICD-10-CM, manual curation)
+    range: string
+  mapping_justification:
+    description: Brief rationale or justification for the mapping
+    range: string
+  definition_type:
+    description: The type of definition or criteria set
+    range: DefinitionTypeEnum
+  criteria_sets:
+    description: Named criteria groupings within a definition
+    multivalued: true
+    range: CriteriaSet
+    inlined_as_list: true
+  scope:
+    description: Scope or population for which the definition applies (e.g., adults, pediatrics)
+    range: string
+  inclusion_criteria:
+    description: Inclusion criteria for a definition or criteria set
+    multivalued: true
+    range: CriteriaItem
+    inlined_as_list: true
+  exclusion_criteria:
+    description: Exclusion criteria for a definition or criteria set
+    multivalued: true
+    range: CriteriaItem
+    inlined_as_list: true
+  core_clinical_characteristics:
+    description: Core clinical characteristics used in a criteria set
+    multivalued: true
+    range: CriteriaItem
+    inlined_as_list: true
+  imaging_requirements:
+    description: Imaging requirements used in a criteria set
+    multivalued: true
+    range: CriteriaItem
+    inlined_as_list: true
+  laboratory_requirements:
+    description: Laboratory or serologic requirements used in a criteria set
+    multivalued: true
+    range: CriteriaItem
+    inlined_as_list: true
+  additional_requirements:
+    description: Additional requirements used in a criteria set
+    multivalued: true
+    range: CriteriaItem
+    inlined_as_list: true
+  minimum_required:
+    description: Minimum number of criteria required in this criteria set
+    range: integer
+  consistency:
+    description: Consistency assertions for this mapping against other sources
+    multivalued: true
+    range: MappingConsistency
+    inlined_as_list: true
+  consistent:
+    description: Consistency status for a mapping relative to a reference source
+    range: MappingConsistencyEnum
+  differential_diagnoses:
+    description: Differential diagnoses - similar diseases that must be ruled out
+    multivalued: true
+    range: DifferentialDiagnosis
+    inlined_as_list: true
+    recommended: false
+  disease_a:
+    description: First disease in a comorbidity pair
+    range: ConditionDescriptor
+    inlined: true
+  disease_b:
+    description: Second disease in a comorbidity pair
+    range: ConditionDescriptor
+    inlined: true
+  upstream_disorder:
+    description: Upstream disorder referenced in a hypothesis
+    range: ConditionDescriptor
+    inlined: true
+  source:
+    description: Source dataset or provenance label
+    range: string
+  signal_disorder_a_id:
+    description: Original identifier for disorder A in this signal (CURIE, e.g., ICD10:E12)
+    range: uriorcurie
+  signal_disorder_b_id:
+    description: Original identifier for disorder B in this signal (CURIE, e.g., ICD10:L28)
+    range: uriorcurie
+  code_system:
+    description: Code system used for a condition reference (e.g., ICD-10, OMOP, MONDO)
+    range: string
+  code:
+    description: Code within the specified code system
+    range: string
+  directionality:
+    description: Direction of a comorbidity/trajectory association
+    range: ComorbidityDirectionEnum
+  composition:
+    description: Composition type for a composite condition descriptor
+    range: ConditionCompositionEnum
+  components:
+    description: Component conditions that make up a composite descriptor
+    multivalued: true
+    range: ConditionDescriptor
+    inlined_as_list: true
+  association_signals:
+    description: Association signals from EHR, registry, or computational sources
+    multivalued: true
+    range: AssociationSignal
+    inlined_as_list: true
+  literature_evidence:
+    description: Literature-based evidence items for this association
+    multivalued: true
+    range: EvidenceItem
+    inlined_as_list: true
+  hypotheses:
+    description: Mechanistic or causal hypotheses about the association
+    multivalued: true
+    range: ComorbidityHypothesis
+    inlined_as_list: true
+  mechanistic_hypotheses:
+    description: Disease-level mechanistic hypotheses that group and annotate causal edges
+    multivalued: true
+    range: MechanisticHypothesis
+    inlined_as_list: true
+  shared_upstream_hypotheses:
+    description: Suspected upstream conditions that may explain both A and B
+    multivalued: true
+    range: UpstreamConditionHypothesis
+    inlined_as_list: true
+  curation_status:
+    description: Curation workflow status
+    range: CurationStatusEnum
+  demographics:
+    description: Demographic stratification for an association signal
+    range: Demographics
+    inlined: true
+  mapping_notes:
+    description: Notes on code-to-concept mapping decisions for this signal
+    range: string
+  disorder_a_count:
+    description: Number of records/patients carrying disorder A in the source dataset
+    range: integer
+  disorder_b_count:
+    description: Number of records/patients carrying disorder B in the source dataset
+    range: integer
+  pair_count:
+    description: Number of records/patients with co-occurrence of disorder A and disorder B in the source dataset
+    range: integer
+  limited_precision:
+    description: Whether the signal has limited statistical precision due to small co-occurrence count
+    range: boolean
+  precision_count_threshold:
+    description: Co-occurrence count threshold used to flag limited precision
+    range: integer
+  sex:
+    description: Sex-specific stratum, if applicable
+    range: string
+  a_before_b:
+    description: Probability or fraction of A before B in an EHR signal
+    range: float
+  b_before_a:
+    description: Probability or fraction of B before A in an EHR signal
+    range: float
+  same_time:
+    description: Probability or fraction of A and B occurring in the same time window
+    range: float
+  metrics:
+    description: Quantitative association metrics
+    multivalued: true
+    range: AssociationMetric
+    inlined_as_list: true
+  statistics:
+    description: Statistical summary for an association signal
+    range: AssociationStatistics
+    inlined: true
+  metric_type:
+    description: Metric type (e.g., OR, RR, HR)
+    range: AssociationMetricTypeEnum
+  metric_value:
+    description: Metric value
+    range: float
+  metric_ci_lower:
+    description: Lower confidence interval bound
+    range: float
+  metric_ci_upper:
+    description: Upper confidence interval bound
+    range: float
+  p_value:
+    description: P-value for an association or enrichment
+    range: float
+  fdr:
+    description: FDR-adjusted p-value for an association or enrichment
+    range: float
+  go_terms:
+    description: GO term enrichment results
+    multivalued: true
+    range: GOEnrichmentTerm
+    inlined_as_list: true
+  go_enrichment:
+    description: GO enrichment results associated with a signal
+    range: GOEnrichment
+    inlined: true
+  combined_score:
+    description: Combined score used by an enrichment method
+    range: float
+  overlap:
+    description: Overlap fraction for an enrichment term
+    range: float
+  method:
+    description: Method or pipeline name
+    range: string
+  # Phenotype context slots
+  phenotype_contexts:
+    description: >-
+      Context-specific qualifications of this phenotype's frequency,
+      severity, or onset. Each context can optionally specify a genetic
+      context, demographic stratum, or disease subtype. When no context
+      qualifiers are set, provides evidence for the base frequency/severity
+      claim (addressing the frequency-evidence separation problem).
+    multivalued: true
+    range: PhenotypeContext
+    inlined_as_list: true
+  genetic_context:
+    description: >-
+      The genetic context under which this qualification applies.
+      May specify genes, mutation types, zygosity, complementation groups,
+      or complex genotypes.
+    range: GeneticContext
+    inlined: true
+  allele_type:
+    description: >-
+      Type of allele or mutation (e.g., null, missense, splice_site,
+      deletion, frameshift, nonsense, hypomorphic, structural_variant).
+      Free text to accommodate the diversity of mutation nomenclature.
+    range: string
+  zygosity:
+    description: Zygosity context
+    range: ZygosityEnum
+  functional_impact:
+    description: >-
+      Functional consequence of the genetic variant
+      (e.g., loss_of_function, gain_of_function, dominant_negative).
+    range: string
+  complementation_group:
+    description: >-
+      Complementation group designation (e.g., FA-A, FA-D1, BBS1).
+      Used for genetically heterogeneous diseases where subtypes
+      are historically named by complementation analysis.
+    range: string
+  onset:
+    description: >-
+      Structured age of onset descriptor. Combines an HPO onset
+      category with optional quantitative age data (mean, min, max
+      in years) and free-text notes.
+    range: OnsetDescriptor
+    inlined: true
+  onset_category:
+    description: >-
+      HPO onset category (e.g., CHILDHOOD, NEONATAL). Use when an
+      approximate developmental stage is known.
+    range: OnsetEnum
+  mean_age_years:
+    description: >-
+      Mean age of onset in years, as reported in a cohort study.
+    range: float
+  min_age_years:
+    description: >-
+      Minimum (earliest) age of onset in years.
+    range: float
+  max_age_years:
+    description: >-
+      Maximum (latest) age of onset in years.
+    range: float
 
 classes:
   Any:
     class_uri: linkml:Any
+
+  # Curation audit trail
+  CurationEvent:
+    description: A single curation event in the audit trail
+    slots:
+      - curation_timestamp
+      - curation_model
+      - curation_action
+      - curation_description
+    slot_usage:
+      curation_timestamp:
+        required: true
 
   # Ontology term reference
   Term:
@@ -824,13 +2143,15 @@ classes:
     abstract: true
     description: >-
       Base class for structured descriptors that allow a preferred term,
-      optional description, optional ontology term binding, and optional modifier/qualifiers
-      for post-composition.
+      optional description, optional ontology term binding, and post-composition
+      via modifier, located_in, and laterality slots.
     slots:
       - preferred_term
       - description
       - term
       - modifier
+      - located_in
+      - laterality
       - qualifiers
     slot_usage:
       description:
@@ -840,12 +2161,14 @@ classes:
           rigid standardization of the term object.
         recommended: false
 
-  # Post-composition classes
+  # Post-composition classes (deprecated - use explicit slots instead)
   Qualifier:
     description: >-
       A predicate-value pair for formal post-composition. Allows OWL-like
       expressivity with controlled predicates and values, both as full Descriptors.
+    deprecated: Use explicit slots like located_in and laterality on Descriptor instead
     comments:
+      - DEPRECATED - prefer explicit slots (located_in, laterality) for better constraints
       - Use for formal semantic relationships like "has_input some X"
       - Both predicate and value are Descriptors, allowing recursive composition
       - Predicate typically uses RO (Relation Ontology) terms
@@ -870,6 +2193,21 @@ classes:
     slot_usage:
       term:
         description: Optional GO biological process term reference
+        bindings:
+          - binds_value_of: id
+            range: BiologicalProcessTerm
+            obligation_level: REQUIRED
+
+  MolecularFunctionDescriptor:
+    is_a: Descriptor
+    description: A descriptor for molecular functions, bindable to Gene Ontology (GO)
+    slot_usage:
+      term:
+        description: Optional GO molecular function term reference
+        bindings:
+          - binds_value_of: id
+            range: MolecularFunctionTerm
+            obligation_level: REQUIRED
 
   AnatomicalEntityDescriptor:
     is_a: Descriptor
@@ -877,6 +2215,10 @@ classes:
     slot_usage:
       term:
         description: Optional UBERON anatomical entity term reference
+        bindings:
+          - binds_value_of: id
+            range: AnatomicalEntityTerm
+            obligation_level: REQUIRED
 
   ChemicalEntityDescriptor:
     is_a: Descriptor
@@ -884,6 +2226,10 @@ classes:
     slot_usage:
       term:
         description: Optional CHEBI chemical entity term reference
+        bindings:
+          - binds_value_of: id
+            range: ChemicalEntityTerm
+            obligation_level: REQUIRED
 
   GeneDescriptor:
     is_a: Descriptor
@@ -891,6 +2237,10 @@ classes:
     slot_usage:
       term:
         description: Optional gene database term reference (e.g., HGNC)
+        bindings:
+          - binds_value_of: id
+            range: GeneTerm
+            obligation_level: REQUIRED
 
   CellularComponentDescriptor:
     is_a: Descriptor
@@ -898,6 +2248,21 @@ classes:
     slot_usage:
       term:
         description: Optional GO cellular component term reference
+        bindings:
+          - binds_value_of: id
+            range: CellularComponentTerm
+            obligation_level: REQUIRED
+
+  ProteinComplexDescriptor:
+    is_a: Descriptor
+    description: A descriptor for protein complexes that gene products participate in, bindable to GO protein complex terms
+    slot_usage:
+      term:
+        description: Optional GO protein complex term reference
+        bindings:
+          - binds_value_of: id
+            range: ProteinComplexTerm
+            obligation_level: REQUIRED
 
   AssayDescriptor:
     is_a: Descriptor
@@ -905,6 +2270,10 @@ classes:
     slot_usage:
       term:
         description: Optional OBI assay term reference
+        bindings:
+          - binds_value_of: id
+            range: AssayTerm
+            obligation_level: REQUIRED
 
   TriggerDescriptor:
     is_a: Descriptor
@@ -912,6 +2281,10 @@ classes:
     slot_usage:
       term:
         description: Optional ontology term reference
+        bindings:
+          - binds_value_of: id
+            range: TriggerTerm
+            obligation_level: REQUIRED
 
   DiseaseDescriptor:
     is_a: Descriptor
@@ -922,6 +2295,59 @@ classes:
         bindings:
           - binds_value_of: id
             range: DiseaseTerm
+            obligation_level: REQUIRED
+
+  BiomarkerDescriptor:
+    is_a: Descriptor
+    description: A descriptor for biomarkers, bindable to NCIT
+    slot_usage:
+      term:
+        description: NCIT biomarker term reference
+        bindings:
+          - binds_value_of: id
+            range: BiomarkerTerm
+            obligation_level: REQUIRED
+
+  GeneProductDescriptor:
+    is_a: Descriptor
+    description: >-
+      A descriptor for gene products (proteins, fusion proteins, oncoproteins),
+      bindable to NCIT Gene Product hierarchy (NCIT:C26548)
+    slot_usage:
+      term:
+        description: NCIT gene product term reference
+        bindings:
+          - binds_value_of: id
+            range: GeneProductTerm
+            obligation_level: REQUIRED
+
+  HistopathologyFindingDescriptor:
+    is_a: Descriptor
+    description: >-
+      A descriptor for histopathologic findings, bindable to NCIT Morphologic Finding
+      (C35867), Histologic Grade (C18000), or HP Abnormal cell morphology (HP:0025461)
+    comments:
+      - Use for architectural patterns (spindle cell, epithelioid, nested, etc.)
+      - Use for differentiation status (well/poorly differentiated)
+      - Use for specific findings (rosettes, necrosis, mitotic activity)
+      - Use for histologic grades when applicable
+    slot_usage:
+      term:
+        description: NCIT or HP histopathology finding term reference
+        bindings:
+          - binds_value_of: id
+            range: HistopathologyFindingTerm
+            obligation_level: REQUIRED
+
+  LifeCycleStageDescriptor:
+    is_a: Descriptor
+    description: A descriptor for parasite life cycle stages, bindable to OPL
+    slot_usage:
+      term:
+        description: OPL life cycle stage term reference
+        bindings:
+          - binds_value_of: id
+            range: LifeCycleStageTerm
             obligation_level: REQUIRED
 
   PhenotypeDescriptor:
@@ -935,15 +2361,46 @@ classes:
             range: PhenotypeTerm
             obligation_level: REQUIRED
 
+  InheritanceDescriptor:
+    is_a: Descriptor
+    description: A descriptor for inheritance patterns, bindable to HPO mode of inheritance terms
+    slot_usage:
+      term:
+        description: Optional HPO mode of inheritance term reference
+        bindings:
+          - binds_value_of: id
+            range: InheritanceTerm
+            obligation_level: REQUIRED
+
   TreatmentDescriptor:
     is_a: Descriptor
     description: A descriptor for treatments/medical actions, bindable to Medical Action Ontology (MAXO)
+    slots:
+      - therapeutic_agent
     slot_usage:
       term:
         description: Optional MAXO treatment term reference
         bindings:
           - binds_value_of: id
             range: TreatmentActionTerm
+            obligation_level: REQUIRED
+      therapeutic_agent:
+        description: >-
+          The drug(s) or chemical agent(s) used in this treatment. Use when the MAXO term
+          is generic (e.g., pharmacotherapy MAXO:0000058) but specific drugs are involved.
+        comments:
+          - Prefer CHEBI terms for specific drugs (e.g., CHEBI:15365 for aspirin)
+          - Use NCIT for drug classes when specific CHEBI term unavailable
+
+  RegimenDescriptor:
+    is_a: Descriptor
+    description: A descriptor for treatment regimens, bindable to NCIT
+    slot_usage:
+      term:
+        description: Optional NCIT regimen term reference
+        bindings:
+          - binds_value_of: id
+            range: RegimenTerm
             obligation_level: REQUIRED
 
   ExposureDescriptor:
@@ -984,6 +2441,14 @@ classes:
             range: OrganismTerm
             obligation_level: REQUIRED
 
+  HostDescriptor:
+    is_a: OrganismDescriptor
+    description: A descriptor for hosts in an infectious agent life cycle
+    slots:
+      - role
+    comments:
+      - Use role for definitive, intermediate, reservoir, accidental, or paratenic host
+
   SampleTypeDescriptor:
     is_a: Descriptor
     description: A descriptor for biological sample types (tissue and/or cell type)
@@ -991,10 +2456,73 @@ classes:
       - tissue_term
       - cell_type_term
 
+
+  # Phenotype context classes
+  GeneticContext:
+    description: >-
+      A structured description of a genetic context that modifies phenotype
+      frequency, severity, or presentation. Flexible enough to capture
+      single genes, multiple genes, mutation types, zygosity, complementation
+      groups, and complex genotypes. The description slot accommodates
+      contexts that don't fit neatly into the structured fields
+      (e.g., structural variants, complex rearrangements).
+    slots:
+      - gene
+      - genes
+      - allele_type
+      - zygosity
+      - functional_impact
+      - complementation_group
+      - description
+      - notes
+
+  OnsetDescriptor:
+    description: >-
+      Structured description of age of onset. Combines an HPO onset
+      category with optional quantitative age data and notes.
+    slots:
+      - onset_category
+      - mean_age_years
+      - min_age_years
+      - max_age_years
+      - notes
+
+  PhenotypeContext:
+    description: >-
+      A context-specific annotation qualifying how a phenotype manifests
+      under particular conditions. Each context can specify a genetic
+      context, demographic stratum, or disease subtype, along with
+      frequency, severity, onset, and supporting evidence specific to
+      that context.
+
+      When no context qualifier slots are set (no genetic_context, sex,
+      population, age_range, or subtype), the context provides evidence
+      for the overall/default frequency claim, addressing the evidence
+      separation problem (issue #112).
+    slots:
+      - frequency
+      - severity
+      - onset
+      - notes
+      - evidence
+      - genetic_context
+      - sex
+      - population
+      - age_range
+      - subtype
+    slot_usage:
+      sex:
+        range: SexEnum
+      evidence:
+        description: >-
+          Evidence supporting the frequency, severity, or onset claims
+          made in this specific context. Distinct from the D2P evidence
+          on the parent Phenotype.
+
   Dataset:
     description: A reference to a publicly available omics or phenotype dataset
     comments:
-      - Supports GEO, ArrayExpress, SRA, dbGaP, GTEx, ENCODE, phenopacket-store, and other repositories
+      - Supports GEO, ArrayExpress, SRA, dbGaP, GTEx, ENCODE, MorPhiC, phenopacket-store, and other repositories
     slots:
       - accession
       - title
@@ -1008,6 +2536,7 @@ classes:
       - genes
       - platform
       - publication
+      - findings
       - evidence
       - notes
     slot_usage:
@@ -1018,6 +2547,139 @@ classes:
           rigid standardization of the title slot.
         recommended: true
 
+  ClinicalTrial:
+    description: A clinical trial relevant to treatment or research of a disease
+    comments:
+      - Uses NCT identifiers from ClinicalTrials.gov
+      - Evidence and supporting text can be validated via linkml-reference-validator against ClinicalTrials.gov API
+    slots:
+      - name
+      - description
+      - phase
+      - status
+      - evidence
+      - target_phenotypes
+      - notes
+      - review_notes
+    slot_usage:
+      name:
+        description: NCT identifier (e.g., NCT00000001) or trial name
+        identifier: false
+      description:
+        description: >-
+          Brief summary or key details of the clinical trial
+        recommended: true
+      phase:
+        range: ClinicalTrialPhaseEnum
+        description: Trial phase (Phase I, Phase II, Phase III, Phase IV, or Not Applicable)
+        recommended: true
+      status:
+        range: ClinicalTrialStatusEnum
+        description: Recruitment or trial status (e.g., Recruiting, Completed, Terminated, Active not recruiting)
+        recommended: true
+      evidence:
+        description: Supporting evidence with snippets from trial documentation
+        recommended: false
+
+  ComputationalModel:
+    description: A computational or in-silico model relevant to understanding disease mechanisms
+    comments:
+      - Covers genome-scale metabolic models, FBA, kinetic models, digital twins, and ML models
+      - Perturbations track gene knockouts or parameter changes used to simulate the disease
+      - Findings capture key predictions or insights the model can generate
+    slots:
+      - name
+      - description
+      - model_type
+      - repository_url
+      - model_id
+      - base_model
+      - perturbations
+      - variables
+      - model_software
+      - model_format
+      - publication
+      - findings
+      - evidence
+      - notes
+
+  ModelVariable:
+    description: >-
+      A variable in a computational model, identified by a human-readable name,
+      with an optional dataset_identifier for the native name in the model file
+      and ontology term mappings (e.g., LOINC for clinical observables,
+      CHEBI for metabolites, HP for phenotypic readouts).
+    comments:
+      - Use 'name' for human-readable display (e.g., "Plasma Calcium")
+      - Use 'dataset_identifier' for the native model name (e.g., SBML species "P", COBRA reaction "R_0001")
+      - Map to LOINC codes for clinical lab measurements to link model outputs to CDEs
+      - Map to CHEBI for metabolite variables, HP for phenotypic readouts
+    slots:
+      - name
+      - dataset_identifier
+      - description
+      - unit
+      - mappings_list
+      - notes
+
+  SeverityTier:
+    description: A threshold-severity pair defining one tier in a severity scale
+    slots:
+      - threshold
+      - name
+    slot_usage:
+      threshold:
+        description: The variable value at which this severity tier activates
+        required: true
+      name:
+        description: Severity label (e.g., "mild", "moderate", "severe")
+        required: true
+
+  ModelVariableDescriptor:
+    is_a: Descriptor
+    description: >-
+      A descriptor mapping a model variable to an ontology term (LOINC, CHEBI, HP, etc.).
+      When the mapped term is an HP phenotype, optional threshold fields specify when
+      the variable value activates that phenotype and at what severity.
+    slots:
+      - threshold
+      - threshold_direction
+      - severity_scale
+    slot_usage:
+      term:
+        description: Ontology term reference (LOINC code, CHEBI term, HP term, etc.)
+      threshold:
+        description: Value at which the mapped phenotype activates
+      threshold_direction:
+        description: Whether the phenotype activates above or below the threshold
+      severity_scale:
+        description: Ordered severity tiers for graded phenotype activation
+
+  DifferentialDiagnosis:
+    description: A disease or condition that presents similarly to the focal disease and must be differentiated
+    comments:
+      - Documents diseases/conditions with overlapping clinical presentations
+      - Includes distinguishing features to help differentiate from the focal disease
+      - Essential for clinical diagnostic accuracy
+    slots:
+      - name
+      - description
+      - phenotypes
+      - distinguishing_features
+      - evidence
+      - notes
+      - disease_term
+    slot_usage:
+      description:
+        description: >-
+          Clinical or mechanistic overlaps, shared presentations, and diagnostic considerations with the focal disease
+      distinguishing_features:
+        description: >-
+          Key clinical, laboratory, imaging, or epidemiological features that help differentiate this condition from the focal disease
+      notes:
+        description: >-
+          Additional clinical notes or management considerations
+
   Subtype:
     slots:
       - name
@@ -1027,10 +2689,16 @@ classes:
       - review_notes
       - locations
       - geography
+      - classification
+      - children
+      - genes
+      - subtype_frequency
+      - inheritance
   EvidenceItem:
     slots:
       - reference
       - supports
+      - evidence_source
       - snippet
       - explanation
   CausalEdge:
@@ -1039,22 +2707,83 @@ classes:
       - target
       - description
       - evidence
+      - hypothesis_groups
+      - causal_link_type
+      - intermediate_mechanisms
+    slot_usage:
+      evidence:
+        description: Evidence that supports this specific edge (not just the parent node-level claim)
+      hypothesis_groups:
+        description: One or more hypothesis IDs used to group edges within alternative or superimposed models
+      causal_link_type:
+        description: Encodes directness and whether omitted intermediates are known versus unknown
+      intermediate_mechanisms:
+        description: Free-text intermediates bridging source and target when using an indirect edge
+  TreatmentMechanismTarget:
+    description: >-
+      Links a treatment to a specific pathophysiology mechanism node it targets.
+      Enables reasoning about which downstream phenotypes should respond to therapy
+      and why resistance may emerge when the causal chain shifts.
+    slots:
+      - target
+      - treatment_effect
+      - description
+      - evidence
+    slot_usage:
+      target:
+        description: >-
+          Name of the pathophysiology entry this treatment targets.
+          Must match a pathophysiology name in the same disease file.
+      evidence:
+        description: Evidence that this treatment targets this specific mechanism
+  ProteinStructure:
+    description: >-
+      A 3D protein structure from PDB or AlphaFold relevant to understanding
+      a treatment's mechanism of action. Enables embedded 3D visualization
+      of drug-target interactions via Mol* viewer.
+    attributes:
+      pdb_id:
+        description: >-
+          PDB accession code (e.g., 3TCT) or AlphaFold identifier (e.g., AF-P02766-F1).
+          Used to construct viewer URLs and fetch structure data.
+        range: string
+        required: true
+      description:
+        description: Brief description of what the structure shows (e.g., drug-target co-crystal)
+        range: string
+      resolution_angstrom:
+        description: Structure resolution in angstroms (for experimental structures)
+        range: float
+      method:
+        description: Experimental method (X-ray, cryo-EM, NMR) or prediction method (AlphaFold)
+        range: string
+      ligand:
+        description: Name of bound drug/ligand if this is a co-crystal structure
+        range: string
+      target_protein:
+        description: Name of the protein target in the structure
+        range: string
+      publication:
+        description: Reference for the structure deposition or associated paper (e.g., PMID:12345678)
+        range: PMID
   # Classes for top-level references with findings (inspired by ai-gene-review)
   PublicationReference:
     description: A reference to a publication with associated findings
     slots:
       - reference
       - title
+      - found_in
       - findings
     slot_usage:
       reference:
         identifier: true
         required: true
   Finding:
-    description: A key finding or claim extracted from a publication
+    description: A key finding or claim extracted from a source (publication or dataset)
     slots:
       - statement
       - supporting_text
+      - evidence
   Prevalence:
     slots:
       - subtype
@@ -1092,9 +2821,11 @@ classes:
       - cell_types
       - evidence
       - biological_processes
+      - molecular_functions
       - locations
       - examples
       - role
+      - conforms_to
       - synonyms
       - consequence
       - consequences
@@ -1104,12 +2835,16 @@ classes:
       - genes
       - subtypes
       - cellular_components
+      - protein_complexes
       - chemical_entities
+      - gene_products
       - triggers
       - assays
       - mechanisms
       - notes
       - frequency
+      - genetic_context
+      - pdb_structures
   Phenotype:
     slots:
       - category
@@ -1125,6 +2860,7 @@ classes:
       - severity
       - notes
       - subtype
+      - phenotype_contexts
   Biochemical:
     slots:
       - name
@@ -1138,10 +2874,46 @@ classes:
       - subtype
       - cell_types
       - assays
+      - mappings_list
       - synonyms
+  HistopathologyFinding:
+    description: >-
+      A histopathologic finding from microscopic examination of tissue. Includes
+      morphologic features, architectural patterns, cellular characteristics,
+      growth patterns, and histologic grading.
+    comments:
+      - For cancers: tumor grade, differentiation, growth patterns, necrosis, rosettes
+      - For other diseases: inflammatory infiltrates, architectural distortion, fibrosis
+      - Separate from phenotypes as these are microscopic observations requiring biopsy
+    slots:
+      - name
+      - finding_term
+      - description
+      - frequency
+      - diagnostic
+      - evidence
+      - notes
+      - context
+      - subtype
+    slot_usage:
+      name:
+        description: Name of the histopathologic finding
+        examples:
+          - value: Flexner-Wintersteiner Rosettes
+          - value: Spindle Cell Morphology
+          - value: High Grade (Fuhrman Grade 3-4)
+      description:
+        description: Detailed description of the finding and its clinical significance
+      frequency:
+        description: How frequently this finding is observed in the disease
+      diagnostic:
+        description: Whether this finding is pathognomonic or highly diagnostic
+      context:
+        description: Context in which this finding is observed (e.g., specific subtype)
   Genetic:
     slots:
       - name
+      - gene_term
       - presence
       - evidence
       - association
@@ -1172,6 +2944,8 @@ classes:
     slots:
       - name
       - disease_term
+      - creation_date
+      - updated_date
       - description
       - references
       - category
@@ -1180,7 +2954,9 @@ classes:
       - prevalence
       - progression
       - pathophysiology
+      - mechanistic_hypotheses
       - phenotypes
+      - histopathology
       - biochemical
       - stages
       - genetic
@@ -1189,16 +2965,36 @@ classes:
       - treatments
       - categories
       - infectious_agent
+      - agent_life_cycle
       - transmission
       - modeling_considerations
       - epidemiology
       - diagnosis
+      - differential_diagnoses
       - synonyms
       - inheritance
       - animal_models
       - datasets
+      - clinical_trials
+      - computational_models
+      - classifications
+      - definitions
+      - mappings
       - notes
       - review_notes
+      - curation_history
+    slot_usage:
+      name:
+        description: Preferred name for the disease
+        required: true
+      creation_date:
+        description: >-
+          Timestamp for initial creation of this disease entry. Keep this stable
+          after first set.
+      updated_date:
+        description: >-
+          Timestamp for the latest substantive update to this disease entry.
+          Update this whenever curated content changes.
   Stage:
     slots:
       - name
@@ -1211,6 +3007,25 @@ classes:
       - examples
       - pathophysiology
       - substages
+  AgentLifeCycle:
+    slots:
+      - description
+      - life_cycle_stages
+      - hosts
+      - vectors
+      - evidence
+      - notes
+      - context
+      - review_notes
+  AgentLifeCycleStage:
+    slots:
+      - name
+      - life_cycle_stage_term
+      - description
+      - evidence
+      - notes
+      - context
+      - review_notes
   AnimalModel:
     slots:
       - species
@@ -1227,7 +3042,10 @@ classes:
       - name
       - description
       - treatment_term
+      - regimen_term
       - target_phenotypes
+      - target_mechanisms
+      - pdb_structures
       - evidence
       - notes
       - context
@@ -1238,6 +3056,7 @@ classes:
   InfectiousAgent:
     slots:
       - name
+      - infectious_agent_term
       - evidence
       - description
       - has_subtypes
@@ -1265,9 +3084,20 @@ classes:
   Inheritance:
     slots:
       - name
+      - inheritance_term
+      - penetrance
+      - penetrance_percentage
+      - expressivity
+      - de_novo_rate
+      - parent_of_origin_effect
       - evidence
       - description
   Variant:
+    description: >-
+      A genetic variant associated with a disease, including coding and
+      non-coding regulatory variants. For regulatory variants, use
+      regulatory_category to classify the variant's impact on gene
+      expression (LOE/mLOE/GOE per Cheng et al. 2024).
     slots:
       - name
       - description
@@ -1279,11 +3109,21 @@ classes:
       - sequence_length
       - clinical_significance
       - type
+      - regulatory_category
   FunctionalEffect:
+    description: >-
+      Describes the functional consequence of a genetic variant, including
+      regulatory impact classification (LOE/mLOE/GOE) for non-coding
+      variants and the type of regulatory element affected.
     slots:
       - function
       - description
       - type
+      - regulatory_category
+      - regulatory_element_type
+      - affected_cell_types
+      - affected_developmental_stage
+      - regulatory_mechanism
   Mechanism:
     slots:
       - name
@@ -1293,6 +3133,353 @@ classes:
       - name
       - description
       - evidence
+  # Classification assignment classes
+  ClassificationAssignment:
+    abstract: true
+    description: Base class for classification assignments with evidence
+    slots:
+      - evidence
+      - notes
+
+  ICDOMorphologyAssignment:
+    is_a: ClassificationAssignment
+    description: ICD-O morphology classification assignment for neoplastic diseases
+    slots:
+      - classification_value
+    slot_usage:
+      classification_value:
+        range: ICDOMorphologyEnum
+        required: true
+
+  HarrisonsChapterAssignment:
+    is_a: ClassificationAssignment
+    description: Harrison's internal medicine chapter classification assignment
+    slots:
+      - classification_value
+    slot_usage:
+      classification_value:
+        range: HarrisonsChapterEnum
+        required: true
+
+  LysosomalStorageAssignment:
+    is_a: ClassificationAssignment
+    description: Lysosomal storage disease biochemical classification assignment
+    slots:
+      - classification_value
+    slot_usage:
+      classification_value:
+        range: LysosomalStorageEnum
+        required: true
+
+  MechanisticNosologyAssignment:
+    is_a: ClassificationAssignment
+    description: Mechanistic/pathway-based disease classification assignment
+    slots:
+      - classification_value
+    slot_usage:
+      classification_value:
+        range: MechanisticNosologyEnum
+        required: true
+
+  IUISAssignment:
+    is_a: ClassificationAssignment
+    description: IUIS primary immunodeficiency classification assignment
+    slots:
+      - classification_value
+    slot_usage:
+      classification_value:
+        range: IUISCategoryEnum
+        required: true
+
+  ChannelopathyAssignment:
+    is_a: ClassificationAssignment
+    description: Channelopathy organ system classification assignment
+    slots:
+      - classification_value
+    slot_usage:
+      classification_value:
+        range: ChannelopathyOrganSystemEnum
+        required: true
+
+  DiseaseClassifications:
+    description: Container for all classification assignments for a disease
+    slots:
+      - icdo_morphology
+      - harrisons_chapter
+      - lysosomal_storage_category
+      - mechanistic_category
+      - iuis_category
+      - channelopathy_category
+
+  Definition:
+    description: A diagnostic or phenotype definition for the disease
+    slots:
+      - name
+      - definition_type
+      - description
+      - scope
+      - criteria_sets
+      - inclusion_criteria
+      - exclusion_criteria
+      - evidence
+      - notes
+    slot_usage:
+      name:
+        required: true
+      definition_type:
+        required: true
+
+  CriteriaSet:
+    description: A named criteria grouping within a definition
+    slots:
+      - name
+      - description
+      - scope
+      - minimum_required
+      - core_clinical_characteristics
+      - inclusion_criteria
+      - exclusion_criteria
+      - imaging_requirements
+      - laboratory_requirements
+      - additional_requirements
+      - evidence
+      - notes
+    slot_usage:
+      name:
+        required: true
+
+  CriteriaItem:
+    is_a: Descriptor
+    description: A criterion element (clinical feature, test result, imaging requirement)
+
+  TermMapping:
+    description: Mapping from this disease entry to an external term or code
+    slots:
+      - term
+      - mapping_predicate
+      - mapping_source
+      - mapping_justification
+      - consistency
+      - notes
+    slot_usage:
+      term:
+        required: true
+      mapping_predicate:
+        required: true
+
+  ICD10CMMapping:
+    is_a: TermMapping
+    description: ICD-10-CM diagnosis code mapping
+    slot_usage:
+      term:
+        bindings:
+          - binds_value_of: id
+            range: ICD10CMTerm
+            obligation_level: REQUIRED
+
+  ICD11FMapping:
+    is_a: TermMapping
+    description: ICD-11 Foundation diagnosis code mapping
+    slot_usage:
+      term:
+        bindings:
+          - binds_value_of: id
+            range: ICD11FTerm
+            obligation_level: REQUIRED
+
+  MondoMapping:
+    is_a: TermMapping
+    description: MONDO disease ontology mapping
+    slot_usage:
+      term:
+        bindings:
+          - binds_value_of: id
+            range: DiseaseTerm
+            obligation_level: REQUIRED
+
+  MappingConsistency:
+    description: Consistency assertion for a mapping relative to another source
+    slots:
+      - reference
+      - consistent
+      - notes
+    slot_usage:
+      reference:
+        description: Reference source used to assess consistency (e.g., MONDO)
+        range: string
+        required: true
+      consistent:
+        required: true
+
+  DiseaseMappings:
+    description: Container for external identifier mappings for a disease
+    slots:
+      - icd10cm_mappings
+      - icd11f_mappings
+      - mondo_mappings
+
+  ConditionDescriptor:
+    is_a: Descriptor
+    description: >-
+      A descriptor for a condition or disease, optionally bound to MONDO. External
+      coding identifiers (ICD-10, OMOP, SNOMED, etc.) are captured on association signals.
+    slots:
+      - slug
+      - preferred_term
+      - description
+      - term
+      - composition
+      - components
+    slot_usage:
+      slug:
+        required: false
+        description: Use for leaf conditions; omit when using composition/components
+      term:
+        description: Optional MONDO disease term reference
+        bindings:
+          - binds_value_of: id
+            range: DiseaseTerm
+            obligation_level: OPTIONAL
+      preferred_term:
+        required: false
+
+  ComorbidityAssociation:
+    description: >-
+      An association between two conditions, including directionality, evidence,
+      and computational characterizations.
+    slots:
+      - name
+      - creation_date
+      - updated_date
+      - disease_a
+      - disease_b
+      - directionality
+      - association_signals
+      - literature_evidence
+      - hypotheses
+      - shared_upstream_hypotheses
+      - phenotypes
+      - notes
+      - curation_status
+    slot_usage:
+      creation_date:
+        description: >-
+          Timestamp for initial creation of this comorbidity entry. Keep this stable
+          after first set.
+      updated_date:
+        description: >-
+          Timestamp for the latest substantive update to this comorbidity entry.
+          Update this whenever curated content changes.
+
+  AssociationSignal:
+    description: >-
+      An association signal from EHR, registry, or computational sources,
+      optionally stratified by sex, age, or cohort.
+    slots:
+      - source
+      - method
+      - signal_disorder_a_id
+      - signal_disorder_b_id
+      - population
+      - demographics
+      - mapping_notes
+      - disorder_a_count
+      - disorder_b_count
+      - pair_count
+      - limited_precision
+      - precision_count_threshold
+      - directionality
+      - a_before_b
+      - b_before_a
+      - same_time
+      - metrics
+      - statistics
+      - go_enrichment
+      - evidence
+      - notes
+    slot_usage:
+      source:
+        range: AssociationSignalSourceEnum
+      method:
+        range: AssociationSignalMethodEnum
+
+  Demographics:
+    description: Demographic stratification for an association signal
+    slots:
+      - sex
+      - age_range
+    slot_usage:
+      sex:
+        range: SexEnum
+
+  AssociationMetric:
+    description: Quantitative association metric and its uncertainty.
+    slots:
+      - metric_type
+      - metric_value
+      - metric_ci_lower
+      - metric_ci_upper
+      - p_value
+      - fdr
+      - notes
+
+  AssociationStatistics:
+    description: Statistical summary with evidence for an association signal.
+    slots:
+      - metrics
+      - evidence
+      - notes
+
+  GOEnrichment:
+    description: GO enrichment results for an association signal.
+    slots:
+      - method
+      - description
+      - go_terms
+
+  GOEnrichmentTerm:
+    description: GO term enrichment result with statistical metrics.
+    slots:
+      - term
+      - p_value
+      - fdr
+      - overlap
+      - combined_score
+
+  ComorbidityHypothesis:
+    description: >-
+      Mechanistic hypothesis for a comorbidity association, with rich text and
+      embedded evidence plus atomic pathophysiology elements.
+    slots:
+      - description
+      - evidence
+      - pathophysiology
+
+  UpstreamConditionHypothesis:
+    description: Hypothesized upstream condition that may explain both A and B.
+    slots:
+      - upstream_disorder
+      - description
+      - evidence
+
+  MechanisticHypothesis:
+    description: >-
+      Disease-level hypothesis metadata used to organize downstream causal edges
+      into canonical or alternative explanatory models.
+    slots:
+      - hypothesis_group_id
+      - hypothesis_label
+      - status
+      - description
+      - applies_to_subtypes
+      - evidence
+      - notes
+    slot_usage:
+      hypothesis_group_id:
+        required: true
+      status:
+        range: MechanisticHypothesisStatusEnum
+
   DiseaseCollection:
     slots:
       - diseases

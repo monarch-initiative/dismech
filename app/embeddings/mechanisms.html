@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mechanism Embedding Comparison</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <script src="mechanisms_data.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+        }
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 500;
+        }
+        .header a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        .header a:hover {
+            text-decoration: underline;
+        }
+        .container {
+            display: flex;
+            height: calc(100vh - 60px);
+        }
+        .sidebar {
+            width: 320px;
+            background: white;
+            border-right: 1px solid #ddd;
+            padding: 1rem;
+            overflow-y: auto;
+        }
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        #plot {
+            flex: 1;
+        }
+        .control-group {
+            margin-bottom: 1.5rem;
+        }
+        .control-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #555;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        select, input[type="text"] {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.95rem;
+            background: white;
+        }
+        select:focus, input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        .disease-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+            min-height: 36px;
+        }
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.3rem 0.6rem;
+            border-radius: 16px;
+            font-size: 0.85rem;
+            color: white;
+            cursor: default;
+        }
+        .chip .remove {
+            cursor: pointer;
+            font-weight: bold;
+            opacity: 0.8;
+        }
+        .chip .remove:hover {
+            opacity: 1;
+        }
+        .chip .count {
+            background: rgba(255,255,255,0.3);
+            padding: 0.1rem 0.4rem;
+            border-radius: 10px;
+            font-size: 0.75rem;
+        }
+        .add-disease {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .add-disease input {
+            flex: 1;
+        }
+        .btn {
+            padding: 0.5rem 1rem;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        .btn:hover {
+            background: #f0f0f0;
+        }
+        .btn-primary {
+            background: #3498db;
+            border-color: #3498db;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #2980b9;
+        }
+        .stats {
+            background: #ecf0f1;
+            padding: 0.75rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+        .stats-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.2rem 0;
+        }
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            font-size: 1.2rem;
+            color: #888;
+        }
+        .suggestions {
+            position: absolute;
+            background: white;
+            border: 1px solid #ddd;
+            border-top: none;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 100;
+            width: calc(100% - 70px);
+            border-radius: 0 0 4px 4px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .suggestion-item {
+            padding: 0.5rem;
+            cursor: pointer;
+        }
+        .suggestion-item:hover, .suggestion-item.selected {
+            background: #e8f4fc;
+        }
+        .search-wrapper {
+            position: relative;
+        }
+        .help-text {
+            font-size: 0.8rem;
+            color: #888;
+            margin-top: 0.5rem;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.3rem 0;
+        }
+        .legend-swatch {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+        }
+        .context-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        .context-toggle input {
+            width: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Mechanism Embedding Comparison</h1>
+        <a href="index.html">&larr; Back to Disease Explorer</a>
+    </div>
+    <div class="container">
+        <div class="sidebar">
+            <div class="control-group">
+                <label>Add Disease</label>
+                <div class="search-wrapper">
+                    <div class="add-disease">
+                        <input type="text" id="disease-search" placeholder="Type to search..." autocomplete="off">
+                        <button class="btn btn-primary" id="add-btn">Add</button>
+                    </div>
+                    <div class="suggestions" id="suggestions" style="display: none;"></div>
+                </div>
+                <p class="help-text">Search and add diseases to compare their pathophysiology mechanisms</p>
+            </div>
+
+            <div class="control-group">
+                <label>Selected Diseases</label>
+                <div class="disease-chips" id="disease-chips">
+                    <span style="color: #888; font-size: 0.9rem;">No diseases selected</span>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Reduction Method</label>
+                <select id="method-select">
+                    <option value="umap">UMAP</option>
+                    <option value="tsne">t-SNE</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>Display Options</label>
+                <div class="context-toggle">
+                    <input type="checkbox" id="show-context" checked>
+                    <label for="show-context" style="text-transform: none; font-weight: normal;">Show unselected as gray</label>
+                </div>
+                <div class="context-toggle">
+                    <input type="checkbox" id="show-labels">
+                    <label for="show-labels" style="text-transform: none; font-weight: normal;">Show mechanism labels</label>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Statistics</label>
+                <div class="stats">
+                    <div class="stats-row">
+                        <span>Total mechanisms:</span>
+                        <span id="stat-total">-</span>
+                    </div>
+                    <div class="stats-row">
+                        <span>Selected:</span>
+                        <span id="stat-selected">-</span>
+                    </div>
+                    <div class="stats-row">
+                        <span>Diseases available:</span>
+                        <span id="stat-diseases">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-group" id="legend-section" style="display: none;">
+                <label>Legend</label>
+                <div id="legend"></div>
+            </div>
+        </div>
+        <div class="main">
+            <div id="plot">
+                <div class="loading">Loading mechanism embeddings...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Color palette
+        const COLORS = [
+            '#636EFA', '#EF553B', '#00CC96', '#AB63FA', '#FFA15A',
+            '#19D3F3', '#FF6692', '#B6E880', '#FF97FF', '#FECB52'
+        ];
+        const GRAY = '#cccccc';
+
+        let data = null;
+        let selectedDiseases = [];
+        let currentMethod = 'umap';
+        let showContext = true;
+        let showLabels = false;
+        let suggestionIndex = -1;
+
+        function loadData() {
+            if (typeof window.MECHANISM_DATA === 'undefined') {
+                document.getElementById('plot').innerHTML =
+                    `<div class="loading">No mechanism data found.<br><br>
+                     Run:<br>
+                     <code>just embed-index-mechanisms</code><br>
+                     <code>just embed-mechanisms-data</code></div>`;
+                return;
+            }
+            data = window.MECHANISM_DATA;
+            initializeApp();
+        }
+
+        function initializeApp() {
+            // Set up event listeners
+            const searchInput = document.getElementById('disease-search');
+            const suggestions = document.getElementById('suggestions');
+
+            searchInput.addEventListener('input', (e) => {
+                const term = e.target.value.toLowerCase();
+                if (term.length < 1) {
+                    suggestions.style.display = 'none';
+                    return;
+                }
+                const matches = data.diseases
+                    .filter(d => d.toLowerCase().includes(term) && !selectedDiseases.includes(d))
+                    .slice(0, 10);
+
+                if (matches.length === 0) {
+                    suggestions.style.display = 'none';
+                    return;
+                }
+
+                suggestionIndex = -1;
+                suggestions.innerHTML = matches.map((d, i) =>
+                    `<div class="suggestion-item" data-disease="${d}">${d}</div>`
+                ).join('');
+                suggestions.style.display = 'block';
+
+                suggestions.querySelectorAll('.suggestion-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        addDisease(item.dataset.disease);
+                        searchInput.value = '';
+                        suggestions.style.display = 'none';
+                    });
+                });
+            });
+
+            searchInput.addEventListener('keydown', (e) => {
+                const items = suggestions.querySelectorAll('.suggestion-item');
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    suggestionIndex = Math.min(suggestionIndex + 1, items.length - 1);
+                    updateSuggestionHighlight(items);
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    suggestionIndex = Math.max(suggestionIndex - 1, 0);
+                    updateSuggestionHighlight(items);
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (suggestionIndex >= 0 && items[suggestionIndex]) {
+                        addDisease(items[suggestionIndex].dataset.disease);
+                        searchInput.value = '';
+                        suggestions.style.display = 'none';
+                    }
+                } else if (e.key === 'Escape') {
+                    suggestions.style.display = 'none';
+                }
+            });
+
+            document.getElementById('add-btn').addEventListener('click', () => {
+                const term = searchInput.value;
+                const match = data.diseases.find(d => d.toLowerCase() === term.toLowerCase());
+                if (match && !selectedDiseases.includes(match)) {
+                    addDisease(match);
+                    searchInput.value = '';
+                    suggestions.style.display = 'none';
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.search-wrapper')) {
+                    suggestions.style.display = 'none';
+                }
+            });
+
+            document.getElementById('method-select').addEventListener('change', (e) => {
+                currentMethod = e.target.value;
+                updatePlot();
+            });
+
+            document.getElementById('show-context').addEventListener('change', (e) => {
+                showContext = e.target.checked;
+                updatePlot();
+            });
+
+            document.getElementById('show-labels').addEventListener('change', (e) => {
+                showLabels = e.target.checked;
+                updatePlot();
+            });
+
+            // Update stats
+            document.getElementById('stat-total').textContent = data.points.length;
+            document.getElementById('stat-diseases').textContent = data.diseases.length;
+
+            updatePlot();
+        }
+
+        function updateSuggestionHighlight(items) {
+            items.forEach((item, i) => {
+                item.classList.toggle('selected', i === suggestionIndex);
+            });
+        }
+
+        function addDisease(disease) {
+            if (selectedDiseases.includes(disease) || selectedDiseases.length >= 10) return;
+            selectedDiseases.push(disease);
+            updateChips();
+            updatePlot();
+        }
+
+        function removeDisease(disease) {
+            selectedDiseases = selectedDiseases.filter(d => d !== disease);
+            updateChips();
+            updatePlot();
+        }
+
+        function updateChips() {
+            const container = document.getElementById('disease-chips');
+            if (selectedDiseases.length === 0) {
+                container.innerHTML = '<span style="color: #888; font-size: 0.9rem;">No diseases selected</span>';
+                document.getElementById('legend-section').style.display = 'none';
+                return;
+            }
+
+            // Count mechanisms per disease
+            const counts = {};
+            data.points.forEach(p => {
+                if (selectedDiseases.includes(p.disease)) {
+                    counts[p.disease] = (counts[p.disease] || 0) + 1;
+                }
+            });
+
+            container.innerHTML = selectedDiseases.map((d, i) => `
+                <span class="chip" style="background: ${COLORS[i % COLORS.length]}">
+                    ${d}
+                    <span class="count">${counts[d] || 0}</span>
+                    <span class="remove" onclick="removeDisease('${d.replace(/'/g, "\\'")}')">&times;</span>
+                </span>
+            `).join('');
+
+            // Update legend
+            const legend = document.getElementById('legend');
+            legend.innerHTML = selectedDiseases.map((d, i) => `
+                <div class="legend-item">
+                    <span class="legend-swatch" style="background: ${COLORS[i % COLORS.length]}"></span>
+                    <span>${d}</span>
+                </div>
+            `).join('');
+            document.getElementById('legend-section').style.display = 'block';
+        }
+
+        function updatePlot() {
+            if (!data) return;
+
+            const diseaseColorMap = {};
+            selectedDiseases.forEach((d, i) => {
+                diseaseColorMap[d] = COLORS[i % COLORS.length];
+            });
+
+            // Build traces
+            const traces = [];
+
+            // Context trace (unselected diseases)
+            if (showContext) {
+                const contextPoints = data.points.filter(p => !selectedDiseases.includes(p.disease));
+                if (contextPoints.length > 0) {
+                    traces.push({
+                        x: contextPoints.map(p => p[currentMethod][0]),
+                        y: contextPoints.map(p => p[currentMethod][1]),
+                        text: contextPoints.map(p => `<b>${p.mechanism}</b><br>Disease: ${p.disease}`),
+                        mode: 'markers',
+                        type: 'scatter',
+                        name: 'Other diseases',
+                        marker: {
+                            size: 6,
+                            color: GRAY,
+                            opacity: 0.3,
+                        },
+                        hoverinfo: 'text',
+                    });
+                }
+            }
+
+            // Selected disease traces
+            selectedDiseases.forEach((disease, i) => {
+                const points = data.points.filter(p => p.disease === disease);
+                if (points.length === 0) return;
+
+                traces.push({
+                    x: points.map(p => p[currentMethod][0]),
+                    y: points.map(p => p[currentMethod][1]),
+                    text: points.map(p => `<b>${p.mechanism}</b><br>Disease: ${p.disease}`),
+                    customdata: points.map(p => p.mechanism),
+                    mode: showLabels ? 'markers+text' : 'markers',
+                    type: 'scatter',
+                    name: disease,
+                    marker: {
+                        size: 12,
+                        color: COLORS[i % COLORS.length],
+                        opacity: 0.9,
+                        line: { width: 1, color: 'white' },
+                    },
+                    textposition: 'top center',
+                    textfont: { size: 9 },
+                    hoverinfo: 'text',
+                });
+            });
+
+            // Update stats
+            const selectedCount = data.points.filter(p => selectedDiseases.includes(p.disease)).length;
+            document.getElementById('stat-selected').textContent = selectedCount;
+
+            const layout = {
+                title: `Pathophysiology Mechanisms (${currentMethod.toUpperCase()})`,
+                xaxis: { title: `${currentMethod.toUpperCase()} 1`, zeroline: false },
+                yaxis: { title: `${currentMethod.toUpperCase()} 2`, zeroline: false },
+                hovermode: 'closest',
+                showlegend: true,
+                legend: { x: 1.02, y: 1 },
+                margin: { l: 60, r: 150, t: 60, b: 60 },
+            };
+
+            const config = {
+                responsive: true,
+                displayModeBar: true,
+            };
+
+            Plotly.newPlot('plot', traces, layout, config);
+        }
+
+        // Initialize on load
+        window.onload = loadData;
+    </script>
+</body>
+</html>

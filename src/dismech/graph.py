@@ -1,11 +1,13 @@
 """
-Build causal graphs from disorder data and generate Mermaid diagrams.
+Build causal graphs from disorder data and generate Mermaid diagrams and
+interactive D3.js pathograph JSON.
 
 This module extracts nodes (named elements) and edges (downstream/sequelae relationships)
 from disorder YAML data, performs referential integrity checks, and generates
-Mermaid flowchart code for visualization.
+Mermaid flowchart code and pathograph JSON for visualization.
 """
 
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -38,7 +40,8 @@ class CausalGraph:
 
     nodes: dict[str, NodeInfo] = field(default_factory=dict)
     edges: list[Edge] = field(default_factory=list)
-    orphan_targets: set[str] = field(default_factory=set)  # targets with no matching node
+    # targets with no matching node
+    orphan_targets: set[str] = field(default_factory=set)
     integrity_issues: list[str] = field(default_factory=list)
 
 
@@ -57,7 +60,8 @@ NODE_COLORS = {
 def _sanitize_node_id(name: str) -> str:
     """Convert a node name to a valid Mermaid node ID."""
     # Replace problematic characters with underscores
-    sanitized = name.replace(" ", "_").replace("-", "_").replace("(", "").replace(")", "")
+    sanitized = name.replace(" ", "_").replace(
+        "-", "_").replace("(", "").replace(")", "")
     sanitized = sanitized.replace(",", "").replace("/", "_").replace("'", "")
     # Ensure it starts with a letter
     if sanitized and not sanitized[0].isalpha():
@@ -121,7 +125,8 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
             if isinstance(edge_item, dict) and "target" in edge_item:
                 target = edge_item["target"]
                 graph.edges.append(
-                    Edge(source=source, target=target, predicate="causes", source_type="pathophysiology")
+                    Edge(source=source, target=target, predicate="causes",
+                         source_type="pathophysiology")
                 )
 
     # Collect edges from phenotype sequelae
@@ -137,14 +142,16 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
             if isinstance(edge_item, dict) and "target" in edge_item:
                 target = edge_item["target"]
                 graph.edges.append(
-                    Edge(source=source, target=target, predicate="leads_to", source_type="phenotype")
+                    Edge(source=source, target=target,
+                         predicate="leads_to", source_type="phenotype")
                 )
 
     # Check referential integrity
     for edge in graph.edges:
         if edge.target not in graph.nodes:
             graph.orphan_targets.add(edge.target)
-            graph.integrity_issues.append(f"Target '{edge.target}' (from '{edge.source}') not found in named elements")
+            graph.integrity_issues.append(
+                f"Target '{edge.target}' (from '{edge.source}') not found in named elements")
 
     return graph
 
@@ -162,7 +169,7 @@ def generate_mermaid(graph: CausalGraph) -> str:
     if not graph.edges:
         return ""
 
-    lines = ["graph TD"]
+    lines = ["graph LR"]
 
     # Track which nodes are actually used in edges
     used_nodes: set[str] = set()
@@ -197,13 +204,167 @@ def generate_mermaid(graph: CausalGraph) -> str:
         node_id = node_ids[name]
         if name in graph.orphan_targets:
             color = NODE_COLORS["orphan"]
-            lines.append(f"    style {node_id} fill:{color},stroke:#dc2626,stroke-dasharray: 5 5")
+            lines.append(
+                f"    style {node_id} fill:{color},stroke:#dc2626,stroke-dasharray: 5 5")
         elif name in graph.nodes:
             node_type = graph.nodes[name].node_type
             color = NODE_COLORS.get(node_type, "#f3f4f6")
             lines.append(f"    style {node_id} fill:{color}")
 
     return "\n".join(lines)
+
+
+def _extract_node_metadata(item: dict[str, Any]) -> dict[str, Any]:
+    """Extract rich metadata from a disorder section item for pathograph tooltips."""
+    meta: dict[str, Any] = {}
+
+    # Evidence count
+    evidence = item.get("evidence", []) or []
+    if evidence:
+        meta["evidence_count"] = len(evidence)
+
+    # Cell types
+    cell_types = item.get("cell_types", []) or []
+    if cell_types:
+        meta["cell_types"] = [
+            label for ct in cell_types if isinstance(ct, dict)
+            if (label := ct.get("preferred_term") or (ct.get("term", {}) or {}).get("label", ""))
+        ]
+
+    # Biological processes
+    processes = item.get("biological_processes", []) or []
+    if processes:
+        meta["biological_processes"] = [
+            label for bp in processes if isinstance(bp, dict)
+            if (label := bp.get("preferred_term") or (bp.get("term", {}) or {}).get("label", ""))
+        ]
+
+    # Genes
+    genes = item.get("genes", []) or []
+    if genes:
+        meta["genes"] = [
+            label for g in genes if isinstance(g, dict)
+            if (label := g.get("preferred_term") or (g.get("term", {}) or {}).get("label", ""))
+        ]
+
+    # Role (pathophysiology)
+    if item.get("role"):
+        meta["role"] = item["role"]
+
+    # Frequency
+    if item.get("frequency"):
+        meta["frequency"] = item["frequency"]
+
+    # Severity (phenotypes)
+    if item.get("severity"):
+        meta["severity"] = item["severity"]
+
+    # Phenotype term
+    pt = item.get("phenotype_term")
+    if isinstance(pt, dict):
+        term = pt.get("term")
+        if isinstance(term, dict) and term.get("id"):
+            meta["term_id"] = term["id"]
+
+    # Locations
+    locations = item.get("locations", []) or []
+    if locations:
+        meta["locations"] = [
+            label for loc in locations if isinstance(loc, dict)
+            if (label := loc.get("preferred_term") or (loc.get("term", {}) or {}).get("label", ""))
+        ]
+
+    # PDB structures (treatments)
+    pdb_structures = item.get("pdb_structures", []) or []
+    if pdb_structures:
+        meta["pdb_structures"] = [
+            {
+                k: s[k]
+                for k in ("pdb_id", "description", "resolution_angstrom",
+                           "method", "ligand", "target_protein")
+                if k in s and s[k] is not None
+            }
+            for s in pdb_structures
+            if isinstance(s, dict) and s.get("pdb_id")
+        ]
+
+    return meta
+
+
+def graph_to_json(graph: CausalGraph, disorder: dict[str, Any]) -> str:
+    """
+    Serialize a causal graph to JSON for the D3.js pathograph visualization.
+
+    Enriches nodes with metadata from the disorder data (evidence counts,
+    cell types, biological processes, genes, etc.) for interactive tooltips.
+
+    Args:
+        graph: CausalGraph with nodes and edges
+        disorder: Full parsed disorder YAML data
+
+    Returns:
+        JSON string with {nodes: [...], edges: [...], orphan_targets: [...]}
+    """
+    if not graph.edges:
+        return ""
+
+    # Build a lookup from item name -> raw item dict for metadata extraction
+    section_keys = [
+        "pathophysiology", "phenotypes", "environmental",
+        "genetic", "treatments", "biochemical",
+    ]
+    item_lookup: dict[str, dict[str, Any]] = {}
+    for section_key in section_keys:
+        for item in disorder.get(section_key, []) or []:
+            if isinstance(item, dict) and "name" in item:
+                item_lookup[item["name"]] = item
+
+    # Build node list (only nodes used in edges)
+    used_nodes: set[str] = set()
+    for edge in graph.edges:
+        used_nodes.add(edge.source)
+        used_nodes.add(edge.target)
+
+    nodes_json = []
+    for name in sorted(used_nodes):
+        node_info = graph.nodes.get(name)
+        is_orphan = name in graph.orphan_targets
+        node_type = node_info.node_type if node_info else ("orphan" if is_orphan else "unknown")
+        description = node_info.description if node_info else None
+
+        node_data: dict[str, Any] = {
+            "id": name,
+            "node_type": node_type,
+            "color": NODE_COLORS.get(node_type, "#f3f4f6"),
+            "is_orphan": is_orphan,
+        }
+        if description:
+            node_data["description"] = description
+
+        # Enrich with metadata from the raw disorder item
+        raw_item = item_lookup.get(name)
+        if raw_item:
+            meta = _extract_node_metadata(raw_item)
+            if meta:
+                node_data["meta"] = meta
+
+        nodes_json.append(node_data)
+
+    edges_json = [
+        {
+            "source": edge.source,
+            "target": edge.target,
+            "predicate": edge.predicate,
+            "is_orphan": edge.target in graph.orphan_targets,
+        }
+        for edge in graph.edges
+    ]
+
+    return json.dumps({
+        "nodes": nodes_json,
+        "edges": edges_json,
+        "orphan_targets": sorted(graph.orphan_targets),
+    })
 
 
 def validate_all_disorders(input_dir: Path) -> dict[str, list[str]]:
@@ -219,12 +380,15 @@ def validate_all_disorders(input_dir: Path) -> dict[str, list[str]]:
     issues: dict[str, list[str]] = {}
 
     for yaml_path in sorted(input_dir.glob("*.yaml")):
+        if yaml_path.name.endswith(".history.yaml"):
+            continue
         with open(yaml_path) as f:
             disorder = yaml.safe_load(f)
 
         graph = build_causal_graph(disorder)
         if graph.integrity_issues:
-            issues[disorder.get("name", yaml_path.stem)] = graph.integrity_issues
+            issues[disorder.get("name", yaml_path.stem)
+                   ] = graph.integrity_issues
 
     return issues
 
@@ -233,9 +397,12 @@ def main():
     """CLI entry point for graph validation."""
     import argparse
 
-    parser = argparse.ArgumentParser(description="Validate causal graph integrity")
-    parser.add_argument("--validate", "-v", metavar="DIR", help="Validate all disorders in directory")
-    parser.add_argument("--show", "-s", metavar="FILE", help="Show Mermaid diagram for a single file")
+    parser = argparse.ArgumentParser(
+        description="Validate causal graph integrity")
+    parser.add_argument("--validate", "-v", metavar="DIR",
+                        help="Validate all disorders in directory")
+    parser.add_argument("--show", "-s", metavar="FILE",
+                        help="Show Mermaid diagram for a single file")
 
     args = parser.parse_args()
 

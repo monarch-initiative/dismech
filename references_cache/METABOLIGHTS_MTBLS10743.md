@@ -1,0 +1,11 @@
+---
+reference_id: "METABOLIGHTS:MTBLS10743"
+title: Metabolomic Changes in Idiopathic and GBA1 Parkinson’s Disease
+content_type: abstract_only
+---
+
+# Metabolomic Changes in Idiopathic and GBA1 Parkinson’s Disease
+
+## Content
+
+<p><u>Background</u>&nbsp;Variants in the β-glucocerebrosidase (GBA1) gene are the commonest genetic risk factor for Parkinson Disease (PD). Here, we use mass spectrometry based metabolomics to analyse serum and sebum samples from 50 genotyped participants and find differences in lipid and sugar regulation, oxidative stress and the production of amino acids and neurotransmitters which distinguish&nbsp;GBA1-PD from iPD. A subset of highly ranked features also correlate to&nbsp;GBA1&nbsp;variant severity.</p><p><u>Methods&nbsp;</u>Randomised and blinded serum samples from&nbsp;GBA1-PD and iPD participants (n=50) were analysed by Liquid Chromatography – Mass Spectrometry (LC-MS) and Gas Chromatography – Mass Spectrometry (GC-MS), and sebum samples by headspace GC-MS. After deconvolution and alignment of data, three models were created:&nbsp;GBA1-PD&nbsp;vs. iPD, severity of&nbsp;GBA1&nbsp;variant, and drug naïve&nbsp;vs.&nbsp;medicated.</p><p><u>Findings</u>&nbsp;Differences in metabolomic signatures were seen between&nbsp;GBA1-PD and iPD in sebum and serum with good specificity and sensitivity. Significant pathways in serum included sphingolipid metabolism, amino sugar metabolism and amino acid pathways, whereas significant features between groups in sebum are hypothesised to be lipid degradation products. Several highly ranked features displayed regulation with variant severity. When separating participants according to medication status, we see separation by supervised analysis by all analytical techniques.</p><p><u>Interpretation</u>&nbsp;Significant pathways and metabolites between&nbsp;GBA1-PD and iPD display alterations in sphingolipids. Other features and pathways that may be related include amino sugar metabolism and lipid breakdown products in sebum. Together, significant features indicate possible changes in mechanisms of oxidative stress and neurotransmitter precursors.</p>

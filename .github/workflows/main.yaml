@@ -19,20 +19,37 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        python-version: ["3.13"]
       fail-fast: false
 
     steps:
 
       # https://github.com/actions/checkout
       - name: Check out repository
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
 
+      - name: Check for changes
+        uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          list-files: shell
+          filters: |
+            src:
+              - 'src/**'
+              - 'tests/**'
+              - 'pyproject.toml'
+              - 'uv.lock'
+            kb_disorders:
+              - 'kb/disorders/**/*.yaml'
+              - '!kb/disorders/**/*.history.yaml'
+            kb_comorbidities:
+              - 'kb/comorbidities/**/*.yaml'
+
       # https://github.com/astral-sh/setup-uv
       - name: Install uv
-        uses: astral-sh/setup-uv@v6.4.3
+        uses: astral-sh/setup-uv@v7
         with:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
@@ -40,7 +57,7 @@ jobs:
 
       # https://github.com/actions/setup-python
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5.6.0
+        uses: actions/setup-python@v6.2.0
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -49,7 +66,70 @@ jobs:
           uv tool install rust-just
 
       - name: Install project
-        run: uv sync --dev
+        run: uv sync --dev --group export
+
+      - name: Validate schema term references
+        run: |
+          uv run python - <<'PY'
+          from pathlib import Path
+          from linkml_term_validator.models import ValidationConfig
+          from linkml_term_validator.validator import EnumValidator
+
+          schema = Path("src/dismech/schema/dismech.yaml")
+          validator = EnumValidator(
+              ValidationConfig(oak_config_path=Path("conf/oak_config.yaml"))
+          )
+          result = validator.validate_schema(schema)
+          unresolved = [issue for issue in result.issues if issue.actual_label is None]
+
+          print(f"Checked {result.total_meanings_checked} schema meaning fields")
+
+          if unresolved:
+              print("Unresolved ontology terms found:")
+              for issue in unresolved:
+                  print(f"- {issue.enum_name}.{issue.value_name}: {issue.meaning}")
+              raise SystemExit(1)
+
+          print("All schema meaning fields resolved to ontology terms")
+          PY
+
+      - name: Lint with ruff
+        run: uvx ruff check .
+
+      - name: Validate changed disorder KB files
+        if: steps.changes.outputs.kb_disorders == 'true'
+        run: |
+          echo "Validating changed disorder KB files..."
+          for f in ${{ steps.changes.outputs.kb_disorders_files }}; do
+            if [[ "$f" == kb/disorders/* && "$f" == *.yaml && "$f" != *.history.yaml ]]; then
+              if [[ ! -f "$f" ]]; then
+                echo "Skipping deleted file: $f"
+                continue
+              fi
+              echo "=== Validating disorder: $f ==="
+              just validate "$f"
+            else
+              echo "Skipping non-disorder file: $f"
+            fi
+          done
+
+      - name: Validate changed comorbidity KB files
+        if: steps.changes.outputs.kb_comorbidities == 'true'
+        run: |
+          echo "Validating changed comorbidity KB files..."
+          for f in ${{ steps.changes.outputs.kb_comorbidities_files }}; do
+            if [[ "$f" == kb/comorbidities/* && "$f" == *.yaml ]]; then
+              if [[ ! -f "$f" ]]; then
+                echo "Skipping deleted file: $f"
+                continue
+              fi
+              echo "=== Validating comorbidity: $f ==="
+              just validate-comorbidity "$f"
+            else
+              echo "Skipping non-comorbidity file: $f"
+            fi
+          done
 
       - name: Run test suite
+        if: steps.changes.outputs.src == 'true'
         run: just test

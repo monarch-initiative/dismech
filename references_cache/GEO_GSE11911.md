@@ -1,0 +1,11 @@
+---
+reference_id: "GEO:GSE11911"
+title: Gene expression profiling of experimental asthma reveals a possible role of paraoxonase-1 in asthma
+content_type: summary
+---
+
+# Gene expression profiling of experimental asthma reveals a possible role of paraoxonase-1 in asthma
+
+## Content
+
+Background: Several studies indicate that asthma is a polygenic disease, and its complexity originates from the interaction of an unknown number of genes with environmental factors. Objective: In this study we aimed to identify new genes, gene groups and pathways involved in the pathogenesis of experimental asthma. Methods: In an ovalbumin-induced murine model of asthma we applied microarray gene expression analysis of the lung at different time points in the asthmatic process. Advanced statistical methods were used to relate gene expression changes to cellular processes and to integrate our results into multiple levels of information available in public databases. Results: According to the observed marked neutrophil infiltration found early, at 4 hours after the first allergen challenge, gene expression pattern reflected mainly an acute inflammatory response and strong chemotactic activity. At 24 hours after the third allergen challenge, gene set enrichment analysis revealed significant overrepresentation of gene sets corresponding to Th2 type inflammation models. Among the top downregulated transcripts, an antioxidant enzyme, paraoxonase-1 (PON1) was identified. Reduced PON1 protein expression in the lung was confirmed by immunohistochemical analysis. In human asthmatic patients we found that serum PON1 activity was reduced at exacerbation, but increased parallel with improving asthma symptoms. PON1 gene polymorphisms did not influence the susceptibility to the disease. Conclusion: Our observations suggest that an altered PON1 activity might be involved in the pathogenesis of asthma, and PON1 might be a potential new therapeutic target as well as a new diagnostic tool for following up the effect of therapy.

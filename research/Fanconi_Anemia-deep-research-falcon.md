@@ -1,10 +1,10 @@
 ---
 provider: falcon
 model: Edison Scientific Literature
-cached: false
-start_time: '2025-12-15T09:13:14.084752'
-end_time: '2025-12-15T09:20:37.256618'
-duration_seconds: 443.17
+cached: true
+start_time: '2026-02-14T10:37:06.557355'
+end_time: '2026-02-14T10:37:06.559130'
+duration_seconds: 0.0
 template_file: templates/disease_pathophysiology_research.md
 template_variables:
   disease_name: Fanconi Anemia
