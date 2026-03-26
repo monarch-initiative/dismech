@@ -24,7 +24,6 @@ from biolink_model.datamodel.pydanticmodel_v2 import (
     MacromolecularComplex,
     MolecularActivity,
     MolecularEntity,
-    NamedThing,
     OrganismTaxon,
     Pathway,
     PhenotypicFeature,
