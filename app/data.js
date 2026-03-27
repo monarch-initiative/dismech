@@ -19275,7 +19275,7 @@ window.searchData = [
       "Ophthalmological Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-02-17T21:53:14Z",
+    "updated_date": "2026-03-27T16:25:00Z",
     "subtypes": [
       "Primary Open-Angle Glaucoma",
       "Angle-Closure Glaucoma",
@@ -42730,6 +42730,90 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "6",
     "causal_graph_longest_path": "1"
+  },
+  {
+    "name": "Seborrheic Dermatitis",
+    "disease_id": "MONDO:0006608",
+    "category": "Complex",
+    "parents": [
+      "Dermatological Disease",
+      "Inflammatory Disease"
+    ],
+    "creation_date": "2026-03-26T21:48:42Z",
+    "updated_date": "2026-03-27T15:35:00Z",
+    "subtypes": [
+      "Adult",
+      "Infantile"
+    ],
+    "description": "Seborrheic dermatitis is a chronic relapsing inflammatory dermatosis of sebaceous-rich skin, especially the scalp, face, upper trunk, and body folds. Disease expression reflects a multifactorial interaction among Malassezia- associated microbiome imbalance, dysregulated cutaneous inflammation, skin barrier dysfunction, and sebaceous/lipid abnormalities. Adult disease is typically chronic and recurrent, whereas infantile disease often presents as cradle cap and is usually self-limited.",
+    "pathophysiology": [
+      "Sebaceous gland activity and sebum-rich cutaneous milieu",
+      "Malassezia colonization of sebum-rich skin",
+      "Malassezia-associated free fatty acid release",
+      "Keratinocyte TLR2 sensing of Malassezia",
+      "Keratinocyte chemokine and antimicrobial peptide induction",
+      "NLRP3 inflammasome activation",
+      "Cutaneous microbiome dysbiosis",
+      "Repressed lipid-metabolic programs in lesional skin",
+      "Skin barrier dysfunction",
+      "Dysregulated cutaneous inflammation",
+      "Th1-skewed immune response",
+      "Th17/Th22 inflammatory amplification"
+    ],
+    "cell_types": [
+      "sebocyte",
+      "keratinocyte",
+      "T-helper 1 cell",
+      "T-helper 17 cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000317",
+      "CL:0000312",
+      "CL:0000545",
+      "CL:0000899"
+    ],
+    "biological_processes": [
+      "lipid metabolism",
+      "inflammatory response",
+      "NLRP3 inflammasome complex assembly",
+      "T-helper 1 type immune response",
+      "T-helper 17 type immune response"
+    ],
+    "phenotypes": [
+      "Greasy scale",
+      "Erythematous patches and plaques",
+      "Pruritus",
+      "Postinflammatory pigment alteration"
+    ],
+    "phenotype_categories": [
+      "Dermatological"
+    ],
+    "phenotype_hpo_categories": [
+      "Integument"
+    ],
+    "phenotype_ids": [
+      "HP:0040189",
+      "HP:0025474",
+      "HP:0000989",
+      "HP:0001000"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Topical antifungal therapy",
+      "Topical corticosteroid or calcineurin inhibitor therapy",
+      "Topical roflumilast foam"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Seborrheic_Dermatitis.yaml",
+    "page_url": "../pages/disorders/Seborrheic_Dermatitis.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 12,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Secondary Hypertension",
