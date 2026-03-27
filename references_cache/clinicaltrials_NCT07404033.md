@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT07404033
+reference_id: "clinicaltrials:NCT07404033"
 title: "A Multicenter, Randomized, Double-Blind, Placebo-Controlled Phase Ⅰb Study to Evaluate the Safety, Tolerability, Pharmacokinetics and Preliminary Efficacy of Different Concentrations of ZYG24002 Lotion in Adult Patients With Mild to Moderate Seborrheic Dermatitis"
 content_type: summary
 ---
