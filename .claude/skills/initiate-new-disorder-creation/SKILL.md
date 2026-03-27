@@ -87,6 +87,7 @@ not perform your own deep research.
 
 Depending on user preference, use one or more of the following commands
 
+- `just research-disorder asta DISORDER_NAME`
 - `just research-disorder perplexity DISORDER_NAME`
 - `just research-disorder falcon DISORDER_NAME`
 - `just research-disorder openai DISORDER_NAME`
@@ -94,9 +95,32 @@ Depending on user preference, use one or more of the following commands
 
 Use the filesystem-friendly name here.
 
-On completion (may be several minutes, be patient), this will create a file here:
+`asta` requires `ASTA_API_KEY` to be exported in the environment. Asta behaves
+more like a literature search agent than a full narrative deep-research agent:
+its outputs are primarily lists of relevant papers, usually with summaries,
+evidence snippets, and relevance scores. The `just research-disorder asta ...`
+command automatically uses an Asta-specific template tailored for this output
+style.
 
-`./research/DISORDER_NAME.md`
+Timing varies by provider. As a rule of thumb:
+
+- `asta` usually completes in seconds
+- `openai` and `perplexity` usually complete within a few minutes
+- `falcon` may take 20 minutes or longer
+- `cyberian` runtime varies with workflow complexity and can also be long-running
+
+On completion, this will create a file here:
+
+`./research/DISORDER_NAME-deep-research-PROVIDER.md`
+
+and a separate citations file here:
+
+`./research/DISORDER_NAME-deep-research-PROVIDER.md.citations.md`
+
+For example:
+
+- `research/Urticaria-deep-research-openai.md`
+- `research/Urticaria-deep-research-openai.md.citations.md`
 
 You MUST read this before progressing.
 
