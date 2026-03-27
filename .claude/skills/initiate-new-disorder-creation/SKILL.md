@@ -139,6 +139,122 @@ The `just fetch-reference` command can accept multiple identifiers of different 
 
 You can also find additional references relevant to individual assertions, on top of what is in the deep research.
 
+#### Finding Additional References
+
+Use PubMed first whenever possible. Use Semantic Scholar as a backup discovery
+tool if PubMed search is not finding the paper you want.
+
+##### Search the PubMed API
+
+Use the NCBI E-utilities API to search PubMed directly. A typical workflow is:
+
+1. Search for candidate papers with `esearch`
+2. Inspect metadata with `esummary`
+3. Retrieve the abstract text with `efetch` if needed
+3. Cache the paper locally with `just fetch-reference`
+
+Example search:
+
+```bash
+curl -sG "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi" \
+  --data-urlencode "db=pubmed" \
+  --data-urlencode "retmode=json" \
+  --data-urlencode "term=<SEARCH_TERMS>"
+```
+
+Example summary lookup once you have one or more PMIDs:
+
+```bash
+curl -sG "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi" \
+  --data-urlencode "db=pubmed" \
+  --data-urlencode "retmode=json" \
+  --data-urlencode "id=<PMID1>,<PMID2>"
+```
+
+Example abstract fetch:
+
+```bash
+curl -sG "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi" \
+  --data-urlencode "db=pubmed" \
+  --data-urlencode "id=<PMID>" \
+  --data-urlencode "rettype=abstract" \
+  --data-urlencode "retmode=text"
+```
+
+Once you identify the paper you want, cache it with:
+
+```bash
+just fetch-reference PMID:nnnnnnn
+```
+
+##### Search the Semantic Scholar API as a backup
+
+If PubMed search is sparse or the deep research output only gives you a title,
+DOI, or Semantic Scholar paper ID, use the Semantic Scholar API to find the
+paper and recover identifiers.
+
+Important: the Semantic Scholar search endpoint may return `429 Too
+Many Requests` without an API key, even for simple queries. If you have a
+Semantic Scholar API key, include it as an `x-api-key` header. If you do not,
+use Semantic Scholar as a secondary/manual fallback rather than your primary
+search method.
+
+Example paper search (often requires an API key):
+
+```bash
+curl -sG "https://api.semanticscholar.org/graph/v1/paper/search" \
+  -H "x-api-key: <SEMANTIC_SCHOLAR_API_KEY>" \
+  --data-urlencode "query=<SEARCH_TERMS>" \
+  --data-urlencode "limit=10" \
+  --data-urlencode "fields=title,year,externalIds,url"
+```
+
+Example lookup by Semantic Scholar paper ID (this should work without an
+API key):
+
+```bash
+curl -s "https://api.semanticscholar.org/graph/v1/paper/<S2_PAPER_ID>?fields=title,year,externalIds,url"
+```
+
+Prefer records that expose `externalIds` such as DOI, PubMed, or PMC.
+
+##### Get a PMID and PMCID from a DOI or Semantic Scholar ID
+
+If you have a DOI, use the PMC ID Converter API to recover PubMed/PMC IDs when
+available:
+
+```bash
+curl -sG "https://pmc.ncbi.nlm.nih.gov/tools/idconv/api/v1/articles/" \
+  --data-urlencode "ids=<DOI>" \
+  --data-urlencode "format=json" \
+  --data-urlencode "tool=dismech" \
+  --data-urlencode "email=<YOUR_EMAIL>"
+```
+
+This can return:
+
+- `pmid`
+- `pmcid`
+- the normalized `doi`
+
+If you start from a Semantic Scholar paper ID:
+
+1. Query the Semantic Scholar paper endpoint and inspect `externalIds`
+2. If `PubMed` is present, use that PMID directly
+3. If `PMC` is present, keep the PMCID as supporting metadata
+4. If only `DOI` is present, run the DOI through the PMC ID Converter API above
+
+Then cache the article locally with whichever identifier you recovered:
+
+```bash
+just fetch-reference PMID:nnnnnnn
+just fetch-reference DOI:10.xxxx/xxxxx
+```
+
+Use PMID-based references in YAML evidence whenever possible. Keep PMCID as
+useful supporting metadata, but Dismech evidence validation is centered on PMID
+abstracts.
+
 Then use this to provide snippets/excerpts and explanations for assertions. For example, for a phenotype assertion:
 
 ```
@@ -261,9 +377,6 @@ Once you have made the changes:
    - Key PMIDs used
    - Validation results
    - Any issues you found but intentionally did NOT fix (with reasoning)
-
-
-
 
 
 ## File Naming Convention
