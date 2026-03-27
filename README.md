@@ -165,10 +165,25 @@ You can also ask the agent open-ended questions, request targeted edits, or run 
 > Which files have the lowest compliance scores?
 ```
 
-**Optional — deep research provider:** For comprehensive literature search, set up an [Edison Scientific](https://platform.edisonscientific.com/) API key:
+**Optional — deep research providers:**
+
+For narrative-style deep research, set up an [Edison Scientific](https://platform.edisonscientific.com/) API key:
 ```bash
 export EDISON_API_KEY=your_key_here
 ```
+
+For literature-search-style retrieval via Asta, request an API key from [Allen AI Asta](https://allenai.org/asta/resources/mcp) and export:
+```bash
+export ASTA_API_KEY=your_key_here
+```
+
+Then run:
+```bash
+just research-disorder asta Liver_Cirrhosis
+```
+
+Asta outputs are typically literature packets rather than polished narrative reports:
+they prioritize relevant papers, summaries, snippets, and metadata such as PMID/DOI.
 
 ### Route 2: Use Claude Code on the web
 
