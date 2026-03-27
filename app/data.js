@@ -28353,7 +28353,7 @@ window.searchData = [
       "Hepatic Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-02-17T21:53:14Z",
+    "updated_date": "2026-03-27T16:35:00Z",
     "subtypes": [
       "Alcoholic Cirrhosis",
       "Viral Cirrhosis",
@@ -28379,7 +28379,7 @@ window.searchData = [
       "CL:1000398"
     ],
     "biological_processes": [
-      "Fibrosis",
+      "Collagen Biosynthesis",
       "Protein Synthesis"
     ],
     "phenotypes": [
