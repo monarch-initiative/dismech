@@ -559,6 +559,7 @@ templates_dir := "templates"
 # Deep research on a disorder using specified provider
 # Examples:
 #   just research-disorder perplexity Marfan_Syndrome
+#   just research-disorder asta Liver_Cirrhosis
 #   just research-disorder openai Huntingtons_Disease --model gpt-4o
 #   just research-disorder cborg Crohn_Disease
 [group('Research')]
@@ -575,10 +576,11 @@ research-disorder provider disorder *args="":
     disease_name=$(grep "^name:" "$yaml_file" | head -1 | sed 's/name: *//' | tr '_' ' ')
     category=$(grep "^category:" "$yaml_file" | head -1 | sed 's/category: *//' || echo "")
     output_file="{{research_dir}}/{{disorder}}-deep-research-{{provider}}.md"
+    template_file=$([[ "{{provider}}" == "asta" ]] && echo "{{templates_dir}}/disease_pathophysiology_research_asta.md" || echo "{{templates_dir}}/disease_pathophysiology_research.md")
     echo "Researching: $disease_name ({{provider}}) -> $output_file"
     provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
     uv run deep-research-client research \
-        --template {{templates_dir}}/disease_pathophysiology_research.md \
+        --template "$template_file" \
         --var "disease_name=$disease_name" \
         --var "mondo_id=" \
         --var "category=$category" \
