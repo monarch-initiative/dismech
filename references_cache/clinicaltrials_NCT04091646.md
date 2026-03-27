@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT04091646
+reference_id: "clinicaltrials:NCT04091646"
 title: "A Phase 2b, 8-Week, Parallel Group, Double Blind, Vehicle-Controlled Study of the Safety and Efficacy of ARQ-154 Foam 0.3% Administered QD in Subjects With Seborrheic Dermatitis"
 content_type: summary
 ---
