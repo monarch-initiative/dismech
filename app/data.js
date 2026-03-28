@@ -47911,24 +47911,34 @@ window.searchData = [
       "kidney neoplasm"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-03-18T00:00:00Z",
+    "updated_date": "2026-03-28T00:00:00Z",
     "subtypes": [
-      "Favorable Histology Wilms Tumor",
-      "Anaplastic Wilms Tumor",
-      "Bilateral Wilms Tumor"
+      "Favorable Histology",
+      "Anaplastic",
+      "Bilateral"
     ],
     "description": "Wilms tumor (nephroblastoma) is the most common pediatric kidney malignancy, typically affecting children under 5 years of age. It exemplifies the concept of developmental cancer, arising from persistent embryonic renal blastemal cells that fail to undergo normal differentiation. Multiple genes are implicated including WT1, WTX (AMER1), and CTNNB1, which together regulate kidney development and Wnt signaling. Wilms tumor is one of the great successes of pediatric oncology, with cure rates exceeding 90% for favorable histology tumors through a combination of surgery, chemotherapy, and risk-adapted radiation. Anaplastic histology confers worse prognosis.",
     "pathophysiology": [
       "WT1 Inactivation",
-      "WTX/CTNNB1 Wnt Pathway Activation",
-      "Blocked Nephron Differentiation"
+      "WTX (AMER1) Inactivation",
+      "CTNNB1 Activating Mutation",
+      "Blocked Nephron Differentiation",
+      "IGF2 Loss of Imprinting"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "metanephric mesenchyme stem cell",
+      "nephrogenic zone cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000324",
+      "CL:0009019"
+    ],
     "biological_processes": [
       "cell differentiation",
+      "metanephros development",
       "Wnt signaling pathway",
-      "cell population proliferation"
+      "cell population proliferation",
+      "nephron development"
     ],
     "phenotypes": [
       "Abdominal Mass",
@@ -47936,7 +47946,8 @@ window.searchData = [
       "Hypertension",
       "Fever",
       "Aniridia",
-      "Hemihypertrophy"
+      "Hemihypertrophy",
+      "Abdominal Pain"
     ],
     "phenotype_categories": [
       "Abdominal",
@@ -47948,6 +47959,7 @@ window.searchData = [
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
+      "Constitutional",
       "Digestive",
       "Eye",
       "Genitourinary",
@@ -47961,7 +47973,8 @@ window.searchData = [
       "HP:0000822",
       "HP:0001945",
       "HP:0000526",
-      "HP:0001528"
+      "HP:0001528",
+      "HP:0002027"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -47972,7 +47985,12 @@ window.searchData = [
       "WT1 Mutations",
       "CTNNB1 Mutations",
       "WTX (AMER1) Mutations",
-      "Loss of 11p15 Imprinting"
+      "Loss of 11p15 Imprinting",
+      "Chromosome 1q Gain",
+      "Combined LOH 1p/16q",
+      "TP53 Mutations",
+      "DROSHA and DICER1 Mutations",
+      "SIX1/SIX2 Mutations"
     ],
     "treatments": [
       "Surgical Resection",
@@ -47980,14 +47998,12 @@ window.searchData = [
       "Radiation Therapy"
     ],
     "environmental": [],
-    "biochemical": [
-      "Histopathology"
-    ],
+    "biochemical": [],
     "source_file": "Wilms_Tumor.yaml",
     "page_url": "../pages/disorders/Wilms_Tumor.html",
-    "num_phenotypes": 6,
-    "num_pathophysiology": 3,
-    "num_genes": 4,
+    "num_phenotypes": 7,
+    "num_pathophysiology": 5,
+    "num_genes": 9,
     "num_treatments": 3,
     "causal_graph_edges": "1",
     "causal_graph_longest_path": "1"
