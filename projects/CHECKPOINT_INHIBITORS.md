@@ -8,10 +8,10 @@
 
 | Disease | Drugs Referenced | Has `target_mechanisms`? | Has Immune Evasion Pathophys Node? |
 |---------|-----------------|------------------------|------------------------------------|
-| MSI-High Colorectal Cancer | pembrolizumab, nivolumab, ipilimumab, dostarlimab | No | Yes ("PD-L1 Upregulation and Immune Evasion") |
-| Clear Cell Renal Cell Carcinoma | nivolumab, pembrolizumab, ipilimumab | No | Partial |
-| Hepatocellular Carcinoma | atezolizumab, durvalumab, tremelimumab | No | Yes (VEGF-mediated immunosuppression) |
-| BRAF V600 Mutant Melanoma | anti-PD-1, anti-CTLA-4 (narrative) | No | Partial |
+| MSI-High Colorectal Cancer | pembrolizumab, nivolumab, ipilimumab, dostarlimab | Yes | Yes ("PD-L1 Upregulation and Immune Evasion") |
+| Clear Cell Renal Cell Carcinoma | nivolumab, pembrolizumab, ipilimumab | Yes | Yes ("Immune Evasion via PD-L1 and Immunosuppressive Microenvironment") |
+| Hepatocellular Carcinoma | atezolizumab, durvalumab, tremelimumab | Yes | Yes ("Immune Evasion via PD-L1 and Immunosuppressive Microenvironment") |
+| BRAF V600 Mutant Melanoma | pembrolizumab, nivolumab, ipilimumab | Yes | Yes ("Immune Evasion via PD-L1 Upregulation") |
 | NRAS Mutant Melanoma | checkpoint inhibitors (narrative) | No | Partial |
 | KIT Mutant Melanoma | checkpoint inhibitors (narrative) | No | Partial |
 | Cutaneous Squamous Cell Carcinoma | cemiplimab | No | Partial |
@@ -20,7 +20,7 @@
 | KRAS G12C Mutant NSCLC | checkpoint inhibitors (narrative) | No | Partial |
 | Cervical Cancer | pembrolizumab | No | Partial |
 | Triple-Negative Breast Cancer | atezolizumab/pembrolizumab (narrative) | No | Yes (immunomodulatory subtype) |
-| Nasopharyngeal Carcinoma | checkpoint inhibitors (narrative) | No | Yes ("Immune Evasion") |
+| Nasopharyngeal Carcinoma | PD-1 inhibitors | Yes | Yes ("Immune Evasion") |
 | HPV-Positive Head and Neck Cancer | checkpoint inhibitors (narrative) | No | Yes ("Immune Evasion") |
 | Merkel Cell Carcinoma | avelumab (narrative) | No | Partial |
 | MSI-High Endometrial Cancer | checkpoint inhibitors (narrative) | No | Partial |
@@ -46,7 +46,7 @@
 
 ### Treatment side
 - **No `target_mechanisms` links**: Not a single checkpoint inhibitor treatment uses `target_mechanisms` to connect back to the immune evasion pathophysiology node it addresses. This is the core structural gap.
-- **All mapped to generic `MAXO:0000058` (pharmacotherapy)**: No MAXO term captures "immune checkpoint blockade" as a treatment class. MAXO may have `MAXO:0001390` (immune checkpoint inhibitor therapy) -- needs verification.
+- **All mapped to generic `MAXO:0000058` (pharmacotherapy) or `MAXO:0001002` (immunotherapy procedure)**: No specific MAXO term for "immune checkpoint inhibitor therapy" exists. The best available terms are `MAXO:0000058` (pharmacotherapy) and `MAXO:0001002` (immunotherapy procedure).
 - **No shared mechanism-of-action concept**: Each disease independently describes what PD-1/PD-L1 blockade does in its description text. There's no reusable structure.
 
 ### Pathophysiology side
@@ -80,8 +80,7 @@ Pathophysiology side (the disease process being targeted):
   1. Neoantigen Generation → high TMB produces immunogenic peptides
   2. Anti-Tumor Immune Response → CD8+ T cells recognize and infiltrate tumor
   3. Adaptive Immune Resistance → tumor upregulates PD-L1/PD-L2 in response to IFN-gamma
-  4. T Cell Exhaustion → chronic antigen stimulation + checkpoint engagement → dysfunctional T cells
-  5. Immune Escape → tumor evades destruction
+  4. T Cell Exhaustion and Immune Escape → chronic checkpoint engagement → dysfunctional T cells → tumor evades destruction
 
 Treatment side (the therapeutic intervention):
   Anti-PD-1/PD-L1 therapy:
