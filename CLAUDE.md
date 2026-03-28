@@ -246,6 +246,32 @@ Use OAK to search for MAXO terms:
 uv run runoak -i sqlite:obo:maxo search "physical therapy"
 ```
 
+### Subtype Naming Conventions
+
+The `name` field on `Subtype` (in `has_subtypes`) serves as the **foreign key target** — other sections
+(phenotypes, biochemical, genetic, prevalence, progression, histopathology) reference it via their
+`subtype` field. A validation test (`test_subtype_foreign_keys`) enforces that all `subtype` values
+match a defined `has_subtypes[].name`.
+
+**Naming rules for `name`:**
+- Keep names short and slug-friendly: `Type 1`, `MEN2A`, `Vascular EDS`, `FA-A`
+- Avoid parenthetical qualifiers, long descriptions, or special characters
+- Use `display_name` (optional) for verbose/human-readable labels when the `name` is too terse
+
+**Example:**
+```yaml
+has_subtypes:
+- name: Type 1
+  display_name: Type 1 (Non-neuronopathic)
+  description: Most common form, no CNS involvement...
+
+phenotypes:
+- name: Seizures
+  subtype: Type 1    # references the short name
+```
+
+**When `display_name` is set**, renderers show it instead of `name`. When absent, `name` is displayed directly.
+
 ### Clinical Trials
 
 Clinical trials can be added to disease entries with evidence validated against ClinicalTrials.gov:
@@ -421,3 +447,27 @@ just gen-dashboard
 ```
 
 The dashboard shows priority curation targets - the 10 files with lowest compliance scores.
+
+## Git Safety Rules
+
+### Never force-push someone else's branch
+If a PR was authored by another contributor, **do not** force-push, rebase, or reset their branch. Instead:
+1. Ask the original author to rebase/fix conflicts themselves
+2. Or create a separate fix commit on top of their work (no force-push)
+3. Only force-push branches that you (or your orchestrator) created
+
+### Always use targeted git add
+Never use `git add -A` or `git add .` in worktrees. Only stage files relevant to the task:
+```bash
+git add kb/disorders/ references_cache/ research/
+```
+This prevents committing generated files (HTML, schema docs, cache CSVs) that cause merge conflicts.
+
+### Commit and push as final step
+Every task should end with: validate → targeted git add → commit → push. Don't leave uncommitted work for someone else to discover.
+
+### Post PR comments explaining your changes
+After pushing fixes, comment on the PR summarizing:
+- What you changed and why
+- What you intentionally did NOT change, with reasoning
+- Validation results
