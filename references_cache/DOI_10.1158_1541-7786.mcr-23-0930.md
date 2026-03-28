@@ -1,7 +1,6 @@
 ---
 reference_id: "DOI:10.1158/1541-7786.mcr-23-0930"
-title: "<i>DROSHA</i>
-                    Regulates Mesenchymal Gene Expression in Wilms Tumor"
+title: "DROSHA Regulates Mesenchymal Gene Expression in Wilms Tumor"
 authors:
 - Patricia D.B. Tiburcio
 - Kavita Desai
