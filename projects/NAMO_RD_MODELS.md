@@ -24,6 +24,8 @@ Each model should capture:
 - `experimental_model_type` for local coarse typing
 - `namo_type` for crosswalk to NAMO classes
 - `cell_source` and `culture_system` for translational interpretation
+- `recapitulated_phenotypes` for the disease manifestations approximated by the model
+- `modeled_pathophysiology` for the exact pathograph events represented by the model
 - disease-relevant `findings` and `evidence`
 
 ## NAMO Classes In Scope

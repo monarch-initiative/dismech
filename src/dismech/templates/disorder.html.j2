@@ -2004,31 +2004,31 @@
     {% endif %}
     {% endmacro %}
 
-    {% macro render_inheritance_meta(inh) %}
-    {% set has_meta = inh.inheritance_term or inh.penetrance or inh.penetrance_percentage or inh.expressivity or inh.de_novo_rate %}
+    {% macro render_inheritance_meta(inheritance) %}
+    {% set has_meta = inheritance.inheritance_term or inheritance.penetrance or inheritance.penetrance_percentage or inheritance.expressivity or inheritance.de_novo_rate %}
     {% if has_meta %}
     <div class="item-meta">
-        {% if inh.inheritance_term %}
+        {% if inheritance.inheritance_term %}
         <span class="tag tag-classification">
-            {{ inh.inheritance_term.preferred_term or (inh.inheritance_term.term and inh.inheritance_term.term.label) or 'Inheritance term' }}
+            {{ inheritance.inheritance_term.preferred_term or (inheritance.inheritance_term.term and inheritance.inheritance_term.term.label) or 'Inheritance term' }}
         </span>
         {% endif %}
-        {% if inh.penetrance %}
-        <span class="tag tag-classification">Penetrance: {{ inh.penetrance }}</span>
+        {% if inheritance.penetrance %}
+        <span class="tag tag-classification">Penetrance: {{ inheritance.penetrance }}</span>
         {% endif %}
-        {% if inh.penetrance_percentage %}
-        <span class="tag tag-classification">Penetrance %: {{ inh.penetrance_percentage }}</span>
+        {% if inheritance.penetrance_percentage %}
+        <span class="tag tag-classification">Penetrance %: {{ inheritance.penetrance_percentage }}</span>
         {% endif %}
-        {% if inh.expressivity %}
-        <span class="tag tag-classification">Expressivity: {{ inh.expressivity }}</span>
+        {% if inheritance.expressivity %}
+        <span class="tag tag-classification">Expressivity: {{ inheritance.expressivity }}</span>
         {% endif %}
-        {% if inh.de_novo_rate %}
-        <span class="tag tag-classification">De novo rate: {{ inh.de_novo_rate }}</span>
+        {% if inheritance.de_novo_rate %}
+        <span class="tag tag-classification">De novo rate: {{ inheritance.de_novo_rate }}</span>
         {% endif %}
     </div>
     {% endif %}
-    {% if inh.parent_of_origin_effect %}
-    <div class="item-desc"><strong>Parent-of-origin effect:</strong> {{ inh.parent_of_origin_effect }}</div>
+    {% if inheritance.parent_of_origin_effect %}
+    <div class="item-desc"><strong>Parent-of-origin effect:</strong> {{ inheritance.parent_of_origin_effect }}</div>
     {% endif %}
     {% endmacro %}
 
@@ -2077,7 +2077,10 @@
         {% set differentials_count = (disorder.differential_diagnoses or []) | length %}
         {% set datasets_count = (disorder.datasets or []) | length %}
         {% set trials_count = (disorder.clinical_trials or []) | length %}
-        {% set models_count = (disorder.computational_models or []) | length %}
+        {% set experimental_models_count = (disorder.experimental_models or []) | length %}
+        {% set animal_models_count = (disorder.animal_models or []) | length %}
+        {% set computational_models_count = (disorder.computational_models or []) | length %}
+        {% set models_count = experimental_models_count + animal_models_count + computational_models_count %}
         {% set reports_count = (report_sections or []) | length %}
         {% set ns = namespace(mappings_count=0) %}
         {% for mapping_list in (disorder.mappings or {}).values() %}
@@ -2534,23 +2537,23 @@
                 <h2 class="card-title">Inheritance</h2>
                 <span class="card-count">{{ disorder.inheritance | length }}</span>
             </div>
-            {% for inh in disorder.inheritance %}
+            {% for inheritance in disorder.inheritance %}
             <div class="item-box inheritance-box">
                 <div class="item-name">
-                    {{ inh.name }}
-                    {% if inh.inheritance_term and inh.inheritance_term.term %}
+                    {{ inheritance.name }}
+                    {% if inheritance.inheritance_term and inheritance.inheritance_term.term %}
                     <span class="phenotype-id">
-                        <a href="{{ inh.inheritance_term.term.id | curie_to_url }}" target="_blank">
-                            {{ inh.inheritance_term.term.id }}
+                        <a href="{{ inheritance.inheritance_term.term.id | curie_to_url }}" target="_blank">
+                            {{ inheritance.inheritance_term.term.id }}
                         </a>
                     </span>
                     {% endif %}
                 </div>
-                {% if inh.description %}
-                <div class="item-desc">{{ inh.description }}</div>
+                {% if inheritance.description %}
+                <div class="item-desc">{{ inheritance.description }}</div>
                 {% endif %}
-                {{ render_inheritance_meta(inh) }}
-                {{ render_evidence(inh.evidence) }}
+                {{ render_inheritance_meta(inheritance) }}
+                {{ render_evidence(inheritance.evidence) }}
             </div>
             {% endfor %}
         </div>
@@ -2610,8 +2613,8 @@
                             {% endfor %}
                         {% endif %}
                         {% if subtype.inheritance %}
-                            {% for inh in subtype.inheritance %}
-                            <span class="subtype-inheritance-tag">{{ inh.inheritance_term.preferred_term if inh.inheritance_term else inh }}</span>
+                            {% for inheritance in subtype.inheritance %}
+                            <span class="subtype-inheritance-tag">{{ inheritance.inheritance_term.preferred_term if inheritance.inheritance_term else inheritance }}</span>
                             {% endfor %}
                         {% endif %}
                     </div>
@@ -2671,7 +2674,7 @@
                 <span class="card-count">{{ disorder.pathophysiology | length }}</span>
             </div>
             {% for patho in disorder.pathophysiology %}
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box" id="patho-{{ patho.name | slugify }}">
                 <div class="item-name">{{ patho.name }}</div>
                 {% if patho.description %}
                 <div class="item-desc">{{ patho.description }}</div>
@@ -2969,8 +2972,8 @@
                 </div>
                 {% if gene.inheritance %}
                 <div class="item-meta">
-                    {% for inh in gene.inheritance %}
-                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">{{ inh.name }}</span>
+                    {% for inheritance in gene.inheritance %}
+                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">{{ inheritance.name }}</span>
                     {% endfor %}
                 </div>
                 {% endif %}
@@ -3208,6 +3211,295 @@
         </div>
         {% endif %}
 
+        <!-- Models -->
+        {% if disorder.experimental_models or disorder.animal_models or disorder.computational_models %}
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">🧪</div>
+                <h2 class="card-title">Models</h2>
+                <span class="card-count">{{ models_count }}</span>
+            </div>
+
+            {% if disorder.experimental_models %}
+            <div style="margin-bottom: 18px;">
+                <h3 style="font-size: 1rem; font-weight: 700; color: #312e81; margin: 0 0 10px 0;">Experimental Models <span style="color: var(--text-muted); font-weight: 600;">{{ disorder.experimental_models | length }}</span></h3>
+                {% for model in disorder.experimental_models %}
+                <div class="item-box dataset-box">
+                    <div class="item-name">
+                        {{ model.name }}
+                        {% if model.experimental_model_type %}
+                        <span class="tag tag-model-type">{{ model.experimental_model_type | replace('_', ' ') }}</span>
+                        {% endif %}
+                        {% if model.namo_type %}
+                        <span class="tag" style="background: #ede9fe; color: #5b21b6;">
+                            <a href="{{ model.namo_type | curie_to_url }}" target="_blank" style="color: inherit; text-decoration: none;">{{ model.namo_type }}</a>
+                        </span>
+                        {% endif %}
+                    </div>
+                    {% if model.description %}
+                    <div class="item-desc">{{ model.description }}</div>
+                    {% endif %}
+                    <div class="item-meta">
+                        {% if model.organism and model.organism.preferred_term %}
+                        <span class="tag tag-organism">{{ model.organism.preferred_term }}</span>
+                        {% endif %}
+                        {% if model.tissue_term and model.tissue_term.preferred_term %}
+                        <span class="tag tag-location">
+                            {{ model.tissue_term.preferred_term }}
+                            {% if model.tissue_term.term and model.tissue_term.term.id %}
+                            <a href="{{ model.tissue_term.term.id | curie_to_url }}" target="_blank" class="linkout">link</a>
+                            {% endif %}
+                        </span>
+                        {% endif %}
+                        {% for ct in (model.cell_types or []) %}
+                        <span class="tag tag-cell">
+                            {{ ct.preferred_term or ct.term.label }}
+                            {% if ct.term and ct.term.id %}
+                            <a href="{{ ct.term.id | curie_to_url }}" target="_blank" class="linkout">link</a>
+                            {% endif %}
+                        </span>
+                        {% endfor %}
+                    </div>
+                    {% if model.conditions %}
+                    <div class="item-meta" style="margin-top: 6px;">
+                        <strong style="font-size: 0.8rem; color: #4338ca;">Conditions:</strong>
+                        {% for cond in model.conditions %}
+                        <span class="tag" style="background: #eef2ff; color: #4338ca; font-size: 0.8rem;">{{ cond }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    {% if model.cell_source or model.culture_system or model.publication %}
+                    <div class="item-meta" style="margin-top: 8px;">
+                        {% if model.cell_source %}
+                        <span style="font-size: 0.85rem; color: var(--text); margin-right: 16px;"><strong>Cell source:</strong> {{ model.cell_source }}</span>
+                        {% endif %}
+                        {% if model.culture_system %}
+                        <span style="font-size: 0.85rem; color: var(--text); margin-right: 16px;"><strong>Culture system:</strong> {{ model.culture_system }}</span>
+                        {% endif %}
+                        {% if model.publication %}
+                        <a href="{{ model.publication | curie_to_url }}" target="_blank" style="color: var(--secondary); font-size: 0.85rem;">{{ model.publication }} ↗</a>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    {% if model.recapitulated_phenotypes %}
+                    <div class="item-meta" style="margin-top: 8px;">
+                        <strong style="font-size: 0.8rem; color: #7c2d12;">Recapitulated Phenotypes:</strong>
+                        {% for pheno in model.recapitulated_phenotypes %}
+                        <span class="tag" style="background: #ffedd5; color: #9a3412; font-size: 0.8rem;">
+                            {{ pheno.preferred_term or pheno.term.label }}
+                            {% if pheno.term and pheno.term.id %}
+                            <a href="{{ pheno.term.id | curie_to_url }}" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                            {% endif %}
+                        </span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    {% if model.modeled_pathophysiology %}
+                    <div class="item-meta" style="margin-top: 8px;">
+                        <strong style="font-size: 0.8rem; color: #92400e;">Modeled Pathophysiology:</strong>
+                        {% for mech in model.modeled_pathophysiology %}
+                        <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.8rem;">
+                            <a href="#patho-{{ mech.target | slugify }}" style="color: inherit; text-decoration: none;">{{ mech.target }}</a>
+                        </span>
+                        {% endfor %}
+                    </div>
+                    {% for mech in model.modeled_pathophysiology %}
+                    {% if mech.description or mech.evidence %}
+                    <div style="margin-top: 8px; padding: 8px 10px; border-left: 3px solid #fde68a; background: #fffbeb; border-radius: 0 8px 8px 0;">
+                        <div style="font-size: 0.85rem; font-weight: 700; color: #92400e;">
+                            <a href="#patho-{{ mech.target | slugify }}" style="color: inherit; text-decoration: none;">{{ mech.target }}</a>
+                        </div>
+                        {% if mech.description %}
+                        <div class="item-desc" style="margin-top: 4px;">{{ mech.description }}</div>
+                        {% endif %}
+                        {{ render_evidence(mech.evidence) }}
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                    {% endif %}
+                    {% if model.assays %}
+                    <div class="item-meta" style="margin-top: 8px;">
+                        <strong style="font-size: 0.8rem; color: #065f46;">Assays:</strong>
+                        {% for assay in model.assays %}
+                        <span class="tag" style="background: #ecfdf5; color: #065f46; font-size: 0.8rem;">
+                            {{ assay.preferred_term or assay.term.label }}
+                            {% if assay.term and assay.term.id %}
+                            <a href="{{ assay.term.id | curie_to_url }}" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                            {% endif %}
+                        </span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    {{ render_findings(model.findings) }}
+                    {% if model.notes %}
+                    <div class="item-desc" style="margin-top: 8px; font-style: italic;">{{ model.notes }}</div>
+                    {% endif %}
+                    {{ render_evidence(model.evidence) }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if disorder.animal_models %}
+            <div style="margin-bottom: 18px;">
+                <h3 style="font-size: 1rem; font-weight: 700; color: #14532d; margin: 0 0 10px 0;">Animal Models <span style="color: var(--text-muted); font-weight: 600;">{{ disorder.animal_models | length }}</span></h3>
+                {% for model in disorder.animal_models %}
+                <div class="item-box">
+                    <div class="item-name">
+                        {{ model.genotype or model.name or 'Animal model' }}
+                        {% if model.category %}
+                        <span class="tag tag-model-type">{{ model.category }}</span>
+                        {% endif %}
+                    </div>
+                    {% if model.description %}
+                    <div class="item-desc">{{ model.description }}</div>
+                    {% endif %}
+                    <div class="item-meta">
+                        {% if model.species %}
+                        <span class="tag tag-organism">{{ model.species }}</span>
+                        {% endif %}
+                        {% for gene in (model.genes or []) %}
+                        <span class="tag tag-gene">
+                            {{ gene.preferred_term or gene.term.label }}
+                            {% if gene.term and gene.term.id %}
+                            <a href="{{ gene.term.id | curie_to_url }}" target="_blank" class="linkout">link</a>
+                            {% endif %}
+                        </span>
+                        {% endfor %}
+                    </div>
+                    {% if model.associated_phenotypes %}
+                    <div class="item-meta" style="margin-top: 8px;">
+                        <strong style="font-size: 0.8rem; color: #166534;">Associated Phenotypes:</strong>
+                        {% for pheno in model.associated_phenotypes %}
+                        <span class="tag" style="background: #f0fdf4; color: #166534; font-size: 0.8rem;">{{ pheno }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    {{ render_evidence(model.evidence) }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if disorder.computational_models %}
+            <div>
+                <h3 style="font-size: 1rem; font-weight: 700; color: #166534; margin: 0 0 10px 0;">Computational Models <span style="color: var(--text-muted); font-weight: 600;">{{ disorder.computational_models | length }}</span></h3>
+                {% for model in disorder.computational_models %}
+                <div class="item-box comp-model-box">
+                    <div class="item-name">
+                        {{ model.name }}
+                        {% if model.model_format %}
+                        <span class="tag tag-format">{{ model.model_format }}</span>
+                        {% endif %}
+                        {% if model.model_software %}
+                        <span class="tag tag-software">{{ model.model_software }}</span>
+                        {% endif %}
+                        {% if model.model_type %}
+                        <span class="tag tag-model-type">{{ model.model_type }}</span>
+                        {% endif %}
+                    </div>
+                    {% if model.description %}
+                    <div class="item-desc">{{ model.description }}</div>
+                    {% endif %}
+                    <div class="item-meta" style="margin-top: 8px;">
+                        {% if model.repository_url %}
+                        <a href="{{ model.repository_url }}" target="_blank" style="color: var(--secondary); font-size: 0.85rem; margin-right: 16px;">Repository ↗</a>
+                        {% endif %}
+                        {% if model.publication %}
+                        <a href="{{ model.publication | curie_to_url }}" target="_blank" style="color: var(--secondary); font-size: 0.85rem; margin-right: 16px;">{{ model.publication }} ↗</a>
+                        {% endif %}
+                        {% if model.base_model %}
+                        <span style="font-size: 0.85rem; color: var(--text-muted);">Base model: {{ model.base_model }}</span>
+                        {% endif %}
+                    </div>
+                    {% if model.variables %}
+                    <table class="model-variables-table">
+                        <thead>
+                            <tr>
+                                <th>Variable</th>
+                                <th>Model ID</th>
+                                <th>Unit</th>
+                                <th>Ontology Mappings</th>
+                                <th>Phenotype Thresholds</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for var in model.variables %}
+                            <tr>
+                                <td>
+                                    <div class="model-var-name">{{ var.name }}</div>
+                                    {% if var.description %}
+                                    <div class="model-var-desc">{{ var.description }}</div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if var.dataset_identifier %}
+                                    <code class="model-var-id">{{ var.dataset_identifier }}</code>
+                                    {% endif %}
+                                </td>
+                                <td>{{ var.unit or '' }}</td>
+                                <td>
+                                    {% for mapping in (var.mappings_list or []) %}
+                                        {% if not mapping.threshold %}
+                                        <span class="ontology-mapping-tag">
+                                            {% if mapping.term and mapping.term.id %}
+                                            <a href="{{ mapping.term.id | curie_to_url }}" target="_blank">{{ mapping.preferred_term or mapping.term.label }}</a>
+                                            {% else %}
+                                            {{ mapping.preferred_term or '' }}
+                                            {% endif %}
+                                        </span>
+                                        {% endif %}
+                                    {% endfor %}
+                                </td>
+                                <td>
+                                    {% for mapping in (var.mappings_list or []) %}
+                                        {% if mapping.threshold %}
+                                        <div style="margin-bottom: 4px;">
+                                            <span style="font-size: 0.8rem; font-weight: 500;">
+                                                {% if mapping.term and mapping.term.id %}
+                                                <a href="{{ mapping.term.id | curie_to_url }}" target="_blank" style="color: inherit;">{{ mapping.preferred_term or mapping.term.label }}</a>
+                                                {% else %}
+                                                {{ mapping.preferred_term or '' }}
+                                                {% endif %}
+                                                <span style="font-size: 0.75rem; color: var(--text-muted);">{{ mapping.threshold_direction or '' }} {{ mapping.threshold }}</span>
+                                            </span>
+                                            {% if mapping.severity_scale %}
+                                            <div>
+                                                {% for sev in mapping.severity_scale %}
+                                                {% set sev_name = sev.name | lower %}
+                                                {% if sev_name in ('mild', 'growth impairment') %}
+                                                <span class="severity-pill severity-mild">{{ sev.name }} {{ sev.threshold }}</span>
+                                                {% elif sev_name in ('moderate', 'moderate risk') %}
+                                                <span class="severity-pill severity-moderate">{{ sev.name }} {{ sev.threshold }}</span>
+                                                {% elif sev_name in ('severe', 'high risk', 'calciphylaxis risk') %}
+                                                <span class="severity-pill severity-severe">{{ sev.name }} {{ sev.threshold }}</span>
+                                                {% else %}
+                                                <span class="severity-pill severity-other">{{ sev.name }} {{ sev.threshold }}</span>
+                                                {% endif %}
+                                                {% endfor %}
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% endif %}
+                    {{ render_findings(model.findings) }}
+                    {% if model.notes %}
+                    <div style="margin-top: 8px; font-style: italic; font-size: 0.85rem; color: var(--text-muted);">{{ model.notes }}</div>
+                    {% endif %}
+                    {{ render_evidence(model.evidence) }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
         <!-- Datasets -->
         {% if disorder.datasets %}
         <div class="card" id="datasets">
@@ -3327,128 +3619,6 @@
                 </div>
                 {% endif %}
                 {{ render_evidence(trial.evidence) }}
-            </div>
-            {% endfor %}
-        </div>
-        {% endif %}
-
-        <!-- Computational Models -->
-        {% if disorder.computational_models %}
-        <div class="card" id="models">
-            <div class="card-header">
-                <div class="card-icon" style="background: #f0fdf4; color: #22c55e;">🧮</div>
-                <h2 class="card-title">Computational Models</h2>
-                <span class="card-count">{{ disorder.computational_models | length }}</span>
-            </div>
-            {% for model in disorder.computational_models %}
-            <div class="item-box comp-model-box">
-                <div class="item-name">
-                    {{ model.name }}
-                    {% if model.model_format %}
-                    <span class="tag tag-format">{{ model.model_format }}</span>
-                    {% endif %}
-                    {% if model.model_software %}
-                    <span class="tag tag-software">{{ model.model_software }}</span>
-                    {% endif %}
-                    {% if model.model_type %}
-                    <span class="tag tag-model-type">{{ model.model_type }}</span>
-                    {% endif %}
-                </div>
-                {% if model.description %}
-                <div class="item-desc">{{ model.description }}</div>
-                {% endif %}
-                <div class="item-meta" style="margin-top: 8px;">
-                    {% if model.repository_url %}
-                    <a href="{{ model.repository_url }}" target="_blank" style="color: var(--secondary); font-size: 0.85rem; margin-right: 16px;">Repository ↗</a>
-                    {% endif %}
-                    {% if model.publication %}
-                    <a href="{{ model.publication | curie_to_url }}" target="_blank" style="color: var(--secondary); font-size: 0.85rem; margin-right: 16px;">{{ model.publication }} ↗</a>
-                    {% endif %}
-                    {% if model.base_model %}
-                    <span style="font-size: 0.85rem; color: var(--text-muted);">Base model: {{ model.base_model }}</span>
-                    {% endif %}
-                </div>
-                {% if model.variables %}
-                <table class="model-variables-table">
-                    <thead>
-                        <tr>
-                            <th>Variable</th>
-                            <th>Model ID</th>
-                            <th>Unit</th>
-                            <th>Ontology Mappings</th>
-                            <th>Phenotype Thresholds</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for var in model.variables %}
-                        <tr>
-                            <td>
-                                <div class="model-var-name">{{ var.name }}</div>
-                                {% if var.description %}
-                                <div class="model-var-desc">{{ var.description }}</div>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if var.dataset_identifier %}
-                                <code class="model-var-id">{{ var.dataset_identifier }}</code>
-                                {% endif %}
-                            </td>
-                            <td>{{ var.unit or '' }}</td>
-                            <td>
-                                {% for mapping in (var.mappings_list or []) %}
-                                    {% if not mapping.threshold %}
-                                    <span class="ontology-mapping-tag">
-                                        {% if mapping.term and mapping.term.id %}
-                                        <a href="{{ mapping.term.id | curie_to_url }}" target="_blank">{{ mapping.preferred_term or mapping.term.label }}</a>
-                                        {% else %}
-                                        {{ mapping.preferred_term or '' }}
-                                        {% endif %}
-                                    </span>
-                                    {% endif %}
-                                {% endfor %}
-                            </td>
-                            <td>
-                                {% for mapping in (var.mappings_list or []) %}
-                                    {% if mapping.threshold %}
-                                    <div style="margin-bottom: 4px;">
-                                        <span style="font-size: 0.8rem; font-weight: 500;">
-                                            {% if mapping.term and mapping.term.id %}
-                                            <a href="{{ mapping.term.id | curie_to_url }}" target="_blank" style="color: inherit;">{{ mapping.preferred_term or mapping.term.label }}</a>
-                                            {% else %}
-                                            {{ mapping.preferred_term or '' }}
-                                            {% endif %}
-                                            <span style="font-size: 0.75rem; color: var(--text-muted);">{{ mapping.threshold_direction or '' }} {{ mapping.threshold }}</span>
-                                        </span>
-                                        {% if mapping.severity_scale %}
-                                        <div>
-                                            {% for sev in mapping.severity_scale %}
-                                            {% set sev_name = sev.name | lower %}
-                                            {% if sev_name in ('mild', 'growth impairment') %}
-                                            <span class="severity-pill severity-mild">{{ sev.name }} {{ sev.threshold }}</span>
-                                            {% elif sev_name in ('moderate', 'moderate risk') %}
-                                            <span class="severity-pill severity-moderate">{{ sev.name }} {{ sev.threshold }}</span>
-                                            {% elif sev_name in ('severe', 'high risk', 'calciphylaxis risk') %}
-                                            <span class="severity-pill severity-severe">{{ sev.name }} {{ sev.threshold }}</span>
-                                            {% else %}
-                                            <span class="severity-pill severity-other">{{ sev.name }} {{ sev.threshold }}</span>
-                                            {% endif %}
-                                            {% endfor %}
-                                        </div>
-                                        {% endif %}
-                                    </div>
-                                    {% endif %}
-                                {% endfor %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                {% endif %}
-                {{ render_findings(model.findings) }}
-                {% if model.notes %}
-                <div style="margin-top: 8px; font-style: italic; font-size: 0.85rem; color: var(--text-muted);">{{ model.notes }}</div>
-                {% endif %}
-                {{ render_evidence(model.evidence) }}
             </div>
             {% endfor %}
         </div>
