@@ -32,6 +32,9 @@ Each model should capture:
 - `namo:CellLineModel`
 - `namo:TwoDCellCulture`
 
+These class CURIEs were verified against the current NAMO schema snapshot used
+for this bridge spike.
+
 These cover the current bridge cases better than a direct wholesale import because
 dismech remains disease-centric while NAMO is model-centric.
 
