@@ -1028,6 +1028,21 @@ d2p-compare-all:
 d2p-compare-json disease:
     uv run python -m dismech.d2p_compare compare "{{disease}}" --format json
 
+# Compare G2P gene assertions against dismech for a single gene
+[group('Analysis')]
+g2p-compare gene:
+    uv run python -m dismech.g2p_compare compare "{{gene}}"
+
+# Compare multiple G2P genes against dismech
+[group('Analysis')]
+g2p-compare-all *genes:
+    uv run python -m dismech.g2p_compare compare-all {{genes}}
+
+# Compare G2P with JSON output
+[group('Analysis')]
+g2p-compare-json gene:
+    uv run python -m dismech.g2p_compare compare "{{gene}}" --format json
+
 # Run causal perturbation analysis on a disorder
 # Examples:
 #   just perturb kb/disorders/CKD-Mineral_Bone_Disorder.yaml --gene CASR --effect LoF

@@ -5,7 +5,8 @@ from pathlib import Path
 
 import yaml
 
-from dismech.g2p_gene_audit import compare_gene, survey_genes
+from dismech.g2p_compare import compare_gene, run_comparison, survey_genes
+from dismech.g2p_gene_audit import compare_gene as compat_compare_gene
 
 
 def _write_g2p_csv(path: Path, rows: list[dict[str, str]]) -> None:
@@ -190,6 +191,10 @@ def test_compare_gene_reports_direct_and_secondary_matches(tmp_path: Path) -> No
         "subtype_specific",
         "secondary_genetic",
     ]
+    assert report["summary"]["row_status_counts"] == {
+        "EMBEDDED_NOT_ROOTED": 1,
+        "ROOT_MATCH": 1,
+    }
     assert report["g2p_mondo_collisions"] == [
         {
             "disease_mondo": "MONDO:0008021",
@@ -201,9 +206,11 @@ def test_compare_gene_reports_direct_and_secondary_matches(tmp_path: Path) -> No
     ]
 
     first_row = report["g2p_rows"][0]
+    assert first_row["row_status"] == "ROOT_MATCH"
     assert first_row["dismech_candidates"] == [
         {
             "disorder_name": "Cowden Syndrome",
+            "disease_mondo": "MONDO:0016063",
             "file": "Cowden_Syndrome.yaml",
             "match_reasons": ["name_or_parenthetical_alias"],
             "match_strength": "causative",
@@ -213,11 +220,35 @@ def test_compare_gene_reports_direct_and_secondary_matches(tmp_path: Path) -> No
             "shared_reviewed_pmids_with_disease": ["111"],
         }
     ]
+    second_row = report["g2p_rows"][1]
+    assert second_row["row_status"] == "EMBEDDED_NOT_ROOTED"
+    assert second_row["related_direct_matches"] == [
+        {
+            "disorder_name": "Cowden Syndrome",
+            "file": "Cowden_Syndrome.yaml",
+            "match_strength": "causative",
+            "shared_phenotype_count": 1,
+            "shared_phenotype_ids": ["HP:0500009"],
+            "shared_reviewed_pmids_with_sections": [],
+            "shared_reviewed_pmids_with_disease": ["222"],
+        }
+    ]
 
     direct_coverage = report["publication_coverage"]["direct_dismech_matched_sections"]
     assert direct_coverage["overlap_pmids"] == ["111"]
     assert direct_coverage["missing_from_dismech_pmids"] == ["222", "555"]
     assert direct_coverage["extra_in_dismech_pmids"] == ["333"]
+
+    table, summary, gene_symbol = run_comparison(
+        "PTEN", kb_dir=kb_dir, g2p_source=str(g2p_path)
+    )
+    assert gene_symbol == "PTEN"
+    assert [row["row_status"] for row in table] == [
+        "ROOT_MATCH",
+        "EMBEDDED_NOT_ROOTED",
+    ]
+    assert summary["mapped_row_count"] == 1
+    assert compat_compare_gene is compare_gene
 
 
 def test_compare_gene_reports_pathophysiology_only_matches(tmp_path: Path) -> None:
@@ -280,6 +311,7 @@ def test_compare_gene_reports_pathophysiology_only_matches(tmp_path: Path) -> No
     report = compare_gene("PTEN", kb_dir=kb_dir, g2p_source=str(g2p_path))
 
     assert report["dismech_matches"][0]["match_strength"] == "pathophysiology_only"
+    assert report["g2p_rows"][0]["row_status"] == "EMBEDDED_NOT_ROOTED"
     all_sections = report["publication_coverage"]["all_dismech_matched_sections"]
     assert all_sections["extra_in_dismech_pmids"] == ["666"]
 

@@ -6,6 +6,10 @@ This note covers how a Gene2Phenotype (G2P) row should be interpreted against
 dismech's disease-centric model, using PTEN as the worked example and then
 generalizing into a reusable audit workflow.
 
+After the second pass, this workflow is intentionally aligned to Sujay Patil's
+earlier disease-to-phenotype comparison work in PR #383 rather than standing up
+a parallel comparison framework.
+
 The immediate question is not "does one dismech disease file explain one G2P
 row?" but "does the set of dismech disease entries for a gene explain the set
 of G2P assertions for that gene?"
@@ -18,8 +22,39 @@ of G2P assertions for that gene?"
   https://ftp.ebi.ac.uk/pub/databases/gene2phenotype/README
 - G2P download format:
   https://ftp.ebi.ac.uk/pub/databases/gene2phenotype/G2P_data_downloads/Data_download_format_202511.txt
+- dismech PR #383:
+  `src/dismech/d2p_compare.py`
 - Current G2P release used for the PTEN snapshot:
   `https://ftp.ebi.ac.uk/pub/databases/gene2phenotype/G2P_data_downloads/2026_03_28/allG2P_2026-03-28.csv.gz`
+
+## Relationship to D2P Comparison Work
+
+PR #383 already established the main comparison pattern in dismech:
+
+1. resolve one dismech entity set
+2. fetch or load one external source
+3. extract dismech-side structured records
+4. build a comparison table
+5. compute a compact summary
+6. expose both a library entrypoint and a CLI
+
+`src/dismech/d2p_compare.py` does this for one disease against Monarch
+OMIM/Orphanet phenotype associations.
+
+The G2P problem is not identical because the source is gene-centric rather than
+disease-centric, but the architecture should still be the same:
+
+- external source rows are loaded once per G2P release
+- dismech records are extracted once per gene across all disease files
+- a row-level comparison table is built for each gene
+- a compact audit summary is computed from that table
+- the CLI exposes single-gene and multi-gene comparison entrypoints
+
+The current implementation now follows that pattern in
+[`src/dismech/g2p_compare.py`](/Users/cjm/worktrees/dismech-g2p-db/src/dismech/g2p_compare.py),
+with shared helper functions moved into
+[`src/dismech/compare_support.py`](/Users/cjm/worktrees/dismech-g2p-db/src/dismech/compare_support.py)
+so the D2P and G2P comparison tools do not continue to drift.
 
 ## Working model
 
@@ -98,7 +133,7 @@ approach, and it better matches how the two resources are actually organized.
 Command used:
 
 ```bash
-uv run python -m dismech.g2p_gene_audit PTEN --format summary
+uv run python -m dismech.g2p_compare compare PTEN --format summary
 ```
 
 Current G2P PTEN rows in the 2026-03-28 `allG2P` release:
@@ -219,7 +254,7 @@ So the biology aligns well, but the packaging differs.
 Batch command used:
 
 ```bash
-uv run python -m dismech.g2p_gene_audit PTEN FLNB PIK3CA FGFR2 --format summary
+uv run python -m dismech.g2p_compare compare-all PTEN FLNB PIK3CA FGFR2 --format summary
 ```
 
 Cross-gene summary from the current dismech worktree and current G2P release:
@@ -343,7 +378,8 @@ For audit purposes, normalize each row into:
 - reviewed PMIDs
 
 In implementation terms, this should become a stable intermediate artifact,
-not just a transient parse step.
+not just a transient parse step. The current compare module now makes this
+artifact explicit enough to support row tables and row-status summaries.
 
 ### 2. Match into dismech by ordered evidence, not a single key
 
@@ -437,11 +473,27 @@ Recommended row-level table columns:
 - phenotype_alignment
 - audit_note
 
+The implemented comparison table in
+[`src/dismech/g2p_compare.py`](/Users/cjm/worktrees/dismech-g2p-db/src/dismech/g2p_compare.py)
+is slightly narrower than this ideal target, but it now carries the key fields
+needed for the first-pass audit loop:
+
+- G2P row identity and mechanism summary
+- best linked dismech disease anchor
+- candidate counts
+- related direct-root disorders
+- per-row `row_status`
+
 ## Script Scaffold
 
 Added module:
 
-- [`src/dismech/g2p_gene_audit.py`](/Users/cjm/worktrees/dismech-g2p-db/src/dismech/g2p_gene_audit.py)
+- primary compare module:
+  [`src/dismech/g2p_compare.py`](/Users/cjm/worktrees/dismech-g2p-db/src/dismech/g2p_compare.py)
+- shared compare helpers:
+  [`src/dismech/compare_support.py`](/Users/cjm/worktrees/dismech-g2p-db/src/dismech/compare_support.py)
+- compatibility wrapper for the first-pass audit entrypoint:
+  [`src/dismech/g2p_gene_audit.py`](/Users/cjm/worktrees/dismech-g2p-db/src/dismech/g2p_gene_audit.py)
 
 Focused tests:
 
@@ -450,18 +502,27 @@ Focused tests:
 Usage:
 
 ```bash
-uv run python -m dismech.g2p_gene_audit PTEN --format summary
-uv run python -m dismech.g2p_gene_audit PTEN --format json
-uv run python -m dismech.g2p_gene_audit PTEN FLNB PIK3CA FGFR2 --format summary
+uv run python -m dismech.g2p_compare compare PTEN --format summary
+uv run python -m dismech.g2p_compare compare PTEN --format tsv
+uv run python -m dismech.g2p_compare compare PTEN --format json
+uv run python -m dismech.g2p_compare compare-all PTEN FLNB PIK3CA FGFR2 --format summary
 ```
 
 Behavior:
 
 - defaults to the latest official `allG2P` FTP release
+- mirrors the D2P compare flow:
+  load source rows -> extract dismech matches -> build comparison table ->
+  compute summary -> expose CLI
 - uses structured `genetic[]` and `pathophysiology[].gene/genes` matches in dismech
 - distinguishes causative/subtype-specific matches from secondary genetic matches
 - reports G2P MONDO collisions within a gene
 - reports row-to-candidate shared HPO counts and shared reviewed-PMID counts
+- reports related direct disease roots even when the row is not rooted by exact
+  name or MONDO
+- classifies each row into
+  `ROOT_MATCH`, `ROOT_MATCH_PMID_GAP`, `SPLIT_ACROSS_DISMECH`,
+  `EMBEDDED_NOT_ROOTED`, `UNDERREPRESENTED_IN_DISMECH`, or `NO_DISMECH_MATCH`
 - reports PMID overlap for direct anchors and for all matched disorders
 - supports small batch surveys without reloading the G2P export per gene
 
@@ -469,6 +530,8 @@ Current limitation:
 
 - it does not yet count differential-diagnosis embeddings or unstructured gene
   mentions inside pathophysiology node names/descriptions
+- row-status classification is still heuristic because dismech does not yet have
+  a first-class gene-assertion object comparable to a G2P row
 
 ## Recommended Next Steps
 
