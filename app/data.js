@@ -603,7 +603,7 @@ window.searchData = [
       "Lethal Skeletal Dysplasia"
     ],
     "creation_date": "2026-02-06T03:25:37Z",
-    "updated_date": "2026-02-17T21:53:14Z",
+    "updated_date": "2026-03-29T02:21:10Z",
     "subtypes": [],
     "description": "Achondrogenesis type II (ACG2), also known as Langer-Saldino type, is the most severe form of type 2 collagenopathy caused by dominant mutations in COL2A1. It is a lethal skeletal dysplasia characterized by severe micromelia, deficient ossification of the vertebral bodies and sacrum, short ribs with fractures, and a disproportionately large head. Death typically occurs in utero or shortly after birth due to pulmonary hypoplasia. ACG2 represents the severe end of the COL2A1 mutation spectrum, which includes hypochondrogenesis, spondyloepiphyseal dysplasia congenita, and Stickler syndrome.\n",
     "pathophysiology": [
@@ -31487,6 +31487,790 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Metastatic Breast Carcinoma",
+    "disease_id": "MONDO:0004989",
+    "category": "",
+    "parents": [
+      "breast carcinoma"
+    ],
+    "creation_date": "2026-03-28T21:00:00Z",
+    "updated_date": "2026-03-28T21:00:00Z",
+    "subtypes": [],
+    "description": "Metastatic breast carcinoma is advanced breast cancer that has disseminated beyond the breast and regional lymph nodes to distant organs, with particular tropism for bone, lung, brain, and liver. Metastatic competence emerges through epithelial to mesenchymal transition, collective and single-cell invasion, angiogenesis, immune evasion, and adaptation to organ-specific microenvironments. During dissemination, endocrine and HER2 pathway dependence may be retained, lost, or reconfigured through clonal selection and receptor discordance, creating clinically important differences between primary and metastatic lesions.",
+    "pathophysiology": [
+      "EMT-Driven Dissemination",
+      "Organ-Specific Tropism",
+      "ER and HER2 Receptor Plasticity",
+      "Angiogenic Outgrowth",
+      "Immune Evasion in Metastatic Niches"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "epithelial to mesenchymal transition",
+      "cell migration",
+      "positive regulation of cell migration",
+      "estrogen receptor signaling pathway",
+      "cell surface receptor protein tyrosine kinase signaling pathway",
+      "angiogenesis",
+      "negative regulation of immune response"
+    ],
+    "phenotypes": [
+      "Headache",
+      "Dyspnea",
+      "Bone pain",
+      "Fatigue",
+      "Weight loss"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Respiratory",
+      "Musculoskeletal",
+      "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Growth",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002315",
+      "HP:0002094",
+      "HP:0002653",
+      "HP:0012378",
+      "HP:0001824"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "ESR1",
+      "ERBB2 (HER2)",
+      "PIK3CA",
+      "TP53"
+    ],
+    "treatments": [],
+    "environmental": [
+      "Obesity",
+      "Alcohol exposure"
+    ],
+    "biochemical": [],
+    "source_file": "Metastatic_Breast_Carcinoma.yaml",
+    "page_url": "../pages/disorders/Metastatic_Breast_Carcinoma.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 5,
+    "num_genes": 4,
+    "num_treatments": 0,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Metastatic Colorectal Cancer",
+    "disease_id": "MONDO:0005575",
+    "category": "",
+    "parents": [
+      "colorectal cancer"
+    ],
+    "creation_date": "2026-03-28T21:10:00Z",
+    "updated_date": "2026-03-29T02:21:26Z",
+    "subtypes": [],
+    "description": "Metastatic colorectal cancer is colorectal adenocarcinoma that has disseminated beyond the bowel wall and regional nodes, most commonly to the liver and then lung, peritoneum, and other distant sites. The metastatic phenotype reflects cooperation between APC/WNT dysregulation, KRAS and BRAF pathway activation, epithelial plasticity, stromal remodeling, angiogenesis, and adaptation to the hepatic seed-and-soil niche.",
+    "pathophysiology": [
+      "WNT and RAS Pathway Cooperation",
+      "Liver Tropism and Hepatic Colonization",
+      "EMT-Linked Invasive Dissemination",
+      "Anoikis Escape",
+      "Angiogenic Remodeling",
+      "Seed-and-Soil Microenvironment Support"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "Wnt signaling pathway",
+      "MAPK cascade",
+      "cell migration",
+      "epithelial to mesenchymal transition",
+      "positive regulation of cell migration",
+      "angiogenesis",
+      "negative regulation of immune response"
+    ],
+    "phenotypes": [
+      "Abdominal pain",
+      "Weight loss",
+      "Fatigue",
+      "Jaundice"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Constitutional",
+      "Hepatic"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Integument"
+    ],
+    "phenotype_ids": [
+      "HP:0002027",
+      "HP:0001824",
+      "HP:0012378",
+      "HP:0000952"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "APC",
+      "KRAS",
+      "BRAF",
+      "Mismatch repair deficiency / MSI-high state"
+    ],
+    "treatments": [],
+    "environmental": [
+      "Obesity",
+      "Alcohol exposure"
+    ],
+    "biochemical": [],
+    "source_file": "Metastatic_Colorectal_Cancer.yaml",
+    "page_url": "../pages/disorders/Metastatic_Colorectal_Cancer.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 6,
+    "num_genes": 4,
+    "num_treatments": 0,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Metastatic Gastric Cancer",
+    "disease_id": "MONDO:0004950",
+    "category": "",
+    "parents": [
+      "gastric carcinoma"
+    ],
+    "creation_date": "2026-03-28T21:35:00Z",
+    "updated_date": "2026-03-29T02:21:26Z",
+    "subtypes": [],
+    "description": "Metastatic gastric cancer is advanced gastric adenocarcinoma with dissemination to peritoneum, liver, distant lymph nodes, lung, bone, and less commonly brain. Peritoneal spread is a defining pattern, especially in diffuse and E-cadherin-deficient disease. Metastatic competence is shaped by loss of epithelial adhesion, HER2 pathway activation in a subset, microsatellite instability in an immune-responsive subset, and angiogenic and stromal remodeling.",
+    "pathophysiology": [
+      "E-Cadherin Loss and Diffuse Invasion",
+      "Peritoneal Dissemination",
+      "HER2 Signaling Subset",
+      "MSI-High Immune-Responsive Subset",
+      "Angiogenesis and Metastatic Outgrowth"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "epithelial to mesenchymal transition",
+      "cell migration",
+      "positive regulation of cell migration",
+      "cell surface receptor protein tyrosine kinase signaling pathway",
+      "immune system process",
+      "angiogenesis"
+    ],
+    "phenotypes": [
+      "Abdominal pain",
+      "Weight loss",
+      "Fatigue",
+      "Ascites"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Growth"
+    ],
+    "phenotype_ids": [
+      "HP:0002027",
+      "HP:0001824",
+      "HP:0012378",
+      "HP:0001541"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "CDH1",
+      "ERBB2 (HER2)",
+      "TP53",
+      "ARID1A"
+    ],
+    "treatments": [],
+    "environmental": [
+      "Helicobacter pylori infection",
+      "Smoking",
+      "High-salt diet"
+    ],
+    "biochemical": [],
+    "source_file": "Metastatic_Gastric_Cancer.yaml",
+    "page_url": "../pages/disorders/Metastatic_Gastric_Cancer.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 5,
+    "num_genes": 4,
+    "num_treatments": 0,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Metastatic Hepatocellular Carcinoma",
+    "disease_id": "MONDO:0007256",
+    "category": "",
+    "parents": [
+      "hepatocellular carcinoma"
+    ],
+    "creation_date": "2026-03-28T21:45:00Z",
+    "updated_date": "2026-03-29T02:21:26Z",
+    "subtypes": [],
+    "description": "Metastatic hepatocellular carcinoma (HCC) is advanced HCC with vascular invasion, portal vein tumor thrombus, or extrahepatic spread most often to lung, bone, adrenal gland, or lymph node. The metastatic phenotype develops on a background of chronic liver disease, viral hepatitis, cirrhosis, and frequent activation of Wnt/beta-catenin and angiogenic signaling pathways.",
+    "pathophysiology": [
+      "Chronic Liver Disease Substrate",
+      "Wnt/Beta-Catenin Activation",
+      "Portal Vein Invasion and Tumor Thrombus",
+      "VEGF-Dependent Angiogenesis",
+      "Immune Evasion and Viral-Inflammatory Selection"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "response to hypoxia",
+      "Wnt signaling pathway",
+      "cell migration",
+      "positive regulation of cell migration",
+      "angiogenesis",
+      "negative regulation of immune response"
+    ],
+    "phenotypes": [
+      "Abdominal pain",
+      "Weight loss",
+      "Fatigue",
+      "Jaundice",
+      "Ascites"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Constitutional",
+      "Hepatic"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Integument"
+    ],
+    "phenotype_ids": [
+      "HP:0002027",
+      "HP:0001824",
+      "HP:0012378",
+      "HP:0000952",
+      "HP:0001541"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "CTNNB1",
+      "TERT promoter",
+      "TP53",
+      "AXIN1"
+    ],
+    "treatments": [],
+    "environmental": [
+      "Chronic hepatitis B or C infection",
+      "Cirrhosis",
+      "Alcohol and aflatoxin exposure"
+    ],
+    "biochemical": [],
+    "source_file": "Metastatic_HCC.yaml",
+    "page_url": "../pages/disorders/Metastatic_Hepatocellular_Carcinoma.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 5,
+    "num_genes": 4,
+    "num_treatments": 0,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Metastatic Melanoma",
+    "disease_id": "MONDO:0005012",
+    "category": "",
+    "parents": [
+      "cutaneous melanoma"
+    ],
+    "creation_date": "2026-03-28T21:05:00Z",
+    "updated_date": "2026-03-29T02:21:26Z",
+    "subtypes": [],
+    "description": "Metastatic melanoma is advanced melanoma with dissemination to distant skin, lymph node, lung, liver, bone, and brain sites. The metastatic phenotype is strongly shaped by MAPK pathway activation through BRAF, NRAS, and NF1 alterations, transcriptional plasticity, immune escape through PD-1/PD-L1 and related checkpoints, and pronounced brain tropism in advanced disease.",
+    "pathophysiology": [
+      "MAPK-Driven Metastatic Fitness",
+      "Invasive Plasticity and Migration",
+      "PD-L1-Mediated Immune Escape",
+      "Brain Metastatic Colonization",
+      "Angiogenic Support of Distant Lesions"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "MAPK cascade",
+      "cell population proliferation",
+      "epithelial to mesenchymal transition",
+      "cell migration",
+      "positive regulation of cell migration",
+      "negative regulation of immune response",
+      "angiogenesis"
+    ],
+    "phenotypes": [
+      "Headache",
+      "Seizure",
+      "Bone pain",
+      "Weight loss",
+      "Fatigue"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Musculoskeletal",
+      "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Growth",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002315",
+      "HP:0001250",
+      "HP:0002653",
+      "HP:0001824",
+      "HP:0012378"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "BRAF",
+      "NRAS",
+      "NF1",
+      "PTEN"
+    ],
+    "treatments": [],
+    "environmental": [
+      "Ultraviolet radiation exposure"
+    ],
+    "biochemical": [],
+    "source_file": "Metastatic_Melanoma.yaml",
+    "page_url": "../pages/disorders/Metastatic_Melanoma.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 5,
+    "num_genes": 4,
+    "num_treatments": 0,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Metastatic Non-Small Cell Lung Cancer",
+    "disease_id": "MONDO:0005233",
+    "category": "",
+    "parents": [
+      "non-small cell lung carcinoma"
+    ],
+    "creation_date": "2026-03-28T21:20:00Z",
+    "updated_date": "2026-03-29T02:21:26Z",
+    "subtypes": [],
+    "description": "Metastatic non-small cell lung cancer (NSCLC) is advanced NSCLC with dissemination to distant organs, particularly brain, bone, liver, adrenal gland, and pleura. Metastatic behavior is shaped by oncogenic receptor tyrosine kinase signaling, epithelial plasticity, angiogenesis, immune checkpoint engagement, and organ-specific interactions within the brain and bone microenvironments.",
+    "pathophysiology": [
+      "Oncogenic RTK Addiction",
+      "EMT and Invasion",
+      "PD-L1 Adaptive Immune Resistance",
+      "Brain Metastasis Seed-and-Soil Biology",
+      "Angiogenesis and Vascular Remodeling"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "cell surface receptor protein tyrosine kinase signaling pathway",
+      "MAPK cascade",
+      "epithelial to mesenchymal transition",
+      "cell migration",
+      "positive regulation of cell migration",
+      "negative regulation of immune response",
+      "angiogenesis"
+    ],
+    "phenotypes": [
+      "Dyspnea",
+      "Headache",
+      "Bone pain",
+      "Weight loss",
+      "Fatigue"
+    ],
+    "phenotype_categories": [
+      "Respiratory",
+      "Neurologic",
+      "Musculoskeletal",
+      "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Growth",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002094",
+      "HP:0002315",
+      "HP:0002653",
+      "HP:0001824",
+      "HP:0012378"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "EGFR",
+      "ALK",
+      "ROS1",
+      "STK11/KEAP1"
+    ],
+    "treatments": [],
+    "environmental": [
+      "Tobacco smoking"
+    ],
+    "biochemical": [],
+    "source_file": "Metastatic_NSCLC.yaml",
+    "page_url": "../pages/disorders/Metastatic_Non-Small_Cell_Lung_Cancer.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 5,
+    "num_genes": 4,
+    "num_treatments": 0,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Metastatic Ovarian Cancer",
+    "disease_id": "MONDO:0005211",
+    "category": "",
+    "parents": [
+      "ovarian carcinoma"
+    ],
+    "creation_date": "2026-03-28T21:40:00Z",
+    "updated_date": "2026-03-29T02:21:26Z",
+    "subtypes": [],
+    "description": "Metastatic ovarian cancer is usually advanced epithelial ovarian carcinoma, most often high-grade serous ovarian cancer, with dominant transcoelomic spread throughout the peritoneal cavity. Its metastatic biology is characterized by ascitic shedding, multicellular spheroid formation, mesothelial and extracellular matrix interactions, EMT-like plasticity, homologous recombination defects in BRCA-associated cases, and recurrent platinum resistance.",
+    "pathophysiology": [
+      "Transcoelomic Dissemination and Spheroid Formation",
+      "Mesothelial Crosstalk and Platinum Resistance",
+      "EMT and Mesenchymal Plasticity",
+      "BRCA-Associated Homologous Recombination Deficiency",
+      "Angiogenesis and Immune Evasion"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "cell migration",
+      "positive regulation of cell migration",
+      "epithelial to mesenchymal transition",
+      "signal transduction",
+      "angiogenesis",
+      "negative regulation of immune response"
+    ],
+    "phenotypes": [
+      "Ascites",
+      "Abdominal pain",
+      "Weight loss",
+      "Fatigue"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Growth"
+    ],
+    "phenotype_ids": [
+      "HP:0001541",
+      "HP:0002027",
+      "HP:0001824",
+      "HP:0012378"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "TP53",
+      "BRCA1",
+      "BRCA2",
+      "CCNE1"
+    ],
+    "treatments": [],
+    "environmental": [
+      "Endometriosis",
+      "Nulliparity"
+    ],
+    "biochemical": [],
+    "source_file": "Metastatic_Ovarian_Cancer.yaml",
+    "page_url": "../pages/disorders/Metastatic_Ovarian_Cancer.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 5,
+    "num_genes": 4,
+    "num_treatments": 0,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Metastatic Pancreatic Adenocarcinoma",
+    "disease_id": "MONDO:0006047",
+    "category": "",
+    "parents": [
+      "pancreatic adenocarcinoma"
+    ],
+    "creation_date": "2026-03-28T21:15:00Z",
+    "updated_date": "2026-03-29T02:21:26Z",
+    "subtypes": [],
+    "description": "Metastatic pancreatic adenocarcinoma is pancreatic ductal adenocarcinoma that has disseminated to distant sites, most often liver, peritoneum, and lung. The disease is characterized by near-universal KRAS pathway activation, early cellular plasticity, dense desmoplastic stroma, neural invasion, profound immune suppression, and rapid systemic progression.",
+    "pathophysiology": [
+      "KRAS-Centered Oncogenic Signaling",
+      "Early Dissemination and EMT",
+      "Perineural Invasion",
+      "Desmoplastic Stromal Remodeling",
+      "Immune Evasion and Metastatic Selection"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "MAPK cascade",
+      "cell population proliferation",
+      "epithelial to mesenchymal transition",
+      "cell migration",
+      "positive regulation of cell migration",
+      "wound healing",
+      "angiogenesis",
+      "negative regulation of immune response"
+    ],
+    "phenotypes": [
+      "Abdominal pain",
+      "Weight loss",
+      "Fatigue",
+      "Jaundice",
+      "Back pain"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Constitutional",
+      "Hepatic",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Integument",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0002027",
+      "HP:0001824",
+      "HP:0012378",
+      "HP:0000952",
+      "HP:0003418"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "KRAS",
+      "TP53",
+      "SMAD4",
+      "CDKN2A"
+    ],
+    "treatments": [],
+    "environmental": [
+      "Smoking",
+      "Chronic pancreatitis",
+      "Obesity and diabetes"
+    ],
+    "biochemical": [],
+    "source_file": "Metastatic_Pancreatic_Adenocarcinoma.yaml",
+    "page_url": "../pages/disorders/Metastatic_Pancreatic_Adenocarcinoma.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 5,
+    "num_genes": 4,
+    "num_treatments": 0,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Metastatic Prostate Cancer",
+    "disease_id": "MONDO:0008315",
+    "category": "",
+    "parents": [
+      "prostate cancer"
+    ],
+    "creation_date": "2026-03-28T21:25:00Z",
+    "updated_date": "2026-03-29T02:21:26Z",
+    "subtypes": [],
+    "description": "Metastatic prostate cancer is advanced prostate adenocarcinoma that has spread beyond the prostate and regional lymph nodes, most commonly to bone, lymph node, liver, and lung. The metastatic state is sustained by persistent androgen receptor signaling, lineage plasticity under treatment pressure, osteoblastic bone tropism, and progressive emergence of castration resistance.",
+    "pathophysiology": [
+      "Persistent Androgen Receptor Signaling",
+      "EMT and Metastatic Dissemination",
+      "Osteoblastic Bone Tropism",
+      "Castration Resistance and Clonal Evolution",
+      "Immune Evasion in Metastatic Sites"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "androgen receptor signaling pathway",
+      "epithelial to mesenchymal transition",
+      "positive regulation of cell migration",
+      "wound healing",
+      "signal transduction",
+      "negative regulation of immune response"
+    ],
+    "phenotypes": [
+      "Bone pain",
+      "Back pain",
+      "Recurrent fractures",
+      "Fatigue"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0002653",
+      "HP:0003418",
+      "HP:0002757",
+      "HP:0012378"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "AR",
+      "PTEN",
+      "TP53",
+      "RB1"
+    ],
+    "treatments": [],
+    "environmental": [
+      "Older age"
+    ],
+    "biochemical": [],
+    "source_file": "Metastatic_Prostate_Cancer.yaml",
+    "page_url": "../pages/disorders/Metastatic_Prostate_Cancer.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 5,
+    "num_genes": 4,
+    "num_treatments": 0,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Metastatic Renal Cell Carcinoma",
+    "disease_id": "MONDO:0005086",
+    "category": "",
+    "parents": [
+      "renal cell carcinoma"
+    ],
+    "creation_date": "2026-03-28T21:30:00Z",
+    "updated_date": "2026-03-29T02:21:26Z",
+    "subtypes": [],
+    "description": "Metastatic renal cell carcinoma (RCC) is advanced RCC with dissemination most commonly to lung, bone, liver, and brain. Clear cell biology predominates and is driven by VHL loss, HIF stabilization, intense angiogenesis, and context-dependent immune responsiveness that has made checkpoint blockade a core therapy in modern mRCC.",
+    "pathophysiology": [
+      "VHL Loss and HIF Stabilization",
+      "VEGF-Dependent Angiogenesis",
+      "Invasion and Hematogenous Dissemination",
+      "Immune Microenvironment and Checkpoint Sensitivity",
+      "Immune Evasion"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "response to hypoxia",
+      "angiogenesis",
+      "epithelial to mesenchymal transition",
+      "cell migration",
+      "immune system process",
+      "negative regulation of immune response"
+    ],
+    "phenotypes": [
+      "Hematuria",
+      "Flank pain",
+      "Bone pain",
+      "Dyspnea",
+      "Weight loss"
+    ],
+    "phenotype_categories": [
+      "Genitourinary",
+      "Musculoskeletal",
+      "Respiratory",
+      "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Genitourinary",
+      "Growth",
+      "Metabolism",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0000790",
+      "HP:0030157",
+      "HP:0002653",
+      "HP:0002094",
+      "HP:0001824"
+    ],
+    "frequencies": [
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [
+      "VHL",
+      "PBRM1",
+      "BAP1",
+      "SETD2"
+    ],
+    "treatments": [],
+    "environmental": [
+      "Smoking",
+      "Obesity"
+    ],
+    "biochemical": [],
+    "source_file": "Metastatic_Renal_Cell_Carcinoma.yaml",
+    "page_url": "../pages/disorders/Metastatic_Renal_Cell_Carcinoma.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 5,
+    "num_genes": 4,
+    "num_treatments": 0,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Metatropic Dysplasia",
     "disease_id": "MONDO:0007986",
     "category": "Mendelian",
@@ -43999,7 +44783,7 @@ window.searchData = [
       "Neuromuscular Disease"
     ],
     "creation_date": "2026-01-07T17:31:51Z",
-    "updated_date": "2026-02-17T21:53:14Z",
+    "updated_date": "2026-03-29T19:28:40Z",
     "subtypes": [
       "SMA Type 1 (Werdnig-Hoffmann)",
       "SMA Type 2",
@@ -47911,24 +48695,34 @@ window.searchData = [
       "kidney neoplasm"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-03-18T00:00:00Z",
+    "updated_date": "2026-03-28T00:00:00Z",
     "subtypes": [
-      "Favorable Histology Wilms Tumor",
-      "Anaplastic Wilms Tumor",
-      "Bilateral Wilms Tumor"
+      "Favorable Histology",
+      "Anaplastic",
+      "Bilateral"
     ],
     "description": "Wilms tumor (nephroblastoma) is the most common pediatric kidney malignancy, typically affecting children under 5 years of age. It exemplifies the concept of developmental cancer, arising from persistent embryonic renal blastemal cells that fail to undergo normal differentiation. Multiple genes are implicated including WT1, WTX (AMER1), and CTNNB1, which together regulate kidney development and Wnt signaling. Wilms tumor is one of the great successes of pediatric oncology, with cure rates exceeding 90% for favorable histology tumors through a combination of surgery, chemotherapy, and risk-adapted radiation. Anaplastic histology confers worse prognosis.",
     "pathophysiology": [
       "WT1 Inactivation",
-      "WTX/CTNNB1 Wnt Pathway Activation",
-      "Blocked Nephron Differentiation"
+      "WTX (AMER1) Inactivation",
+      "CTNNB1 Activating Mutation",
+      "Blocked Nephron Differentiation",
+      "IGF2 Loss of Imprinting"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "metanephric mesenchyme stem cell",
+      "nephrogenic zone cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000324",
+      "CL:0009019"
+    ],
     "biological_processes": [
       "cell differentiation",
+      "metanephros development",
       "Wnt signaling pathway",
-      "cell population proliferation"
+      "cell population proliferation",
+      "nephron development"
     ],
     "phenotypes": [
       "Abdominal Mass",
@@ -47936,7 +48730,8 @@ window.searchData = [
       "Hypertension",
       "Fever",
       "Aniridia",
-      "Hemihypertrophy"
+      "Hemihypertrophy",
+      "Abdominal Pain"
     ],
     "phenotype_categories": [
       "Abdominal",
@@ -47948,6 +48743,7 @@ window.searchData = [
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
+      "Constitutional",
       "Digestive",
       "Eye",
       "Genitourinary",
@@ -47961,7 +48757,8 @@ window.searchData = [
       "HP:0000822",
       "HP:0001945",
       "HP:0000526",
-      "HP:0001528"
+      "HP:0001528",
+      "HP:0002027"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -47972,7 +48769,12 @@ window.searchData = [
       "WT1 Mutations",
       "CTNNB1 Mutations",
       "WTX (AMER1) Mutations",
-      "Loss of 11p15 Imprinting"
+      "Loss of 11p15 Imprinting",
+      "Chromosome 1q Gain",
+      "Combined LOH 1p/16q",
+      "TP53 Mutations",
+      "DROSHA and DICER1 Mutations",
+      "SIX1/SIX2 Mutations"
     ],
     "treatments": [
       "Surgical Resection",
@@ -47980,14 +48782,12 @@ window.searchData = [
       "Radiation Therapy"
     ],
     "environmental": [],
-    "biochemical": [
-      "Histopathology"
-    ],
+    "biochemical": [],
     "source_file": "Wilms_Tumor.yaml",
     "page_url": "../pages/disorders/Wilms_Tumor.html",
-    "num_phenotypes": 6,
-    "num_pathophysiology": 3,
-    "num_genes": 4,
+    "num_phenotypes": 7,
+    "num_pathophysiology": 5,
+    "num_genes": 9,
     "num_treatments": 3,
     "causal_graph_edges": "1",
     "causal_graph_longest_path": "1"
