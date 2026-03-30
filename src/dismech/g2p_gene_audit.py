@@ -108,6 +108,15 @@ def _iter_g2p_rows(source: str) -> list[dict[str, str]]:
     return [dict(row) for row in reader]
 
 
+def _normalize_hp_id(term_id: str | None) -> str | None:
+    if not term_id:
+        return None
+    normalized = str(term_id).strip().upper()
+    if not normalized.startswith("HP:"):
+        return None
+    return normalized
+
+
 def _extract_pmids(obj: Any) -> set[str]:
     pmids: set[str] = set()
     if isinstance(obj, dict):
@@ -150,6 +159,23 @@ def _pathophysiology_gene_symbols(node: dict[str, Any]) -> set[str]:
                 symbols.add(symbol)
 
     return symbols
+
+
+def _disorder_phenotype_ids(disorder: dict[str, Any]) -> list[str]:
+    phenotype_ids: set[str] = set()
+    for phenotype in disorder.get("phenotypes") or []:
+        if not isinstance(phenotype, dict):
+            continue
+        phenotype_term = phenotype.get("phenotype_term")
+        if not isinstance(phenotype_term, dict):
+            continue
+        raw_term = phenotype_term.get("term")
+        if not isinstance(raw_term, dict):
+            continue
+        normalized = _normalize_hp_id(raw_term.get("id"))
+        if normalized:
+            phenotype_ids.add(normalized)
+    return sorted(phenotype_ids)
 
 
 def _classify_match_strength(
@@ -195,47 +221,56 @@ def _match_reasons_for_row(
     return reasons
 
 
-def load_g2p_rows_for_gene(source: str, gene_symbol: str) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
-    for row in _iter_g2p_rows(source):
-        if row.get("gene symbol") != gene_symbol:
-            continue
-        rows.append(
-            {
-                "g2p_id": row.get("g2p id", ""),
-                "gene_symbol": row.get("gene symbol", ""),
-                "disease_name": row.get("disease name", ""),
-                "disease_mondo": row.get("disease MONDO", ""),
-                "allelic_requirement": row.get("allelic requirement", ""),
-                "confidence": row.get("confidence", ""),
-                "variant_consequence": row.get("variant consequence", ""),
-                "variant_types": _split_semicolon_field(row.get("variant types")),
-                "molecular_mechanism": row.get("molecular mechanism", ""),
-                "molecular_mechanism_support": row.get(
-                    "molecular mechanism support", ""
-                ),
-                "molecular_mechanism_categorisation": row.get(
-                    "molecular mechanism categorisation", ""
-                ),
-                "molecular_mechanism_evidence": row.get(
-                    "molecular mechanism evidence", ""
-                ),
-                "phenotypes": _split_semicolon_field(row.get("phenotypes")),
-                "phenotype_count": len(_split_semicolon_field(row.get("phenotypes"))),
-                "reviewed_pmids": _split_semicolon_field(row.get("publications")),
-                "reviewed_pmid_count": len(
-                    _split_semicolon_field(row.get("publications"))
-                ),
-                "additional_mined_pmids": _split_semicolon_field(
-                    row.get("additional mined publications")
-                ),
-                "panel": _split_semicolon_field(row.get("panel")),
-                "date_of_last_review": row.get("date of last review", ""),
-                "review": row.get("review", ""),
-            }
-        )
+def _summarize_g2p_row(row: dict[str, str]) -> dict[str, Any]:
+    phenotypes = [
+        normalized
+        for item in _split_semicolon_field(row.get("phenotypes"))
+        if (normalized := _normalize_hp_id(item))
+    ]
+    reviewed_pmids = _split_semicolon_field(row.get("publications"))
+    return {
+        "g2p_id": row.get("g2p id", ""),
+        "gene_symbol": row.get("gene symbol", ""),
+        "disease_name": row.get("disease name", ""),
+        "disease_mondo": row.get("disease MONDO", ""),
+        "allelic_requirement": row.get("allelic requirement", ""),
+        "confidence": row.get("confidence", ""),
+        "variant_consequence": row.get("variant consequence", ""),
+        "variant_types": _split_semicolon_field(row.get("variant types")),
+        "molecular_mechanism": row.get("molecular mechanism", ""),
+        "molecular_mechanism_support": row.get("molecular mechanism support", ""),
+        "molecular_mechanism_categorisation": row.get(
+            "molecular mechanism categorisation", ""
+        ),
+        "molecular_mechanism_evidence": row.get("molecular mechanism evidence", ""),
+        "phenotypes": phenotypes,
+        "phenotype_count": len(phenotypes),
+        "reviewed_pmids": reviewed_pmids,
+        "reviewed_pmid_count": len(reviewed_pmids),
+        "additional_mined_pmids": _split_semicolon_field(
+            row.get("additional mined publications")
+        ),
+        "panel": _split_semicolon_field(row.get("panel")),
+        "date_of_last_review": row.get("date of last review", ""),
+        "review": row.get("review", ""),
+    }
 
-    return rows
+
+def load_g2p_index(
+    source: str | None = None,
+) -> tuple[str, dict[str, list[dict[str, Any]]]]:
+    resolved_source = source or _resolve_latest_g2p_url()
+    rows_by_gene: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in _iter_g2p_rows(resolved_source):
+        gene_symbol = row.get("gene symbol")
+        if gene_symbol:
+            rows_by_gene[gene_symbol].append(_summarize_g2p_row(row))
+    return resolved_source, dict(rows_by_gene)
+
+
+def load_g2p_rows_for_gene(source: str, gene_symbol: str) -> list[dict[str, Any]]:
+    _, rows_by_gene = load_g2p_index(source)
+    return rows_by_gene.get(gene_symbol, [])
 
 
 def load_dismech_gene_matches(
@@ -298,6 +333,7 @@ def load_dismech_gene_matches(
         disorder_mondo = (
             disease_term_term.get("id") if isinstance(disease_term_term, dict) else None
         )
+        disorder_phenotypes = _disorder_phenotype_ids(disorder)
 
         linked_rows = []
         for row in g2p_rows:
@@ -308,11 +344,16 @@ def load_dismech_gene_matches(
                 gene_symbol=gene_symbol,
             )
             if reasons:
+                shared_phenotypes = sorted(
+                    set(row["phenotypes"]) & set(disorder_phenotypes)
+                )
                 linked_rows.append(
                     {
                         "g2p_id": row["g2p_id"],
                         "disease_name": row["disease_name"],
                         "match_reasons": reasons,
+                        "shared_phenotype_count": len(shared_phenotypes),
+                        "shared_phenotype_ids": shared_phenotypes,
                     }
                 )
 
@@ -335,6 +376,7 @@ def load_dismech_gene_matches(
                 ),
                 "genetic_matches": genetic_matches,
                 "pathophysiology_matches": pathophysiology_matches,
+                "top_level_phenotype_ids": disorder_phenotypes,
                 "matched_section_pmids": matched_section_pmids,
                 "all_pmids": sorted(_extract_pmids(disorder)),
                 "linked_g2p_rows": linked_rows,
@@ -355,9 +397,16 @@ def compare_gene(
     *,
     kb_dir: Path = _DEFAULT_KB_DIR,
     g2p_source: str | None = None,
+    g2p_rows_by_gene: dict[str, list[dict[str, Any]]] | None = None,
+    resolved_g2p_source: str | None = None,
 ) -> dict[str, Any]:
-    source = g2p_source or _resolve_latest_g2p_url()
-    g2p_rows = load_g2p_rows_for_gene(source, gene_symbol)
+    if g2p_rows_by_gene is None:
+        source, rows_by_gene = load_g2p_index(g2p_source)
+    else:
+        source = resolved_g2p_source or g2p_source or "<preloaded>"
+        rows_by_gene = g2p_rows_by_gene
+
+    g2p_rows = [dict(row) for row in rows_by_gene.get(gene_symbol, [])]
     dismech_matches = load_dismech_gene_matches(kb_dir, gene_symbol, g2p_rows)
 
     row_candidates: dict[str, list[dict[str, Any]]] = defaultdict(list)
@@ -369,6 +418,28 @@ def compare_gene(
                     "file": disorder["file"],
                     "match_strength": disorder["match_strength"],
                     "match_reasons": linked_row["match_reasons"],
+                    "shared_phenotype_count": linked_row["shared_phenotype_count"],
+                    "shared_phenotype_ids": linked_row["shared_phenotype_ids"],
+                    "shared_reviewed_pmids_with_sections": sorted(
+                        set(disorder["matched_section_pmids"])
+                        & set(
+                            next(
+                                row["reviewed_pmids"]
+                                for row in g2p_rows
+                                if row["g2p_id"] == linked_row["g2p_id"]
+                            )
+                        )
+                    ),
+                    "shared_reviewed_pmids_with_disease": sorted(
+                        set(disorder["all_pmids"])
+                        & set(
+                            next(
+                                row["reviewed_pmids"]
+                                for row in g2p_rows
+                                if row["g2p_id"] == linked_row["g2p_id"]
+                            )
+                        )
+                    ),
                 }
             )
 
@@ -462,6 +533,56 @@ def compare_gene(
     }
 
 
+def survey_genes(
+    gene_symbols: list[str],
+    *,
+    kb_dir: Path = _DEFAULT_KB_DIR,
+    g2p_source: str | None = None,
+) -> list[dict[str, Any]]:
+    resolved_source, rows_by_gene = load_g2p_index(g2p_source)
+    reports = [
+        compare_gene(
+            gene_symbol,
+            kb_dir=kb_dir,
+            g2p_source=resolved_source,
+            g2p_rows_by_gene=rows_by_gene,
+            resolved_g2p_source=resolved_source,
+        )
+        for gene_symbol in gene_symbols
+    ]
+
+    summaries = []
+    for report in reports:
+        direct_coverage = report["publication_coverage"][
+            "direct_dismech_matched_sections"
+        ]
+        mapped_rows = sum(1 for row in report["g2p_rows"] if row["dismech_candidates"])
+        summaries.append(
+            {
+                "gene_symbol": report["gene_symbol"],
+                "g2p_source": report["g2p_source"],
+                "g2p_row_count": report["g2p_row_count"],
+                "mapped_row_count": mapped_rows,
+                "unmapped_row_count": report["g2p_row_count"] - mapped_rows,
+                "direct_dismech_match_count": report["direct_dismech_match_count"],
+                "g2p_mondo_collision_count": len(report["g2p_mondo_collisions"]),
+                "direct_section_pmid_overlap_count": direct_coverage["overlap_count"],
+                "direct_section_pmid_missing_count": direct_coverage[
+                    "missing_from_dismech_count"
+                ],
+            }
+        )
+
+    summaries.sort(
+        key=lambda item: (
+            -item["direct_section_pmid_overlap_count"],
+            item["unmapped_row_count"],
+            item["gene_symbol"].casefold(),
+        )
+    )
+    return summaries
+
+
 def _write_summary(report: dict[str, Any], file=None) -> None:
     out = file or typer.get_text_stream("stdout")
     out.write(f"Gene: {report['gene_symbol']}\n")
@@ -478,7 +599,9 @@ def _write_summary(report: dict[str, Any], file=None) -> None:
             candidate_text = "; ".join(
                 (
                     f"{candidate['disorder_name']} "
-                    f"[{candidate['match_strength']}; {','.join(candidate['match_reasons'])}]"
+                    f"[{candidate['match_strength']}; {','.join(candidate['match_reasons'])}; "
+                    f"shared_hpo={candidate['shared_phenotype_count']}; "
+                    f"shared_section_pmids={len(candidate['shared_reviewed_pmids_with_sections'])}]"
                 )
                 for candidate in row["dismech_candidates"]
             )
@@ -519,9 +642,49 @@ def _write_summary(report: dict[str, Any], file=None) -> None:
         )
 
 
+def _write_survey_summary(reports: list[dict[str, Any]], file=None) -> None:
+    out = file or typer.get_text_stream("stdout")
+    summaries = []
+    for report in reports:
+        direct_coverage = report["publication_coverage"][
+            "direct_dismech_matched_sections"
+        ]
+        mapped_rows = sum(1 for row in report["g2p_rows"] if row["dismech_candidates"])
+        summaries.append(
+            {
+                "gene_symbol": report["gene_symbol"],
+                "g2p_row_count": report["g2p_row_count"],
+                "mapped_row_count": mapped_rows,
+                "direct_dismech_match_count": report["direct_dismech_match_count"],
+                "g2p_mondo_collision_count": len(report["g2p_mondo_collisions"]),
+                "direct_section_pmid_overlap_count": direct_coverage["overlap_count"],
+                "direct_section_pmid_missing_count": direct_coverage[
+                    "missing_from_dismech_count"
+                ],
+            }
+        )
+    summaries.sort(
+        key=lambda item: (
+            -item["direct_section_pmid_overlap_count"],
+            item["gene_symbol"].casefold(),
+        )
+    )
+    for summary in summaries:
+        out.write(
+            f"- {summary['gene_symbol']}: g2p_rows={summary['g2p_row_count']}, "
+            f"mapped_rows={summary['mapped_row_count']}, "
+            f"direct_dismech_matches={summary['direct_dismech_match_count']}, "
+            f"mondo_collisions={summary['g2p_mondo_collision_count']}, "
+            f"direct_section_pmid_overlap={summary['direct_section_pmid_overlap_count']}, "
+            f"direct_section_pmid_missing={summary['direct_section_pmid_missing_count']}\n"
+        )
+
+
 @app.command()
 def audit(
-    gene_symbol: str = typer.Argument(help="HGNC gene symbol to audit."),
+    gene_symbols: list[str] = typer.Argument(
+        help="One or more HGNC gene symbols to audit."
+    ),
     g2p_source: str | None = typer.Option(
         None,
         "--g2p-source",
@@ -543,16 +706,30 @@ def audit(
         help="Optional output file path. Defaults to stdout.",
     ),
 ) -> None:
-    """Audit a single gene across G2P rows and dismech disease files."""
-    report = compare_gene(gene_symbol, kb_dir=kb_dir, g2p_source=g2p_source)
+    """Audit one or more genes across G2P rows and dismech disease files."""
+    resolved_source, rows_by_gene = load_g2p_index(g2p_source)
+    reports = [
+        compare_gene(
+            gene_symbol,
+            kb_dir=kb_dir,
+            g2p_source=resolved_source,
+            g2p_rows_by_gene=rows_by_gene,
+            resolved_g2p_source=resolved_source,
+        )
+        for gene_symbol in gene_symbols
+    ]
 
     out_stream = output.open("w", encoding="utf-8") if output else None
     try:
         if format == "summary":
-            _write_summary(report, file=out_stream)
+            if len(reports) == 1:
+                _write_summary(reports[0], file=out_stream)
+            else:
+                _write_survey_summary(reports, file=out_stream)
         elif format == "json":
             out = out_stream or typer.get_text_stream("stdout")
-            json.dump(report, out, indent=2)
+            payload: Any = reports[0] if len(reports) == 1 else reports
+            json.dump(payload, out, indent=2)
             out.write("\n")
         else:
             raise typer.BadParameter("format must be one of: summary, json")

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import yaml
 
-from dismech.g2p_gene_audit import compare_gene
+from dismech.g2p_gene_audit import compare_gene, survey_genes
 
 
 def _write_g2p_csv(path: Path, rows: list[dict[str, str]]) -> None:
@@ -207,6 +207,10 @@ def test_compare_gene_reports_direct_and_secondary_matches(tmp_path: Path) -> No
             "file": "Cowden_Syndrome.yaml",
             "match_reasons": ["name_or_parenthetical_alias"],
             "match_strength": "causative",
+            "shared_phenotype_count": 1,
+            "shared_phenotype_ids": ["HP:0500009"],
+            "shared_reviewed_pmids_with_sections": ["111"],
+            "shared_reviewed_pmids_with_disease": ["111"],
         }
     ]
 
@@ -278,3 +282,114 @@ def test_compare_gene_reports_pathophysiology_only_matches(tmp_path: Path) -> No
     assert report["dismech_matches"][0]["match_strength"] == "pathophysiology_only"
     all_sections = report["publication_coverage"]["all_dismech_matched_sections"]
     assert all_sections["extra_in_dismech_pmids"] == ["666"]
+
+
+def test_survey_genes_uses_one_g2p_source_for_multiple_reports(tmp_path: Path) -> None:
+    kb_dir = tmp_path / "kb"
+    kb_dir.mkdir()
+
+    _write_yaml(
+        kb_dir / "Alexander_Disease.yaml",
+        {
+            "name": "Alexander Disease",
+            "disease_term": {
+                "term": {"id": "MONDO:0008752", "label": "Alexander disease"}
+            },
+            "genetic": [
+                {
+                    "name": "GFAP",
+                    "association": "Causative",
+                    "gene_term": {
+                        "preferred_term": "GFAP",
+                        "term": {"id": "hgnc:4235", "label": "GFAP"},
+                    },
+                    "evidence": [{"reference": "PMID:10"}],
+                }
+            ],
+        },
+    )
+    _write_yaml(
+        kb_dir / "Atelosteogenesis_Type_I.yaml",
+        {
+            "name": "Atelosteogenesis Type I",
+            "disease_term": {
+                "term": {"id": "MONDO:0007167", "label": "atelosteogenesis type I"}
+            },
+            "genetic": [
+                {
+                    "name": "FLNB",
+                    "association": "Causative",
+                    "gene_term": {
+                        "preferred_term": "FLNB",
+                        "term": {"id": "hgnc:3775", "label": "FLNB"},
+                    },
+                    "evidence": [{"reference": "PMID:20"}],
+                }
+            ],
+        },
+    )
+
+    g2p_path = tmp_path / "genes.csv"
+    _write_g2p_csv(
+        g2p_path,
+        [
+            {
+                "g2p id": "GFAP1",
+                "gene symbol": "GFAP",
+                "gene mim": "",
+                "hgnc id": "4235",
+                "previous gene symbols": "",
+                "disease name": "GFAP-related Alexander disease",
+                "disease mim": "",
+                "disease MONDO": "MONDO:0008752",
+                "allelic requirement": "",
+                "cross cutting modifier": "",
+                "confidence": "definitive",
+                "variant consequence": "",
+                "variant types": "",
+                "molecular mechanism": "",
+                "molecular mechanism support": "",
+                "molecular mechanism categorisation": "",
+                "molecular mechanism evidence": "",
+                "phenotypes": "",
+                "publications": "10",
+                "additional mined publications": "",
+                "panel": "",
+                "comments": "",
+                "date of last review": "",
+                "review": "",
+            },
+            {
+                "g2p id": "FLNB1",
+                "gene symbol": "FLNB",
+                "gene mim": "",
+                "hgnc id": "3775",
+                "previous gene symbols": "",
+                "disease name": "FLNB-related atelosteogenesis, type 1",
+                "disease mim": "",
+                "disease MONDO": "MONDO:0007167",
+                "allelic requirement": "",
+                "cross cutting modifier": "",
+                "confidence": "definitive",
+                "variant consequence": "",
+                "variant types": "",
+                "molecular mechanism": "",
+                "molecular mechanism support": "",
+                "molecular mechanism categorisation": "",
+                "molecular mechanism evidence": "",
+                "phenotypes": "",
+                "publications": "20",
+                "additional mined publications": "",
+                "panel": "",
+                "comments": "",
+                "date of last review": "",
+                "review": "",
+            },
+        ],
+    )
+
+    summaries = survey_genes(["GFAP", "FLNB"], kb_dir=kb_dir, g2p_source=str(g2p_path))
+
+    assert [summary["gene_symbol"] for summary in summaries] == ["FLNB", "GFAP"]
+    assert summaries[0]["direct_section_pmid_overlap_count"] == 1
+    assert summaries[1]["direct_section_pmid_overlap_count"] == 1

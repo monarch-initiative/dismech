@@ -49,6 +49,50 @@ The main implication is that a G2P row can only be checked against dismech by
 crosswalking one row into multiple disease-file sections, and a gene must be
 audited across all relevant disease entries, not just one disease file.
 
+## Proposed Mapping Model
+
+The cleanest operational model is:
+
+`G2P row -> dismech mapping candidate set -> row status`
+
+Each G2P row should first be normalized into a `G2PAssertionBundle`:
+
+- row identity: `g2p_id`, gene, disease label, MONDO, panel, review date
+- genetic constraint: allelic requirement, variant consequence, variant types
+- mechanism: molecular mechanism, support, categorisation, evidence text
+- phenotype payload: HPO set
+- publication payload: reviewed PMIDs
+
+Each dismech candidate should then be represented as a `DismechMappingCandidate`
+anchored on a disease file, with:
+
+- disease root identity: disease file, disease label, disease MONDO
+- gene anchor class:
+  causative, subtype-specific, secondary genetic, pathophysiology-only,
+  differential/spectrum embedding
+- attached disease components:
+  `genetic[]`, `pathophysiology[]`, `phenotypes[]`, disease-wide PMIDs
+- mapping signals:
+  exact MONDO match, alias/name match, shared HPO count, shared reviewed PMID
+  count against the gene sections, shared reviewed PMID count against the whole
+  disease file
+
+The final `row status` should be a small controlled set:
+
+- `ROOT_MATCH`
+  one clear disease-root candidate in dismech
+- `ROOT_MATCH_PMID_GAP`
+  clear disease-root match but poor reviewed-PMID overlap
+- `SPLIT_ACROSS_DISMECH`
+  one G2P row corresponds to multiple dismech disease roots
+- `EMBEDDED_NOT_ROOTED`
+  the concept exists only as phenotype/differential/spectrum content
+- `UNDERREPRESENTED_IN_DISMECH`
+  G2P has multiple disease rows but dismech covers only part of the family
+
+This is more explicit than the first-pass "find a matching disease file"
+approach, and it better matches how the two resources are actually organized.
+
 ## PTEN Snapshot
 
 Command used:
@@ -170,6 +214,87 @@ dismech Cowden says:
 
 So the biology aligns well, but the packaging differs.
 
+## Additional Contrast Cases
+
+Batch command used:
+
+```bash
+uv run python -m dismech.g2p_gene_audit PTEN FLNB PIK3CA FGFR2 --format summary
+```
+
+Cross-gene summary from the current dismech worktree and current G2P release:
+
+| Gene | Pattern | G2P rows | Mapped rows | Direct dismech matches | Direct section PMID overlap |
+| --- | --- | ---: | ---: | ---: | ---: |
+| PTEN | root match with PMID gap + MONDO collision | 3 | 1 | 2 | 0 |
+| FLNB | strongest current one-to-one family coverage | 4 | 4 | 4 | 4 |
+| PIK3CA | one broad G2P row split across dismech disease roots | 1 | 0 | 2 | 3 |
+| FGFR2 | many G2P rows, only one dismech disease root | 7 | 1 | 1 | 1 |
+
+### FLNB
+
+FLNB is the cleanest current positive example.
+
+- G2P rows: 4
+- direct dismech disease anchors: 4
+- row-to-root mapping works for all 4 rows
+- direct section PMID overlap: 4
+- disease-level PMID overlap: 6
+
+Current FLNB rows map directly to:
+
+- Atelosteogenesis Type I
+- Atelosteogenesis Type III
+- Larsen Syndrome
+- Spondylocarpotarsal Synostosis Syndrome
+
+This is close to the ideal dismech-compatible pattern:
+
+- one gene with multiple disease roots
+- one G2P row per disease root
+- mostly stable MONDO alignment
+- useful phenotype overlap
+- non-zero PMID overlap at the gene-section level
+
+### PIK3CA
+
+PIK3CA shows the opposite pattern from FLNB.
+
+- G2P rows: 1
+- direct dismech disease anchors: 2
+- mapped rows: 0 by current root-label logic
+- direct section PMID overlap: 3
+
+The G2P row is a broad overgrowth-spectrum assertion, while dismech currently
+surfaces PIK3CA as a direct causative gene in:
+
+- CLOVES Syndrome
+- Cowden Syndrome
+
+So this is not a simple failed match. It is a representation mismatch:
+
+- G2P aggregates spectrum-level disease knowledge into one row
+- dismech splits the same gene across disease-specific roots
+
+This is a `SPLIT_ACROSS_DISMECH` pattern.
+
+### FGFR2
+
+FGFR2 shows dismech undercoverage relative to G2P.
+
+- G2P rows: 7
+- direct dismech disease anchors: 1
+- mapped rows: 1
+- direct section PMID overlap: 1
+
+Only the Apert syndrome row currently has a direct dismech root match. The
+other G2P rows, including Crouzon, Pfeiffer, Jackson-Weiss, LADD,
+Beare-Stevenson, and Antley-Bixler, do not currently have matching direct
+disease roots in dismech.
+
+This is a clear `UNDERREPRESENTED_IN_DISMECH` pattern: the gene family is known
+and split in G2P, but only one disease anchor is curated in dismech.
+
 ## Where dismech Aligns Well
 
 - Disease-level modeling is strong when a gene has a well-curated disease root,
@@ -217,9 +342,12 @@ For audit purposes, normalize each row into:
 - phenotype set
 - reviewed PMIDs
 
+In implementation terms, this should become a stable intermediate artifact,
+not just a transient parse step.
+
 ### 2. Match into dismech by ordered evidence, not a single key
 
-Use this order:
+Use this order when creating `DismechMappingCandidate` records:
 
 1. Exact disease MONDO match
 2. Disease label or parenthetical alias match
@@ -227,7 +355,7 @@ Use this order:
 4. Structured subtype-specific match for the same gene
 5. Heuristic spectrum/differential embedding
 
-Important rule:
+Important rule for scoring:
 
 - keep direct disease anchors separate from secondary somatic or co-occurring
   gene mentions
@@ -246,17 +374,21 @@ For every gene, classify dismech hits as:
   example: PTEN hamartoma tumor syndrome under Proteus differentials
 
 Only the first two classes should count toward primary disease coverage.
+The latter two are still important, but they belong to row-status explanation,
+not root-match accounting.
 
-### 4. Measure PMID coverage at two levels
+### 4. Measure phenotype and PMID coverage separately
 
 For each gene, compute:
 
+- row-to-root phenotype overlap
 - G2P reviewed PMIDs
 - dismech PMIDs from matched gene-specific sections only
 - dismech PMIDs from the full matched disease files
 
 This gives two answers:
 
+- whether the disease concept is phenotypically represented at all
 - publication overlap for the exact gene assertion
 - publication overlap for the broader disease explanation
 
@@ -279,7 +411,7 @@ A row can have:
 
 ### 6. Produce a compact audit artifact
 
-Recommended table columns:
+Recommended row-level table columns:
 
 - gene
 - g2p_id
@@ -293,9 +425,14 @@ Recommended table columns:
 - dismech_disease_name
 - dismech_disease_mondo
 - dismech_gene_association
+- match_reasons
+- shared_hpo_count
+- shared_section_reviewed_pmid_count
+- shared_disease_reviewed_pmid_count
 - dismech_gene_section_pmid_count
 - dismech_disease_pmid_count
 - pmid_overlap_count
+- row_status
 - mechanism_alignment
 - phenotype_alignment
 - audit_note
@@ -315,6 +452,7 @@ Usage:
 ```bash
 uv run python -m dismech.g2p_gene_audit PTEN --format summary
 uv run python -m dismech.g2p_gene_audit PTEN --format json
+uv run python -m dismech.g2p_gene_audit PTEN FLNB PIK3CA FGFR2 --format summary
 ```
 
 Behavior:
@@ -323,7 +461,9 @@ Behavior:
 - uses structured `genetic[]` and `pathophysiology[].gene/genes` matches in dismech
 - distinguishes causative/subtype-specific matches from secondary genetic matches
 - reports G2P MONDO collisions within a gene
+- reports row-to-candidate shared HPO counts and shared reviewed-PMID counts
 - reports PMID overlap for direct anchors and for all matched disorders
+- supports small batch surveys without reloading the G2P export per gene
 
 Current limitation:
 
