@@ -447,8 +447,7 @@ quick-test:
 # List all disorders in the KB
 [group('KB')]
 list-disorders:
-    @echo "Disorders in the KB:"
-    @ls -1 {{kb_dir}}/*.yaml | xargs -I {} basename {} .yaml | sort
+    @for f in {{kb_dir}}/*.yaml; do basename "$f" .yaml; done | sort
 
 # Count disorders
 [group('KB')]
@@ -560,6 +559,7 @@ templates_dir := "templates"
 # Deep research on a disorder using specified provider
 # Examples:
 #   just research-disorder perplexity Marfan_Syndrome
+#   just research-disorder asta Liver_Cirrhosis
 #   just research-disorder openai Huntingtons_Disease --model gpt-4o
 #   just research-disorder cborg Crohn_Disease
 [group('Research')]
@@ -570,16 +570,17 @@ research-disorder provider disorder *args="":
     yaml_file="{{kb_dir}}/{{disorder}}.yaml"
     if [ ! -f "$yaml_file" ]; then
         echo "Error: Disorder file not found: $yaml_file"
-        ls -1 {{kb_dir}}/*.yaml | xargs -I {} basename {} .yaml | head -20
+        for f in {{kb_dir}}/*.yaml; do basename "$f" .yaml; done | sort | head -20
         exit 1
     fi
     disease_name=$(grep "^name:" "$yaml_file" | head -1 | sed 's/name: *//' | tr '_' ' ')
     category=$(grep "^category:" "$yaml_file" | head -1 | sed 's/category: *//' || echo "")
     output_file="{{research_dir}}/{{disorder}}-deep-research-{{provider}}.md"
+    template_file=$([[ "{{provider}}" == "asta" ]] && echo "{{templates_dir}}/disease_pathophysiology_research_asta.md" || echo "{{templates_dir}}/disease_pathophysiology_research.md")
     echo "Researching: $disease_name ({{provider}}) -> $output_file"
     provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
     uv run deep-research-client research \
-        --template {{templates_dir}}/disease_pathophysiology_research.md \
+        --template "$template_file" \
         --var "disease_name=$disease_name" \
         --var "mondo_id=" \
         --var "category=$category" \
@@ -664,7 +665,7 @@ research-disorder-cyberian-codex disorder *args="":
     yaml_file="{{kb_dir}}/{{disorder}}.yaml"
     if [ ! -f "$yaml_file" ]; then
         echo "Error: Disorder file not found: $yaml_file"
-        ls -1 {{kb_dir}}/*.yaml | xargs -I {} basename {} .yaml | head -20
+        for f in {{kb_dir}}/*.yaml; do basename "$f" .yaml; done | sort | head -20
         exit 1
     fi
     disease_name=$(grep "^name:" "$yaml_file" | head -1 | sed 's/name: *//' | tr '_' ' ')
@@ -1034,3 +1035,78 @@ d2p-compare-json disease:
 [group('Analysis')]
 perturb file *args="":
     uv run python -m dismech.perturb {{file}} {{args}}
+
+# ============== Agent Helper Commands ==============
+# These commands help Claude Code agents explore the KB without requiring
+# manual permission approvals for common lookup patterns.
+
+# Check if a disorder exists (case-insensitive partial match)
+# Example: just find-disorder kleefstra
+[group('KB')]
+find-disorder pattern:
+    @for f in {{kb_dir}}/*.yaml; do basename "$f" .yaml; done | grep -i "{{pattern}}" || echo "No match found for '{{pattern}}'"
+
+# Show how a specific YAML field is used across existing disorder files
+# Example: just show-field-pattern genetic gene_term
+#          just show-field-pattern treatments treatment_term
+[group('KB')]
+show-field-pattern section field:
+    #!/usr/bin/env bash
+    echo "Pattern for '{{field}}' in '{{section}}' section:"
+    count=0
+    for f in {{kb_dir}}/*.yaml; do
+        # Extract lines from the target section (top-level key) then grep within it
+        section_text=$(sed -n '/^{{section}}:/,/^[a-z_]*:/{ /^[a-z_]*:/!p; /^{{section}}:/p; }' "$f" 2>/dev/null)
+        match=$(echo "$section_text" | grep -FA6 "{{field}}:" 2>/dev/null | head -7)
+        if [ -n "$match" ]; then
+            echo "--- $(basename $f) ---"
+            echo "$match"
+            echo ""
+            count=$((count+1))
+            if [ $count -ge 3 ]; then
+                break
+            fi
+        fi
+    done
+
+# Find cached references matching a pattern (PMID, DOI, keyword)
+# Example: just find-cached-refs kleefstra
+#          just find-cached-refs 16826528
+[group('Research')]
+find-cached-refs pattern:
+    @ls -1 references_cache/*.md 2>/dev/null | grep -i "{{pattern}}" || echo "No cached refs matching '{{pattern}}'"
+
+# Check if deep research exists for a disorder
+# Example: just check-research Kleefstra_Syndrome
+[group('Research')]
+check-research disorder:
+    @ls -1 research/{{disorder}}* 2>/dev/null || echo "No research files found for '{{disorder}}'"
+
+# List all available deep research files
+[group('Research')]
+list-research:
+    @for f in research/*-deep-research-*.md; do [ -f "$f" ] && basename "$f"; done | grep -v '\.citations\.md$$' | sort || echo "No research files found"
+
+# Generate a disorder review report (markdown + PDF) for expert review
+# Example: just disorder-report kb/disorders/Kleefstra_Syndrome.yaml
+# Output: Kleefstra_Syndrome_review.md and Kleefstra_Syndrome_review.pdf
+[group('Pages')]
+disorder-report file:
+    #!/usr/bin/env bash
+    set -e
+    mkdir -p reports
+    stem=$(basename "{{file}}" .yaml)
+    md_out="reports/${stem}_review.md"
+    pdf_out="reports/${stem}_review.pdf"
+    echo "Generating review report for {{file}}..."
+    uv run python scripts/render_review_pdf.py "{{file}}" --md-only -o "$md_out"
+    echo "  Markdown: $md_out"
+    if command -v pandoc >/dev/null 2>&1; then
+        pandoc "$md_out" -o "$pdf_out" --pdf-engine=xelatex \
+            -V geometry:margin=2.5cm -V geometry:bottom=3cm -V fontsize=11pt \
+            -V mainfont="Palatino" -V monofont="Menlo" \
+            --include-in-header=scripts/pdf_header.tex 2>/dev/null
+        echo "  PDF: $pdf_out"
+    else
+        echo "  (pandoc not found — skipping PDF generation)"
+    fi

@@ -1,0 +1,115 @@
+name: Reassign Stale PRs to Dragon AI
+
+on:
+  schedule:
+    # Run daily at 9am UTC (2am PDT)
+    - cron: "0 9 * * *"
+  workflow_dispatch:
+    inputs:
+      days_stale:
+        description: 'Days of inactivity before reassignment'
+        required: false
+        default: '7'
+        type: string
+      dry_run:
+        description: 'Dry run (comment only, no reassignment)'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  reassign-stale:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Reassign stale PRs
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.PAT_FOR_PR }}
+          script: |
+            const daysStale = parseInt('${{ inputs.days_stale || '7' }}');
+            const dryRun = '${{ inputs.dry_run }}' === 'true';
+            const dragonUser = 'dragon-ai-agent';
+            const cutoffDate = new Date();
+            cutoffDate.setDate(cutoffDate.getDate() - daysStale);
+
+            // Get open PRs
+            const { data: prs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              sort: 'updated',
+              direction: 'asc',
+              per_page: 50,
+            });
+
+            let reassigned = 0;
+            let skipped = 0;
+
+            for (const pr of prs) {
+              // Skip PRs already assigned to dragon
+              const assignees = pr.assignees.map(a => a.login);
+              if (assignees.includes(dragonUser)) {
+                continue;
+              }
+
+              // Skip bot PRs (regeneration, compliance)
+              if (pr.user.login === 'github-actions[bot]' || pr.user.login === 'github-actions') {
+                continue;
+              }
+
+              // Check last activity (updated_at includes comments, pushes, reviews)
+              const lastActivity = new Date(pr.updated_at);
+              if (lastActivity >= cutoffDate) {
+                continue;
+              }
+
+              // Check if PR has changes requested (prioritize these)
+              const { data: reviews } = await github.rest.pulls.listReviews({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number,
+              });
+
+              const hasChangesRequested = reviews.some(r => r.state === 'CHANGES_REQUESTED');
+
+              // Only reassign if changes were requested and not addressed
+              if (!hasChangesRequested) {
+                continue;
+              }
+
+              console.log(`PR #${pr.number}: "${pr.title}" - last activity ${lastActivity.toISOString()} - STALE`);
+
+              if (dryRun) {
+                console.log(`  [DRY RUN] Would reassign to ${dragonUser}`);
+                reassigned++;
+                continue;
+              }
+
+              // Post friendly comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                body: `👋 This PR has had outstanding review feedback for more than ${daysStale} days without updates.\n\n` +
+                  `I'm assigning @${dragonUser} to help address the review comments. ` +
+                  `@${pr.user.login}, feel free to reassign back to yourself if you'd like to continue working on this!\n\n` +
+                  `*This is an automated message from the stale PR workflow.*`,
+              });
+
+              // Reassign to dragon
+              await github.rest.issues.addAssignees({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                assignees: [dragonUser],
+              });
+
+              reassigned++;
+            }
+
+            console.log(`\nSummary: ${reassigned} PRs reassigned, ${skipped} skipped`);

@@ -140,6 +140,46 @@ def test_all_disorders_have_unique_names():
     assert not duplicates, f"Duplicate disorder names: {set(duplicates)}"
 
 
+@pytest.mark.parametrize("filepath", DISORDER_FILES)
+def test_subtype_foreign_keys(filepath):
+    """Test that subtype references match has_subtypes names."""
+    with open(filepath) as f:
+        data = yaml.safe_load(f)
+
+    valid_subtypes = {s["name"] for s in data.get("has_subtypes", [])}
+    if not valid_subtypes:
+        return
+
+    errors = []
+    # Sections with a top-level subtype field
+    for section in ("phenotypes", "biochemical", "genetic", "prevalence",
+                    "progression", "histopathology"):
+        for i, item in enumerate(data.get(section, [])):
+            val = item.get("subtype")
+            if val and val not in valid_subtypes:
+                errors.append(f"{section}[{i}].subtype={val!r}")
+            # Also check phenotype_contexts
+            for j, ctx in enumerate(item.get("phenotype_contexts", [])):
+                val = ctx.get("subtype")
+                if val and val not in valid_subtypes:
+                    errors.append(
+                        f"{section}[{i}].phenotype_contexts[{j}].subtype={val!r}"
+                    )
+
+    # mechanistic_hypotheses.applies_to_subtypes
+    for i, hyp in enumerate(data.get("mechanistic_hypotheses", [])):
+        for val in hyp.get("applies_to_subtypes", []):
+            if val not in valid_subtypes:
+                errors.append(
+                    f"mechanistic_hypotheses[{i}].applies_to_subtypes={val!r}"
+                )
+
+    assert not errors, (
+        f"Subtype FK mismatches in {Path(filepath).name}. "
+        f"Valid subtypes: {valid_subtypes}. Bad refs: {errors}"
+    )
+
+
 def test_disorder_count():
     """Test that we have the expected number of disorders."""
     assert len(DISORDER_FILES) >= 50, (
