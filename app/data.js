@@ -7468,7 +7468,7 @@ window.searchData = [
   },
   {
     "name": "CTCF-related Neurodevelopmental Disorder",
-    "disease_id": "MONDO:0700294",
+    "disease_id": "MONDO:0014213",
     "category": "Mendelian",
     "parents": [
       "Neurodevelopmental Disorder",
@@ -11709,26 +11709,41 @@ window.searchData = [
       "RASopathies"
     ],
     "creation_date": "2026-02-06T03:39:54Z",
-    "updated_date": "2026-02-17T21:53:14Z",
+    "updated_date": "2026-03-31T21:13:56Z",
     "subtypes": [],
-    "description": "Costello syndrome is a RASopathy caused by heterozygous germline gain-of-function mutations in HRAS, characterized by failure to thrive in infancy, distinctive coarse facial features, intellectual disability, cardiac abnormalities (hypertrophic cardiomyopathy, arrhythmias), skeletal abnormalities (joint laxity, ulnar deviation), and a predisposition to malignancies (rhabdomyosarcoma, neuroblastoma, bladder carcinoma). The syndrome results from constitutive activation of the RAS-MAPK signaling pathway.\n",
+    "description": "Costello syndrome is a RASopathy caused by heterozygous germline gain-of-function mutations in HRAS, characterized by failure to thrive in infancy, distinctive coarse facial features, intellectual disability, cardiac abnormalities (hypertrophic cardiomyopathy, arrhythmias), skeletal abnormalities (joint laxity, ulnar deviation), and a predisposition to malignancies (rhabdomyosarcoma, neuroblastoma, bladder carcinoma). The syndrome results from constitutive activation of the RAS-MAPK signaling pathway, with additional evidence for altered mitochondrial proteostasis, defective oxidative phosphorylation, and broader bioenergetic dysfunction in Costello syndrome model systems.\n",
     "pathophysiology": [
-      "Constitutive RAS-MAPK Activation",
+      "Germline HRAS gain-of-function mutation",
+      "Constitutive HRAS signaling",
+      "Cardiac mitochondrial bioenergetic dysfunction",
+      "Atrial cardiomyocyte pacemaker-nodal transcriptional reprogramming",
+      "Enhanced automaticity and funny current in atrial cardiomyocytes",
+      "Fibroblast metabolic rewiring and increased energetic expenditure",
+      "Impaired fibroblast elastogenesis",
+      "Dysregulated neural progenitor development",
       "Tumor Predisposition"
     ],
     "cell_types": [
-      "Fibroblast",
-      "Atrial Cardiomyocyte"
+      "cardiomyocyte",
+      "Atrial Cardiomyocyte",
+      "Fibroblast"
     ],
     "cell_type_ids": [
-      "CL:0000057",
-      "CL:0002129"
+      "CL:0000746",
+      "CL:0002129",
+      "CL:0000057"
     ],
     "biological_processes": [
-      "RAS Signaling",
-      "MAPK Cascade",
-      "Cell Proliferation",
-      "Cell Cycle Regulation"
+      "Ras protein signal transduction",
+      "MAPK cascade",
+      "oxidative phosphorylation",
+      "glycolytic process",
+      "autophagy",
+      "fatty acid biosynthetic process",
+      "neurogenesis",
+      "glial cell differentiation",
+      "regulation of cell cycle",
+      "cell population proliferation"
     ],
     "phenotypes": [
       "Failure to Thrive",
@@ -11757,7 +11772,7 @@ window.searchData = [
       "HP:0001508",
       "HP:0000280",
       "HP:0001639",
-      "HP:0005115",
+      "HP:0011701",
       "HP:0004322",
       "HP:0001249",
       "HP:0001382",
@@ -11765,7 +11780,11 @@ window.searchData = [
       "HP:0012740",
       "HP:0002664"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
     "genes": [
       "HRAS Mutations"
     ],
@@ -11779,11 +11798,11 @@ window.searchData = [
     "source_file": "Costello_Syndrome.yaml",
     "page_url": "../pages/disorders/Costello_Syndrome.html",
     "num_phenotypes": 10,
-    "num_pathophysiology": 2,
+    "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Cough Variant Asthma",
@@ -17344,7 +17363,7 @@ window.searchData = [
       "Congenital Disorder"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-03-13T00:00:00Z",
+    "updated_date": "2026-02-17T21:53:14Z",
     "subtypes": [
       "Core Complex Subtypes",
       "ID Complex Subtypes",
@@ -17394,8 +17413,7 @@ window.searchData = [
       "Skin Pigmentation Changes",
       "MYC-Driven HSPC Dysfunction",
       "Differentiation-Induced Genotoxic Stress",
-      "iPSC-Revealed p53-Driven Progenitor Exhaustion",
-      "PCNA Monoubiquitination and ICL Pathway Choice"
+      "iPSC-Revealed p53-Driven Progenitor Exhaustion"
     ],
     "cell_types": [
       "hematopoietic stem cell",
@@ -17408,16 +17426,13 @@ window.searchData = [
       "CL:0008001"
     ],
     "biological_processes": [
-      "interstrand cross-link repair",
-      "hemopoiesis",
-      "DNA damage response",
       "cellular response to aldehyde",
       "cellular response to oxidative stress",
       "translesion synthesis",
       "homologous recombination",
       "protein ubiquitination",
       "protein monoubiquitination",
-      "double-strand break repair via homologous recombination",
+      "interstrand cross-link repair",
       "inflammatory response",
       "apoptotic process",
       "embryo development",
@@ -17697,10 +17712,10 @@ window.searchData = [
     "source_file": "Fanconi_Anemia.yaml",
     "page_url": "../pages/disorders/Fanconi_Anemia.html",
     "num_phenotypes": 92,
-    "num_pathophysiology": 23,
+    "num_pathophysiology": 22,
     "num_genes": 25,
     "num_treatments": 8,
-    "causal_graph_edges": "56",
+    "causal_graph_edges": "54",
     "causal_graph_longest_path": "5"
   },
   {
@@ -18371,7 +18386,7 @@ window.searchData = [
       "Newborn screening disorder"
     ],
     "creation_date": "2026-02-06T03:39:54Z",
-    "updated_date": "2026-03-04T23:45:00Z",
+    "updated_date": "2026-03-31T18:30:00Z",
     "subtypes": [
       "Classic Galactosemia (GALT deficiency)",
       "Galactokinase Deficiency",
@@ -18379,9 +18394,15 @@ window.searchData = [
     ],
     "description": "Galactosemia is an inborn error of galactose metabolism caused by deficiency of one of three enzymes in the Leloir pathway: galactose-1-phosphate uridyltransferase (GALT, classic galactosemia), galactokinase (GALK), or UDP-galactose-4-epimerase (GALE). Classic galactosemia (GALT deficiency) is the most severe form, presenting in neonates with feeding difficulties, failure to thrive, hepatomegaly, jaundice, and increased susceptibility to E. coli sepsis. Early dietary restriction of galactose prevents acute toxicity but long-term complications including cognitive impairment, speech disorders, and premature ovarian insufficiency may still occur.\n",
     "pathophysiology": [
+      "GALT Deficiency in the Leloir Pathway",
       "Galactose-1-phosphate accumulation",
-      "UDP-galactose deficiency",
-      "Galactitol toxicity"
+      "UDP-hexose depletion",
+      "Impaired Glycosylation",
+      "Galactitol accumulation",
+      "Endoplasmic Reticulum Stress",
+      "Altered Signaling Pathways",
+      "Oxidative Stress",
+      "Acute Hepatocellular Dysfunction"
     ],
     "cell_types": [],
     "cell_type_ids": [],
@@ -18414,13 +18435,14 @@ window.searchData = [
       "HP:0000518",
       "HP:0040187",
       "HP:0001249",
-      "HP:0000750",
+      "HP:0002167",
       "HP:0008209",
       "HP:0001337"
     ],
     "frequencies": [
       "FREQUENT",
-      "OCCASIONAL"
+      "OCCASIONAL",
+      "VERY_FREQUENT"
     ],
     "genes": [
       "GALT variants (Classic galactosemia)",
@@ -18434,15 +18456,19 @@ window.searchData = [
       "Speech therapy"
     ],
     "environmental": [],
-    "biochemical": [],
+    "biochemical": [
+      "Erythrocyte galactose-1-phosphate",
+      "Erythrocyte GALT enzyme activity",
+      "Urinary galactitol"
+    ],
     "source_file": "Galactosemia.yaml",
     "page_url": "../pages/disorders/Galactosemia.html",
     "num_phenotypes": 9,
-    "num_pathophysiology": 3,
+    "num_pathophysiology": 9,
     "num_genes": 3,
     "num_treatments": 4,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Gastric Cancer H. pylori Associated",
@@ -26920,13 +26946,16 @@ window.searchData = [
       "Sphingolipidosis"
     ],
     "creation_date": "2026-03-14T00:00:00Z",
-    "updated_date": "2026-03-16T00:00:00Z",
+    "updated_date": "2026-03-30T23:35:00Z",
     "subtypes": [],
     "description": "Krabbe disease (globoid cell leukodystrophy) is a severe autosomal recessive lysosomal storage disorder caused by deficiency of galactosylceramidase (GALC), the enzyme responsible for degrading galactosylceramide and psychosine (galactosylsphingosine). Accumulation of psychosine is toxic to oligodendrocytes and Schwann cells, leading to progressive demyelination of the central and peripheral nervous systems. The infantile form presents in the first months of life with irritability, spasticity, and rapid neurological deterioration, while later-onset forms have a more variable and protracted course.\n",
     "pathophysiology": [
-      "GALC Deficiency and Psychosine Accumulation",
+      "GALC Deficiency",
+      "Psychosine Accumulation",
+      "Oligodendrocyte and Schwann Cell Toxicity",
       "Demyelination",
-      "Neuroinflammation",
+      "Globoid Cell Accumulation",
+      "Microglial and Astrocyte Reactivity",
       "Inflammasome Activation",
       "Proteostasis Failure"
     ],
@@ -26950,7 +26979,6 @@ window.searchData = [
       "sphingolipid catabolic process",
       "myelination",
       "central nervous system myelination",
-      "microglial cell activation",
       "inflammatory response",
       "autophagy"
     ],
@@ -27000,11 +27028,11 @@ window.searchData = [
     "source_file": "Krabbe_Disease.yaml",
     "page_url": "../pages/disorders/Krabbe_Disease.html",
     "num_phenotypes": 8,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Kummell Disease",
@@ -31421,6 +31449,85 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Metachromatic Leukodystrophy",
+    "disease_id": "MONDO:0018868",
+    "category": "Genetic",
+    "parents": [
+      "Leukodystrophy",
+      "Lysosomal Storage Disease"
+    ],
+    "creation_date": "2026-03-30T18:20:00Z",
+    "updated_date": "2026-03-30T22:20:00Z",
+    "subtypes": [
+      "Late-Infantile MLD",
+      "Early-Juvenile MLD",
+      "Late-Juvenile MLD",
+      "Adult MLD"
+    ],
+    "description": "Metachromatic leukodystrophy (MLD) is an autosomal recessive lysosomal storage leukodystrophy caused by arylsulfatase A deficiency, leading to sulfatide accumulation, progressive central and peripheral demyelination, and worsening motor and cognitive dysfunction.\n",
+    "pathophysiology": [
+      "Arylsulfatase A Deficiency",
+      "Sulfatide Accumulation",
+      "Central Nervous System Demyelination",
+      "Demyelinating Polyneuropathy",
+      "Progressive Neurodegeneration"
+    ],
+    "cell_types": [
+      "oligodendrocyte",
+      "Schwann cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000128",
+      "CL:0002573"
+    ],
+    "biological_processes": [
+      "sphingolipid catabolic process",
+      "central nervous system myelination"
+    ],
+    "phenotypes": [
+      "Cognitive Impairment",
+      "Developmental Regression",
+      "Dysphagia",
+      "Seizures",
+      "Hypotonia",
+      "Peripheral Neuropathy"
+    ],
+    "phenotype_categories": [
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0100543",
+      "HP:0002376",
+      "HP:0002015",
+      "HP:0001250",
+      "HP:0001252",
+      "HP:0009830"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ARSA"
+    ],
+    "treatments": [
+      "Hematopoietic Stem Cell Transplantation",
+      "Atidarsagene Autotemcel"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Metachromatic_Leukodystrophy.yaml",
+    "page_url": "../pages/disorders/Metachromatic_Leukodystrophy.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Metaphyseal Chondrodysplasia, Schmid Type",
     "disease_id": "MONDO:0007983",
     "category": "Mendelian",
@@ -33948,23 +34055,17 @@ window.searchData = [
       "Immune Disorder"
     ],
     "creation_date": "2025-12-06T01:38:31Z",
-    "updated_date": "2026-03-18T00:00:00Z",
+    "updated_date": "2026-02-27T21:53:01Z",
     "subtypes": [],
-    "description": "Dysregulated innate immune function, most reproducibly demonstrated by impaired natural killer cell cytotoxicity, forming part of the interconnected pathological responses in ME/CFS.",
+    "description": "Exaggerated innate immune responses to microbial ligands, with exercise-triggered increases in proinflammatory signals, complement activation, and oxidative stress that contribute to post-exertional malaise.",
     "pathophysiology": [
-      "Innate Immune Dysregulation",
+      "Innate Immune Hyperreactivity",
       "Natural Killer Cell Dysfunction",
       "T-Cell Immunometabolic Dysfunction",
-      "CD8+ T-Cell Exhaustion",
-      "Endothelial Dysfunction",
-      "Coagulopathy",
+      "Endothelial Dysfunction and Coagulopathy",
       "TRPM3 Ion Channel Dysfunction",
-      "Neuroinflammation",
-      "Cerebral Hypoperfusion",
-      "Neuroaxonal Injury",
-      "Gut-Immune Dysbiosis",
-      "Mitochondrial Dysfunction",
-      "Central Catechol Pathway Dysregulation"
+      "Neuroinflammation and Cerebral Hypoperfusion",
+      "Mitochondrial Dysfunction"
     ],
     "cell_types": [
       "Natural Killer Cell",
@@ -33972,9 +34073,7 @@ window.searchData = [
       "CD8+ T Cell",
       "CD4+ T Cell",
       "Endothelial Cell",
-      "Platelet",
-      "Microglial Cell",
-      "Neuron"
+      "Platelet"
     ],
     "cell_type_ids": [
       "CL:0000623",
@@ -33982,22 +34081,16 @@ window.searchData = [
       "CL:0000625",
       "CL:0000624",
       "CL:0000115",
-      "CL:0000233",
-      "CL:0000129",
-      "CL:0000540"
+      "CL:0000233"
     ],
     "biological_processes": [
       "Innate Immune Response",
+      "Complement Activation",
       "T Cell Activation",
-      "Metabolic Reprogramming",
-      "Exhausted T Cell Differentiation",
-      "Chromatin Remodeling",
+      "Glycolysis",
       "Blood Coagulation",
       "Platelet Activation",
       "Calcium Ion Transmembrane Transport",
-      "Neuroinflammatory Response",
-      "Immune Response",
-      "Inflammatory Response",
       "Fatty Acid Beta-Oxidation",
       "Response to Oxidative Stress"
     ],
@@ -34009,7 +34102,6 @@ window.searchData = [
       "Sleep Disturbance",
       "Myalgia",
       "Headache",
-      "Exercise Intolerance",
       "Recurrent Infections",
       "Gastrointestinal Symptoms",
       "Sensory Sensitivity"
@@ -34024,8 +34116,6 @@ window.searchData = [
     "phenotype_hpo_categories": [
       "Cardiovascular",
       "Constitutional",
-      "Digestive",
-      "Immune",
       "Nervous System"
     ],
     "phenotype_ids": [
@@ -34035,11 +34125,7 @@ window.searchData = [
       "HP:0001278",
       "HP:0002360",
       "HP:0003326",
-      "HP:0002315",
-      "HP:0003546",
-      "HP:0002719",
-      "HP:0012719",
-      "HP:5200058"
+      "HP:0002315"
     ],
     "frequencies": [
       "OBLIGATE",
@@ -34053,8 +34139,7 @@ window.searchData = [
     "treatments": [
       "Pacing",
       "Symptomatic Treatment",
-      "Low-Dose Naltrexone",
-      "Intranasal Mechanical Stimulation (INMEST)"
+      "Low-Dose Naltrexone"
     ],
     "environmental": [
       "Viral Infections",
@@ -34063,19 +34148,16 @@ window.searchData = [
     "biochemical": [
       "Natural Killer Cell Cytotoxicity",
       "Inflammatory Cytokines",
-      "Oxidative Stress Markers",
-      "Plasma Neurofilament Light Chain (NfL)",
-      "Thrombospondin-1 (THBS1)",
-      "Complement C9"
+      "Oxidative Stress Markers"
     ],
     "source_file": "Myalgic_Encephalomyelitis_Chronic_Fatigue_Syndrome.yaml",
     "page_url": "../pages/disorders/Myalgic_Encephalomyelitis_Chronic_Fatigue_Syndrome.html",
-    "num_phenotypes": 11,
-    "num_pathophysiology": 13,
+    "num_phenotypes": 10,
+    "num_pathophysiology": 7,
     "num_genes": 1,
-    "num_treatments": 4,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "1"
+    "num_treatments": 3,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
   },
   {
     "name": "Myasthenia Gravis",
@@ -35586,6 +35668,79 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Neuronal Ceroid Lipofuscinosis",
+    "disease_id": "MONDO:0016295",
+    "category": "Genetic",
+    "parents": [
+      "Lysosomal Storage Disease",
+      "Neurodegenerative Disease"
+    ],
+    "creation_date": "2026-03-30T18:20:00Z",
+    "updated_date": "2026-03-30T23:35:00Z",
+    "subtypes": [
+      "CLN1 Disease",
+      "CLN2 Disease",
+      "CLN3 Disease"
+    ],
+    "description": "Neuronal ceroid lipofuscinosis (NCL; Batten disease) is a genetically heterogeneous group of lysosomal neurodegenerative disorders that primarily affect children and are characterized by toxic endo-lysosomal storage, progressive visual and cognitive decline, seizures, and worsening motor dysfunction.\n",
+    "pathophysiology": [
+      "Toxic Endo-Lysosomal Storage",
+      "CLN Endomembrane Protein Dysfunction",
+      "Autophagy Dysregulation",
+      "Apoptotic Signaling",
+      "Progressive Neurodegeneration"
+    ],
+    "cell_types": [
+      "neuron",
+      "glial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000125"
+    ],
+    "biological_processes": [
+      "lysosomal transport",
+      "autophagy"
+    ],
+    "phenotypes": [
+      "Visual Impairment",
+      "Cognitive Impairment",
+      "Seizures",
+      "Developmental Regression"
+    ],
+    "phenotype_categories": [
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000505",
+      "HP:0100543",
+      "HP:0001250",
+      "HP:0002376"
+    ],
+    "frequencies": [],
+    "genes": [
+      "CLN Genes"
+    ],
+    "treatments": [
+      "Cerliponase Alfa",
+      "Supportive Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Neuronal_Ceroid_Lipofuscinosis.yaml",
+    "page_url": "../pages/disorders/Neuronal_Ceroid_Lipofuscinosis.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "2"
+  },
+  {
     "name": "Niemann-Pick Disease Type C",
     "disease_id": "MONDO:0018982",
     "category": "Genetic",
@@ -35595,18 +35750,21 @@ window.searchData = [
       "Neurodegeneration"
     ],
     "creation_date": "2026-03-14T00:00:00Z",
-    "updated_date": "2026-03-16T00:00:00Z",
+    "updated_date": "2026-03-30T22:20:00Z",
     "subtypes": [
       "NPC1",
       "NPC2"
     ],
-    "description": "Mutations in NPC1 or NPC2 cause defective egress of LDL-derived cholesterol from late endosomes/lysosomes. The NPC1 protein contains a sterol-sensing domain homologous to SCAP and HMG-CoA reductase. Loss of function leads to massive accumulation of unesterified cholesterol in perinuclear lysosomes, disrupting normal cellular lipid homeostasis.\n",
+    "description": "Mutations in NPC1 or NPC2 impair export of cholesterol from late endosomes and lysosomes.\n",
     "pathophysiology": [
-      "Impaired Intracellular Cholesterol Trafficking",
+      "NPC1/NPC2-Mediated Cholesterol Egress Failure",
+      "Lysosomal Unesterified Cholesterol Accumulation",
       "Glycosphingolipid and Ganglioside Accumulation in Brain",
       "Cerebellar Purkinje Cell Degeneration",
       "Sphingosine Storage as Initiating Factor",
       "Lysosomal Calcium Dysregulation",
+      "Defective Cellular Autophagy",
+      "Progressive Neurological Dysfunction",
       "Tau Hyperphosphorylation and Neurofibrillary Tangles"
     ],
     "cell_types": [
@@ -35625,6 +35783,7 @@ window.searchData = [
       "Glycosphingolipid Catabolic Process",
       "Sphingolipid Catabolic Process",
       "Intracellular Calcium Ion Homeostasis",
+      "autophagy",
       "Protein Phosphorylation"
     ],
     "phenotypes": [
@@ -35694,11 +35853,11 @@ window.searchData = [
     "source_file": "Niemann_Pick_Disease_Type_C.yaml",
     "page_url": "../pages/disorders/Niemann-Pick_Disease_Type_C.html",
     "num_phenotypes": 12,
-    "num_pathophysiology": 6,
+    "num_pathophysiology": 9,
     "num_genes": 2,
     "num_treatments": 6,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "1"
   },
   {
     "name": "Noma",
@@ -42881,7 +43040,7 @@ window.searchData = [
       "Immune-Mediated Disease"
     ],
     "creation_date": "2026-01-13T07:11:10Z",
-    "updated_date": "2026-02-27T21:53:03Z",
+    "updated_date": "2026-03-27T19:10:00Z",
     "subtypes": [
       "Pulmonary Sarcoidosis",
       "Cardiac Sarcoidosis",
@@ -43880,7 +44039,7 @@ window.searchData = [
       "Bacterial enteritis"
     ],
     "creation_date": "2026-01-20T20:23:59Z",
-    "updated_date": "2026-03-18T00:00:00Z",
+    "updated_date": "2026-02-16T20:19:38Z",
     "subtypes": [],
     "description": "Shigella uses a plasmid-encoded Type III secretion system (T3SS/mxi-spa) to deliver bacterial effector proteins directly into host cells. The translocon proteins IpaB and IpaC assemble a funnel-shaped pore in target membranes through which the injectisome docks and delivers effectors. IpaC activates small GTPases and actin nucleation to promote bacterial uptake. IpaB mediates phagosomal membrane disruption and directly activates caspase-1 in macrophages, triggering pyroptotic cell death. This allows bacterial escape from the phagolysosome into the cytosol, where Shigella replicates and spreads.\n",
     "pathophysiology": [
@@ -43888,10 +44047,7 @@ window.searchData = [
       "Actin-based motility and cell-to-cell spread",
       "Inflammasome sensing and pyroptotic inflammation",
       "Bacterial toxin production and endothelial damage",
-      "Intestinal barrier dysfunction and increased permeability",
-      "Spaceflight-induced Hfq-mediated virulence enhancement in enteric Enterobacteriaceae",
-      "Microgravity-associated biofilm formation and antibiotic resistance in enteric bacteria",
-      "Spaceflight-induced immune dysregulation increases susceptibility to enteric infection"
+      "Intestinal barrier dysfunction and increased permeability"
     ],
     "cell_types": [
       "enterocyte",
@@ -43906,17 +44062,16 @@ window.searchData = [
       "CL:0000071"
     ],
     "biological_processes": [
-      "type III protein secretion system",
-      "pyroptosis",
+      "protein secretion by the type III secretion system",
+      "pyroptotic cell death",
       "apoptotic process",
       "actin filament polymerization",
       "regulation of cell shape",
-      "NLRP3 inflammasome complex assembly",
-      "response to bacterium",
+      "canonical inflammasome complex assembly",
+      "defense response to bacterium",
       "translation",
       "tight junction assembly",
-      "ion transport",
-      "inflammatory response"
+      "monoatomic ion transport"
     ],
     "phenotypes": [
       "Diarrhea",
@@ -43961,18 +44116,17 @@ window.searchData = [
     ],
     "environmental": [
       "Contaminated water or food",
-      "Poor sanitation and hygiene",
-      "Spaceflight and microgravity environment"
+      "Poor sanitation and hygiene"
     ],
     "biochemical": [
-      "Inflammatory cytokines (IL-1beta, IL-18, IL-8)",
+      "Inflammatory cytokines (IL-1\u03b2, IL-18, IL-8)",
       "Lipopolysaccharide (LPS)",
       "Electrolyte abnormalities (sodium, potassium, chloride)"
     ],
     "source_file": "Shigellosis.yaml",
     "page_url": "../pages/disorders/Shigellosis.html",
     "num_phenotypes": 5,
-    "num_pathophysiology": 8,
+    "num_pathophysiology": 5,
     "num_genes": 7,
     "num_treatments": 3,
     "causal_graph_edges": "0",
