@@ -55,7 +55,7 @@ def test_rendered_crohn_pathograph_payload_is_connected(tmp_path: Path) -> None:
 
     assert (
         "Dysregulated Immune Response",
-        "Diarrhea",
+        "Intestinal Inflammation and Epithelial Injury",
     ) in edges
     assert (
         "Antimicrobial Defense Deficiency",
@@ -66,7 +66,15 @@ def test_rendered_crohn_pathograph_payload_is_connected(tmp_path: Path) -> None:
         "Dysregulated Immune Response",
     ) in edges
     assert (
+        "Intestinal Inflammation and Epithelial Injury",
+        "Diarrhea",
+    ) in edges
+    assert (
         "TL1A-Mediated T Cell Activation",
         "Dysregulated Immune Response",
     ) in edges
+    assert (
+        "Dysregulated Immune Response",
+        "Diarrhea",
+    ) not in edges
     assert _connected_component_count(graph_data) == 1
