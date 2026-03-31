@@ -7468,7 +7468,7 @@ window.searchData = [
   },
   {
     "name": "CTCF-related Neurodevelopmental Disorder",
-    "disease_id": "MONDO:0700294",
+    "disease_id": "MONDO:0014213",
     "category": "Mendelian",
     "parents": [
       "Neurodevelopmental Disorder",
@@ -18371,7 +18371,7 @@ window.searchData = [
       "Newborn screening disorder"
     ],
     "creation_date": "2026-02-06T03:39:54Z",
-    "updated_date": "2026-03-04T23:45:00Z",
+    "updated_date": "2026-03-31T18:30:00Z",
     "subtypes": [
       "Classic Galactosemia (GALT deficiency)",
       "Galactokinase Deficiency",
@@ -18379,9 +18379,15 @@ window.searchData = [
     ],
     "description": "Galactosemia is an inborn error of galactose metabolism caused by deficiency of one of three enzymes in the Leloir pathway: galactose-1-phosphate uridyltransferase (GALT, classic galactosemia), galactokinase (GALK), or UDP-galactose-4-epimerase (GALE). Classic galactosemia (GALT deficiency) is the most severe form, presenting in neonates with feeding difficulties, failure to thrive, hepatomegaly, jaundice, and increased susceptibility to E. coli sepsis. Early dietary restriction of galactose prevents acute toxicity but long-term complications including cognitive impairment, speech disorders, and premature ovarian insufficiency may still occur.\n",
     "pathophysiology": [
+      "GALT Deficiency in the Leloir Pathway",
       "Galactose-1-phosphate accumulation",
-      "UDP-galactose deficiency",
-      "Galactitol toxicity"
+      "UDP-hexose depletion",
+      "Impaired Glycosylation",
+      "Galactitol accumulation",
+      "Endoplasmic Reticulum Stress",
+      "Altered Signaling Pathways",
+      "Oxidative Stress",
+      "Acute Hepatocellular Dysfunction"
     ],
     "cell_types": [],
     "cell_type_ids": [],
@@ -18414,13 +18420,14 @@ window.searchData = [
       "HP:0000518",
       "HP:0040187",
       "HP:0001249",
-      "HP:0000750",
+      "HP:0002167",
       "HP:0008209",
       "HP:0001337"
     ],
     "frequencies": [
       "FREQUENT",
-      "OCCASIONAL"
+      "OCCASIONAL",
+      "VERY_FREQUENT"
     ],
     "genes": [
       "GALT variants (Classic galactosemia)",
@@ -18434,15 +18441,19 @@ window.searchData = [
       "Speech therapy"
     ],
     "environmental": [],
-    "biochemical": [],
+    "biochemical": [
+      "Erythrocyte galactose-1-phosphate",
+      "Erythrocyte GALT enzyme activity",
+      "Urinary galactitol"
+    ],
     "source_file": "Galactosemia.yaml",
     "page_url": "../pages/disorders/Galactosemia.html",
     "num_phenotypes": 9,
-    "num_pathophysiology": 3,
+    "num_pathophysiology": 9,
     "num_genes": 3,
     "num_treatments": 4,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Gastric Cancer H. pylori Associated",
@@ -26920,13 +26931,16 @@ window.searchData = [
       "Sphingolipidosis"
     ],
     "creation_date": "2026-03-14T00:00:00Z",
-    "updated_date": "2026-03-16T00:00:00Z",
+    "updated_date": "2026-03-30T23:35:00Z",
     "subtypes": [],
     "description": "Krabbe disease (globoid cell leukodystrophy) is a severe autosomal recessive lysosomal storage disorder caused by deficiency of galactosylceramidase (GALC), the enzyme responsible for degrading galactosylceramide and psychosine (galactosylsphingosine). Accumulation of psychosine is toxic to oligodendrocytes and Schwann cells, leading to progressive demyelination of the central and peripheral nervous systems. The infantile form presents in the first months of life with irritability, spasticity, and rapid neurological deterioration, while later-onset forms have a more variable and protracted course.\n",
     "pathophysiology": [
-      "GALC Deficiency and Psychosine Accumulation",
+      "GALC Deficiency",
+      "Psychosine Accumulation",
+      "Oligodendrocyte and Schwann Cell Toxicity",
       "Demyelination",
-      "Neuroinflammation",
+      "Globoid Cell Accumulation",
+      "Microglial and Astrocyte Reactivity",
       "Inflammasome Activation",
       "Proteostasis Failure"
     ],
@@ -26950,7 +26964,6 @@ window.searchData = [
       "sphingolipid catabolic process",
       "myelination",
       "central nervous system myelination",
-      "microglial cell activation",
       "inflammatory response",
       "autophagy"
     ],
@@ -27000,11 +27013,11 @@ window.searchData = [
     "source_file": "Krabbe_Disease.yaml",
     "page_url": "../pages/disorders/Krabbe_Disease.html",
     "num_phenotypes": 8,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Kummell Disease",
@@ -31421,6 +31434,85 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Metachromatic Leukodystrophy",
+    "disease_id": "MONDO:0018868",
+    "category": "Genetic",
+    "parents": [
+      "Leukodystrophy",
+      "Lysosomal Storage Disease"
+    ],
+    "creation_date": "2026-03-30T18:20:00Z",
+    "updated_date": "2026-03-30T22:20:00Z",
+    "subtypes": [
+      "Late-Infantile MLD",
+      "Early-Juvenile MLD",
+      "Late-Juvenile MLD",
+      "Adult MLD"
+    ],
+    "description": "Metachromatic leukodystrophy (MLD) is an autosomal recessive lysosomal storage leukodystrophy caused by arylsulfatase A deficiency, leading to sulfatide accumulation, progressive central and peripheral demyelination, and worsening motor and cognitive dysfunction.\n",
+    "pathophysiology": [
+      "Arylsulfatase A Deficiency",
+      "Sulfatide Accumulation",
+      "Central Nervous System Demyelination",
+      "Demyelinating Polyneuropathy",
+      "Progressive Neurodegeneration"
+    ],
+    "cell_types": [
+      "oligodendrocyte",
+      "Schwann cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000128",
+      "CL:0002573"
+    ],
+    "biological_processes": [
+      "sphingolipid catabolic process",
+      "central nervous system myelination"
+    ],
+    "phenotypes": [
+      "Cognitive Impairment",
+      "Developmental Regression",
+      "Dysphagia",
+      "Seizures",
+      "Hypotonia",
+      "Peripheral Neuropathy"
+    ],
+    "phenotype_categories": [
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0100543",
+      "HP:0002376",
+      "HP:0002015",
+      "HP:0001250",
+      "HP:0001252",
+      "HP:0009830"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ARSA"
+    ],
+    "treatments": [
+      "Hematopoietic Stem Cell Transplantation",
+      "Atidarsagene Autotemcel"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Metachromatic_Leukodystrophy.yaml",
+    "page_url": "../pages/disorders/Metachromatic_Leukodystrophy.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Metaphyseal Chondrodysplasia, Schmid Type",
     "disease_id": "MONDO:0007983",
     "category": "Mendelian",
@@ -35586,6 +35678,79 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Neuronal Ceroid Lipofuscinosis",
+    "disease_id": "MONDO:0016295",
+    "category": "Genetic",
+    "parents": [
+      "Lysosomal Storage Disease",
+      "Neurodegenerative Disease"
+    ],
+    "creation_date": "2026-03-30T18:20:00Z",
+    "updated_date": "2026-03-30T23:35:00Z",
+    "subtypes": [
+      "CLN1 Disease",
+      "CLN2 Disease",
+      "CLN3 Disease"
+    ],
+    "description": "Neuronal ceroid lipofuscinosis (NCL; Batten disease) is a genetically heterogeneous group of lysosomal neurodegenerative disorders that primarily affect children and are characterized by toxic endo-lysosomal storage, progressive visual and cognitive decline, seizures, and worsening motor dysfunction.\n",
+    "pathophysiology": [
+      "Toxic Endo-Lysosomal Storage",
+      "CLN Endomembrane Protein Dysfunction",
+      "Autophagy Dysregulation",
+      "Apoptotic Signaling",
+      "Progressive Neurodegeneration"
+    ],
+    "cell_types": [
+      "neuron",
+      "glial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000125"
+    ],
+    "biological_processes": [
+      "lysosomal transport",
+      "autophagy"
+    ],
+    "phenotypes": [
+      "Visual Impairment",
+      "Cognitive Impairment",
+      "Seizures",
+      "Developmental Regression"
+    ],
+    "phenotype_categories": [
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000505",
+      "HP:0100543",
+      "HP:0001250",
+      "HP:0002376"
+    ],
+    "frequencies": [],
+    "genes": [
+      "CLN Genes"
+    ],
+    "treatments": [
+      "Cerliponase Alfa",
+      "Supportive Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Neuronal_Ceroid_Lipofuscinosis.yaml",
+    "page_url": "../pages/disorders/Neuronal_Ceroid_Lipofuscinosis.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "2"
+  },
+  {
     "name": "Niemann-Pick Disease Type C",
     "disease_id": "MONDO:0018982",
     "category": "Genetic",
@@ -35595,18 +35760,21 @@ window.searchData = [
       "Neurodegeneration"
     ],
     "creation_date": "2026-03-14T00:00:00Z",
-    "updated_date": "2026-03-16T00:00:00Z",
+    "updated_date": "2026-03-30T22:20:00Z",
     "subtypes": [
       "NPC1",
       "NPC2"
     ],
-    "description": "Mutations in NPC1 or NPC2 cause defective egress of LDL-derived cholesterol from late endosomes/lysosomes. The NPC1 protein contains a sterol-sensing domain homologous to SCAP and HMG-CoA reductase. Loss of function leads to massive accumulation of unesterified cholesterol in perinuclear lysosomes, disrupting normal cellular lipid homeostasis.\n",
+    "description": "Mutations in NPC1 or NPC2 impair export of cholesterol from late endosomes and lysosomes.\n",
     "pathophysiology": [
-      "Impaired Intracellular Cholesterol Trafficking",
+      "NPC1/NPC2-Mediated Cholesterol Egress Failure",
+      "Lysosomal Unesterified Cholesterol Accumulation",
       "Glycosphingolipid and Ganglioside Accumulation in Brain",
       "Cerebellar Purkinje Cell Degeneration",
       "Sphingosine Storage as Initiating Factor",
       "Lysosomal Calcium Dysregulation",
+      "Defective Cellular Autophagy",
+      "Progressive Neurological Dysfunction",
       "Tau Hyperphosphorylation and Neurofibrillary Tangles"
     ],
     "cell_types": [
@@ -35625,6 +35793,7 @@ window.searchData = [
       "Glycosphingolipid Catabolic Process",
       "Sphingolipid Catabolic Process",
       "Intracellular Calcium Ion Homeostasis",
+      "autophagy",
       "Protein Phosphorylation"
     ],
     "phenotypes": [
@@ -35694,11 +35863,11 @@ window.searchData = [
     "source_file": "Niemann_Pick_Disease_Type_C.yaml",
     "page_url": "../pages/disorders/Niemann-Pick_Disease_Type_C.html",
     "num_phenotypes": 12,
-    "num_pathophysiology": 6,
+    "num_pathophysiology": 9,
     "num_genes": 2,
     "num_treatments": 6,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "1"
   },
   {
     "name": "Noma",
@@ -42881,7 +43050,7 @@ window.searchData = [
       "Immune-Mediated Disease"
     ],
     "creation_date": "2026-01-13T07:11:10Z",
-    "updated_date": "2026-02-27T21:53:03Z",
+    "updated_date": "2026-03-27T19:10:00Z",
     "subtypes": [
       "Pulmonary Sarcoidosis",
       "Cardiac Sarcoidosis",
