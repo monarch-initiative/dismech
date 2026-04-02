@@ -8,6 +8,7 @@ Mermaid flowchart code and pathograph JSON for visualization.
 """
 
 import json
+from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -60,8 +61,9 @@ NODE_COLORS = {
 def _sanitize_node_id(name: str) -> str:
     """Convert a node name to a valid Mermaid node ID."""
     # Replace problematic characters with underscores
-    sanitized = name.replace(" ", "_").replace(
-        "-", "_").replace("(", "").replace(")", "")
+    sanitized = (
+        name.replace(" ", "_").replace("-", "_").replace("(", "").replace(")", "")
+    )
     sanitized = sanitized.replace(",", "").replace("/", "_").replace("'", "")
     # Ensure it starts with a letter
     if sanitized and not sanitized[0].isalpha():
@@ -125,8 +127,12 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
             if isinstance(edge_item, dict) and "target" in edge_item:
                 target = edge_item["target"]
                 graph.edges.append(
-                    Edge(source=source, target=target, predicate="causes",
-                         source_type="pathophysiology")
+                    Edge(
+                        source=source,
+                        target=target,
+                        predicate="causes",
+                        source_type="pathophysiology",
+                    )
                 )
 
     # Collect edges from phenotype sequelae
@@ -142,8 +148,12 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
             if isinstance(edge_item, dict) and "target" in edge_item:
                 target = edge_item["target"]
                 graph.edges.append(
-                    Edge(source=source, target=target,
-                         predicate="leads_to", source_type="phenotype")
+                    Edge(
+                        source=source,
+                        target=target,
+                        predicate="leads_to",
+                        source_type="phenotype",
+                    )
                 )
 
     # Check referential integrity
@@ -151,7 +161,8 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
         if edge.target not in graph.nodes:
             graph.orphan_targets.add(edge.target)
             graph.integrity_issues.append(
-                f"Target '{edge.target}' (from '{edge.source}') not found in named elements")
+                f"Target '{edge.target}' (from '{edge.source}') not found in named elements"
+            )
 
     return graph
 
@@ -205,7 +216,8 @@ def generate_mermaid(graph: CausalGraph) -> str:
         if name in graph.orphan_targets:
             color = NODE_COLORS["orphan"]
             lines.append(
-                f"    style {node_id} fill:{color},stroke:#dc2626,stroke-dasharray: 5 5")
+                f"    style {node_id} fill:{color},stroke:#dc2626,stroke-dasharray: 5 5"
+            )
         elif name in graph.nodes:
             node_type = graph.nodes[name].node_type
             color = NODE_COLORS.get(node_type, "#f3f4f6")
@@ -227,24 +239,39 @@ def _extract_node_metadata(item: dict[str, Any]) -> dict[str, Any]:
     cell_types = item.get("cell_types", []) or []
     if cell_types:
         meta["cell_types"] = [
-            label for ct in cell_types if isinstance(ct, dict)
-            if (label := ct.get("preferred_term") or (ct.get("term", {}) or {}).get("label", ""))
+            label
+            for ct in cell_types
+            if isinstance(ct, dict)
+            if (
+                label := ct.get("preferred_term")
+                or (ct.get("term", {}) or {}).get("label", "")
+            )
         ]
 
     # Biological processes
     processes = item.get("biological_processes", []) or []
     if processes:
         meta["biological_processes"] = [
-            label for bp in processes if isinstance(bp, dict)
-            if (label := bp.get("preferred_term") or (bp.get("term", {}) or {}).get("label", ""))
+            label
+            for bp in processes
+            if isinstance(bp, dict)
+            if (
+                label := bp.get("preferred_term")
+                or (bp.get("term", {}) or {}).get("label", "")
+            )
         ]
 
     # Genes
     genes = item.get("genes", []) or []
     if genes:
         meta["genes"] = [
-            label for g in genes if isinstance(g, dict)
-            if (label := g.get("preferred_term") or (g.get("term", {}) or {}).get("label", ""))
+            label
+            for g in genes
+            if isinstance(g, dict)
+            if (
+                label := g.get("preferred_term")
+                or (g.get("term", {}) or {}).get("label", "")
+            )
         ]
 
     # Role (pathophysiology)
@@ -270,8 +297,13 @@ def _extract_node_metadata(item: dict[str, Any]) -> dict[str, Any]:
     locations = item.get("locations", []) or []
     if locations:
         meta["locations"] = [
-            label for loc in locations if isinstance(loc, dict)
-            if (label := loc.get("preferred_term") or (loc.get("term", {}) or {}).get("label", ""))
+            label
+            for loc in locations
+            if isinstance(loc, dict)
+            if (
+                label := loc.get("preferred_term")
+                or (loc.get("term", {}) or {}).get("label", "")
+            )
         ]
 
     # PDB structures (treatments)
@@ -280,8 +312,14 @@ def _extract_node_metadata(item: dict[str, Any]) -> dict[str, Any]:
         meta["pdb_structures"] = [
             {
                 k: s[k]
-                for k in ("pdb_id", "description", "resolution_angstrom",
-                           "method", "ligand", "target_protein")
+                for k in (
+                    "pdb_id",
+                    "description",
+                    "resolution_angstrom",
+                    "method",
+                    "ligand",
+                    "target_protein",
+                )
                 if k in s and s[k] is not None
             }
             for s in pdb_structures
@@ -289,6 +327,38 @@ def _extract_node_metadata(item: dict[str, Any]) -> dict[str, Any]:
         ]
 
     return meta
+
+
+def _collect_experimental_model_links(
+    disorder: dict[str, Any],
+) -> dict[str, list[dict[str, Any]]]:
+    """Collect experimental model links keyed by target pathophysiology node name."""
+    links_by_target: dict[str, list[dict[str, Any]]] = defaultdict(list)
+
+    for model in disorder.get("experimental_models", []) or []:
+        if not isinstance(model, dict):
+            continue
+        model_name = model.get("name")
+        if not model_name:
+            continue
+
+        for link in model.get("modeled_mechanisms", []) or []:
+            if not isinstance(link, dict):
+                continue
+            target = link.get("target")
+            if not target:
+                continue
+
+            link_data: dict[str, Any] = {"name": model_name}
+            if model.get("experimental_model_type"):
+                link_data["model_type"] = model["experimental_model_type"]
+            if model.get("namo_type"):
+                link_data["namo_type"] = model["namo_type"]
+            if link.get("description"):
+                link_data["description"] = link["description"]
+            links_by_target[str(target)].append(link_data)
+
+    return links_by_target
 
 
 def graph_to_json(graph: CausalGraph, disorder: dict[str, Any]) -> str:
@@ -310,14 +380,19 @@ def graph_to_json(graph: CausalGraph, disorder: dict[str, Any]) -> str:
 
     # Build a lookup from item name -> raw item dict for metadata extraction
     section_keys = [
-        "pathophysiology", "phenotypes", "environmental",
-        "genetic", "treatments", "biochemical",
+        "pathophysiology",
+        "phenotypes",
+        "environmental",
+        "genetic",
+        "treatments",
+        "biochemical",
     ]
     item_lookup: dict[str, dict[str, Any]] = {}
     for section_key in section_keys:
         for item in disorder.get(section_key, []) or []:
             if isinstance(item, dict) and "name" in item:
                 item_lookup[item["name"]] = item
+    model_links_by_target = _collect_experimental_model_links(disorder)
 
     # Build node list (only nodes used in edges)
     used_nodes: set[str] = set()
@@ -329,7 +404,9 @@ def graph_to_json(graph: CausalGraph, disorder: dict[str, Any]) -> str:
     for name in sorted(used_nodes):
         node_info = graph.nodes.get(name)
         is_orphan = name in graph.orphan_targets
-        node_type = node_info.node_type if node_info else ("orphan" if is_orphan else "unknown")
+        node_type = (
+            node_info.node_type if node_info else ("orphan" if is_orphan else "unknown")
+        )
         description = node_info.description if node_info else None
 
         node_data: dict[str, Any] = {
@@ -347,6 +424,10 @@ def graph_to_json(graph: CausalGraph, disorder: dict[str, Any]) -> str:
             meta = _extract_node_metadata(raw_item)
             if meta:
                 node_data["meta"] = meta
+        if name in model_links_by_target:
+            node_data.setdefault("meta", {})["experimental_models"] = (
+                model_links_by_target[name]
+            )
 
         nodes_json.append(node_data)
 
@@ -360,11 +441,13 @@ def graph_to_json(graph: CausalGraph, disorder: dict[str, Any]) -> str:
         for edge in graph.edges
     ]
 
-    return json.dumps({
-        "nodes": nodes_json,
-        "edges": edges_json,
-        "orphan_targets": sorted(graph.orphan_targets),
-    })
+    return json.dumps(
+        {
+            "nodes": nodes_json,
+            "edges": edges_json,
+            "orphan_targets": sorted(graph.orphan_targets),
+        }
+    )
 
 
 def validate_all_disorders(input_dir: Path) -> dict[str, list[str]]:
@@ -387,8 +470,7 @@ def validate_all_disorders(input_dir: Path) -> dict[str, list[str]]:
 
         graph = build_causal_graph(disorder)
         if graph.integrity_issues:
-            issues[disorder.get("name", yaml_path.stem)
-                   ] = graph.integrity_issues
+            issues[disorder.get("name", yaml_path.stem)] = graph.integrity_issues
 
     return issues
 
@@ -397,12 +479,13 @@ def main():
     """CLI entry point for graph validation."""
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Validate causal graph integrity")
-    parser.add_argument("--validate", "-v", metavar="DIR",
-                        help="Validate all disorders in directory")
-    parser.add_argument("--show", "-s", metavar="FILE",
-                        help="Show Mermaid diagram for a single file")
+    parser = argparse.ArgumentParser(description="Validate causal graph integrity")
+    parser.add_argument(
+        "--validate", "-v", metavar="DIR", help="Validate all disorders in directory"
+    )
+    parser.add_argument(
+        "--show", "-s", metavar="FILE", help="Show Mermaid diagram for a single file"
+    )
 
     args = parser.parse_args()
 
