@@ -5,7 +5,9 @@ from pathlib import Path
 
 import yaml
 
+from dismech.g2p_compare import build_release_row_table
 from dismech.g2p_compare import compare_gene, run_comparison, survey_genes
+from dismech.g2p_compare import compute_release_overview
 from dismech.g2p_gene_audit import compare_gene as compat_compare_gene
 
 
@@ -207,6 +209,8 @@ def test_compare_gene_reports_direct_and_secondary_matches(tmp_path: Path) -> No
 
     first_row = report["g2p_rows"][0]
     assert first_row["row_status"] == "ROOT_MATCH"
+    assert first_row["curation_priority"] == "LOW"
+    assert first_row["curation_action"] == "KEEP_EXISTING_ROOT"
     assert first_row["dismech_candidates"] == [
         {
             "disorder_name": "Cowden Syndrome",
@@ -222,6 +226,8 @@ def test_compare_gene_reports_direct_and_secondary_matches(tmp_path: Path) -> No
     ]
     second_row = report["g2p_rows"][1]
     assert second_row["row_status"] == "EMBEDDED_NOT_ROOTED"
+    assert second_row["curation_priority"] == "MEDIUM"
+    assert second_row["curation_action"] == "DECIDE_IF_EMBEDDED_CONCEPT_NEEDS_ROOT"
     assert second_row["related_direct_matches"] == [
         {
             "disorder_name": "Cowden Syndrome",
@@ -244,10 +250,13 @@ def test_compare_gene_reports_direct_and_secondary_matches(tmp_path: Path) -> No
     )
     assert gene_symbol == "PTEN"
     assert [row["row_status"] for row in table] == [
-        "ROOT_MATCH",
         "EMBEDDED_NOT_ROOTED",
+        "ROOT_MATCH",
     ]
+    assert [row["curation_priority"] for row in table] == ["MEDIUM", "LOW"]
     assert summary["mapped_row_count"] == 1
+    assert summary["highest_curation_priority"] == "MEDIUM"
+    assert summary["primary_curation_action"] == "DECIDE_IF_EMBEDDED_CONCEPT_NEEDS_ROOT"
     assert compat_compare_gene is compare_gene
 
 
@@ -425,3 +434,104 @@ def test_survey_genes_uses_one_g2p_source_for_multiple_reports(tmp_path: Path) -
     assert [summary["gene_symbol"] for summary in summaries] == ["FLNB", "GFAP"]
     assert summaries[0]["direct_section_pmid_overlap_count"] == 1
     assert summaries[1]["direct_section_pmid_overlap_count"] == 1
+    assert summaries[0]["highest_curation_priority"] == "LOW"
+    assert summaries[1]["highest_curation_priority"] == "LOW"
+
+
+def test_release_overview_counts_priorities_and_actions(tmp_path: Path) -> None:
+    kb_dir = tmp_path / "kb"
+    kb_dir.mkdir()
+
+    _write_yaml(
+        kb_dir / "Alpha.yaml",
+        {
+            "name": "Alpha Disorder",
+            "disease_term": {"term": {"id": "MONDO:1", "label": "alpha disorder"}},
+            "genetic": [
+                {
+                    "name": "GENE1",
+                    "association": "Causative",
+                    "gene_term": {
+                        "preferred_term": "GENE1",
+                        "term": {"id": "hgnc:1", "label": "GENE1"},
+                    },
+                    "evidence": [{"reference": "PMID:10"}],
+                }
+            ],
+        },
+    )
+
+    g2p_path = tmp_path / "genes.csv"
+    _write_g2p_csv(
+        g2p_path,
+        [
+            {
+                "g2p id": "GENE1_ROW",
+                "gene symbol": "GENE1",
+                "gene mim": "",
+                "hgnc id": "1",
+                "previous gene symbols": "",
+                "disease name": "GENE1-related alpha disorder",
+                "disease mim": "",
+                "disease MONDO": "MONDO:1",
+                "allelic requirement": "",
+                "cross cutting modifier": "",
+                "confidence": "definitive",
+                "variant consequence": "",
+                "variant types": "",
+                "molecular mechanism": "",
+                "molecular mechanism support": "",
+                "molecular mechanism categorisation": "",
+                "molecular mechanism evidence": "",
+                "phenotypes": "",
+                "publications": "10",
+                "additional mined publications": "",
+                "panel": "",
+                "comments": "",
+                "date of last review": "",
+                "review": "",
+            },
+            {
+                "g2p id": "GENE2_ROW",
+                "gene symbol": "GENE2",
+                "gene mim": "",
+                "hgnc id": "2",
+                "previous gene symbols": "",
+                "disease name": "GENE2-related missing disorder",
+                "disease mim": "",
+                "disease MONDO": "MONDO:2",
+                "allelic requirement": "",
+                "cross cutting modifier": "",
+                "confidence": "definitive",
+                "variant consequence": "",
+                "variant types": "",
+                "molecular mechanism": "",
+                "molecular mechanism support": "",
+                "molecular mechanism categorisation": "",
+                "molecular mechanism evidence": "",
+                "phenotypes": "",
+                "publications": "20",
+                "additional mined publications": "",
+                "panel": "",
+                "comments": "",
+                "date of last review": "",
+                "review": "",
+            },
+        ],
+    )
+
+    report_gene1 = compare_gene("GENE1", kb_dir=kb_dir, g2p_source=str(g2p_path))
+    report_gene2 = compare_gene("GENE2", kb_dir=kb_dir, g2p_source=str(g2p_path))
+    summaries = [report_gene1["summary"], report_gene2["summary"]]
+    rows = build_release_row_table([report_gene1, report_gene2])
+    overview = compute_release_overview([report_gene1, report_gene2], summaries)
+
+    assert [row["gene_symbol"] for row in rows] == ["GENE2", "GENE1"]
+    assert overview["total_genes"] == 2
+    assert overview["total_rows"] == 2
+    assert overview["total_actionable_rows"] == 1
+    assert overview["row_status_counts"] == {
+        "NO_DISMECH_MATCH": 1,
+        "ROOT_MATCH": 1,
+    }
+    assert overview["genes_by_highest_priority"] == {"CRITICAL": 1, "LOW": 1}

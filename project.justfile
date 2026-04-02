@@ -1038,6 +1038,16 @@ g2p-compare gene:
 g2p-compare-all *genes:
     uv run python -m dismech.g2p_compare compare-all {{genes}}
 
+# Compare the full current G2P release against dismech
+[group('Analysis')]
+g2p-compare-release:
+    uv run python -m dismech.g2p_compare compare-all --all-genes
+
+# Export actionable row-level triage for the full current G2P release
+[group('Analysis')]
+g2p-compare-release-triage:
+    uv run python -m dismech.g2p_compare compare-all --all-genes --format tsv --actionable-only
+
 # Compare G2P with JSON output
 [group('Analysis')]
 g2p-compare-json gene:

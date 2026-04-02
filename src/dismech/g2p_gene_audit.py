@@ -14,6 +14,8 @@ from .g2p_compare import survey_genes
 from .g2p_compare import _default_kb_dir
 from .g2p_compare import _write_batch_summary
 from .g2p_compare import _write_summary
+from .g2p_compare import build_dismech_gene_index
+from .g2p_compare import compute_release_overview
 
 __all__ = ["app", "audit", "compare_gene", "load_g2p_index", "survey_genes"]
 
@@ -48,6 +50,7 @@ def audit(
 ) -> None:
     """Compatibility CLI for the first-pass G2P audit workflow."""
     resolved_source, rows_by_gene = load_g2p_index(g2p_source)
+    dismech_matches_by_gene = build_dismech_gene_index(kb_dir)
     reports = [
         compare_gene(
             gene_symbol,
@@ -55,6 +58,7 @@ def audit(
             g2p_source=resolved_source,
             g2p_rows_by_gene=rows_by_gene,
             resolved_g2p_source=resolved_source,
+            dismech_matches_by_gene=dismech_matches_by_gene,
         )
         for gene_symbol in gene_symbols
     ]
@@ -65,8 +69,14 @@ def audit(
             if len(reports) == 1:
                 _write_summary(reports[0], file=out_stream)
             else:
+                summaries = [report["summary"] for report in reports]
+                overview = compute_release_overview(reports, summaries)
                 _write_batch_summary(
-                    [report["summary"] for report in reports], file=out_stream
+                    overview,
+                    summaries,
+                    g2p_source=resolved_source,
+                    top=len(summaries),
+                    file=out_stream,
                 )
         elif format == "json":
             out = out_stream or typer.get_text_stream("stdout")

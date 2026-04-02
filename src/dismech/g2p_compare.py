@@ -40,6 +40,36 @@ _MATCH_PRIORITY = {
     "pathophysiology_only": 3,
 }
 _DIRECT_MATCH_STRENGTHS = {"causative", "subtype_specific"}
+_ROW_STATUS_PRIORITY = {
+    "NO_DISMECH_MATCH": 0,
+    "UNDERREPRESENTED_IN_DISMECH": 1,
+    "SPLIT_ACROSS_DISMECH": 2,
+    "EMBEDDED_NOT_ROOTED": 3,
+    "ROOT_MATCH_PMID_GAP": 4,
+    "ROOT_MATCH": 5,
+}
+_CURATION_PRIORITY_LABEL = {
+    "NO_DISMECH_MATCH": "CRITICAL",
+    "UNDERREPRESENTED_IN_DISMECH": "HIGH",
+    "SPLIT_ACROSS_DISMECH": "HIGH",
+    "EMBEDDED_NOT_ROOTED": "MEDIUM",
+    "ROOT_MATCH_PMID_GAP": "MEDIUM",
+    "ROOT_MATCH": "LOW",
+}
+_CURATION_PRIORITY_RANK = {
+    "CRITICAL": 0,
+    "HIGH": 1,
+    "MEDIUM": 2,
+    "LOW": 3,
+}
+_ROW_STATUS_COUNT_FIELDS = [
+    ("ROOT_MATCH", "root_match_count"),
+    ("ROOT_MATCH_PMID_GAP", "root_match_pmid_gap_count"),
+    ("SPLIT_ACROSS_DISMECH", "split_across_dismech_count"),
+    ("EMBEDDED_NOT_ROOTED", "embedded_not_rooted_count"),
+    ("UNDERREPRESENTED_IN_DISMECH", "underrepresented_in_dismech_count"),
+    ("NO_DISMECH_MATCH", "no_dismech_match_count"),
+]
 
 _TSV_COLUMNS = [
     "gene_symbol",
@@ -62,6 +92,28 @@ _TSV_COLUMNS = [
     "related_direct_disorders",
     "related_direct_match_count",
     "row_status",
+    "curation_priority",
+    "curation_action",
+    "curation_note",
+]
+_GENE_TSV_COLUMNS = [
+    "gene_symbol",
+    "g2p_row_count",
+    "actionable_row_count",
+    "highest_curation_priority",
+    "worst_row_status",
+    "primary_curation_action",
+    "top_curation_note",
+    "direct_dismech_match_count",
+    "g2p_mondo_collision_count",
+    "direct_section_pmid_overlap_count",
+    "direct_section_pmid_missing_count",
+    "root_match_count",
+    "root_match_pmid_gap_count",
+    "split_across_dismech_count",
+    "embedded_not_rooted_count",
+    "underrepresented_in_dismech_count",
+    "no_dismech_match_count",
 ]
 
 app = typer.Typer(help="Compare G2P gene assertions against dismech disease coverage.")
@@ -305,17 +357,18 @@ def _match_reasons_for_row(
     return reasons
 
 
-def extract_dismech_gene_matches(
-    kb_dir: Path,
-    gene_symbol: str,
-    g2p_rows: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
-    matches: list[dict[str, Any]] = []
+def build_dismech_gene_index(kb_dir: Path) -> dict[str, list[dict[str, Any]]]:
+    """Build a reusable dismech disease-match index keyed by gene symbol."""
+    matches_by_gene: dict[str, list[dict[str, Any]]] = defaultdict(list)
 
     for path in _iter_disease_files(kb_dir):
         disorder = _load_disease_yaml(path)
+        disorder_name = str(disorder.get("name", path.stem))
+        disorder_mondo = _get_disease_term_id(disorder)
+        disorder_phenotypes = _disorder_phenotype_ids(disorder)
+        all_pmids = sorted(_extract_pmids(disorder))
 
-        genetic_matches: list[dict[str, Any]] = []
+        genetic_matches_by_gene: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for entry in disorder.get("genetic") or []:
             if not isinstance(entry, dict):
                 continue
@@ -324,92 +377,138 @@ def extract_dismech_gene_matches(
                 descriptor if isinstance(descriptor, dict) else None
             )
             symbol = symbol or str(entry.get("name", ""))
-            if symbol != gene_symbol:
+            if not symbol:
                 continue
-            genetic_matches.append(
+            genetic_matches_by_gene[symbol].append(
                 {
-                    "name": entry.get("name", gene_symbol),
+                    "name": entry.get("name", symbol),
                     "association": entry.get("association", ""),
                     "subtype": entry.get("subtype", ""),
                     "pmids": sorted(_extract_pmids(entry)),
                 }
             )
 
-        pathophysiology_matches: list[dict[str, Any]] = []
+        pathophysiology_matches_by_gene: dict[str, list[dict[str, Any]]] = defaultdict(
+            list
+        )
         for node in disorder.get("pathophysiology") or []:
             if not isinstance(node, dict):
                 continue
             symbols = _pathophysiology_gene_symbols(node)
-            if gene_symbol not in symbols:
+            if not symbols:
                 continue
-            pathophysiology_matches.append(
+            match = {
+                "name": node.get("name", ""),
+                "pmids": sorted(_extract_pmids(node)),
+            }
+            for symbol in symbols:
+                pathophysiology_matches_by_gene[symbol].append(dict(match))
+
+        gene_symbols = sorted(
+            set(genetic_matches_by_gene.keys())
+            | set(pathophysiology_matches_by_gene.keys())
+        )
+        if not gene_symbols:
+            continue
+
+        for gene_symbol in gene_symbols:
+            genetic_matches = [
+                dict(match) for match in genetic_matches_by_gene.get(gene_symbol, [])
+            ]
+            pathophysiology_matches = [
+                dict(match)
+                for match in pathophysiology_matches_by_gene.get(gene_symbol, [])
+            ]
+            matched_section_pmids = sorted(
                 {
-                    "name": node.get("name", ""),
-                    "pmids": sorted(_extract_pmids(node)),
+                    pmid
+                    for match in genetic_matches + pathophysiology_matches
+                    for pmid in match["pmids"]
+                }
+            )
+            matches_by_gene[gene_symbol].append(
+                {
+                    "file": path.name,
+                    "path": str(path),
+                    "disorder_name": disorder_name,
+                    "disease_mondo": disorder_mondo,
+                    "match_strength": _classify_match_strength(
+                        genetic_matches, pathophysiology_matches
+                    ),
+                    "genetic_matches": genetic_matches,
+                    "pathophysiology_matches": pathophysiology_matches,
+                    "top_level_phenotype_ids": disorder_phenotypes,
+                    "matched_section_pmids": matched_section_pmids,
+                    "all_pmids": list(all_pmids),
                 }
             )
 
-        if not genetic_matches and not pathophysiology_matches:
-            continue
+    for gene_symbol, matches in matches_by_gene.items():
+        matches.sort(
+            key=lambda match: (
+                _MATCH_PRIORITY[match["match_strength"]],
+                match["disorder_name"].casefold(),
+            )
+        )
 
-        disorder_name = str(disorder.get("name", path.stem))
-        disorder_mondo = _get_disease_term_id(disorder)
-        disorder_phenotypes = _disorder_phenotype_ids(disorder)
+    return dict(matches_by_gene)
 
+
+def extract_dismech_gene_matches(
+    kb_dir: Path,
+    gene_symbol: str,
+    g2p_rows: list[dict[str, Any]],
+    *,
+    dismech_matches_by_gene: dict[str, list[dict[str, Any]]] | None = None,
+) -> list[dict[str, Any]]:
+    match_templates = (
+        dismech_matches_by_gene.get(gene_symbol, [])
+        if dismech_matches_by_gene
+        else None
+    )
+    if match_templates is None:
+        dismech_matches_by_gene = build_dismech_gene_index(kb_dir)
+        match_templates = dismech_matches_by_gene.get(gene_symbol, [])
+
+    matches: list[dict[str, Any]] = []
+    for template in match_templates:
+        disorder_phenotypes = template["top_level_phenotype_ids"]
         linked_rows = []
         for row in g2p_rows:
             reasons = _match_reasons_for_row(
                 row,
-                disorder_name=disorder_name,
-                disorder_mondo=disorder_mondo,
+                disorder_name=template["disorder_name"],
+                disorder_mondo=template["disease_mondo"],
                 gene_symbol=gene_symbol,
             )
-            if reasons:
-                shared_phenotypes = sorted(
-                    set(row["phenotypes"]) & set(disorder_phenotypes)
-                )
-                linked_rows.append(
-                    {
-                        "g2p_id": row["g2p_id"],
-                        "disease_name": row["disease_name"],
-                        "match_reasons": reasons,
-                        "shared_phenotype_count": len(shared_phenotypes),
-                        "shared_phenotype_ids": shared_phenotypes,
-                    }
-                )
+            if not reasons:
+                continue
+            shared_phenotypes = sorted(
+                set(row["phenotypes"]) & set(disorder_phenotypes)
+            )
+            linked_rows.append(
+                {
+                    "g2p_id": row["g2p_id"],
+                    "disease_name": row["disease_name"],
+                    "match_reasons": reasons,
+                    "shared_phenotype_count": len(shared_phenotypes),
+                    "shared_phenotype_ids": shared_phenotypes,
+                }
+            )
 
-        matched_section_pmids = sorted(
-            {
-                pmid
-                for match in genetic_matches + pathophysiology_matches
-                for pmid in match["pmids"]
-            }
-        )
+        match = {
+            **template,
+            "genetic_matches": [dict(item) for item in template["genetic_matches"]],
+            "pathophysiology_matches": [
+                dict(item) for item in template["pathophysiology_matches"]
+            ],
+            "top_level_phenotype_ids": list(template["top_level_phenotype_ids"]),
+            "matched_section_pmids": list(template["matched_section_pmids"]),
+            "all_pmids": list(template["all_pmids"]),
+            "linked_g2p_rows": linked_rows,
+        }
+        matches.append(match)
 
-        matches.append(
-            {
-                "file": path.name,
-                "path": str(path),
-                "disorder_name": disorder_name,
-                "disease_mondo": disorder_mondo,
-                "match_strength": _classify_match_strength(
-                    genetic_matches, pathophysiology_matches
-                ),
-                "genetic_matches": genetic_matches,
-                "pathophysiology_matches": pathophysiology_matches,
-                "top_level_phenotype_ids": disorder_phenotypes,
-                "matched_section_pmids": matched_section_pmids,
-                "all_pmids": sorted(_extract_pmids(disorder)),
-                "linked_g2p_rows": linked_rows,
-            }
-        )
-
-    matches.sort(
-        key=lambda match: (
-            _MATCH_PRIORITY[match["match_strength"]],
-            match["disorder_name"].casefold(),
-        )
-    )
     return matches
 
 
@@ -505,6 +604,68 @@ def _classify_row_status(
     return "NO_DISMECH_MATCH"
 
 
+def _row_curation_action(row: dict[str, Any]) -> tuple[str, str, str]:
+    row_status = row["row_status"]
+    priority = _CURATION_PRIORITY_LABEL[row_status]
+
+    if row_status == "ROOT_MATCH":
+        best_candidate = row["dismech_candidates"][0]
+        return (
+            priority,
+            "KEEP_EXISTING_ROOT",
+            f"{best_candidate['file']} already provides a usable direct disease root.",
+        )
+
+    if row_status == "ROOT_MATCH_PMID_GAP":
+        best_candidate = row["dismech_candidates"][0]
+        missing_pmids = sorted(
+            set(row["reviewed_pmids"])
+            - set(best_candidate["shared_reviewed_pmids_with_sections"])
+        )
+        return (
+            priority,
+            "BACKFILL_G2P_PMIDS_TO_MATCHED_ROOT",
+            f"Add {len(missing_pmids)} reviewed G2P PMIDs to {best_candidate['file']}.",
+        )
+
+    if row_status == "SPLIT_ACROSS_DISMECH":
+        disorders = ", ".join(
+            match["disorder_name"] for match in row["related_direct_matches"][:3]
+        )
+        return (
+            priority,
+            "RECONCILE_SPECTRUM_ROW_ACROSS_MULTIPLE_ROOTS",
+            f"Map the row against multiple direct roots: {disorders}.",
+        )
+
+    if row_status == "EMBEDDED_NOT_ROOTED":
+        if row["related_direct_matches"]:
+            best_related = row["related_direct_matches"][0]
+            return (
+                priority,
+                "DECIDE_IF_EMBEDDED_CONCEPT_NEEDS_ROOT",
+                f"Concept is currently embedded under {best_related['file']} rather than rooted directly.",
+            )
+        return (
+            priority,
+            "REVIEW_NON_ROOT_GENE_MENTION",
+            "Gene appears only in non-root mechanistic or secondary contexts.",
+        )
+
+    if row_status == "UNDERREPRESENTED_IN_DISMECH":
+        return (
+            priority,
+            "ADD_MISSING_DISEASE_ROOT",
+            "dismech has some direct roots for the gene, but this disease row is still missing.",
+        )
+
+    return (
+        priority,
+        "ADD_FIRST_GENE_DISEASE_ANCHOR",
+        "No dismech disease anchor currently represents this G2P row.",
+    )
+
+
 def build_comparison_table(
     gene_symbol: str,
     g2p_rows: list[dict[str, Any]],
@@ -563,10 +724,19 @@ def build_comparison_table(
                 ),
                 "related_direct_match_count": len(row["related_direct_matches"]),
                 "row_status": row["row_status"],
+                "curation_priority": row["curation_priority"],
+                "curation_action": row["curation_action"],
+                "curation_note": row["curation_note"],
             }
         )
 
-    table.sort(key=lambda item: item["g2p_id"])
+    table.sort(
+        key=lambda item: (
+            _ROW_STATUS_PRIORITY[item["row_status"]],
+            item["g2p_disease_name"].casefold(),
+            item["g2p_id"],
+        )
+    )
     return table
 
 
@@ -579,19 +749,40 @@ def compute_comparison_summary(
     publication_coverage: dict[str, Any],
 ) -> dict[str, Any]:
     mapped_rows = sum(1 for row in g2p_rows if row["dismech_candidates"])
+    actionable_rows = sum(1 for row in g2p_rows if row["row_status"] != "ROOT_MATCH")
     row_status_counts: dict[str, int] = {}
     for row in g2p_rows:
         row_status = row["row_status"]
         row_status_counts[row_status] = row_status_counts.get(row_status, 0) + 1
     row_status_counts = dict(sorted(row_status_counts.items()))
 
+    if g2p_rows:
+        top_row = min(
+            g2p_rows,
+            key=lambda row: (
+                _ROW_STATUS_PRIORITY[row["row_status"]],
+                row["disease_name"].casefold(),
+                row["g2p_id"],
+            ),
+        )
+        highest_curation_priority = top_row["curation_priority"]
+        worst_row_status = top_row["row_status"]
+        primary_curation_action = top_row["curation_action"]
+        top_curation_note = top_row["curation_note"]
+    else:
+        highest_curation_priority = "LOW"
+        worst_row_status = "ROOT_MATCH"
+        primary_curation_action = "NO_G2P_ROWS"
+        top_curation_note = "Gene does not appear in the resolved G2P source."
+
     direct_coverage = publication_coverage["direct_dismech_matched_sections"]
-    return {
+    summary = {
         "gene_symbol": gene_symbol,
         "g2p_source": g2p_source,
         "g2p_row_count": len(g2p_rows),
         "mapped_row_count": mapped_rows,
         "unmapped_row_count": len(g2p_rows) - mapped_rows,
+        "actionable_row_count": actionable_rows,
         "dismech_match_count": len(dismech_matches),
         "direct_dismech_match_count": len(_direct_matches(dismech_matches)),
         "g2p_mondo_collision_count": len(mondo_collisions),
@@ -599,8 +790,15 @@ def compute_comparison_summary(
         "direct_section_pmid_missing_count": direct_coverage[
             "missing_from_dismech_count"
         ],
+        "highest_curation_priority": highest_curation_priority,
+        "worst_row_status": worst_row_status,
+        "primary_curation_action": primary_curation_action,
+        "top_curation_note": top_curation_note,
         "row_status_counts": row_status_counts,
     }
+    for status, field_name in _ROW_STATUS_COUNT_FIELDS:
+        summary[field_name] = row_status_counts.get(status, 0)
+    return summary
 
 
 def compare_gene(
@@ -610,6 +808,7 @@ def compare_gene(
     g2p_source: str | None = None,
     g2p_rows_by_gene: dict[str, list[dict[str, Any]]] | None = None,
     resolved_g2p_source: str | None = None,
+    dismech_matches_by_gene: dict[str, list[dict[str, Any]]] | None = None,
 ) -> dict[str, Any]:
     if g2p_rows_by_gene is None:
         source, rows_by_gene = load_g2p_index(g2p_source)
@@ -618,7 +817,12 @@ def compare_gene(
         rows_by_gene = g2p_rows_by_gene
 
     g2p_rows = [dict(row) for row in rows_by_gene.get(gene_symbol, [])]
-    dismech_matches = extract_dismech_gene_matches(kb_dir, gene_symbol, g2p_rows)
+    dismech_matches = extract_dismech_gene_matches(
+        kb_dir,
+        gene_symbol,
+        g2p_rows,
+        dismech_matches_by_gene=dismech_matches_by_gene,
+    )
 
     row_candidates: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for disorder in dismech_matches:
@@ -651,6 +855,11 @@ def compare_gene(
             row, _direct_matches(dismech_matches)
         )
         row["row_status"] = _classify_row_status(row, dismech_matches)
+        (
+            row["curation_priority"],
+            row["curation_action"],
+            row["curation_note"],
+        ) = _row_curation_action(row)
 
     g2p_rows_by_mondo: dict[str, set[str]] = defaultdict(set)
     for row in g2p_rows:
@@ -756,13 +965,37 @@ def run_comparison(
     return report["comparison_table"], report["summary"], report["gene_symbol"]
 
 
-def survey_genes(
-    gene_symbols: list[str],
+def build_release_row_table(reports: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows = [row for report in reports for row in report["comparison_table"]]
+    rows.sort(
+        key=lambda row: (
+            _ROW_STATUS_PRIORITY[row["row_status"]],
+            row["gene_symbol"].casefold(),
+            row["g2p_disease_name"].casefold(),
+            row["g2p_id"],
+        )
+    )
+    return rows
+
+
+def run_release_comparison(
     *,
+    gene_symbols: list[str] | None = None,
     kb_dir: Path = _default_kb_dir(),
     g2p_source: str | None = None,
-) -> list[dict[str, Any]]:
+    all_genes: bool = False,
+    actionable_only: bool = False,
+) -> dict[str, Any]:
+    """Run the G2P-vs-dismech comparison pipeline for a gene set or full release."""
     resolved_source, rows_by_gene = load_g2p_index(g2p_source)
+    if all_genes:
+        selected_gene_symbols = sorted(rows_by_gene)
+    elif gene_symbols:
+        selected_gene_symbols = gene_symbols
+    else:
+        raise ValueError("Provide gene symbols or set all_genes=True")
+
+    dismech_matches_by_gene = build_dismech_gene_index(kb_dir)
     reports = [
         compare_gene(
             gene_symbol,
@@ -770,19 +1003,96 @@ def survey_genes(
             g2p_source=resolved_source,
             g2p_rows_by_gene=rows_by_gene,
             resolved_g2p_source=resolved_source,
+            dismech_matches_by_gene=dismech_matches_by_gene,
         )
-        for gene_symbol in gene_symbols
+        for gene_symbol in selected_gene_symbols
     ]
-
-    summaries = [report["summary"] for report in reports]
-    summaries.sort(
+    gene_summaries = [report["summary"] for report in reports]
+    gene_summaries.sort(
         key=lambda item: (
-            -item["direct_section_pmid_overlap_count"],
-            item["unmapped_row_count"],
+            _ROW_STATUS_PRIORITY[item["worst_row_status"]],
+            -item["actionable_row_count"],
+            -item["g2p_row_count"],
             item["gene_symbol"].casefold(),
         )
     )
-    return summaries
+    overview = compute_release_overview(reports, gene_summaries)
+    row_table = build_release_row_table(reports)
+    if actionable_only:
+        row_table = [row for row in row_table if row["row_status"] != "ROOT_MATCH"]
+
+    return {
+        "g2p_source": resolved_source,
+        "reports": reports,
+        "overview": overview,
+        "gene_summaries": gene_summaries,
+        "row_table": row_table,
+    }
+
+
+def compute_release_overview(
+    reports: list[dict[str, Any]],
+    gene_summaries: list[dict[str, Any]],
+) -> dict[str, Any]:
+    row_status_counts: dict[str, int] = {}
+    genes_by_highest_priority: dict[str, int] = {}
+    genes_by_primary_action: dict[str, int] = {}
+
+    total_rows = sum(report["g2p_row_count"] for report in reports)
+    total_actionable_rows = sum(
+        summary["actionable_row_count"] for summary in gene_summaries
+    )
+    genes_with_direct_matches = sum(
+        1 for summary in gene_summaries if summary["direct_dismech_match_count"] > 0
+    )
+    genes_with_mondo_collisions = sum(
+        1 for summary in gene_summaries if summary["g2p_mondo_collision_count"] > 0
+    )
+
+    for summary in gene_summaries:
+        priority = summary["highest_curation_priority"]
+        genes_by_highest_priority[priority] = (
+            genes_by_highest_priority.get(priority, 0) + 1
+        )
+        action = summary["primary_curation_action"]
+        genes_by_primary_action[action] = genes_by_primary_action.get(action, 0) + 1
+        for status, count in summary["row_status_counts"].items():
+            row_status_counts[status] = row_status_counts.get(status, 0) + count
+
+    return {
+        "total_genes": len(gene_summaries),
+        "total_rows": total_rows,
+        "total_actionable_rows": total_actionable_rows,
+        "genes_with_direct_matches": genes_with_direct_matches,
+        "genes_with_mondo_collisions": genes_with_mondo_collisions,
+        "row_status_counts": dict(sorted(row_status_counts.items())),
+        "genes_by_highest_priority": dict(
+            sorted(
+                genes_by_highest_priority.items(),
+                key=lambda item: (_CURATION_PRIORITY_RANK[item[0]], item[0]),
+            )
+        ),
+        "genes_by_primary_action": dict(
+            sorted(
+                genes_by_primary_action.items(),
+                key=lambda item: (-item[1], item[0]),
+            )
+        ),
+    }
+
+
+def survey_genes(
+    gene_symbols: list[str],
+    *,
+    kb_dir: Path = _default_kb_dir(),
+    g2p_source: str | None = None,
+) -> list[dict[str, Any]]:
+    release_report = run_release_comparison(
+        gene_symbols=gene_symbols,
+        kb_dir=kb_dir,
+        g2p_source=g2p_source,
+    )
+    return release_report["gene_summaries"]
 
 
 # ---------------------------------------------------------------------------
@@ -801,6 +1111,15 @@ def _write_json(report: dict[str, Any], file=None) -> None:
     out = file or sys.stdout
     json.dump(report, out, indent=2)
     out.write("\n")
+
+
+def _write_gene_tsv(rows: list[dict[str, Any]], file=None) -> None:
+    out = file or sys.stdout
+    out.write("\t".join(_GENE_TSV_COLUMNS) + "\n")
+    for row in rows:
+        out.write(
+            "\t".join(str(row.get(column, "")) for column in _GENE_TSV_COLUMNS) + "\n"
+        )
 
 
 def _write_summary(report: dict[str, Any], file=None) -> None:
@@ -877,22 +1196,66 @@ def _write_summary(report: dict[str, Any], file=None) -> None:
         )
 
 
-def _write_batch_summary(summaries: list[dict[str, Any]], file=None) -> None:
+def _write_batch_summary(
+    overview: dict[str, Any],
+    summaries: list[dict[str, Any]],
+    *,
+    g2p_source: str,
+    top: int = 25,
+    file=None,
+) -> None:
     out = file or typer.get_text_stream("stdout")
-    for summary in summaries:
-        status_text = ", ".join(
-            f"{status}={count}"
-            for status, count in sorted(summary["row_status_counts"].items())
-        )
+    out.write("# G2P All-Gene Audit Summary\n\n")
+    out.write(f"- G2P source: `{g2p_source}`\n")
+    out.write(f"- Genes audited: {overview['total_genes']}\n")
+    out.write(f"- G2P rows audited: {overview['total_rows']}\n")
+    out.write(f"- Actionable rows: {overview['total_actionable_rows']}\n")
+    out.write(
+        f"- Genes with direct dismech matches: {overview['genes_with_direct_matches']}\n"
+    )
+    out.write(
+        f"- Genes with G2P MONDO collisions: {overview['genes_with_mondo_collisions']}\n\n"
+    )
+
+    out.write("## Aggregate Row Status Counts\n\n")
+    for status, count in overview["row_status_counts"].items():
+        out.write(f"- {status}: {count}\n")
+
+    out.write("\n## Genes By Highest Curation Priority\n\n")
+    for priority, count in overview["genes_by_highest_priority"].items():
+        out.write(f"- {priority}: {count}\n")
+
+    out.write("\n## Most Common Primary Actions\n\n")
+    for action, count in list(overview["genes_by_primary_action"].items())[:10]:
+        out.write(f"- {action}: {count}\n")
+
+    sections = [
+        ("CRITICAL", "Critical Genes: new dismech anchors needed"),
+        ("HIGH", "High-Priority Genes: split or underrepresented coverage"),
+        ("MEDIUM", "Medium-Priority Genes: embedded concepts or PMID backfill"),
+        ("LOW", "Low-Priority Genes: existing roots already usable"),
+    ]
+    for priority, heading in sections:
+        priority_summaries = [
+            summary
+            for summary in summaries
+            if summary["highest_curation_priority"] == priority
+        ][:top]
+        if not priority_summaries:
+            continue
+
+        out.write(f"\n## {heading} (top {min(top, len(priority_summaries))})\n\n")
         out.write(
-            f"- {summary['gene_symbol']}: g2p_rows={summary['g2p_row_count']}, "
-            f"mapped_rows={summary['mapped_row_count']}, "
-            f"direct_dismech_matches={summary['direct_dismech_match_count']}, "
-            f"mondo_collisions={summary['g2p_mondo_collision_count']}, "
-            f"direct_section_pmid_overlap={summary['direct_section_pmid_overlap_count']}, "
-            f"direct_section_pmid_missing={summary['direct_section_pmid_missing_count']}, "
-            f"row_statuses={status_text}\n"
+            "| Gene | Priority | Actionable rows | Worst status | Primary action | Note |\n"
         )
+        out.write("| --- | --- | ---: | --- | --- | --- |\n")
+        for summary in priority_summaries:
+            note = summary["top_curation_note"].replace("|", "/")
+            out.write(
+                f"| {summary['gene_symbol']} | {summary['highest_curation_priority']} | "
+                f"{summary['actionable_row_count']} | {summary['worst_row_status']} | "
+                f"{summary['primary_curation_action']} | {note} |\n"
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -945,11 +1308,19 @@ def compare(
 
 @app.command()
 def compare_all(
-    gene_symbols: list[str] = typer.Argument(help="One or more HGNC gene symbols."),
+    gene_symbols: list[str] | None = typer.Argument(
+        None,
+        help="Optional HGNC gene symbols. Use --all-genes to audit the full release.",
+    ),
     g2p_source: str | None = typer.Option(
         None,
         "--g2p-source",
         help="Path or URL to a G2P CSV/CSV.GZ export. Defaults to the latest allG2P FTP release.",
+    ),
+    all_genes: bool = typer.Option(
+        False,
+        "--all-genes",
+        help="Audit every gene present in the resolved G2P source.",
     ),
     kb_dir: Path = typer.Option(
         _default_kb_dir(),
@@ -959,7 +1330,18 @@ def compare_all(
     format: str = typer.Option(
         "summary",
         "--format",
-        help="Output format: tsv, json, summary.",
+        help="Output format: tsv, gene-tsv, json, summary.",
+    ),
+    actionable_only: bool = typer.Option(
+        False,
+        "--actionable-only",
+        help="For row-table outputs, omit fully resolved ROOT_MATCH rows.",
+    ),
+    top: int = typer.Option(
+        25,
+        "--top",
+        min=1,
+        help="For summary output, show only the top N genes by curation priority.",
     ),
     output: Path | None = typer.Option(
         None,
@@ -968,46 +1350,52 @@ def compare_all(
     ),
 ) -> None:
     """Compare multiple G2P genes against dismech disease coverage."""
-    resolved_source, rows_by_gene = load_g2p_index(g2p_source)
-    reports = [
-        compare_gene(
-            gene_symbol,
+    try:
+        release_report = run_release_comparison(
+            gene_symbols=gene_symbols,
             kb_dir=kb_dir,
-            g2p_source=resolved_source,
-            g2p_rows_by_gene=rows_by_gene,
-            resolved_g2p_source=resolved_source,
+            g2p_source=g2p_source,
+            all_genes=all_genes,
+            actionable_only=actionable_only,
         )
-        for gene_symbol in gene_symbols
-    ]
-    summaries = [report["summary"] for report in reports]
-    summaries.sort(
-        key=lambda item: (
-            -item["direct_section_pmid_overlap_count"],
-            item["unmapped_row_count"],
-            item["gene_symbol"].casefold(),
-        )
-    )
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+    resolved_source = release_report["g2p_source"]
+    summaries = release_report["gene_summaries"]
+    overview = release_report["overview"]
+    row_table = release_report["row_table"]
 
     out_stream = output.open("w", encoding="utf-8") if output else None
     try:
         if format == "summary":
-            _write_batch_summary(summaries, file=out_stream)
+            _write_batch_summary(
+                overview,
+                summaries,
+                g2p_source=resolved_source,
+                top=top,
+                file=out_stream,
+            )
         elif format == "json":
             out = out_stream or typer.get_text_stream("stdout")
             json.dump(
                 {
+                    "overview": overview,
                     "gene_summaries": summaries,
-                    "reports": reports,
+                    "row_table": row_table,
                 },
                 out,
                 indent=2,
             )
             out.write("\n")
+        elif format == "gene-tsv":
+            _write_gene_tsv(summaries, file=out_stream)
         elif format == "tsv":
-            rows = [row for report in reports for row in report["comparison_table"]]
-            _write_tsv(rows, file=out_stream)
+            _write_tsv(row_table, file=out_stream)
         else:
-            raise typer.BadParameter("format must be one of: tsv, summary, json")
+            raise typer.BadParameter(
+                "format must be one of: tsv, gene-tsv, summary, json"
+            )
     finally:
         if out_stream:
             out_stream.close()

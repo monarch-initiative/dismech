@@ -506,6 +506,9 @@ uv run python -m dismech.g2p_compare compare PTEN --format summary
 uv run python -m dismech.g2p_compare compare PTEN --format tsv
 uv run python -m dismech.g2p_compare compare PTEN --format json
 uv run python -m dismech.g2p_compare compare-all PTEN FLNB PIK3CA FGFR2 --format summary
+uv run python -m dismech.g2p_compare compare-all --all-genes --format summary
+uv run python -m dismech.g2p_compare compare-all --all-genes --format gene-tsv
+uv run python -m dismech.g2p_compare compare-all --all-genes --format tsv --actionable-only
 ```
 
 Behavior:
@@ -514,6 +517,8 @@ Behavior:
 - mirrors the D2P compare flow:
   load source rows -> extract dismech matches -> build comparison table ->
   compute summary -> expose CLI
+- pre-indexes dismech gene anchors once per release-scale audit so `--all-genes`
+  runs do not re-read every disease YAML for every gene
 - uses structured `genetic[]` and `pathophysiology[].gene/genes` matches in dismech
 - distinguishes causative/subtype-specific matches from secondary genetic matches
 - reports G2P MONDO collisions within a gene
@@ -523,6 +528,9 @@ Behavior:
 - classifies each row into
   `ROOT_MATCH`, `ROOT_MATCH_PMID_GAP`, `SPLIT_ACROSS_DISMECH`,
   `EMBEDDED_NOT_ROOTED`, `UNDERREPRESENTED_IN_DISMECH`, or `NO_DISMECH_MATCH`
+- assigns each row a curation priority, action, and note so exported TSVs can be
+  used directly for triage
+- exports both row-level and gene-level TSV views for release-scale audits
 - reports PMID overlap for direct anchors and for all matched disorders
 - supports small batch surveys without reloading the G2P export per gene
 
