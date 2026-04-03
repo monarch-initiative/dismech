@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -1481,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1569,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1576,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1588,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1736,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1822,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1836,9 +1916,19 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
 
@@ -1848,10 +1938,10 @@
                 modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
                 meta.experimental_models.forEach(function(model) {
                     modelHtml += '<div style="margin:4px 0; font-size:11px;">';
-                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml(model.name) + '</span>';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
                     if (model.model_type) {
                         modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
-                            + escapeHtml(model.model_type.replace(/_/g, " ")) + '</span>';
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
                     }
                     if (model.description) {
                         modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
@@ -1912,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1997,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 14</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Avascular necrosis</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Vertebral compression fracture</span>
@@ -2013,6 +2112,7 @@
         </header>
 
         <!-- Stats bar -->
+        
         
         
         
@@ -2070,6 +2170,14 @@
             <div class="stat-item">
                 <div class="stat-value">4</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">14</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2708,19 +2816,19 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
-            
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Kummell Disease</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Basivertebral foramen microcirculation compromise\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The basivertebral foramen is a biomechanical weak point where stresses concentrate and fracture lines propagate. Specific morphological characteristics of the basivertebral foramen, including trapezoidal or irregular shapes and reduced height, are associated with Kummell disease. Single-holed basivertebral foramina predominate in affected patients (97% vs 76% in controls), suggesting that fewer septations contribute to microcirculatory compromise and structural vulnerability.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Endothelial cell\"], \"biological_processes\": [\"Angiogenesis\"], \"locations\": [\"Vertebral body\"]}}, {\"id\": \"Intravertebral vacuum cleft formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Gas accumulation (primarily nitrogen) within the necrotic vertebral body creates the characteristic vacuum cleft sign visible on radiographs and CT. This vacuum phenomenon results from the inability of the necrotic bone to heal, creating a fluid-filled or gas-filled cavity within the vertebral body. The cleft typically changes in size with spinal position, enlarging in extension and compressing in flexion, reflecting nonunion or pseudarthrosis within the vertebral body. Gas clefts appear hypointense on both T1 and T2 MRI, while fluid-filled clefts are T1-hypointense and T2-hyperintense.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Ischemia-induced HIF-1alpha signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent vertebral ischemia activates HIF-1alpha-dependent hypoxia responses in bone and vascular cells. This node captures the immediate hypoxic signaling state created by impaired perfusion before downstream remodeling consequences.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Osteocyte\", \"Endothelial cell\"], \"biological_processes\": [\"Response to hypoxia\"]}}, {\"id\": \"Pro-inflammatory osteoclastogenic signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The KD vertebral microenvironment becomes pro-resorptive, with elevated inflammatory cytokines driving osteoclast differentiation and persistent bone nonunion. This node captures the remodeling shift toward resorption rather than the upstream ischemic trigger itself.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Osteoclast\"], \"biological_processes\": [\"Osteoclast differentiation\"]}}, {\"id\": \"Progressive vertebral body collapse\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Avascular necrosis, impaired healing, and continued mechanical loading produce delayed structural failure of the affected vertebral body, with progressive loss of vertebral height and worsening instability.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Bone remodeling\"]}}, {\"id\": \"Vertebral body avascular necrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Following minor spinal trauma, disruption of the intraosseous blood supply to the vertebral body leads to ischemic necrosis of cancellous bone. The osteoporotic vertebral body is particularly vulnerable due to its already compromised trabecular architecture and vascular supply. The necrotic bone fails to heal through normal reparative processes, resulting in progressive structural weakening and eventual collapse of the vertebral body. Histopathological examination confirms bone necrosis in affected vertebrae.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Osteocyte\", \"Osteoblast\", \"Osteoclast\"], \"biological_processes\": [\"Ossification\", \"Bone resorption\"], \"locations\": [\"Vertebral body\"]}}], \"edges\": [{\"source\": \"Vertebral body avascular necrosis\", \"target\": \"Intravertebral vacuum cleft formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vertebral body avascular necrosis\", \"target\": \"Progressive vertebral body collapse\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Basivertebral foramen microcirculation compromise\", \"target\": \"Vertebral body avascular necrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Basivertebral foramen microcirculation compromise\", \"target\": \"Ischemia-induced HIF-1alpha signaling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Intravertebral vacuum cleft formation\", \"target\": \"Progressive vertebral body collapse\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ischemia-induced HIF-1alpha signaling\", \"target\": \"Pro-inflammatory osteoclastogenic signaling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Pro-inflammatory osteoclastogenic signaling\", \"target\": \"Progressive vertebral body collapse\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Back pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive thoracolumbar back pain that typically develops after an initial asymptomatic interval following minor trauma. The pain worsens with weight-bearing and activity and may become chronic and debilitating. The delayed onset after a symptom-free interval is characteristic.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003418\"}}, {\"id\": \"Basivertebral foramen microcirculation compromise\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The basivertebral foramen is a biomechanical weak point where stresses concentrate and fracture lines propagate. Specific morphological characteristics of the basivertebral foramen, including trapezoidal or irregular shapes and reduced height, are associated with Kummell disease. Single-holed basivertebral foramina predominate in affected patients (97% vs 76% in controls), suggesting that fewer septations contribute to microcirculatory compromise and structural vulnerability.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Endothelial cell\"], \"biological_processes\": [\"Angiogenesis\"], \"locations\": [\"Vertebral body\"]}}, {\"id\": \"Conservative management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Non-surgical treatment including analgesics, bed rest, bracing, and physical therapy. May be appropriate for patients with minimal symptoms or those who are poor surgical candidates.\\n\"}, {\"id\": \"Intravertebral vacuum cleft formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Gas accumulation (primarily nitrogen) within the necrotic vertebral body creates the characteristic vacuum cleft sign visible on radiographs and CT. This vacuum phenomenon results from the inability of the necrotic bone to heal, creating a fluid-filled or gas-filled cavity within the vertebral body. The cleft typically changes in size with spinal position, enlarging in extension and compressing in flexion, reflecting nonunion or pseudarthrosis within the vertebral body. Gas clefts appear hypointense on both T1 and T2 MRI, while fluid-filled clefts are T1-hypointense and T2-hyperintense.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Ischemia-induced HIF-1alpha signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent vertebral ischemia activates HIF-1alpha-dependent hypoxia responses in bone and vascular cells. This node captures the immediate hypoxic signaling state created by impaired perfusion before downstream remodeling consequences.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Osteocyte\", \"Endothelial cell\"], \"biological_processes\": [\"Response to hypoxia\"]}}, {\"id\": \"Kyphosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive kyphotic deformity resulting from vertebral body collapse. The kyphosis can be severe and may lead to sagittal imbalance, reduced pulmonary function, and impaired quality of life.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002808\"}}, {\"id\": \"Neurological deficit\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"In advanced cases, progressive vertebral collapse and kyphotic deformity can lead to spinal cord or cauda equina compression, resulting in myelopathy, radiculopathy, or paraplegia. These deficits indicate stage III disease requiring surgical intervention.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002196\"}}, {\"id\": \"Percutaneous kyphoplasty\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Balloon kyphoplasty involves percutaneous placement of an inflatable balloon tamp into the vertebral body to restore height before cement injection. Provides comparable pain relief and height restoration to vertebroplasty. Achieves fewer cement leakages than vertebroplasty but at higher cost and longer operative time. The relationship between cement distribution and the intravertebral cleft is an important factor affecting long-term outcomes.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Percutaneous vertebroplasty\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Percutaneous injection of polymethylmethacrylate (PMMA) bone cement into the collapsed vertebral body to stabilize the fracture and provide pain relief. Particularly effective in Kummell disease when cement can fill the intravertebral cleft. Pain relief is thought to be due to the elimination of motion at the fracture site by cementing. Use of rotary cutters before cement injection to destroy the IVC structure may improve outcomes.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Posterior spinal fusion\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical stabilization with instrumented posterior osteotomy and spinal fusion is required for severe kyphotic deformity with neurological compromise (stage III). Posterior approaches are generally preferred over anterior reconstruction in patients with advanced age, serious comorbidities, and severe osteoporosis. Both anterior and posterior approaches improve pain, neurological dysfunction, and imaging outcomes.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Pro-inflammatory osteoclastogenic signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The KD vertebral microenvironment becomes pro-resorptive, with elevated inflammatory cytokines driving osteoclast differentiation and persistent bone nonunion. This node captures the remodeling shift toward resorption rather than the upstream ischemic trigger itself.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Osteoclast\"], \"biological_processes\": [\"Osteoclast differentiation\"]}}, {\"id\": \"Progressive vertebral body collapse\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Avascular necrosis, impaired healing, and continued mechanical loading produce delayed structural failure of the affected vertebral body, with progressive loss of vertebral height and worsening instability.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Bone remodeling\"]}}, {\"id\": \"Vertebral body avascular necrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Following minor spinal trauma, disruption of the intraosseous blood supply to the vertebral body leads to ischemic necrosis of cancellous bone. The osteoporotic vertebral body is particularly vulnerable due to its already compromised trabecular architecture and vascular supply. The necrotic bone fails to heal through normal reparative processes, resulting in progressive structural weakening and eventual collapse of the vertebral body. Histopathological examination confirms bone necrosis in affected vertebrae.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Osteocyte\", \"Osteoblast\", \"Osteoclast\"], \"biological_processes\": [\"Ossification\", \"Bone resorption\"], \"locations\": [\"Vertebral body\"]}}, {\"id\": \"Vertebral compression fracture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Collapse of the vertebral body, which may be partial or complete. The fracture typically involves the thoracolumbar junction (T10-L2) and progresses over time unlike acute osteoporotic compression fractures. It is distinguished from typical osteoporotic fractures by the delayed fashion of symptom development.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0002953\"}}], \"edges\": [{\"source\": \"Vertebral body avascular necrosis\", \"target\": \"Intravertebral vacuum cleft formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vertebral body avascular necrosis\", \"target\": \"Progressive vertebral body collapse\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Basivertebral foramen microcirculation compromise\", \"target\": \"Vertebral body avascular necrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Basivertebral foramen microcirculation compromise\", \"target\": \"Ischemia-induced HIF-1alpha signaling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Intravertebral vacuum cleft formation\", \"target\": \"Progressive vertebral body collapse\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ischemia-induced HIF-1alpha signaling\", \"target\": \"Pro-inflammatory osteoclastogenic signaling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Pro-inflammatory osteoclastogenic signaling\", \"target\": \"Progressive vertebral body collapse\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Percutaneous vertebroplasty\", \"target\": \"Back pain\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Percutaneous vertebroplasty\", \"target\": \"Vertebral compression fracture\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Percutaneous kyphoplasty\", \"target\": \"Back pain\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Percutaneous kyphoplasty\", \"target\": \"Kyphosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Percutaneous kyphoplasty\", \"target\": \"Vertebral compression fracture\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Conservative management\", \"target\": \"Back pain\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Posterior spinal fusion\", \"target\": \"Neurological deficit\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Posterior spinal fusion\", \"target\": \"Kyphosis\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>

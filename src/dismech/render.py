@@ -576,6 +576,9 @@ def render_disorder(
     graph = build_causal_graph(disorder)
     mermaid_code = generate_mermaid(graph)
     pathograph_data = graph_to_json(graph, disorder)
+    pathograph_node_count = len(
+        {node_name for edge in graph.edges for node_name in (edge.source, edge.target)}
+    )
     comorbidity_links = _collect_comorbidity_links(yaml_path.stem)
     report_sections = collect_reports(slugify(disorder.get("name") or yaml_path.stem))
 
@@ -588,6 +591,7 @@ def render_disorder(
         source_file=source_file,
         mermaid_code=mermaid_code,
         pathograph_data=pathograph_data,
+        pathograph_node_count=pathograph_node_count,
         graph_issues=graph.integrity_issues,
         comorbidity_links=comorbidity_links,
         phenotype_groups=phenotype_groups,

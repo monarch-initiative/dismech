@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -1481,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1569,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1576,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1588,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1736,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1822,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1836,9 +1916,19 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
 
@@ -1848,10 +1938,10 @@
                 modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
                 meta.experimental_models.forEach(function(model) {
                     modelHtml += '<div style="margin:4px 0; font-size:11px;">';
-                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml(model.name) + '</span>';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
                     if (model.model_type) {
                         modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
-                            + escapeHtml(model.model_type.replace(/_/g, " ")) + '</span>';
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
                     }
                     if (model.description) {
                         modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
@@ -1912,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1997,18 +2093,22 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 6</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Skeletal Dysplasia</span>
                 
             </div>
             
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; opacity: 0.95; position: relative;">
-                Diastrophic dysplasia is an autosomal recessive skeletal dysplasia caused by biallelic pathogenic variants in SLC26A2. Deficient sulfate transport causes proteoglycan undersulfation in cartilage matrix, disrupting endochondral ossification and producing a characteristic pattern of limb shortening, joint contractures, spinal deformity, and hand/foot malformations.
+                Diastrophic dysplasia (DTD) is an autosomal recessive skeletal dysplasia caused by biallelic pathogenic variants in SLC26A2, encoding a sulfate/chloride antiporter essential for sulfate uptake in chondrocytes. Deficient sulfate transport leads to undersulfation of cartilage proteoglycans, disrupting extracellular matrix composition and impairing endochondral ossification. Secondary consequences include collagen retention in the endoplasmic reticulum, activation of the unfolded protein response, and pathogenic overactivation of FGFR3 signaling. The phenotype comprises disproportionate short-limbed short stature, joint contractures, spinal deformities, hitchhiker thumbs, clubfoot, cleft palate, and cystic swelling of the external ear. Intelligence is normal. Severity correlates with residual SLC26A2 activity.
 
             </p>
             
         </header>
 
         <!-- Stats bar -->
+        
         
         
         
@@ -2052,7 +2152,7 @@
             
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
-                <div class="stat-value">3</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Pathophysiology</div>
             </div>
             </a>
@@ -2066,8 +2166,16 @@
             
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
-                <div class="stat-value">7</div>
+                <div class="stat-value">12</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">6</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2082,7 +2190,7 @@
             
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
-                <div class="stat-value">3</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
@@ -2144,7 +2252,7 @@
                     
                 </div>
                 
-                <div class="item-desc">Diastrophic dysplasia is inherited in an autosomal recessive pattern due to biallelic SLC26A2 pathogenic variants.
+                <div class="item-desc">Diastrophic dysplasia is inherited in an autosomal recessive pattern. Heterozygous carriers of SLC26A2 pathogenic variants are asymptomatic.
 </div>
                 
                 
@@ -2202,13 +2310,13 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">5</span>
             </div>
             
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sulfate-transport-defect-in-cartilage">
                 <div class="item-name">Sulfate Transport Defect in Cartilage</div>
                 
-                <div class="item-desc">Loss of SLC26A2 transporter activity reduces intracellular sulfate in chondrocytes and causes undersulfation of cartilage proteoglycans, altering extracellular matrix composition.
+                <div class="item-desc">Loss of SLC26A2 transporter activity reduces intracellular sulfate in chondrocytes, osteoblasts, and fibroblasts, causing undersulfation of cartilage proteoglycans and altering extracellular matrix composition. Proteoglycans bearing glycosaminoglycan chains that are poorly sulfated but of normal length cannot maintain proper matrix hydration and mechanical properties.
 </div>
                 
                 
@@ -2224,6 +2332,16 @@
     
     
                     
+                    <span class="tag tag-cell">
+                        Osteoblast
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+                    
                 </div>
                 
                 
@@ -2232,12 +2350,16 @@
                 <div class="item-meta">
                     
                     <span class="tag tag-bio">
-                        Cartilage Development
+                        Sulfate Transmembrane Transport
                         
-                        <a href="http://purl.obolibrary.org/obo/GO_0051216" target="_blank" class="linkout">link</a>
+                        <a href="http://purl.obolibrary.org/obo/GO_1902358" target="_blank" class="linkout">link</a>
                         
                     </span>
                     
+    
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
     
     
                     
@@ -2261,7 +2383,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
             
@@ -2281,14 +2403,34 @@
                 <div class="evidence-snippet">"Diastrophic dysplasia (DTD) is a chondrodysplasia caused by mutations in the SLC26A2 gene, leading to reduced intracellular sulfate pool in chondrocytes, osteoblasts and fibroblasts."</div>
                 
                 
-                <div class="evidence-explanation">The study links SLC26A2 dysfunction to sulfate depletion in skeletal matrix-producing cells.</div>
+                <div class="evidence-explanation">Links SLC26A2 dysfunction to sulfate depletion across skeletal matrix-producing cell types.</div>
                 
             </div>
             
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23369989" target="_blank">PMID:23369989</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8702490" target="_blank">PMID:8702490</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The results indicate that the defect of sulfate transport is expressed in both chondrocytes and fibroblasts and results in the synthesis of proteoglycans bearing glycosaminoglycan chains which are poorly sulfated but of normal length."</div>
+                
+                
+                <div class="evidence-explanation">First biochemical proof that proteoglycan sulfation is deficient in chondrocytes from patients with SLC26A2 mutations, while GAG chain length is preserved.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22556422" target="_blank">PMID:22556422</a>
                     </span>
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
@@ -2298,10 +2440,10 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Hence, proteoglycans are undersulfated in the cartilage and bone of DTD patients."</div>
+                <div class="evidence-snippet">"undersulfation of dtd was mild in most regions, but strong in narrow articular and growth plate regions crucial for bone development. This undersulfation correlated with the chondroitin synthesis rate measured via radioactive sulfate incorporation"</div>
                 
                 
-                <div class="evidence-explanation">This directly supports proteoglycan undersulfation as the biochemical core of disease.</div>
+                <div class="evidence-explanation">High-definition infrared imaging of dtd mouse cartilage reveals that undersulfation is regionally concentrated in the most developmentally critical zones, explaining why mild overall sulfation deficits produce severe skeletal consequences.</div>
                 
             </div>
             
@@ -2315,9 +2457,23 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-endochondral-ossification">
                 <div class="item-name">Impaired Endochondral Ossification</div>
                 
-                <div class="item-desc">Defective cartilage matrix quality disrupts growth plate maturation, delaying ossification and leading to disproportionate skeletal growth.
+                <div class="item-desc">Defective cartilage matrix quality disrupts growth plate architecture. The columnar arrangement of proliferative chondrocytes and the transition to hypertrophic chondrocytes are disordered, with delayed formation of secondary ossification centers and reduced chondrocyte proliferation, leading to disproportionate skeletal growth.
 </div>
                 
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-cell">
+                        Chondrocyte
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+                    
+                </div>
                 
                 
                 
@@ -2344,7 +2500,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
             
@@ -2364,7 +2520,47 @@
                 <div class="evidence-snippet">"The skeletal phenotype included reduced toluidine blue staining of cartilage, chondrocytes of irregular size, delay in the formation of the secondary ossification center and osteoporosis of long bones."</div>
                 
                 
-                <div class="evidence-explanation">The mouse model shows growth-plate/cartilage abnormalities and delayed ossification, supporting impaired endochondral bone development.</div>
+                <div class="evidence-explanation">The dtd knock-in mouse shows growth plate disorganization and delayed ossification, modeling the human endochondral bone defect.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37454964" target="_blank">PMID:37454964</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Lower than normal CXM levels were observed in most patients, even if the marker did not show a clear pattern in our small patient cohort because CXM values are highly dependent on age, gender and growth velocity."</div>
+                
+                
+                <div class="evidence-explanation">Reduced collagen X marker levels in DTD patients indicate impaired endochondral ossification rate, providing a potential biomarker.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22556422" target="_blank">PMID:22556422</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Collagen orientation was reduced, and the reduction correlated with chondroitin undersulfation. Such disorientation involved the layer of collagen covering the articular surface and protecting cartilage from degradation."</div>
+                
+                
+                <div class="evidence-explanation">Collagen disorientation in the dtd mouse growth plate and articular surface directly links proteoglycan undersulfation to structural matrix disruption and progressive cartilage degradation.</div>
                 
             </div>
             
@@ -2375,10 +2571,10 @@
     
             </div>
             
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-upr-dependent-fgfr3-overactivation">
-                <div class="item-name">UPR-Dependent FGFR3 Overactivation</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-collagen-retention-in-endoplasmic-reticulum">
+                <div class="item-name">Collagen Retention in Endoplasmic Reticulum</div>
                 
-                <div class="item-desc">SLC26A2 deficiency can trigger unfolded protein response signaling in chondrocytes that secondarily overactivates FGFR3 signaling, worsening growth plate dysfunction.
+                <div class="item-desc">In severe SLC26A2 deficiency, chondrocytes fail to secrete type II and type IX collagen normally. These collagens accumulate in the endoplasmic reticulum, causing ER distension and triggering the unfolded protein response.
 </div>
                 
                 
@@ -2402,19 +2598,86 @@
                 <div class="item-meta">
                     
                     <span class="tag tag-bio">
-                        Response to Unfolded Protein
+                        Response to Endoplasmic Reticulum Stress
                         
-                        <a href="http://purl.obolibrary.org/obo/GO_0006986" target="_blank" class="linkout">link</a>
+                        <a href="http://purl.obolibrary.org/obo/GO_0034976" target="_blank" class="linkout">link</a>
                         
                     </span>
                     
     
     
                     
-                    <span class="tag tag-bio">
-                        Fibroblast Growth Factor Receptor Signaling Pathway
+                </div>
+                
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30685387" target="_blank">PMID:30685387</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Unexpectedly, slc26a2-/- chondrocytes are defective for collagen secretion, exhibiting intracellular retention and compromised extracellular deposition of ColII and ColIX."</div>
+                
+                
+                <div class="evidence-explanation">Demonstrates that collagen retention is a consequence of SLC26A2 loss, distinct from the proteoglycan undersulfation mechanism.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-atf6-mediated-unfolded-protein-response">
+                <div class="item-name">ATF6-Mediated Unfolded Protein Response</div>
+                
+                <div class="item-desc">The ATF6 branch of the unfolded protein response is preferentially activated in SLC26A2-deficient chondrocytes. ATF6 activation drives transcriptional upregulation of FGFR3, linking ER stress to growth factor signaling dysregulation.
+</div>
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-cell">
+                        Chondrocyte
                         
-                        <a href="http://purl.obolibrary.org/obo/GO_0008543" target="_blank" class="linkout">link</a>
+                        <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        Endoplasmic Reticulum Unfolded Protein Response
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0030968" target="_blank" class="linkout">link</a>
                         
                     </span>
                     
@@ -2451,7 +2714,108 @@
                 <div class="evidence-snippet">"As a consequence, the ATF6 arm of the unfolded protein response (UPR) is preferentially triggered to overactivate FGFR3 signaling by inducing excessive FGFR3 in slc26a2-/- chondrocytes."</div>
                 
                 
-                <div class="evidence-explanation">This identifies a mechanistic link between SLC26A2 deficiency, UPR activation, and pathogenic FGFR3 over-signaling.</div>
+                <div class="evidence-explanation">Identifies preferential ATF6 activation as the UPR branch responsible for downstream FGFR3 dysregulation in SLC26A2-deficient chondrocytes.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-fgfr3-overactivation-in-chondrocytes">
+                <div class="item-name">FGFR3 Overactivation in Chondrocytes</div>
+                
+                <div class="item-desc">Excessive FGFR3 signaling, driven by ATF6-mediated transcriptional upregulation, inhibits chondrocyte proliferation and disrupts the balance between proliferation and apoptosis in growth plate cartilage. This represents a major pathogenic mechanism distinct from the primary matrix defect and a potential therapeutic target.
+</div>
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-cell">
+                        Chondrocyte
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        Fibroblast Growth Factor Receptor Signaling Pathway
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0008543" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30685387" target="_blank">PMID:30685387</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Consistently, suppressing FGFR3 signaling by blocking either FGFR3 or phosphorylation of the downstream effector favors the recovery of slc26a2-/- cartilage cultures from impaired growth and unbalanced cell proliferation and apoptosis."</div>
+                
+                
+                <div class="evidence-explanation">Blocking FGFR3 rescues growth and proliferation-apoptosis balance, confirming that FGFR3 overactivation is a key pathogenic driver.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38282752" target="_blank">PMID:38282752</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Genetic ablation of Fgfr3 in embryonic Slc26a2-deficient chondrocytes slightly attenuated chondrodysplasia."</div>
+                
+                
+                <div class="evidence-explanation">Genetic evidence from Fgfr3/Slc26a2 double knockout confirming that FGFR3 overactivation contributes to the chondrodysplasia phenotype.</div>
                 
             </div>
             
@@ -2470,6 +2834,29 @@
 
         <!-- Causal Graph (Pathograph) -->
         
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
+                <h2 class="card-title">Pathograph</h2>
+            </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
+            
+            <div class="pathograph-container" id="pathograph">
+                <div class="pathograph-legend" id="pathograph-legend"></div>
+                <svg id="pathograph-svg" role="img">
+                    <title>Pathograph: causal mechanism network for Diastrophic Dysplasia</title>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
+                </svg>
+                <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
+            </div>
+            <script>
+            (function() {
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ATF6-Mediated Unfolded Protein Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The ATF6 branch of the unfolded protein response is preferentially activated in SLC26A2-deficient chondrocytes. ATF6 activation drives transcriptional upregulation of FGFR3, linking ER stress to growth factor signaling dysregulation.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Chondrocyte\"], \"biological_processes\": [\"Endoplasmic Reticulum Unfolded Protein Response\"]}}, {\"id\": \"Collagen Retention in Endoplasmic Reticulum\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In severe SLC26A2 deficiency, chondrocytes fail to secrete type II and type IX collagen normally. These collagens accumulate in the endoplasmic reticulum, causing ER distension and triggering the unfolded protein response.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Chondrocyte\"], \"biological_processes\": [\"Response to Endoplasmic Reticulum Stress\"]}}, {\"id\": \"FGFR3 Overactivation in Chondrocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excessive FGFR3 signaling, driven by ATF6-mediated transcriptional upregulation, inhibits chondrocyte proliferation and disrupts the balance between proliferation and apoptosis in growth plate cartilage. This represents a major pathogenic mechanism distinct from the primary matrix defect and a potential therapeutic target.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Chondrocyte\"], \"biological_processes\": [\"Fibroblast Growth Factor Receptor Signaling Pathway\"]}}, {\"id\": \"FGFR3 Signaling Inhibition (Investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Experimental FGFR inhibition (e.g., NVP-BGJ398) has rescued impaired cartilage growth in SLC26A2-deficient mouse models by counteracting UPR-dependent FGFR3 overactivation. Both in vitro cartilage culture and in utero maternal administration showed therapeutic effects.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Impaired Endochondral Ossification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective cartilage matrix quality disrupts growth plate architecture. The columnar arrangement of proliferative chondrocytes and the transition to hypertrophic chondrocytes are disordered, with delayed formation of secondary ossification centers and reduced chondrocyte proliferation, leading to disproportionate skeletal growth.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Chondrocyte\"], \"biological_processes\": [\"Endochondral Ossification\"]}}, {\"id\": \"Sulfate Transport Defect in Cartilage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of SLC26A2 transporter activity reduces intracellular sulfate in chondrocytes, osteoblasts, and fibroblasts, causing undersulfation of cartilage proteoglycans and altering extracellular matrix composition. Proteoglycans bearing glycosaminoglycan chains that are poorly sulfated but of normal length cannot maintain proper matrix hydration and mechanical properties.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Chondrocyte\", \"Osteoblast\"], \"biological_processes\": [\"Sulfate Transmembrane Transport\", \"Extracellular Matrix Organization\"]}}], \"edges\": [{\"source\": \"Sulfate Transport Defect in Cartilage\", \"target\": \"Impaired Endochondral Ossification\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sulfate Transport Defect in Cartilage\", \"target\": \"Collagen Retention in Endoplasmic Reticulum\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Collagen Retention in Endoplasmic Reticulum\", \"target\": \"ATF6-Mediated Unfolded Protein Response\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ATF6-Mediated Unfolded Protein Response\", \"target\": \"FGFR3 Overactivation in Chondrocytes\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FGFR3 Signaling Inhibition (Investigational)\", \"target\": \"FGFR3 Overactivation in Chondrocytes\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                renderPathograph("pathograph", graphData);
+            })();
+            </script>
+        </div>
+        
 
         <!-- Phenotypes -->
         
@@ -2477,21 +2864,23 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">7</span>
+                <span class="card-count">12</span>
             </div>
             
             
             <div class="pheno-toc">
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Head and Neck<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(1)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Limbs<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(2)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Limbs<span class="pill-count">(1)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(3)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Growth<span class="pill-count">(1)</span></button>
+                
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(4)</span></button>
                 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -2500,8 +2889,70 @@
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Head and Neck
+                    Ear
                     <span class="cat-count">1</span>
+                </summary>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Cystic Ear Swelling
+                        
+                        
+                        <span class="phenotype-id">
+                            <a href="http://purl.obolibrary.org/obo/HP_0000377" target="_blank">
+                                Abnormal pinna morphology
+                            </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000377)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34064542" target="_blank">PMID:34064542</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"five had auricular abnormalities (swelling/deformities)."</div>
+                
+                
+                <div class="evidence-explanation">Auricular swelling and deformities documented in the Finnish cohort.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+            </details>
+            
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Head and Neck
+                    <span class="cat-count">2</span>
                 </summary>
                 
                 <div class="item-box phenotype-box">
@@ -2523,7 +2974,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -2543,7 +2994,100 @@
                 <div class="evidence-snippet">"Clinical features include short stature, joint contractures, spinal deformities, and cleft palate."</div>
                 
                 
-                <div class="evidence-explanation">The clinical cohort abstract directly lists cleft palate in DTD features.</div>
+                <div class="evidence-explanation">Cleft palate directly listed among DTD features in the clinical cohort.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34064542" target="_blank">PMID:34064542</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Cleft palate was present in 64%."</div>
+                
+                
+                <div class="evidence-explanation">High prevalence (64%) of cleft palate in the Finnish pediatric cohort.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Micrognathia
+                        
+                        
+                        <span class="phenotype-id">
+                            <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank">
+                                Micrognathia
+                            </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000347)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/3065771" target="_blank">PMID:3065771</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"micrognathia, cervical kyphosis, persistent extension limitation in elbow and knee joints, club feet"</div>
+                
+                
+                <div class="evidence-explanation">Micrognathia documented among characteristic DTD deformities on prenatal ultrasound.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34064542" target="_blank">PMID:34064542</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"ten had small chin"</div>
+                
+                
+                <div class="evidence-explanation">Small chin (micrognathia) present in 10 of 14 subjects in the Finnish pediatric cohort.</div>
                 
             </div>
             
@@ -2559,7 +3103,7 @@
                 
             </details>
             
-            <details class="phenotype-category-group" id="pheno-cat-2">
+            <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Limbs
@@ -2585,9 +3129,29 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34064542" target="_blank">PMID:34064542</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Seven subjects had bilateral club foot deformity, one had unilateral club foot and two had metatarsus adductus deformity."</div>
+                
+                
+                <div class="evidence-explanation">High prevalence of clubfoot documented in the Finnish pediatric cohort.</div>
+                
+            </div>
             
             <div class="evidence-item">
                 <div class="evidence-header">
@@ -2602,10 +3166,10 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"The reported case was diagnosed due to evidence of an extreme shortening of all long bones of the extremities associated with other skeletal deformities which, taken as a whole, are typical of this syndrome: micrognathia, cervical kyphosis, persistent extension limitation in elbow and knee..."</div>
+                <div class="evidence-snippet">"club feet, ulnar diviation of hands, shortened phalanges, and, in particular, abduction of thumbs (&#39;hitchhiker thumbs&#39;) and big toes."</div>
                 
                 
-                <div class="evidence-explanation">This prenatal clinical report documents club feet as part of the characteristic DTD deformity pattern.</div>
+                <div class="evidence-explanation">Clubfoot documented as part of the characteristic DTD deformity pattern.</div>
                 
             </div>
             
@@ -2621,11 +3185,11 @@
                 
             </details>
             
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">3</span>
                 </summary>
                 
                 <div class="item-box phenotype-box">
@@ -2667,7 +3231,7 @@
                 <div class="evidence-snippet">"Typical findings in this rare skeletal dysplasia are sport-limbed short stature, multiple joint contractures, early degeneration of joints, and spinal deformities such as cervical kyphosis, scoliosis, and exaggerated lumbar lordosis."</div>
                 
                 
-                <div class="evidence-explanation">The same cohort identifies scoliosis as part of the canonical DTD spinal phenotype.</div>
+                <div class="evidence-explanation">Scoliosis identified as part of the canonical DTD spinal phenotype.</div>
                 
             </div>
             
@@ -2681,25 +3245,16 @@
     
                 </div>
                 
-            </details>
-            
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">1</span>
-                </summary>
-                
                 <div class="item-box phenotype-box">
                     <div class="item-name">
-                        Short Stature
+                        Lumbar Hyperlordosis
                         
                         
                         <span class="phenotype-id">
-                            <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank">
-                                Short stature
+                            <a href="http://purl.obolibrary.org/obo/HP_0002938" target="_blank">
+                                Lumbar hyperlordosis
                             </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0004322)</span>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002938)</span>
                         </span>
                         
                     </div>
@@ -2709,14 +3264,14 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24598000" target="_blank">PMID:24598000</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10528373" target="_blank">PMID:10528373</a>
                     </span>
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
@@ -2726,10 +3281,103 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Clinical features include short stature, joint contractures, spinal deformities, and cleft palate."</div>
+                <div class="evidence-snippet">"spinal deformities such as cervical kyphosis, scoliosis, and exaggerated lumbar lordosis."</div>
                 
                 
-                <div class="evidence-explanation">The cohort abstract lists short stature among core DTD manifestations.</div>
+                <div class="evidence-explanation">Exaggerated lumbar lordosis listed among typical DTD spinal findings.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34064542" target="_blank">PMID:34064542</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Pronounced lumbar lordosis was present in eight subjects (57%)"</div>
+                
+                
+                <div class="evidence-explanation">Lumbar lordosis prevalence of 57% in the Finnish pediatric DTD cohort.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Premature Osteoarthritis
+                        
+                        
+                        <span class="phenotype-id">
+                            <a href="http://purl.obolibrary.org/obo/HP_0003088" target="_blank">
+                                Premature osteoarthritis
+                            </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0003088)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14630837" target="_blank">PMID:14630837</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Diastrophic dysplasia results in severe disproportionate short stature, generalized joint deformities, and early osteoarthritis."</div>
+                
+                
+                <div class="evidence-explanation">Clinical series confirming early osteoarthritis as a defining feature leading to joint replacement surgery.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9546468" target="_blank">PMID:9546468</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The changes in the hip led to secondary osteoarthritis before early middle age."</div>
+                
+                
+                <div class="evidence-explanation">Progressive hip deformity leading to secondary osteoarthritis documented radiographically.</div>
                 
             </div>
             
@@ -2748,8 +3396,90 @@
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">1</span>
+                </summary>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Disproportionate Short-Limbed Short Stature
+                        
+                        
+                        <span class="phenotype-id">
+                            <a href="http://purl.obolibrary.org/obo/HP_0008873" target="_blank">
+                                Disproportionate short-limb short stature
+                            </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0008873)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9108864" target="_blank">PMID:9108864</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The median adult height was 135.7 cm for the male and 129.0 cm for the female subjects. The growth failure was progressive partly because of absent or weak pubertal growth spurt."</div>
+                
+                
+                <div class="evidence-explanation">Largest growth study in DTD (121 Finnish patients) with disease-specific growth curves.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24598000" target="_blank">PMID:24598000</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Clinical features include short stature, joint contractures, spinal deformities, and cleft palate."</div>
+                
+                
+                <div class="evidence-explanation">Short stature listed as core DTD manifestation in the Swedish cohort.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+            </details>
+            
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">4</span>
                 </summary>
                 
                 <div class="item-box phenotype-box">
@@ -2771,7 +3501,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -2788,10 +3518,30 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"The reported case was diagnosed due to evidence of an extreme shortening of all long bones of the extremities associated with other skeletal deformities which, taken as a whole, are typical of this syndrome: micrognathia, cervical kyphosis, persistent extension limitation in elbow and knee..."</div>
+                <div class="evidence-snippet">"and, in particular, abduction of thumbs (&#39;hitchhiker thumbs&#39;) and big toes."</div>
                 
                 
-                <div class="evidence-explanation">The abstract explicitly reports hitchhiker thumbs in a prenatally diagnosed DTD case.</div>
+                <div class="evidence-explanation">Hitchhiker thumbs explicitly reported in a prenatally diagnosed DTD case.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34064542" target="_blank">PMID:34064542</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"the most common findings were symphalangism of the fingers (n = 7), hitchhiker&#39;s thumb/abduction of the thumb (n = 7)"</div>
+                
+                
+                <div class="evidence-explanation">Hitchhiker thumb present in half the Finnish pediatric cohort subjects.</div>
                 
             </div>
             
@@ -2824,7 +3574,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -2844,7 +3594,27 @@
                 <div class="evidence-snippet">"Clinical features include short stature, joint contractures, spinal deformities, and cleft palate."</div>
                 
                 
-                <div class="evidence-explanation">Joint contractures are listed as a core clinical feature in the SLC26A2-related clinical cohort.</div>
+                <div class="evidence-explanation">Joint contractures listed as core clinical feature in the Swedish SLC26A2 cohort.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9546468" target="_blank">PMID:9546468</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Flexion contracture of the hip became evident later in 93% and was progressive."</div>
+                
+                
+                <div class="evidence-explanation">Hip flexion contractures documented in 93% of 50 DTD patients, with progressive course.</div>
                 
             </div>
             
@@ -2877,7 +3647,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -2897,7 +3667,80 @@
                 <div class="evidence-snippet">"Typical findings in this rare skeletal dysplasia are sport-limbed short stature, multiple joint contractures, early degeneration of joints, and spinal deformities such as cervical kyphosis, scoliosis, and exaggerated lumbar lordosis."</div>
                 
                 
-                <div class="evidence-explanation">This longitudinal radiographic series identifies cervical kyphosis as a typical DTD spinal finding.</div>
+                <div class="evidence-explanation">Longitudinal radiographic series identifying cervical kyphosis as a typical DTD spinal finding.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34064542" target="_blank">PMID:34064542</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"cervical kyphosis was present in 11 subjects (79%)."</div>
+                
+                
+                <div class="evidence-explanation">Cervical kyphosis in 79% of the Finnish pediatric cohort, with variable severity and spontaneous resolution in some.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Short Phalanges
+                        
+                        
+                        <span class="phenotype-id">
+                            <a href="http://purl.obolibrary.org/obo/HP_0009803" target="_blank">
+                                Short phalanx of finger
+                            </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0009803)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/3065771" target="_blank">PMID:3065771</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"shortened phalanges"</div>
+                
+                
+                <div class="evidence-explanation">Shortened phalanges noted among characteristic skeletal deformities on prenatal imaging.</div>
                 
             </div>
             
@@ -2962,7 +3805,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -2982,7 +3825,27 @@
                 <div class="evidence-snippet">"Diastrophic dysplasia (DTD) is an autosomal recessive skeletal dysplasia caused by SLC26A2 mutations."</div>
                 
                 
-                <div class="evidence-explanation">The clinical cohort explicitly states that SLC26A2 mutations cause DTD.</div>
+                <div class="evidence-explanation">Clinical cohort explicitly states that SLC26A2 mutations cause DTD.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34064542" target="_blank">PMID:34064542</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"From the subjects with available genetic data, 75% (9/12) were homozygous for the Finnish founder mutation c.-26+2T&gt;C."</div>
+                
+                
+                <div class="evidence-explanation">Documents the predominance of the Finnish founder mutation and genotype-phenotype correlations within the SLC26A2 spectrum.</div>
                 
             </div>
             
@@ -3002,7 +3865,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">5</span>
             </div>
             
             <div class="item-box treatment-box">
@@ -3018,7 +3881,7 @@
                 </div>
                 
                 
-                <div class="item-desc">Supportive physical therapy is a standard component of care to preserve mobility and function.
+                <div class="item-desc">Physical therapy is a mainstay of DTD management, aimed at preserving joint mobility, preventing contracture progression, and maintaining ambulation.
 </div>
                 
                 
@@ -3048,7 +3911,7 @@
                 <div class="evidence-snippet">"There is currently no curative treatment for DTD. The affected individuals are mainly treated with physiotherapy and corrective orthopedic surgery."</div>
                 
                 
-                <div class="evidence-explanation">This clinical review identifies physiotherapy as a mainstay of DTD management.</div>
+                <div class="evidence-explanation">Clinical review identifies physiotherapy as standard of care in DTD.</div>
                 
             </div>
             
@@ -3072,7 +3935,81 @@
                 </div>
                 
                 
-                <div class="item-desc">Orthopedic surgeries are commonly used to treat severe deformities including foot, knee, and spinal complications.
+                <div class="item-desc">Orthopedic surgeries are frequently required for clubfoot correction, spinal stabilization, knee realignment, and total joint arthroplasty for end-stage osteoarthritis.
+</div>
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34064542" target="_blank">PMID:34064542</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"There is currently no curative treatment for DTD. The affected individuals are mainly treated with physiotherapy and corrective orthopedic surgery."</div>
+                
+                
+                <div class="evidence-explanation">Corrective orthopedic surgery identified as standard clinical management.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14630837" target="_blank">PMID:14630837</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Total knee arthroplasty substantially improved the function of patients with diastrophic dysplasia."</div>
+                
+                
+                <div class="evidence-explanation">Largest knee replacement series in DTD documenting functional improvement despite frequent complications.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box treatment-box">
+                <div class="item-name">
+                    Genetic Counseling
+                    
+                    <span class="phenotype-id">
+                        <a href="https://bioregistry.io/MAXO:0000079" target="_blank">
+                            MAXO:0000079
+                        </a>
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="item-desc">Genetic counseling is recommended for families given the 25% recurrence risk and the availability of prenatal molecular diagnosis.
 </div>
                 
                 
@@ -3099,10 +4036,84 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"There is currently no curative treatment for DTD. The affected individuals are mainly treated with physiotherapy and corrective orthopedic surgery."</div>
+                <div class="evidence-snippet">"Genetic testing together with genetic counselling are important parts of the patient care."</div>
                 
                 
-                <div class="evidence-explanation">This review explicitly reports corrective orthopedic surgery as standard clinical management.</div>
+                <div class="evidence-explanation">Finnish clinical review emphasizes the role of genetic testing and counseling in DTD management.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box treatment-box">
+                <div class="item-name">
+                    N-Acetylcysteine (Investigational)
+                    
+                    <span class="phenotype-id">
+                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
+                            MAXO:0000058
+                        </a>
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="item-desc">N-acetyl-L-cysteine (NAC) provides an intracellular source of sulfate via thiol catabolism, partially compensating for impaired transmembrane sulfate uptake. In the dtd mouse model, prenatal NAC administration increased cartilage proteoglycan sulfation and partially rescued skeletal morphology.
+</div>
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26206888" target="_blank">PMID:26206888</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"a marked increase in PG sulfation was observed in newborns from NAC-treated pregnancies when compared with the placebo group."</div>
+                
+                
+                <div class="evidence-explanation">Prenatal NAC treatment of dtd mice increased proteoglycan sulfation and partially rescued bone morphology.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16719839" target="_blank">PMID:16719839</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The relative amount of sulfated disaccharides increased in mutant mice treated with NAC compared with the placebo group, indicating an increase in proteoglycan sulfation due to NAC catabolism"</div>
+                
+                
+                <div class="evidence-explanation">Early proof-of-concept showing that exogenous NAC can increase cartilage proteoglycan sulfation in the dtd mouse model.</div>
                 
             </div>
             
@@ -3126,7 +4137,7 @@
                 </div>
                 
                 
-                <div class="item-desc">Experimental FGFR inhibition has shown rescue of cartilage growth in SLC26A2-deficient models and represents a potential targeted therapy.
+                <div class="item-desc">Experimental FGFR inhibition (e.g., NVP-BGJ398) has rescued impaired cartilage growth in SLC26A2-deficient mouse models by counteracting UPR-dependent FGFR3 overactivation. Both in vitro cartilage culture and in utero maternal administration showed therapeutic effects.
 </div>
                 
                 
@@ -3137,7 +4148,7 @@
                         <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
                             INHIBITS
                         </span>
-                        <strong style="color: #5b21b6;">UPR-Dependent FGFR3 Overactivation</strong>
+                        <strong style="color: #5b21b6;">FGFR3 Overactivation in Chondrocytes</strong>
                         
                         
     
@@ -3163,7 +4174,7 @@
                 <div class="evidence-snippet">"Consistently, suppressing FGFR3 signaling by blocking either FGFR3 or phosphorylation of the downstream effector favors the recovery of slc26a2-/- cartilage cultures from impaired growth and unbalanced cell proliferation and apoptosis."</div>
                 
                 
-                <div class="evidence-explanation">This mechanistic evidence supports inhibiting FGFR3-pathway activity to counter downstream growth-plate dysfunction.</div>
+                <div class="evidence-explanation">FGFR3 inhibition rescues growth plate defects in slc26a2-/- cartilage cultures.</div>
                 
             </div>
             
@@ -3182,7 +4193,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -3199,10 +4210,30 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Consistently, suppressing FGFR3 signaling by blocking either FGFR3 or phosphorylation of the downstream effector favors the recovery of slc26a2-/- cartilage cultures from impaired growth and unbalanced cell proliferation and apoptosis."</div>
+                <div class="evidence-snippet">"Moreover, administration of an FGFR inhibitor to pregnant females shows therapeutic effects on pathological features in slc26a2-/- newborns."</div>
                 
                 
-                <div class="evidence-explanation">Mouse-model experiments show that reducing FGFR3 pathway activity can partially rescue growth-plate defects.</div>
+                <div class="evidence-explanation">In utero FGFR inhibitor treatment improved skeletal features in SLC26A2-knockout newborn mice.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38282752" target="_blank">PMID:38282752</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"in vivo experiments showed significant alleviation of impaired chondrocyte differentiation, and micro-CT analysis showed a clear improvement in trabecular bone microarchitectural parameters."</div>
+                
+                
+                <div class="evidence-explanation">Postnatal NVP-BGJ398 treatment in an inducible Slc26a2-cKO mouse improved trabecular bone architecture, extending the therapeutic evidence from prenatal to postnatal intervention.</div>
                 
             </div>
             
@@ -3220,6 +4251,78 @@
         
 
         <!-- Biochemical Markers -->
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🔬</div>
+                <h2 class="card-title">Biochemical Markers</h2>
+                <span class="card-count">1</span>
+            </div>
+            
+            <div class="item-box biochemical-box">
+                <div class="item-name">
+                    Reduced Proteoglycan Sulfation
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Decreased)</span>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8702490" target="_blank">PMID:8702490</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The results indicate that the defect of sulfate transport is expressed in both chondrocytes and fibroblasts and results in the synthesis of proteoglycans bearing glycosaminoglycan chains which are poorly sulfated but of normal length."</div>
+                
+                
+                <div class="evidence-explanation">First biochemical characterization of proteoglycan undersulfation in SLC26A2-deficient chondrocytes.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37454964" target="_blank">PMID:37454964</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Undersulfation of urinary GAGs was observed in DTD patients with some relationship to the clinical severity and underlying SLC26A2 variants."</div>
+                
+                
+                <div class="evidence-explanation">Urinary GAG undersulfation validated as a potential non-invasive biomarker for monitoring DTD.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+        </div>
         
 
         <!-- Differential Diagnoses -->
@@ -3250,14 +4353,20 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Diastrophic Dysplasia
 creation_date: &#39;2026-03-04T07:00:00Z&#39;
-updated_date: &#39;2026-03-04T08:45:04Z&#39;
+updated_date: &#39;2026-04-02T16:00:00Z&#39;
 category: Mendelian
 description: &gt;
-  Diastrophic dysplasia is an autosomal recessive skeletal dysplasia caused by
-  biallelic pathogenic variants in SLC26A2. Deficient sulfate transport causes
-  proteoglycan undersulfation in cartilage matrix, disrupting endochondral
-  ossification and producing a characteristic pattern of limb shortening, joint
-  contractures, spinal deformity, and hand/foot malformations.
+  Diastrophic dysplasia (DTD) is an autosomal recessive skeletal dysplasia caused
+  by biallelic pathogenic variants in SLC26A2, encoding a sulfate/chloride
+  antiporter essential for sulfate uptake in chondrocytes. Deficient sulfate
+  transport leads to undersulfation of cartilage proteoglycans, disrupting
+  extracellular matrix composition and impairing endochondral ossification.
+  Secondary consequences include collagen retention in the endoplasmic reticulum,
+  activation of the unfolded protein response, and pathogenic overactivation of
+  FGFR3 signaling. The phenotype comprises disproportionate short-limbed short
+  stature, joint contractures, spinal deformities, hitchhiker thumbs, clubfoot,
+  cleft palate, and cystic swelling of the external ear. Intelligence is normal.
+  Severity correlates with residual SLC26A2 activity.
 disease_term:
   preferred_term: diastrophic dysplasia
   term:
@@ -3268,8 +4377,8 @@ parents:
 inheritance:
 - name: Autosomal Recessive
   description: &gt;
-    Diastrophic dysplasia is inherited in an autosomal recessive pattern due to
-    biallelic SLC26A2 pathogenic variants.
+    Diastrophic dysplasia is inherited in an autosomal recessive pattern.
+    Heterozygous carriers of SLC26A2 pathogenic variants are asymptomatic.
   evidence:
   - reference: PMID:24598000
     reference_title: &#34;SLC26A2 disease spectrum in Sweden - high frequency of recessive multiple epiphyseal dysplasia (rMED).&#34;
@@ -3282,12 +4391,13 @@ inheritance:
       This cohort report directly states recessive inheritance and SLC26A2
       causality.
 prevalence:
-- population: Live births
+- population: Live births (worldwide)
   percentage: 1 in 100,000 live births
   notes: &gt;-
-    Published review literature cites an incidence of about 1 in 100,000 live
-    births and highlights marked enrichment in Finland due to a founder
-    mutation.
+    Estimated incidence of approximately 1 in 100,000 live births in
+    non-Finnish populations. Historically much higher in Finland (~1:22,000)
+    due to a founder mutation, though Finnish incidence has decreased with
+    improved prenatal diagnostics.
   evidence:
   - reference: PMID:23657516
     supports: SUPPORT
@@ -3311,27 +4421,142 @@ prevalence:
       found in only 4% of Finnish control chromosomes.
     explanation: &gt;-
       This genetic epidemiology study supports the founder-effect enrichment of
-      DTD in Finland noted in the prevalence summary.
+      DTD in Finland.
+- population: Finland (2000-2020)
+  notes: &gt;-
+    The incidence of DTD in Finland has decreased significantly in recent
+    decades, from approximately 1:22,000 historically to far fewer cases per
+    year, likely due to improved prenatal diagnostics and genetic counseling.
+  evidence:
+  - reference: PMID:34064542
+    reference_title: &#34;SLC26A2-Associated Diastrophic Dysplasia and rMED-Clinical Features in Affected Finnish Children and Review of the Literature.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The incidence of DTD in Finland has significantly decreased over the
+      past decades, most likely due to increased prenatal diagnostics.
+    explanation: &gt;-
+      Registry-based Finnish pediatric cohort showing declining incidence of
+      DTD attributable to prenatal diagnosis.
+progression:
+- phase: Prenatal Onset
+  evidence:
+  - reference: PMID:3065771
+    reference_title: &#34;Diastrophic dysplasia: a specific prenatal diagnosis by ultrasound.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The reported case was diagnosed due to evidence of an extreme shortening
+      of all long bones of the extremities associated with other skeletal
+      deformities which, taken as a whole, are typical of this syndrome:
+      micrognathia, cervical kyphosis, persistent extension limitation in elbow
+      and knee joints, club feet, ulnar diviation of hands, shortened phalanges,
+      and, in particular, abduction of thumbs (&#39;hitchhiker thumbs&#39;) and big
+      toes.
+    explanation: &gt;-
+      Prenatal ultrasound detection of the full DTD skeletal phenotype confirms
+      in utero onset of disease manifestations.
+- phase: Progressive Growth Failure
+  age_range: Childhood through adolescence
+  evidence:
+  - reference: PMID:9108864
+    reference_title: &#34;Growth in diastrophic dysplasia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The median adult height was 135.7 cm for the male and 129.0 cm for the
+      female subjects. The growth failure was progressive partly because of
+      absent or weak pubertal growth spurt.
+    explanation: &gt;-
+      Largest growth study of DTD (121 Finnish patients) documenting
+      progressive growth failure and adult height range.
+- phase: Early-Onset Joint Degeneration
+  age_range: Adolescence to early adulthood
+  evidence:
+  - reference: PMID:9546468
+    reference_title: &#34;Development of the hip in diastrophic dysplasia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The changes in the hip led to secondary osteoarthritis before early
+      middle age.
+    explanation: &gt;-
+      Longitudinal hip radiography study of 50 DTD patients documenting
+      progressive hip deformity leading to secondary osteoarthritis.
+  - reference: PMID:14630837
+    reference_title: &#34;Total knee arthroplasty in patients with diastrophic dysplasia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Diastrophic dysplasia results in severe disproportionate short stature,
+      generalized joint deformities, and early osteoarthritis. The knee joint
+      often has an abnormal valgus position and is unstable, and degeneration
+      of all joint compartments occurs, even during growth.
+    explanation: &gt;-
+      Clinical series documenting early-onset knee osteoarthritis requiring
+      total knee arthroplasty in DTD patients.
 pathophysiology:
 - name: Sulfate Transport Defect in Cartilage
   description: &gt;
     Loss of SLC26A2 transporter activity reduces intracellular sulfate in
-    chondrocytes and causes undersulfation of cartilage proteoglycans, altering
-    extracellular matrix composition.
+    chondrocytes, osteoblasts, and fibroblasts, causing undersulfation of
+    cartilage proteoglycans and altering extracellular matrix composition.
+    Proteoglycans bearing glycosaminoglycan chains that are poorly sulfated
+    but of normal length cannot maintain proper matrix hydration and
+    mechanical properties.
   cell_types:
   - preferred_term: Chondrocyte
     term:
       id: CL:0000138
       label: chondrocyte
-  biological_processes:
-  - preferred_term: Cartilage Development
+  - preferred_term: Osteoblast
     term:
-      id: GO:0051216
-      label: cartilage development
+      id: CL:0000062
+      label: osteoblast
+  biological_processes:
+  - preferred_term: Sulfate Transmembrane Transport
+    term:
+      id: GO:1902358
+      label: sulfate transmembrane transport
+    modifier: DECREASED
   - preferred_term: Extracellular Matrix Organization
     term:
       id: GO:0030198
       label: extracellular matrix organization
+  downstream:
+  - target: Impaired Endochondral Ossification
+    causal_link_type: DIRECT
+    description: &gt;-
+      Undersulfated proteoglycans disrupt growth plate matrix, impairing
+      endochondral bone formation.
+    evidence:
+    - reference: PMID:22556422
+      reference_title: &#34;Matrix disruptions, growth, and degradation of cartilage with impaired sulfation.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &gt;-
+        undersulfation of dtd was mild in most regions, but strong in narrow
+        articular and growth plate regions crucial for bone development.
+      explanation: &gt;-
+        Regional concentration of undersulfation in growth plate zones
+        directly links sulfate transport defect to ossification impairment.
+  - target: Collagen Retention in Endoplasmic Reticulum
+    causal_link_type: DIRECT
+    description: &gt;-
+      SLC26A2 deficiency leads to defective collagen secretion with
+      intracellular retention of type II and IX collagens.
+    evidence:
+    - reference: PMID:30685387
+      reference_title: &#34;Suppressing UPR-dependent overactivation of FGFR3 signaling ameliorates SLC26A2-deficient chondrodysplasias.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &gt;-
+        Unexpectedly, slc26a2-/- chondrocytes are defective for collagen
+        secretion, exhibiting intracellular retention and compromised
+        extracellular deposition of ColII and ColIX.
+      explanation: &gt;-
+        Collagen retention is a direct consequence of SLC26A2 loss, linking
+        the sulfate transport defect to ER stress.
   evidence:
   - reference: PMID:23369989
     reference_title: &#34;Alteration of proteoglycan sulfation affects bone growth and remodeling.&#34;
@@ -3342,22 +4567,47 @@ pathophysiology:
       the SLC26A2 gene, leading to reduced intracellular sulfate pool in
       chondrocytes, osteoblasts and fibroblasts.
     explanation: &gt;-
-      The study links SLC26A2 dysfunction to sulfate depletion in skeletal
-      matrix-producing cells.
-  - reference: PMID:23369989
-    reference_title: &#34;Alteration of proteoglycan sulfation affects bone growth and remodeling.&#34;
+      Links SLC26A2 dysfunction to sulfate depletion across skeletal
+      matrix-producing cell types.
+  - reference: PMID:8702490
+    reference_title: &#34;Undersulfation of proteoglycans synthesized by chondrocytes from a patient with achondrogenesis type 1B homozygous for an L483P substitution in the diastrophic dysplasia sulfate transporter.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      The results indicate that the defect of sulfate transport is expressed
+      in both chondrocytes and fibroblasts and results in the synthesis of
+      proteoglycans bearing glycosaminoglycan chains which are poorly sulfated
+      but of normal length.
+    explanation: &gt;-
+      First biochemical proof that proteoglycan sulfation is deficient in
+      chondrocytes from patients with SLC26A2 mutations, while GAG chain
+      length is preserved.
+  - reference: PMID:22556422
+    reference_title: &#34;Matrix disruptions, growth, and degradation of cartilage with impaired sulfation.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
-      Hence, proteoglycans are undersulfated in the cartilage and bone of DTD
-      patients.
+      undersulfation of dtd was mild in most regions, but strong in narrow
+      articular and growth plate regions crucial for bone development. This
+      undersulfation correlated with the chondroitin synthesis rate measured
+      via radioactive sulfate incorporation
     explanation: &gt;-
-      This directly supports proteoglycan undersulfation as the biochemical core
-      of disease.
+      High-definition infrared imaging of dtd mouse cartilage reveals that
+      undersulfation is regionally concentrated in the most developmentally
+      critical zones, explaining why mild overall sulfation deficits produce
+      severe skeletal consequences.
 - name: Impaired Endochondral Ossification
   description: &gt;
-    Defective cartilage matrix quality disrupts growth plate maturation,
-    delaying ossification and leading to disproportionate skeletal growth.
+    Defective cartilage matrix quality disrupts growth plate architecture.
+    The columnar arrangement of proliferative chondrocytes and the transition
+    to hypertrophic chondrocytes are disordered, with delayed formation of
+    secondary ossification centers and reduced chondrocyte proliferation,
+    leading to disproportionate skeletal growth.
+  cell_types:
+  - preferred_term: Chondrocyte
+    term:
+      id: CL:0000138
+      label: chondrocyte
   biological_processes:
   - preferred_term: Endochondral Ossification
     term:
@@ -3373,27 +4623,113 @@ pathophysiology:
       cartilage, chondrocytes of irregular size, delay in the formation of the
       secondary ossification center and osteoporosis of long bones.
     explanation: &gt;-
-      The mouse model shows growth-plate/cartilage abnormalities and delayed
-      ossification, supporting impaired endochondral bone development.
-- name: UPR-Dependent FGFR3 Overactivation
+      The dtd knock-in mouse shows growth plate disorganization and delayed
+      ossification, modeling the human endochondral bone defect.
+  - reference: PMID:37454964
+    reference_title: &#34;Identification of potential non-invasive biomarkers in diastrophic dysplasia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Lower than normal CXM levels were observed in most patients, even if
+      the marker did not show a clear pattern in our small patient cohort
+      because CXM values are highly dependent on age, gender and growth
+      velocity.
+    explanation: &gt;-
+      Reduced collagen X marker levels in DTD patients indicate impaired
+      endochondral ossification rate, providing a potential biomarker.
+  - reference: PMID:22556422
+    reference_title: &#34;Matrix disruptions, growth, and degradation of cartilage with impaired sulfation.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      Collagen orientation was reduced, and the reduction correlated with
+      chondroitin undersulfation. Such disorientation involved the layer of
+      collagen covering the articular surface and protecting cartilage from
+      degradation.
+    explanation: &gt;-
+      Collagen disorientation in the dtd mouse growth plate and articular
+      surface directly links proteoglycan undersulfation to structural matrix
+      disruption and progressive cartilage degradation.
+- name: Collagen Retention in Endoplasmic Reticulum
   description: &gt;
-    SLC26A2 deficiency can trigger unfolded protein response signaling in
-    chondrocytes that secondarily overactivates FGFR3 signaling, worsening
-    growth plate dysfunction.
+    In severe SLC26A2 deficiency, chondrocytes fail to secrete type II
+    and type IX collagen normally. These collagens accumulate in the
+    endoplasmic reticulum, causing ER distension and triggering the
+    unfolded protein response.
   cell_types:
   - preferred_term: Chondrocyte
     term:
       id: CL:0000138
       label: chondrocyte
   biological_processes:
-  - preferred_term: Response to Unfolded Protein
+  - preferred_term: Response to Endoplasmic Reticulum Stress
     term:
-      id: GO:0006986
-      label: response to unfolded protein
-  - preferred_term: Fibroblast Growth Factor Receptor Signaling Pathway
+      id: GO:0034976
+      label: response to endoplasmic reticulum stress
+  downstream:
+  - target: ATF6-Mediated Unfolded Protein Response
+    causal_link_type: DIRECT
+    description: &gt;-
+      ER accumulation of collagens preferentially activates the ATF6 arm
+      of the UPR in chondrocytes.
+    evidence:
+    - reference: PMID:30685387
+      reference_title: &#34;Suppressing UPR-dependent overactivation of FGFR3 signaling ameliorates SLC26A2-deficient chondrodysplasias.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &gt;-
+        As a consequence, the ATF6 arm of the unfolded protein response (UPR) is
+        preferentially triggered to overactivate FGFR3 signaling by inducing
+        excessive FGFR3 in slc26a2-/- chondrocytes.
+      explanation: &gt;-
+        Collagen retention triggers ATF6-mediated UPR as the preferential
+        ER stress pathway in SLC26A2-deficient chondrocytes.
+  evidence:
+  - reference: PMID:30685387
+    reference_title: &#34;Suppressing UPR-dependent overactivation of FGFR3 signaling ameliorates SLC26A2-deficient chondrodysplasias.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      Unexpectedly, slc26a2-/- chondrocytes are defective for collagen
+      secretion, exhibiting intracellular retention and compromised
+      extracellular deposition of ColII and ColIX.
+    explanation: &gt;-
+      Demonstrates that collagen retention is a consequence of SLC26A2
+      loss, distinct from the proteoglycan undersulfation mechanism.
+- name: ATF6-Mediated Unfolded Protein Response
+  description: &gt;
+    The ATF6 branch of the unfolded protein response is preferentially
+    activated in SLC26A2-deficient chondrocytes. ATF6 activation drives
+    transcriptional upregulation of FGFR3, linking ER stress to growth
+    factor signaling dysregulation.
+  cell_types:
+  - preferred_term: Chondrocyte
     term:
-      id: GO:0008543
-      label: fibroblast growth factor receptor signaling pathway
+      id: CL:0000138
+      label: chondrocyte
+  biological_processes:
+  - preferred_term: Endoplasmic Reticulum Unfolded Protein Response
+    term:
+      id: GO:0030968
+      label: endoplasmic reticulum unfolded protein response
+  downstream:
+  - target: FGFR3 Overactivation in Chondrocytes
+    causal_link_type: DIRECT
+    description: &gt;-
+      ATF6 induces excessive FGFR3 expression, leading to overactivation
+      of FGFR3 signaling in chondrocytes.
+    evidence:
+    - reference: PMID:30685387
+      reference_title: &#34;Suppressing UPR-dependent overactivation of FGFR3 signaling ameliorates SLC26A2-deficient chondrodysplasias.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &gt;-
+        As a consequence, the ATF6 arm of the unfolded protein response (UPR) is
+        preferentially triggered to overactivate FGFR3 signaling by inducing
+        excessive FGFR3 in slc26a2-/- chondrocytes.
+      explanation: &gt;-
+        ATF6 directly upregulates FGFR3 expression, establishing the
+        UPR-to-FGFR3 causal link.
   evidence:
   - reference: PMID:30685387
     reference_title: &#34;Suppressing UPR-dependent overactivation of FGFR3 signaling ameliorates SLC26A2-deficient chondrodysplasias.&#34;
@@ -3404,8 +4740,100 @@ pathophysiology:
       preferentially triggered to overactivate FGFR3 signaling by inducing
       excessive FGFR3 in slc26a2-/- chondrocytes.
     explanation: &gt;-
-      This identifies a mechanistic link between SLC26A2 deficiency, UPR
-      activation, and pathogenic FGFR3 over-signaling.
+      Identifies preferential ATF6 activation as the UPR branch responsible
+      for downstream FGFR3 dysregulation in SLC26A2-deficient chondrocytes.
+- name: FGFR3 Overactivation in Chondrocytes
+  description: &gt;
+    Excessive FGFR3 signaling, driven by ATF6-mediated transcriptional
+    upregulation, inhibits chondrocyte proliferation and disrupts the
+    balance between proliferation and apoptosis in growth plate cartilage.
+    This represents a major pathogenic mechanism distinct from the primary
+    matrix defect and a potential therapeutic target.
+  cell_types:
+  - preferred_term: Chondrocyte
+    term:
+      id: CL:0000138
+      label: chondrocyte
+  biological_processes:
+  - preferred_term: Fibroblast Growth Factor Receptor Signaling Pathway
+    term:
+      id: GO:0008543
+      label: fibroblast growth factor receptor signaling pathway
+    modifier: INCREASED
+  evidence:
+  - reference: PMID:30685387
+    reference_title: &#34;Suppressing UPR-dependent overactivation of FGFR3 signaling ameliorates SLC26A2-deficient chondrodysplasias.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      Consistently, suppressing FGFR3 signaling by blocking either FGFR3 or
+      phosphorylation of the downstream effector favors the recovery of
+      slc26a2-/- cartilage cultures from impaired growth and unbalanced cell
+      proliferation and apoptosis.
+    explanation: &gt;-
+      Blocking FGFR3 rescues growth and proliferation-apoptosis balance,
+      confirming that FGFR3 overactivation is a key pathogenic driver.
+  - reference: PMID:38282752
+    reference_title: &#34;Targeting FGFR3 signaling and drug repurposing for the treatment of SLC26A2-related chondrodysplasia in mouse model.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      Genetic ablation of Fgfr3 in embryonic Slc26a2-deficient chondrocytes
+      slightly attenuated chondrodysplasia.
+    explanation: &gt;-
+      Genetic evidence from Fgfr3/Slc26a2 double knockout confirming that
+      FGFR3 overactivation contributes to the chondrodysplasia phenotype.
+animal_models:
+- species: Mus musculus
+  genotype: Slc26a2 homozygous A386V knock-in (dtd mouse)
+  description: &gt;
+    Knock-in mouse carrying the equivalent of the human Finnish founder
+    mutation. Recapitulates the DTD phenotype with reduced toluidine blue
+    staining, irregular chondrocytes, delayed secondary ossification, thin
+    disorganized collagen fibrils, and osteoporosis of long bones. Viable
+    and used for longitudinal studies of growth and treatment interventions.
+  evidence:
+  - reference: PMID:15703192
+    reference_title: &#34;A diastrophic dysplasia sulfate transporter (SLC26A2) mutant mouse: morphological and biochemical characterization of the resulting chondrodysplasia phenotype.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      The skeletal phenotype included reduced toluidine blue staining of
+      cartilage, chondrocytes of irregular size, delay in the formation of the
+      secondary ossification center and osteoporosis of long bones.
+    explanation: &gt;-
+      Original characterization of the dtd mouse, demonstrating faithful
+      modeling of the human DTD cartilage and bone phenotype.
+  - reference: PMID:23369989
+    reference_title: &#34;Alteration of proteoglycan sulfation affects bone growth and remodeling.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      Hence, proteoglycans are undersulfated in the cartilage and bone of DTD
+      patients.
+    explanation: &gt;-
+      Detailed in vivo biochemical characterization of the dtd mouse
+      confirming proteoglycan undersulfation.
+- species: Mus musculus
+  genotype: Slc26a2-/- (global knockout)
+  description: &gt;
+    Complete loss-of-function mouse phenocopying the lethal forms of
+    SLC26A2-related chondrodysplasias (ACG1B and AO2). Used to study the
+    UPR-FGFR3 pathway and to test FGFR inhibitors and prenatal NAC treatment.
+    Cartilage-specific deletion (Col2a1-Cre; Slc26a2fl/fl) confirmed
+    skeleton-specific lethality.
+  evidence:
+  - reference: PMID:30685387
+    reference_title: &#34;Suppressing UPR-dependent overactivation of FGFR3 signaling ameliorates SLC26A2-deficient chondrodysplasias.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      Two lethal forms of human SLC26A2-related chondrodysplasias,
+      achondrogenesis type IB (ACG1B) and atelosteogenesis type II (AO2), are
+      phenocopied by slc26a2-/- mice.
+    explanation: &gt;-
+      Demonstrates that complete SLC26A2 loss recapitulates the severe end of
+      the allelic spectrum and confirms skeleton-specific pathology.
 genetic:
 - name: SLC26A2 Pathogenic Variants
   gene_term:
@@ -3416,7 +4844,12 @@ genetic:
   association: Causative
   notes: &gt;
     Biallelic pathogenic variants in SLC26A2 are causative for diastrophic
-    dysplasia.
+    dysplasia. SLC26A2 encodes a sulfate/chloride antiporter expressed in
+    chondrocytes and other tissues. Disease severity correlates with residual
+    sulfate transporter activity: the Finnish founder mutation c.-26+2T&gt;C is
+    classified as severe, p.Arg279Trp as mild. Homozygosity for the Finnish
+    mutation typically produces DTD, while compound heterozygosity with milder
+    alleles can produce rMED.
   evidence:
   - reference: PMID:24598000
     reference_title: &#34;SLC26A2 disease spectrum in Sweden - high frequency of recessive multiple epiphyseal dysplasia (rMED).&#34;
@@ -3426,18 +4859,41 @@ genetic:
       Diastrophic dysplasia (DTD) is an autosomal recessive skeletal dysplasia
       caused by SLC26A2 mutations.
     explanation: &gt;-
-      The clinical cohort explicitly states that SLC26A2 mutations cause DTD.
+      Clinical cohort explicitly states that SLC26A2 mutations cause DTD.
+  - reference: PMID:34064542
+    reference_title: &#34;SLC26A2-Associated Diastrophic Dysplasia and rMED-Clinical Features in Affected Finnish Children and Review of the Literature.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      From the subjects with available genetic data, 75% (9/12) were
+      homozygous for the Finnish founder mutation c.-26+2T&gt;C.
+    explanation: &gt;-
+      Documents the predominance of the Finnish founder mutation and
+      genotype-phenotype correlations within the SLC26A2 spectrum.
 phenotypes:
-- name: Short Stature
+- category: Skeletal
+  name: Disproportionate Short-Limbed Short Stature
   description: &gt;
-    Affected individuals typically have disproportionate short stature due to
-    impaired endochondral growth.
+    Marked limb shortening with a relatively preserved trunk length, resulting
+    in rhizomelic dwarfism. Growth failure is progressive, with median adult
+    height of 136 cm in males and 129 cm in females.
   phenotype_term:
-    preferred_term: Short stature
+    preferred_term: Disproportionate short-limb short stature
     term:
-      id: HP:0004322
-      label: Short stature
+      id: HP:0008873
+      label: Disproportionate short-limb short stature
   evidence:
+  - reference: PMID:9108864
+    reference_title: &#34;Growth in diastrophic dysplasia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The median adult height was 135.7 cm for the male and 129.0 cm for the
+      female subjects. The growth failure was progressive partly because of
+      absent or weak pubertal growth spurt.
+    explanation: &gt;-
+      Largest growth study in DTD (121 Finnish patients) with disease-specific
+      growth curves.
   - reference: PMID:24598000
     reference_title: &#34;SLC26A2 disease spectrum in Sweden - high frequency of recessive multiple epiphyseal dysplasia (rMED).&#34;
     supports: SUPPORT
@@ -3446,36 +4902,41 @@ phenotypes:
       Clinical features include short stature, joint contractures, spinal
       deformities, and cleft palate.
     explanation: &gt;-
-      The cohort abstract lists short stature among core DTD manifestations.
-- name: Clubfoot
+      Short stature listed as core DTD manifestation in the Swedish cohort.
+- category: Skeletal
+  name: Clubfoot
   description: &gt;
-    Talipes equinovarus is a frequent congenital deformity in diastrophic
-    dysplasia and often requires orthopedic management.
+    Bilateral talipes equinovarus is present in most affected neonates and
+    frequently requires early casting or surgical correction.
   phenotype_term:
     preferred_term: Clubfoot
     term:
       id: HP:0001762
       label: Talipes equinovarus
   evidence:
+  - reference: PMID:34064542
+    reference_title: &#34;SLC26A2-Associated Diastrophic Dysplasia and rMED-Clinical Features in Affected Finnish Children and Review of the Literature.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Seven subjects had bilateral club foot deformity, one had unilateral
+      club foot and two had metatarsus adductus deformity.
+    explanation: &gt;-
+      High prevalence of clubfoot documented in the Finnish pediatric cohort.
   - reference: PMID:3065771
     reference_title: &#34;Diastrophic dysplasia: a specific prenatal diagnosis by ultrasound.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      The reported case was diagnosed due to evidence of an extreme shortening
-      of all long bones of the extremities associated with other skeletal
-      deformities which, taken as a whole, are typical of this syndrome:
-      micrognathia, cervical kyphosis, persistent extension limitation in elbow
-      and knee joints, club feet, ulnar diviation of hands, shortened phalanges,
-      and, in particular, abduction of thumbs (&#39;hitchhiker thumbs&#39;) and big
-      toes.
+      club feet, ulnar diviation of hands, shortened phalanges, and, in
+      particular, abduction of thumbs (&#39;hitchhiker thumbs&#39;) and big toes.
     explanation: &gt;-
-      This prenatal clinical report documents club feet as part of the
-      characteristic DTD deformity pattern.
-- name: Hitchhiker Thumb
+      Clubfoot documented as part of the characteristic DTD deformity pattern.
+- category: Skeletal
+  name: Hitchhiker Thumb
   description: &gt;
-    Abducted &#34;hitchhiker&#34; thumbs are a characteristic hand deformity in
-    diastrophic dysplasia.
+    Abducted &#34;hitchhiker&#34; thumbs are a hallmark hand deformity arising from
+    dysplasia of the first metacarpal and metacarpophalangeal joint.
   phenotype_term:
     preferred_term: Hitchhiker thumb
     term:
@@ -3487,20 +4948,25 @@ phenotypes:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      The reported case was diagnosed due to evidence of an extreme shortening
-      of all long bones of the extremities associated with other skeletal
-      deformities which, taken as a whole, are typical of this syndrome:
-      micrognathia, cervical kyphosis, persistent extension limitation in elbow
-      and knee joints, club feet, ulnar diviation of hands, shortened phalanges,
       and, in particular, abduction of thumbs (&#39;hitchhiker thumbs&#39;) and big
       toes.
     explanation: &gt;-
-      The abstract explicitly reports hitchhiker thumbs in a prenatally
-      diagnosed DTD case.
-- name: Joint Contractures
+      Hitchhiker thumbs explicitly reported in a prenatally diagnosed DTD case.
+  - reference: PMID:34064542
+    reference_title: &#34;SLC26A2-Associated Diastrophic Dysplasia and rMED-Clinical Features in Affected Finnish Children and Review of the Literature.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      the most common findings were symphalangism of the fingers (n = 7),
+      hitchhiker&#39;s thumb/abduction of the thumb (n = 7)
+    explanation: &gt;-
+      Hitchhiker thumb present in half the Finnish pediatric cohort subjects.
+- category: Skeletal
+  name: Joint Contractures
   description: &gt;
-    Progressive joint contractures, especially of large joints, are major
-    contributors to disability.
+    Progressive contractures of large joints, especially knees, elbows, and
+    hips. Hip flexion contractures become evident in infancy in over 90% of
+    patients and are progressive.
   phenotype_term:
     preferred_term: Joint contracture
     term:
@@ -3515,12 +4981,24 @@ phenotypes:
       Clinical features include short stature, joint contractures, spinal
       deformities, and cleft palate.
     explanation: &gt;-
-      Joint contractures are listed as a core clinical feature in the
-      SLC26A2-related clinical cohort.
-- name: Cervical Kyphosis
+      Joint contractures listed as core clinical feature in the Swedish
+      SLC26A2 cohort.
+  - reference: PMID:9546468
+    reference_title: &#34;Development of the hip in diastrophic dysplasia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Flexion contracture of the hip became evident later in 93% and was
+      progressive.
+    explanation: &gt;-
+      Hip flexion contractures documented in 93% of 50 DTD patients, with
+      progressive course.
+- category: Skeletal
+  name: Cervical Kyphosis
   description: &gt;
-    Cervical kyphosis is a common spinal complication that may resolve or become
-    severe, requiring close follow-up.
+    Cervical kyphosis is present in the majority of DTD patients during
+    childhood. It may resolve spontaneously but can progress to severe degrees
+    with risk of spinal cord compression.
   phenotype_term:
     preferred_term: Cervical kyphosis
     term:
@@ -3537,12 +5015,23 @@ phenotypes:
       spinal deformities such as cervical kyphosis, scoliosis, and exaggerated
       lumbar lordosis.
     explanation: &gt;-
-      This longitudinal radiographic series identifies cervical kyphosis as a
+      Longitudinal radiographic series identifying cervical kyphosis as a
       typical DTD spinal finding.
-- name: Scoliosis
+  - reference: PMID:34064542
+    reference_title: &#34;SLC26A2-Associated Diastrophic Dysplasia and rMED-Clinical Features in Affected Finnish Children and Review of the Literature.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      cervical kyphosis was present in 11 subjects (79%).
+    explanation: &gt;-
+      Cervical kyphosis in 79% of the Finnish pediatric cohort, with variable
+      severity and spontaneous resolution in some.
+- category: Skeletal
+  name: Scoliosis
   description: &gt;
-    Scoliosis is a common spinal deformity in diastrophic dysplasia with
-    variable progression.
+    Scoliosis occurs in 37-90% of DTD patients and has variable natural
+    history. It can be classified as early-progressive, idiopathic-like, or
+    mild non-progressive.
   phenotype_term:
     preferred_term: Scoliosis
     term:
@@ -3559,12 +5048,40 @@ phenotypes:
       spinal deformities such as cervical kyphosis, scoliosis, and exaggerated
       lumbar lordosis.
     explanation: &gt;-
-      The same cohort identifies scoliosis as part of the canonical DTD spinal
-      phenotype.
-- name: Cleft Palate
+      Scoliosis identified as part of the canonical DTD spinal phenotype.
+- category: Skeletal
+  name: Lumbar Hyperlordosis
   description: &gt;
-    Cleft palate is a recurrent craniofacial manifestation in the clinical
-    spectrum of diastrophic dysplasia.
+    Exaggerated lumbar lordosis is present in over half of DTD patients and
+    contributes to spinal imbalance and gait difficulty.
+  phenotype_term:
+    preferred_term: Lumbar hyperlordosis
+    term:
+      id: HP:0002938
+      label: Lumbar hyperlordosis
+  evidence:
+  - reference: PMID:10528373
+    reference_title: &#34;Cervical kyphosis in diastrophic dysplasia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      spinal deformities such as cervical kyphosis, scoliosis, and exaggerated
+      lumbar lordosis.
+    explanation: &gt;-
+      Exaggerated lumbar lordosis listed among typical DTD spinal findings.
+  - reference: PMID:34064542
+    reference_title: &#34;SLC26A2-Associated Diastrophic Dysplasia and rMED-Clinical Features in Affected Finnish Children and Review of the Literature.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Pronounced lumbar lordosis was present in eight subjects (57%)
+    explanation: &gt;-
+      Lumbar lordosis prevalence of 57% in the Finnish pediatric DTD cohort.
+- category: Craniofacial
+  name: Cleft Palate
+  description: &gt;
+    Cleft palate occurs in approximately 30-64% of DTD patients, reflecting
+    disrupted proteoglycan-dependent craniofacial mesenchyme development.
   phenotype_term:
     preferred_term: Cleft palate
     term:
@@ -3579,12 +5096,156 @@ phenotypes:
       Clinical features include short stature, joint contractures, spinal
       deformities, and cleft palate.
     explanation: &gt;-
-      The clinical cohort abstract directly lists cleft palate in DTD features.
+      Cleft palate directly listed among DTD features in the clinical cohort.
+  - reference: PMID:34064542
+    reference_title: &#34;SLC26A2-Associated Diastrophic Dysplasia and rMED-Clinical Features in Affected Finnish Children and Review of the Literature.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Cleft palate was present in 64%.
+    explanation: &gt;-
+      High prevalence (64%) of cleft palate in the Finnish pediatric cohort.
+- category: Craniofacial
+  name: Micrognathia
+  description: &gt;
+    Small mandible is a common craniofacial finding in DTD, reflecting
+    disrupted cartilaginous development of the mandibular condyle.
+  phenotype_term:
+    preferred_term: Micrognathia
+    term:
+      id: HP:0000347
+      label: Micrognathia
+  evidence:
+  - reference: PMID:3065771
+    reference_title: &#34;Diastrophic dysplasia: a specific prenatal diagnosis by ultrasound.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      micrognathia, cervical kyphosis, persistent extension limitation in elbow
+      and knee joints, club feet
+    explanation: &gt;-
+      Micrognathia documented among characteristic DTD deformities on prenatal
+      ultrasound.
+  - reference: PMID:34064542
+    reference_title: &#34;SLC26A2-Associated Diastrophic Dysplasia and rMED-Clinical Features in Affected Finnish Children and Review of the Literature.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      ten had small chin
+    explanation: &gt;-
+      Small chin (micrognathia) present in 10 of 14 subjects in the Finnish
+      pediatric cohort.
+- category: Ear
+  name: Cystic Ear Swelling
+  description: &gt;
+    Cystic swelling of the pinnae in the neonatal period, present in
+    approximately two-thirds of neonates with DTD. If the swelling scars,
+    it produces a cauliflower ear deformity. This finding is considered
+    pathognomonic for diastrophic dysplasia.
+  phenotype_term:
+    preferred_term: Cystic ear swelling (cauliflower ear deformity)
+    term:
+      id: HP:0000377
+      label: Abnormal pinna morphology
+  evidence:
+  - reference: PMID:34064542
+    reference_title: &#34;SLC26A2-Associated Diastrophic Dysplasia and rMED-Clinical Features in Affected Finnish Children and Review of the Literature.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      five had auricular abnormalities (swelling/deformities).
+    explanation: &gt;-
+      Auricular swelling and deformities documented in the Finnish cohort.
+- category: Skeletal
+  name: Premature Osteoarthritis
+  description: &gt;
+    Early-onset degenerative joint disease affecting weight-bearing joints,
+    especially hips and knees. Undersulfated articular cartilage cannot
+    withstand normal mechanical stress, leading to osteoarthritis often
+    requiring joint replacement in young adulthood.
+  phenotype_term:
+    preferred_term: Premature osteoarthritis
+    term:
+      id: HP:0003088
+      label: Premature osteoarthritis
+  evidence:
+  - reference: PMID:14630837
+    reference_title: &#34;Total knee arthroplasty in patients with diastrophic dysplasia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Diastrophic dysplasia results in severe disproportionate short stature,
+      generalized joint deformities, and early osteoarthritis.
+    explanation: &gt;-
+      Clinical series confirming early osteoarthritis as a defining feature
+      leading to joint replacement surgery.
+  - reference: PMID:9546468
+    reference_title: &#34;Development of the hip in diastrophic dysplasia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The changes in the hip led to secondary osteoarthritis before early
+      middle age.
+    explanation: &gt;-
+      Progressive hip deformity leading to secondary osteoarthritis
+      documented radiographically.
+- category: Skeletal
+  name: Short Phalanges
+  description: &gt;
+    Shortened phalanges of the fingers are common, contributing to
+    brachydactyly and limited hand function.
+  phenotype_term:
+    preferred_term: Short phalanx of finger
+    term:
+      id: HP:0009803
+      label: Short phalanx of finger
+  evidence:
+  - reference: PMID:3065771
+    reference_title: &#34;Diastrophic dysplasia: a specific prenatal diagnosis by ultrasound.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      shortened phalanges
+    explanation: &gt;-
+      Shortened phalanges noted among characteristic skeletal deformities on
+      prenatal imaging.
+biochemical:
+- name: Reduced Proteoglycan Sulfation
+  presence: Decreased
+  notes: &gt;
+    Cartilage proteoglycans in DTD have glycosaminoglycan chains that are
+    poorly sulfated but of normal length. Undersulfation of urinary GAGs
+    has been proposed as a non-invasive biomarker, with some relationship
+    to clinical severity and underlying SLC26A2 variants.
+  evidence:
+  - reference: PMID:8702490
+    reference_title: &#34;Undersulfation of proteoglycans synthesized by chondrocytes from a patient with achondrogenesis type 1B homozygous for an L483P substitution in the diastrophic dysplasia sulfate transporter.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      The results indicate that the defect of sulfate transport is expressed
+      in both chondrocytes and fibroblasts and results in the synthesis of
+      proteoglycans bearing glycosaminoglycan chains which are poorly sulfated
+      but of normal length.
+    explanation: &gt;-
+      First biochemical characterization of proteoglycan undersulfation in
+      SLC26A2-deficient chondrocytes.
+  - reference: PMID:37454964
+    reference_title: &#34;Identification of potential non-invasive biomarkers in diastrophic dysplasia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Undersulfation of urinary GAGs was observed in DTD patients with some
+      relationship to the clinical severity and underlying SLC26A2 variants.
+    explanation: &gt;-
+      Urinary GAG undersulfation validated as a potential non-invasive
+      biomarker for monitoring DTD.
 treatments:
 - name: Physiotherapy
   description: &gt;
-    Supportive physical therapy is a standard component of care to preserve
-    mobility and function.
+    Physical therapy is a mainstay of DTD management, aimed at preserving
+    joint mobility, preventing contracture progression, and maintaining
+    ambulation.
   treatment_term:
     preferred_term: physical therapy
     term:
@@ -3600,12 +5261,12 @@ treatments:
       individuals are mainly treated with physiotherapy and corrective
       orthopedic surgery.
     explanation: &gt;-
-      This clinical review identifies physiotherapy as a mainstay of DTD
-      management.
+      Clinical review identifies physiotherapy as standard of care in DTD.
 - name: Corrective Orthopedic Surgery
   description: &gt;
-    Orthopedic surgeries are commonly used to treat severe deformities including
-    foot, knee, and spinal complications.
+    Orthopedic surgeries are frequently required for clubfoot correction,
+    spinal stabilization, knee realignment, and total joint arthroplasty
+    for end-stage osteoarthritis.
   treatment_term:
     preferred_term: orthopedic surgery
     term:
@@ -3621,19 +5282,85 @@ treatments:
       individuals are mainly treated with physiotherapy and corrective
       orthopedic surgery.
     explanation: &gt;-
-      This review explicitly reports corrective orthopedic surgery as standard
-      clinical management.
+      Corrective orthopedic surgery identified as standard clinical
+      management.
+  - reference: PMID:14630837
+    reference_title: &#34;Total knee arthroplasty in patients with diastrophic dysplasia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Total knee arthroplasty substantially improved the function of patients
+      with diastrophic dysplasia.
+    explanation: &gt;-
+      Largest knee replacement series in DTD documenting functional
+      improvement despite frequent complications.
+- name: Genetic Counseling
+  description: &gt;
+    Genetic counseling is recommended for families given the 25% recurrence
+    risk and the availability of prenatal molecular diagnosis.
+  treatment_term:
+    preferred_term: genetic counseling
+    term:
+      id: MAXO:0000079
+      label: genetic counseling
+  evidence:
+  - reference: PMID:34064542
+    reference_title: &#34;SLC26A2-Associated Diastrophic Dysplasia and rMED-Clinical Features in Affected Finnish Children and Review of the Literature.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Genetic testing together with genetic counselling are important parts
+      of the patient care.
+    explanation: &gt;-
+      Finnish clinical review emphasizes the role of genetic testing and
+      counseling in DTD management.
+- name: N-Acetylcysteine (Investigational)
+  description: &gt;
+    N-acetyl-L-cysteine (NAC) provides an intracellular source of sulfate
+    via thiol catabolism, partially compensating for impaired transmembrane
+    sulfate uptake. In the dtd mouse model, prenatal NAC administration
+    increased cartilage proteoglycan sulfation and partially rescued
+    skeletal morphology.
+  treatment_term:
+    preferred_term: pharmacotherapy (N-acetylcysteine)
+    term:
+      id: MAXO:0000058
+      label: pharmacotherapy
+  evidence:
+  - reference: PMID:26206888
+    reference_title: &#34;N-acetylcysteine treatment ameliorates the skeletal phenotype of a mouse model of diastrophic dysplasia.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      a marked increase in PG sulfation was observed in newborns from
+      NAC-treated pregnancies when compared with the placebo group.
+    explanation: &gt;-
+      Prenatal NAC treatment of dtd mice increased proteoglycan sulfation
+      and partially rescued bone morphology.
+  - reference: PMID:16719839
+    reference_title: &#34;In vivo contribution of amino acid sulfur to cartilage proteoglycan sulfation.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      The relative amount of sulfated disaccharides increased in mutant mice
+      treated with NAC compared with the placebo group, indicating an increase
+      in proteoglycan sulfation due to NAC catabolism
+    explanation: &gt;-
+      Early proof-of-concept showing that exogenous NAC can increase cartilage
+      proteoglycan sulfation in the dtd mouse model.
 - name: FGFR3 Signaling Inhibition (Investigational)
   description: &gt;
-    Experimental FGFR inhibition has shown rescue of cartilage growth in
-    SLC26A2-deficient models and represents a potential targeted therapy.
+    Experimental FGFR inhibition (e.g., NVP-BGJ398) has rescued impaired
+    cartilage growth in SLC26A2-deficient mouse models by counteracting
+    UPR-dependent FGFR3 overactivation. Both in vitro cartilage culture and
+    in utero maternal administration showed therapeutic effects.
   treatment_term:
-    preferred_term: pharmacotherapy
+    preferred_term: FGFR inhibitor therapy
     term:
       id: MAXO:0000058
       label: pharmacotherapy
   target_mechanisms:
-  - target: UPR-Dependent FGFR3 Overactivation
+  - target: FGFR3 Overactivation in Chondrocytes
     treatment_effect: INHIBITS
     evidence:
     - reference: PMID:30685387
@@ -3646,21 +5373,31 @@ treatments:
         slc26a2-/- cartilage cultures from impaired growth and unbalanced cell
         proliferation and apoptosis.
       explanation: &gt;-
-        This mechanistic evidence supports inhibiting FGFR3-pathway activity to
-        counter downstream growth-plate dysfunction.
+        FGFR3 inhibition rescues growth plate defects in slc26a2-/- cartilage
+        cultures.
   evidence:
   - reference: PMID:30685387
     reference_title: &#34;Suppressing UPR-dependent overactivation of FGFR3 signaling ameliorates SLC26A2-deficient chondrodysplasias.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
-      Consistently, suppressing FGFR3 signaling by blocking either FGFR3 or
-      phosphorylation of the downstream effector favors the recovery of
-      slc26a2-/- cartilage cultures from impaired growth and unbalanced cell
-      proliferation and apoptosis.
+      Moreover, administration of an FGFR inhibitor to pregnant females shows
+      therapeutic effects on pathological features in slc26a2-/- newborns.
     explanation: &gt;-
-      Mouse-model experiments show that reducing FGFR3 pathway activity can
-      partially rescue growth-plate defects.
+      In utero FGFR inhibitor treatment improved skeletal features in
+      SLC26A2-knockout newborn mice.
+  - reference: PMID:38282752
+    reference_title: &#34;Targeting FGFR3 signaling and drug repurposing for the treatment of SLC26A2-related chondrodysplasia in mouse model.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      in vivo experiments showed significant alleviation of impaired
+      chondrocyte differentiation, and micro-CT analysis showed a clear
+      improvement in trabecular bone microarchitectural parameters.
+    explanation: &gt;-
+      Postnatal NVP-BGJ398 treatment in an inducible Slc26a2-cKO mouse
+      improved trabecular bone architecture, extending the therapeutic
+      evidence from prenatal to postnatal intervention.
 datasets: []
 </pre>
             </div>

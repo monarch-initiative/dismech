@@ -166,3 +166,40 @@ def test_render_disorder_keeps_computational_models_working(
         html,
         re.S,
     )
+
+
+def test_render_disorder_exposes_pathograph_icon_mappings_for_model_types(
+    tmp_path: Path,
+) -> None:
+    """Rendered pages should include lightweight icon mappings for graph model nodes."""
+    disorder_path = tmp_path / "Icon_Disorder.yaml"
+    output_path = tmp_path / "pages" / "disorders" / "Icon_Disorder.html"
+
+    _write_disorder(
+        disorder_path,
+        {
+            "name": "Icon Disorder",
+            "pathophysiology": [
+                {
+                    "name": "Barrier Defect",
+                    "downstream": [{"target": "Inflammation"}],
+                }
+            ],
+            "phenotypes": [{"name": "Inflammation"}],
+            "experimental_models": [
+                {
+                    "name": "Reusable airway cell line",
+                    "experimental_model_type": "CELL_LINE",
+                    "modeled_mechanisms": [{"target": "Barrier Defect"}],
+                }
+            ],
+        },
+    )
+
+    render_disorder(disorder_path, output_path=output_path)
+    html = output_path.read_text()
+
+    assert 'experimental_model: "🧫"' in html
+    assert 'CELL_LINE: "🧫"' in html
+    assert 'ORGANOID: "◍"' in html
+    assert 'ORGAN_ON_CHIP: "▣"' in html

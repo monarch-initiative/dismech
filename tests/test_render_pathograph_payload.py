@@ -78,3 +78,56 @@ def test_rendered_crohn_pathograph_payload_is_connected(tmp_path: Path) -> None:
         "Diarrhea",
     ) not in edges
     assert _connected_component_count(graph_data) == 1
+
+
+def test_rendered_crohn_pathograph_payload_includes_experimental_model_nodes(
+    tmp_path: Path,
+) -> None:
+    """Crohn's page should include explicit experimental model nodes and links."""
+    repo_root = Path(__file__).resolve().parents[1]
+    disorder_path = repo_root / "kb" / "disorders" / "Crohn_Disease.yaml"
+    output_path = tmp_path / "pages" / "disorders" / "Crohn_Disease.html"
+
+    render_disorder(disorder_path, output_path=output_path)
+    graph_data = _extract_graph_data(output_path.read_text())
+
+    node_types = {node["id"]: node["node_type"] for node in graph_data["nodes"]}
+    edges = {(edge["source"], edge["target"]) for edge in graph_data["edges"]}
+
+    assert (
+        "Primary human small-intestinal monolayer barrier model",
+        "Intestinal Barrier Dysfunction",
+    ) in edges
+    assert (
+        "PSC-derived intestinal organoid-macrophage coculture model",
+        "Dysregulated Immune Response",
+    ) in edges
+    assert (
+        node_types["Primary human small-intestinal monolayer barrier model"]
+        == "experimental_model"
+    )
+
+
+def test_rendered_stargardt_pathograph_payload_includes_treatments_and_genetics(
+    tmp_path: Path,
+) -> None:
+    """Stargardt's page should surface linked treatment and genetics content."""
+    repo_root = Path(__file__).resolve().parents[1]
+    disorder_path = repo_root / "kb" / "disorders" / "Stargardt_Disease.yaml"
+    output_path = tmp_path / "pages" / "disorders" / "Stargardt_Disease.html"
+
+    render_disorder(disorder_path, output_path=output_path)
+    html = output_path.read_text()
+    graph_data = _extract_graph_data(html)
+    node_types = {node["id"]: node["node_type"] for node in graph_data["nodes"]}
+    edges = {(edge["source"], edge["target"]) for edge in graph_data["edges"]}
+
+    assert ("ABCA4", "ABCA4 transporter dysfunction") in edges
+    assert ("Gene therapy (investigational)", "ABCA4 transporter dysfunction") in edges
+    assert ("Low vision rehabilitation", "Reduced visual acuity") in edges
+    assert node_types["ABCA4"] == "genetic"
+    assert node_types["Gene therapy (investigational)"] == "treatment"
+    assert 'href="#pathograph"' in html
+    assert html.count('id="pathograph"') == 1
+    assert ">Pathograph</div>" in html
+    assert f">Pathograph {len(graph_data['nodes'])}</a>" in html
