@@ -588,6 +588,7 @@ def render_disorder(
         source_file=source_file,
         mermaid_code=mermaid_code,
         pathograph_data=pathograph_data,
+        pathograph_edge_count=len(graph.edges),
         graph_issues=graph.integrity_issues,
         comorbidity_links=comorbidity_links,
         phenotype_groups=phenotype_groups,

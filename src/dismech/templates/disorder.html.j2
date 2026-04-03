@@ -1481,12 +1481,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1569,6 +1580,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1576,9 +1588,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1588,6 +1601,7 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
 
@@ -1836,9 +1850,19 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(meta.model_type.replace(/_/g, " ")) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
 
@@ -1912,9 +1936,14 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
@@ -1923,13 +1952,13 @@
             var label = document.createElement("span");
             label.textContent = NODE_TYPE_LABELS[type] || type;
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -2191,6 +2220,7 @@
         {% set phenotypes_count = (disorder.phenotypes or []) | length %}
         {% set genetic_count = (disorder.genetic or []) | length %}
         {% set treatments_count = (disorder.treatments or []) | length %}
+        {% set pathograph_edges_count = pathograph_edge_count or 0 %}
         {% set definitions_count = (disorder.definitions or []) | length %}
         {% set inheritance_count = (disorder.inheritance or []) | length %}
         {% set subtypes_count = (disorder.has_subtypes or []) | length %}
@@ -2286,6 +2316,19 @@
             <div class="stat-item">
                 <div class="stat-value">{{ phenotypes_count }}</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            {% endif %}
+            {% if pathograph_edges_count %}
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">{{ pathograph_edges_count }}</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
+            </a>
+            {% else %}
+            <div class="stat-item">
+                <div class="stat-value">{{ pathograph_edges_count }}</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             {% endif %}
             {% if genetic_count %}
@@ -2943,9 +2986,7 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
-            {% if disorder.experimental_models %}
-            <div class="graph-note">Hover a pathophysiology node to see linked experimental models.</div>
-            {% endif %}
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             {% if graph_issues %}
             <div class="graph-warning">
                 <strong>Referential integrity issues ({{ graph_issues | length }}):</strong>
@@ -2963,7 +3004,7 @@
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for {{ disorder.name }}</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
