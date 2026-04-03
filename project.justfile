@@ -1016,42 +1016,42 @@ normalize-cache:
 # Compare dismech phenotypes against OMIM/Orphanet for a single disease
 [group('Analysis')]
 d2p-compare disease:
-    uv run python -m dismech.d2p_compare compare "{{disease}}"
+    uv run python -m dismech.compare.d2p compare "{{disease}}"
 
 # Compare all diseases in the KB against OMIM/Orphanet
 [group('Analysis')]
 d2p-compare-all:
-    uv run python -m dismech.d2p_compare compare-all
+    uv run python -m dismech.compare.d2p compare-all
 
 # Compare with JSON output
 [group('Analysis')]
 d2p-compare-json disease:
-    uv run python -m dismech.d2p_compare compare "{{disease}}" --format json
+    uv run python -m dismech.compare.d2p compare "{{disease}}" --format json
 
 # Compare G2P gene assertions against dismech for a single gene
 [group('Analysis')]
 g2p-compare gene:
-    uv run python -m dismech.g2p_compare compare "{{gene}}"
+    uv run python -m dismech.compare.g2p compare "{{gene}}"
 
 # Compare multiple G2P genes against dismech
 [group('Analysis')]
 g2p-compare-all *genes:
-    uv run python -m dismech.g2p_compare compare-all {{genes}}
+    uv run python -m dismech.compare.g2p compare-all {{genes}}
 
 # Compare the full current G2P release against dismech
 [group('Analysis')]
 g2p-compare-release:
-    uv run python -m dismech.g2p_compare compare-all --all-genes
+    uv run python -m dismech.compare.g2p compare-all --all-genes
 
 # Export actionable row-level triage for the full current G2P release
 [group('Analysis')]
 g2p-compare-release-triage:
-    uv run python -m dismech.g2p_compare compare-all --all-genes --format tsv --actionable-only
+    uv run python -m dismech.compare.g2p compare-all --all-genes --format tsv --actionable-only
 
 # Compare G2P with JSON output
 [group('Analysis')]
 g2p-compare-json gene:
-    uv run python -m dismech.g2p_compare compare "{{gene}}" --format json
+    uv run python -m dismech.compare.g2p compare "{{gene}}" --format json
 
 # Run causal perturbation analysis on a disorder
 # Examples:

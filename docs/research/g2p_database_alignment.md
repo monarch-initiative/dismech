@@ -23,7 +23,7 @@ of G2P assertions for that gene?"
 - G2P download format:
   https://ftp.ebi.ac.uk/pub/databases/gene2phenotype/G2P_data_downloads/Data_download_format_202511.txt
 - dismech PR #383:
-  `src/dismech/d2p_compare.py`
+  `src/dismech/compare/d2p.py`
 - Current G2P release used for the PTEN snapshot:
   `https://ftp.ebi.ac.uk/pub/databases/gene2phenotype/G2P_data_downloads/2026_03_28/allG2P_2026-03-28.csv.gz`
 
@@ -38,7 +38,7 @@ PR #383 already established the main comparison pattern in dismech:
 5. compute a compact summary
 6. expose both a library entrypoint and a CLI
 
-`src/dismech/d2p_compare.py` does this for one disease against Monarch
+`src/dismech/compare/d2p.py` does this for one disease against Monarch
 OMIM/Orphanet phenotype associations.
 
 The G2P problem is not identical because the source is gene-centric rather than
@@ -51,9 +51,9 @@ disease-centric, but the architecture should still be the same:
 - the CLI exposes single-gene and multi-gene comparison entrypoints
 
 The current implementation now follows that pattern in
-[`src/dismech/g2p_compare.py`](../../src/dismech/g2p_compare.py),
+[`src/dismech/compare/g2p.py`](../../src/dismech/compare/g2p.py),
 with shared helper functions moved into
-[`src/dismech/compare_support.py`](../../src/dismech/compare_support.py)
+[`src/dismech/compare/support.py`](../../src/dismech/compare/support.py)
 so the D2P and G2P comparison tools do not continue to drift.
 
 ## Working model
@@ -133,7 +133,7 @@ approach, and it better matches how the two resources are actually organized.
 Command used:
 
 ```bash
-uv run python -m dismech.g2p_compare compare PTEN --format summary
+uv run python -m dismech.compare.g2p compare PTEN --format summary
 ```
 
 Current G2P PTEN rows in the 2026-03-28 `allG2P` release:
@@ -254,7 +254,7 @@ So the biology aligns well, but the packaging differs.
 Batch command used:
 
 ```bash
-uv run python -m dismech.g2p_compare compare-all PTEN FLNB PIK3CA FGFR2 --format summary
+uv run python -m dismech.compare.g2p compare-all PTEN FLNB PIK3CA FGFR2 --format summary
 ```
 
 Cross-gene summary from the current dismech worktree and current G2P release:
@@ -474,7 +474,7 @@ Recommended row-level table columns:
 - audit_note
 
 The implemented comparison table in
-[`src/dismech/g2p_compare.py`](../../src/dismech/g2p_compare.py)
+[`src/dismech/compare/g2p.py`](../../src/dismech/compare/g2p.py)
 is slightly narrower than this ideal target, but it now carries the key fields
 needed for the first-pass audit loop:
 
@@ -489,11 +489,11 @@ needed for the first-pass audit loop:
 Added module:
 
 - primary compare module:
-  [`src/dismech/g2p_compare.py`](../../src/dismech/g2p_compare.py)
+  [`src/dismech/compare/g2p.py`](../../src/dismech/compare/g2p.py)
 - shared compare helpers:
-  [`src/dismech/compare_support.py`](../../src/dismech/compare_support.py)
+  [`src/dismech/compare/support.py`](../../src/dismech/compare/support.py)
 - compatibility wrapper for the first-pass audit entrypoint:
-  [`src/dismech/g2p_gene_audit.py`](../../src/dismech/g2p_gene_audit.py)
+  [`src/dismech/compare/g2p_audit.py`](../../src/dismech/compare/g2p_audit.py)
 
 Focused tests:
 
@@ -502,13 +502,13 @@ Focused tests:
 Usage:
 
 ```bash
-uv run python -m dismech.g2p_compare compare PTEN --format summary
-uv run python -m dismech.g2p_compare compare PTEN --format tsv
-uv run python -m dismech.g2p_compare compare PTEN --format json
-uv run python -m dismech.g2p_compare compare-all PTEN FLNB PIK3CA FGFR2 --format summary
-uv run python -m dismech.g2p_compare compare-all --all-genes --format summary
-uv run python -m dismech.g2p_compare compare-all --all-genes --format gene-tsv
-uv run python -m dismech.g2p_compare compare-all --all-genes --format tsv --actionable-only
+uv run python -m dismech.compare.g2p compare PTEN --format summary
+uv run python -m dismech.compare.g2p compare PTEN --format tsv
+uv run python -m dismech.compare.g2p compare PTEN --format json
+uv run python -m dismech.compare.g2p compare-all PTEN FLNB PIK3CA FGFR2 --format summary
+uv run python -m dismech.compare.g2p compare-all --all-genes --format summary
+uv run python -m dismech.compare.g2p compare-all --all-genes --format gene-tsv
+uv run python -m dismech.compare.g2p compare-all --all-genes --format tsv --actionable-only
 ```
 
 Behavior:

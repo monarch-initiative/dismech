@@ -6,11 +6,11 @@ from pathlib import Path
 import yaml
 from typer.testing import CliRunner
 
-from dismech.g2p_compare import build_release_row_table
-from dismech.g2p_compare import app as g2p_compare_app
-from dismech.g2p_compare import compare_gene, run_comparison, survey_genes
-from dismech.g2p_compare import compute_release_overview
-from dismech.g2p_gene_audit import compare_gene as compat_compare_gene
+from dismech.compare.g2p import build_release_row_table
+from dismech.compare.g2p import app as g2p_compare_app
+from dismech.compare.g2p import compare_gene, run_comparison, survey_genes
+from dismech.compare.g2p import compute_release_overview
+from dismech.compare.g2p_audit import compare_gene as compat_compare_gene
 
 
 def _write_g2p_csv(path: Path, rows: list[dict[str, str]]) -> None:

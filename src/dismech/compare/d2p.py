@@ -11,11 +11,11 @@ import httpx
 import typer
 from oaklib import get_adapter
 
-from .compare_support import default_kb_dir as _default_kb_dir
-from .compare_support import get_disease_term_id as _get_mondo_id
-from .compare_support import iter_disease_files as _iter_disease_files
-from .compare_support import load_yaml_object as _load_disease_yaml
-from .compare_support import normalize_hp_id as _normalize_hp_id
+from .support import default_kb_dir as _default_kb_dir
+from .support import get_disease_term_id as _get_mondo_id
+from .support import iter_disease_files as _iter_disease_files
+from .support import load_yaml_object as _load_disease_yaml
+from .support import normalize_hp_id as _normalize_hp_id
 
 # ---------------------------------------------------------------------------
 # Constants

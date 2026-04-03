@@ -25,7 +25,7 @@ def normalize_hp_id(term_id: str | None) -> str | None:
 
 
 def default_kb_dir() -> Path:
-    return Path(__file__).resolve().parents[2] / "kb" / "disorders"
+    return Path(__file__).resolve().parents[3] / "kb" / "disorders"
 
 
 def iter_disease_files(kb_dir: Path) -> list[Path]:
