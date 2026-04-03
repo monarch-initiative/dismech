@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -1481,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1569,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1576,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1588,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1736,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1822,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1836,9 +1916,19 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
 
@@ -1848,10 +1938,10 @@
                 modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
                 meta.experimental_models.forEach(function(model) {
                     modelHtml += '<div style="margin:4px 0; font-size:11px;">';
-                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml(model.name) + '</span>';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
                     if (model.model_type) {
                         modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
-                            + escapeHtml(model.model_type.replace(/_/g, " ")) + '</span>';
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
                     }
                     if (model.description) {
                         modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
@@ -1912,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1997,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 19</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Hereditary Cancer Syndrome</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Polyposis Syndrome</span>
@@ -2010,6 +2109,7 @@
         </header>
 
         <!-- Stats bar -->
+        
         
         
         
@@ -2079,6 +2179,14 @@
             <div class="stat-item">
                 <div class="stat-value">9</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">19</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -3441,19 +3549,19 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
-            
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Juvenile Polyposis Syndrome</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal epithelial-mesenchymal crosstalk and epithelial homeostasis failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disrupted stromal-epithelial signaling creates an abnormal mucosal microenvironment that promotes hamartomatous growth and facilitates neoplastic transformation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\", \"fibroblast\"], \"biological_processes\": [\"epithelial cell proliferation\"]}}, {\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic gastrointestinal bleeding from juvenile polyps commonly results in anemia and may require iron replacement or transfusion support.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001903\"}}, {\"id\": \"BMP/TGF-beta signaling dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"JPS-causing BMPR1A and SMAD4 defects dysregulate BMP/TGF-beta signaling, disturbing epithelial homeostasis and the normal control of epithelial-mesenchymal interactions in the gastrointestinal tract.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\", \"fibroblast\"], \"biological_processes\": [\"BMP signaling pathway\", \"transforming growth factor beta receptor signaling pathway\"], \"locations\": [\"colon\", \"stomach\", \"small intestine\"]}}, {\"id\": \"Colorectal cancer\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"JPS confers substantial cumulative colorectal cancer risk through dysplastic transformation of juvenile polyps in the colorectum.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003003\"}}, {\"id\": \"Diarrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diarrhea is a characteristic manifestation of the severe infantile subtype of JPS, reflecting diffuse intestinal involvement and enteropathy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002014\"}}, {\"id\": \"Epithelial dysplasia and neoplastic transformation risk\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Juvenile polyps can acquire epithelial dysplasia and progress to colorectal or other gastrointestinal malignancy over time.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell proliferation\"]}}, {\"id\": \"Gastrointestinal hemorrhage\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Juvenile polyps frequently bleed, producing rectal bleeding or other gastrointestinal hemorrhage, particularly during the common childhood and adolescent presentation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002239\"}}, {\"id\": \"Germline BMPR1A loss-of-function predisposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germline loss of BMPR1A reduces BMP/SMAD pathway signaling capacity in the gastrointestinal mucosa and establishes constitutional susceptibility to hamartomatous polyposis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\"]}}, {\"id\": \"Germline SMAD4 loss-of-function predisposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germline loss of SMAD4 compromises canonical downstream BMP/TGF-beta signal transduction and predisposes the gastrointestinal tract to juvenile polyp formation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\"]}}, {\"id\": \"Hamartomatous juvenile polyp formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"JPS produces multiple juvenile hamartomatous polyps in the colon, stomach, and small intestine, with characteristic edematous and cystic inflammatory histology.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"colon\", \"stomach\", \"small intestine\"]}}, {\"id\": \"Juvenile gastrointestinal polyposis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Multiple juvenile hamartomatous polyps develop in the colon and can also involve the stomach and small intestine.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0004784\"}}, {\"id\": \"PI3K-AKT-mTOR pathway hyperactivation in juvenile polyposis of infancy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The severe PTEN-BMPR1A-deletion subtype is associated with increased PI3K-AKT-mTOR signaling, which amplifies intestinal disease severity and provides a rationale for mTOR-targeted treatment.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"phosphatidylinositol 3-kinase signaling\", \"TOR signaling\"]}}, {\"id\": \"PTEN-BMPR1A contiguous deletion in juvenile polyposis of infancy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Combined PTEN-BMPR1A haploinsufficiency causes the severe infantile subtype of JPS, producing synergistic disease biology that is more aggressive than loss of either gene alone.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\"]}}, {\"id\": \"Protein-losing enteropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Protein-losing enteropathy is a severe subtype-associated manifestation of juvenile polyposis of infancy caused by diffuse intestinal disease.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002243\"}}, {\"id\": \"Rectal prolapse\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rectal prolapse is a severe infantile presentation feature of JPS and is most characteristic of juvenile polyposis of infancy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002035\"}}, {\"id\": \"Severe infantile pan-enteric polyposis and enteropathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Juvenile polyposis of infancy produces diffuse early-onset gastrointestinal polyposis with enteropathy and severe intestinal morbidity.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"small intestine\", \"colon\", \"stomach\"]}}, {\"id\": \"Stomach cancer\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gastric involvement in JPS can progress to stomach cancer as part of the syndrome\u0027s broader gastrointestinal cancer predisposition.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012126\"}}], \"edges\": [{\"source\": \"Germline BMPR1A loss-of-function predisposition\", \"target\": \"BMP/TGF-beta signaling dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Germline SMAD4 loss-of-function predisposition\", \"target\": \"BMP/TGF-beta signaling dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PTEN-BMPR1A contiguous deletion in juvenile polyposis of infancy\", \"target\": \"PI3K-AKT-mTOR pathway hyperactivation in juvenile polyposis of infancy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PI3K-AKT-mTOR pathway hyperactivation in juvenile polyposis of infancy\", \"target\": \"Severe infantile pan-enteric polyposis and enteropathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"BMP/TGF-beta signaling dysregulation\", \"target\": \"Abnormal epithelial-mesenchymal crosstalk and epithelial homeostasis failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Abnormal epithelial-mesenchymal crosstalk and epithelial homeostasis failure\", \"target\": \"Hamartomatous juvenile polyp formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Abnormal epithelial-mesenchymal crosstalk and epithelial homeostasis failure\", \"target\": \"Epithelial dysplasia and neoplastic transformation risk\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Severe infantile pan-enteric polyposis and enteropathy\", \"target\": \"Juvenile gastrointestinal polyposis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Severe infantile pan-enteric polyposis and enteropathy\", \"target\": \"Diarrhea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Severe infantile pan-enteric polyposis and enteropathy\", \"target\": \"Protein-losing enteropathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Severe infantile pan-enteric polyposis and enteropathy\", \"target\": \"Gastrointestinal hemorrhage\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Severe infantile pan-enteric polyposis and enteropathy\", \"target\": \"Rectal prolapse\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hamartomatous juvenile polyp formation\", \"target\": \"Juvenile gastrointestinal polyposis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hamartomatous juvenile polyp formation\", \"target\": \"Gastrointestinal hemorrhage\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hamartomatous juvenile polyp formation\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Epithelial dysplasia and neoplastic transformation risk\", \"target\": \"Colorectal cancer\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Epithelial dysplasia and neoplastic transformation risk\", \"target\": \"Stomach cancer\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal epithelial-mesenchymal crosstalk and epithelial homeostasis failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disrupted stromal-epithelial signaling creates an abnormal mucosal microenvironment that promotes hamartomatous growth and facilitates neoplastic transformation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\", \"fibroblast\"], \"biological_processes\": [\"epithelial cell proliferation\"]}}, {\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic gastrointestinal bleeding from juvenile polyps commonly results in anemia and may require iron replacement or transfusion support.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001903\"}}, {\"id\": \"BMP/TGF-beta signaling dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"JPS-causing BMPR1A and SMAD4 defects dysregulate BMP/TGF-beta signaling, disturbing epithelial homeostasis and the normal control of epithelial-mesenchymal interactions in the gastrointestinal tract.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\", \"fibroblast\"], \"biological_processes\": [\"BMP signaling pathway\", \"transforming growth factor beta receptor signaling pathway\"], \"locations\": [\"colon\", \"stomach\", \"small intestine\"]}}, {\"id\": \"BMPR1A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"BMPR1A\"], \"association\": \"Causative\"}}, {\"id\": \"Colorectal cancer\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"JPS confers substantial cumulative colorectal cancer risk through dysplastic transformation of juvenile polyps in the colorectum.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003003\"}}, {\"id\": \"Diarrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diarrhea is a characteristic manifestation of the severe infantile subtype of JPS, reflecting diffuse intestinal involvement and enteropathy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002014\"}}, {\"id\": \"Epithelial dysplasia and neoplastic transformation risk\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Juvenile polyps can acquire epithelial dysplasia and progress to colorectal or other gastrointestinal malignancy over time.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell proliferation\"]}}, {\"id\": \"Gastrointestinal hemorrhage\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Juvenile polyps frequently bleed, producing rectal bleeding or other gastrointestinal hemorrhage, particularly during the common childhood and adolescent presentation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002239\"}}, {\"id\": \"Germline BMPR1A loss-of-function predisposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germline loss of BMPR1A reduces BMP/SMAD pathway signaling capacity in the gastrointestinal mucosa and establishes constitutional susceptibility to hamartomatous polyposis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\"], \"genes\": [\"BMPR1A\"]}}, {\"id\": \"Germline SMAD4 loss-of-function predisposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germline loss of SMAD4 compromises canonical downstream BMP/TGF-beta signal transduction and predisposes the gastrointestinal tract to juvenile polyp formation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\"], \"genes\": [\"SMAD4\"]}}, {\"id\": \"Hamartomatous juvenile polyp formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"JPS produces multiple juvenile hamartomatous polyps in the colon, stomach, and small intestine, with characteristic edematous and cystic inflammatory histology.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"colon\", \"stomach\", \"small intestine\"]}}, {\"id\": \"Juvenile gastrointestinal polyposis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Multiple juvenile hamartomatous polyps develop in the colon and can also involve the stomach and small intestine.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0004784\"}}, {\"id\": \"PI3K-AKT-mTOR pathway hyperactivation in juvenile polyposis of infancy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The severe PTEN-BMPR1A-deletion subtype is associated with increased PI3K-AKT-mTOR signaling, which amplifies intestinal disease severity and provides a rationale for mTOR-targeted treatment.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"phosphatidylinositol 3-kinase signaling\", \"TOR signaling\"]}}, {\"id\": \"PTEN-BMPR1A contiguous deletion in juvenile polyposis of infancy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Combined PTEN-BMPR1A haploinsufficiency causes the severe infantile subtype of JPS, producing synergistic disease biology that is more aggressive than loss of either gene alone.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\"]}}, {\"id\": \"Protein-losing enteropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Protein-losing enteropathy is a severe subtype-associated manifestation of juvenile polyposis of infancy caused by diffuse intestinal disease.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002243\"}}, {\"id\": \"Rectal prolapse\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rectal prolapse is a severe infantile presentation feature of JPS and is most characteristic of juvenile polyposis of infancy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002035\"}}, {\"id\": \"SMAD4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SMAD4\"], \"association\": \"Causative\"}}, {\"id\": \"Severe infantile pan-enteric polyposis and enteropathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Juvenile polyposis of infancy produces diffuse early-onset gastrointestinal polyposis with enteropathy and severe intestinal morbidity.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"small intestine\", \"colon\", \"stomach\"]}}, {\"id\": \"Stomach cancer\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gastric involvement in JPS can progress to stomach cancer as part of the syndrome\u0027s broader gastrointestinal cancer predisposition.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012126\"}}], \"edges\": [{\"source\": \"Germline BMPR1A loss-of-function predisposition\", \"target\": \"BMP/TGF-beta signaling dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Germline SMAD4 loss-of-function predisposition\", \"target\": \"BMP/TGF-beta signaling dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PTEN-BMPR1A contiguous deletion in juvenile polyposis of infancy\", \"target\": \"PI3K-AKT-mTOR pathway hyperactivation in juvenile polyposis of infancy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PI3K-AKT-mTOR pathway hyperactivation in juvenile polyposis of infancy\", \"target\": \"Severe infantile pan-enteric polyposis and enteropathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"BMP/TGF-beta signaling dysregulation\", \"target\": \"Abnormal epithelial-mesenchymal crosstalk and epithelial homeostasis failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Abnormal epithelial-mesenchymal crosstalk and epithelial homeostasis failure\", \"target\": \"Hamartomatous juvenile polyp formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Abnormal epithelial-mesenchymal crosstalk and epithelial homeostasis failure\", \"target\": \"Epithelial dysplasia and neoplastic transformation risk\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Severe infantile pan-enteric polyposis and enteropathy\", \"target\": \"Juvenile gastrointestinal polyposis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Severe infantile pan-enteric polyposis and enteropathy\", \"target\": \"Diarrhea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Severe infantile pan-enteric polyposis and enteropathy\", \"target\": \"Protein-losing enteropathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Severe infantile pan-enteric polyposis and enteropathy\", \"target\": \"Gastrointestinal hemorrhage\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Severe infantile pan-enteric polyposis and enteropathy\", \"target\": \"Rectal prolapse\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hamartomatous juvenile polyp formation\", \"target\": \"Juvenile gastrointestinal polyposis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hamartomatous juvenile polyp formation\", \"target\": \"Gastrointestinal hemorrhage\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hamartomatous juvenile polyp formation\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Epithelial dysplasia and neoplastic transformation risk\", \"target\": \"Colorectal cancer\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Epithelial dysplasia and neoplastic transformation risk\", \"target\": \"Stomach cancer\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"BMPR1A\", \"target\": \"Germline BMPR1A loss-of-function predisposition\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SMAD4\", \"target\": \"Germline SMAD4 loss-of-function predisposition\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
