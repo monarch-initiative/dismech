@@ -46,6 +46,12 @@ uv run python -m dismech.render --all
 # Generate HTML for a single disorder
 uv run python -m dismech.render kb/disorders/Asthma.yaml
 
+# Fetch and cache a reference (PMID, DOI, NCT) — NEVER create cache files manually
+just fetch-reference PMID:12345678
+
+# Validate references for a single file
+just validate-references kb/disorders/Asthma.yaml
+
 # List all available commands
 just --list
 ```
@@ -245,6 +251,32 @@ Use OAK to search for MAXO terms:
 uv run runoak -i sqlite:obo:maxo search "physical therapy"
 ```
 
+### Subtype Naming Conventions
+
+The `name` field on `Subtype` (in `has_subtypes`) serves as the **foreign key target** — other sections
+(phenotypes, biochemical, genetic, prevalence, progression, histopathology) reference it via their
+`subtype` field. A validation test (`test_subtype_foreign_keys`) enforces that all `subtype` values
+match a defined `has_subtypes[].name`.
+
+**Naming rules for `name`:**
+- Keep names short and slug-friendly: `Type 1`, `MEN2A`, `Vascular EDS`, `FA-A`
+- Avoid parenthetical qualifiers, long descriptions, or special characters
+- Use `display_name` (optional) for verbose/human-readable labels when the `name` is too terse
+
+**Example:**
+```yaml
+has_subtypes:
+- name: Type 1
+  display_name: Type 1 (Non-neuronopathic)
+  description: Most common form, no CNS involvement...
+
+phenotypes:
+- name: Seizures
+  subtype: Type 1    # references the short name
+```
+
+**When `display_name` is set**, renderers show it instead of `name`. When absent, `name` is displayed directly.
+
 ### Clinical Trials
 
 Clinical trials can be added to disease entries with evidence validated against ClinicalTrials.gov:
@@ -420,6 +452,36 @@ just gen-dashboard
 ```
 
 The dashboard shows priority curation targets - the 10 files with lowest compliance scores.
+
+
+
+## CRITICAL: Reference Cache Files — NEVER Create Manually
+
+Reference cache files in `references_cache/` are created EXCLUSIVELY by `linkml-reference-validator`.
+**NEVER write these files by hand.** This is the #1 source of agent errors in dismech.
+
+**Correct workflow:**
+```bash
+# 1. Fetch and cache the reference (creates references_cache/PMID_12345678.md)
+just fetch-reference PMID:12345678
+
+# 2. Validate that your snippet matches the cached abstract
+just validate-references kb/disorders/MyDisease.yaml
+
+# 3. If validation fails, fix the snippet or find a different PMID
+just validate kb/disorders/MyDisease.yaml
+```
+
+**Why this matters:**
+- `just fetch-reference` fetches the REAL abstract from PubMed and creates the cache file with the correct filename format (`PMID_` uppercase prefix), correct YAML frontmatter, and correct content
+- Hand-created cache files have wrong filenames (lowercase `pmid_`), fabricated content, and wrong format
+- CI validates snippets against these cached files — if the cache is fabricated, validation is meaningless
+
+**What agents MUST do:**
+1. Add YAML with `reference: PMID:XXXX` and a snippet
+2. Run `just fetch-reference PMID:XXXX` for each new PMID cited
+3. Run `just validate-references kb/disorders/YourFile.yaml`
+4. If snippet doesn't match, fix it to be an exact quote or find a different PMID
 
 ## Git Safety Rules
 
