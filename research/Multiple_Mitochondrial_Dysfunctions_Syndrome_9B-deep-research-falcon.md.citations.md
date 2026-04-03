@@ -1,13 +1,15 @@
-# Disease Characteristics Research Template
+# Citations for Research Query
+
+**Query:** # Disease Characteristics Research Template
 
 ## Target Disease
-- **Disease Name:** {disease_name}
-- **MONDO ID:** {mondo_id} (if available)
-- **Category:** {category}
+- **Disease Name:** Multiple Mitochondrial Dysfunctions Syndrome 9B
+- **MONDO ID:**  (if available)
+- **Category:** Genetic
 
 ## Research Objectives
 
-Please provide a comprehensive research report on **{disease_name}** covering all of the
+Please provide a comprehensive research report on **Multiple Mitochondrial Dysfunctions Syndrome 9B** covering all of the
 disease characteristics listed below. This report will be used to populate a disease knowledge
 base entry. Be thorough and cite primary literature (PMID preferred) for all claims.
 
@@ -443,3 +445,30 @@ This report will be used to populate a disease knowledge base entry with:
 - Evidence items with PMIDs and exact abstract quotes
 - Epidemiology, prognosis, diagnostic, and prevention information
 - Animal model descriptions with phenotype recapitulation details
+
+**Provider:** falcon
+**Generated:** 2026-04-03T08:30:10.819641
+
+1. yi2023fdxrassociatedoculopathycongenital pages 1-2
+2. masnada2023fdxrassociateddiseasea pages 1-2
+3. tafakhori2026homozygousfdxrvariant pages 6-6
+4. pignatti2024fdxrvariantscause pages 2-3
+5. masnada2023fdxrassociateddiseasea pages 2-4
+6. yi2023fdxrassociatedoculopathycongenital pages 9-10
+7. campbell2025ferroptosisisa pages 11-11
+8. masnada2023fdxrassociateddiseasea pages 4-5
+9. yi2023fdxrassociatedoculopathycongenital pages 2-5
+10. yi2023fdxrassociatedoculopathycongenital pages 10-11
+11. tanaka2025hepaticferredoxinreductase pages 1-5
+12. cao2025identificationofgenetic pages 16-16
+13. yi2023fdxrassociatedoculopathycongenital pages 5-6
+14. https://doi.org/10.1007/s10072-023-06790-0
+15. https://doi.org/10.1172/jci.insight.179071
+16. https://doi.org/10.3390/genes14040952
+17. https://doi.org/10.1007/s10072-023-06790-0,
+18. https://doi.org/10.1172/jci.insight.179071,
+19. https://doi.org/10.3390/genes14040952,
+20. https://doi.org/10.1038/s41420-025-02840-y,
+21. https://doi.org/10.21203/rs.3.rs-7014857/v1,
+22. https://doi.org/10.1186/s13023-025-03540-7,
+23. https://doi.org/10.1186/s12883-026-04752-5,
