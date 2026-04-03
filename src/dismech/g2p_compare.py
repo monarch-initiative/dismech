@@ -1258,6 +1258,15 @@ def _write_batch_summary(
             )
 
 
+# Public aliases for compatibility callers that should not depend on private names.
+default_kb_dir = _default_kb_dir
+write_tsv = _write_tsv
+write_gene_tsv = _write_gene_tsv
+write_json = _write_json
+write_summary = _write_summary
+write_batch_summary = _write_batch_summary
+
+
 # ---------------------------------------------------------------------------
 # CLI commands
 # ---------------------------------------------------------------------------
@@ -1298,7 +1307,7 @@ def compare(
             _write_json(report, file=out_stream)
         elif format == "tsv":
             _write_tsv(report["comparison_table"], file=out_stream)
-            _write_summary(report)
+            _write_summary(report, file=typer.get_text_stream("stderr"))
         else:
             raise typer.BadParameter("format must be one of: tsv, summary, json")
     finally:

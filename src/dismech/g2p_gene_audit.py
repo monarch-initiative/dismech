@@ -8,14 +8,14 @@ from typing import Any
 
 import typer
 
+from .compare_support import default_kb_dir
 from .g2p_compare import compare_gene
 from .g2p_compare import load_g2p_index
 from .g2p_compare import survey_genes
-from .g2p_compare import _default_kb_dir
-from .g2p_compare import _write_batch_summary
-from .g2p_compare import _write_summary
 from .g2p_compare import build_dismech_gene_index
 from .g2p_compare import compute_release_overview
+from .g2p_compare import write_batch_summary
+from .g2p_compare import write_summary
 
 __all__ = ["app", "audit", "compare_gene", "load_g2p_index", "survey_genes"]
 
@@ -33,7 +33,7 @@ def audit(
         help="Path or URL to a G2P CSV/CSV.GZ export. Defaults to the latest allG2P FTP release.",
     ),
     kb_dir: Path = typer.Option(
-        _default_kb_dir(),
+        default_kb_dir(),
         "--kb-dir",
         help="Path to kb/disorders.",
     ),
@@ -67,11 +67,11 @@ def audit(
     try:
         if format == "summary":
             if len(reports) == 1:
-                _write_summary(reports[0], file=out_stream)
+                write_summary(reports[0], file=out_stream)
             else:
                 summaries = [report["summary"] for report in reports]
                 overview = compute_release_overview(reports, summaries)
-                _write_batch_summary(
+                write_batch_summary(
                     overview,
                     summaries,
                     g2p_source=resolved_source,

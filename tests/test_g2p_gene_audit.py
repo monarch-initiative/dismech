@@ -4,8 +4,10 @@ import csv
 from pathlib import Path
 
 import yaml
+from typer.testing import CliRunner
 
 from dismech.g2p_compare import build_release_row_table
+from dismech.g2p_compare import app as g2p_compare_app
 from dismech.g2p_compare import compare_gene, run_comparison, survey_genes
 from dismech.g2p_compare import compute_release_overview
 from dismech.g2p_gene_audit import compare_gene as compat_compare_gene
@@ -46,6 +48,78 @@ def _write_g2p_csv(path: Path, rows: list[dict[str, str]]) -> None:
 
 def _write_yaml(path: Path, payload: dict) -> None:
     path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+
+
+def _build_single_gene_fixture(tmp_path: Path) -> tuple[Path, Path]:
+    kb_dir = tmp_path / "kb"
+    kb_dir.mkdir()
+
+    _write_yaml(
+        kb_dir / "Cowden_Syndrome.yaml",
+        {
+            "name": "Cowden Syndrome",
+            "disease_term": {
+                "term": {"id": "MONDO:0016063", "label": "Cowden disease"}
+            },
+            "genetic": [
+                {
+                    "name": "PTEN",
+                    "association": "Causative",
+                    "gene_term": {
+                        "preferred_term": "PTEN",
+                        "term": {"id": "hgnc:9588", "label": "PTEN"},
+                    },
+                    "evidence": [{"reference": "PMID:111"}],
+                }
+            ],
+            "phenotypes": [
+                {
+                    "name": "Lhermitte-Duclos Disease",
+                    "phenotype_term": {
+                        "term": {
+                            "id": "HP:0500009",
+                            "label": "Dysplastic gangliocytoma of the cerebellum",
+                        }
+                    },
+                    "evidence": [{"reference": "PMID:222"}],
+                }
+            ],
+        },
+    )
+
+    g2p_path = tmp_path / "pten.csv"
+    _write_g2p_csv(
+        g2p_path,
+        [
+            {
+                "g2p id": "G2P00413",
+                "gene symbol": "PTEN",
+                "gene mim": "601728",
+                "hgnc id": "9588",
+                "previous gene symbols": "",
+                "disease name": "PTEN-related hamartoma tumour syndrome (Cowden syndrome)",
+                "disease mim": "158350",
+                "disease MONDO": "MONDO:0008021",
+                "allelic requirement": "monoallelic_autosomal",
+                "cross cutting modifier": "",
+                "confidence": "definitive",
+                "variant consequence": "absent gene product",
+                "variant types": "frameshift_variant",
+                "molecular mechanism": "loss of function",
+                "molecular mechanism support": "evidence",
+                "molecular mechanism categorisation": "destabilising LOF:evidence",
+                "molecular mechanism evidence": "111 -> biochemical",
+                "phenotypes": "HP:0000256; HP:0500009",
+                "publications": "111;555",
+                "additional mined publications": "",
+                "panel": "DD; Cancer",
+                "comments": "",
+                "date of last review": "2025-05-08 12:16:01+00:00",
+                "review": "",
+            }
+        ],
+    )
+    return kb_dir, g2p_path
 
 
 def test_compare_gene_reports_direct_and_secondary_matches(tmp_path: Path) -> None:
@@ -436,6 +510,35 @@ def test_survey_genes_uses_one_g2p_source_for_multiple_reports(tmp_path: Path) -
     assert summaries[1]["direct_section_pmid_overlap_count"] == 1
     assert summaries[0]["highest_curation_priority"] == "LOW"
     assert summaries[1]["highest_curation_priority"] == "LOW"
+
+
+def test_compare_tsv_output_does_not_leak_summary_to_stdout(tmp_path: Path) -> None:
+    kb_dir, g2p_path = _build_single_gene_fixture(tmp_path)
+    output_path = tmp_path / "report.tsv"
+
+    runner = CliRunner(mix_stderr=False)
+    result = runner.invoke(
+        g2p_compare_app,
+        [
+            "compare",
+            "PTEN",
+            "--kb-dir",
+            str(kb_dir),
+            "--g2p-source",
+            str(g2p_path),
+            "--format",
+            "tsv",
+            "--output",
+            str(output_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert result.stdout == ""
+    assert "Gene: PTEN" in result.stderr
+    output_text = output_path.read_text(encoding="utf-8")
+    assert output_text.startswith("gene_symbol\tg2p_id\tg2p_disease_name")
+    assert "Gene: PTEN" not in output_text
 
 
 def test_release_overview_counts_priorities_and_actions(tmp_path: Path) -> None:

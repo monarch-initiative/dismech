@@ -51,9 +51,9 @@ disease-centric, but the architecture should still be the same:
 - the CLI exposes single-gene and multi-gene comparison entrypoints
 
 The current implementation now follows that pattern in
-[`src/dismech/g2p_compare.py`](/Users/cjm/worktrees/dismech-g2p-db/src/dismech/g2p_compare.py),
+[`src/dismech/g2p_compare.py`](../../src/dismech/g2p_compare.py),
 with shared helper functions moved into
-[`src/dismech/compare_support.py`](/Users/cjm/worktrees/dismech-g2p-db/src/dismech/compare_support.py)
+[`src/dismech/compare_support.py`](../../src/dismech/compare_support.py)
 so the D2P and G2P comparison tools do not continue to drift.
 
 ## Working model
@@ -160,9 +160,9 @@ Current dismech PTEN matches from structured `genetic[]` slots:
 Additional PTEN-related content exists in dismech but not as a direct PTEN
 genetic anchor:
 
-- [`Cowden_Syndrome.yaml`](/Users/cjm/worktrees/dismech-g2p-db/kb/disorders/Cowden_Syndrome.yaml)
+- [`Cowden_Syndrome.yaml`](../../kb/disorders/Cowden_Syndrome.yaml)
   models Lhermitte-Duclos disease as a phenotype, not a separate PTEN disease file.
-- [`Proteus_syndrome.yaml`](/Users/cjm/worktrees/dismech-g2p-db/kb/disorders/Proteus_syndrome.yaml)
+- [`Proteus_syndrome.yaml`](../../kb/disorders/Proteus_syndrome.yaml)
   carries PTEN hamartoma tumor syndrome as a differential diagnosis, not as the
   primary genetic disease entity for that file.
 
@@ -180,7 +180,7 @@ one-row-per-G2P-assertion crosswalk.
 
 ### Disease identity
 
-- G2P `G2P00413` is best matched to [`Cowden_Syndrome.yaml`](/Users/cjm/worktrees/dismech-g2p-db/kb/disorders/Cowden_Syndrome.yaml)
+- G2P `G2P00413` is best matched to [`Cowden_Syndrome.yaml`](../../kb/disorders/Cowden_Syndrome.yaml)
   by disease name alias, not by exact MONDO.
 - dismech's Cowden root uses `MONDO:0016063`.
 - G2P PTEN rows use `MONDO:0008021`.
@@ -200,7 +200,7 @@ For PTEN across all three current G2P rows:
 For the PTEN/Cowden row alone (`G2P00413`):
 
 - G2P reviewed PMIDs: 17
-- all PMIDs in [`Cowden_Syndrome.yaml`](/Users/cjm/worktrees/dismech-g2p-db/kb/disorders/Cowden_Syndrome.yaml): 13
+- all PMIDs in [`Cowden_Syndrome.yaml`](../../kb/disorders/Cowden_Syndrome.yaml): 13
 - overlap: 0
 
 Interpretation:
@@ -333,7 +333,7 @@ and split in G2P, but only one disease anchor is curated in dismech.
 ## Where dismech Aligns Well
 
 - Disease-level modeling is strong when a gene has a well-curated disease root,
-  as in [`Cowden_Syndrome.yaml`](/Users/cjm/worktrees/dismech-g2p-db/kb/disorders/Cowden_Syndrome.yaml).
+  as in [`Cowden_Syndrome.yaml`](../../kb/disorders/Cowden_Syndrome.yaml).
 - `genetic[]` maps reasonably well to G2P's disease-gene assertion, especially
   for causative genes and inheritance.
 - `pathophysiology[]` is richer than G2P's single mechanism field and can often
@@ -474,7 +474,7 @@ Recommended row-level table columns:
 - audit_note
 
 The implemented comparison table in
-[`src/dismech/g2p_compare.py`](/Users/cjm/worktrees/dismech-g2p-db/src/dismech/g2p_compare.py)
+[`src/dismech/g2p_compare.py`](../../src/dismech/g2p_compare.py)
 is slightly narrower than this ideal target, but it now carries the key fields
 needed for the first-pass audit loop:
 
@@ -489,15 +489,15 @@ needed for the first-pass audit loop:
 Added module:
 
 - primary compare module:
-  [`src/dismech/g2p_compare.py`](/Users/cjm/worktrees/dismech-g2p-db/src/dismech/g2p_compare.py)
+  [`src/dismech/g2p_compare.py`](../../src/dismech/g2p_compare.py)
 - shared compare helpers:
-  [`src/dismech/compare_support.py`](/Users/cjm/worktrees/dismech-g2p-db/src/dismech/compare_support.py)
+  [`src/dismech/compare_support.py`](../../src/dismech/compare_support.py)
 - compatibility wrapper for the first-pass audit entrypoint:
-  [`src/dismech/g2p_gene_audit.py`](/Users/cjm/worktrees/dismech-g2p-db/src/dismech/g2p_gene_audit.py)
+  [`src/dismech/g2p_gene_audit.py`](../../src/dismech/g2p_gene_audit.py)
 
 Focused tests:
 
-- [`tests/test_g2p_gene_audit.py`](/Users/cjm/worktrees/dismech-g2p-db/tests/test_g2p_gene_audit.py)
+- [`tests/test_g2p_gene_audit.py`](../../tests/test_g2p_gene_audit.py)
 
 Usage:
 

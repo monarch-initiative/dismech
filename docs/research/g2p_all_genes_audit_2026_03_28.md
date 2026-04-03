@@ -2,8 +2,8 @@
 
 Companion artifacts:
 
-- [Gene-level summary TSV](/Users/cjm/worktrees/dismech-g2p-db/docs/research/g2p_all_genes_gene_summary_2026_03_28.tsv)
-- [Actionable row-level triage TSV](/Users/cjm/worktrees/dismech-g2p-db/docs/research/g2p_all_genes_row_triage_2026_03_28.tsv)
+- [Gene-level summary TSV](g2p_all_genes_gene_summary_2026_03_28.tsv)
+- [Actionable row-level triage TSV](g2p_all_genes_row_triage_2026_03_28.tsv)
 
 The row-level triage TSV omits fully resolved `ROOT_MATCH` rows so it can be
 used directly as a curator worklist.
