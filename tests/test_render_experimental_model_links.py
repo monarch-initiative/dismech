@@ -48,4 +48,4 @@ def test_render_experimental_model_links_are_bidirectional(tmp_path: Path) -> No
     assert 'href="#experimental-model-patient-derived-airway-organoid"' in html
     assert "Experimental Models" in html
     assert "Pathograph links" in html
-    assert "Hover a pathophysiology node to see linked experimental models." in html
+    assert "Use the checkboxes to hide or show graph categories." in html

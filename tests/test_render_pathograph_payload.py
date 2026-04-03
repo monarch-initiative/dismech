@@ -128,5 +128,6 @@ def test_rendered_stargardt_pathograph_payload_includes_treatments_and_genetics(
     assert node_types["ABCA4"] == "genetic"
     assert node_types["Gene therapy (investigational)"] == "treatment"
     assert 'href="#pathograph"' in html
+    assert html.count('id="pathograph"') == 1
     assert ">Pathograph</div>" in html
     assert f">Pathograph {len(graph_data['nodes'])}</a>" in html
