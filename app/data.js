@@ -8823,14 +8823,16 @@ window.searchData = [
       "Iatrogenic condition"
     ],
     "creation_date": "2026-04-02T01:07:38Z",
-    "updated_date": "2026-04-02T01:07:38Z",
+    "updated_date": "2026-04-03T15:42:28Z",
     "subtypes": [],
     "description": "Chemotherapy-induced diarrhea is a treatment-related gastrointestinal toxicity caused by antineoplastic agents, especially fluoropyrimidines and irinotecan, that injure the rapidly renewing intestinal mucosa. The syndrome reflects epithelial and crypt injury, barrier dysfunction, mucosal inflammation, dysbiosis, and impaired absorptive function, and can lead to treatment delay, dose reduction, hospitalization, and infectious complications when severe.",
     "pathophysiology": [
       "Chemotherapy-induced crypt and epithelial injury",
-      "Barrier dysfunction and mucosal break formation",
+      "MLCK/actomyosin-mediated tight-junction remodeling",
+      "Paracellular barrier leak and mucosal break formation",
       "Dysbiosis and inflammatory amplification",
-      "Absorptive failure and diarrheal output"
+      "Enterocyte apoptosis, villus blunting, and surface loss",
+      "Reduced fluid absorption and diarrheal output"
     ],
     "cell_types": [
       "intestinal epithelial cell",
@@ -8842,7 +8844,7 @@ window.searchData = [
     ],
     "biological_processes": [
       "apoptotic process",
-      "bicellular tight junction assembly",
+      "tight junction assembly",
       "inflammatory response",
       "intestinal absorption"
     ],
@@ -8871,11 +8873,11 @@ window.searchData = [
     "source_file": "Chemotherapy_Induced_Diarrhea.yaml",
     "page_url": "../pages/disorders/Chemotherapy-Induced_Diarrhea.html",
     "num_phenotypes": 1,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 6,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Chickenpox",
@@ -28194,6 +28196,111 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "20",
     "causal_graph_longest_path": "8"
+  },
+  {
+    "name": "Lesch-Nyhan Syndrome",
+    "disease_id": "MONDO:0010298",
+    "category": "Mendelian",
+    "parents": [
+      "Inborn error of purine metabolism",
+      "X-linked recessive disorder",
+      "Neurodevelopmental disorder"
+    ],
+    "creation_date": "2026-03-22T07:38:41Z",
+    "updated_date": "2026-03-27T12:00:00Z",
+    "subtypes": [],
+    "description": "Lesch-Nyhan syndrome is an X-linked recessive disorder of purine metabolism caused by deficiency of hypoxanthine-guanine phosphoribosyltransferase (HPRT1), leading to overproduction of uric acid, severe neurological dysfunction including dystonia, choreoathetosis, intellectual disability, and a striking compulsive self-injurious behavior phenotype.",
+    "pathophysiology": [
+      "HPRT1 Enzyme Deficiency and Purine Overproduction",
+      "Hyperuricemia and Gout",
+      "Basal Ganglia Dopaminergic Dysfunction",
+      "Mitochondrial Energy Metabolism Disruption",
+      "ZMP Accumulation and Stress Signaling"
+    ],
+    "cell_types": [
+      "Dopaminergic neuron",
+      "Medium spiny neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000700",
+      "CL:1001474"
+    ],
+    "biological_processes": [
+      "Purine nucleotide salvage",
+      "Uric acid overproduction",
+      "Dopamine biosynthesis",
+      "Mitochondrial complex I respiration",
+      "Reactive oxygen species production",
+      "De novo purine nucleotide biosynthesis"
+    ],
+    "phenotypes": [
+      "Self-injurious behavior",
+      "Dystonia",
+      "Choreoathetosis",
+      "Spasticity",
+      "Intellectual disability",
+      "Global developmental delay",
+      "Hyperuricemia",
+      "Gout",
+      "Nephrolithiasis",
+      "Renal insufficiency",
+      "Megaloblastic anemia"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Metabolic",
+      "Renal",
+      "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Genitourinary",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0100716",
+      "HP:0001332",
+      "HP:0001266",
+      "HP:0001257",
+      "HP:0001249",
+      "HP:0001263",
+      "HP:0002149",
+      "HP:0001997",
+      "HP:0000791",
+      "HP:0000083",
+      "HP:0001889"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "HPRT1 mutations"
+    ],
+    "treatments": [
+      "Allopurinol",
+      "Behavioral Management and Physical Restraints",
+      "Physical Rehabilitation",
+      "Deep Brain Stimulation"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Elevated serum uric acid",
+      "Elevated urinary uric acid",
+      "Absent HPRT enzyme activity"
+    ],
+    "source_file": "Lesch-Nyhan_Syndrome.yaml",
+    "page_url": "../pages/disorders/Lesch-Nyhan_Syndrome.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "1"
   },
   {
     "name": "Li-Fraumeni Syndrome",
