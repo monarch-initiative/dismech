@@ -80,7 +80,14 @@ def test_evidence_items_have_references(filepath):
                 errors.append(f"{path}[{i}]: missing reference")
             elif not any(
                 item["reference"].startswith(prefix)
-                for prefix in ("PMID:", "DOI:", "clinicaltrials:", "file:", "url:", "GEO:")
+                for prefix in (
+                    "PMID:",
+                    "DOI:",
+                    "clinicaltrials:",
+                    "file:",
+                    "url:",
+                    "GEO:",
+                )
             ):
                 errors.append(
                     f"{path}[{i}]: reference should start with PMID:, DOI:, clinicaltrials:, file:, url:, or GEO: got {item['reference']}"
@@ -138,6 +145,81 @@ def test_all_disorders_have_unique_names():
 
     duplicates = [name for name in names if names.count(name) > 1]
     assert not duplicates, f"Duplicate disorder names: {set(duplicates)}"
+
+
+@pytest.mark.parametrize("filepath", DISORDER_FILES)
+def test_subtype_foreign_keys(filepath):
+    """Test that subtype references match has_subtypes names."""
+    with open(filepath) as f:
+        data = yaml.safe_load(f)
+
+    valid_subtypes = {s["name"] for s in data.get("has_subtypes", [])}
+    if not valid_subtypes:
+        return
+
+    errors = []
+    # Sections with a top-level subtype field
+    for section in (
+        "phenotypes",
+        "biochemical",
+        "genetic",
+        "prevalence",
+        "progression",
+        "histopathology",
+    ):
+        for i, item in enumerate(data.get(section, [])):
+            val = item.get("subtype")
+            if val and val not in valid_subtypes:
+                errors.append(f"{section}[{i}].subtype={val!r}")
+            # Also check phenotype_contexts
+            for j, ctx in enumerate(item.get("phenotype_contexts", [])):
+                val = ctx.get("subtype")
+                if val and val not in valid_subtypes:
+                    errors.append(
+                        f"{section}[{i}].phenotype_contexts[{j}].subtype={val!r}"
+                    )
+
+    # mechanistic_hypotheses.applies_to_subtypes
+    for i, hyp in enumerate(data.get("mechanistic_hypotheses", [])):
+        for val in hyp.get("applies_to_subtypes", []):
+            if val not in valid_subtypes:
+                errors.append(
+                    f"mechanistic_hypotheses[{i}].applies_to_subtypes={val!r}"
+                )
+
+    assert not errors, (
+        f"Subtype FK mismatches in {Path(filepath).name}. "
+        f"Valid subtypes: {valid_subtypes}. Bad refs: {errors}"
+    )
+
+
+@pytest.mark.parametrize("filepath", DISORDER_FILES)
+def test_experimental_model_mechanism_targets(filepath):
+    """Experimental model links should reference declared pathophysiology nodes."""
+    with open(filepath) as f:
+        data = yaml.safe_load(f)
+
+    valid_targets = {
+        item["name"]
+        for item in data.get("pathophysiology", [])
+        if isinstance(item, dict) and item.get("name")
+    }
+    if not valid_targets:
+        return
+
+    errors = []
+    for i, model in enumerate(data.get("experimental_models", [])):
+        for j, link in enumerate(model.get("modeled_mechanisms", [])):
+            target = link.get("target")
+            if target and target not in valid_targets:
+                errors.append(
+                    f"experimental_models[{i}].modeled_mechanisms[{j}].target={target!r}"
+                )
+
+    assert not errors, (
+        f"Experimental model mechanism mismatches in {Path(filepath).name}. "
+        f"Valid targets: {valid_targets}. Bad refs: {errors}"
+    )
 
 
 def test_disorder_count():

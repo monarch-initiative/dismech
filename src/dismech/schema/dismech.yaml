@@ -70,6 +70,7 @@ prefixes:
   bigg: https://bigg.ucsd.edu/models/
   vmh: https://www.vmh.life/#human/
   biomodels: https://www.ebi.ac.uk/biomodels/
+  namo: https://w3id.org/monarch-initiative/namo/
 
 default_prefix: dismech
 
@@ -487,10 +488,13 @@ enums:
       relationship_types:
         - rdfs:subClassOf
   DiseaseTerm:
-    description: A disease or medical condition
+    description: >-
+      A MONDO disease, inherited disease susceptibility, or related medical
+      condition term used to anchor a curated disorder entry
     reachable_from:
       source_nodes:
         - MONDO:0000001  ## disease
+        - MONDO:0020573  ## inherited disease susceptibility
       is_direct: false
       relationship_types:
         - rdfs:subClassOf
@@ -658,6 +662,25 @@ enums:
         description: >-
           Multi-omics profiling of genetic perturbations (e.g., CRISPR knockout
           combined with transcriptomic, chromatin accessibility, and cellular phenotyping)
+  ExperimentalModelTypeEnum:
+    description: >-
+      Broad disease-centric categories for experimental model systems, primarily
+      non-animal systems curated in this section
+    permissible_values:
+      ORGANOID:
+        description: Self-organizing three-dimensional tissue model, often stem-cell-derived
+      ORGAN_ON_CHIP:
+        description: Microfluidic organ- or tissue-on-chip model
+      CELL_LINE:
+        description: Immortalized cell line-based disease model
+      IPSC_DERIVED_MODEL:
+        description: Differentiated model derived from induced pluripotent stem cells
+      PRIMARY_CELL_CULTURE:
+        description: Primary-cell or biopsy-derived culture system, including monolayers
+      CO_CULTURE:
+        description: Host-microbe or multi-cell-type coculture system
+      OTHER:
+        description: Other experimental model type not covered above
   CurationActionEnum:
     description: Simple action types for curation audit trail
     permissible_values:
@@ -886,6 +909,12 @@ slots:
       - value: Adolescent Nephronophthisis
     identifier: true
     range: string
+  display_name:
+    description: >-
+      Human-readable display name for a subtype, used when the name (which
+      serves as the FK target) is too terse for comfortable display. Optional;
+      when absent, renderers should fall back to name.
+    range: string
   slug:
     description: Canonical slug identifier (Title_Case_With_Underscores) for leaf conditions
     range: string
@@ -997,6 +1026,10 @@ slots:
       - This is automatically validated by the linkml-reference-validator tool.
     implements:
       - linkml:excerpt
+  reference_title:
+    description: The title of the referenced publication
+    range: string
+    recommended: true
   explanation:
     examples:
       - value: There is no curative treatment for nephronophthisis, indicating that supportive care, including symptomatic treatment and monitoring, is currently applied to manage associated complications.
@@ -1517,6 +1550,20 @@ slots:
   identifiers:
     multivalued: true
     range: uriorcurie
+  external_assertions:
+    description: External curated assertions or registry records relevant to this entity
+    multivalued: true
+    range: ExternalAssertion
+    inlined_as_list: true
+  external_id:
+    description: Identifier used by the external resource (e.g., CCID:009009, CA2573049045)
+    range: string
+  assertion_type:
+    description: Type/category of the external assertion or registry record
+    range: string
+  url:
+    description: URL for the external assertion or registry record
+    range: uri
   associated_phenotypes:
     examples:
       - value: '[''Celiac Disease'', ''Type 1 Diabetes'', ''Autoimmune Thyroid Disease'']'
@@ -1644,6 +1691,17 @@ slots:
       - Target names should match pathophysiology entry names in the same disease file
       - Complements target_phenotypes by explaining WHERE in the causal chain the drug acts
       - Analogous to DrugMechDB paths but anchored to dismech pathophysiology nodes
+  modeled_mechanisms:
+    description: >-
+      Pathophysiology mechanism nodes/assertions that this experimental model is
+      intended to recapitulate, perturb, or measure within the disease pathograph.
+    multivalued: true
+    range: ModelMechanismLink
+    inlined_as_list: true
+    comments:
+      - Target names should match pathophysiology entry names in the same disease file
+      - Use description to capture the specific assayable or modeled assertion, not just the node label
+      - Kept intentionally lightweight so it can later align more explicitly with NAMO relations
   treatment_effect:
     description: How the treatment affects the targeted mechanism
     range: TreatmentEffectEnum
@@ -1677,9 +1735,23 @@ slots:
   sample_count:
     description: Total number of samples in the dataset
     range: integer
+  experimental_model_type:
+    description: Broad category for an experimental model system
+    range: ExperimentalModelTypeEnum
+  namo_type:
+    description: >-
+      Optional mapping to the corresponding NAMO class, such as `namo:Organoid`
+      or `namo:OrganOnChip`.
+    range: uriorcurie
   conditions:
     description: Experimental conditions or disease states represented
     multivalued: true
+    range: string
+  cell_source:
+    description: Source of cells used in the experimental model
+    range: string
+  culture_system:
+    description: Culture format or device context used by the experimental model
     range: string
   exposures:
     description: Environmental exposures studied in the dataset
@@ -1700,6 +1772,14 @@ slots:
     description: CL term for the cell type
     range: CellTypeDescriptor
     inlined: true
+  experimental_models:
+    description: >-
+      Disease-relevant organoids, cell lines, chip systems, cocultures, and related
+      experimental models curated as mechanism or translational resources.
+    multivalued: true
+    range: ExperimentalModel
+    inlined_as_list: true
+    recommended: false
   datasets:
     description: Publicly available datasets relevant to disease research
     multivalued: true
@@ -2547,6 +2627,32 @@ classes:
           rigid standardization of the title slot.
         recommended: true
 
+  ExperimentalModel:
+    description: >-
+      A disease-relevant non-animal experimental model system. This is a disease-centric
+      bridge class inspired by NAMO, intended to capture the model itself while keeping
+      dismech focused on disease mechanisms rather than study-level model registries.
+    comments:
+      - Use `namo_type` to map to a corresponding NAMO class when applicable
+      - Prefer `experimental_model_type` for broad local categorization and `description` or `notes` for disease-specific nuance
+      - Use `cell_source` to record whether the system is patient-derived, iPSC-derived, primary, immortalized, or mixed
+    slots:
+      - name
+      - description
+      - experimental_model_type
+      - namo_type
+      - organism
+      - tissue_term
+      - cell_types
+      - conditions
+      - cell_source
+      - culture_system
+      - publication
+      - modeled_mechanisms
+      - findings
+      - evidence
+      - notes
+
   ClinicalTrial:
     description: A clinical trial relevant to treatment or research of a disease
     comments:
@@ -2683,6 +2789,7 @@ classes:
   Subtype:
     slots:
       - name
+      - display_name
       - subtype_term
       - description
       - evidence
@@ -2697,6 +2804,7 @@ classes:
   EvidenceItem:
     slots:
       - reference
+      - reference_title
       - supports
       - evidence_source
       - snippet
@@ -2736,6 +2844,26 @@ classes:
           Must match a pathophysiology name in the same disease file.
       evidence:
         description: Evidence that this treatment targets this specific mechanism
+  ModelMechanismLink:
+    description: >-
+      Links an experimental model to a specific pathophysiology mechanism node,
+      with optional assertion text describing the aspect of the mechanism that the
+      model recapitulates, perturbs, or reads out.
+    slots:
+      - target
+      - description
+      - evidence
+    slot_usage:
+      target:
+        description: >-
+          Name of the pathophysiology entry this model is linked to.
+          Must match a pathophysiology name in the same disease file.
+      description:
+        description: >-
+          Brief assertion-level note describing what facet of the linked
+          mechanism the model captures or assays.
+      evidence:
+        description: Evidence that this model is informative for the linked mechanism
   ProteinStructure:
     description: >-
       A 3D protein structure from PDB or AlphaFold relevant to understanding
@@ -2777,6 +2905,25 @@ classes:
     slot_usage:
       reference:
         identifier: true
+        required: true
+  ExternalAssertion:
+    description: >-
+      An externally curated assertion or registry record relevant to a disease or
+      variant, such as a ClinGen gene-disease validity assertion or a ClinGen
+      Allele Registry record.
+    slots:
+      - name
+      - source
+      - assertion_type
+      - external_id
+      - url
+      - description
+      - evidence
+      - notes
+    slot_usage:
+      source:
+        required: true
+      external_id:
         required: true
   Finding:
     description: A key finding or claim extracted from a source (publication or dataset)
@@ -2974,12 +3121,14 @@ classes:
       - synonyms
       - inheritance
       - animal_models
+      - experimental_models
       - datasets
       - clinical_trials
       - computational_models
       - classifications
       - definitions
       - mappings
+      - external_assertions
       - notes
       - review_notes
       - curation_history
@@ -3106,6 +3255,7 @@ classes:
       - functional_effects
       - synonyms
       - identifiers
+      - external_assertions
       - sequence_length
       - clinical_significance
       - type
