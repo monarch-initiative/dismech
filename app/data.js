@@ -8823,14 +8823,16 @@ window.searchData = [
       "Iatrogenic condition"
     ],
     "creation_date": "2026-04-02T01:07:38Z",
-    "updated_date": "2026-04-02T01:07:38Z",
+    "updated_date": "2026-04-03T15:42:28Z",
     "subtypes": [],
     "description": "Chemotherapy-induced diarrhea is a treatment-related gastrointestinal toxicity caused by antineoplastic agents, especially fluoropyrimidines and irinotecan, that injure the rapidly renewing intestinal mucosa. The syndrome reflects epithelial and crypt injury, barrier dysfunction, mucosal inflammation, dysbiosis, and impaired absorptive function, and can lead to treatment delay, dose reduction, hospitalization, and infectious complications when severe.",
     "pathophysiology": [
       "Chemotherapy-induced crypt and epithelial injury",
-      "Barrier dysfunction and mucosal break formation",
+      "MLCK/actomyosin-mediated tight-junction remodeling",
+      "Paracellular barrier leak and mucosal break formation",
       "Dysbiosis and inflammatory amplification",
-      "Absorptive failure and diarrheal output"
+      "Enterocyte apoptosis, villus blunting, and surface loss",
+      "Reduced fluid absorption and diarrheal output"
     ],
     "cell_types": [
       "intestinal epithelial cell",
@@ -8842,7 +8844,7 @@ window.searchData = [
     ],
     "biological_processes": [
       "apoptotic process",
-      "bicellular tight junction assembly",
+      "tight junction assembly",
       "inflammatory response",
       "intestinal absorption"
     ],
@@ -8871,11 +8873,11 @@ window.searchData = [
     "source_file": "Chemotherapy_Induced_Diarrhea.yaml",
     "page_url": "../pages/disorders/Chemotherapy-Induced_Diarrhea.html",
     "num_phenotypes": 1,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 6,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Chickenpox",
@@ -13989,51 +13991,71 @@ window.searchData = [
       "Skeletal Dysplasia"
     ],
     "creation_date": "2026-03-04T07:00:00Z",
-    "updated_date": "2026-03-04T08:45:04Z",
+    "updated_date": "2026-04-02T16:00:00Z",
     "subtypes": [],
-    "description": "Diastrophic dysplasia is an autosomal recessive skeletal dysplasia caused by biallelic pathogenic variants in SLC26A2. Deficient sulfate transport causes proteoglycan undersulfation in cartilage matrix, disrupting endochondral ossification and producing a characteristic pattern of limb shortening, joint contractures, spinal deformity, and hand/foot malformations.\n",
+    "description": "Diastrophic dysplasia (DTD) is an autosomal recessive skeletal dysplasia caused by biallelic pathogenic variants in SLC26A2, encoding a sulfate/chloride antiporter essential for sulfate uptake in chondrocytes. Deficient sulfate transport leads to undersulfation of cartilage proteoglycans, disrupting extracellular matrix composition and impairing endochondral ossification. Secondary consequences include collagen retention in the endoplasmic reticulum, activation of the unfolded protein response, and pathogenic overactivation of FGFR3 signaling. The phenotype comprises disproportionate short-limbed short stature, joint contractures, spinal deformities, hitchhiker thumbs, clubfoot, cleft palate, and cystic swelling of the external ear. Intelligence is normal. Severity correlates with residual SLC26A2 activity.\n",
     "pathophysiology": [
       "Sulfate Transport Defect in Cartilage",
       "Impaired Endochondral Ossification",
-      "UPR-Dependent FGFR3 Overactivation"
+      "Collagen Retention in Endoplasmic Reticulum",
+      "ATF6-Mediated Unfolded Protein Response",
+      "FGFR3 Overactivation in Chondrocytes"
     ],
     "cell_types": [
-      "Chondrocyte"
+      "Chondrocyte",
+      "Osteoblast"
     ],
     "cell_type_ids": [
-      "CL:0000138"
+      "CL:0000138",
+      "CL:0000062"
     ],
     "biological_processes": [
-      "Cartilage Development",
+      "Sulfate Transmembrane Transport",
       "Extracellular Matrix Organization",
       "Endochondral Ossification",
-      "Response to Unfolded Protein",
+      "Response to Endoplasmic Reticulum Stress",
+      "Endoplasmic Reticulum Unfolded Protein Response",
       "Fibroblast Growth Factor Receptor Signaling Pathway"
     ],
     "phenotypes": [
-      "Short Stature",
+      "Disproportionate Short-Limbed Short Stature",
       "Clubfoot",
       "Hitchhiker Thumb",
       "Joint Contractures",
       "Cervical Kyphosis",
       "Scoliosis",
-      "Cleft Palate"
+      "Lumbar Hyperlordosis",
+      "Cleft Palate",
+      "Micrognathia",
+      "Cystic Ear Swelling",
+      "Premature Osteoarthritis",
+      "Short Phalanges"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Skeletal",
+      "Craniofacial",
+      "Ear"
+    ],
     "phenotype_hpo_categories": [
+      "Ear",
       "Growth",
       "Head and Neck",
       "Limbs",
       "Musculoskeletal"
     ],
     "phenotype_ids": [
-      "HP:0004322",
+      "HP:0008873",
       "HP:0001762",
       "HP:0001234",
       "HP:0034392",
       "HP:0002947",
       "HP:0002650",
-      "HP:0000175"
+      "HP:0002938",
+      "HP:0000175",
+      "HP:0000347",
+      "HP:0000377",
+      "HP:0003088",
+      "HP:0009803"
     ],
     "frequencies": [],
     "genes": [
@@ -14042,18 +14064,22 @@ window.searchData = [
     "treatments": [
       "Physiotherapy",
       "Corrective Orthopedic Surgery",
+      "Genetic Counseling",
+      "N-Acetylcysteine (Investigational)",
       "FGFR3 Signaling Inhibition (Investigational)"
     ],
     "environmental": [],
-    "biochemical": [],
+    "biochemical": [
+      "Reduced Proteoglycan Sulfation"
+    ],
     "source_file": "Diastrophic_Dysplasia.yaml",
     "page_url": "../pages/disorders/Diastrophic_Dysplasia.html",
-    "num_phenotypes": 7,
-    "num_pathophysiology": 3,
+    "num_phenotypes": 12,
+    "num_pathophysiology": 5,
     "num_genes": 1,
-    "num_treatments": 3,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "num_treatments": 5,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Dientamoebiasis",
@@ -18589,7 +18615,7 @@ window.searchData = [
       "gastric carcinoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-02-27T21:52:57Z",
+    "updated_date": "2026-04-03T00:00:00Z",
     "subtypes": [
       "Intestinal-Type Adenocarcinoma",
       "Diffuse-Type Adenocarcinoma"
@@ -21246,7 +21272,7 @@ window.searchData = [
       "head and neck squamous cell carcinoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-02-27T21:52:58Z",
+    "updated_date": "2026-04-03T00:00:00Z",
     "subtypes": [
       "Oral Cavity Squamous Cell Carcinoma",
       "Laryngeal Squamous Cell Carcinoma",
@@ -24325,7 +24351,7 @@ window.searchData = [
       "diffuse glioma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-02-27T21:52:59Z",
+    "updated_date": "2026-04-03T00:00:00Z",
     "subtypes": [
       "IDH-Mutant Astrocytoma Grade 2",
       "IDH-Mutant Astrocytoma Grade 3",
@@ -26976,36 +27002,55 @@ window.searchData = [
       "Type 2 Collagenopathy"
     ],
     "creation_date": "2026-02-06T03:25:37Z",
-    "updated_date": "2026-02-16T20:19:38Z",
+    "updated_date": "2026-04-03T00:00:00Z",
     "subtypes": [],
-    "description": "Kniest dysplasia is a moderately severe type 2 collagenopathy caused by heterozygous COL2A1 mutations, characterized by disproportionate short-trunk dwarfism, enlarged joints with restricted mobility, dumbbell-shaped long bones, flat face, myopia, hearing loss, and cleft palate. The skeletal features are distinctive with a characteristic \"Swiss cheese\" appearance of cartilage on histology due to abnormal collagen fibril formation. Named after Wilhelm Kniest who described the condition in 1952.\n",
+    "description": "Kniest dysplasia is a moderately severe type II collagenopathy caused by heterozygous COL2A1 mutations, characterized by disproportionate short-trunk dwarfism, enlarged joints with restricted mobility, dumbbell-shaped long bones, flat face, myopia, hearing loss, and cleft palate. The skeletal features are distinctive with a characteristic \"Swiss cheese\" appearance of cartilage on histology due to abnormal collagen fibril formation. Missense mutations and small in-frame deletions in the triple-helical domain of COL2A1, particularly exon-skipping splice-site mutations, are the predominant molecular defects. Abnormal procollagen accumulates in dilated endoplasmic reticulum of chondrocytes; in COL2A1 model systems, this retention has been associated with ER stress, unfolded protein response activation, chondrocyte apoptosis, and disruption of growth plate organization and endochondral ossification. Named after Wilhelm Kniest who described the condition in 1952.\n",
     "pathophysiology": [
-      "Type II Collagen Structural Abnormality"
+      "Defective Type II Collagen Fibril Assembly",
+      "Intracellular Procollagen Retention and ER Stress",
+      "Premature Chondrocyte Apoptosis",
+      "Growth Plate Dysgenesis"
     ],
     "cell_types": [
-      "Chondrocyte"
+      "Chondrocyte",
+      "Hypertrophic chondrocyte"
     ],
     "cell_type_ids": [
-      "CL:0000138"
+      "CL:0000138",
+      "CL:0000743"
     ],
     "biological_processes": [
       "Collagen Biosynthesis",
       "Cartilage Development",
-      "ECM Organization"
+      "ECM Organization",
+      "Protein Folding",
+      "Response to ER Stress",
+      "Apoptotic Process"
     ],
     "phenotypes": [
       "Disproportionate Short-Trunk Short Stature",
       "Enlarged Joints",
       "Joint Stiffness",
-      "Flat Face",
+      "Enlarged Epiphyses",
+      "Dumbbell-Shaped Long Bones",
+      "Platyspondyly",
+      "Coronal Cleft Vertebrae",
+      "Kyphoscoliosis",
+      "Coxa Vara",
+      "Hypoplasia of the Odontoid Process",
+      "Malar Flattening",
       "Cleft Palate",
       "Myopia",
+      "Vitreoretinopathy",
       "Retinal Detachment",
-      "Hearing Loss",
-      "Platyspondyly",
-      "Dumbbell-Shaped Long Bones"
+      "Hearing Loss"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Skeletal",
+      "Craniofacial",
+      "Ophthalmologic",
+      "Otologic"
+    ],
     "phenotype_hpo_categories": [
       "Ear",
       "Eye",
@@ -27018,13 +27063,19 @@ window.searchData = [
       "HP:0003521",
       "HP:0003037",
       "HP:0001387",
-      "HP:0012368",
-      "HP:0000175",
-      "HP:0000545",
-      "HP:0000541",
-      "HP:0000407",
+      "HP:0010580",
+      "HP:0000947",
       "HP:0000926",
-      "HP:0000947"
+      "HP:0003417",
+      "HP:0002751",
+      "HP:0002812",
+      "HP:0003311",
+      "HP:0000272",
+      "HP:0000175",
+      "HP:0011003",
+      "HP:0007773",
+      "HP:0000541",
+      "HP:0000365"
     ],
     "frequencies": [],
     "genes": [
@@ -27034,18 +27085,19 @@ window.searchData = [
       "Orthopedic Management",
       "Ophthalmologic Surveillance",
       "Audiologic Management",
-      "Cleft Palate Repair"
+      "Cleft Palate Repair",
+      "Cervical Spine Monitoring"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Kniest_Dysplasia.yaml",
     "page_url": "../pages/disorders/Kniest_Dysplasia.html",
-    "num_phenotypes": 10,
-    "num_pathophysiology": 1,
+    "num_phenotypes": 16,
+    "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 4,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "num_treatments": 5,
+    "causal_graph_edges": "3",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Krabbe Disease",
@@ -28194,6 +28246,111 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "20",
     "causal_graph_longest_path": "8"
+  },
+  {
+    "name": "Lesch-Nyhan Syndrome",
+    "disease_id": "MONDO:0010298",
+    "category": "Mendelian",
+    "parents": [
+      "Inborn error of purine metabolism",
+      "X-linked recessive disorder",
+      "Neurodevelopmental disorder"
+    ],
+    "creation_date": "2026-03-22T07:38:41Z",
+    "updated_date": "2026-03-27T12:00:00Z",
+    "subtypes": [],
+    "description": "Lesch-Nyhan syndrome is an X-linked recessive disorder of purine metabolism caused by deficiency of hypoxanthine-guanine phosphoribosyltransferase (HPRT1), leading to overproduction of uric acid, severe neurological dysfunction including dystonia, choreoathetosis, intellectual disability, and a striking compulsive self-injurious behavior phenotype.",
+    "pathophysiology": [
+      "HPRT1 Enzyme Deficiency and Purine Overproduction",
+      "Hyperuricemia and Gout",
+      "Basal Ganglia Dopaminergic Dysfunction",
+      "Mitochondrial Energy Metabolism Disruption",
+      "ZMP Accumulation and Stress Signaling"
+    ],
+    "cell_types": [
+      "Dopaminergic neuron",
+      "Medium spiny neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000700",
+      "CL:1001474"
+    ],
+    "biological_processes": [
+      "Purine nucleotide salvage",
+      "Uric acid overproduction",
+      "Dopamine biosynthesis",
+      "Mitochondrial complex I respiration",
+      "Reactive oxygen species production",
+      "De novo purine nucleotide biosynthesis"
+    ],
+    "phenotypes": [
+      "Self-injurious behavior",
+      "Dystonia",
+      "Choreoathetosis",
+      "Spasticity",
+      "Intellectual disability",
+      "Global developmental delay",
+      "Hyperuricemia",
+      "Gout",
+      "Nephrolithiasis",
+      "Renal insufficiency",
+      "Megaloblastic anemia"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Metabolic",
+      "Renal",
+      "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Genitourinary",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0100716",
+      "HP:0001332",
+      "HP:0001266",
+      "HP:0001257",
+      "HP:0001249",
+      "HP:0001263",
+      "HP:0002149",
+      "HP:0001997",
+      "HP:0000791",
+      "HP:0000083",
+      "HP:0001889"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "HPRT1 mutations"
+    ],
+    "treatments": [
+      "Allopurinol",
+      "Behavioral Management and Physical Restraints",
+      "Physical Rehabilitation",
+      "Deep Brain Stimulation"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Elevated serum uric acid",
+      "Elevated urinary uric acid",
+      "Absent HPRT enzyme activity"
+    ],
+    "source_file": "Lesch-Nyhan_Syndrome.yaml",
+    "page_url": "../pages/disorders/Lesch-Nyhan_Syndrome.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "1"
   },
   {
     "name": "Li-Fraumeni Syndrome",
@@ -45253,75 +45410,116 @@ window.searchData = [
       "Spondyloepimetaphyseal Dysplasia"
     ],
     "creation_date": "2026-02-06T03:25:37Z",
-    "updated_date": "2026-02-16T20:19:38Z",
+    "updated_date": "2026-04-02T18:00:00Z",
     "subtypes": [],
-    "description": "Spondyloepimetaphyseal dysplasia Strudwick type (SEMD Strudwick) is a rare type 2 collagenopathy caused by heterozygous COL2A1 mutations, characterized by disproportionate short-trunk dwarfism, scoliosis, pectus carinatum, cleft palate, and distinctive \"dappled\" or \"pebbled\" metaphyseal changes on radiographs. The condition was named after the original family described by Murdoch and Walker in 1969. SEMD Strudwick is distinguished from other type 2 collagenopathies by its characteristic metaphyseal irregularities.\n",
+    "description": "Spondyloepimetaphyseal dysplasia Strudwick type (SEMD Strudwick) is a rare autosomal dominant type II collagenopathy caused by heterozygous missense mutations in COL2A1, typically glycine substitutions within the Gly-X-Y triple-helical repeat. The disorder is characterized by disproportionate short-trunk dwarfism, progressive kyphoscoliosis, pectus carinatum, cleft palate, and distinctive dappled or flocculated metaphyseal changes on radiographs. Mutant type II procollagen is retained in the endoplasmic reticulum of chondrocytes, where it may trigger ER stress and the unfolded protein response or, in some variants, evade ER quality control entirely (failed cellular surveillance), in either case disrupting chondrocyte proliferation, differentiation, and endochondral ossification. Ocular involvement (high myopia, retinal detachment) reflects the role of type II collagen in vitreous humor, and premature osteoarthritis results from defective articular cartilage matrix. The condition was first described in the Strudwick family by Murdoch and Walker in 1969.\n",
     "pathophysiology": [
-      "Type II Collagen Dysfunction"
+      "Collagen Triple Helix Disruption",
+      "ER Stress and Unfolded Protein Response",
+      "Disrupted Endochondral Ossification",
+      "Defective Articular Cartilage Matrix"
     ],
     "cell_types": [
       "Chondrocyte",
-      "Growth Plate Chondrocyte"
+      "Growth Plate Chondrocyte",
+      "Osteoblast"
     ],
     "cell_type_ids": [
       "CL:0000138",
-      "CL:1000217"
+      "CL:1000217",
+      "CL:0000062"
     ],
     "biological_processes": [
+      "Collagen Fibril Organization",
       "Collagen Biosynthesis",
-      "Endochondral Ossification"
+      "ER Unfolded Protein Response",
+      "Response to ER Stress",
+      "Chondrocyte Differentiation",
+      "Endochondral Ossification",
+      "Cartilage Development",
+      "Bone Development"
     ],
     "phenotypes": [
       "Disproportionate Short-Trunk Short Stature",
       "Scoliosis",
+      "Kyphosis",
+      "Hyperlordosis",
       "Pectus Carinatum",
       "Platyspondyly",
-      "Metaphyseal Irregularity",
-      "Cleft Palate",
+      "Metaphyseal Dysplasia",
+      "Epiphyseal Dysplasia",
+      "Coxa Vara",
       "Genu Valgum",
+      "Atlantoaxial Instability",
+      "Hypoplasia of the Odontoid Process",
+      "Cleft Palate",
       "Myopia",
-      "Hearing Loss",
-      "Early-Onset Osteoarthritis"
+      "Retinal Detachment",
+      "Sensorineural Hearing Impairment",
+      "Early-Onset Osteoarthritis",
+      "Restrictive Ventilatory Defect",
+      "Hip Subluxation",
+      "Talipes Equinovarus"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Skeletal",
+      "Craniofacial",
+      "Ophthalmologic",
+      "Auditory",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
     "phenotype_hpo_categories": [
       "Ear",
       "Eye",
       "Growth",
       "Head and Neck",
       "Limbs",
-      "Musculoskeletal"
+      "Musculoskeletal",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0003521",
       "HP:0002650",
+      "HP:0002808",
+      "HP:0003307",
       "HP:0000768",
       "HP:0000926",
-      "HP:0000944",
-      "HP:0000175",
+      "HP:0100255",
+      "HP:0002656",
+      "HP:0002812",
       "HP:0002857",
+      "HP:0003467",
+      "HP:0003311",
+      "HP:0000175",
       "HP:0000545",
+      "HP:0000541",
       "HP:0000407",
-      "HP:0002758"
+      "HP:0002758",
+      "HP:0002091",
+      "HP:0030043",
+      "HP:0001762"
     ],
     "frequencies": [],
     "genes": [
-      "COL2A1 Mutations"
+      "COL2A1"
     ],
     "treatments": [
-      "Orthopedic Management",
+      "Orthopedic Surveillance and Surgery",
       "Ophthalmologic Surveillance",
       "Audiologic Monitoring",
-      "Cleft Palate Repair"
+      "Physical Therapy and Orthotic Devices",
+      "Cleft Palate Repair",
+      "Pulmonary Monitoring"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Spondyloepimetaphyseal_Dysplasia_Strudwick_Type.yaml",
     "page_url": "../pages/disorders/Spondyloepimetaphyseal_Dysplasia_Strudwick_Type.html",
-    "num_phenotypes": 10,
-    "num_pathophysiology": 1,
+    "num_phenotypes": 20,
+    "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 4,
+    "num_treatments": 6,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
   },
@@ -45334,81 +45532,119 @@ window.searchData = [
       "Spondyloepiphyseal Dysplasia"
     ],
     "creation_date": "2026-02-06T03:25:37Z",
-    "updated_date": "2026-02-17T21:53:14Z",
+    "updated_date": "2026-04-02T15:50:00Z",
     "subtypes": [],
-    "description": "Spondyloepiphyseal dysplasia congenita (SEDC) is a type 2 collagenopathy caused by heterozygous mutations in COL2A1, characterized by disproportionate short-trunk short stature, platyspondyly, and abnormal epiphyses. Unlike the lethal forms (ACG2, hypochondrogenesis), SEDC is compatible with survival into adulthood. Associated features include myopia, retinal detachment risk, hearing loss, and odontoid hypoplasia with cervical instability risk. SEDC demonstrates variable expressivity even within families with the same mutation.\n",
+    "description": "Spondyloepiphyseal dysplasia congenita (SEDC) is a type II collagenopathy caused by heterozygous mutations in COL2A1, characterized by disproportionate short-trunk short stature, platyspondyly, and abnormal epiphyses. Type II collagen is the principal structural protein of hyaline cartilage, vitreous humor, and inner ear, and its disruption underlies the multisystem involvement in SEDC. Dominant-negative mutations, predominantly glycine substitutions in the Gly-X-Y repeat, impair triple-helix assembly and cause intracellular retention of misfolded procollagen, triggering endoplasmic reticulum stress and the unfolded protein response in growth plate chondrocytes. Unlike the lethal forms (achondrogenesis type II, hypochondrogenesis), SEDC is compatible with survival into adulthood. Associated features include myopia, retinal detachment risk, sensorineural hearing loss, odontoid hypoplasia with cervical instability, cleft palate, and early-onset osteoarthritis. Variable expressivity occurs even within families carrying the same mutation.\n",
     "pathophysiology": [
-      "Type II Collagen Dysfunction",
-      "Vitreous Collagen Abnormality"
+      "Dominant-Negative Collagen Misfolding",
+      "ER Stress and Unfolded Protein Response in Chondrocytes",
+      "Impaired Growth Plate Organization",
+      "Vitreous Collagen Abnormality",
+      "Secondary Osteoarthritis"
     ],
     "cell_types": [
       "Chondrocyte",
-      "Growth Plate Chondrocyte"
+      "Growth Plate Chondrocyte",
+      "Hypertrophic Chondrocyte",
+      "Osteoclast"
     ],
     "cell_type_ids": [
       "CL:0000138",
-      "CL:1000217"
+      "CL:1000217",
+      "CL:0000743",
+      "CL:0000092"
     ],
     "biological_processes": [
-      "Collagen Biosynthesis",
-      "Cartilage Development",
+      "Collagen Fibril Organization",
+      "Extracellular Matrix Organization",
+      "Protein Folding",
+      "Response to ER Stress",
+      "Unfolded Protein Response",
+      "Chondrocyte Apoptosis",
       "Endochondral Ossification",
-      "Eye Development"
+      "Cartilage Development",
+      "Vitreous Collagen Fibril Organization",
+      "Collagen Catabolism",
+      "Bone Mineralization"
     ],
     "phenotypes": [
       "Disproportionate Short-Trunk Short Stature",
       "Platyspondyly",
       "Flat Face",
+      "Cleft Palate",
       "Myopia",
       "Retinal Detachment",
       "Sensorineural Hearing Loss",
       "Odontoid Hypoplasia",
       "Pectus Carinatum",
       "Coxa Vara",
+      "Kyphoscoliosis",
       "Clubfoot",
-      "Cleft Palate"
+      "Waddling Gait",
+      "Genu Valgum",
+      "Delayed Epiphyseal Ossification",
+      "Respiratory Insufficiency"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Skeletal",
+      "Craniofacial",
+      "Ophthalmologic",
+      "Auditory",
+      "Respiratory"
+    ],
     "phenotype_hpo_categories": [
       "Ear",
       "Eye",
       "Growth",
       "Head and Neck",
       "Limbs",
-      "Musculoskeletal"
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0003521",
       "HP:0000926",
       "HP:0012368",
+      "HP:0000175",
       "HP:0000545",
       "HP:0000541",
       "HP:0000407",
       "HP:0003311",
       "HP:0000768",
       "HP:0002812",
+      "HP:0002751",
       "HP:0001762",
-      "HP:0000175"
+      "HP:0002515",
+      "HP:0002857",
+      "HP:0002663",
+      "HP:0002093"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "HP_0040281"
+    ],
     "genes": [
       "COL2A1 Mutations"
     ],
     "treatments": [
+      "Cervical Spine Stabilization",
       "Orthopedic Management",
       "Ophthalmologic Surveillance",
-      "Audiologic Monitoring"
+      "Audiologic Monitoring",
+      "Genetic Counseling",
+      "Respiratory Support",
+      "Growth Hormone Therapy"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Spondyloepiphyseal_Dysplasia_Congenita.yaml",
     "page_url": "../pages/disorders/Spondyloepiphyseal_Dysplasia_Congenita.html",
-    "num_phenotypes": 11,
-    "num_pathophysiology": 2,
+    "num_phenotypes": 16,
+    "num_pathophysiology": 5,
     "num_genes": 1,
-    "num_treatments": 3,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "num_treatments": 7,
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Stargardt Disease",
