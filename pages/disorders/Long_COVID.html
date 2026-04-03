@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -1481,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1569,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1576,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1588,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1736,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1822,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1836,9 +1916,19 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
 
@@ -1848,10 +1938,10 @@
                 modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
                 meta.experimental_models.forEach(function(model) {
                     modelHtml += '<div style="margin:4px 0; font-size:11px;">';
-                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml(model.name) + '</span>';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
                     if (model.model_type) {
                         modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
-                            + escapeHtml(model.model_type.replace(/_/g, " ")) + '</span>';
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
                     }
                     if (model.description) {
                         modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
@@ -1912,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1997,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 34</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Post-viral syndrome</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">COVID-19 complications</span>
@@ -2011,6 +2110,7 @@
         </header>
 
         <!-- Stats bar -->
+        
         
         
         
@@ -2076,6 +2176,14 @@
             <div class="stat-item">
                 <div class="stat-value">21</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">34</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -3457,19 +3565,19 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
-            
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Long COVID</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anxiety\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased anxiety levels and panic symptoms.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000739\"}}, {\"id\": \"Arthralgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint pain without inflammation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002829\"}}, {\"id\": \"Autonomic Nervous System Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysautonomia, particularly postural orthostatic tachycardia syndrome (POTS), develops in many Long COVID patients. This may be related to virus- or immune-mediated disruption of the autonomic nervous system resulting in orthostatic intolerance syndromes.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mast cell activation\"]}}, {\"id\": \"Cognitive Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brain fog, difficulty concentrating, memory problems, and reduced executive function. Often referred to as cognitive dysfunction.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002354\"}}, {\"id\": \"Depression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Depressed mood and emotional dysregulation.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000716\"}}, {\"id\": \"Diarrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loose or watery bowel movements persisting after acute infection.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002014\"}}, {\"id\": \"Dyspnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Shortness of breath and breathing difficulties persisting after acute infection.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002094\"}}, {\"id\": \"Endothelial Dysfunction and Microclots\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent endothelial damage and formation of amyloid-like fibrin microclots impair microcirculation. These anomalous fibrin deposits resist normal fibrinolysis and can block capillaries, limiting oxygen delivery to tissues and potentially explaining the diverse symptomatology of Long COVID.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"endothelial cell\", \"platelet\"], \"biological_processes\": [\"fibrinolysis\"]}}, {\"id\": \"Fatigue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent, debilitating fatigue that is not relieved by rest.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012378\"}}, {\"id\": \"Headache\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic or recurring headaches.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002315\"}}, {\"id\": \"Impaired Mitochondrial Energy Production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Long COVID is associated with reduced mitochondrial ATP production and impaired oxidative phosphorylation, contributing to fatigue, cognitive disturbances, and exercise intolerance.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"oxidative phosphorylation\", \"ATP biosynthetic process\"]}}, {\"id\": \"Insomnia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Difficulty falling asleep or staying asleep.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100785\"}}, {\"id\": \"Mast Cell Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mast cell activation syndrome (MCAS) has been implicated in Long COVID pathophysiology. Mast cell degranulation releases pro-inflammatory mediators including histamine, contributing to fatigue, brain fog, cardiovascular symptoms, and gastrointestinal disturbances.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"mast cell\"]}}, {\"id\": \"Metabolic Shift and Oxidative Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitochondrial impairment drives a shift toward glycolysis with associated oxidative stress and metabolic disturbances, further exacerbating systemic symptoms in Long COVID.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"glycolytic process\", \"response to oxidative stress\"]}}, {\"id\": \"Myalgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Muscle pain and body aches.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003326\"}}, {\"id\": \"Nausea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensation of unease in the stomach with urge to vomit.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002018\"}}, {\"id\": \"Neuroinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neuroinflammation in Long COVID involves microglial activation, blood-brain barrier disruption, and inflammatory cytokine penetration into the brain parenchyma. This contributes to cognitive dysfunction, memory impairment, and other neurological symptoms.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"microglial cell\", \"macrophage\"], \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Orthostatic Tachycardia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Excessive heart rate increase upon standing, characteristic of POTS.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012173\"}}, {\"id\": \"Palpitations\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Awareness of heartbeat, often associated with POTS or general autonomic dysfunction.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001962\"}}, {\"id\": \"Post-exertional Malaise\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Worsening of symptoms following physical or mental exertion, similar to myalgic encephalomyelitis/chronic fatigue syndrome.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0030973\"}}, {\"id\": \"Serotonin Depletion Mechanisms\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Long COVID features reduced peripheral serotonin driven by diminished intestinal tryptophan absorption, platelet hyperactivation that depletes stored serotonin, and enhanced monoamine oxidase-mediated serotonin turnover.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"tryptophan transport\", \"platelet activation\", \"serotonin metabolic process\"]}}, {\"id\": \"Sleep Disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Insomnia, unrefreshing sleep, or altered sleep patterns.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002360\"}}, {\"id\": \"Systemic Immune Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Long COVID patients show ongoing systemic inflammation with altered T cell subset distributions and cytokine perturbations, indicating chronic immune activation and dysregulated signaling.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"CD4-positive T cell\", \"CD8-positive T cell\"], \"biological_processes\": [\"inflammatory response\", \"JAK-STAT signaling\"]}}, {\"id\": \"T Cell Exhaustion and Tissue Trafficking\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SARS-CoV-2-specific CD8+ T cells exhibit exhaustion phenotypes while CD4+ T cells are poised to migrate to inflamed tissues, reflecting sustained antigen exposure and chronic activation in Long COVID.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD4-positive T cell\", \"CD8-positive T cell\"], \"biological_processes\": [\"T cell migration\", \"T cell activation\"]}}, {\"id\": \"Tachycardia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated heart rate, often associated with POTS or general autonomic dysfunction.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001649\"}}, {\"id\": \"Vagus-Hippocampal Signaling Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Peripheral serotonin depletion weakens vagus nerve activity, leading to impaired hippocampal responses and memory formation that contribute to cognitive symptoms in Long COVID.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of synaptic plasticity\", \"memory\"]}}, {\"id\": \"Viral Persistence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SARS-CoV-2 viral reservoirs may persist in tissues including gut, brain, and other organs for months after acute infection. The gastrointestinal tract has emerged as a particularly significant reservoir site, with viral RNA detected in approximately 30% of intestinal specimens from Long COVID patients.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\", \"CD8-positive T cell\"]}}], \"edges\": [{\"source\": \"Viral Persistence\", \"target\": \"Systemic Immune Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Viral Persistence\", \"target\": \"T Cell Exhaustion and Tissue Trafficking\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Viral Persistence\", \"target\": \"Serotonin Depletion Mechanisms\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Viral Persistence\", \"target\": \"Mast Cell Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Immune Activation\", \"target\": \"Neuroinflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Immune Activation\", \"target\": \"Impaired Mitochondrial Energy Production\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Immune Activation\", \"target\": \"Mast Cell Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Immune Activation\", \"target\": \"Autonomic Nervous System Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Immune Activation\", \"target\": \"Myalgia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Immune Activation\", \"target\": \"Arthralgia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endothelial Dysfunction and Microclots\", \"target\": \"Impaired Mitochondrial Energy Production\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endothelial Dysfunction and Microclots\", \"target\": \"Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endothelial Dysfunction and Microclots\", \"target\": \"Dyspnea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Serotonin Depletion Mechanisms\", \"target\": \"Vagus-Hippocampal Signaling Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Serotonin Depletion Mechanisms\", \"target\": \"Autonomic Nervous System Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Serotonin Depletion Mechanisms\", \"target\": \"Depression\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vagus-Hippocampal Signaling Impairment\", \"target\": \"Neuroinflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vagus-Hippocampal Signaling Impairment\", \"target\": \"Cognitive Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Autonomic Nervous System Dysfunction\", \"target\": \"Orthostatic Tachycardia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Autonomic Nervous System Dysfunction\", \"target\": \"Palpitations\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mitochondrial Energy Production\", \"target\": \"Metabolic Shift and Oxidative Stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mitochondrial Energy Production\", \"target\": \"Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mitochondrial Energy Production\", \"target\": \"Post-exertional Malaise\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Metabolic Shift and Oxidative Stress\", \"target\": \"Impaired Mitochondrial Energy Production\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mast Cell Activation\", \"target\": \"Autonomic Nervous System Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mast Cell Activation\", \"target\": \"Neuroinflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mast Cell Activation\", \"target\": \"Tachycardia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mast Cell Activation\", \"target\": \"Diarrhea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mast Cell Activation\", \"target\": \"Nausea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroinflammation\", \"target\": \"Cognitive Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroinflammation\", \"target\": \"Headache\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroinflammation\", \"target\": \"Depression\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroinflammation\", \"target\": \"Anxiety\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Post-exertional Malaise\", \"target\": \"Fatigue\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Sleep Disturbance\", \"target\": \"Cognitive Impairment\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Insomnia\", \"target\": \"Anxiety\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Insomnia\", \"target\": \"Depression\", \"predicate\": \"leads_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Activity pacing\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Structured energy-envelope management to reduce post-exertional symptom exacerbation.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Antihistamine Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"H1 and H2 receptor antagonists (such as fexofenadine and famotidine) to address mast cell activation symptoms.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Anxiety\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased anxiety levels and panic symptoms.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000739\"}}, {\"id\": \"Arthralgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint pain without inflammation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002829\"}}, {\"id\": \"Autonomic Nervous System Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysautonomia, particularly postural orthostatic tachycardia syndrome (POTS), develops in many Long COVID patients. This may be related to virus- or immune-mediated disruption of the autonomic nervous system resulting in orthostatic intolerance syndromes.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mast cell activation\"]}}, {\"id\": \"Beta adrenergic agent therapy for POTS-associated symptoms\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Class-level beta-blocker therapy to reduce orthostatic tachycardia and palpitations in Long-COVID dysautonomia phenotypes.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cognitive Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brain fog, difficulty concentrating, memory problems, and reduced executive function. Often referred to as cognitive dysfunction.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002354\"}}, {\"id\": \"Depression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Depressed mood and emotional dysregulation.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000716\"}}, {\"id\": \"Diarrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loose or watery bowel movements persisting after acute infection.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002014\"}}, {\"id\": \"Dyspnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Shortness of breath and breathing difficulties persisting after acute infection.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002094\"}}, {\"id\": \"Endothelial Dysfunction and Microclots\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent endothelial damage and formation of amyloid-like fibrin microclots impair microcirculation. These anomalous fibrin deposits resist normal fibrinolysis and can block capillaries, limiting oxygen delivery to tissues and potentially explaining the diverse symptomatology of Long COVID.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"endothelial cell\", \"platelet\"], \"biological_processes\": [\"fibrinolysis\"]}}, {\"id\": \"Fatigue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent, debilitating fatigue that is not relieved by rest.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012378\"}}, {\"id\": \"Headache\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic or recurring headaches.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002315\"}}, {\"id\": \"Hyperbaric oxygen therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Adjunctive therapy under pressure-controlled oxygen conditions, studied for fatigue, cognitive, neuropsychiatric, and cardiopulmonary Long-COVID symptoms.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Impaired Mitochondrial Energy Production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Long COVID is associated with reduced mitochondrial ATP production and impaired oxidative phosphorylation, contributing to fatigue, cognitive disturbances, and exercise intolerance.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"oxidative phosphorylation\", \"ATP biosynthetic process\"]}}, {\"id\": \"Individualized physical exercise therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Personalized exercise-based physical therapy with intensity adjusted to PEM severity and tolerance.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Insomnia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Difficulty falling asleep or staying asleep.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100785\"}}, {\"id\": \"Intranasal and transcranial photobiomodulation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Non-invasive light-based intervention studied for post-COVID cognitive dysfunction (brain fog).\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Ivabradine therapy for post-COVID POTS-like tachycardia\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Heart-rate-lowering pharmacotherapy for Long-COVID patients with orthostatic tachycardia syndromes.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Mast Cell Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mast cell activation syndrome (MCAS) has been implicated in Long COVID pathophysiology. Mast cell degranulation releases pro-inflammatory mediators including histamine, contributing to fatigue, brain fog, cardiovascular symptoms, and gastrointestinal disturbances.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"mast cell\"]}}, {\"id\": \"Metabolic Shift and Oxidative Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitochondrial impairment drives a shift toward glycolysis with associated oxidative stress and metabolic disturbances, further exacerbating systemic symptoms in Long COVID.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"glycolytic process\", \"response to oxidative stress\"]}}, {\"id\": \"Myalgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Muscle pain and body aches.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003326\"}}, {\"id\": \"Nausea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensation of unease in the stomach with urge to vomit.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002018\"}}, {\"id\": \"Neuroinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neuroinflammation in Long COVID involves microglial activation, blood-brain barrier disruption, and inflammatory cytokine penetration into the brain parenchyma. This contributes to cognitive dysfunction, memory impairment, and other neurological symptoms.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"microglial cell\", \"macrophage\"], \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Orthostatic Tachycardia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Excessive heart rate increase upon standing, characteristic of POTS.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012173\"}}, {\"id\": \"Palpitations\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Awareness of heartbeat, often associated with POTS or general autonomic dysfunction.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001962\"}}, {\"id\": \"Post-exertional Malaise\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Worsening of symptoms following physical or mental exertion, similar to myalgic encephalomyelitis/chronic fatigue syndrome.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0030973\"}}, {\"id\": \"Serotonin Depletion Mechanisms\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Long COVID features reduced peripheral serotonin driven by diminished intestinal tryptophan absorption, platelet hyperactivation that depletes stored serotonin, and enhanced monoamine oxidase-mediated serotonin turnover.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"tryptophan transport\", \"platelet activation\", \"serotonin metabolic process\"]}}, {\"id\": \"Sleep Disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Insomnia, unrefreshing sleep, or altered sleep patterns.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002360\"}}, {\"id\": \"Systemic Immune Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Long COVID patients show ongoing systemic inflammation with altered T cell subset distributions and cytokine perturbations, indicating chronic immune activation and dysregulated signaling.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"CD4-positive T cell\", \"CD8-positive T cell\"], \"biological_processes\": [\"inflammatory response\", \"JAK-STAT signaling\"]}}, {\"id\": \"T Cell Exhaustion and Tissue Trafficking\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SARS-CoV-2-specific CD8+ T cells exhibit exhaustion phenotypes while CD4+ T cells are poised to migrate to inflamed tissues, reflecting sustained antigen exposure and chronic activation in Long COVID.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD4-positive T cell\", \"CD8-positive T cell\"], \"biological_processes\": [\"T cell migration\", \"T cell activation\"]}}, {\"id\": \"Tachycardia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated heart rate, often associated with POTS or general autonomic dysfunction.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001649\"}}, {\"id\": \"Vagus-Hippocampal Signaling Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Peripheral serotonin depletion weakens vagus nerve activity, leading to impaired hippocampal responses and memory formation that contribute to cognitive symptoms in Long COVID.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of synaptic plasticity\", \"memory\"]}}, {\"id\": \"Viral Persistence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SARS-CoV-2 viral reservoirs may persist in tissues including gut, brain, and other organs for months after acute infection. The gastrointestinal tract has emerged as a particularly significant reservoir site, with viral RNA detected in approximately 30% of intestinal specimens from Long COVID patients.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\", \"CD8-positive T cell\"]}}], \"edges\": [{\"source\": \"Viral Persistence\", \"target\": \"Systemic Immune Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Viral Persistence\", \"target\": \"T Cell Exhaustion and Tissue Trafficking\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Viral Persistence\", \"target\": \"Serotonin Depletion Mechanisms\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Viral Persistence\", \"target\": \"Mast Cell Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Immune Activation\", \"target\": \"Neuroinflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Immune Activation\", \"target\": \"Impaired Mitochondrial Energy Production\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Immune Activation\", \"target\": \"Mast Cell Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Immune Activation\", \"target\": \"Autonomic Nervous System Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Immune Activation\", \"target\": \"Myalgia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic Immune Activation\", \"target\": \"Arthralgia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endothelial Dysfunction and Microclots\", \"target\": \"Impaired Mitochondrial Energy Production\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endothelial Dysfunction and Microclots\", \"target\": \"Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endothelial Dysfunction and Microclots\", \"target\": \"Dyspnea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Serotonin Depletion Mechanisms\", \"target\": \"Vagus-Hippocampal Signaling Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Serotonin Depletion Mechanisms\", \"target\": \"Autonomic Nervous System Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Serotonin Depletion Mechanisms\", \"target\": \"Depression\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vagus-Hippocampal Signaling Impairment\", \"target\": \"Neuroinflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vagus-Hippocampal Signaling Impairment\", \"target\": \"Cognitive Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Autonomic Nervous System Dysfunction\", \"target\": \"Orthostatic Tachycardia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Autonomic Nervous System Dysfunction\", \"target\": \"Palpitations\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mitochondrial Energy Production\", \"target\": \"Metabolic Shift and Oxidative Stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mitochondrial Energy Production\", \"target\": \"Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mitochondrial Energy Production\", \"target\": \"Post-exertional Malaise\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Metabolic Shift and Oxidative Stress\", \"target\": \"Impaired Mitochondrial Energy Production\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mast Cell Activation\", \"target\": \"Autonomic Nervous System Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mast Cell Activation\", \"target\": \"Neuroinflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mast Cell Activation\", \"target\": \"Tachycardia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mast Cell Activation\", \"target\": \"Diarrhea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mast Cell Activation\", \"target\": \"Nausea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroinflammation\", \"target\": \"Cognitive Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroinflammation\", \"target\": \"Headache\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroinflammation\", \"target\": \"Depression\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroinflammation\", \"target\": \"Anxiety\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Post-exertional Malaise\", \"target\": \"Fatigue\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Sleep Disturbance\", \"target\": \"Cognitive Impairment\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Insomnia\", \"target\": \"Anxiety\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Insomnia\", \"target\": \"Depression\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Activity pacing\", \"target\": \"Post-exertional Malaise\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Activity pacing\", \"target\": \"Fatigue\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Individualized physical exercise therapy\", \"target\": \"Fatigue\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Individualized physical exercise therapy\", \"target\": \"Dyspnea\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Antihistamine Therapy\", \"target\": \"Tachycardia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Antihistamine Therapy\", \"target\": \"Palpitations\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ivabradine therapy for post-COVID POTS-like tachycardia\", \"target\": \"Orthostatic Tachycardia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ivabradine therapy for post-COVID POTS-like tachycardia\", \"target\": \"Tachycardia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Beta adrenergic agent therapy for POTS-associated symptoms\", \"target\": \"Orthostatic Tachycardia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Beta adrenergic agent therapy for POTS-associated symptoms\", \"target\": \"Palpitations\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hyperbaric oxygen therapy\", \"target\": \"Fatigue\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hyperbaric oxygen therapy\", \"target\": \"Cognitive Impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Intranasal and transcranial photobiomodulation\", \"target\": \"Cognitive Impairment\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>

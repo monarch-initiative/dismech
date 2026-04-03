@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -1481,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1569,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1576,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1588,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1736,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1822,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1836,9 +1916,19 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
 
@@ -1848,10 +1938,10 @@
                 modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
                 meta.experimental_models.forEach(function(model) {
                     modelHtml += '<div style="margin:4px 0; font-size:11px;">';
-                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml(model.name) + '</span>';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
                     if (model.model_type) {
                         modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
-                            + escapeHtml(model.model_type.replace(/_/g, " ")) + '</span>';
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
                     }
                     if (model.description) {
                         modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
@@ -1912,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1997,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Dermatological Disease</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Genetic Disease</span>
@@ -2010,6 +2109,7 @@
         </header>
 
         <!-- Stats bar -->
+        
         
         
         
@@ -2079,6 +2179,14 @@
             <div class="stat-item">
                 <div class="stat-value">7</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">7</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -3143,19 +3251,19 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
-            
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Epidermolysis Bullosa Simplex</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Dominant-Negative Disruption of Filament Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutant keratins exert a dominant-negative effect by incorporating into keratin filaments and poisoning the entire filament network. This disrupts filament architecture and leads to keratin aggregate formation, particularly under conditions of mechanical or thermal stress.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epidermal cell\"], \"biological_processes\": [\"intermediate filament cytoskeleton organization\"]}}, {\"id\": \"KRT5/KRT14 Mutations Disrupt Keratin Intermediate Filament Network\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in KRT5 or KRT14 genes disrupt the keratin intermediate filament network in basal keratinocytes of the epidermis. Keratins 5 and 14 are the obligate type II and type I intermediate filament partners that copolymerize to form the 10 nm filament network providing mechanical resilience to basal keratinocytes.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epidermal cell\"], \"biological_processes\": [\"intermediate filament organization\"], \"genes\": [\"KRT5\", \"KRT14\"]}}, {\"id\": \"Mechanical Stress-Induced Keratinocyte Cytolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Basal keratinocytes with disrupted keratin networks rupture (cytolyse) when subjected to mechanical trauma. The blistering in EBS is intraepidermal, occurring within the basal cell layer rather than at tissue interfaces, distinguishing it from junctional and dystrophic EB.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epidermal cell\"], \"biological_processes\": [\"cell death\"]}}, {\"id\": \"PLEC Mutations Disrupt Hemidesmosome-Cytoskeleton Linkage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in PLEC disrupt plectin, a giant cytoskeletal crosslinker that connects the keratin intermediate filament network to hemidesmosomes at the dermal-epidermal junction and to the desmin cytoskeleton in muscle. Loss of plectin causes a dual phenotype affecting both skin (blistering) and skeletal muscle (progressive dystrophy).\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epidermal cell\", \"skeletal muscle fiber\"], \"biological_processes\": [\"cell-substrate junction organization\"], \"genes\": [\"PLEC\"]}}], \"edges\": [{\"source\": \"KRT5/KRT14 Mutations Disrupt Keratin Intermediate Filament Network\", \"target\": \"Dominant-Negative Disruption of Filament Assembly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dominant-Negative Disruption of Filament Assembly\", \"target\": \"Mechanical Stress-Induced Keratinocyte Cytolysis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PLEC Mutations Disrupt Hemidesmosome-Cytoskeleton Linkage\", \"target\": \"Mechanical Stress-Induced Keratinocyte Cytolysis\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Dominant-Negative Disruption of Filament Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutant keratins exert a dominant-negative effect by incorporating into keratin filaments and poisoning the entire filament network. This disrupts filament architecture and leads to keratin aggregate formation, particularly under conditions of mechanical or thermal stress.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epidermal cell\"], \"biological_processes\": [\"intermediate filament cytoskeleton organization\"]}}, {\"id\": \"KRT14\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"association\": \"Causative\"}}, {\"id\": \"KRT5\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"association\": \"Causative\"}}, {\"id\": \"KRT5/KRT14 Mutations Disrupt Keratin Intermediate Filament Network\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in KRT5 or KRT14 genes disrupt the keratin intermediate filament network in basal keratinocytes of the epidermis. Keratins 5 and 14 are the obligate type II and type I intermediate filament partners that copolymerize to form the 10 nm filament network providing mechanical resilience to basal keratinocytes.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epidermal cell\"], \"biological_processes\": [\"intermediate filament organization\"], \"genes\": [\"KRT5\", \"KRT14\"]}}, {\"id\": \"Mechanical Stress-Induced Keratinocyte Cytolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Basal keratinocytes with disrupted keratin networks rupture (cytolyse) when subjected to mechanical trauma. The blistering in EBS is intraepidermal, occurring within the basal cell layer rather than at tissue interfaces, distinguishing it from junctional and dystrophic EB.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epidermal cell\"], \"biological_processes\": [\"cell death\"]}}, {\"id\": \"PLEC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"association\": \"Causative\"}}, {\"id\": \"PLEC Mutations Disrupt Hemidesmosome-Cytoskeleton Linkage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in PLEC disrupt plectin, a giant cytoskeletal crosslinker that connects the keratin intermediate filament network to hemidesmosomes at the dermal-epidermal junction and to the desmin cytoskeleton in muscle. Loss of plectin causes a dual phenotype affecting both skin (blistering) and skeletal muscle (progressive dystrophy).\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epidermal cell\", \"skeletal muscle fiber\"], \"biological_processes\": [\"cell-substrate junction organization\"], \"genes\": [\"PLEC\"]}}], \"edges\": [{\"source\": \"KRT5/KRT14 Mutations Disrupt Keratin Intermediate Filament Network\", \"target\": \"Dominant-Negative Disruption of Filament Assembly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dominant-Negative Disruption of Filament Assembly\", \"target\": \"Mechanical Stress-Induced Keratinocyte Cytolysis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PLEC Mutations Disrupt Hemidesmosome-Cytoskeleton Linkage\", \"target\": \"Mechanical Stress-Induced Keratinocyte Cytolysis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"KRT5\", \"target\": \"KRT5/KRT14 Mutations Disrupt Keratin Intermediate Filament Network\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KRT14\", \"target\": \"KRT5/KRT14 Mutations Disrupt Keratin Intermediate Filament Network\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PLEC\", \"target\": \"PLEC Mutations Disrupt Hemidesmosome-Cytoskeleton Linkage\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
