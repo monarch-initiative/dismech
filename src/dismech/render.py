@@ -402,6 +402,233 @@ def load_comorbidity(yaml_path: Path) -> dict:
         return yaml.safe_load(f)
 
 
+def _parse_module_reference(value: str | None) -> tuple[str, str] | None:
+    """Split a conforms_to reference into (module_id, module_node_name)."""
+    if not isinstance(value, str) or "#" not in value:
+        return None
+    module_id, module_node_name = value.split("#", 1)
+    module_id = module_id.strip()
+    module_node_name = module_node_name.strip()
+    if not module_id or not module_node_name:
+        return None
+    return module_id, module_node_name
+
+
+def _descriptor_display_label(descriptor: dict) -> str:
+    """Build a display label for ontology-backed descriptors."""
+    if not isinstance(descriptor, dict):
+        return ""
+    term = descriptor.get("term")
+    if not isinstance(term, dict):
+        term = {}
+    return str(
+        descriptor.get("preferred_term")
+        or term.get("label")
+        or term.get("id")
+        or descriptor.get("name")
+        or ""
+    ).strip()
+
+
+def _collect_unique_descriptors(
+    pathophysiology_items: list[dict],
+    slot_name: str,
+) -> list[dict]:
+    """Collect unique descriptors across a module's pathophysiology nodes."""
+    unique_descriptors: list[dict] = []
+    seen: set[tuple[str, str]] = set()
+
+    for node in pathophysiology_items:
+        if not isinstance(node, dict):
+            continue
+        for descriptor in node.get(slot_name) or []:
+            if not isinstance(descriptor, dict):
+                continue
+            term = descriptor.get("term")
+            if not isinstance(term, dict):
+                term = {}
+
+            label = _descriptor_display_label(descriptor)
+            term_id = str(term.get("id") or "").strip()
+            modifier = str(descriptor.get("modifier") or "").strip()
+            key = (term_id or label, modifier)
+            if not key[0] or key in seen:
+                continue
+
+            seen.add(key)
+            unique_descriptors.append(
+                {
+                    "label": label or term_id,
+                    "id": term_id or None,
+                    "modifier": modifier or None,
+                }
+            )
+
+    return unique_descriptors
+
+
+def _collect_module_usage(
+    disorders_dir: Path = Path("kb/disorders"),
+) -> dict[str, list[dict]]:
+    """Index which disorder entries reference each shared module."""
+    usage_by_module: dict[str, list[dict]] = defaultdict(list)
+
+    for yaml_path in sorted(disorders_dir.glob("*.yaml")):
+        if yaml_path.name.endswith(".history.yaml"):
+            continue
+
+        try:
+            disorder = load_disorder(yaml_path) or {}
+        except Exception:
+            continue
+
+        pathophysiology_items = disorder.get("pathophysiology") or []
+        if not isinstance(pathophysiology_items, list):
+            continue
+
+        disorder_name = str(disorder.get("name") or yaml_path.stem)
+        disorder_slug = slugify(disorder_name)
+        matches_by_module: dict[str, list[dict]] = defaultdict(list)
+        seen_matches: dict[str, set[tuple[str, str]]] = defaultdict(set)
+
+        for patho in pathophysiology_items:
+            if not isinstance(patho, dict):
+                continue
+
+            parsed_reference = _parse_module_reference(patho.get("conforms_to"))
+            if parsed_reference is None:
+                continue
+
+            module_id, module_node_name = parsed_reference
+            disorder_node_name = str(patho.get("name") or module_node_name)
+            match_key = (module_node_name, disorder_node_name)
+            if match_key in seen_matches[module_id]:
+                continue
+
+            seen_matches[module_id].add(match_key)
+            matches_by_module[module_id].append(
+                {
+                    "module_node_name": module_node_name,
+                    "disorder_node_name": disorder_node_name,
+                }
+            )
+
+        for module_id, matches in matches_by_module.items():
+            usage_by_module[module_id].append(
+                {
+                    "name": disorder_name,
+                    "slug": disorder_slug,
+                    "href": f"../disorders/{disorder_slug}.html",
+                    "matches": matches,
+                }
+            )
+
+    return {
+        module_id: sorted(
+            usages,
+            key=lambda usage: (
+                str(usage.get("name") or "").casefold(),
+                str(usage.get("slug") or "").casefold(),
+            ),
+        )
+        for module_id, usages in usage_by_module.items()
+    }
+
+
+def _annotate_module_usage(module: dict, disorder_usage: list[dict]) -> None:
+    """Attach per-node disorder cross-references to a module payload."""
+    pathophysiology_items = module.get("pathophysiology") or []
+    if not isinstance(pathophysiology_items, list):
+        return
+
+    nodes_by_name: dict[str, dict] = {}
+    for node in pathophysiology_items:
+        if not isinstance(node, dict):
+            continue
+        node_name = str(node.get("name") or "").strip()
+        if not node_name:
+            continue
+        node["_anchor_id"] = _make_anchor_id("module-pathophysiology", node_name)
+        node["_disorder_links"] = []
+        nodes_by_name[node_name] = node
+
+    for usage in disorder_usage:
+        for match in usage.get("matches") or []:
+            if not isinstance(match, dict):
+                continue
+            node = nodes_by_name.get(str(match.get("module_node_name") or "").strip())
+            if node is None:
+                continue
+            node["_disorder_links"].append(
+                {
+                    "name": usage.get("name"),
+                    "href": usage.get("href"),
+                    "disorder_node_name": match.get("disorder_node_name"),
+                }
+            )
+
+    for node in nodes_by_name.values():
+        node["_disorder_links"] = sorted(
+            node["_disorder_links"],
+            key=lambda item: (
+                str(item.get("name") or "").casefold(),
+                str(item.get("disorder_node_name") or "").casefold(),
+            ),
+        )
+
+
+def _load_module_context(
+    yaml_path: Path,
+    *,
+    disorders_dir: Path = Path("kb/disorders"),
+    usage_index: dict[str, list[dict]] | None = None,
+) -> tuple[dict, list[dict]]:
+    """Load a module and decorate it with derived summary data."""
+    module = load_disorder(yaml_path) or {}
+    pathophysiology_items = module.get("pathophysiology") or []
+    if not isinstance(pathophysiology_items, list):
+        pathophysiology_items = []
+
+    module_id = yaml_path.stem
+    disorder_usage = (usage_index or _collect_module_usage(disorders_dir)).get(
+        module_id, []
+    )
+
+    _annotate_module_usage(module, disorder_usage)
+    module["_module_id"] = module_id
+    module["_pathophysiology_count"] = len(
+        [node for node in pathophysiology_items if isinstance(node, dict)]
+    )
+    module["_cell_types"] = _collect_unique_descriptors(
+        pathophysiology_items,
+        "cell_types",
+    )
+    module["_biological_processes"] = _collect_unique_descriptors(
+        pathophysiology_items,
+        "biological_processes",
+    )
+    module["_used_by_disorders"] = disorder_usage
+
+    return module, disorder_usage
+
+
+def _build_module_summary(module: dict) -> dict:
+    """Build a compact card payload for the module index page."""
+    module_id = str(module.get("_module_id") or "")
+    used_by_disorders = module.get("_used_by_disorders") or []
+    return {
+        "id": module_id,
+        "name": module.get("name") or module_id,
+        "description": module.get("description"),
+        "href": f"{module_id}.html",
+        "pathophysiology_count": module.get("_pathophysiology_count") or 0,
+        "cell_type_count": len(module.get("_cell_types") or []),
+        "biological_process_count": len(module.get("_biological_processes") or []),
+        "disorder_count": len(used_by_disorders),
+        "used_by_disorders": used_by_disorders,
+    }
+
+
 def _format_condition_label(condition: dict) -> str:
     slug = condition.get("slug")
     if slug:
@@ -715,6 +942,132 @@ def render_comorbidity(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html)
     return output_path
+
+
+def render_module(
+    yaml_path: Path,
+    output_path: Optional[Path] = None,
+    template_path: Optional[Path] = None,
+    *,
+    disorders_dir: Path = Path("kb/disorders"),
+    usage_index: dict[str, list[dict]] | None = None,
+) -> Path:
+    """Render a single shared module YAML file to HTML."""
+    module, disorder_usage = _load_module_context(
+        yaml_path,
+        disorders_dir=disorders_dir,
+        usage_index=usage_index,
+    )
+    yaml_content = yaml_path.read_text()
+
+    if template_path is None:
+        template_dir = Path(__file__).parent / "templates"
+        template_name = "module.html.j2"
+    else:
+        template_dir = template_path.parent
+        template_name = template_path.name
+
+    env = Environment(
+        loader=FileSystemLoader(template_dir),
+        autoescape=select_autoescape(["html", "j2"]),
+    )
+    env.filters["curie_to_url"] = curie_to_url
+    template = env.get_template(template_name)
+
+    source_file = (
+        "https://github.com/monarch-initiative/dismech/blob/main/"
+        f"kb/modules/{yaml_path.name}"
+    )
+    graph = build_causal_graph(module)
+    pathograph_data = graph_to_json(graph, module)
+    pathograph_node_count = len(
+        {node_name for edge in graph.edges for node_name in (edge.source, edge.target)}
+    )
+
+    html = template.render(
+        module=module,
+        module_id=yaml_path.stem,
+        disorder_usage=disorder_usage,
+        pathograph_data=pathograph_data,
+        pathograph_node_count=pathograph_node_count,
+        graph_issues=graph.integrity_issues,
+        yaml_content=yaml_content,
+        source_file=source_file,
+    )
+
+    if output_path is None:
+        output_path = Path("pages/modules") / f"{yaml_path.stem}.html"
+    else:
+        output_path = Path(output_path)
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(html)
+    return output_path
+
+
+def render_module_index(
+    modules: list[dict],
+    output_path: Path = Path("pages/modules/index.html"),
+) -> Path:
+    """Render the shared-module index page."""
+    template_dir = Path(__file__).parent / "templates"
+    env = Environment(
+        loader=FileSystemLoader(template_dir),
+        autoescape=select_autoescape(["html", "j2"]),
+    )
+    template = env.get_template("module_index.html.j2")
+
+    html = template.render(
+        modules=sorted(
+            modules,
+            key=lambda module: str(module.get("name") or "").casefold(),
+        )
+    )
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(html)
+    return output_path
+
+
+def render_all_modules(
+    input_dir: Path = Path("kb/modules"),
+    output_dir: Path = Path("pages/modules"),
+    template_path: Optional[Path] = None,
+    *,
+    disorders_dir: Path = Path("kb/disorders"),
+) -> list[Path]:
+    """Render all shared mechanism modules plus their index page."""
+    if not input_dir.exists():
+        return []
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    usage_index = _collect_module_usage(disorders_dir)
+
+    output_files: list[Path] = []
+    module_summaries: list[dict] = []
+
+    for yaml_path in sorted(input_dir.glob("*.yaml")):
+        module, _ = _load_module_context(
+            yaml_path,
+            disorders_dir=disorders_dir,
+            usage_index=usage_index,
+        )
+        output_path = output_dir / f"{yaml_path.stem}.html"
+        render_module(
+            yaml_path,
+            output_path,
+            template_path,
+            disorders_dir=disorders_dir,
+            usage_index=usage_index,
+        )
+        output_files.append(output_path)
+        module_summaries.append(_build_module_summary(module))
+        print(f"Rendered module: {yaml_path.stem} -> {output_path}")
+
+    index_path = render_module_index(module_summaries, output_dir / "index.html")
+    output_files.append(index_path)
+    print(f"Rendered module index -> {index_path}")
+    return output_files
 
 
 def render_all_comorbidities(
@@ -1033,6 +1386,7 @@ def render_all_disorders(
     """
     output_dir.mkdir(parents=True, exist_ok=True)
     render_all_comorbidities()
+    render_all_modules(disorders_dir=input_dir)
 
     yaml_files = [
         path
@@ -1063,13 +1417,14 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Render disorder and comorbidity pages"
+        description="Render disorder, comorbidity, and module pages"
     )
     parser.add_argument("path", nargs="?", help="Single YAML file or directory")
     parser.add_argument("--all", "-a", action="store_true", help="Render all disorders")
     parser.add_argument(
         "--comorbidity", action="store_true", help="Render comorbidity page(s)"
     )
+    parser.add_argument("--module", action="store_true", help="Render module page(s)")
     parser.add_argument("--output", "-o", help="Output path (file or directory)")
     parser.add_argument("--template", "-t", help="Custom template path")
 
@@ -1089,6 +1444,19 @@ def main():
         else:
             output_path = Path(args.output) if args.output else None
             result = render_comorbidity(input_path, output_path, template_path)
+            print(f"Generated: {result}")
+        return
+
+    if args.module:
+        if args.path is None:
+            raise SystemExit("Error: --module requires a file or directory path")
+        input_path = Path(args.path)
+        if input_path.is_dir():
+            output_dir = Path(args.output) if args.output else Path("pages/modules")
+            render_all_modules(input_path, output_dir, template_path)
+        else:
+            output_path = Path(args.output) if args.output else None
+            result = render_module(input_path, output_path, template_path)
             print(f"Generated: {result}")
         return
 
