@@ -506,16 +506,22 @@ deploy-browser: gen-browser-data
     @echo "Browser app ready at app/index.html"
     @echo "Data generated with $(find {{kb_dir}} -maxdepth 1 -type f -name '*.yaml' ! -name '*.history.yaml' | wc -l | tr -d ' ') disorders"
 
-# Generate individual HTML pages for all disorders and comorbidities
+# Generate individual HTML pages for all disorders, comorbidities, and modules
 [group('Pages')]
 gen-pages:
     uv run python -m dismech.render --all
-    @echo "Generated $(ls -1 pages/disorders/*.html 2>/dev/null | wc -l | tr -d ' ') disorder pages and $(ls -1 pages/comorbidities/*.html 2>/dev/null | wc -l | tr -d ' ') comorbidity pages"
+    @echo "Generated $(ls -1 pages/disorders/*.html 2>/dev/null | wc -l | tr -d ' ') disorder pages, $(ls -1 pages/comorbidities/*.html 2>/dev/null | wc -l | tr -d ' ') comorbidity pages, and $(ls -1 pages/modules/*.html 2>/dev/null | wc -l | tr -d ' ') module pages"
 
 # Generate a single disorder page
 [group('Pages')]
 gen-page file:
     uv run python -m dismech.render {{file}}
+
+# Generate all shared module pages
+[group('Pages')]
+gen-module-pages:
+    uv run python -m dismech.render --module {{modules_dir}}
+    @echo "Generated $(ls -1 pages/modules/*.html 2>/dev/null | wc -l | tr -d ' ') module pages"
 
 # Generate a single comorbidity page
 [group('Pages')]
