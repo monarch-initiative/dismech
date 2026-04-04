@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 18</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">chromatin remodeling disorder</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">neurodevelopmental disorder</span>
@@ -1936,6 +2109,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1993,6 +2169,14 @@
             <div class="stat-item">
                 <div class="stat-value">15</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">18</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2167,7 +2351,7 @@
                 <span class="card-count">4</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-baf-swi-snf-chromatin-remodeling-dysfunction">
                 <div class="item-name">BAF/SWI-SNF chromatin remodeling dysfunction</div>
                 
                 <div class="item-desc">Pathogenic variants in BAF-complex genes reduce or alter ATP-dependent chromatin remodeling, disturbing transcriptional programs required for embryonic patterning and neurodevelopment. CSS therefore behaves as a BAFopathy in which disruption of one of several chromatin-remodeling subunits converges on abnormal developmental gene regulation.</div>
@@ -2310,6 +2494,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2384,7 +2569,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-interneuron-deficiency-from-arid1b-haploinsufficiency">
                 <div class="item-name">Cortical interneuron deficiency from ARID1B haploinsufficiency</div>
                 
                 <div class="item-desc">ARID1B haploinsufficiency reduces GABAergic interneuron numbers in the cerebral cortex through impaired proliferation and increased apoptosis of interneuron progenitors in the ganglionic eminence, creating an excitatory-inhibitory imbalance that underlies cognitive and behavioral abnormalities.</div>
@@ -2467,6 +2652,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2521,7 +2707,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-cell-cycle-dynamics-from-arid1b-haploinsufficiency">
                 <div class="item-name">Altered cell-cycle dynamics from ARID1B haploinsufficiency</div>
                 
                 <div class="item-desc">ARID1B haploinsufficiency causes delayed cell-cycle re-entry in patient-derived cells, indicating that abnormal proliferation dynamics contribute to CSS pathogenesis and likely impair tissue growth and developmental progression.</div>
@@ -2568,6 +2754,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2627,7 +2814,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-protein-misfolding-and-aggregation-of-non-truncating-arid1b-variants">
                 <div class="item-name">Protein misfolding and aggregation of non-truncating ARID1B variants</div>
                 
                 <div class="item-desc">A subset of ARID1B missense variants cause CSS by provoking protein misfolding and aggregate formation rather than classical nonsense-mediated decay, thereby reducing functional nuclear BAF activity through an alternative loss-of-function mechanism.</div>
@@ -2660,6 +2847,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2732,6 +2920,7 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="graph-warning">
                 <strong>Referential integrity issues (6):</strong>
@@ -2757,13 +2946,13 @@
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Coffin-Siris syndrome</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Altered cell-cycle dynamics from ARID1B haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ARID1B haploinsufficiency causes delayed cell-cycle re-entry in patient-derived cells, indicating that abnormal proliferation dynamics contribute to CSS pathogenesis and likely impair tissue growth and developmental progression.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"regulation of cell cycle process\"], \"genes\": [\"ARID1B\"]}}, {\"id\": \"Altered developmental transcription programs\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"BAF/SWI-SNF chromatin remodeling dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants in BAF-complex genes reduce or alter ATP-dependent chromatin remodeling, disturbing transcriptional programs required for embryonic patterning and neurodevelopment. CSS therefore behaves as a BAFopathy in which disruption of one of several chromatin-remodeling subunits converges on abnormal developmental gene regulation.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"chromatin remodeling\", \"regulation of transcription by RNA polymerase II\", \"nervous system development\"], \"genes\": [\"ARID1A\", \"ARID1B\", \"ARID2\", \"DPF2\", \"SMARCA2\", \"SMARCA4\", \"SMARCB1\", \"SMARCE1\"], \"locations\": [\"brain\"]}}, {\"id\": \"Cognitive and behavioral abnormalities\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Cortical interneuron deficiency from ARID1B haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ARID1B haploinsufficiency reduces GABAergic interneuron numbers in the cerebral cortex through impaired proliferation and increased apoptosis of interneuron progenitors in the ganglionic eminence, creating an excitatory-inhibitory imbalance that underlies cognitive and behavioral abnormalities.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"GABAergic interneuron\", \"neural progenitor cell\"], \"biological_processes\": [\"GABAergic neuron differentiation\", \"regulation of neuron apoptotic process\"], \"genes\": [\"ARID1B\"], \"locations\": [\"cerebral cortex\"]}}, {\"id\": \"Excitatory-inhibitory imbalance\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Neurodevelopmental impairment\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Protein misfolding and aggregation of non-truncating ARID1B variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A subset of ARID1B missense variants cause CSS by provoking protein misfolding and aggregate formation rather than classical nonsense-mediated decay, thereby reducing functional nuclear BAF activity through an alternative loss-of-function mechanism.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein folding\"], \"genes\": [\"ARID1B\"]}}, {\"id\": \"Reduced functional ARID1B availability\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Reduced proliferative capacity\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}], \"edges\": [{\"source\": \"BAF/SWI-SNF chromatin remodeling dysfunction\", \"target\": \"Altered developmental transcription programs\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"BAF/SWI-SNF chromatin remodeling dysfunction\", \"target\": \"Neurodevelopmental impairment\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"Cortical interneuron deficiency from ARID1B haploinsufficiency\", \"target\": \"Excitatory-inhibitory imbalance\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"Cortical interneuron deficiency from ARID1B haploinsufficiency\", \"target\": \"Cognitive and behavioral abnormalities\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"Altered cell-cycle dynamics from ARID1B haploinsufficiency\", \"target\": \"Reduced proliferative capacity\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"Protein misfolding and aggregation of non-truncating ARID1B variants\", \"target\": \"Reduced functional ARID1B availability\", \"predicate\": \"causes\", \"is_orphan\": true}], \"orphan_targets\": [\"Altered developmental transcription programs\", \"Cognitive and behavioral abnormalities\", \"Excitatory-inhibitory imbalance\", \"Neurodevelopmental impairment\", \"Reduced functional ARID1B availability\", \"Reduced proliferative capacity\"]}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ARID1A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ARID1A\"], \"association\": \"Causative\"}}, {\"id\": \"ARID1B\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"ARID1B\"], \"association\": \"Causative\"}}, {\"id\": \"ARID2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ARID2\"], \"association\": \"Causative\"}}, {\"id\": \"Altered cell-cycle dynamics from ARID1B haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ARID1B haploinsufficiency causes delayed cell-cycle re-entry in patient-derived cells, indicating that abnormal proliferation dynamics contribute to CSS pathogenesis and likely impair tissue growth and developmental progression.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"regulation of cell cycle process\"], \"genes\": [\"ARID1B\"]}}, {\"id\": \"Altered developmental transcription programs\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"BAF/SWI-SNF chromatin remodeling dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants in BAF-complex genes reduce or alter ATP-dependent chromatin remodeling, disturbing transcriptional programs required for embryonic patterning and neurodevelopment. CSS therefore behaves as a BAFopathy in which disruption of one of several chromatin-remodeling subunits converges on abnormal developmental gene regulation.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"chromatin remodeling\", \"regulation of transcription by RNA polymerase II\", \"nervous system development\"], \"genes\": [\"ARID1A\", \"ARID1B\", \"ARID2\", \"DPF2\", \"SMARCA2\", \"SMARCA4\", \"SMARCB1\", \"SMARCE1\"], \"locations\": [\"brain\"]}}, {\"id\": \"Cognitive and behavioral abnormalities\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Cortical interneuron deficiency from ARID1B haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ARID1B haploinsufficiency reduces GABAergic interneuron numbers in the cerebral cortex through impaired proliferation and increased apoptosis of interneuron progenitors in the ganglionic eminence, creating an excitatory-inhibitory imbalance that underlies cognitive and behavioral abnormalities.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"GABAergic interneuron\", \"neural progenitor cell\"], \"biological_processes\": [\"GABAergic neuron differentiation\", \"regulation of neuron apoptotic process\"], \"genes\": [\"ARID1B\"], \"locations\": [\"cerebral cortex\"]}}, {\"id\": \"DPF2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DPF2\"], \"association\": \"Causative\"}}, {\"id\": \"Excitatory-inhibitory imbalance\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Neurodevelopmental impairment\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Protein misfolding and aggregation of non-truncating ARID1B variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A subset of ARID1B missense variants cause CSS by provoking protein misfolding and aggregate formation rather than classical nonsense-mediated decay, thereby reducing functional nuclear BAF activity through an alternative loss-of-function mechanism.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein folding\"], \"genes\": [\"ARID1B\"]}}, {\"id\": \"Reduced functional ARID1B availability\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Reduced proliferative capacity\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"SMARCA2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SMARCA2\"], \"association\": \"Causative\"}}, {\"id\": \"SMARCA4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SMARCA4\"], \"association\": \"Causative\"}}, {\"id\": \"SMARCB1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SMARCB1\"], \"association\": \"Causative\"}}, {\"id\": \"SMARCE1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SMARCE1\"], \"association\": \"Causative\"}}], \"edges\": [{\"source\": \"BAF/SWI-SNF chromatin remodeling dysfunction\", \"target\": \"Altered developmental transcription programs\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"BAF/SWI-SNF chromatin remodeling dysfunction\", \"target\": \"Neurodevelopmental impairment\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"Cortical interneuron deficiency from ARID1B haploinsufficiency\", \"target\": \"Excitatory-inhibitory imbalance\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"Cortical interneuron deficiency from ARID1B haploinsufficiency\", \"target\": \"Cognitive and behavioral abnormalities\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"Altered cell-cycle dynamics from ARID1B haploinsufficiency\", \"target\": \"Reduced proliferative capacity\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"Protein misfolding and aggregation of non-truncating ARID1B variants\", \"target\": \"Reduced functional ARID1B availability\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"ARID1B\", \"target\": \"Altered cell-cycle dynamics from ARID1B haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ARID1B\", \"target\": \"BAF/SWI-SNF chromatin remodeling dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ARID1B\", \"target\": \"Cortical interneuron deficiency from ARID1B haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ARID1B\", \"target\": \"Protein misfolding and aggregation of non-truncating ARID1B variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SMARCA4\", \"target\": \"BAF/SWI-SNF chromatin remodeling dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SMARCB1\", \"target\": \"BAF/SWI-SNF chromatin remodeling dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SMARCE1\", \"target\": \"BAF/SWI-SNF chromatin remodeling dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ARID1A\", \"target\": \"BAF/SWI-SNF chromatin remodeling dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DPF2\", \"target\": \"BAF/SWI-SNF chromatin remodeling dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ARID2\", \"target\": \"BAF/SWI-SNF chromatin remodeling dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SMARCA2\", \"target\": \"BAF/SWI-SNF chromatin remodeling dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": [\"Altered developmental transcription programs\", \"Cognitive and behavioral abnormalities\", \"Excitatory-inhibitory imbalance\", \"Neurodevelopmental impairment\", \"Reduced functional ARID1B availability\", \"Reduced proliferative capacity\"]}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4724,11 +4913,13 @@ inheritance:
     and many molecularly confirmed cases are de novo.
   evidence:
   - reference: PMID:38790056
+    reference_title: &#34;De novo variation in ARID1B gene causes Coffin-Siris syndrome 1 in a Chinese family with excessive early-onset high myopia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Coffin-Siris syndrome (CSS) is a rare autosomal dominant inheritance disorder characterized by distinctive facial features, hypoplasia of the distal phalanx or nail of the fifth and additional digits, developmental or cognitive delay of varying degree, hypotonia, hirsutism/hypertrichosis, sparse scalp hair and varying kind of congenital anomalies.&#34;
     explanation: This directly supports autosomal dominant inheritance for CSS.
   - reference: PMID:23815551
+    reference_title: &#34;Coffin-Siris syndrome is a SWI/SNF complex disorder.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;By examining available parental samples, we ascertained that 17 occurred de novo.&#34;
@@ -4807,6 +4998,7 @@ pathophysiology:
     description: Reduced BAF activity perturbs expression programs needed for normal tissue differentiation.
     evidence:
     - reference: PMID:23815551
+      reference_title: &#34;Coffin-Siris syndrome is a SWI/SNF complex disorder.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;We previously reported that five genes are mutated in CSS, all of which encode subunits of the switch/sucrose non-fermenting (SWI/SNF) ATP-dependent chromatin-remodeling complex: SMARCB1, SMARCA4, SMARCE1, ARID1A, and ARID1B.&#34;
@@ -4815,22 +5007,26 @@ pathophysiology:
     description: Developmental gene dysregulation contributes to intellectual disability, hypotonia, and multisystem congenital anomalies.
     evidence:
     - reference: PMID:30276971
+      reference_title: &#34;First data from a parent-reported registry of 81 individuals with Coffin-Siris syndrome: Natural history and management recommendations.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Varying degrees of developmental and intellectual delay are universal.&#34;
       explanation: This supports the downstream consequence of neurodevelopmental impairment following BAF-complex dysfunction.
   evidence:
   - reference: PMID:23815551
+    reference_title: &#34;Coffin-Siris syndrome is a SWI/SNF complex disorder.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Our data further support that CSS is a SWI/SNF complex disorder.&#34;
     explanation: This explicitly supports CSS as a SWI/SNF complex disorder.
   - reference: PMID:30276971
+    reference_title: &#34;First data from a parent-reported registry of 81 individuals with Coffin-Siris syndrome: Natural history and management recommendations.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Coffin-Siris syndrome (CSS; MIM 135900) is a multisystem congenital anomaly syndrome caused by mutations in the genes in the Brg-1 associated factors (BAF) complex.&#34;
     explanation: This independently confirms BAF-complex dysfunction as the central disease mechanism.
   - reference: PMID:22426308
+    reference_title: &#34;Mutations affecting components of the SWI/SNF complex cause Coffin-Siris syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Twenty affected individuals (87%) each had a germline mutation in one of six SWI/SNF subunit genes, including SMARCB1, SMARCA4, SMARCA2, SMARCE1, ARID1A and ARID1B.&#34;
@@ -4878,6 +5074,7 @@ pathophysiology:
       cognitive dysfunction and autism-like behaviors.
     evidence:
     - reference: PMID:29184203
+      reference_title: &#34;Arid1b haploinsufficiency disrupts cortical interneuron development and mouse behavior.&#34;
       supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &#34;Arid1b haploinsufficiency also led to an imbalance between excitatory and inhibitory synapses in the cerebral cortex.&#34;
@@ -4888,17 +5085,20 @@ pathophysiology:
       that can be rescued by enhancing GABAergic signaling.
     evidence:
     - reference: PMID:29184203
+      reference_title: &#34;Arid1b haploinsufficiency disrupts cortical interneuron development and mouse behavior.&#34;
       supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &#34;Arid1b-heterozygous mice exhibited abnormal cognitive and social behaviors, which were rescued by treatment with a positive allosteric GABAA receptor modulator.&#34;
       explanation: This demonstrates that behavioral consequences of Arid1b haploinsufficiency are mediated by GABAergic deficits.
   evidence:
   - reference: PMID:29184203
+    reference_title: &#34;Arid1b haploinsufficiency disrupts cortical interneuron development and mouse behavior.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Arid1b-heterozygous mice showed a decreased number of cortical GABAergic interneurons and reduced proliferation of interneuron progenitors in the ganglionic eminence.&#34;
     explanation: Direct evidence from an Arid1b haploinsufficiency mouse model showing reduced cortical interneurons.
   - reference: PMID:29184203
+    reference_title: &#34;Arid1b haploinsufficiency disrupts cortical interneuron development and mouse behavior.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Arid1b haploinsufficiency suppressed histone H3 lysine 9 acetylation (H3K9ac) overall and particularly reduced H3K9ac of the Pvalb promoter, resulting in decreased transcription.&#34;
@@ -4928,17 +5128,20 @@ pathophysiology:
     description: Delayed cell-cycle re-entry limits normal expansion of developing cell populations.
     evidence:
     - reference: PMID:24674232
+      reference_title: &#34;Expanding the phenotypic spectrum of ARID1B-mediated disorders and identification of altered cell-cycle dynamics due to ARID1B haploinsufficiency.&#34;
       supports: SUPPORT
       evidence_source: IN_VITRO
       snippet: &#34;Analysis of both patient-derived and ARID1B knockdown fibroblasts after serum starvation demonstrated delayed cell cycle re-entry associated with reduced cell number in the S1 phase.&#34;
       explanation: This directly supports reduced proliferative capacity as the downstream consequence of altered ARID1B-dependent cell-cycle control.
   evidence:
   - reference: PMID:24674232
+    reference_title: &#34;Expanding the phenotypic spectrum of ARID1B-mediated disorders and identification of altered cell-cycle dynamics due to ARID1B haploinsufficiency.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;Analysis of both patient-derived and ARID1B knockdown fibroblasts after serum starvation demonstrated delayed cell cycle re-entry associated with reduced cell number in the S1 phase.&#34;
     explanation: This provides direct functional evidence that ARID1B haploinsufficiency alters cell-cycle dynamics.
   - reference: PMID:24674232
+    reference_title: &#34;Expanding the phenotypic spectrum of ARID1B-mediated disorders and identification of altered cell-cycle dynamics due to ARID1B haploinsufficiency.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;We present the first direct evidence in patient-derived cells that alterations in cell cycle contribute to the underlying pathogenesis of syndromes associated with ARID1B haploinsufficiency.&#34;
@@ -4964,17 +5167,20 @@ pathophysiology:
     description: Aggregated ARID1B fails to contribute normally to BAF-complex function.
     evidence:
     - reference: PMID:39028335
+      reference_title: &#34;The missing link: ARID1B non-truncating variants causing Coffin-Siris syndrome due to protein aggregation.&#34;
       supports: SUPPORT
       evidence_source: IN_VITRO
       snippet: &#34;The present study substantiates the pathogenesis of ARID1B non-truncating/NMD-escaping variants located in the SMARCA4-interacting EHD2 and DNA-binding ARID domains. Overexpression assays in cell lines revealed that the majority of EHD2 variants lead to protein misfolding and formation of cytoplasmic aggresomes surrounded by vimentin cage-like structures and co-localizing with the microtubule organisation center.&#34;
       explanation: This supports aggregation-mediated loss of functional ARID1B availability as a downstream consequence of non-truncating variants.
   evidence:
   - reference: PMID:39028335
+    reference_title: &#34;The missing link: ARID1B non-truncating variants causing Coffin-Siris syndrome due to protein aggregation.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;The present study substantiates the pathogenesis of ARID1B non-truncating/NMD-escaping variants located in the SMARCA4-interacting EHD2 and DNA-binding ARID domains. Overexpression assays in cell lines revealed that the majority of EHD2 variants lead to protein misfolding and formation of cytoplasmic aggresomes surrounded by vimentin cage-like structures and co-localizing with the microtubule organisation center.&#34;
     explanation: This supports protein misfolding and aggregation as a pathogenic mechanism for a subset of ARID1B variants in CSS.
   - reference: PMID:39028335
+    reference_title: &#34;The missing link: ARID1B non-truncating variants causing Coffin-Siris syndrome due to protein aggregation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Genome-wide transcriptome and methylation analysis in affected individuals revealed expression and methylome patterns consistent with those of the pathogenic haploinsufficiency ARID1B alterations in CSS cases.&#34;
@@ -4991,6 +5197,7 @@ phenotypes:
       label: Global developmental delay
   evidence:
   - reference: PMID:30276971
+    reference_title: &#34;First data from a parent-reported registry of 81 individuals with Coffin-Siris syndrome: Natural history and management recommendations.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Varying degrees of developmental and intellectual delay are universal.&#34;
@@ -5006,11 +5213,13 @@ phenotypes:
       label: Intellectual disability
   evidence:
   - reference: PMID:30276971
+    reference_title: &#34;First data from a parent-reported registry of 81 individuals with Coffin-Siris syndrome: Natural history and management recommendations.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Varying degrees of developmental and intellectual delay are universal.&#34;
     explanation: This directly supports intellectual disability as a core clinical feature of CSS.
   - reference: PMID:23815551
+    reference_title: &#34;Coffin-Siris syndrome is a SWI/SNF complex disorder.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Coffin-Siris syndrome (CSS) is a congenital disorder characterized by intellectual disability, growth deficiency, microcephaly, coarse facial features, and hypoplastic or absent fifth fingernails and/or toenails.&#34;
@@ -5026,6 +5235,7 @@ phenotypes:
       label: Hypoplastic fifth fingernail
   evidence:
   - reference: PMID:30276971
+    reference_title: &#34;First data from a parent-reported registry of 81 individuals with Coffin-Siris syndrome: Natural history and management recommendations.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Classically, individuals with CSS have been described with hypo- or aplasia of the fifth digit nails or phalanges (hence the term \&#34;fifth digit syndrome\&#34;).&#34;
@@ -5040,11 +5250,13 @@ phenotypes:
       label: Coarse facial features
   evidence:
   - reference: PMID:30276971
+    reference_title: &#34;First data from a parent-reported registry of 81 individuals with Coffin-Siris syndrome: Natural history and management recommendations.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Other physical features seen include growth restriction, coarse facial features, hypertrichosis or hirsutism, sparse scalp hair, dental anomalies, and other organ-system abnormalities.&#34;
     explanation: This supports coarse facial features as one of the major physical findings in CSS.
   - reference: PMID:38182156
+    reference_title: &#34;Coffin-Siris Syndrome: Case Series of Three Patients and a Novel ARID2 Variant.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Coffin-Siris syndrome (CSS) is a rare congenital disorder characterized by coarse facial features, intellectual disability or developmental delay, and aplasia or hypoplasia of the tips of the fifth finger and/or toes.&#34;
@@ -5059,11 +5271,13 @@ phenotypes:
       label: Hypotonia
   evidence:
   - reference: PMID:38243407
+    reference_title: &#34;ARID2, a milder cause of Coffin-Siris Syndrome? Broadening the phenotype with 17 additional individuals.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Individuals with CSS have a spectrum of various medical challenges, most often evident at birth, including feeding difficulties, hypotonia, organ-system anomalies, and learning and developmental differences.&#34;
     explanation: This supports hypotonia as a frequent early-life manifestation of CSS.
   - reference: PMID:38790056
+    reference_title: &#34;De novo variation in ARID1B gene causes Coffin-Siris syndrome 1 in a Chinese family with excessive early-onset high myopia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Coffin-Siris syndrome (CSS) is a rare autosomal dominant inheritance disorder characterized by distinctive facial features, hypoplasia of the distal phalanx or nail of the fifth and additional digits, developmental or cognitive delay of varying degree, hypotonia, hirsutism/hypertrichosis, sparse scalp hair and varying kind of congenital anomalies.&#34;
@@ -5078,6 +5292,7 @@ phenotypes:
       label: Feeding difficulties in infancy
   evidence:
   - reference: PMID:38243407
+    reference_title: &#34;ARID2, a milder cause of Coffin-Siris Syndrome? Broadening the phenotype with 17 additional individuals.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Individuals with CSS have a spectrum of various medical challenges, most often evident at birth, including feeding difficulties, hypotonia, organ-system anomalies, and learning and developmental differences.&#34;
@@ -5093,6 +5308,7 @@ phenotypes:
       label: Hypertrichosis
   evidence:
   - reference: PMID:30276971
+    reference_title: &#34;First data from a parent-reported registry of 81 individuals with Coffin-Siris syndrome: Natural history and management recommendations.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Other physical features seen include growth restriction, coarse facial features, hypertrichosis or hirsutism, sparse scalp hair, dental anomalies, and other organ-system abnormalities.&#34;
@@ -5107,6 +5323,7 @@ phenotypes:
       label: Sparse scalp hair
   evidence:
   - reference: PMID:30276971
+    reference_title: &#34;First data from a parent-reported registry of 81 individuals with Coffin-Siris syndrome: Natural history and management recommendations.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Other physical features seen include growth restriction, coarse facial features, hypertrichosis or hirsutism, sparse scalp hair, dental anomalies, and other organ-system abnormalities.&#34;
@@ -5122,11 +5339,13 @@ phenotypes:
       label: Short stature
   evidence:
   - reference: PMID:38243407
+    reference_title: &#34;ARID2, a milder cause of Coffin-Siris Syndrome? Broadening the phenotype with 17 additional individuals.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Although individuals with ARID2 have been reported to have classic features of CSS including hypertrichosis, coarse facial features, short stature, and fifth digit anomalies, as with many of the other CSS genes, there appears to be a spectrum of phenotypes.&#34;
     explanation: This supports short stature as part of the recognized CSS phenotype spectrum.
   - reference: PMID:23815551
+    reference_title: &#34;Coffin-Siris syndrome is a SWI/SNF complex disorder.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Coffin-Siris syndrome (CSS) is a congenital disorder characterized by intellectual disability, growth deficiency, microcephaly, coarse facial features, and hypoplastic or absent fifth fingernails and/or toenails.&#34;
@@ -5142,6 +5361,7 @@ phenotypes:
       label: Microcephaly
   evidence:
   - reference: PMID:23815551
+    reference_title: &#34;Coffin-Siris syndrome is a SWI/SNF complex disorder.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Coffin-Siris syndrome (CSS) is a congenital disorder characterized by intellectual disability, growth deficiency, microcephaly, coarse facial features, and hypoplastic or absent fifth fingernails and/or toenails.&#34;
@@ -5161,6 +5381,7 @@ phenotypes:
     figures are primarily available in full-text reports rather than abstracts.
   evidence:
   - reference: PMID:29184203
+    reference_title: &#34;Arid1b haploinsufficiency disrupts cortical interneuron development and mouse behavior.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Arid1b haploinsufficiency also led to an imbalance between excitatory and inhibitory synapses in the cerebral cortex.&#34;
@@ -5176,6 +5397,7 @@ phenotypes:
       label: Hearing impairment
   evidence:
   - reference: PMID:38790056
+    reference_title: &#34;De novo variation in ARID1B gene causes Coffin-Siris syndrome 1 in a Chinese family with excessive early-onset high myopia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;moderate hearing loss&#34;
@@ -5191,11 +5413,13 @@ phenotypes:
       label: Abnormal dental morphology
   evidence:
   - reference: PMID:30276971
+    reference_title: &#34;First data from a parent-reported registry of 81 individuals with Coffin-Siris syndrome: Natural history and management recommendations.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Other physical features seen include growth restriction, coarse facial features, hypertrichosis or hirsutism, sparse scalp hair, dental anomalies, and other organ-system abnormalities.&#34;
     explanation: Dental anomalies are listed among the physical features of CSS.
   - reference: PMID:38790056
+    reference_title: &#34;De novo variation in ARID1B gene causes Coffin-Siris syndrome 1 in a Chinese family with excessive early-onset high myopia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;dental hypoplasia&#34;
@@ -5212,11 +5436,13 @@ phenotypes:
       label: Abnormal heart morphology
   evidence:
   - reference: PMID:38243407
+    reference_title: &#34;ARID2, a milder cause of Coffin-Siris Syndrome? Broadening the phenotype with 17 additional individuals.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;hip dysplasia appears to occur more often than with other genes, however more severe medical challenges such as significant brain and cardiac malformations are rarer&#34;
     explanation: This confirms that cardiac malformations are part of the CSS phenotypic spectrum, though they occur less frequently in ARID2-associated cases.
   - reference: PMID:38790056
+    reference_title: &#34;De novo variation in ARID1B gene causes Coffin-Siris syndrome 1 in a Chinese family with excessive early-onset high myopia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;patent foramen ovale&#34;
@@ -5232,6 +5458,7 @@ phenotypes:
       label: Abnormality of the kidney
   evidence:
   - reference: PMID:38790056
+    reference_title: &#34;De novo variation in ARID1B gene causes Coffin-Siris syndrome 1 in a Chinese family with excessive early-onset high myopia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;bilateral renal cysts&#34;
@@ -5253,16 +5480,19 @@ genetic:
     through protein aggregation.
   evidence:
   - reference: PMID:24674232
+    reference_title: &#34;Expanding the phenotypic spectrum of ARID1B-mediated disorders and identification of altered cell-cycle dynamics due to ARID1B haploinsufficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;ARID1B mutations have been identified as the predominant cause of Coffin-Siris syndrome and have also been shown to be a frequent cause of nonsyndromic intellectual disability.&#34;
     explanation: This supports ARID1B as the predominant causative gene in CSS.
   - reference: PMID:39028335
+    reference_title: &#34;The missing link: ARID1B non-truncating variants causing Coffin-Siris syndrome due to protein aggregation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;ARID1B is the most frequently mutated gene in Coffin-Siris syndrome (CSS).&#34;
     explanation: This independently confirms ARID1B as the most common CSS gene.
   - reference: PMID:39028335
+    reference_title: &#34;The missing link: ARID1B non-truncating variants causing Coffin-Siris syndrome due to protein aggregation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;To date, the vast majority of causative variants reported in ARID1B are truncating, leading to nonsense-mediated mRNA decay.&#34;
@@ -5281,11 +5511,13 @@ genetic:
     deletion) and may act via dominant-negative mechanisms.
   evidence:
   - reference: PMID:23815551
+    reference_title: &#34;Coffin-Siris syndrome is a SWI/SNF complex disorder.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We found that SMARCB1, SMARCA4, or ARID1B were mutated in 20 patients.&#34;
     explanation: This supports SMARCA4 as one of the causative CSS genes.
   - reference: PMID:23815551
+    reference_title: &#34;Coffin-Siris syndrome is a SWI/SNF complex disorder.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;All mutations in SMARCB1 and SMARCA4 were non-truncating (missense or in-frame deletion) whereas those in ARID1B were all truncating (nonsense or frameshift deletion/insertion)&#34;
@@ -5305,11 +5537,13 @@ genetic:
     patch.
   evidence:
   - reference: PMID:22426308
+    reference_title: &#34;Mutations affecting components of the SWI/SNF complex cause Coffin-Siris syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;we found de novo SMARCB1 mutations in two of five individuals with typical Coffin-Siris syndrome&#34;
     explanation: The original 2012 identification of SMARCB1 as a CSS gene.
   - reference: PMID:23815551
+    reference_title: &#34;Coffin-Siris syndrome is a SWI/SNF complex disorder.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;All mutations in SMARCB1 and SMARCA4 were non-truncating (missense or in-frame deletion) whereas those in ARID1B were all truncating (nonsense or frameshift deletion/insertion)&#34;
@@ -5327,6 +5561,7 @@ genetic:
     CSS-associated variants may act via dominant-negative mechanisms.
   evidence:
   - reference: PMID:22426308
+    reference_title: &#34;Mutations affecting components of the SWI/SNF complex cause Coffin-Siris syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Twenty affected individuals (87%) each had a germline mutation in one of six SWI/SNF subunit genes, including SMARCB1, SMARCA4, SMARCA2, SMARCE1, ARID1A and ARID1B.&#34;
@@ -5345,6 +5580,7 @@ genetic:
     congenital heart defects and hepatoblastoma.
   evidence:
   - reference: PMID:22426308
+    reference_title: &#34;Mutations affecting components of the SWI/SNF complex cause Coffin-Siris syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Twenty affected individuals (87%) each had a germline mutation in one of six SWI/SNF subunit genes, including SMARCB1, SMARCA4, SMARCA2, SMARCE1, ARID1A and ARID1B.&#34;
@@ -5363,6 +5599,7 @@ genetic:
     dominant-negative mechanism is proposed.
   evidence:
   - reference: PMID:29429572
+    reference_title: &#34;Mutations in the BAF-Complex Subunit DPF2 Are Associated with Coffin-Siris Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Altogether, we provide compelling evidence that de novo variants in DPF2 cause Coffin-Siris syndrome and propose a dominant-negative mechanism of pathogenicity.&#34;
@@ -5381,11 +5618,13 @@ genetic:
     Hip dysplasia may occur more often with ARID2 variants.
   evidence:
   - reference: PMID:38243407
+    reference_title: &#34;ARID2, a milder cause of Coffin-Siris Syndrome? Broadening the phenotype with 17 additional individuals.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Although individuals with ARID2 have been reported to have classic features of CSS including hypertrichosis, coarse facial features, short stature, and fifth digit anomalies, as with many of the other CSS genes, there appears to be a spectrum of phenotypes.&#34;
     explanation: This supports ARID2 as a recognized CSS gene with a variable phenotype spectrum.
   - reference: PMID:38243407
+    reference_title: &#34;ARID2, a milder cause of Coffin-Siris Syndrome? Broadening the phenotype with 17 additional individuals.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;hip dysplasia appears to occur more often than with other genes, however more severe medical challenges such as significant brain and cardiac malformations are rarer&#34;
@@ -5404,6 +5643,7 @@ genetic:
     developmental transcription programs.
   evidence:
   - reference: PMID:39501269
+    reference_title: &#34;A rare Coffin-Siris syndrome induced by SOX11: a de novo nonsense variant of short stature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The combination of clinical presentation and genetic testing results supports that the patient suffers from Coffin-Siris syndrome due to a genetic variant in the SOX11 gene.&#34;
@@ -5421,6 +5661,7 @@ genetic:
     act through haploinsufficiency.
   evidence:
   - reference: PMID:41291750
+    reference_title: &#34;Long-read sequencing identifies a novel de novo inversion in SMARCC2 in a pediatric patient with Coffin-siris syndrome 8: a case report.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Coffin-Siris Syndrome 8 (CSS8; MIM# 618362) is a rare neurodevelopmental disorder caused by heterozygous variants in the SMARCC2 gene.&#34;
@@ -5440,6 +5681,7 @@ genetic:
     identified as one of the six original CSS-causing SWI/SNF genes.
   evidence:
   - reference: PMID:22426308
+    reference_title: &#34;Mutations affecting components of the SWI/SNF complex cause Coffin-Siris syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Twenty affected individuals (87%) each had a germline mutation in one of six SWI/SNF subunit genes, including SMARCB1, SMARCA4, SMARCA2, SMARCE1, ARID1A and ARID1B.&#34;
@@ -5459,6 +5701,7 @@ genetic:
     activating factor&#34;; the correct expansion is BRG1/BRM-Associated Factors.
   evidence:
   - reference: PMID:38243407
+    reference_title: &#34;ARID2, a milder cause of Coffin-Siris Syndrome? Broadening the phenotype with 17 additional individuals.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;SMARCC2, DPF2, and more recently, BICRA&#34;
@@ -5472,6 +5715,7 @@ diagnosis:
     individuals have identifiable mutations in SWI/SNF subunit genes.
   evidence:
   - reference: PMID:22426308
+    reference_title: &#34;Mutations affecting components of the SWI/SNF complex cause Coffin-Siris syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Twenty affected individuals (87%) each had a germline mutation in one of six SWI/SNF subunit genes, including SMARCB1, SMARCA4, SMARCA2, SMARCE1, ARID1A and ARID1B.&#34;
@@ -5482,6 +5726,7 @@ diagnosis:
     as a diagnostic adjunct for variant interpretation in CSS.
   evidence:
   - reference: PMID:39028335
+    reference_title: &#34;The missing link: ARID1B non-truncating variants causing Coffin-Siris syndrome due to protein aggregation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Genome-wide transcriptome and methylation analysis in affected individuals revealed expression and methylome patterns consistent with those of the pathogenic haploinsufficiency ARID1B alterations in CSS cases.&#34;
@@ -5499,6 +5744,7 @@ treatments:
       label: supportive care
   evidence:
   - reference: PMID:30276971
+    reference_title: &#34;First data from a parent-reported registry of 81 individuals with Coffin-Siris syndrome: Natural history and management recommendations.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In addition, we offer surveillance and management recommendations based on the medical issues encountered in this cohort to help guide physicians and patients&#39; families.&#34;
@@ -5514,6 +5760,7 @@ treatments:
       label: speech therapy
   evidence:
   - reference: PMID:30276971
+    reference_title: &#34;First data from a parent-reported registry of 81 individuals with Coffin-Siris syndrome: Natural history and management recommendations.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Varying degrees of developmental and intellectual delay are universal.&#34;
@@ -5529,6 +5776,7 @@ treatments:
       label: genetic counseling
   evidence:
   - reference: PMID:23815551
+    reference_title: &#34;Coffin-Siris syndrome is a SWI/SNF complex disorder.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;By examining available parental samples, we ascertained that 17 occurred de novo.&#34;
@@ -5544,6 +5792,7 @@ treatments:
       label: physical therapy
   evidence:
   - reference: PMID:38243407
+    reference_title: &#34;ARID2, a milder cause of Coffin-Siris Syndrome? Broadening the phenotype with 17 additional individuals.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Feeding difficulties, hypotonia, and short stature occur often&#34;

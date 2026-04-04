@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Urea Cycle Disorder</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Inborn error of metabolism</span>
@@ -1937,6 +2110,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1992,6 +2168,14 @@
             <div class="stat-item">
                 <div class="stat-value">11</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">9</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2093,7 +2277,7 @@
                 <span class="card-count">6</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-nags-molecular-function-deficiency">
                 <div class="item-name">NAGS molecular function deficiency</div>
                 
                 <div class="item-desc">NAGS catalyzes N-acetylglutamate (NAG) formation from acetyl-CoA and L-glutamate in the mitochondrial matrix of hepatocytes and intestinal cells. Loss of NAGS activity reduces NAG availability, creating the primary biochemical lesion in NAGS deficiency.
@@ -2146,6 +2330,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -2202,7 +2387,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-cps1-activation-and-impaired-ureagenesis">
                 <div class="item-name">Loss of CPS1 activation and impaired ureagenesis</div>
                 
                 <div class="item-desc">NAG is the obligate allosteric activator of CPS1. When NAG is deficient, CPS1 remains underactivated, reducing carbamoyl phosphate formation and impairing proximal urea cycle flux.
@@ -2246,6 +2431,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -2302,7 +2488,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-arginine-mediated-nags-regulation">
                 <div class="item-name">Impaired arginine-mediated NAGS regulation</div>
                 
                 <div class="item-desc">NAGS activity is allosterically regulated by L-arginine, which increases enzyme activity 2-5-fold under physiological conditions. Many disease-causing NAGS variants show loss of arginine activation as their primary mechanistic defect. Hampered NAGS activation by arginine has emerged as a paramount causative factor of NAGS deficiency.
@@ -2335,6 +2521,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2374,7 +2561,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-hyperammonemic-astrocyte-stress-and-glutamine-accumulation">
                 <div class="item-name">Hyperammonemic astrocyte stress and glutamine accumulation</div>
                 
                 <div class="item-desc">Hyperammonemia drives encephalopathy and astrocyte stress in the brain. Ammonia detoxification in astrocytes increases glutamine production, creating intracellular osmotic burden and vulnerability to swelling.
@@ -2427,6 +2614,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2461,7 +2649,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-cytotoxic-cerebral-edema-and-intracranial-hypertension">
                 <div class="item-name">Cytotoxic cerebral edema and intracranial hypertension</div>
                 
                 <div class="item-desc">In severe crises, ammonia-mediated brain injury progresses to cerebral edema, intracranial hypertension, and risk of herniation, coma, and death.
@@ -2484,6 +2672,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -2540,11 +2729,12 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-variant-specific-biochemical-mechanisms-of-nags-dysfunction">
                 <div class="item-name">Variant-specific biochemical mechanisms of NAGS dysfunction</div>
                 
                 <div class="item-desc">Functional characterization of 23 patient-derived NAGS missense variants using stabilized recombinant human enzyme has identified multiple mechanistic classes of pathogenicity including loss of arginine activation, increased Km for glutamate, active site inactivation, decreased thermal stability, and protein misfolding. This approach outperforms bacterial surrogate enzymes and in silico prediction tools for assessing pathogenicity and guiding therapeutic decisions.
 </div>
+                
                 
                 
                 
@@ -2601,18 +2791,19 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for N-Acetylglutamate Synthase Deficiency</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cytotoxic cerebral edema and intracranial hypertension\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In severe crises, ammonia-mediated brain injury progresses to cerebral edema, intracranial hypertension, and risk of herniation, coma, and death.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"brain\"]}}, {\"id\": \"Hyperammonemic astrocyte stress and glutamine accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyperammonemia drives encephalopathy and astrocyte stress in the brain. Ammonia detoxification in astrocytes increases glutamine production, creating intracellular osmotic burden and vulnerability to swelling.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"astrocyte\"], \"biological_processes\": [\"glutamine biosynthetic process\"], \"locations\": [\"brain\"]}}, {\"id\": \"Impaired arginine-mediated NAGS regulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NAGS activity is allosterically regulated by L-arginine, which increases enzyme activity 2-5-fold under physiological conditions. Many disease-causing NAGS variants show loss of arginine activation as their primary mechanistic defect. Hampered NAGS activation by arginine has emerged as a paramount causative factor of NAGS deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"urea cycle\", \"positive regulation of catalytic activity\"]}}, {\"id\": \"Loss of CPS1 activation and impaired ureagenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NAG is the obligate allosteric activator of CPS1. When NAG is deficient, CPS1 remains underactivated, reducing carbamoyl phosphate formation and impairing proximal urea cycle flux.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"urea cycle\"], \"locations\": [\"mitochondrion\", \"liver\"]}}, {\"id\": \"NAGS molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NAGS catalyzes N-acetylglutamate (NAG) formation from acetyl-CoA and L-glutamate in the mitochondrial matrix of hepatocytes and intestinal cells. Loss of NAGS activity reduces NAG availability, creating the primary biochemical lesion in NAGS deficiency.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"genes\": [\"NAGS\"], \"locations\": [\"mitochondrion\", \"liver\"]}}], \"edges\": [{\"source\": \"NAGS molecular function deficiency\", \"target\": \"Loss of CPS1 activation and impaired ureagenesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of CPS1 activation and impaired ureagenesis\", \"target\": \"Hyperammonemic astrocyte stress and glutamine accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired arginine-mediated NAGS regulation\", \"target\": \"Loss of CPS1 activation and impaired ureagenesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic astrocyte stress and glutamine accumulation\", \"target\": \"Cytotoxic cerebral edema and intracranial hypertension\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cytotoxic cerebral edema and intracranial hypertension\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In severe crises, ammonia-mediated brain injury progresses to cerebral edema, intracranial hypertension, and risk of herniation, coma, and death.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"brain\"]}}, {\"id\": \"Hyperammonemic astrocyte stress and glutamine accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyperammonemia drives encephalopathy and astrocyte stress in the brain. Ammonia detoxification in astrocytes increases glutamine production, creating intracellular osmotic burden and vulnerability to swelling.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"astrocyte\"], \"biological_processes\": [\"glutamine biosynthetic process\"], \"locations\": [\"brain\"]}}, {\"id\": \"Impaired arginine-mediated NAGS regulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NAGS activity is allosterically regulated by L-arginine, which increases enzyme activity 2-5-fold under physiological conditions. Many disease-causing NAGS variants show loss of arginine activation as their primary mechanistic defect. Hampered NAGS activation by arginine has emerged as a paramount causative factor of NAGS deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"urea cycle\", \"positive regulation of catalytic activity\"]}}, {\"id\": \"Loss of CPS1 activation and impaired ureagenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NAG is the obligate allosteric activator of CPS1. When NAG is deficient, CPS1 remains underactivated, reducing carbamoyl phosphate formation and impairing proximal urea cycle flux.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"urea cycle\"], \"locations\": [\"mitochondrion\", \"liver\"]}}, {\"id\": \"NAGS - Multiple nonsynonymous variants characterized by recombinant enzyme assay\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Twenty-three nonsynonymous single-base changes from NAGS deficiency patients were functionally characterized using stabilized recombinant human NAGS. Pathogenic mechanisms identified include loss of arginine activation, increased Km for glutamate, active site inactivation, decreased thermal stability, and protein misfolding.\\n\"}, {\"id\": \"NAGS - c.1097-2A\u003eT splice-site variant\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Novel homozygous splice-site mutation found in an infant with neonatal hyperammonemia who had rapid response to N-carbamylglutamate treatment.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"NAGS - c.344C\u003eT (p.Ala115Val) missense variant\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous missense variant identified in a late-onset adult case presenting with recurrent headaches. Bioinformatic analysis suggested that the mutation could affect the arginine-binding site, resulting in poor enzyme activation and late-onset presentation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"NAGS molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NAGS catalyzes N-acetylglutamate (NAG) formation from acetyl-CoA and L-glutamate in the mitochondrial matrix of hepatocytes and intestinal cells. Loss of NAGS activity reduces NAG availability, creating the primary biochemical lesion in NAGS deficiency.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"genes\": [\"NAGS\"], \"locations\": [\"mitochondrion\", \"liver\"]}}, {\"id\": \"NAGS pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"NAGS\"], \"variant_count\": 3}}], \"edges\": [{\"source\": \"NAGS molecular function deficiency\", \"target\": \"Loss of CPS1 activation and impaired ureagenesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of CPS1 activation and impaired ureagenesis\", \"target\": \"Hyperammonemic astrocyte stress and glutamine accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired arginine-mediated NAGS regulation\", \"target\": \"Loss of CPS1 activation and impaired ureagenesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperammonemic astrocyte stress and glutamine accumulation\", \"target\": \"Cytotoxic cerebral edema and intracranial hypertension\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"NAGS pathogenic variants\", \"target\": \"NAGS molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NAGS - c.1097-2A\u003eT splice-site variant\", \"target\": \"NAGS pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"NAGS - c.344C\u003eT (p.Ala115Val) missense variant\", \"target\": \"NAGS pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"NAGS - Multiple nonsynonymous variants characterized by recombinant enzyme assay\", \"target\": \"NAGS pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4303,11 +4494,13 @@ pathophysiology:
     description: NAG depletion prevents normal allosteric activation of CPS1.
   evidence:
   - reference: PMID:26068232
+    reference_title: &#34;The N-Acetylglutamate Synthase Family: Structures, Function and Mechanisms.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: N-acetylglutamate synthase (NAGS) catalyzes the production of N-acetylglutamate (NAG) from acetyl-CoA and L-glutamate.
     explanation: Directly supports NAGS as the enzyme responsible for NAG production.
   - reference: PMID:38740568
+    reference_title: &#34;Use of pure recombinant human enzymes to assess the disease-causing potential of missense mutations in urea cycle disorders, applied to N-acetylglutamate synthase deficiency.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: N-acetylglutamate synthase (NAGS) makes acetylglutamate, the essential activator of the first, regulatory enzyme
@@ -4337,12 +4530,14 @@ pathophysiology:
     description: Impaired ureagenesis causes systemic ammonia accumulation with downstream neurotoxicity.
   evidence:
   - reference: PMID:27570737
+    reference_title: &#34;N-acetylglutamate synthase deficiency: Novel mutation associated with neonatal presentation and literature review of molecular and phenotypic spectra.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Carbamoylphosphate synthetase 1 (CPS1), the first and rate-limiting enzyme of urea cycle, is activated by N-acetylglutamate
       (NAG), and thus N-acetylglutamate synthase (NAGS) is an essential part of the urea cycle.
     explanation: Directly supports the NAG-CPS1 dependency and proximal urea cycle block when NAGS is deficient.
   - reference: PMID:38637895
+    reference_title: &#34;The efficacy of Carbamylglutamate impacts the nutritional management of patients with N-Acetylglutamate synthase deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Hyperammonemic crises can be avoided in individuals with NAGS deficiency by the administration of carbamylglutamate
@@ -4365,6 +4560,7 @@ pathophysiology:
       label: positive regulation of catalytic activity
   evidence:
   - reference: PMID:27934952
+    reference_title: &#34;Effect of arginine on oligomerization and stability of N-acetylglutamate synthase.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: L-arginine inhibits NAGS in bacteria, fungi, and plants and activates NAGS in mammals.
@@ -4397,6 +4593,7 @@ pathophysiology:
     description: Astrocytic osmotic stress can progress to cerebral edema and life-threatening intracranial complications.
   evidence:
   - reference: PMID:33179600
+    reference_title: &#34;Primary hyperammonaemia: Current diagnostic and therapeutic strategies.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: Newborns who are often affected by hyper-ammonaemic encephalopathy carry a potential risk of severe brain damage,
@@ -4414,12 +4611,14 @@ pathophysiology:
       label: brain
   evidence:
   - reference: PMID:33409766
+    reference_title: &#34;Management of late onset urea cycle disorders-a remaining challenge for the intensivist?&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Awareness of urea cycle disorders in adults intensive care units can optimize early management and accordingly
       dramatically improve prognosis. By preventing hyperammonemia to induce brain edema and herniation leading to death.
     explanation: Directly supports progression from hyperammonemia to cerebral edema and herniation.
   - reference: PMID:33179600
+    reference_title: &#34;Primary hyperammonaemia: Current diagnostic and therapeutic strategies.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Newborns who are often affected by hyper-ammonaemic encephalopathy carry a potential risk of severe brain damage,
@@ -4434,6 +4633,7 @@ pathophysiology:
     &#39;
   evidence:
   - reference: PMID:38740568
+    reference_title: &#34;Use of pure recombinant human enzymes to assess the disease-causing potential of missense mutations in urea cycle disorders, applied to N-acetylglutamate synthase deficiency.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: Our present approach outperforms experimental in vitro use of bacterial NAGS or in silico utilization of prediction
@@ -4455,12 +4655,14 @@ phenotypes:
       label: Hyperammonemia
   evidence:
   - reference: PMID:33036647
+    reference_title: &#34;Presentation and management of N-acetylglutamate synthase deficiency: a review of the literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: N-Acetylglutamate synthase (NAGS) deficiency is an extremely rare autosomal recessive metabolic disorder affecting
       the urea cycle, leading to episodes of hyperammonemia which can cause significant morbidity and mortality.
     explanation: Directly identifies hyperammonemia as the defining feature of NAGS deficiency.
   - reference: PMID:38637895
+    reference_title: &#34;The efficacy of Carbamylglutamate impacts the nutritional management of patients with N-Acetylglutamate synthase deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Hyperammonemic crises can be avoided in individuals with NAGS deficiency by the administration of carbamylglutamate
@@ -4480,6 +4682,7 @@ phenotypes:
       label: Encephalopathy
   evidence:
   - reference: PMID:33179600
+    reference_title: &#34;Primary hyperammonaemia: Current diagnostic and therapeutic strategies.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Newborns who are often affected by hyper-ammonaemic encephalopathy carry a potential risk of severe brain damage,
@@ -4498,6 +4701,7 @@ phenotypes:
       label: Vomiting
   evidence:
   - reference: PMID:29364180
+    reference_title: &#34;Late-Onset N-Acetylglutamate Synthase Deficiency: Report of a Paradigmatic Adult Case Presenting with Headaches and Review of the Literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: headaches had been present since puberty (3-4 days a week) and were often accompanied by nausea, vomiting, or
@@ -4516,6 +4720,7 @@ phenotypes:
       label: Lethargy
   evidence:
   - reference: PMID:33179600
+    reference_title: &#34;Primary hyperammonaemia: Current diagnostic and therapeutic strategies.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Outside the neonatal period, symptoms are very unspecific but most often neurological (with wide variability),
@@ -4535,6 +4740,7 @@ phenotypes:
       label: Seizure
   evidence:
   - reference: PMID:38637895
+    reference_title: &#34;The efficacy of Carbamylglutamate impacts the nutritional management of patients with N-Acetylglutamate synthase deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: once due to seizure activity limiting the family&#39;s ability to administer carbamylglutamate.
@@ -4552,6 +4758,7 @@ phenotypes:
       label: Intellectual disability
   evidence:
   - reference: PMID:38637895
+    reference_title: &#34;The efficacy of Carbamylglutamate impacts the nutritional management of patients with N-Acetylglutamate synthase deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: One patient experienced two episodes of hyperammonemia that resulted in poor long-term outcomes.
@@ -4584,6 +4791,7 @@ phenotypes:
       label: Headache
   evidence:
   - reference: PMID:29364180
+    reference_title: &#34;Late-Onset N-Acetylglutamate Synthase Deficiency: Report of a Paradigmatic Adult Case Presenting with Headaches and Review of the Literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The manuscript underlies that headache may be the presenting symptom of UCDs and provides clues for the rapid
@@ -4602,6 +4810,7 @@ phenotypes:
       label: Cerebral edema
   evidence:
   - reference: PMID:33409766
+    reference_title: &#34;Management of late onset urea cycle disorders-a remaining challenge for the intensivist?&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: By preventing hyperammonemia to induce brain edema and herniation leading to death.
@@ -4619,6 +4828,7 @@ phenotypes:
       label: Coma
   evidence:
   - reference: PMID:29364180
+    reference_title: &#34;Late-Onset N-Acetylglutamate Synthase Deficiency: Report of a Paradigmatic Adult Case Presenting with Headaches and Review of the Literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Despite three previous episodes of altered consciousness, ammonia was measured for the first time at 52 years
@@ -4647,6 +4857,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:38637895
+    reference_title: &#34;The efficacy of Carbamylglutamate impacts the nutritional management of patients with N-Acetylglutamate synthase deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: All patients responded well to carbamylglutamate therapy, as indicated by normalization of plasma ammonia and
@@ -4673,12 +4884,14 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:38637895
+    reference_title: &#34;The efficacy of Carbamylglutamate impacts the nutritional management of patients with N-Acetylglutamate synthase deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: All patients responded well to carbamylglutamate therapy, as indicated by normalization of plasma ammonia and
       citrulline, as well as urine orotic acid in patients with abnormal levels at baseline.
     explanation: Confirms abnormal (decreased) citrulline at baseline with normalization on treatment.
   - reference: PMID:33036647
+    reference_title: &#34;Presentation and management of N-acetylglutamate synthase deficiency: a review of the literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: DNA testing is the preferred method of diagnosis, although therapeutic trials to assess response of ammonia levels
@@ -4698,6 +4911,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:38637895
+    reference_title: &#34;The efficacy of Carbamylglutamate impacts the nutritional management of patients with N-Acetylglutamate synthase deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: All patients responded well to carbamylglutamate therapy, as indicated by normalization of plasma ammonia and
@@ -4712,11 +4926,13 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:26068232
+    reference_title: &#34;The N-Acetylglutamate Synthase Family: Structures, Function and Mechanisms.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: N-acetylglutamate synthase (NAGS) catalyzes the production of N-acetylglutamate (NAG) from acetyl-CoA and L-glutamate.
     explanation: Supports that NAGS produces NAG; its deficiency would result in decreased NAG.
   - reference: PMID:38740568
+    reference_title: &#34;Use of pure recombinant human enzymes to assess the disease-causing potential of missense mutations in urea cycle disorders, applied to N-acetylglutamate synthase deficiency.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: NAGS deficiency (NAGSD) and CPS1 deficiency (CPS1D) present identical phenotypes. However, they must be distinguished,
@@ -4733,12 +4949,14 @@ genetic:
   - name: Autosomal recessive
     evidence:
     - reference: PMID:33036647
+      reference_title: &#34;Presentation and management of N-acetylglutamate synthase deficiency: a review of the literature.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: N-Acetylglutamate synthase (NAGS) deficiency is an extremely rare autosomal recessive metabolic disorder affecting
         the urea cycle
       explanation: Directly confirms autosomal recessive inheritance.
     - reference: PMID:38637895
+      reference_title: &#34;The efficacy of Carbamylglutamate impacts the nutritional management of patients with N-Acetylglutamate synthase deficiency.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: The autosomal recessive disorder N-acetylglutamate synthase (NAGS) deficiency is the rarest defect of the urea
@@ -4752,6 +4970,7 @@ genetic:
       &#39;
     evidence:
     - reference: PMID:27570737
+      reference_title: &#34;N-acetylglutamate synthase deficiency: Novel mutation associated with neonatal presentation and literature review of molecular and phenotypic spectra.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: She was found to have a novel homozygous splice-site mutation, c.1097-2A&gt;T, in the NAGS gene.
@@ -4764,6 +4983,7 @@ genetic:
       &#39;
     evidence:
     - reference: PMID:29364180
+      reference_title: &#34;Late-Onset N-Acetylglutamate Synthase Deficiency: Report of a Paradigmatic Adult Case Presenting with Headaches and Review of the Literature.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: Identification of the new homozygous c.344C&gt;T (p.Ala115Val) NAGS variant allowed the definite diagnosis of NAGSD.
@@ -4783,11 +5003,13 @@ genetic:
     &#39;
   evidence:
   - reference: PMID:33036647
+    reference_title: &#34;Presentation and management of N-acetylglutamate synthase deficiency: a review of the literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: In total, 98 cases of NAGS deficiency from 79 families, in 48 articles or abstracts were identified.
     explanation: Documents the breadth of reported NAGS deficiency cases and families with diverse variants.
   - reference: PMID:38740568
+    reference_title: &#34;Use of pure recombinant human enzymes to assess the disease-causing potential of missense mutations in urea cycle disorders, applied to N-acetylglutamate synthase deficiency.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: NAGSD is cured by substitutive therapy with the N-acetyl-L-glutamate analogue N-carbamyl-L-glutamate, while curative
@@ -4810,18 +5032,21 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:38637895
+    reference_title: &#34;The efficacy of Carbamylglutamate impacts the nutritional management of patients with N-Acetylglutamate synthase deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: All patients responded well to carbamylglutamate therapy, as indicated by normalization of plasma ammonia and
       citrulline, as well as urine orotic acid in patients with abnormal levels at baseline.
     explanation: Directly demonstrates efficacy of carbamylglutamate in normalizing biochemical parameters.
   - reference: PMID:27570737
+    reference_title: &#34;N-acetylglutamate synthase deficiency: Novel mutation associated with neonatal presentation and literature review of molecular and phenotypic spectra.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Although NAGS deficiency is the rarest urea cycle disorder, it is the only one that can be specifically and effectively
       treated by a drug, N-carbamylglutamate, a stable structural analogous of NAG that activates CPS1.
     explanation: Establishes carglumic acid as the specific curative drug for NAGS deficiency.
   - reference: PMID:38740568
+    reference_title: &#34;Use of pure recombinant human enzymes to assess the disease-causing potential of missense mutations in urea cycle disorders, applied to N-acetylglutamate synthase deficiency.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: NAGSD is cured by substitutive therapy with the N-acetyl-L-glutamate analogue N-carbamyl-L-glutamate
@@ -4839,18 +5064,21 @@ treatments:
       label: dietary intervention
   evidence:
   - reference: PMID:38637895
+    reference_title: &#34;The efficacy of Carbamylglutamate impacts the nutritional management of patients with N-Acetylglutamate synthase deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Although protein restriction was not prescribed in any cases after carbamylglutamate initiation, two patients
       continued to self-restrict protein intake.
     explanation: Documents that protein restriction is not routinely needed with carbamylglutamate but remains a consideration.
   - reference: PMID:38637895
+    reference_title: &#34;The efficacy of Carbamylglutamate impacts the nutritional management of patients with N-Acetylglutamate synthase deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Carbamylglutamate can help patients with NAGS deficiency to liberalize their diets, but the maximum safe level
       of protein intake to prevent hyperammonemia is not yet known.
     explanation: Highlights the evolving role of dietary management alongside pharmacotherapy.
   - reference: PMID:33036647
+    reference_title: &#34;Presentation and management of N-acetylglutamate synthase deficiency: a review of the literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Management usually consists of treatment with carbamylglutamate, although the reported maintenance dose varied
@@ -4869,12 +5097,14 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:33036647
+    reference_title: &#34;Presentation and management of N-acetylglutamate synthase deficiency: a review of the literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Since its recognition in 1981, NAGS deficiency has been treated with carbamylglutamate with or without other
       measures (nutritional, ammonia scavengers, dialytic, etc.).
     explanation: Confirms the use of nitrogen scavengers as part of NAGS deficiency management.
   - reference: PMID:33179600
+    reference_title: &#34;Primary hyperammonaemia: Current diagnostic and therapeutic strategies.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The acute management includes detoxification of ammonia, which often requires extracorporeal means such as haemodialysis,
@@ -4893,12 +5123,14 @@ treatments:
       label: hemodialysis
   evidence:
   - reference: PMID:33179600
+    reference_title: &#34;Primary hyperammonaemia: Current diagnostic and therapeutic strategies.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The acute management includes detoxification of ammonia, which often requires extracorporeal means such as haemodialysis,
       and the use of intravenous drugs that work as nitrogen scavengers.
     explanation: Directly supports use of hemodialysis for acute ammonia removal in UCDs.
   - reference: PMID:33409766
+    reference_title: &#34;Management of late onset urea cycle disorders-a remaining challenge for the intensivist?&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Treatment consists in adapted nutrition, scavenging agents and dialysis. As adults are more susceptible to hyperammonemia,
@@ -4917,12 +5149,14 @@ treatments:
       label: supportive care
   evidence:
   - reference: PMID:38637895
+    reference_title: &#34;The efficacy of Carbamylglutamate impacts the nutritional management of patients with N-Acetylglutamate synthase deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Follow-up of patients with NAGS deficiency should include plans for illness and for disruption of carbamylglutamate
       access, including nutrition management strategies such as protein restriction.
     explanation: Emphasizes the importance of crisis planning and supportive measures.
   - reference: PMID:33179600
+    reference_title: &#34;Primary hyperammonaemia: Current diagnostic and therapeutic strategies.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Long-term management of patients with UCDs consists of a low-protein diet, which needs to be balanced and supplemented
@@ -4941,6 +5175,7 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:33036647
+    reference_title: &#34;Presentation and management of N-acetylglutamate synthase deficiency: a review of the literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Supplementation with citrulline, arginine, and sodium benzoate also were reported.
@@ -4959,6 +5194,7 @@ treatments:
       label: genetic counseling
   evidence:
   - reference: PMID:38740568
+    reference_title: &#34;Use of pure recombinant human enzymes to assess the disease-causing potential of missense mutations in urea cycle disorders, applied to N-acetylglutamate synthase deficiency.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: NAGSD is cured by substitutive therapy with the N-acetyl-L-glutamate analogue N-carbamyl-L-glutamate, while curative
@@ -4966,6 +5202,7 @@ treatments:
       ascertain the disease-causing potential of CPS1 and NAGS genetic variants.
     explanation: Emphasizes the critical therapeutic implications of genetic diagnosis, supporting the role of genetic counseling.
   - reference: PMID:33036647
+    reference_title: &#34;Presentation and management of N-acetylglutamate synthase deficiency: a review of the literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: N-Acetylglutamate synthase (NAGS) deficiency is an extremely rare autosomal recessive metabolic disorder
@@ -4982,6 +5219,7 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:33036647
+    reference_title: &#34;Presentation and management of N-acetylglutamate synthase deficiency: a review of the literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: DNA testing is the preferred method of diagnosis, although therapeutic trials to assess response of ammonia levels

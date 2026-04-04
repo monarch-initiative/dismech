@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,7 @@
                 </span>
                 
                 
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Leukodystrophies</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Neurodegenerative Disorders</span>
@@ -1937,6 +2108,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1996,6 +2170,12 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
+            
+            
+            <div class="stat-item">
+                <div class="stat-value">0</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
             
             
             <a class="stat-link" href="#genetic">
@@ -2331,7 +2511,7 @@
                 <span class="card-count">5</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-gfap-aggregation-and-rosenthal-fiber-formation">
                 <div class="item-name">GFAP Aggregation and Rosenthal Fiber Formation</div>
                 
                 <div class="item-desc">Gain-of-function mutations in GFAP lead to accumulation of misfolded GFAP protein that forms Rosenthal fibers within astrocytes. These inclusions contain GFAP complexed with small heat shock proteins alphaB-crystallin and HSP27. The aggregation overwhelms the protein quality control machinery. Rosenthal fibers originate as small osmiophilic masses deposited on bundles of intermediate filaments and continue to form over time.
@@ -2368,6 +2548,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2447,7 +2628,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-astrocyte-dysfunction-and-non-cell-autonomous-neurodegeneration">
                 <div class="item-name">Astrocyte Dysfunction and Non-Cell-Autonomous Neurodegeneration</div>
                 
                 <div class="item-desc">Mutant GFAP-expressing astrocytes become dysfunctional, with activation of stress response pathways and white matter pathology. Elevated GFAP levels shift GFAP solubility and increase the stress response. Dysfunctional astrocytes fail to support neurons and oligodendrocytes, leading to secondary demyelination and neuronal loss.
@@ -2504,6 +2685,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2583,7 +2765,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-oxidative-stress-and-white-matter-pathology">
                 <div class="item-name">Oxidative Stress and White Matter Pathology</div>
                 
                 <div class="item-desc">GFAP mutations induce an antioxidant/oxidative stress response in white matter, with iron accumulation in corpus callosum. Knock-in mice with GFAP mutations show a distinct pattern of stress response gene induction particularly prominent in white matter regions.
@@ -2625,6 +2807,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2659,7 +2842,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-glutamate-excitotoxicity">
                 <div class="item-name">Glutamate Excitotoxicity</div>
                 
                 <div class="item-desc">Dysfunctional astrocytes in Alexander disease show impaired glutamate uptake via astrocytic transporters, leading to toxic accumulation of extracellular glutamate. This non-cell-autonomous mechanism causes neuronal apoptosis dependent on glial glutamate transport.
@@ -2711,6 +2894,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2745,7 +2929,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-gfap-post-translational-modifications-and-aggregation">
                 <div class="item-name">GFAP Post-Translational Modifications and Aggregation</div>
                 
                 <div class="item-desc">Disease-associated GFAP mutations promote pathological post-translational modifications including aberrant disulfide cross-linking (particularly cysteine-generating mutations like R239C) and ubiquitination. These modifications yield high-molecular-weight insoluble GFAP species that contribute to Rosenthal fiber formation and resist proteolytic clearance.
@@ -2782,6 +2966,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3907,6 +4092,7 @@ has_subtypes:
     increase in mortality relative to Type II.
   evidence:
   - reference: PMID:21917775
+    reference_title: &#34;GFAP mutations, age at onset, and clinical subtypes in Alexander disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Type I is characterized by early onset, seizures, macrocephaly, motor delay, encephalopathy, failure to thrive, paroxysmal deterioration, and typical MRI features&#34;
@@ -3918,6 +4104,7 @@ has_subtypes:
     and spinal cord involvement predominate rather than frontal leukodystrophy.
   evidence:
   - reference: PMID:21917775
+    reference_title: &#34;GFAP mutations, age at onset, and clinical subtypes in Alexander disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Type II is characterized by later onset, autonomic dysfunction, ocular movement abnormalities, bulbar symptoms, and atypical MRI features&#34;
@@ -3930,11 +4117,13 @@ inheritance:
     in the coding region of GFAP are found in most cases.
   evidence:
   - reference: PMID:11567214
+    reference_title: &#34;Infantile Alexander disease: spectrum of GFAP mutations and genotype-phenotype correlation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Heterozygous, de novo mutations in the glial fibrillary acidic protein (GFAP) gene have recently been reported in 12 patients affected by neuropathologically proved Alexander disease&#34;
     explanation: &#34;Confirms de novo, heterozygous GFAP mutations as the genetic basis of infantile Alexander disease.&#34;
   - reference: PMID:11138011
+    reference_title: &#34;Mutations in GFAP, encoding glial fibrillary acidic protein, are associated with Alexander disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Sequence analysis of DNA samples from patients representing different Alexander disease phenotypes revealed that most cases are associated with non-conservative mutations in the coding region of GFAP&#34;
@@ -3967,16 +4156,19 @@ pathophysiology:
       label: inclusion body assembly
   evidence:
   - reference: PMID:11138011
+    reference_title: &#34;Mutations in GFAP, encoding glial fibrillary acidic protein, are associated with Alexander disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The pathological hallmark of all forms of Alexander disease is the presence of Rosenthal fibers, cytoplasmic inclusions in astrocytes that contain the intermediate filament protein GFAP in association with small heat-shock proteins&#34;
     explanation: &#34;Defines Rosenthal fibers as the pathological hallmark, composed of GFAP with small heat-shock proteins.&#34;
   - reference: PMID:17498694
+    reference_title: &#34;GFAP and its role in Alexander disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;the accumulation of GFAP and the formation of characteristic aggregates, called Rosenthal fibers, (ii) the sequestration of the protein chaperones alpha B-crystallin and HSP27 into Rosenthal fibers, and (iii) the activation of both Jnk and the stress response&#34;
     explanation: &#34;Reviews the multi-step pathogenic mechanism: GFAP accumulation, chaperone sequestration, and stress pathway activation.&#34;
   - reference: PMID:28359321
+    reference_title: &#34;The origin of Rosenthal fibers and their contributions to astrocyte pathology in Alexander disease.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;RFs appear to originate as small, osmiophilic masses containing both GFAP and alphaB-crystallin deposited on bundles of intermediate filaments&#34;
@@ -4008,16 +4200,19 @@ pathophysiology:
       label: autophagy
   evidence:
   - reference: PMID:17065456
+    reference_title: &#34;Alexander disease-associated glial fibrillary acidic protein mutations in mice induce Rosenthal fiber formation and a white matter stress response.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;further elevation of GFAP via crosses to GFAP transgenic animals leads to a shift in GFAP solubility, an increased stress response, and ultimately death&#34;
     explanation: &#34;Mouse model demonstrates dose-dependent GFAP toxicity with solubility shift and lethal stress response.&#34;
   - reference: PMID:29226998
+    reference_title: &#34;Antisense suppression of glial fibrillary acidic protein as a treatment for Alexander disease.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;A key feature of pathogenesis is overexpression and accumulation of GFAP, with formation of characteristic cytoplasmic aggregates known as Rosenthal fibers&#34;
     explanation: &#34;Confirms GFAP overexpression and accumulation as central to pathogenesis.&#34;
   - reference: PMID:21414908
+    reference_title: &#34;Protein misfolding and oxidative stress promote glial-mediated neurodegeneration in an Alexander disease model.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Both protein aggregation and oxidative stress contribute to activation of a robust autophagic response in glia&#34;
@@ -4040,6 +4235,7 @@ pathophysiology:
       label: response to oxidative stress
   evidence:
   - reference: PMID:17065456
+    reference_title: &#34;Alexander disease-associated glial fibrillary acidic protein mutations in mice induce Rosenthal fiber formation and a white matter stress response.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;when crossed with an antioxidant response element reporter line, the mutant mice show a distinct pattern of reporter-gene induction that is especially prominent in the corpus callosum, and histochemical staining reveals accumulation of iron in the same region&#34;
@@ -4066,6 +4262,7 @@ pathophysiology:
       label: neurotransmitter transport
   evidence:
   - reference: PMID:21414908
+    reference_title: &#34;Protein misfolding and oxidative stress promote glial-mediated neurodegeneration in an Alexander disease model.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Toxicity of mutant GFAP to glial cells induces a non-cell-autonomous stress response and subsequent apoptosis in neurons, which is dependent on glial glutamate transport&#34;
@@ -4089,11 +4286,13 @@ pathophysiology:
       label: protein ubiquitination
   evidence:
   - reference: PMID:38782207
+    reference_title: &#34;Glial fibrillary acidic protein is pathologically modified in Alexander disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We found high molecular weight GFAP species in the RFs of AxD brains, indicating abnormal GFAP crosslinking as a prominent pathological feature of this disease&#34;
     explanation: &#34;Analysis of AxD patient brain tissue identifies aberrant GFAP crosslinking as a key pathological modification.&#34;
   - reference: PMID:38782207
+    reference_title: &#34;Glial fibrillary acidic protein is pathologically modified in Alexander disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;we found GFAP was ubiquitinated in RFs of AxD patients and rodent models, supporting this modification as a critical factor linked to GFAP aggregation&#34;
@@ -4111,11 +4310,13 @@ phenotypes:
       label: Macrocephaly
   evidence:
   - reference: PMID:11138011
+    reference_title: &#34;Mutations in GFAP, encoding glial fibrillary acidic protein, are associated with Alexander disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Infants with Alexander disease develop a leukoencephalopathy with macrocephaly, seizures and psychomotor retardation&#34;
     explanation: &#34;Macrocephaly is a cardinal feature of infantile Alexander disease.&#34;
   - reference: PMID:21917775
+    reference_title: &#34;GFAP mutations, age at onset, and clinical subtypes in Alexander disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Type I is characterized by early onset, seizures, macrocephaly, motor delay, encephalopathy, failure to thrive, paroxysmal deterioration, and typical MRI features&#34;
@@ -4133,11 +4334,13 @@ phenotypes:
       label: Leukoencephalopathy
   evidence:
   - reference: PMID:11138011
+    reference_title: &#34;Mutations in GFAP, encoding glial fibrillary acidic protein, are associated with Alexander disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Infants with Alexander disease develop a leukoencephalopathy with macrocephaly, seizures and psychomotor retardation&#34;
     explanation: &#34;Leukoencephalopathy is a defining feature of infantile Alexander disease.&#34;
   - reference: PMID:21917775
+    reference_title: &#34;GFAP mutations, age at onset, and clinical subtypes in Alexander disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Type I is characterized by early onset, seizures, macrocephaly, motor delay, encephalopathy, failure to thrive, paroxysmal deterioration, and typical MRI features&#34;
@@ -4155,11 +4358,13 @@ phenotypes:
       label: Seizure
   evidence:
   - reference: PMID:11138011
+    reference_title: &#34;Mutations in GFAP, encoding glial fibrillary acidic protein, are associated with Alexander disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Infants with Alexander disease develop a leukoencephalopathy with macrocephaly, seizures and psychomotor retardation&#34;
     explanation: &#34;Seizures are a primary clinical feature of infantile Alexander disease.&#34;
   - reference: PMID:17065456
+    reference_title: &#34;Alexander disease-associated glial fibrillary acidic protein mutations in mice induce Rosenthal fiber formation and a white matter stress response.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;The mutant mice have a normal lifespan and show no overt behavioral defects, but are more susceptible to kainate-induced seizures&#34;
@@ -4177,6 +4382,7 @@ phenotypes:
       label: Spasticity
   evidence:
   - reference: PMID:11138011
+    reference_title: &#34;Mutations in GFAP, encoding glial fibrillary acidic protein, are associated with Alexander disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;patients with juvenile or adult forms typically experience ataxia, bulbar signs and spasticity, and a more slowly progressive course&#34;
@@ -4193,6 +4399,7 @@ phenotypes:
       label: Dysphagia
   evidence:
   - reference: PMID:21917775
+    reference_title: &#34;GFAP mutations, age at onset, and clinical subtypes in Alexander disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Type II is characterized by later onset, autonomic dysfunction, ocular movement abnormalities, bulbar symptoms, and atypical MRI features&#34;
@@ -4209,6 +4416,7 @@ phenotypes:
       label: Dysarthria
   evidence:
   - reference: PMID:11138011
+    reference_title: &#34;Mutations in GFAP, encoding glial fibrillary acidic protein, are associated with Alexander disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;patients with juvenile or adult forms typically experience ataxia, bulbar signs and spasticity, and a more slowly progressive course&#34;
@@ -4224,6 +4432,7 @@ phenotypes:
       label: Ataxia
   evidence:
   - reference: PMID:11138011
+    reference_title: &#34;Mutations in GFAP, encoding glial fibrillary acidic protein, are associated with Alexander disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;patients with juvenile or adult forms typically experience ataxia, bulbar signs and spasticity&#34;
@@ -4241,6 +4450,7 @@ phenotypes:
       label: Developmental regression
   evidence:
   - reference: PMID:11138011
+    reference_title: &#34;Mutations in GFAP, encoding glial fibrillary acidic protein, are associated with Alexander disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Infants with Alexander disease develop a leukoencephalopathy with macrocephaly, seizures and psychomotor retardation, leading to death usually within the first decade&#34;
@@ -4259,6 +4469,7 @@ phenotypes:
       label: Abnormal autonomic nervous system physiology
   evidence:
   - reference: PMID:21917775
+    reference_title: &#34;GFAP mutations, age at onset, and clinical subtypes in Alexander disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Type II is characterized by later onset, autonomic dysfunction, ocular movement abnormalities, bulbar symptoms, and atypical MRI features&#34;
@@ -4276,6 +4487,7 @@ phenotypes:
       label: Failure to thrive
   evidence:
   - reference: PMID:21917775
+    reference_title: &#34;GFAP mutations, age at onset, and clinical subtypes in Alexander disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Type I is characterized by early onset, seizures, macrocephaly, motor delay, encephalopathy, failure to thrive, paroxysmal deterioration, and typical MRI features&#34;
@@ -4293,6 +4505,7 @@ phenotypes:
       label: Nystagmus
   evidence:
   - reference: PMID:21917775
+    reference_title: &#34;GFAP mutations, age at onset, and clinical subtypes in Alexander disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Type II is characterized by later onset, autonomic dysfunction, ocular movement abnormalities, bulbar symptoms, and atypical MRI features&#34;
@@ -4315,16 +4528,19 @@ genetic:
   - name: Autosomal Dominant
   evidence:
   - reference: PMID:11138011
+    reference_title: &#34;Mutations in GFAP, encoding glial fibrillary acidic protein, are associated with Alexander disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Alexander disease therefore represents the first example of a primary genetic disorder of astrocytes, one of the major cell types in the vertebrate CNS&#34;
     explanation: &#34;Landmark paper establishing GFAP mutations as causative for Alexander disease.&#34;
   - reference: PMID:21917775
+    reference_title: &#34;GFAP mutations, age at onset, and clinical subtypes in Alexander disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;R79 and R239 GFAP mutations were most common (16.6% and 20.3% of all cases, respectively). These common mutations predicted distinct clinical outcomes, with R239 predicting the most aggressive course&#34;
     explanation: &#34;Identifies mutation hotspots and genotype-phenotype correlations in a large cohort.&#34;
   - reference: PMID:11567214
+    reference_title: &#34;Infantile Alexander disease: spectrum of GFAP mutations and genotype-phenotype correlation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Missense, heterozygous, de novo GFAP mutations were found in exons 1 or 4 for 14 of the 15 patients analyzed&#34;
@@ -4353,16 +4569,19 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:29226998
+    reference_title: &#34;Antisense suppression of glial fibrillary acidic protein as a treatment for Alexander disease.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Nearly complete and long-lasting elimination of GFAP occurred in brain and spinal cord following single bolus intracerebroventricular injections, with a striking reversal of Rosenthal fibers and downstream markers of microglial and other stress-related responses&#34;
     explanation: &#34;Antisense oligonucleotides effectively suppress GFAP and reverse pathology in AxD mouse models.&#34;
   - reference: PMID:29226998
+    reference_title: &#34;Antisense suppression of glial fibrillary acidic protein as a treatment for Alexander disease.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;GFAP protein was also cleared from cerebrospinal fluid, demonstrating its potential utility as a biomarker in future clinical applications&#34;
     explanation: &#34;CSF GFAP clearance provides a potential biomarker for monitoring treatment response.&#34;
   - reference: PMID:34788075
+    reference_title: &#34;Antisense therapy in a rat model of Alexander disease reverses GFAP pathology, white matter deficits, and motor impairment.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;a single treatment with Gfap-targeted ASO provides long-lasting suppression, reverses GFAP pathology, and, depending on age of treatment, prevents or mitigates white matter deficits and motor impairment&#34;
@@ -4378,11 +4597,13 @@ animal_models:
     susceptibility but have normal lifespan, resembling adult-onset disease.
   evidence:
   - reference: PMID:17065456
+    reference_title: &#34;Alexander disease-associated glial fibrillary acidic protein mutations in mice induce Rosenthal fiber formation and a white matter stress response.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;mice with GFAP-R76H and -R236H mutations develop Rosenthal fibers, the hallmark protein aggregates observed in astrocytes in AxD, in the hippocampus, corpus callosum, olfactory bulbs, subpial, and periventricular regions&#34;
     explanation: &#34;Knock-in mice recapitulate Rosenthal fiber formation in disease-relevant brain regions.&#34;
   - reference: PMID:17065456
+    reference_title: &#34;Alexander disease-associated glial fibrillary acidic protein mutations in mice induce Rosenthal fiber formation and a white matter stress response.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;These studies provide formal proof linking GFAP mutations with Rosenthal fibers and oxidative stress, and correlate gliosis and GFAP protein levels to the severity of the disease&#34;
@@ -4399,11 +4620,13 @@ animal_models:
     unlike the milder mouse models.
   evidence:
   - reference: PMID:34788075
+    reference_title: &#34;Antisense therapy in a rat model of Alexander disease reverses GFAP pathology, white matter deficits, and motor impairment.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;we introduce a rat model of AxD that exhibits hallmark pathology with GFAP aggregation in the form of Rosenthal fibers, widespread astrogliosis, and white matter deficits&#34;
     explanation: &#34;Rat AxD model with clinically relevant myelin pathology and motor impairment.&#34;
   - reference: PMID:34788075
+    reference_title: &#34;Antisense therapy in a rat model of Alexander disease reverses GFAP pathology, white matter deficits, and motor impairment.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;These animals develop normally during the first postnatal weeks but fail to thrive after weaning and develop severe motor deficits as they mature, with about 14% dying of unknown cause between 6 and 12 weeks of age&#34;
@@ -4418,11 +4641,13 @@ animal_models:
     stress, with neuronal apoptosis dependent on glial glutamate transport.
   evidence:
   - reference: PMID:21414908
+    reference_title: &#34;Protein misfolding and oxidative stress promote glial-mediated neurodegeneration in an Alexander disease model.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;We find aggregation of mutant human GFAP into inclusions bearing the hallmarks of authentic Rosenthal fibers&#34;
     explanation: &#34;Drosophila model recapitulates Rosenthal fiber formation from mutant human GFAP.&#34;
   - reference: PMID:21414908
+    reference_title: &#34;Protein misfolding and oxidative stress promote glial-mediated neurodegeneration in an Alexander disease model.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Toxicity of mutant GFAP to glial cells induces a non-cell-autonomous stress response and subsequent apoptosis in neurons, which is dependent on glial glutamate transport&#34;

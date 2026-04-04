@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,7 @@
                 </span>
                 
                 
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Skeletal Dysplasia</span>
                 
             </div>
@@ -1935,6 +2106,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1994,6 +2168,12 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
+            
+            
+            <div class="stat-item">
+                <div class="stat-value">0</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
             
             
             <a class="stat-link" href="#genetic">
@@ -2169,7 +2349,7 @@
                 <span class="card-count">4</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-flnb-variant-clustering-in-functional-protein-domains">
                 <div class="item-name">FLNB Variant Clustering in Functional Protein Domains</div>
                 
                 <div class="item-desc">Causative Larsen syndrome variants are non-randomly clustered in specific FLNB domains, especially the actin-binding domain and selected filamin repeat regions.
@@ -2206,6 +2386,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2265,7 +2446,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-gain-of-function-actin-binding-dysregulation">
                 <div class="item-name">Gain-of-Function Actin-Binding Dysregulation</div>
                 
                 <div class="item-desc">Actin-binding domain FLNB substitutions promote increased actin-binding behavior and cytoplasmic actin-filamin accumulation; variants near hinge regions can produce similar phenotypes through distinct mechanisms.
@@ -2302,6 +2483,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2381,7 +2563,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-chondrocyte-differentiation-in-flnb-deficiency-models">
                 <div class="item-name">Impaired Chondrocyte Differentiation in FLNB Deficiency Models</div>
                 
                 <div class="item-desc">Although Larsen syndrome is caused by dominant gain-of-function FLNB variants, FLNB-deficient model systems show convergent evidence that normal FLNB activity is required for progressive chondrocyte differentiation.
@@ -2423,6 +2605,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2457,7 +2640,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-endochondral-ossification-in-flnb-deficiency-models">
                 <div class="item-name">Disrupted Endochondral Ossification in FLNB Deficiency Models</div>
                 
                 <div class="item-desc">FLNB-deficient model and comparative human data indicate that FLNB pathway perturbation disrupts endochondral ossification and vertebral/limb skeletal patterning, a convergent mechanism relevant to FLNB dysplasia biology.
@@ -2494,6 +2677,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3462,6 +3646,7 @@ inheritance:
     by heterozygous FLNB missense or small in-frame deletion variants.
   evidence:
   - reference: PMID:16801345
+    reference_title: &#34;A molecular and clinical study of Larsen syndrome caused by mutations in FLNB.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -3469,6 +3654,7 @@ inheritance:
     explanation: &gt;-
       This directly supports autosomal dominant inheritance and core syndrome definition.
   - reference: PMID:27048506
+    reference_title: &#34;Phenotype and genotype in patients with Larsen syndrome: clinical homogeneity and allelic heterogeneity in seven patients.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -3509,6 +3695,7 @@ pathophysiology:
       label: actin filament organization
   evidence:
   - reference: PMID:16801345
+    reference_title: &#34;A molecular and clinical study of Larsen syndrome caused by mutations in FLNB.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -3516,6 +3703,7 @@ pathophysiology:
     explanation: &gt;-
       This supports domain-specific mutation clustering in Larsen syndrome.
   - reference: PMID:16648377
+    reference_title: &#34;Mutations responsible for Larsen syndrome cluster in the FLNB protein.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -3539,6 +3727,7 @@ pathophysiology:
       label: actin filament organization
   evidence:
   - reference: PMID:19505475
+    reference_title: &#34;Disease-associated substitutions in the filamin B actin binding domain confer enhanced actin binding affinity in the absence of major structural disturbance: Insights from the crystal structures of filamin B actin binding domains.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &gt;-
@@ -3546,6 +3735,7 @@ pathophysiology:
     explanation: &gt;-
       This explicitly supports gain-of-function behavior of disease-associated variants.
   - reference: PMID:19505475
+    reference_title: &#34;Disease-associated substitutions in the filamin B actin binding domain confer enhanced actin binding affinity in the absence of major structural disturbance: Insights from the crystal structures of filamin B actin binding domains.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &gt;-
@@ -3553,6 +3743,7 @@ pathophysiology:
     explanation: &gt;-
       This provides direct biochemical evidence of increased actin-binding affinity.
   - reference: PMID:22190451
+    reference_title: &#34;Disease-associated mutations in the actin-binding domain of filamin B cause cytoplasmic focal accumulations correlating with disease severity.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &gt;-
@@ -3576,6 +3767,7 @@ pathophysiology:
       label: cartilage development
   evidence:
   - reference: PMID:17510210
+    reference_title: &#34;Filamin B mutations cause chondrocyte defects in skeletal development.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
@@ -3599,6 +3791,7 @@ pathophysiology:
       label: endochondral ossification
   evidence:
   - reference: PMID:17510210
+    reference_title: &#34;Filamin B mutations cause chondrocyte defects in skeletal development.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
@@ -3618,6 +3811,7 @@ genetic:
     causative in dominant Larsen syndrome.
   evidence:
   - reference: PMID:16801345
+    reference_title: &#34;A molecular and clinical study of Larsen syndrome caused by mutations in FLNB.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -3625,6 +3819,7 @@ genetic:
     explanation: &gt;-
       This directly supports the causative variant class and zygosity pattern.
   - reference: PMID:16648377
+    reference_title: &#34;Mutations responsible for Larsen syndrome cluster in the FLNB protein.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -3632,6 +3827,7 @@ genetic:
     explanation: &gt;-
       This supports FLNB as the principal causative gene.
   - reference: PMID:27048506
+    reference_title: &#34;Phenotype and genotype in patients with Larsen syndrome: clinical homogeneity and allelic heterogeneity in seven patients.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -3649,6 +3845,7 @@ phenotypes:
       label: Large joint dislocations
   evidence:
   - reference: PMID:27048506
+    reference_title: &#34;Phenotype and genotype in patients with Larsen syndrome: clinical homogeneity and allelic heterogeneity in seven patients.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -3666,6 +3863,7 @@ phenotypes:
       label: Prominent forehead
   evidence:
   - reference: PMID:11837607
+    reference_title: &#34;Larsen syndrome associated with severe congenital hydrocephalus.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -3683,6 +3881,7 @@ phenotypes:
       label: Depressed nasal bridge
   evidence:
   - reference: PMID:11837607
+    reference_title: &#34;Larsen syndrome associated with severe congenital hydrocephalus.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -3699,6 +3898,7 @@ phenotypes:
       label: Hypertelorism
   evidence:
   - reference: PMID:11837607
+    reference_title: &#34;Larsen syndrome associated with severe congenital hydrocephalus.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -3716,6 +3916,7 @@ phenotypes:
       label: Multiple carpal ossification centers
   evidence:
   - reference: PMID:16801345
+    reference_title: &#34;A molecular and clinical study of Larsen syndrome caused by mutations in FLNB.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -3723,6 +3924,7 @@ phenotypes:
     explanation: &gt;-
       This supports excess carpal ossification elements as a frequent feature.
   - reference: PMID:27048506
+    reference_title: &#34;Phenotype and genotype in patients with Larsen syndrome: clinical homogeneity and allelic heterogeneity in seven patients.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -3739,6 +3941,7 @@ phenotypes:
       label: Broad distal phalanx of finger
   evidence:
   - reference: PMID:16801345
+    reference_title: &#34;A molecular and clinical study of Larsen syndrome caused by mutations in FLNB.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -3756,6 +3959,7 @@ phenotypes:
       label: Talipes equinovarus
   evidence:
   - reference: PMID:11837607
+    reference_title: &#34;Larsen syndrome associated with severe congenital hydrocephalus.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -3773,6 +3977,7 @@ phenotypes:
       label: Cervical kyphosis
   evidence:
   - reference: PMID:17202879
+    reference_title: &#34;Surgical treatment of cervical kyphosis in Larsen syndrome: report of 3 cases and review of the literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -3780,6 +3985,7 @@ phenotypes:
     explanation: &gt;-
       This directly establishes cervical kyphosis as a severe hallmark manifestation.
   - reference: PMID:8609132
+    reference_title: &#34;Cervical kyphosis in patients who have Larsen syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -3797,6 +4003,7 @@ phenotypes:
       label: Kyphoscoliosis
   evidence:
   - reference: PMID:18377309
+    reference_title: &#34;Management of severe cervical kyphosis in a patient with Larsen syndrome. Case report.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -3810,6 +4017,7 @@ diagnosis:
     molecular confirmation of a heterozygous FLNB variant.
   evidence:
   - reference: PMID:27048506
+    reference_title: &#34;Phenotype and genotype in patients with Larsen syndrome: clinical homogeneity and allelic heterogeneity in seven patients.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -3817,6 +4025,7 @@ diagnosis:
     explanation: &gt;-
       This supports the central role of clinical-radiographic assessment.
   - reference: PMID:27048506
+    reference_title: &#34;Phenotype and genotype in patients with Larsen syndrome: clinical homogeneity and allelic heterogeneity in seven patients.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -3824,6 +4033,7 @@ diagnosis:
     explanation: &gt;-
       This supports molecular diagnostic confirmation via FLNB sequencing.
   - reference: PMID:16648377
+    reference_title: &#34;Mutations responsible for Larsen syndrome cluster in the FLNB protein.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -3843,6 +4053,7 @@ treatments:
       label: surgical procedure
   evidence:
   - reference: PMID:17202879
+    reference_title: &#34;Surgical treatment of cervical kyphosis in Larsen syndrome: report of 3 cases and review of the literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -3850,6 +4061,7 @@ treatments:
     explanation: &gt;-
       This supports operative management in severe cervical deformity.
   - reference: PMID:17202879
+    reference_title: &#34;Surgical treatment of cervical kyphosis in Larsen syndrome: report of 3 cases and review of the literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -3857,6 +4069,7 @@ treatments:
     explanation: &gt;-
       This supports early surveillance and intervention planning.
   - reference: PMID:8609132
+    reference_title: &#34;Cervical kyphosis in patients who have Larsen syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -3874,6 +4087,7 @@ treatments:
       label: supportive care
   evidence:
   - reference: PMID:18377309
+    reference_title: &#34;Management of severe cervical kyphosis in a patient with Larsen syndrome. Case report.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-

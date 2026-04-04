@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Splenic Disease</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Vascular Disease</span>
@@ -1932,6 +2105,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1987,6 +2163,14 @@
             <div class="stat-item">
                 <div class="stat-value">9</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">8</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2203,7 +2387,7 @@
                 <span class="card-count">3</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-portal-and-splenic-venous-congestion">
                 <div class="item-name">Portal and Splenic Venous Congestion</div>
                 
                 <div class="item-desc">Elevated portal venous pressure, most commonly from liver cirrhosis, transmits back through the splenic vein to the spleen. As intrahepatic vascular resistance increases (backward flow), compensatory splanchnic vasodilation increases portal inflow (forward flow), creating a local hyperdynamic state around the spleen. The splenic artery resistance index is selectively elevated in cirrhotic patients. Splenic vein thrombosis can produce isolated left-sided portal hypertension with the same congestion effect.
@@ -2240,6 +2424,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2313,7 +2498,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-red-pulp-congestion-and-fibrosis">
                 <div class="item-name">Red Pulp Congestion and Fibrosis</div>
                 
                 <div class="item-desc">Chronic venous congestion leads to progressive changes in splenic architecture. The red pulp becomes engorged with erythrocytes, and the macrophagic system is activated with histiocyte hyperplasia. Reticular fibers increase and myofibroblasts proliferate in the splenic cords, driven by oxidative stress and TGF-beta signaling. Over time, diffuse fibrosis develops throughout the parenchyma. The degree of fibrosis correlates with severity of thrombocytopenia and splenomegaly. Repeated microhemorrhages deposit hemosiderin and calcium, forming characteristic Gamma-Gandy bodies.
@@ -2360,6 +2545,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2437,7 +2623,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypersplenism">
                 <div class="item-name">Hypersplenism</div>
                 
                 <div class="item-desc">The enlarged, congested spleen excessively sequesters and destroys circulating blood cells. Platelets are most affected due to splenic pooling, but red blood cells and white blood cells are also trapped and destroyed, leading to varying degrees of pancytopenia. Reduced hepatic thrombopoietin production in chronic liver disease further compounds the thrombocytopenia. Increased splenic macrophage activity and immune-mediated mechanisms accelerate blood cell destruction.
@@ -2494,6 +2680,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2582,12 +2769,13 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Congestive Splenomegaly</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
@@ -3806,6 +3994,7 @@ has_subtypes:
     other hepatic causes of increased portal venous pressure.
   evidence:
   - reference: PMID:36908126
+    reference_title: &#34;The Role of the Spleen in Portal Hypertension.&#34;
     supports: SUPPORT
     snippet: &#34;As liver disease progresses, intrahepatic vascular resistance increases
       (backward flow theory of portal hypertension) and collateral veins develop.&#34;
@@ -3818,6 +4007,7 @@ has_subtypes:
     thrombosis, or other non-hepatic causes of venous congestion.
   evidence:
   - reference: PMID:27860293
+    reference_title: &#34;Thrombocytopenia in chronic liver disease.&#34;
     supports: SUPPORT
     snippet: &#34;insufficient platelet recovery after relief of portal hypertension by
       shunt procedures or minor and transient recovery after splenic artery embolization
@@ -3849,6 +4039,7 @@ pathophysiology:
       label: vasodilation
   evidence:
   - reference: PMID:36908126
+    reference_title: &#34;The Role of the Spleen in Portal Hypertension.&#34;
     supports: SUPPORT
     snippet: &#34;As liver disease progresses, intrahepatic vascular resistance increases
       (backward flow theory of portal hypertension) and collateral veins develop.
@@ -3861,6 +4052,7 @@ pathophysiology:
       splenomegaly through the backward and forward flow theories of portal
       hypertension and the selective elevation of splenic artery resistance.
   - reference: PMID:24679494
+    reference_title: &#34;Pathophysiology of portal hypertension.&#34;
     supports: SUPPORT
     snippet: &#34;Portal hypertension is a major complication of liver disease that results
       from a variety of pathologic conditions that increase the resistance to the
@@ -3871,6 +4063,7 @@ pathophysiology:
       combined with splanchnic vasodilation and increased portal blood flow
       drives portal hypertension and consequent splenic congestion.
   - reference: PMID:11926560
+    reference_title: &#34;Role of spleen enlargement in cirrhosis with portal hypertension.&#34;
     supports: SUPPORT
     snippet: &#34;The increase in spleen size is followed by an increase in splenic blood
       flow, which participates in portal hypertension actively congesting the portal
@@ -3911,6 +4104,7 @@ pathophysiology:
       label: extracellular matrix organization
   evidence:
   - reference: PMID:8170720
+    reference_title: &#34;Experimental congestive splenomegaly: histological observations in the rat.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;In course of experimental pre-hepatic portal hypertension in the rat,
@@ -3923,6 +4117,7 @@ pathophysiology:
       demonstrates the sequence of pathological changes from red pulp congestion
       through macrophage activation to diffuse fibrosis.
   - reference: PMID:32945524
+    reference_title: &#34;Cytoglobin-expressing cells in the splenic cords contribute to splenic fibrosis in cirrhotic patients.&#34;
     supports: SUPPORT
     snippet: &#34;In addition to splenic sinus congestion, diffuse fibrosis was detected
       in the splenic cords in the red pulp of patients with PH. The degree of the
@@ -3931,6 +4126,7 @@ pathophysiology:
       portal hypertension progresses in the red pulp and directly correlates
       with clinical severity of cytopenias and spleen size.
   - reference: PMID:32945524
+    reference_title: &#34;Cytoglobin-expressing cells in the splenic cords contribute to splenic fibrosis in cirrhotic patients.&#34;
     supports: SUPPORT
     snippet: &#34;Cells expressing α-smooth muscle actin dramatically increased in the
       splenic cord. Cytoglobin (Cygb) expression was detected in human splenic cords
@@ -3941,6 +4137,7 @@ pathophysiology:
       myofibroblastic transformation of cytoglobin-expressing cells in the
       splenic cords.
   - reference: PMID:11926560
+    reference_title: &#34;Role of spleen enlargement in cirrhosis with portal hypertension.&#34;
     supports: SUPPORT
     snippet: &#34;In this condition, splenomegaly is not only caused by portal congestion,
       but it is mainly due to tissue hyperplasia and fibrosis.&#34;
@@ -3981,6 +4178,7 @@ pathophysiology:
       label: phagocytosis
   evidence:
   - reference: PMID:36908126
+    reference_title: &#34;The Role of the Spleen in Portal Hypertension.&#34;
     supports: SUPPORT
     snippet: &#34;Splenomegaly is associated with a poor prognosis in cirrhosis and is
       caused by spleen congestion and by enlargement and hyperactivation of splenic
@@ -3989,6 +4187,7 @@ pathophysiology:
     explanation: Directly establishes the mechanism of hypersplenism in
       congestive splenomegaly with platelet sequestration and destruction.
   - reference: PMID:27860293
+    reference_title: &#34;Thrombocytopenia in chronic liver disease.&#34;
     supports: SUPPORT
     snippet: &#34;The pathophysiology of thrombocytopenia in chronic liver disease has
       long been associated with the hypothesis of hypersplenism, where portal hypertension
@@ -3997,6 +4196,7 @@ pathophysiology:
     explanation: Describes the classic hypersplenism mechanism affecting all
       blood cell lines, with platelets being predominantly affected.
   - reference: PMID:27860293
+    reference_title: &#34;Thrombocytopenia in chronic liver disease.&#34;
     supports: SUPPORT
     snippet: &#34;Thrombopoietin is predominantly produced by the liver and is reduced
       when liver cell mass is severely damaged. This leads to reduced thrombopoiesis
@@ -4006,6 +4206,7 @@ pathophysiology:
       thrombopoietin production contributing to thrombocytopenia beyond splenic
       sequestration.
   - reference: PMID:41306370
+    reference_title: &#34;The Mechanisms behind Thrombocytopenia in Patients with Portal Hypertension and Chronic Liver Disease.&#34;
     supports: SUPPORT
     snippet: &#34;Increased platelet destruction occurs due to splenic sequestration caused
       by hypersplenism or immune-mediated conditions. Decreased platelet production
@@ -4030,6 +4231,7 @@ phenotypes:
       label: Splenomegaly
   evidence:
   - reference: PMID:36908126
+    reference_title: &#34;The Role of the Spleen in Portal Hypertension.&#34;
     supports: SUPPORT
     snippet: &#34;Splenomegaly is associated with a poor prognosis in cirrhosis and is
       caused by spleen congestion and by enlargement and hyperactivation of splenic
@@ -4037,6 +4239,7 @@ phenotypes:
     explanation: Establishes splenomegaly as a hallmark feature of portal
       hypertension with prognostic significance.
   - reference: PMID:32408299
+    reference_title: &#34;Splenic Rhythms and Postprandial Dynamics in Physiology, Portal Hypertension, and Functional Hyposplenism: A Review.&#34;
     supports: SUPPORT
     snippet: &#34;After food ingestion, the spleen responds either with contraction according
       to a vasomotor reaction or postprandial congestion with significant increases
@@ -4059,6 +4262,7 @@ phenotypes:
       label: Thrombocytopenia
   evidence:
   - reference: PMID:27860293
+    reference_title: &#34;Thrombocytopenia in chronic liver disease.&#34;
     supports: SUPPORT
     snippet: &#34;Thrombocytopenia is a common haematological disorder in patients with
       chronic liver disease. It is multifactorial and severity of liver disease is
@@ -4067,6 +4271,7 @@ phenotypes:
       complication in the setting of chronic liver disease and portal
       hypertension.
   - reference: PMID:41306370
+    reference_title: &#34;The Mechanisms behind Thrombocytopenia in Patients with Portal Hypertension and Chronic Liver Disease.&#34;
     supports: SUPPORT
     snippet: &#34;Thrombocytopenia is a prevalent condition in patients with chronic liver
       disease and portal hypertension. Multiple mechanisms related to increased platelet
@@ -4106,6 +4311,7 @@ phenotypes:
       label: Decreased total leukocyte count
   evidence:
   - reference: PMID:27860293
+    reference_title: &#34;Thrombocytopenia in chronic liver disease.&#34;
     supports: SUPPORT
     snippet: &#34;portal hypertension causes pooling and sequestration of all corpuscular
       elements of the blood, predominantly thrombocytes, in the enlarged and congested
@@ -4123,6 +4329,7 @@ phenotypes:
       label: Pancytopenia
   evidence:
   - reference: PMID:27860293
+    reference_title: &#34;Thrombocytopenia in chronic liver disease.&#34;
     supports: SUPPORT
     snippet: &#34;portal hypertension causes pooling and sequestration of all corpuscular
       elements of the blood, predominantly thrombocytes, in the enlarged and congested
@@ -4141,6 +4348,7 @@ phenotypes:
       label: Abdominal pain
   evidence:
   - reference: PMID:28535799
+    reference_title: &#34;The spleen in liver cirrhosis: revisiting an old enemy with novel targets.&#34;
     supports: SUPPORT
     snippet: &#34;In chronic liver diseases, splenomegaly and hypersplenism can manifest
       following the development of portal hypertension.&#34;
@@ -4157,6 +4365,7 @@ phenotypes:
       label: Early satiety
   evidence:
   - reference: PMID:36908126
+    reference_title: &#34;The Role of the Spleen in Portal Hypertension.&#34;
     supports: SUPPORT
     snippet: &#34;Splenomegaly is associated with a poor prognosis in cirrhosis and is
       caused by spleen congestion and by enlargement and hyperactivation of splenic
@@ -4192,6 +4401,7 @@ phenotypes:
       label: Gastrointestinal hemorrhage
   evidence:
   - reference: PMID:24679494
+    reference_title: &#34;Pathophysiology of portal hypertension.&#34;
     supports: SUPPORT
     snippet: &#34;Hyperdynamic circulatory syndrome develops, leading to esophageal varices
       or ascites.&#34;
@@ -4204,6 +4414,7 @@ biochemical:
     abnormality
   evidence:
   - reference: PMID:41306370
+    reference_title: &#34;The Mechanisms behind Thrombocytopenia in Patients with Portal Hypertension and Chronic Liver Disease.&#34;
     supports: SUPPORT
     snippet: &#34;Various clinical risk scores consider platelet counts as independent
       predictors of adverse liver outcomes, such as the development of esophageal
@@ -4227,6 +4438,7 @@ biochemical:
   context: Sequestration of leukocytes in the enlarged spleen
   evidence:
   - reference: PMID:27860293
+    reference_title: &#34;Thrombocytopenia in chronic liver disease.&#34;
     supports: SUPPORT
     snippet: &#34;portal hypertension causes pooling and sequestration of all corpuscular
       elements of the blood, predominantly thrombocytes, in the enlarged and congested
@@ -4282,6 +4494,7 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:41306370
+    reference_title: &#34;The Mechanisms behind Thrombocytopenia in Patients with Portal Hypertension and Chronic Liver Disease.&#34;
     supports: SUPPORT
     snippet: &#34;Persistent liver injury halts the regenerative capacity of hepatocytes
       and activates mechanisms that result in the replacement of normal hepatic parenchyma
@@ -4302,6 +4515,7 @@ treatments:
       label: beta-adrenergic antagonist therapy
   evidence:
   - reference: PMID:41306370
+    reference_title: &#34;The Mechanisms behind Thrombocytopenia in Patients with Portal Hypertension and Chronic Liver Disease.&#34;
     supports: SUPPORT
     snippet: &#34;Nonselective beta-blockers are the cornerstone of long-term management
       for clinically significant portal hypertension.&#34;
@@ -4319,6 +4533,7 @@ treatments:
       label: splenectomy
   evidence:
   - reference: PMID:28535799
+    reference_title: &#34;The spleen in liver cirrhosis: revisiting an old enemy with novel targets.&#34;
     supports: SUPPORT
     snippet: &#34;We conclude with a discussion of the possible therapeutic strategies
       for modulating splenic abnormalities, including the novel potential usage of
@@ -4339,6 +4554,7 @@ treatments:
       label: surgical procedure on vascular system
   evidence:
   - reference: PMID:27860293
+    reference_title: &#34;Thrombocytopenia in chronic liver disease.&#34;
     supports: PARTIAL
     snippet: &#34;insufficient platelet recovery after relief of portal hypertension by
       shunt procedures or minor and transient recovery after splenic artery embolization
@@ -4359,6 +4575,7 @@ treatments:
       label: surgical procedure on vascular system
   evidence:
   - reference: PMID:41306370
+    reference_title: &#34;The Mechanisms behind Thrombocytopenia in Patients with Portal Hypertension and Chronic Liver Disease.&#34;
     supports: SUPPORT
     snippet: &#34;Indications for transjugular intrahepatic portosystemic shunt placement
       include failure to control portal hypertension-related bleeding, early rebleeding,

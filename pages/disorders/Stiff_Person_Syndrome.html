@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 2</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Neurological Disease</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Autoimmune Disease</span>
@@ -1936,6 +2109,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1991,6 +2167,14 @@
             <div class="stat-item">
                 <div class="stat-value">7</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">2</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2290,7 +2474,7 @@
                 <span class="card-count">3</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-gabaergic-inhibition-impairment">
                 <div class="item-name">GABAergic Inhibition Impairment</div>
                 
                 <div class="item-desc">Anti-GAD65 antibodies target glutamic acid decarboxylase, the enzyme that synthesizes GABA from glutamate. This leads to reduced GABA production and impaired inhibitory neurotransmission, resulting in neuronal hyperexcitability. GAD65 is predominantly localized to synaptic vesicles and provides additional GABA synthesis when there is increased demand for rapid neurotransmitter release during high-frequency neural firing.</div>
@@ -2346,6 +2530,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2419,7 +2604,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-reciprocal-inhibition">
                 <div class="item-name">Loss of Reciprocal Inhibition</div>
                 
                 <div class="item-desc">Failure of GABAergic interneurons to inhibit antagonist motor neurons during voluntary movement, resulting in co-contraction of opposing muscle groups and the characteristic rigid posture.</div>
@@ -2438,6 +2623,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2478,7 +2664,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-intrathecal-b-cell-autoimmunity">
                 <div class="item-name">Intrathecal B-cell Autoimmunity</div>
                 
                 <div class="item-desc">B-cell-mediated autoimmune inflammation with clonal B-cell activation specifically within the central nervous system. Approximately 67% of patients demonstrate oligoclonal IgG bands in the CSF, and 85% exhibit increased GAD65-specific IgG index values, indicating intrathecal antibody synthesis.</div>
@@ -2497,6 +2683,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2568,12 +2755,13 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Stiff Person Syndrome</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
@@ -3659,6 +3847,7 @@ has_subtypes:
     limb muscles, progressive gait disturbance, and lumbar hyperlordosis.
   evidence:
   - reference: PMID:35084720
+    reference_title: &#34;Stiff-person Syndrome and GAD Antibody-spectrum Disorders: GABAergic Neuronal Excitability, Immunopathogenesis and Update on Antibody Therapies.&#34;
     supports: PARTIAL
     snippet: &gt;-
       GAD antibody-spectrum disorders (GAD-SD) that include Cerebellar Ataxia,
@@ -3675,6 +3864,7 @@ has_subtypes:
     often one leg, without significant axial involvement.
   evidence:
   - reference: PMID:35084720
+    reference_title: &#34;Stiff-person Syndrome and GAD Antibody-spectrum Disorders: GABAergic Neuronal Excitability, Immunopathogenesis and Update on Antibody Therapies.&#34;
     supports: NO_EVIDENCE
     snippet: &gt;-
       In spite of the unique clinical phenotype that each of these disorders
@@ -3690,6 +3880,7 @@ has_subtypes:
     aggressive course.
   evidence:
   - reference: PMID:35084720
+    reference_title: &#34;Stiff-person Syndrome and GAD Antibody-spectrum Disorders: GABAergic Neuronal Excitability, Immunopathogenesis and Update on Antibody Therapies.&#34;
     supports: PARTIAL
     snippet: &gt;-
       GAD antibody-spectrum disorders (GAD-SD) that include Cerebellar Ataxia,
@@ -3731,6 +3922,7 @@ pathophysiology:
       muscles.
     evidence:
     - reference: PMID:35084720
+      reference_title: &#34;Stiff-person Syndrome and GAD Antibody-spectrum Disorders: GABAergic Neuronal Excitability, Immunopathogenesis and Update on Antibody Therapies.&#34;
       supports: SUPPORT
       snippet: &gt;-
         the phenomenon of reciprocal inhibition as the fundamental mechanism
@@ -3740,6 +3932,7 @@ pathophysiology:
         leads to the characteristic muscle co-contraction.
   evidence:
   - reference: PMID:3281011
+    reference_title: &#34;Autoantibodies to glutamic acid decarboxylase in a patient with stiff-man syndrome, epilepsy, and type I diabetes mellitus.&#34;
     supports: SUPPORT
     snippet: &gt;-
       A band comigrating with glutamic acid decarboxylase in sodium dodecyl
@@ -3749,6 +3942,7 @@ pathophysiology:
       This landmark paper identified GAD as the target antigen in stiff
       person syndrome, establishing the autoimmune basis.
   - reference: PMID:35084720
+    reference_title: &#34;Stiff-person Syndrome and GAD Antibody-spectrum Disorders: GABAergic Neuronal Excitability, Immunopathogenesis and Update on Antibody Therapies.&#34;
     supports: SUPPORT
     snippet: &gt;-
       Very high serum anti-GAD antibody titers are a key diagnostic feature
@@ -3758,6 +3952,7 @@ pathophysiology:
       High GAD antibody titers correlate with reduced GABA levels,
       supporting the pathophysiological mechanism.
   - reference: PMID:37059468
+    reference_title: &#34;Therapies in Stiff-Person Syndrome: Advances and Future Prospects Based on Disease Pathophysiology.&#34;
     supports: PARTIAL
     snippet: &gt;-
       caused by impaired GABAergic inhibitory neurotransmission and autoimmunity
@@ -3778,6 +3973,7 @@ pathophysiology:
       label: motor neuron
   evidence:
   - reference: PMID:35084720
+    reference_title: &#34;Stiff-person Syndrome and GAD Antibody-spectrum Disorders: GABAergic Neuronal Excitability, Immunopathogenesis and Update on Antibody Therapies.&#34;
     supports: SUPPORT
     snippet: &gt;-
       the phenomenon of reciprocal inhibition as the fundamental mechanism
@@ -3798,6 +3994,7 @@ pathophysiology:
       label: B cell
   evidence:
   - reference: PMID:35084720
+    reference_title: &#34;Stiff-person Syndrome and GAD Antibody-spectrum Disorders: GABAergic Neuronal Excitability, Immunopathogenesis and Update on Antibody Therapies.&#34;
     supports: PARTIAL
     snippet: &gt;-
       Very high serum anti-GAD antibody titers are a key diagnostic feature
@@ -3808,6 +4005,7 @@ pathophysiology:
       Describes the intrathecal B-cell activation and antibody synthesis
       characteristic of SPS.
   - reference: PMID:37059468
+    reference_title: &#34;Therapies in Stiff-Person Syndrome: Advances and Future Prospects Based on Disease Pathophysiology.&#34;
     supports: PARTIAL
     snippet: &gt;-
       caused by impaired GABAergic inhibitory neurotransmission and autoimmunity
@@ -3826,6 +4024,7 @@ phenotypes:
     with a board-like quality. Prominent in truncal muscles.
   evidence:
   - reference: PMID:11756577
+    reference_title: &#34;High-dose intravenous immune globulin for stiff-person syndrome.&#34;
     supports: SUPPORT
     snippet: &gt;-
       Stiff-person syndrome is a disabling central nervous system disorder
@@ -3850,6 +4049,7 @@ phenotypes:
     fractures.
   evidence:
   - reference: PMID:11756577
+    reference_title: &#34;High-dose intravenous immune globulin for stiff-person syndrome.&#34;
     supports: SUPPORT
     snippet: &gt;-
       Stiff-person syndrome is a disabling central nervous system disorder
@@ -3858,6 +4058,7 @@ phenotypes:
     explanation: &gt;-
       Episodic muscle spasms are a core diagnostic feature of the syndrome.
   - reference: PMID:3281011
+    reference_title: &#34;Autoantibodies to glutamic acid decarboxylase in a patient with stiff-man syndrome, epilepsy, and type I diabetes mellitus.&#34;
     supports: SUPPORT
     snippet: &gt;-
       Stiff-man syndrome is a rare disorder of the central nervous system
@@ -3866,6 +4067,7 @@ phenotypes:
     explanation: &gt;-
       The original description establishes painful spasms as a core feature.
   - reference: PMID:37059468
+    reference_title: &#34;Therapies in Stiff-Person Syndrome: Advances and Future Prospects Based on Disease Pathophysiology.&#34;
     supports: SUPPORT
     snippet: &gt;-
       episodic painful muscle spasms and the autoimmunity to enhance improvement
@@ -3887,6 +4089,7 @@ phenotypes:
     unexpected auditory, visual, or tactile stimuli.
   evidence:
   - reference: PMID:35084720
+    reference_title: &#34;Stiff-person Syndrome and GAD Antibody-spectrum Disorders: GABAergic Neuronal Excitability, Immunopathogenesis and Update on Antibody Therapies.&#34;
     supports: NO_EVIDENCE
     snippet: &gt;-
       In spite of the unique clinical phenotype that each of these disorders
@@ -3908,6 +4111,7 @@ phenotypes:
     or statue-like gait. Patients may have difficulty initiating movement.
   evidence:
   - reference: PMID:11756577
+    reference_title: &#34;High-dose intravenous immune globulin for stiff-person syndrome.&#34;
     supports: PARTIAL
     snippet: &gt;-
       Eleven patients who received immune globulin became able to walk more
@@ -3928,6 +4132,7 @@ phenotypes:
     muscles. May lead to ankylosing deformity.
   evidence:
   - reference: PMID:37059468
+    reference_title: &#34;Therapies in Stiff-Person Syndrome: Advances and Future Prospects Based on Disease Pathophysiology.&#34;
     supports: NO_EVIDENCE
     snippet: &gt;-
       stiffness in the truncal and proximal limb muscles, gait dysfunction, and
@@ -3948,6 +4153,7 @@ phenotypes:
     Falls occur without protective reflexes due to rigidity.
   evidence:
   - reference: PMID:37059468
+    reference_title: &#34;Therapies in Stiff-Person Syndrome: Advances and Future Prospects Based on Disease Pathophysiology.&#34;
     supports: NO_EVIDENCE
     snippet: &gt;-
       stiffness in the truncal and proximal limb muscles, gait dysfunction, and
@@ -3969,6 +4175,7 @@ phenotypes:
     psychological but reflects heightened neuronal excitability.
   evidence:
   - reference: PMID:37059468
+    reference_title: &#34;Therapies in Stiff-Person Syndrome: Advances and Future Prospects Based on Disease Pathophysiology.&#34;
     supports: NO_EVIDENCE
     snippet: &gt;-
       the challenges in distinguishing the conditioning effects or expectations
@@ -3989,6 +4196,7 @@ biochemical:
     Lower titers occur in type 1 diabetes without neurological disease.
   evidence:
   - reference: PMID:3281011
+    reference_title: &#34;Autoantibodies to glutamic acid decarboxylase in a patient with stiff-man syndrome, epilepsy, and type I diabetes mellitus.&#34;
     supports: PARTIAL
     snippet: &gt;-
       A band comigrating with glutamic acid decarboxylase in sodium dodecyl
@@ -3997,6 +4205,7 @@ biochemical:
     explanation: &gt;-
       This paper first identified GAD antibodies in stiff person syndrome.
   - reference: PMID:35084720
+    reference_title: &#34;Stiff-person Syndrome and GAD Antibody-spectrum Disorders: GABAergic Neuronal Excitability, Immunopathogenesis and Update on Antibody Therapies.&#34;
     supports: PARTIAL
     snippet: &gt;-
       Very high serum anti-GAD antibody titers are a key diagnostic feature
@@ -4010,6 +4219,7 @@ biochemical:
     presentation, particularly breast cancer.
   evidence:
   - reference: PMID:35084720
+    reference_title: &#34;Stiff-person Syndrome and GAD Antibody-spectrum Disorders: GABAergic Neuronal Excitability, Immunopathogenesis and Update on Antibody Therapies.&#34;
     supports: PARTIAL
     snippet: &gt;-
       three other autoantibodies, against glycine receptors, amphiphysin and
@@ -4024,6 +4234,7 @@ biochemical:
     and have demonstrated pathogenicity.
   evidence:
   - reference: PMID:35084720
+    reference_title: &#34;Stiff-person Syndrome and GAD Antibody-spectrum Disorders: GABAergic Neuronal Excitability, Immunopathogenesis and Update on Antibody Therapies.&#34;
     supports: PARTIAL
     snippet: &gt;-
       three other autoantibodies, against glycine receptors, amphiphysin and
@@ -4037,6 +4248,7 @@ biochemical:
     synthesis due to GAD inhibition.
   evidence:
   - reference: PMID:35084720
+    reference_title: &#34;Stiff-person Syndrome and GAD Antibody-spectrum Disorders: GABAergic Neuronal Excitability, Immunopathogenesis and Update on Antibody Therapies.&#34;
     supports: SUPPORT
     snippet: &gt;-
       Very high serum anti-GAD antibody titers are a key diagnostic feature
@@ -4053,6 +4265,7 @@ genetic:
     The DQB1*0201 allele is present in approximately 70% of SPS patients.
   evidence:
   - reference: PMID:35084720
+    reference_title: &#34;Stiff-person Syndrome and GAD Antibody-spectrum Disorders: GABAergic Neuronal Excitability, Immunopathogenesis and Update on Antibody Therapies.&#34;
     supports: NO_EVIDENCE
     snippet: &gt;-
       In spite of the unique clinical phenotype that each of these disorders
@@ -4069,6 +4282,7 @@ treatments:
     commonly used, starting at 5-10mg twice daily.
   evidence:
   - reference: PMID:35084720
+    reference_title: &#34;Stiff-person Syndrome and GAD Antibody-spectrum Disorders: GABAergic Neuronal Excitability, Immunopathogenesis and Update on Antibody Therapies.&#34;
     supports: PARTIAL
     snippet: &gt;-
       details on symptomatic GABA-enhancing drugs and the currently available
@@ -4088,6 +4302,7 @@ treatments:
     orally or intrathecally for refractory cases.
   evidence:
   - reference: PMID:37059468
+    reference_title: &#34;Therapies in Stiff-Person Syndrome: Advances and Future Prospects Based on Disease Pathophysiology.&#34;
     supports: PARTIAL
     snippet: &gt;-
       combination therapies with the preferred gamma-aminobutyric
@@ -4114,6 +4329,7 @@ treatments:
     in up to 75% of patients.
   evidence:
   - reference: PMID:11756577
+    reference_title: &#34;High-dose intravenous immune globulin for stiff-person syndrome.&#34;
     supports: SUPPORT
     snippet: &gt;-
       Among patients who received immune globulin first, stiffness scores
@@ -4121,6 +4337,7 @@ treatments:
     explanation: &gt;-
       Randomized controlled trial demonstrated significant efficacy of IVIg.
   - reference: PMID:11756577
+    reference_title: &#34;High-dose intravenous immune globulin for stiff-person syndrome.&#34;
     supports: SUPPORT
     snippet: &gt;-
       Intravenous immune globulin is a well-tolerated and effective, albeit
@@ -4129,6 +4346,7 @@ treatments:
     explanation: &gt;-
       The trial conclusion establishes IVIg as effective treatment.
   - reference: PMID:37059468
+    reference_title: &#34;Therapies in Stiff-Person Syndrome: Advances and Future Prospects Based on Disease Pathophysiology.&#34;
     supports: PARTIAL
     snippet: &gt;-
       detailing the application of current immunotherapies with intravenous
@@ -4149,6 +4367,7 @@ treatments:
     6-12 months.
   evidence:
   - reference: PMID:37059468
+    reference_title: &#34;Therapies in Stiff-Person Syndrome: Advances and Future Prospects Based on Disease Pathophysiology.&#34;
     supports: PARTIAL
     snippet: &gt;-
       detailing the application of current immunotherapies with intravenous
@@ -4157,6 +4376,7 @@ treatments:
       Rituximab is included as part of the current immunotherapy options
       for SPS treatment.
   - reference: PMID:35084720
+    reference_title: &#34;Stiff-person Syndrome and GAD Antibody-spectrum Disorders: GABAergic Neuronal Excitability, Immunopathogenesis and Update on Antibody Therapies.&#34;
     supports: PARTIAL
     snippet: &gt;-
       focuses on therapies providing details on symptomatic GABA-enhancing

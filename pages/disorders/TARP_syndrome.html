@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,7 @@
                 </span>
                 
                 
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">X-linked genetic disorder</span>
                 
             </div>
@@ -1930,6 +2101,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1989,6 +2163,12 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
+            
+            
+            <div class="stat-item">
+                <div class="stat-value">0</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
             
             
             <a class="stat-link" href="#genetic">
@@ -2121,7 +2301,7 @@
                 <span class="card-count">2</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-rbm10-mediated-alternative-splicing-dysregulation">
                 <div class="item-name">RBM10-mediated alternative splicing dysregulation</div>
                 
                 <div class="item-desc">Loss-of-function mutations in RBM10 (RNA Binding Motif Protein 10) impair its role as a U2-associated splicing repressor, leading to widespread dysregulation of alternative splicing across the transcriptome. RBM10 normally promotes cassette exon skipping through interaction with U2 snRNP at intron branch sites on chromatin. Loss of RBM10 function shifts hundreds to thousands of splicing events toward exon inclusion. Key downstream effects include NOTCH pathway de-repression via NUMB missplicing and dysregulation of extracellular matrix and cytoskeletal signaling through isoform changes in VCL, CD44, and TNC. These splicing defects disrupt developmental pathways controlling craniofacial morphogenesis, limb patterning, and cardiac development, leading to the characteristic TARP phenotype.</div>
@@ -2178,6 +2358,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2210,7 +2391,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-rbm10-splicing-independent-replication-fork-dysfunction">
                 <div class="item-name">RBM10 splicing-independent replication fork dysfunction</div>
                 
                 <div class="item-desc">RBM10 also functions in a splicing-independent manner at DNA replication forks, where it recruits HDAC1 to promote H4K16 deacetylation and maintains fork stability. Loss of RBM10 induces replication stress and creates synthetic-lethal interactions with WEE1 inhibition. This dual role provides additional pathological mechanisms affecting developmental processes through both transcriptional and chromosomal instability pathways.</div>
@@ -2242,6 +2423,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3505,6 +3687,7 @@ phenotypes:
       label: Atrial septal defect
   evidence:
   - reference: PMID:36944446
+    reference_title: &#34;Abnormal liver function tests and improved survival in a child with splice mutation TARP syndrome.&#34;
     supports: PARTIAL
     snippet: &#34;TARP (talipes equinovarus, atrial septal defect (ASD), Robin sequence, persistent left superior vena cava) syndrome is a rare X-linked disorder affecting the RBM10 gene&#34;
     explanation: Lane et al. 2023 case report documents atrial septal defect as a cardinal feature of TARP syndrome caused by RBM10 splice mutations.
@@ -3520,6 +3703,7 @@ phenotypes:
       label: Micrognathia
   evidence:
   - reference: PMID:36944446
+    reference_title: &#34;Abnormal liver function tests and improved survival in a child with splice mutation TARP syndrome.&#34;
     supports: PARTIAL
     snippet: &#34;At birth, he had an ASD and Robin sequence, two of the eponymous features&#34;
     explanation: Lane et al. 2023 confirms Robin sequence (including micrognathia) as a defining feature of TARP syndrome.
@@ -3535,6 +3719,7 @@ phenotypes:
       label: Cleft palate
   evidence:
   - reference: PMID:36944446
+    reference_title: &#34;Abnormal liver function tests and improved survival in a child with splice mutation TARP syndrome.&#34;
     supports: PARTIAL
     snippet: &#34;At birth, he had an ASD and Robin sequence, two of the eponymous features&#34;
     explanation: Lane et al. 2023 documents cleft palate as part of the Robin sequence phenotype in TARP syndrome.
@@ -3549,6 +3734,7 @@ phenotypes:
       label: Talipes equinovarus
   evidence:
   - reference: PMID:36944446
+    reference_title: &#34;Abnormal liver function tests and improved survival in a child with splice mutation TARP syndrome.&#34;
     supports: PARTIAL
     snippet: &#34;TARP (talipes equinovarus, atrial septal defect (ASD), Robin sequence, persistent left superior vena cava) syndrome&#34;
     explanation: Lane et al. 2023 identifies talipes equinovarus (clubfoot) as the eponymous first feature of TARP syndrome.
@@ -3563,6 +3749,7 @@ phenotypes:
       label: Glossoptosis
   evidence:
   - reference: PMID:36944446
+    reference_title: &#34;Abnormal liver function tests and improved survival in a child with splice mutation TARP syndrome.&#34;
     supports: PARTIAL
     snippet: &#34;At birth, he had an ASD and Robin sequence, two of the eponymous features&#34;
     explanation: Lane et al. 2023 documents Robin sequence (which includes glossoptosis - posterior tongue displacement) as an eponymous feature of TARP syndrome.
@@ -3577,6 +3764,7 @@ phenotypes:
       label: Abnormality of the gastrointestinal tract
   evidence:
   - reference: PMID:37340830
+    reference_title: &#34;Vitelline vascular remnant causing intestinal obstruction in a patient with TARP syndrome.&#34;
     supports: SUPPORT
     snippet: &#34;Vitelline vascular remnants (VVR) are a rare vitelline duct anomaly with approximately 26 cases previously reported. There are no previously reported cases of VVRs in patients with TARP syndrome.&#34;
     explanation: Omorodion et al. 2023 documents the first reported case of vitelline vascular remnant causing intestinal obstruction in a TARP syndrome patient, expanding the known phenotypic spectrum.
@@ -3591,6 +3779,7 @@ phenotypes:
       label: Horseshoe kidney
   evidence:
   - reference: PMID:34031074
+    reference_title: &#34;TARP syndrome associated with renal malformation and optic nerve atrophy.&#34;
     supports: PARTIAL
     snippet: &#34;intrauterine growth restriction, with a persistent left superior vena cava, interatrial communication and a horseshoe kidney&#34;
     explanation: Manotas et al. 2021 documents a TARP syndrome patient with horseshoe kidney, a previously unreported renal manifestation in this syndrome.
@@ -3606,6 +3795,7 @@ phenotypes:
       label: Optic atrophy
   evidence:
   - reference: PMID:34031074
+    reference_title: &#34;TARP syndrome associated with renal malformation and optic nerve atrophy.&#34;
     supports: PARTIAL
     snippet: &#34;Additionally, postnatal optic nerve atrophy was diagnosed.&#34;
     explanation: Manotas et al. 2021 documents postnatal optic nerve atrophy in a TARP syndrome patient, expanding the known systemic manifestations of this condition.
@@ -3621,6 +3811,7 @@ phenotypes:
       label: Intellectual disability
   evidence:
   - reference: PMID:30462380
+    reference_title: &#34;First reported adult patient with TARP syndrome: A case report.&#34;
     supports: PARTIAL
     snippet: &#34;He was diagnosed with severe to profound intellectual disability in early childhood and had not developed language at age 28 years.&#34;
     explanation: Højland et al. 2018 documents severe to profound intellectual disability in the first reported adult TARP patient, confirming this as a consistent and persistent feature.
@@ -3635,6 +3826,7 @@ phenotypes:
       label: Esotropia
   evidence:
   - reference: PMID:30462380
+    reference_title: &#34;First reported adult patient with TARP syndrome: A case report.&#34;
     supports: PARTIAL
     snippet: &#34;Clinical examination of the patient revealed sloping forehead, prominent nasal bridge and nose, high myopia, esotropia, displacement of lacrimal points in the cranial direction&#34;
     explanation: Højland et al. 2018 documents esotropia as an ophthalmic finding in an adult TARP patient, expanding the known ocular manifestations of the syndrome.
@@ -3649,6 +3841,7 @@ phenotypes:
       label: Scoliosis
   evidence:
   - reference: PMID:30462380
+    reference_title: &#34;First reported adult patient with TARP syndrome: A case report.&#34;
     supports: PARTIAL
     snippet: &#34;Surgery for severe thoracolumbar scoliosis was performed at age 21 years.&#34;
     explanation: Højland et al. 2018 documents severe thoracolumbar scoliosis in an adult TARP patient, a previously unreported manifestation of TARP syndrome.
@@ -3663,6 +3856,7 @@ phenotypes:
       label: Prominent nose
   evidence:
   - reference: PMID:30462380
+    reference_title: &#34;First reported adult patient with TARP syndrome: A case report.&#34;
     supports: PARTIAL
     snippet: &#34;Clinical examination of the patient revealed sloping forehead, prominent nasal bridge and nose, high myopia, esotropia&#34;
     explanation: Højland et al. 2018 documents prominent nose and nasal bridge as craniofacial features in an adult TARP patient, expanding the phenotypic spectrum beyond the initially described cardinal features.
@@ -3679,6 +3873,7 @@ pathophysiology:
     and cardiac development, leading to the characteristic TARP phenotype.
   evidence:
   - reference: PMID:36944446
+    reference_title: &#34;Abnormal liver function tests and improved survival in a child with splice mutation TARP syndrome.&#34;
     supports: PARTIAL
     snippet: &#34;TARP (talipes equinovarus, atrial septal defect (ASD), Robin sequence, persistent left superior vena cava) syndrome is a rare X-linked disorder affecting the RBM10 gene&#34;
     explanation: Lane et al. 2023 establishes RBM10 as the causative gene for TARP syndrome with loss-of-function splice mutations.
@@ -3708,6 +3903,7 @@ pathophysiology:
     instability pathways.
   evidence:
   - reference: PMID:39080280
+    reference_title: &#34;Harnessing DNA replication stress to target RBM10 deficiency in lung adenocarcinoma.&#34;
     supports: PARTIAL
     snippet: &#34;RBM10 serves as an anchor for recruiting Histone Deacetylase 1 (HDAC1) to facilitate H4K16 deacetylation and R-loop homeostasis to maintain replication fork stability&#34;
     explanation: Machour et al. 2024 demonstrates the splicing-independent role of RBM10 in maintaining DNA replication fork stability through HDAC1 recruitment.
@@ -3728,6 +3924,7 @@ inheritance:
     are typically unaffected carriers, as they have one normal copy of the gene.
   evidence:
   - reference: PMID:36944446
+    reference_title: &#34;Abnormal liver function tests and improved survival in a child with splice mutation TARP syndrome.&#34;
     supports: SUPPORT
     snippet: &#34;TARP (talipes equinovarus, atrial septal defect (ASD), Robin sequence, persistent left superior vena cava) syndrome is a rare X-linked disorder affecting the RBM10 gene&#34;
     explanation: Lane et al. 2023 confirms X-linked inheritance pattern of TARP syndrome due to RBM10 mutations.
@@ -3741,6 +3938,7 @@ genetic:
     functional impairment and degree of splicing dysregulation.
   evidence:
   - reference: PMID:36944446
+    reference_title: &#34;Abnormal liver function tests and improved survival in a child with splice mutation TARP syndrome.&#34;
     supports: SUPPORT
     snippet: &#34;a previously unreported splicing mutation c.2295+1G&gt;A in the RBM10 gene&#34;
     explanation: Lane et al. 2023 documents RBM10 splice-site mutations as causative for TARP syndrome.
@@ -3775,6 +3973,7 @@ treatments:
       label: surgical procedure
   evidence:
   - reference: PMID:36944446
+    reference_title: &#34;Abnormal liver function tests and improved survival in a child with splice mutation TARP syndrome.&#34;
     supports: PARTIAL
     snippet: &#34;At birth, he had an ASD and Robin sequence, two of the eponymous features&#34;
     explanation: Lane et al. 2023 case report of a TARP patient with ASD requiring cardiac management for survival beyond neonatal period.
@@ -3787,6 +3986,7 @@ treatments:
       label: surgical procedure
   evidence:
   - reference: PMID:36944446
+    reference_title: &#34;Abnormal liver function tests and improved survival in a child with splice mutation TARP syndrome.&#34;
     supports: PARTIAL
     snippet: &#34;TARP (talipes equinovarus, atrial septal defect (ASD), Robin sequence, persistent left superior vena cava) syndrome&#34;
     explanation: Lane et al. 2023 documents Robin sequence (which includes cleft palate) as a defining feature of TARP, requiring surgical intervention for airway management and feeding.
@@ -3799,6 +3999,7 @@ treatments:
       label: surgical procedure
   evidence:
   - reference: PMID:36944446
+    reference_title: &#34;Abnormal liver function tests and improved survival in a child with splice mutation TARP syndrome.&#34;
     supports: PARTIAL
     snippet: &#34;TARP (talipes equinovarus, atrial septal defect (ASD), Robin sequence, persistent left superior vena cava) syndrome&#34;
     explanation: Lane et al. 2023 case report of TARP patient with talipes equinovarus, which typically requires orthopedic surgical intervention.
@@ -3806,6 +4007,7 @@ treatments:
   description: Management of potential airway obstruction due to micrognathia and glossoptosis in Robin sequence
   evidence:
   - reference: PMID:36944446
+    reference_title: &#34;Abnormal liver function tests and improved survival in a child with splice mutation TARP syndrome.&#34;
     supports: PARTIAL
     snippet: &#34;At birth, he had an ASD and Robin sequence, two of the eponymous features&#34;
     explanation: Lane et al. 2023 case report documents Robin sequence (which includes micrognathia and glossoptosis) requiring airway management to prevent obstruction and maintain adequate oxygenation.
@@ -3818,6 +4020,7 @@ treatments:
       label: supportive care
   evidence:
   - reference: PMID:36944446
+    reference_title: &#34;Abnormal liver function tests and improved survival in a child with splice mutation TARP syndrome.&#34;
     supports: PARTIAL
     snippet: &#34;our patient&#39;s survival past the neonatal period&#34;
     explanation: Lane et al. 2023 demonstrates that coordinated multidisciplinary management of TARP syndrome features enables survival beyond the historically fatal neonatal period.

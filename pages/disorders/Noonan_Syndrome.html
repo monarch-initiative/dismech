@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 22</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">RASopathy</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Congenital Heart Disease</span>
@@ -1936,6 +2109,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1995,6 +2171,14 @@
             <div class="stat-item">
                 <div class="stat-value">17</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">22</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2433,7 +2617,7 @@
                 <span class="card-count">10</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-shp2-gain-of-function-activation">
                 <div class="item-name">SHP2 Gain-of-Function Activation</div>
                 
                 <div class="item-desc">PTPN11 mutations destabilize the autoinhibitory interaction between the N-SH2 and PTP domains, resulting in constitutively elevated phosphatase activity. SHP2 is a positive regulator of RAS-MAPK signaling and gain-of-function mutations lead to enhanced ERK activation.</div>
@@ -2456,6 +2640,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2494,7 +2679,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-sos1-mediated-ras-gtp-loading">
                 <div class="item-name">SOS1-Mediated RAS-GTP Loading</div>
                 
                 <div class="item-desc">SOS1 gain-of-function mutations encode guanine nucleotide exchange factor variants with enhanced activity, increasing the rate of RAS-GDP to RAS-GTP conversion and amplifying downstream MAPK signaling.</div>
@@ -2517,6 +2702,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2555,7 +2741,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-raf1-kinase-hyperactivation">
                 <div class="item-name">RAF1 Kinase Hyperactivation</div>
                 
                 <div class="item-desc">RAF1 mutations, particularly those altering Ser259 and flanking residues, disrupt 14-3-3 binding and autoinhibition, resulting in constitutively elevated serine-threonine kinase activity and enhanced MEK phosphorylation.</div>
@@ -2578,6 +2764,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2616,7 +2803,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-rit1-mediated-raf-recruitment">
                 <div class="item-name">RIT1-Mediated RAF Recruitment</div>
                 
                 <div class="item-desc">RIT1 gain-of-function mutations cause aberrant membrane localization and RAF recruitment, bypassing normal RAS regulation and driving excessive MAPK pathway activation.</div>
@@ -2638,6 +2825,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2677,7 +2865,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-lztr1-mediated-ras-proteostasis-defect">
                 <div class="item-name">LZTR1-Mediated RAS Proteostasis Defect</div>
                 
                 <div class="item-desc">Loss of LZTR1-mediated RAS proteostasis through CRL3 E3 ligase increases RAS-family protein levels (including MRAS, RIT1, and KRAS) and MAPK signaling. Dominant LZTR1 mutations act in a dominant-negative manner to disrupt ubiquitination and degradation of RAS proteins.</div>
@@ -2709,6 +2897,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2748,7 +2937,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-erk-cascade-hyperactivation">
                 <div class="item-name">ERK Cascade Hyperactivation</div>
                 
                 <div class="item-desc">Convergent point where all upstream RAS-MAPK pathway defects lead to sustained ERK1/2 phosphorylation and hyperactivation. This affects cell proliferation, differentiation, and survival during embryonic development and postnatal life.</div>
@@ -2780,6 +2969,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2819,10 +3009,11 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-layer-development-abnormalities">
                 <div class="item-name">Cortical Layer Development Abnormalities</div>
                 
                 <div class="item-desc">NS-derived cortical organoid models show abnormal excitatory-neuron layer specification and reduced synaptic connectivity, consistent with neurodevelopmental pathway disruption.</div>
+                
                 
                 
                 
@@ -2866,10 +3057,11 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-lymphatic-structural-abnormalities">
                 <div class="item-name">Lymphatic Structural Abnormalities</div>
                 
                 <div class="item-desc">Noonan syndrome can include severe central and peripheral lymphatic abnormalities that produce clinically significant fluid and lymphatic-flow complications.</div>
+                
                 
                 
                 
@@ -2913,7 +3105,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-valve-morphogenesis-defects">
                 <div class="item-name">Cardiac Valve Morphogenesis Defects</div>
                 
                 <div class="item-desc">In endocardial and valvular tissues, perturbed ERK signaling alters endocardial-mesenchymal transition and valve morphogenesis, underlying pulmonary valve stenosis, the most common cardiac defect in Noonan syndrome.</div>
@@ -2982,6 +3174,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3016,7 +3209,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiomyocyte-hypertrophy">
                 <div class="item-name">Cardiomyocyte Hypertrophy</div>
                 
                 <div class="item-desc">In cardiomyocytes, sustained ERK signaling (and intersecting AKT/mTOR activity) promotes hypertrophic growth and fetal gene reprogramming, leading to hypertrophic cardiomyopathy, particularly in patients with RAF1 and RIT1 mutations.</div>
@@ -3066,6 +3259,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -3135,18 +3329,19 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Noonan Syndrome</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cardiac Valve Morphogenesis Defects\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In endocardial and valvular tissues, perturbed ERK signaling alters endocardial-mesenchymal transition and valve morphogenesis, underlying pulmonary valve stenosis, the most common cardiac defect in Noonan syndrome.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"endocardial cell\"], \"biological_processes\": [\"epithelial to mesenchymal transition involved in endocardial cushion formation\", \"heart valve morphogenesis\"], \"locations\": [\"pulmonary valve\", \"heart\"]}}, {\"id\": \"Cardiomyocyte Hypertrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In cardiomyocytes, sustained ERK signaling (and intersecting AKT/mTOR activity) promotes hypertrophic growth and fetal gene reprogramming, leading to hypertrophic cardiomyopathy, particularly in patients with RAF1 and RIT1 mutations.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"cardiac muscle hypertrophy\"], \"locations\": [\"heart\"]}}, {\"id\": \"Cortical Layer Development Abnormalities\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NS-derived cortical organoid models show abnormal excitatory-neuron layer specification and reduced synaptic connectivity, consistent with neurodevelopmental pathway disruption.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"ERK Cascade Hyperactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Convergent point where all upstream RAS-MAPK pathway defects lead to sustained ERK1/2 phosphorylation and hyperactivation. This affects cell proliferation, differentiation, and survival during embryonic development and postnatal life.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"MAPK cascade\", \"regulation of ERK1 and ERK2 cascade\"]}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild cognitive impairment and motor delays are common, with learning disabilities in approximately 25% of individuals.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hypertrophic Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Left ventricular hypertrophy occurring in approximately 20% of patients overall, but up to 70-95% in those with RAF1 or RIT1 mutations. Can be present at birth or develop during infancy.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001639\"}}, {\"id\": \"LZTR1-Mediated RAS Proteostasis Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of LZTR1-mediated RAS proteostasis through CRL3 E3 ligase increases RAS-family protein levels (including MRAS, RIT1, and KRAS) and MAPK signaling. Dominant LZTR1 mutations act in a dominant-negative manner to disrupt ubiquitination and degradation of RAS proteins.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein ubiquitination\", \"regulation of proteolysis\"]}}, {\"id\": \"Lymphatic Structural Abnormalities\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Noonan syndrome can include severe central and peripheral lymphatic abnormalities that produce clinically significant fluid and lymphatic-flow complications.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Lymphedema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Peripheral lymphedema and central conducting lymphatic anomalies occur in a substantial minority. ERK/SOX18 signaling axis is implicated in lymphatic dysplasia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001004\"}}, {\"id\": \"Mild Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Approximately 15-35% of individuals have mild intellectual disability.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001256\"}}, {\"id\": \"Pulmonary Valve Stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dysplastic pulmonary valve stenosis is the most common cardiac defect, occurring in approximately 50-60% of patients. Associated with PTPN11 and SOS1 genotypes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001642\"}}, {\"id\": \"RAF1 Kinase Hyperactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RAF1 mutations, particularly those altering Ser259 and flanking residues, disrupt 14-3-3 binding and autoinhibition, resulting in constitutively elevated serine-threonine kinase activity and enhanced MEK phosphorylation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"RIT1-Mediated RAF Recruitment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RIT1 gain-of-function mutations cause aberrant membrane localization and RAF recruitment, bypassing normal RAS regulation and driving excessive MAPK pathway activation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Ras protein signal transduction\"]}}, {\"id\": \"SHP2 Gain-of-Function Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PTPN11 mutations destabilize the autoinhibitory interaction between the N-SH2 and PTP domains, resulting in constitutively elevated phosphatase activity. SHP2 is a positive regulator of RAS-MAPK signaling and gain-of-function mutations lead to enhanced ERK activation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"SOS1-Mediated RAS-GTP Loading\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SOS1 gain-of-function mutations encode guanine nucleotide exchange factor variants with enhanced activity, increasing the rate of RAS-GDP to RAS-GTP conversion and amplifying downstream MAPK signaling.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"SHP2 Gain-of-Function Activation\", \"target\": \"ERK Cascade Hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"SOS1-Mediated RAS-GTP Loading\", \"target\": \"ERK Cascade Hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"RAF1 Kinase Hyperactivation\", \"target\": \"ERK Cascade Hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"RAF1 Kinase Hyperactivation\", \"target\": \"Cardiomyocyte Hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"RIT1-Mediated RAF Recruitment\", \"target\": \"ERK Cascade Hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"RIT1-Mediated RAF Recruitment\", \"target\": \"Cardiomyocyte Hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"LZTR1-Mediated RAS Proteostasis Defect\", \"target\": \"ERK Cascade Hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ERK Cascade Hyperactivation\", \"target\": \"Cardiac Valve Morphogenesis Defects\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ERK Cascade Hyperactivation\", \"target\": \"Cardiomyocyte Hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ERK Cascade Hyperactivation\", \"target\": \"Cortical Layer Development Abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ERK Cascade Hyperactivation\", \"target\": \"Lymphatic Structural Abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cortical Layer Development Abnormalities\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cortical Layer Development Abnormalities\", \"target\": \"Mild Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lymphatic Structural Abnormalities\", \"target\": \"Lymphedema\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiac Valve Morphogenesis Defects\", \"target\": \"Pulmonary Valve Stenosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiomyocyte Hypertrophy\", \"target\": \"Hypertrophic Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cardiac Surgical Intervention\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Balloon valvuloplasty or surgical valvotomy for pulmonary valve stenosis; septal myectomy or alcohol ablation for severe hypertrophic cardiomyopathy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cardiac Valve Morphogenesis Defects\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In endocardial and valvular tissues, perturbed ERK signaling alters endocardial-mesenchymal transition and valve morphogenesis, underlying pulmonary valve stenosis, the most common cardiac defect in Noonan syndrome.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"endocardial cell\"], \"biological_processes\": [\"epithelial to mesenchymal transition involved in endocardial cushion formation\", \"heart valve morphogenesis\"], \"locations\": [\"pulmonary valve\", \"heart\"]}}, {\"id\": \"Cardiomyocyte Hypertrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In cardiomyocytes, sustained ERK signaling (and intersecting AKT/mTOR activity) promotes hypertrophic growth and fetal gene reprogramming, leading to hypertrophic cardiomyopathy, particularly in patients with RAF1 and RIT1 mutations.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"cardiac muscle hypertrophy\"], \"locations\": [\"heart\"]}}, {\"id\": \"Cortical Layer Development Abnormalities\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NS-derived cortical organoid models show abnormal excitatory-neuron layer specification and reduced synaptic connectivity, consistent with neurodevelopmental pathway disruption.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"ERK Cascade Hyperactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Convergent point where all upstream RAS-MAPK pathway defects lead to sustained ERK1/2 phosphorylation and hyperactivation. This affects cell proliferation, differentiation, and survival during embryonic development and postnatal life.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"MAPK cascade\", \"regulation of ERK1 and ERK2 cascade\"]}}, {\"id\": \"Early Intervention Services\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Developmental support including speech therapy, physical therapy, occupational therapy, and special education services for developmental delays and learning disabilities.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild cognitive impairment and motor delays are common, with learning disabilities in approximately 25% of individuals.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Growth Hormone Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Recombinant human growth hormone (rhGH) is FDA-approved for treatment of short stature in Noonan syndrome. Can improve final adult height by approximately 1 standard deviation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hypertrophic Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Left ventricular hypertrophy occurring in approximately 20% of patients overall, but up to 70-95% in those with RAF1 or RIT1 mutations. Can be present at birth or develop during infancy.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001639\"}}, {\"id\": \"LZTR1-Mediated RAS Proteostasis Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of LZTR1-mediated RAS proteostasis through CRL3 E3 ligase increases RAS-family protein levels (including MRAS, RIT1, and KRAS) and MAPK signaling. Dominant LZTR1 mutations act in a dominant-negative manner to disrupt ubiquitination and degradation of RAS proteins.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein ubiquitination\", \"regulation of proteolysis\"]}}, {\"id\": \"Lymphatic Structural Abnormalities\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Noonan syndrome can include severe central and peripheral lymphatic abnormalities that produce clinically significant fluid and lymphatic-flow complications.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Lymphedema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Peripheral lymphedema and central conducting lymphatic anomalies occur in a substantial minority. ERK/SOX18 signaling axis is implicated in lymphatic dysplasia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001004\"}}, {\"id\": \"MEK Inhibitor Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Trametinib (MEK1/2 inhibitor) has shown promising results in case reports for treatment-refractory hypertrophic cardiomyopathy and lymphatic complications. MEK inhibition can reverse cardiomyocyte hypertrophy in animal models.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Mild Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Approximately 15-35% of individuals have mild intellectual disability.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001256\"}}, {\"id\": \"Physical Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Physical therapy to address motor delays and hypotonia common in Noonan syndrome.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pulmonary Valve Stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dysplastic pulmonary valve stenosis is the most common cardiac defect, occurring in approximately 50-60% of patients. Associated with PTPN11 and SOS1 genotypes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001642\"}}, {\"id\": \"RAF1 Kinase Hyperactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RAF1 mutations, particularly those altering Ser259 and flanking residues, disrupt 14-3-3 binding and autoinhibition, resulting in constitutively elevated serine-threonine kinase activity and enhanced MEK phosphorylation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"RIT1-Mediated RAF Recruitment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RIT1 gain-of-function mutations cause aberrant membrane localization and RAF recruitment, bypassing normal RAS regulation and driving excessive MAPK pathway activation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Ras protein signal transduction\"]}}, {\"id\": \"SHP2 Gain-of-Function Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PTPN11 mutations destabilize the autoinhibitory interaction between the N-SH2 and PTP domains, resulting in constitutively elevated phosphatase activity. SHP2 is a positive regulator of RAS-MAPK signaling and gain-of-function mutations lead to enhanced ERK activation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"SOS1-Mediated RAS-GTP Loading\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SOS1 gain-of-function mutations encode guanine nucleotide exchange factor variants with enhanced activity, increasing the rate of RAS-GDP to RAS-GTP conversion and amplifying downstream MAPK signaling.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Short Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Postnatal growth retardation resulting in adult height typically at or below the third percentile for the general population. Linked to RAS/MAPK effects on GH signaling and chondrocyte differentiation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Speech Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Speech and language therapy for articulation difficulties and language delays.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"SHP2 Gain-of-Function Activation\", \"target\": \"ERK Cascade Hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"SOS1-Mediated RAS-GTP Loading\", \"target\": \"ERK Cascade Hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"RAF1 Kinase Hyperactivation\", \"target\": \"ERK Cascade Hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"RAF1 Kinase Hyperactivation\", \"target\": \"Cardiomyocyte Hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"RIT1-Mediated RAF Recruitment\", \"target\": \"ERK Cascade Hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"RIT1-Mediated RAF Recruitment\", \"target\": \"Cardiomyocyte Hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"LZTR1-Mediated RAS Proteostasis Defect\", \"target\": \"ERK Cascade Hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ERK Cascade Hyperactivation\", \"target\": \"Cardiac Valve Morphogenesis Defects\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ERK Cascade Hyperactivation\", \"target\": \"Cardiomyocyte Hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ERK Cascade Hyperactivation\", \"target\": \"Cortical Layer Development Abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ERK Cascade Hyperactivation\", \"target\": \"Lymphatic Structural Abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cortical Layer Development Abnormalities\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cortical Layer Development Abnormalities\", \"target\": \"Mild Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lymphatic Structural Abnormalities\", \"target\": \"Lymphedema\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiac Valve Morphogenesis Defects\", \"target\": \"Pulmonary Valve Stenosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiomyocyte Hypertrophy\", \"target\": \"Hypertrophic Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Growth Hormone Therapy\", \"target\": \"Short Stature\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cardiac Surgical Intervention\", \"target\": \"Pulmonary Valve Stenosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cardiac Surgical Intervention\", \"target\": \"Hypertrophic Cardiomyopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"MEK Inhibitor Therapy\", \"target\": \"Hypertrophic Cardiomyopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"MEK Inhibitor Therapy\", \"target\": \"Lymphedema\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Early Intervention Services\", \"target\": \"Global Developmental Delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Speech Therapy\", \"target\": \"Global Developmental Delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical Therapy\", \"target\": \"Global Developmental Delay\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5631,6 +5826,7 @@
 
         <!-- Experimental Models -->
         
+        <div id="experimental-models"></div>
         <div class="card" id="models">
             <div class="card-header">
                 <div class="card-icon" style="background: #fffbeb; color: #f59e0b;">🧫</div>
@@ -5638,7 +5834,7 @@
                 <span class="card-count">2</span>
             </div>
             
-            <div class="item-box exp-model-box">
+            <div class="item-box exp-model-box anchor-target" id="experimental-model-noonan-syndrome-cortical-organoid-model">
                 <div class="item-name">
                     Noonan syndrome cortical organoid model
                     
@@ -5706,6 +5902,7 @@
                     </div>
                     
                 </div>
+                
                 
                 
     
@@ -5813,7 +6010,7 @@
     
             </div>
             
-            <div class="item-box exp-model-box">
+            <div class="item-box exp-model-box anchor-target" id="experimental-model-noonan-syndrome-ipsc-cardiomyocyte-model">
                 <div class="item-name">
                     Noonan syndrome iPSC-cardiomyocyte model
                     
@@ -5893,6 +6090,7 @@
                     </div>
                     
                 </div>
+                
                 
                 
     
@@ -6051,6 +6249,7 @@ has_subtypes:
     approximately 50% of cases.
   evidence:
   - reference: PMID:41675685
+    reference_title: &#34;Genotype-Phenotype Analysis and New Clinical Findings in a Series of 24 Patients Presenting with Noonan Syndrome and Related Disorders.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6069,6 +6268,7 @@ has_subtypes:
     and hypertrophic cardiomyopathy.
   evidence:
   - reference: PMID:41675685
+    reference_title: &#34;Genotype-Phenotype Analysis and New Clinical Findings in a Series of 24 Patients Presenting with Noonan Syndrome and Related Disorders.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6113,6 +6313,7 @@ pathophysiology:
       downstream ERK signaling.
     evidence:
     - reference: PMID:17143285
+      reference_title: &#34;Germline gain-of-function mutations in SOS1 cause Noonan syndrome.&#34;
       supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &gt;-
@@ -6122,6 +6323,7 @@ pathophysiology:
         Supports SHP2 gain-of-function as an upstream driver of ERK cascade
         hyperactivation in Noonan syndrome.
     - reference: PMID:11992261
+      reference_title: &#34;PTPN11 mutations in Noonan syndrome: molecular spectrum, genotype-phenotype correlation, and phenotypic heterogeneity.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
@@ -6131,6 +6333,7 @@ pathophysiology:
         gain-of-function SHP2 signaling upstream of ERK hyperactivation.
   evidence:
   - reference: PMID:11992261
+    reference_title: &#34;PTPN11 mutations in Noonan syndrome: molecular spectrum, genotype-phenotype correlation, and phenotypic heterogeneity.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;All defects were missense, and several were recurrent. The vast majority
@@ -6155,6 +6358,7 @@ pathophysiology:
       activation.
     evidence:
     - reference: PMID:17143285
+      reference_title: &#34;Germline gain-of-function mutations in SOS1 cause Noonan syndrome.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
@@ -6164,6 +6368,7 @@ pathophysiology:
         Directly supports SOS1-driven amplification of ERK signaling.
   evidence:
   - reference: PMID:17143285
+    reference_title: &#34;Germline gain-of-function mutations in SOS1 cause Noonan syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Noonan syndrome-associated SOS1 mutations are hypermorphs encoding products
@@ -6186,6 +6391,7 @@ pathophysiology:
       signaling.
     evidence:
     - reference: PMID:17603483
+      reference_title: &#34;Gain-of-function RAF1 mutations cause Noonan and LEOPARD syndromes with hypertrophic cardiomyopathy.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
@@ -6199,6 +6405,7 @@ pathophysiology:
       hypertrophic cardiomyopathy development.
     evidence:
     - reference: PMID:17603483
+      reference_title: &#34;Gain-of-function RAF1 mutations cause Noonan and LEOPARD syndromes with hypertrophic cardiomyopathy.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
@@ -6209,6 +6416,7 @@ pathophysiology:
         hypertrophic remodeling.
   evidence:
   - reference: PMID:17603483
+    reference_title: &#34;Gain-of-function RAF1 mutations cause Noonan and LEOPARD syndromes with hypertrophic cardiomyopathy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Most mutations altered a motif flanking Ser259, a residue critical for
@@ -6244,6 +6452,7 @@ pathophysiology:
       cardiomyopathy.
     evidence:
     - reference: PMID:23791108
+      reference_title: &#34;Gain-of-function mutations in RIT1 cause Noonan syndrome, a RAS/MAPK pathway syndrome.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
@@ -6255,6 +6464,7 @@ pathophysiology:
         myocardial phenotype.
   evidence:
   - reference: PMID:23791108
+    reference_title: &#34;Gain-of-function mutations in RIT1 cause Noonan syndrome, a RAS/MAPK pathway syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;These results demonstrate that gain-of-function mutations in RIT1 cause
@@ -6283,6 +6493,7 @@ pathophysiology:
       signaling.
     evidence:
     - reference: PMID:39352760
+      reference_title: &#34;Dysregulation of RAS proteostasis by autosomal-dominant LZTR1 mutation induces Noonan syndrome-like phenotypes in mice.&#34;
       supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &gt;-
@@ -6293,6 +6504,7 @@ pathophysiology:
         LZTR1 dysfunction.
   evidence:
   - reference: PMID:39352760
+    reference_title: &#34;Dysregulation of RAS proteostasis by autosomal-dominant LZTR1 mutation induces Noonan syndrome-like phenotypes in mice.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
@@ -6324,6 +6536,7 @@ pathophysiology:
       transition during valve development.
     evidence:
     - reference: PMID:11992261
+      reference_title: &#34;PTPN11 mutations in Noonan syndrome: molecular spectrum, genotype-phenotype correlation, and phenotypic heterogeneity.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
@@ -6377,6 +6590,7 @@ pathophysiology:
         including lymphatic, NS manifestations.
   evidence:
   - reference: PMID:17143285
+    reference_title: &#34;Germline gain-of-function mutations in SOS1 cause Noonan syndrome.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
@@ -6445,6 +6659,7 @@ pathophysiology:
       as peripheral or generalized lymphedema.
     evidence:
     - reference: PMID:38618951
+      reference_title: &#34;Central conducting lymphatic anomaly: from bench to bedside.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
@@ -6496,6 +6711,7 @@ pathophysiology:
       label: heart
   evidence:
   - reference: PMID:11992261
+    reference_title: &#34;PTPN11 mutations in Noonan syndrome: molecular spectrum, genotype-phenotype correlation, and phenotypic heterogeneity.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;pulmonic stenosis was more prevalent among the group of subjects with
@@ -6510,6 +6726,7 @@ pathophysiology:
       dysplastic pulmonary valve stenosis.
     evidence:
     - reference: PMID:11992261
+      reference_title: &#34;PTPN11 mutations in Noonan syndrome: molecular spectrum, genotype-phenotype correlation, and phenotypic heterogeneity.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
@@ -6541,6 +6758,7 @@ pathophysiology:
       label: heart
   evidence:
   - reference: PMID:17603483
+    reference_title: &#34;Gain-of-function RAF1 mutations cause Noonan and LEOPARD syndromes with hypertrophic cardiomyopathy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Of 19 subjects with a RAF1 mutation in two hotspots, 18 (or 95%) showed
@@ -6549,6 +6767,7 @@ pathophysiology:
     explanation: Demonstrates strong association between RAF1 mutations and HCM,
       implicating the kinase pathway in cardiac hypertrophy.
   - reference: PMID:23791108
+    reference_title: &#34;Gain-of-function mutations in RIT1 cause Noonan syndrome, a RAS/MAPK pathway syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Seventy percent of mutation-positive individuals presented with hypertrophic
@@ -6563,6 +6782,7 @@ pathophysiology:
       hypertrophic cardiomyopathy.
     evidence:
     - reference: PMID:17603483
+      reference_title: &#34;Gain-of-function RAF1 mutations cause Noonan and LEOPARD syndromes with hypertrophic cardiomyopathy.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
@@ -6585,6 +6805,7 @@ phenotypes:
   diagnostic: true
   evidence:
   - reference: PMID:41517739
+    reference_title: &#34;Novel characterization of MRAS mutation-associated Noonan syndrome: Mild adult-onset hypertrophic cardiomyopathy combined with infective endocarditis: A case report.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6606,6 +6827,7 @@ phenotypes:
   diagnostic: true
   evidence:
   - reference: PMID:17222357
+    reference_title: &#34;Noonan syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6628,6 +6850,7 @@ phenotypes:
   diagnostic: true
   evidence:
   - reference: PMID:17222357
+    reference_title: &#34;Noonan syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6650,6 +6873,7 @@ phenotypes:
   diagnostic: true
   evidence:
   - reference: PMID:41517739
+    reference_title: &#34;Novel characterization of MRAS mutation-associated Noonan syndrome: Mild adult-onset hypertrophic cardiomyopathy combined with infective endocarditis: A case report.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6670,6 +6894,7 @@ phenotypes:
   frequency: FREQUENT
   evidence:
   - reference: PMID:41517739
+    reference_title: &#34;Novel characterization of MRAS mutation-associated Noonan syndrome: Mild adult-onset hypertrophic cardiomyopathy combined with infective endocarditis: A case report.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6692,6 +6917,7 @@ phenotypes:
   diagnostic: true
   evidence:
   - reference: PMID:11992261
+    reference_title: &#34;PTPN11 mutations in Noonan syndrome: molecular spectrum, genotype-phenotype correlation, and phenotypic heterogeneity.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;pulmonic stenosis was more prevalent among the group of subjects with
@@ -6713,6 +6939,7 @@ phenotypes:
   frequency: FREQUENT
   evidence:
   - reference: PMID:17603483
+    reference_title: &#34;Gain-of-function RAF1 mutations cause Noonan and LEOPARD syndromes with hypertrophic cardiomyopathy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Of 19 subjects with a RAF1 mutation in two hotspots, 18 (or 95%) showed
@@ -6720,6 +6947,7 @@ phenotypes:
       individuals with Noonan syndrome in general.&#34;
     explanation: RAF1 mutations are strongly associated with HCM.
   - reference: PMID:23791108
+    reference_title: &#34;Gain-of-function mutations in RIT1 cause Noonan syndrome, a RAS/MAPK pathway syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Seventy percent of mutation-positive individuals presented with hypertrophic
@@ -6727,6 +6955,7 @@ phenotypes:
       in individuals with Noonan syndrome.&#34;
     explanation: RIT1 mutations confer high risk of hypertrophic cardiomyopathy.
   - reference: PMID:11992261
+    reference_title: &#34;PTPN11 mutations in Noonan syndrome: molecular spectrum, genotype-phenotype correlation, and phenotypic heterogeneity.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;hypertrophic cardiomyopathy was less prevalent among those with PTPN11
@@ -6745,6 +6974,7 @@ phenotypes:
   frequency: OCCASIONAL
   evidence:
   - reference: PMID:41718520
+    reference_title: &#34;Atrial Septal Defect Surgical Closure Following Trametinib Utilization in Noonan Syndrome-Associated Hypertrophic Cardiomyopathy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6768,6 +6998,7 @@ phenotypes:
   diagnostic: true
   evidence:
   - reference: PMID:41577878
+    reference_title: &#34;Noonan syndrome spectrum disorders in real life: patient characteristics and response to growth hormone therapy in a genetically defined single-country multicenter cohort.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Short stature is a key NSSD feature.
@@ -6786,6 +7017,7 @@ phenotypes:
   frequency: FREQUENT
   evidence:
   - reference: PMID:11992261
+    reference_title: &#34;PTPN11 mutations in Noonan syndrome: molecular spectrum, genotype-phenotype correlation, and phenotypic heterogeneity.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The prevalence of other congenital heart malformations, short stature,
@@ -6805,6 +7037,7 @@ phenotypes:
   frequency: FREQUENT
   evidence:
   - reference: PMID:11992261
+    reference_title: &#34;PTPN11 mutations in Noonan syndrome: molecular spectrum, genotype-phenotype correlation, and phenotypic heterogeneity.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The prevalence of other congenital heart malformations, short stature,
@@ -6825,6 +7058,7 @@ phenotypes:
   frequency: FREQUENT
   evidence:
   - reference: PMID:24444506
+    reference_title: &#34;Noonan syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6851,6 +7085,7 @@ phenotypes:
   frequency: OCCASIONAL
   evidence:
   - reference: PMID:41560462
+    reference_title: &#34;Neuropathic Pain and Enlarged Nerves in Adult Noonan Syndrome and Noonan Syndrome With Multiple Lentigines: Health-Related Quality of Life and Neurologic Symptoms.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6873,6 +7108,7 @@ phenotypes:
   frequency: OCCASIONAL
   evidence:
   - reference: PMID:24444506
+    reference_title: &#34;Noonan syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6898,6 +7134,7 @@ phenotypes:
   frequency: FREQUENT
   evidence:
   - reference: PMID:11992261
+    reference_title: &#34;PTPN11 mutations in Noonan syndrome: molecular spectrum, genotype-phenotype correlation, and phenotypic heterogeneity.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The prevalence of other congenital heart malformations, short stature,
@@ -6917,6 +7154,7 @@ phenotypes:
   frequency: OCCASIONAL
   evidence:
   - reference: PMID:20301303
+    reference_title: &#34;Noonan Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6938,6 +7176,7 @@ phenotypes:
   frequency: FREQUENT
   evidence:
   - reference: PMID:17222357
+    reference_title: &#34;Noonan syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6963,6 +7202,7 @@ genetic:
     Associated with pulmonary stenosis but lower HCM risk.
   evidence:
   - reference: PMID:11992261
+    reference_title: &#34;PTPN11 mutations in Noonan syndrome: molecular spectrum, genotype-phenotype correlation, and phenotypic heterogeneity.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Mutations were found in 54 of 119 (45%) unrelated individuals with sporadic
@@ -6983,6 +7223,7 @@ genetic:
     enhance RAS-GTP loading.
   evidence:
   - reference: PMID:17143285
+    reference_title: &#34;Germline gain-of-function mutations in SOS1 cause Noonan syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We identified missense mutations in SOS1, which encodes an essential
@@ -7003,6 +7244,7 @@ genetic:
     (up to 95% of patients with RAF1 mutations have HCM).
   evidence:
   - reference: PMID:17603483
+    reference_title: &#34;Gain-of-function RAF1 mutations cause Noonan and LEOPARD syndromes with hypertrophic cardiomyopathy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;18 of 231 individuals with Noonan syndrome without known mutations (corresponding
@@ -7021,6 +7263,7 @@ genetic:
     hypertrophic cardiomyopathy (70% of mutation-positive individuals).
   evidence:
   - reference: PMID:23791108
+    reference_title: &#34;Gain-of-function mutations in RIT1 cause Noonan syndrome, a RAS/MAPK pathway syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;we identified a total of nine missense, nonsynonymous mutations in RIT1...in
@@ -7040,6 +7283,7 @@ genetic:
     more severe phenotype with significant neurodevelopmental involvement.
   evidence:
   - reference: PMID:17143285
+    reference_title: &#34;Germline gain-of-function mutations in SOS1 cause Noonan syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;KRAS mutations account for &lt;5% of cases of Noonan syndrome&#34;
@@ -7058,6 +7302,7 @@ genetic:
     Dominant mutations act in a dominant-negative manner.
   evidence:
   - reference: PMID:41675685
+    reference_title: &#34;Genotype-Phenotype Analysis and New Clinical Findings in a Series of 24 Patients Presenting with Noonan Syndrome and Related Disorders.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7079,6 +7324,7 @@ genetic:
     adult-onset hypertrophic cardiomyopathy in recent reports.
   evidence:
   - reference: PMID:41675685
+    reference_title: &#34;Genotype-Phenotype Analysis and New Clinical Findings in a Series of 24 Patients Presenting with Noonan Syndrome and Related Disorders.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7087,6 +7333,7 @@ genetic:
     explanation: &gt;-
       Supports MRAS as a rare but clinically confirmed contributor to Noonan syndrome.
   - reference: PMID:41517739
+    reference_title: &#34;Novel characterization of MRAS mutation-associated Noonan syndrome: Mild adult-onset hypertrophic cardiomyopathy combined with infective endocarditis: A case report.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7102,6 +7349,7 @@ inheritance:
     expressivity. Approximately 30-75% of cases are de novo mutations.
   evidence:
   - reference: PMID:11992261
+    reference_title: &#34;PTPN11 mutations in Noonan syndrome: molecular spectrum, genotype-phenotype correlation, and phenotypic heterogeneity.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7116,6 +7364,7 @@ inheritance:
     particularly in LZTR1-associated disease.
   evidence:
   - reference: PMID:20301303
+    reference_title: &#34;Noonan Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7136,6 +7385,7 @@ diagnosis:
       label: molecular genetic testing
   evidence:
   - reference: PMID:41675685
+    reference_title: &#34;Genotype-Phenotype Analysis and New Clinical Findings in a Series of 24 Patients Presenting with Noonan Syndrome and Related Disorders.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7156,6 +7406,7 @@ diagnosis:
       label: clinical whole-exome sequencing
   evidence:
   - reference: PMID:41517739
+    reference_title: &#34;Novel characterization of MRAS mutation-associated Noonan syndrome: Mild adult-onset hypertrophic cardiomyopathy combined with infective endocarditis: A case report.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7176,6 +7427,7 @@ diagnosis:
       label: echocardiography
   evidence:
   - reference: PMID:41517739
+    reference_title: &#34;Novel characterization of MRAS mutation-associated Noonan syndrome: Mild adult-onset hypertrophic cardiomyopathy combined with infective endocarditis: A case report.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7199,6 +7451,7 @@ differential_diagnoses:
   - Ectodermal/skin and hair abnormalities are often more prominent in CFC.
   evidence:
   - reference: PMID:41675685
+    reference_title: &#34;Genotype-Phenotype Analysis and New Clinical Findings in a Series of 24 Patients Presenting with Noonan Syndrome and Related Disorders.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7222,6 +7475,7 @@ differential_diagnoses:
   - Relative burden of coarse facies, deep palmar/plantar creases, and tumor predisposition favors Costello syndrome.
   evidence:
   - reference: PMID:41675685
+    reference_title: &#34;Genotype-Phenotype Analysis and New Clinical Findings in a Series of 24 Patients Presenting with Noonan Syndrome and Related Disorders.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7243,6 +7497,7 @@ differential_diagnoses:
   - Shared RAS-MAPK dysregulation can create overlapping craniofacial and growth findings.
   evidence:
   - reference: PMID:41675685
+    reference_title: &#34;Genotype-Phenotype Analysis and New Clinical Findings in a Series of 24 Patients Presenting with Noonan Syndrome and Related Disorders.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7264,6 +7519,7 @@ differential_diagnoses:
   - PTPN11 variant context and clinical trajectory help separate NSML from other Noonan subtypes.
   evidence:
   - reference: PMID:41675685
+    reference_title: &#34;Genotype-Phenotype Analysis and New Clinical Findings in a Series of 24 Patients Presenting with Noonan Syndrome and Related Disorders.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7290,6 +7546,7 @@ treatments:
       label: Short stature
   evidence:
   - reference: PMID:41577878
+    reference_title: &#34;Noonan syndrome spectrum disorders in real life: patient characteristics and response to growth hormone therapy in a genetically defined single-country multicenter cohort.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7318,6 +7575,7 @@ treatments:
       label: Hypertrophic cardiomyopathy
   evidence:
   - reference: PMID:41718520
+    reference_title: &#34;Atrial Septal Defect Surgical Closure Following Trametinib Utilization in Noonan Syndrome-Associated Hypertrophic Cardiomyopathy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7350,6 +7608,7 @@ treatments:
     Typical pediatric dosing 0.01-0.025 mg/kg/day.
   evidence:
   - reference: PMID:41718520
+    reference_title: &#34;Atrial Septal Defect Surgical Closure Following Trametinib Utilization in Noonan Syndrome-Associated Hypertrophic Cardiomyopathy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7375,6 +7634,7 @@ treatments:
       label: Global developmental delay
   evidence:
   - reference: PMID:20301303
+    reference_title: &#34;Noonan Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7398,6 +7658,7 @@ treatments:
       label: Global developmental delay
   evidence:
   - reference: PMID:17222357
+    reference_title: &#34;Noonan syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7420,6 +7681,7 @@ treatments:
       label: Global developmental delay
   evidence:
   - reference: PMID:17222357
+    reference_title: &#34;Noonan syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7437,6 +7699,7 @@ definitions:
   scope: Clinical genetics and pediatric cardiology evaluation for suspected RASopathy
   evidence:
   - reference: PMID:41675685
+    reference_title: &#34;Genotype-Phenotype Analysis and New Clinical Findings in a Series of 24 Patients Presenting with Noonan Syndrome and Related Disorders.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7453,6 +7716,7 @@ classifications:
   - classification_value: hereditary disease
     evidence:
     - reference: PMID:41675685
+      reference_title: &#34;Genotype-Phenotype Analysis and New Clinical Findings in a Series of 24 Patients Presenting with Noonan Syndrome and Related Disorders.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
@@ -7467,6 +7731,7 @@ classifications:
   - classification_value: cardiovascular disorder
     evidence:
     - reference: PMID:41675685
+      reference_title: &#34;Genotype-Phenotype Analysis and New Clinical Findings in a Series of 24 Patients Presenting with Noonan Syndrome and Related Disorders.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-

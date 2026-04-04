@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 6</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Viral Infection</span>
                 
             </div>
@@ -1934,6 +2107,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1989,6 +2165,14 @@
             <div class="stat-item">
                 <div class="stat-value">10</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">6</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2068,7 +2252,7 @@
                 <span class="card-count">6</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatocyte-infection-and-cccdna-formation">
                 <div class="item-name">Hepatocyte Infection and cccDNA Formation</div>
                 
                 <div class="item-desc">HBV enters hepatocytes via NTCP receptor binding, and viral rcDNA is converted to covalently closed circular DNA (cccDNA) which forms a stable chromatinized minichromosome in the nucleus, enabling persistent infection.</div>
@@ -2128,6 +2312,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -2200,7 +2385,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-hbv-dna-integration">
                 <div class="item-name">HBV DNA Integration</div>
                 
                 <div class="item-desc">Integration of viral dslDNA into host genome occurs at sites of DNA damage, driving insertional mutagenesis, structural rearrangements, and activation of proto-oncogenes.</div>
@@ -2227,11 +2412,12 @@
                 
                 
                 
+                
     
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-inflammation">
                 <div class="item-name">Chronic Inflammation</div>
                 
                 <div class="item-desc">Persistent immune response against HBV-infected hepatocytes leads to liver damage mediated by T cells, NK cells, and Kupffer cells.</div>
@@ -2270,6 +2456,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2348,7 +2535,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-evasion-and-t-cell-exhaustion">
                 <div class="item-name">Immune Evasion and T Cell Exhaustion</div>
                 
                 <div class="item-desc">HBV evades innate immune detection through dampened TLR, cGAS-STING, and RIG-I-MAVS pathways. Chronic infection leads to T cell exhaustion with upregulation of PD-1, CTLA-4, and TIM-3 checkpoint receptors.</div>
@@ -2409,6 +2596,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2459,10 +2647,11 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-liver-fibrosis">
                 <div class="item-name">Liver Fibrosis</div>
                 
                 <div class="item-desc">Chronic inflammation promotes fibrotic tissue deposition replacing healthy liver cells.</div>
+                
                 
                 
                 
@@ -2542,10 +2731,11 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-cirrhosis">
                 <div class="item-name">Cirrhosis</div>
                 
                 <div class="item-desc">Extensive fibrosis and scarring significantly impair liver function.</div>
+                
                 
                 
                 
@@ -2638,6 +2828,7 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="graph-warning">
                 <strong>Referential integrity issues (1):</strong>
@@ -2653,7 +2844,7 @@
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Hepatitis B</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
@@ -4464,14 +4655,17 @@ infectious_agent:
   description: A partially double-stranded DNA virus that infects hepatocytes via the NTCP receptor and establishes persistent cccDNA in the nucleus. HBx protein serves as a multifunctional regulator of viral transcription and host epigenetics.
   evidence:
   - reference: PMID:19399811
+    reference_title: &#34;Hepatitis B: the virus and disease.&#34;
     supports: PARTIAL
     snippet: Hepatitis B virus (HBV) infects more than 300 million people worldwide and is a common cause of liver disease and liver cancer. HBV, a member of the Hepadnaviridae family, is a small DNA virus with unusual features similar to retroviruses.
     explanation: The provided literature describes HBV as a DNA virus that affects the liver, causing both acute and chronic hepatitis.
   - reference: PMID:24976703
+    reference_title: &#34;Clinical implications of hepatitis B virus mutations: recent advances.&#34;
     supports: PARTIAL
     snippet: Hepatitis B virus (HBV) infection is a major cause of acute and chronic hepatitis, and of its long-term complications.
     explanation: The literature confirms that HBV can cause both acute and chronic hepatitis.
   - reference: PMID:30811163
+    reference_title: &#34;Hepatitis B: Screening, Prevention, Diagnosis, and Treatment.&#34;
     supports: PARTIAL
     snippet: Hepatitis B virus (HBV) is a partly double-stranded DNA virus that causes acute and chronic liver infection.
     explanation: The literature supports the statement that HBV is a DNA virus affecting the liver and causing both acute and chronic hepatitis.
@@ -4480,26 +4674,32 @@ transmission:
   description: Spread through contact with infected blood, including needlesticks and blood transfusions.
   evidence:
   - reference: PMID:9353819
+    reference_title: &#34;Transmission and control of bloodborne viral hepatitis in health care workers.&#34;
     supports: SUPPORT
     snippet: HCWs who are exposed to the blood and body fluids of patients should be required to receive hepatitis B vaccine.
     explanation: The literature indicates that healthcare workers exposed to blood and body fluids are at risk of hepatitis B, supporting the statement that hepatitis B is spread through contact with infected blood.
   - reference: PMID:34806523
+    reference_title: &#34;Relationship between Hepatitis B virus infection and platelet production and dysfunction.&#34;
     supports: NO_EVIDENCE
     snippet: HBV can cause severe complications by invading these tissues.
     explanation: The complications and spread of HBV through blood and other tissues are discussed, supporting the statement about blood-borne transmission.
   - reference: PMID:24966613
+    reference_title: &#34;Hepatitis B transmission by cell and tissue allografts: how safe is safe enough?&#34;
     supports: PARTIAL
     snippet: Cells and tissues are shared between countries which have different regulations and laboratory equipment and represent a risk of hepatitis B virus (HBV) transmission that has become a global safety concern.
     explanation: The risk of HBV transmission through tissue transplants supports the idea of blood-borne transmission.
   - reference: PMID:38000801
+    reference_title: &#34;Bad Liver and a Broken Heart: Hepatitis B in the Newborn.&#34;
     supports: PARTIAL
     snippet: Neonates experience significant risk from both vertical and horizontal hepatitis B exposure during a period of immaturity of the innate and adaptive immune systems.
     explanation: The statement about blood-borne transmission is supported by the risk of horizontal transmission through infected blood.
   - reference: PMID:33268600
+    reference_title: &#34;Exosomes in Hepatitis B Virus Transmission and Related Immune Response.&#34;
     supports: NO_EVIDENCE
     snippet: Although the HBV vaccine can effectively prevent HBV infection, chronic HBV infection still endangers human health and results in a large social burden.
     explanation: The literature discusses the prevention of HBV through vaccination, indicating its spread through blood contact.
   - reference: PMID:23074317
+    reference_title: &#34;Transmission of hepatitis B virus from an orthopedic surgeon with a high viral load.&#34;
     supports: SUPPORT
     snippet: We documented HBV transmission during orthopedic surgery to 2 patients from a surgeon with HBV.
     explanation: This study documents direct transmission of HBV through surgical procedures, supporting the statement about blood-borne transmission.
@@ -4507,18 +4707,22 @@ transmission:
   description: Spread through sexual contact with an infected person.
   evidence:
   - reference: PMID:2183516
+    reference_title: &#34;Hepatitis B: transmission by sexual contact and needle sharing.&#34;
     supports: SUPPORT
     snippet: In the Western world most cases of hepatitis B virus (HBV) infection are acquired through sexual intercourse and through needle sharing by intravenous drug users (IVDU).
     explanation: The abstract clearly states that sexual intercourse is a significant mode of transmission for hepatitis B virus in the Western world.
   - reference: PMID:9132977
+    reference_title: &#34;Sexual transmission of hepatitis B in Mwanza, Tanzania.&#34;
     supports: SUPPORT
     snippet: These findings suggest that sexual acquisition of hepatitis B occurs at low levels in Mwanza, and that HBV can be prevented through enhancement of the current HIV/STD control activities, in addition to improved vaccination strategies.
     explanation: While the study indicates that sexual transmission occurs at low levels in Mwanza, Tanzania, it does acknowledge that sexual acquisition of hepatitis B is a route of transmission.
   - reference: PMID:15647702
+    reference_title: &#34;Sexual transmission of hepatitis B.&#34;
     supports: SUPPORT
     snippet: It is clear that sexual transmission of hepatitis B virus is still widespread and is a major problem in certain high-risk groups such as men who have sex with men, intravenous drug users, prisoners and sex workers.
     explanation: The abstract emphasizes that sexual transmission of hepatitis B is still a major problem in certain high-risk groups.
   - reference: PMID:30415551
+    reference_title: &#34;Intra-familial Transmission of Chronic Hepatitis B Infection: A Large Population-Based Cohort Study in Northern Iran.&#34;
     supports: SUPPORT
     snippet: Sexual and parent-to-child transmission are important routes of CHB spread in this population from northern Iran despite the fact that 24 years have passed since the beginning of hepatitis B vaccination in infants.
     explanation: The study identifies sexual transmission as an important route for the spread of chronic hepatitis B in Northern Iran.
@@ -4526,22 +4730,27 @@ transmission:
   description: Spread from an infected mother to her baby during childbirth.
   evidence:
   - reference: PMID:29064028
+    reference_title: &#34;Mother-to-infant transmission of hepatitis B virus: challenges and perspectives.&#34;
     supports: SUPPORT
     snippet: Chronic hepatitis B virus (HBV) infection due to perinatal mother-to-infant transmission (MTIT) remains a serious global health problem.
     explanation: The article discusses the transmission of HBV from mother to infant during childbirth, supporting the statement.
   - reference: PMID:33574867
+    reference_title: &#34;Hepatitis B Virus: From Diagnosis to Treatment.&#34;
     supports: SUPPORT
     snippet: The infection is most widely transmitted from the infected mother to a child, with infected blood and body fluids.
     explanation: This reference supports the statement by indicating that HBV is commonly transmitted from mother to child.
   - reference: PMID:37778777
+    reference_title: &#34;Maternal-to-Child Transmission of Hepatitis B Virus and Hepatitis Delta Virus.&#34;
     supports: SUPPORT
     snippet: Maternal-to-child transmission of hepatitis B virus (HBV) and hepatitis delta virus (HDV) can lead to the risk of progressive liver disease in infants.
     explanation: The article mentions maternal-to-child transmission of HBV, supporting the statement.
   - reference: PMID:22510637
+    reference_title: &#34;Hepatitis B: Treatment to prevent perinatal transmission.&#34;
     supports: SUPPORT
     snippet: Transmission of the hepatitis B virus, despite the availability of the vaccine, still occurs, particularly in the perinatal setting.
     explanation: The reference supports the statement by discussing the occurrence of HBV transmission in the perinatal setting.
   - reference: PMID:31692718
+    reference_title: &#34;Hepatitis B mother-to-child transmission in the Eastern Region of Ghana: a cross-sectional pilot study.&#34;
     supports: PARTIAL
     snippet: Hepatitis B is a major health concern in Ghana, where prevalence of the virus remains high and most chronic patients are infected during childhood or at birth.
     explanation: The study supports the statement by indicating that many chronic HBV cases are due to infections at birth, implying mother-to-child transmission.
@@ -4550,6 +4759,7 @@ prevalence:
   percentage: 3.5
   evidence:
   - reference: PMID:26231459
+    reference_title: &#34;Estimations of worldwide prevalence of chronic hepatitis B virus infection: a systematic review of data published between 1965 and 2013.&#34;
     supports: PARTIAL
     snippet: HBsAg seroprevalence was 3.61% (95% CI 3.61-3.61) worldwide.
     explanation: The statement claims a global prevalence of 3.5%, while the literature states it is 3.61%. The difference is minor, but it is not an exact match.
@@ -4565,14 +4775,17 @@ epidemiology:
   - Population mobility
   evidence:
   - reference: PMID:37322965
+    reference_title: &#34;Dynamic modeling and analysis of Hepatitis B epidemic with general incidence.&#34;
     supports: PARTIAL
     snippet: In this regard, we first calculate the basic reproduction number and the equilibrium points of the deterministic Hepatitis B model.
     explanation: The reference discusses the calculation of the basic reproduction number (R0) for Hepatitis B, which supports the statement about the importance of R0. However, it does not provide specific values for the maximum and minimum R0.
   - reference: PMID:16754644
+    reference_title: &#34;Hepatitis B virus infection: epidemiology and vaccination.&#34;
     supports: NO_EVIDENCE
     snippet: Worldwide, two billion people have been infected with hepatitis B virus (HBV), 360 million have chronic infection, and 600,000 die each year from HBV-related liver disease or hepatocellular carcinoma.
     explanation: This reference provides epidemiological data on Hepatitis B but does not discuss the basic reproduction number (R0) or its variability.
   - reference: PMID:7713188
+    reference_title: &#34;Trends and patterns in the transmission of bloodborne pathogens to health care workers.&#34;
     supports: NO_EVIDENCE
     snippet: The key determinants of transmission of bloodborne pathogens are the dose and serum viral concentration of an exposure.
     explanation: This reference focuses on the determinants of transmission of bloodborne pathogens, including Hepatitis B, but does not provide information on the basic reproduction number (R0).
@@ -4586,6 +4799,7 @@ epidemiology:
   - Effectiveness of antiviral treatment
   evidence:
   - reference: PMID:37322965
+    reference_title: &#34;Dynamic modeling and analysis of Hepatitis B epidemic with general incidence.&#34;
     supports: PARTIAL
     snippet: To reduce Hepatitis B infection rates and to promote vaccination rates, three control variables are used, for instance, isolation of patients, treatment of patients, and vaccine inoculation.
     explanation: The reference discusses control strategies to reduce HBV transmission, which indirectly supports the idea that the effective reproduction number (R or Rt) decreases with effective vaccination and antiviral therapies. However, it does not provide specific values for the effective reproduction number.
@@ -4597,6 +4811,7 @@ epidemiology:
   notes: Affects the timing of infection control measures and contact tracing.
   evidence:
   - reference: PMID:29260504
+    reference_title: &#34;Modeling and Control of a Delayed Hepatitis B Virus Model with Incubation Period and Combination Treatment.&#34;
     supports: SUPPORT
     snippet: a hepatitis B virus (HBV) model with an incubation period and delayed state and control variables is firstly proposed.
     explanation: The paper discusses a model that includes the incubation period of Hepatitis B, which aligns with the provided statement.
@@ -4608,14 +4823,17 @@ epidemiology:
   notes: Higher in infants and young children than in adults.
   evidence:
   - reference: PMID:11197043
+    reference_title: &#34;Chronic hepatitis B virus infection in Asian countries.&#34;
     supports: PARTIAL
     snippet: Of the estimated 50 million new cases of hepatitis B virus (HBV) infection diagnosed annually, 5-10% of adults and up to 90% of infants will become chronically infected.
     explanation: The statement is partially supported as it mentions that 5-10% of adults develop chronic hepatitis B infection, which falls within the 2-10% range. However, it also states that up to 90% of infants can become chronically infected, which is not captured in the statement.
   - reference: PMID:12616451
+    reference_title: &#34;Hepatitis B in children.&#34;
     supports: PARTIAL
     snippet: Infants who acquire HBV perinatally have up to 90% risk of developing chronic HBV infection.
     explanation: The statement is partially supported as it mentions that infants have up to 90% risk of developing chronic HBV infection, but does not provide specific percentages for adults.
   - reference: PMID:29202763
+    reference_title: &#34;Classification and sensitivity analysis of the transmission dynamic of hepatitis B.&#34;
     supports: NO_EVIDENCE
     snippet: Carrier individuals are especially significant, because they do not exhibit any symptoms and are able to transmit the infection.
     explanation: This reference discusses the role of carrier individuals in the transmission of hepatitis B but does not provide specific percentages for chronic carriage rates.
@@ -4627,10 +4845,12 @@ epidemiology:
   notes: Important for understanding true disease prevalence and silent spreaders.
   evidence:
   - reference: PMID:23185500
+    reference_title: &#34;Hepatitis B virus infection does not significantly influence Plasmodium parasite density in asymptomatic infections in Ghanaian transfusion recipients.&#34;
     supports: PARTIAL
     snippet: Of 117 participants, 90% of recipients exhibited evidence of exposure to HBV, 42% with HBsAg and/or HBV DNA and 48% anti-HBc reactive without detectable HBV DNA.
     explanation: The study indicates a high exposure rate to HBV, with a significant proportion of individuals being asymptomatic carriers. However, it does not provide a specific percentage range for asymptomatic individuals.
   - reference: PMID:12616451
+    reference_title: &#34;Hepatitis B in children.&#34;
     supports: PARTIAL
     snippet: Many HBV-infected children have normal alanine aminotransferase values and minimal chronic hepatitis. Children with chronic HBV infection are usually asymptomatic but may develop chronic liver disease or hepatocellular carcinoma.
     explanation: The literature mentions that many children with chronic HBV infection are asymptomatic, but it does not specify the exact proportion of asymptomatic cases.
@@ -4640,10 +4860,12 @@ progression:
   notes: May include jaundice, fatigue, abdominal pain, and elevated liver enzymes.
   evidence:
   - reference: PMID:270889
+    reference_title: &#34;Natural history of acute hepatitis B in previously healthy patients: A prospective study.&#34;
     supports: SUPPORT
     snippet: Fatigue started median 4 weeks, abdominal symptoms median 3 weeks and signs of cholestasis median 2.5 weeks before peak SGPT values were reached.
     explanation: The study indicates that symptoms of acute hepatitis B, including fatigue and abdominal symptoms, manifest over a period of weeks, supporting the statement.
   - reference: PMID:3967850
+    reference_title: &#34;Hepatitis B virus DNA in serum from patients with acute hepatitis B.&#34;
     supports: PARTIAL
     snippet: The median follow-up time was 8 months (range, 1 week to 3 years). HBV DNA was detected in 26 (34%) patients on admission to the hospital.
     explanation: This reference suggests that acute hepatitis B can have a duration ranging from weeks to several months, aligning with the statement.
@@ -4652,22 +4874,27 @@ progression:
   notes: Continuous virus presence in the liver, which may lead to cirrhosis or liver cancer.
   evidence:
   - reference: PMID:18067957
+    reference_title: &#34;Chronic HBV-related liver disease.&#34;
     supports: PARTIAL
     snippet: The knowledge of the HBV organization and replication cycle and the availability of sensitive HBV-DNA assays have led to remarkable progress in our understanding of the natural history of chronic hepatitis B infections.
     explanation: The reference discusses the natural history of chronic hepatitis B infections, implying a prolonged duration.
   - reference: PMID:28468285
+    reference_title: &#34;Immune Tolerant Chronic Hepatitis B: The Unrecognized Risks.&#34;
     supports: SUPPORT
     snippet: Chronic infection with hepatitis B virus (HBV) progresses through multiple phases, including immune tolerant, immune active, immune control, and, in a subset of patients who achieve immune control, reactivation.
     explanation: The reference outlines the prolonged nature of chronic HBV infection, which can last for years to decades through various phases.
   - reference: PMID:21205148
+    reference_title: &#34;Impact of hepatitis B therapy on the long-term outcome of liver disease.&#34;
     supports: SUPPORT
     snippet: Chronic hepatitis B virus (HBV) infection is a dynamic series of interactions between HBV, hepatocytes and the patient&#39;s immune system. HBV replication is the key motor of disease progression, including the development of cirrhosis and hepatocellular carcinoma (HCC).
     explanation: The reference indicates the long-term nature of chronic HBV infection and its potential to lead to serious liver conditions over time.
   - reference: PMID:12616451
+    reference_title: &#34;Hepatitis B in children.&#34;
     supports: SUPPORT
     snippet: Many HBV-infected children have normal alanine aminotransferase values and minimal chronic hepatitis. Children with chronic HBV infection are usually asymptomatic but may develop chronic liver disease or hepatocellular carcinoma.
     explanation: The reference highlights that chronic HBV infection can last for a long duration, potentially leading to serious liver conditions.
   - reference: PMID:6994954
+    reference_title: &#34;Type B hepatitis: progression to chronic hepatitis.&#34;
     supports: SUPPORT
     snippet: Fewer than 10% of cases of acute icteric HBV become chronic, but chronicity is more common after anicteric infections. The prognosis for chronic persistent hepatitis B is usually good whereas many cases of chronic active hepatitis B will progress to cirrhosis although the time scale may be long.
     explanation: The reference supports the statement by indicating that chronic HBV infection can last for years to decades, with potential progression to cirrhosis.
@@ -4676,22 +4903,27 @@ progression:
   notes: Chronic infection can cause liver scarring, leading to liver dysfunction.
   evidence:
   - reference: PMID:18067957
+    reference_title: &#34;Chronic HBV-related liver disease.&#34;
     supports: NO_EVIDENCE
     snippet: The knowledge of the HBV organization and replication cycle and the availability of sensitive HBV-DNA assays have led to remarkable progress in our understanding of the natural history of chronic hepatitis B infections.
     explanation: The statement is supported as it mentions the natural history of chronic hepatitis B infections, which implies variability in the duration of the infection.
   - reference: PMID:33545773
+    reference_title: &#34;Effect of alcohol on the progress of hepatitis B cirrhosis.&#34;
     supports: SUPPORT
     snippet: Patients with chronic HBV infection and an excessive drinking habit activate HBV-DNA which increases liver inflammation, thus accelerating the progress of liver cirrhosis.
     explanation: This reference supports the statement as it discusses the progression of chronic HBV infection to liver cirrhosis, indicating a variable duration of the disease progression depending on external factors like alcohol intake.
   - reference: PMID:33029534
+    reference_title: &#34;Recompensation of Decompensated Hepatitis B Cirrhosis: Current Status and Challenges.&#34;
     supports: SUPPORT
     snippet: Liver-function decompensation or hepatocellular carcinoma (HCC) gradually appears after chronic hepatitis B progresses to cirrhosis.
     explanation: The reference supports the statement by indicating that chronic hepatitis B can progress to cirrhosis, which aligns with the note about chronic infection causing liver scarring and dysfunction.
   - reference: PMID:32147592
+    reference_title: &#34;Persistent Low Level of Hepatitis B Virus Promotes Fibrosis Progression During Therapy.&#34;
     supports: SUPPORT
     snippet: In a longitudinal study of patients with chronic HBV infection, we associated liver fibrosis progression at week 78 of treatment with higher rates of detected HBV DNA.
     explanation: This reference supports the statement by discussing the progression of fibrosis in chronic HBV infection, indicating variability in disease duration.
   - reference: PMID:25253946
+    reference_title: &#34;Potential mechanisms of hepatitis B virus induced liver injury.&#34;
     supports: SUPPORT
     snippet: The histological end points of CAH are chronic inflammation, fibrosis and cirrhosis which are coupled with increased DNA synthesis in cirrhotic vs healthy normal livers.
     explanation: The reference supports the statement by describing the progression of chronic active hepatitis (CAH) to cirrhosis, indicating variability in the duration of disease progression.
@@ -4700,18 +4932,22 @@ progression:
   notes: Chronic infection significantly increases the risk of liver cancer.
   evidence:
   - reference: PMID:20378277
+    reference_title: &#34;Epidemiology of chronic hepatitis B virus infection, hepatocellular carcinoma, and hepatitis B virus-induced hepatocellular carcinoma.&#34;
     supports: SUPPORT
     snippet: Chronic HBV infection is the most prevalent cause of this tumour, accounting for 55% of global cases, and 89% of those in endemic regions for HBV infection.
     explanation: The literature clearly states that chronic HBV infection significantly increases the risk of hepatocellular carcinoma (HCC).
   - reference: PMID:31450890
+    reference_title: &#34;Association between Hepatitis B Surface Antigen Levels and the Risk of Hepatocellular Carcinoma in Patients with Chronic Hepatitis B Infection: Systematic Review and Meta-Analysis.&#34;
     supports: SUPPORT
     snippet: Our study revealed that HBsAg levels &gt;/= 100 IU/ml, and notably &gt;1,000 IU/ ml, are associated with an increased risk of HCC development.
     explanation: The study shows that higher levels of hepatitis B surface antigen, which is indicative of chronic HBV infection, are associated with an increased risk of liver cancer.
   - reference: PMID:19399792
+    reference_title: &#34;The natural history of chronic hepatitis B virus infection.&#34;
     supports: SUPPORT
     snippet: The primary adverse outcomes of chronic HBV infection are hepatocellular carcinoma (HCC) and cirrhosis.
     explanation: This reference confirms that chronic HBV infection significantly increases the risk of developing hepatocellular carcinoma.
   - reference: PMID:32931613
+    reference_title: &#34;Diagnosis of Chronic Hepatitis B Pericomplication: Risk factors and Trends Over Time.&#34;
     supports: SUPPORT
     snippet: Hepatitis B virus (HBV) is a major cause of chronic liver disease, which can progress to cirrhosis, hepatocellular carcinoma, and death.
     explanation: The literature indicates that chronic HBV infection can lead to hepatocellular carcinoma, supporting the statement.
@@ -4742,6 +4978,7 @@ pathophysiology:
     description: HBV infection triggers persistent immune activation and hepatic inflammation through both innate and adaptive immune responses.
     evidence:
     - reference: PMID:34071064
+      reference_title: &#34;Immunopathology of Chronic Hepatitis B Infection: Role of Innate and Adaptive Immune Response in Disease Progression.&#34;
       supports: SUPPORT
       snippet: Although innate and adaptive immune cells play crucial roles in controlling hepatitis B virus (HBV) infection, they are also accountable for inflammation and subsequently cause liver pathologies.
       explanation: This reference directly establishes that the immune response to HBV causes chronic liver inflammation.
@@ -4749,18 +4986,22 @@ pathophysiology:
     description: A fraction of viral DNA integrates into host genome at sites of DNA damage, contributing to persistent HBsAg expression and oncogenesis.
   evidence:
   - reference: PMID:33573130
+    reference_title: &#34;Hepatitis B Virus DNA Integration and Clonal Expansion of Hepatocytes in the Chronically Infected Liver.&#34;
     supports: PARTIAL
     snippet: Human hepatitis B virus (HBV) can cause chronic, lifelong infection of the liver that may lead to persistent or episodic immune-mediated inflammation against virus-infected hepatocytes.
     explanation: This reference confirms that HBV infects hepatocytes and leads to chronic inflammation.
   - reference: PMID:32866519
+    reference_title: &#34;Hepatitis B virus biology and life cycle.&#34;
     supports: PARTIAL
     snippet: &#39;&#39;&#39;Hepatitis B virus (HBV) specifically infects hepatocytes and causes severe liver diseases.&#39;
     explanation: This reference confirms that HBV specifically infects hepatocytes.
   - reference: PMID:30518652
+    reference_title: &#34;Spatiotemporal Differences in Presentation of CD8 T Cell Epitopes during Hepatitis B Virus Infection.&#34;
     supports: PARTIAL
     snippet: Distinct populations of hepatocytes infected with hepatitis B virus (HBV) or only harboring HBV DNA integrations coexist within an HBV chronically infected liver.
     explanation: This reference confirms that HBV integrates into the host genome within hepatocytes and persists.
   - reference: PMID:32151000
+    reference_title: &#34;The Interactions between HBV and the Innate Immunity of Hepatocytes.&#34;
     supports: NO_EVIDENCE
     snippet: HBV is a major cause of cirrhosis and hepatocellular carcinoma.
     explanation: This reference supports the statement by indicating that HBV infection leads to chronic conditions such as cirrhosis, which is a form of chronic inflammation.
@@ -4796,6 +5037,7 @@ pathophysiology:
     description: Chronic inflammation activates hepatic stellate cells leading to extracellular matrix deposition and progressive fibrosis.
     evidence:
     - reference: PMID:37041599
+      reference_title: &#34;Insights into the impact of hepatitis B virus on hepatic stellate cell activation.&#34;
       supports: SUPPORT
       snippet: During chronic hepatitis B virus (HBV) infection, hepatic fibrosis is a serious pathological condition caused by virus-induced liver damage. The activation of hepatic stellate cells (HSCs) is a central event in the occurrence and progression of liver fibrosis.
       explanation: This reference establishes the mechanistic link between chronic HBV, hepatic stellate cell activation, and fibrosis development.
@@ -4803,27 +5045,33 @@ pathophysiology:
     description: Progressive fibrosis leads to architectural disruption and nodule formation characteristic of cirrhosis.
     evidence:
     - reference: PMID:22375524
+      reference_title: &#34;Hepatitis B-associated fibrosis and fibrosis/cirrhosis regression with nucleoside and nucleotide analogs.&#34;
       supports: SUPPORT
       snippet: Hepatitis B virus (HBV) infection currently accounts for approximately 600,000 deaths per year resulting from progression of liver fibrosis to cirrhosis and hepatocellular carcinoma.
       explanation: This reference establishes that HBV causes progression from fibrosis to cirrhosis.
   evidence:
   - reference: PMID:8571172
+    reference_title: &#34;Hepatitis B virus immunopathology.&#34;
     supports: SUPPORT
     snippet: The immune response to HBV-encoded antigens is responsible both for viral clearance and for disease pathogenesis during this infection.
     explanation: This reference supports that the immune response against HBV-infected hepatocytes contributes to liver damage, which aligns with the statement.
   - reference: PMID:34543610
+    reference_title: &#34;Liver cirrhosis.&#34;
     supports: PARTIAL
     snippet: Cirrhosis is widely prevalent worldwide and can be a consequence of different causes, such as... hepatitis B or C infection.
     explanation: This reference supports the link between chronic HBV infection and cirrhosis, which is a downstream effect of persistent immune response and liver damage.
   - reference: PMID:32147592
+    reference_title: &#34;Persistent Low Level of Hepatitis B Virus Promotes Fibrosis Progression During Therapy.&#34;
     supports: PARTIAL
     snippet: Progression of liver fibrosis still occurs in some patients with chronic hepatitis B virus (HBV) infection despite antiviral therapy.
     explanation: This reference supports that chronic HBV infection leads to liver fibrosis, which is a downstream effect of immune response and liver damage.
   - reference: PMID:37041599
+    reference_title: &#34;Insights into the impact of hepatitis B virus on hepatic stellate cell activation.&#34;
     supports: PARTIAL
     snippet: During chronic hepatitis B virus (HBV) infection, hepatic fibrosis is a serious pathological condition caused by virus-induced liver damage.
     explanation: This reference supports the statement that HBV-induced liver damage leads to fibrosis, which is a downstream effect of chronic inflammation.
   - reference: PMID:31367154
+    reference_title: &#34;Immune suppression in chronic hepatitis B infection associated liver disease: A review.&#34;
     supports: PARTIAL
     snippet: Hepatitis B virus (HBV) infection is one the leading risk factors for chronic hepatitis, liver fibrosis, cirrhosis and hepatocellular cancer (HCC).
     explanation: This reference supports the link between chronic HBV infection and liver fibrosis/cirrhosis, which are downstream effects of immune response and liver damage.
@@ -4849,10 +5097,12 @@ pathophysiology:
       label: cGAS/STING signaling pathway
   evidence:
   - reference: PMID:16461223
+    reference_title: &#34;Immune system and hepatitis B virus infection.&#34;
     supports: NO_EVIDENCE
     snippet: The immune system plays an important role in determining the outcome of hepatitis B virus (HBV) infection... Multispecific antiviral CD4 and CD8 responses with a type 1 cytokine production can be observed in patients who recover from acute HBV infection.
     explanation: The reference supports the role of T cells in immune clearance but does not mention B cells.
   - reference: PMID:36936922
+    reference_title: &#34;Abnormally primed CD8 T cells: The Achilles&#39; heel of CHB.&#34;
     supports: NO_EVIDENCE
     snippet: The clearance of HBV with virus-specific CD8 T cells is critical for a functional cure.
     explanation: The reference supports the role of T cells in immune clearance but does not mention B cells.
@@ -4863,23 +5113,28 @@ pathophysiology:
     description: Progressive fibrosis leads to complete architectural disruption and end-stage liver disease.
     evidence:
     - reference: PMID:26691189
+      reference_title: &#34;[Inflammation and Hepatic Fibrosis, Then Hepatocellular Carcinoma].&#34;
       supports: SUPPORT
       snippet: Chronic unresolved inflammation is associated with persistent hepatic injury and concurrent regeneration, leading to sequential development of fibrosis, cirrhosis, and eventually HCC.
       explanation: This reference establishes the progression from fibrosis to cirrhosis in chronic liver disease.
   evidence:
   - reference: PMID:17613356
+    reference_title: &#34;Liver fibrosis and chronic viral hepatitis.&#34;
     supports: SUPPORT
     snippet: Liver fibrosis results from chronic damage to the liver in conjunction with the progressive accumulation of fibrillar extracellular matrix proteins.
     explanation: The statement is supported as liver fibrosis involves the replacement of healthy liver cells with fibrotic tissue due to chronic inflammation.
   - reference: PMID:33528280
+    reference_title: &#34;Chronic inflammation involves CCL11 and IL-13 to facilitate the development of liver cirrhosis and fibrosis in chronic hepatitis B virus infection.&#34;
     supports: SUPPORT
     snippet: Chronic inflammation involves CCL11 and IL-13 to facilitate the development of liver cirrhosis and fibrosis in chronic hepatitis B virus infection.
     explanation: The statement is supported as chronic inflammation promotes liver fibrosis through specific inflammatory pathways.
   - reference: PMID:26691189
+    reference_title: &#34;[Inflammation and Hepatic Fibrosis, Then Hepatocellular Carcinoma].&#34;
     supports: SUPPORT
     snippet: Chronic unresolved inflammation is associated with persistent hepatic injury and concurrent regeneration, leading to sequential development of fibrosis, cirrhosis, and eventually HCC.
     explanation: The statement is supported as chronic inflammation leads to liver fibrosis and cirrhosis.
   - reference: PMID:31769518
+    reference_title: &#34;Platelet activation during chronic hepatitis B infection exacerbates liver inflammation and promotes fibrosis.&#34;
     supports: SUPPORT
     snippet: Recurrent hepatitis activity during chronic hepatitis B virus infection results in fibrosis and even hepatocellular carcinoma.
     explanation: The statement is supported as recurrent inflammation in chronic HBV infection results in liver fibrosis.
@@ -4887,18 +5142,22 @@ pathophysiology:
   description: Extensive fibrosis and scarring significantly impair liver function.
   evidence:
   - reference: PMID:17981234
+    reference_title: &#34;Hepatitis B and end-stage liver disease.&#34;
     supports: SUPPORT
     snippet: Untreated, chronic hepatitis B acquired early in life results in cirrhosis, liver failure, or hepatocellular carcinoma in up to 40% of individuals.
     explanation: This reference supports the statement by indicating that chronic hepatitis B can lead to cirrhosis, which is associated with extensive fibrosis and scarring that impair liver function.
   - reference: PMID:19577114
+    reference_title: &#34;Diagnosis and epidemiology of cirrhosis.&#34;
     supports: SUPPORT
     snippet: Cirrhosis is defined histologically as an advanced form of progressive hepatic fibrosis with distortion of the hepatic architecture and regenerative nodule formation.
     explanation: This reference supports the statement by describing cirrhosis as an advanced form of hepatic fibrosis that distorts liver architecture, thereby impairing liver function.
   - reference: PMID:17613356
+    reference_title: &#34;Liver fibrosis and chronic viral hepatitis.&#34;
     supports: PARTIAL
     snippet: Liver fibrosis results from chronic damage to the liver in conjunction with the progressive accumulation of fibrillar extracellular matrix proteins.
     explanation: While this reference discusses liver fibrosis resulting from chronic liver damage, it does not explicitly connect it to cirrhosis or the impairment of liver function.
   - reference: PMID:24373083
+    reference_title: &#34;Regression of fibrosis after HBV antiviral therapy. Is cirrhosis reversible?&#34;
     supports: PARTIAL
     snippet: Long-lasting HBV-DNA suppression is considered to be the best surrogate end-point of antiviral therapy in patients with hepatitis B virus (HBV) related chronic hepatitis or cirrhosis, and it is a prerequisite to prevent liver-related complications and improve survival.
     explanation: This reference supports the statement by mentioning cirrhosis in the context of chronic hepatitis B and its associated liver-related complications.
@@ -4910,18 +5169,22 @@ phenotypes:
   notes: Due to liver dysfunction causing elevated bilirubin levels
   evidence:
   - reference: PMID:24266913
+    reference_title: &#34;Chronic hepatitis B virus infection.&#34;
     supports: NO_EVIDENCE
     snippet: Chronically infected patients should be followed on a regular basis, preferably every 6 months, with liver function tests, and when appropriate, HBV DNA levels. Those who meet the criteria for high risk for HCC should undergo liver ultrasound every 6 months. Powerful antiviral medications are available that can suppress but not cure HBV and result in resolution of liver inflammation and fibrosis, even cirrhosis, as well as decrease the risk of developing HCC.
     explanation: The literature mentions the management of chronic Hepatitis B and its effects on liver function, which can lead to jaundice.
   - reference: PMID:3050928
+    reference_title: &#34;Viral hepatitis. The alphabet game.&#34;
     supports: SUPPORT
     snippet: The classic presenting symptoms of viral hepatitis are jaundice, nausea, vomiting, malaise, anorexia, and dull right upper quadrant pain.
     explanation: The literature explicitly lists jaundice as a classic presenting symptom of viral hepatitis, including Hepatitis B.
   - reference: PMID:34835022
+    reference_title: &#34;The Use of Electronic Medical Records-Based Big-Data Informatics to Describe ALT Elevations Higher than 1000 IU/L in Patients with or without Hepatitis B Virus Infection.&#34;
     supports: PARTIAL
     snippet: Hepatitis B virus (HBV) infection is one of the serious health problems in the world as HBV causes severe liver diseases.
     explanation: The literature discusses the severe liver diseases caused by Hepatitis B, which can lead to jaundice due to liver dysfunction.
   - reference: PMID:35395817
+    reference_title: &#34;Association of acute hepatitis B and acute myopathy: a case report.&#34;
     supports: PARTIAL
     snippet: This case report describes a 57-year-old Iranian woman admitted to the hospital with jaundice, fever, body itching, abdominal pain, progressive muscle weakness, icteric sclera, right upper quadrant pain, and decreased muscle force.
     explanation: The case report describes a patient with Hepatitis B presenting with jaundice, supporting the statement that jaundice is a frequent symptom due to liver dysfunction.
@@ -4936,6 +5199,7 @@ phenotypes:
   frequency: FREQUENT
   evidence:
   - reference: PMID:7493307
+    reference_title: &#34;Post-hepatitis syndrome revisited.&#34;
     supports: SUPPORT
     snippet: Hepatitis cases scored significantly higher fatigue scores, GHQ-12 scores and muscle pain scores.
     explanation: The study indicates that fatigue is more common after recovery in patients hospitalized for hepatitis B up to 30 months post-infection compared with matched controls hospitalized for other infectious diseases.
@@ -4951,10 +5215,12 @@ phenotypes:
   notes: May be related to liver inflammation
   evidence:
   - reference: PMID:24954675
+    reference_title: &#34;Hepatitis B virus infection.&#34;
     supports: NO_EVIDENCE
     snippet: Hepatitis B virus is not cytopathic; both liver damage and viral control--and therefore clinical outcome--depend on the complex interplay between virus replication and host immune response.
     explanation: The literature mentions liver damage and clinical outcomes related to Hepatitis B, which can include gastrointestinal symptoms like abdominal pain due to liver inflammation.
   - reference: PMID:3050928
+    reference_title: &#34;Viral hepatitis. The alphabet game.&#34;
     supports: SUPPORT
     snippet: The classic presenting symptoms of viral hepatitis are jaundice, nausea, vomiting, malaise, anorexia, and dull right upper quadrant pain.
     explanation: The literature lists dull right upper quadrant pain as a classic symptom of viral hepatitis, which includes Hepatitis B, supporting the statement that abdominal pain is an occasional gastrointestinal symptom related to liver inflammation.
@@ -4971,22 +5237,27 @@ phenotypes:
   notes: Reflects liver cell damage and is a key diagnostic feature
   evidence:
   - reference: PMID:34835022
+    reference_title: &#34;The Use of Electronic Medical Records-Based Big-Data Informatics to Describe ALT Elevations Higher than 1000 IU/L in Patients with or without Hepatitis B Virus Infection.&#34;
     supports: SUPPORT
     snippet: The HBV surface antigen (HBsAg)-positive group had a more frequent prevalence of patients with higher transaminase elevations than the HBsAg-negative group.
     explanation: The study indicates that elevated liver enzymes, which reflect liver cell damage, are more frequently observed in patients with Hepatitis B virus infection.
   - reference: PMID:30418344
+    reference_title: &#34;Abnormal Liver Enzymes.&#34;
     supports: PARTIAL
     snippet: Abnormal liver enzymes are frequently encountered in primary care offices and hospitals and may be caused by a wide variety of conditions, from mild and nonspecific to well-defined and life-threatening.
     explanation: Elevated liver enzymes are a common diagnostic feature in various liver diseases, including Hepatitis B.
   - reference: PMID:29551632
+    reference_title: &#34;Clinical course of sporadic acute hepatitis E in a hepatitis B virus endemic region.&#34;
     supports: NO_EVIDENCE
     snippet: The prevalence of hepatitis B surface antigen (HBsAg) was 18.5% (126/680) and of liver cirrhosis was 9.4% (64/680).
     explanation: The presence of elevated liver enzymes is associated with Hepatitis B infection, as indicated by the prevalence of HBsAg in patients.
   - reference: PMID:33418899
+    reference_title: &#34;Risk Factors and Biomarkers for Chronic Hepatitis B Associated Hepatocellular Carcinoma.&#34;
     supports: NO_EVIDENCE
     snippet: Globally, hepatitis B virus (HBV) related hepatocellular carcinoma (HCC) is one of the major causes of cancer-related mortality.
     explanation: Although the focus is on hepatocellular carcinoma, the study implies the role of Hepatitis B in causing severe liver conditions, which include elevated liver enzymes as a diagnostic feature.
   - reference: PMID:3050928
+    reference_title: &#34;Viral hepatitis. The alphabet game.&#34;
     supports: PARTIAL
     snippet: Studies are done for the elevated transaminase levels that are characteristic of hepatitis infection.
     explanation: Elevated transaminase levels are characteristic of hepatitis infections, including Hepatitis B.
@@ -4996,6 +5267,7 @@ phenotypes:
   description: Feeling of sickness with inclination to vomit, common during acute hepatitis B infection.
   evidence:
   - reference: PMID:3050928
+    reference_title: &#34;Viral hepatitis. The alphabet game.&#34;
     supports: SUPPORT
     snippet: The classic presenting symptoms of viral hepatitis are jaundice, nausea, vomiting, malaise, anorexia, and dull right upper quadrant pain.
     explanation: The literature explicitly mentions nausea as a classic presenting symptom of viral hepatitis, which includes Hepatitis B.
@@ -5010,6 +5282,7 @@ phenotypes:
   description: Forceful expulsion of stomach contents, often accompanying nausea in acute hepatitis B.
   evidence:
   - reference: PMID:3050928
+    reference_title: &#34;Viral hepatitis. The alphabet game.&#34;
     supports: PARTIAL
     snippet: The classic presenting symptoms of viral hepatitis are jaundice, nausea, vomiting, malaise, anorexia, and dull right upper quadrant pain.
     explanation: The reference mentions vomiting as one of the classic presenting symptoms of viral hepatitis, which includes Hepatitis B. However, it does not specify the frequency, so it partially supports the statement.
@@ -5024,14 +5297,17 @@ phenotypes:
   description: Elevated body temperature that may occur during acute HBV infection or flares of chronic disease.
   evidence:
   - reference: PMID:28223176
+    reference_title: &#34;Prodromal fever indicates a high risk of liver failure in acute hepatitis B.&#34;
     supports: PARTIAL
     snippet: Prodromal fever indicated more severe liver injury and was independently associated with hepatitis B e antigen (HBeAg) negativity.
     explanation: The study indicates that fever can be associated with acute hepatitis B, particularly in severe cases, but it does not explicitly categorize fever as an occasional systemic manifestation.
   - reference: PMID:34913875
+    reference_title: &#34;Hepatitis B Virus Infection and Extra-Hepatic Manifestations: A Systemic Disease.&#34;
     supports: PARTIAL
     snippet: Several of these extrahepatic syndromes have been well described, including systemic vasculitides, glomerulonephritis, and cutaneous manifestations.
     explanation: While the reference mentions systemic manifestations of hepatitis B, it does not specifically mention fever as one of them.
   - reference: PMID:35499229
+    reference_title: &#34;Evidence of hepatitis B infection and co-infection with enteric fever among febrile patients in a primary health facility in Kogi State, Nigeria.&#34;
     supports: PARTIAL
     snippet: The study confirms the endemicity of hepatitis B and enteric fever in the area.
     explanation: The study mentions the prevalence of hepatitis B among febrile patients but does not specifically categorize fever as an occasional systemic manifestation of hepatitis B.
@@ -5047,10 +5323,12 @@ phenotypes:
   notes: Liver enlargement
   evidence:
   - reference: PMID:12150847
+    reference_title: &#34;Occult hepatitis B.&#34;
     supports: NO_EVIDENCE
     snippet: Occult hepatitis B occurs in a number of clinical settings.
     explanation: While the abstract does not specifically mention hepatomegaly as a frequent symptom, it implies that various liver-related conditions are associated with hepatitis B, supporting the occasional occurrence of hepatomegaly.
   - reference: PMID:19682192
+    reference_title: &#34;Severe acute exacerbation of chronic hepatitis B: a unique presentation of a common disease.&#34;
     supports: PARTIAL
     snippet: Severe acute exacerbation is a unique presentation of chronic hepatitis B characterized by very high alanine aminotransferase level accompanied by jaundice and hepatic decompensation.
     explanation: The text describes severe liver conditions related to chronic hepatitis B, but does not directly mention hepatomegaly. It suggests severe liver involvement, which could include hepatomegaly.
@@ -5066,6 +5344,7 @@ phenotypes:
   notes: Joint pain
   evidence:
   - reference: PMID:18760074
+    reference_title: &#34;The extrahepatic manifestations of hepatitis B virus.&#34;
     supports: SUPPORT
     snippet: The most commonly described include skin rash, arthritis, arthralgia, glomerulonephritis, polyarteritis nodosa, and papular acrodermatitis etc.
     explanation: The reference confirms that arthralgia (joint pain) is a commonly described extrahepatic manifestation of Hepatitis B.
@@ -5080,14 +5359,17 @@ phenotypes:
   description: Skin eruptions that may occur as an extrahepatic manifestation of HBV infection.
   evidence:
   - reference: PMID:6133886
+    reference_title: &#34;Dermatologic manifestations of hepatitis B virus infection.&#34;
     supports: PARTIAL
     snippet: Dermatologic manifestations of hepatitis B virus infection.
     explanation: The title of the reference directly indicates the presence of dermatologic manifestations, supporting the statement that hepatitis B can cause occasional dermatologic conditions like rash.
   - reference: PMID:1185334
+    reference_title: &#34;Articular and cutaneous prodromal manifestations of viral hepatitis.&#34;
     supports: SUPPORT
     snippet: The association of arthritis, arthralgia, and various types of skin rashes, as a prodrome to viral hepatitis, although well recognized in adults, has not been well described in children.
     explanation: The reference mentions that skin rashes are recognized as prodromal manifestations of viral hepatitis, including hepatitis B, supporting the statement.
   - reference: PMID:1532114
+    reference_title: &#34;Frequency of adverse reactions to hepatitis B vaccine in 43,618 persons.&#34;
     supports: NO_EVIDENCE
     snippet: The most frequent adverse reactions were myalgia/arthralgia lasting longer than 3 days (14), followed by skin rashes (eight) and dizziness (seven).
     explanation: The reference notes that skin rashes were among the most frequent adverse reactions to the hepatitis B vaccine, indicating that hepatitis B can be associated with dermatologic manifestations like rash.
@@ -5102,18 +5384,22 @@ biochemical:
   context: Indicates active infection
   evidence:
   - reference: PMID:49464
+    reference_title: &#34;The clinical significance of hepatitis B virus antigens and antibodies.&#34;
     supports: SUPPORT
     snippet: HBsAg in an individual indicates that he harbors the virus of hepatitis B; it may be present in the absence of liver disease or be found in association with both acute and chronic type B hepatitis.
     explanation: The presence of HBsAg indicates that the individual harbors the hepatitis B virus, which supports the statement that a positive HBsAg indicates an active infection.
   - reference: PMID:22300111
+    reference_title: &#34;Diagnostic incidence of the presence of positive HBsAg: epidemiologic, clinical, and virological characteristics.&#34;
     supports: SUPPORT
     snippet: To analyze the epidemiological, clinical, and virological characteristics of patients newly diagnosed with active hepatitis B virus (HBV) infection based on the presence of positive hepatitis B surface antigen (HBsAg)...
     explanation: The study focuses on patients newly diagnosed with active HBV infection based on the presence of positive HBsAg, supporting the statement that a positive HBsAg indicates an active infection.
   - reference: PMID:21692954
+    reference_title: &#34;Hepatitis B surface antigen monitoring and management of chronic hepatitis B.&#34;
     supports: SUPPORT
     snippet: Serum hepatitis B surface antigen (HBsAg) levels reflect intrahepatic hepatitis B virus (HBV) covalently closed circular DNA and may be a valuable addition to HBV DNA in the management of patients with chronic hepatitis B (CHB).
     explanation: The presence of HBsAg reflects the presence of hepatitis B virus, indicating active infection, which supports the statement.
   - reference: PMID:36906494
+    reference_title: &#34;Gaps in Prenatal Hepatitis B Screening and Management of HBsAg Positive Pregnant Persons in the U.S., 2015-2020.&#34;
     supports: PARTIAL
     snippet: The Advisory Committee for Immunization Practices (ACIP) recommends testing all pregnant women for hepatitis B surface antigen (HBsAg) and testing HBsAg-positive pregnant women for hepatitis B virus deoxyribonucleic acid (HBV DNA).
     explanation: The recommendation to test HBsAg-positive individuals for HBV DNA indicates that a positive HBsAg is associated with active infection.
@@ -5122,18 +5408,22 @@ biochemical:
   context: Indicates active viral replication and high infectivity
   evidence:
   - reference: PMID:12124405
+    reference_title: &#34;Hepatitis B e antigen and the risk of hepatocellular carcinoma.&#34;
     supports: SUPPORT
     snippet: The presence of hepatitis B e antigen (HBeAg) in serum indicates active viral replication in hepatocytes.
     explanation: The study confirms that HBeAg is a surrogate marker for active hepatitis B virus replication.
   - reference: PMID:21205143
+    reference_title: &#34;Treatment of HBeAg-positive chronic hepatitis B with nucleos(t)ide analogues.&#34;
     supports: SUPPORT
     snippet: HBeAg seropositivity is a marker for active viral replication.
     explanation: The article states that HBeAg is associated with highly replicative activity of the hepatitis B virus.
   - reference: PMID:7038074
+    reference_title: &#34;Virologic features of chronic hepatitis B virus infection in childhood.&#34;
     supports: SUPPORT
     snippet: Hepatitis B virus markers were studied in serum and liver of 24 children with chronic hepatitis. All patients had evidence of active virus replication... Furthermore, 19 of 24 patients had hepatitis B e antigen in serum.
     explanation: The study shows that the presence of HBeAg in serum is associated with active hepatitis B virus replication.
   - reference: PMID:25218700
+    reference_title: &#34;Occult hepatitis B virus infection with positive hepatitis B e antigen.&#34;
     supports: SUPPORT
     snippet: Hepatitis B e antigen (HBeAg) is a marker to indicate active replication of hepatitis B virus (HBV).
     explanation: The article confirms that HBeAg is an indicator of active HBV replication.
@@ -5142,38 +5432,47 @@ biochemical:
   context: Indicates viral load and active replication
   evidence:
   - reference: PMID:7030903
+    reference_title: &#34;Hepatitis B virus DNA in the sera of HBsAg carriers: a marker of active hepatitis B virus replication in the liver.&#34;
     supports: SUPPORT
     snippet: The assay for serum HBV DNA appears to be an excellent noninvasive method for detecting active replication of HBV in HBsAg carriers.
     explanation: The presence of HBV DNA in the serum is associated with active replication of HBV in the liver.
   - reference: PMID:31741331
+    reference_title: &#34;Hepatitis B Virus Infection: Overview.&#34;
     supports: NO_EVIDENCE
     snippet: Hepatitis B virus (HBV) is a DNA virus, belonging to the Hepadnaviridae family.
     explanation: The presence of HBV DNA indicates the presence of the virus and hence active replication.
   - reference: PMID:27032097
+    reference_title: &#34;Hepatitis B Infection, Viral Load and Resistance in HIV-Infected Patients in Mozambique and Zambia.&#34;
     supports: PARTIAL
     snippet: Quantitative real-time PCR and HBV sequencing were performed in HBsAg-positive patients.
     explanation: The presence of HBV DNA in serum is used to quantify viral load, indicating active replication.
   - reference: PMID:35122363
+    reference_title: &#34;Use of HBV DNA and liver stiffness in predicting clinical events in patients with chronic hepatitis B.&#34;
     supports: SUPPORT
     snippet: Use of HBV DNA and liver stiffness in predicting clinical events in patients with chronic hepatitis B.
     explanation: HBV DNA levels are used to monitor and predict disease progression, indicating active replication.
   - reference: PMID:29170913
+    reference_title: &#34;Impact of HBV replication in peripheral blood mononuclear cell on HBV intrauterine transmission.&#34;
     supports: SUPPORT
     snippet: &#39;Maternal serum HBeAg was a risk factor of PBMC HBV rcDNA (OR = 3.896, 95% CI: 1.929-7.876) and PBMC HBV cccDNA (OR = 3.74, 95% CI: 1.186-11.793) in the HBsAg-positive mothers.&#39;
     explanation: The presence of HBV DNA in serum and PBMC is linked to active viral replication.
   - reference: PMID:31021394
+    reference_title: &#34;Optimal timing of hepatitis B virus DNA quantification and clinical predictors for higher viral load during pregnancy.&#34;
     supports: SUPPORT
     snippet: HBV DNA levels in pregnancy women at 28-30 weeks predict the risk of immunoprophylaxis failure.
     explanation: HBV DNA quantification is used to predict viral load and active replication.
   - reference: PMID:22510145
+    reference_title: &#34;Natural history of chronic hepatitis B: what exactly has REVEAL revealed?&#34;
     supports: SUPPORT
     snippet: Serum HBV DNA level has been shown to be significantly and independently associated with incidence of hepatocellular carcinoma (HCC) and cirrhosis and liver-related mortality across a biological gradient.
     explanation: The presence of HBV DNA in serum indicates active viral replication and disease progression.
   - reference: PMID:28350873
+    reference_title: &#34;On-treatment HBV DNA dynamics predict virological breakthrough in entecavir-treated HBeAg-positive chronic hepatitis B.&#34;
     supports: SUPPORT
     snippet: Our results demonstrated that on-treatment HBV DNA could probably predict VBT in ETV-treated HBeAg-positive chronic hepatitis B patients.
     explanation: HBV DNA levels are used to monitor viral load and active replication.
   - reference: PMID:37179582
+    reference_title: &#34;Liver histopathological lesions is severe in patients with normal alanine transaminase and low to moderate hepatitis B virus DNA replication.&#34;
     supports: PARTIAL
     snippet: HBV DNA level is a negative risk factor for liver disease progression.
     explanation: The presence of HBV DNA indicates active replication and can be used to assess disease severity.
@@ -5183,14 +5482,17 @@ genetic:
   notes: Influences disease progression and treatment response
   evidence:
   - reference: PMID:19072424
+    reference_title: &#34;Hepatitis B virus genotypes: natural history and implications for treatment.&#34;
     supports: SUPPORT
     snippet: There are eight different genotypes named A-H. Genotypes have distinct geographic distribution in different regions of the world. There exists a difference in the disease profile between different genotypes.
     explanation: The reference supports the presence of multiple HBV genotypes (A-H) and indicates that these genotypes influence disease progression and treatment response.
   - reference: PMID:26255971
+    reference_title: &#34;Host genetic variants influencing the clinical course of hepatitis B virus infection.&#34;
     supports: SUPPORT
     snippet: The clinical course of hepatitis B virus (HBV) infection greatly differs in individuals. Various viral, host, and environmental factors influence the natural history of HBV infection.
     explanation: The reference supports the influence of various factors, including viral genotypes, on the clinical course of HBV infection.
   - reference: PMID:34593148
+    reference_title: &#34;Interpretation of HBV Serologies.&#34;
     supports: SUPPORT
     snippet: Various HBV genotypes and their impact on the clinical course are discussed. The relationship of HBV serologies and HBV DNA to disease progression is outlined.
     explanation: The reference supports the statement that different HBV genotypes influence disease progression and treatment response.
@@ -5201,18 +5503,22 @@ diagnosis:
   notes: Indicates current hepatitis B infection
   evidence:
   - reference: PMID:21739440
+    reference_title: &#34;Hepatitis B surface antigen confirmatory testing for diagnosis of hepatitis B virus infection in Taiwan.&#34;
     supports: PARTIAL
     snippet: The prevalence of HBsAg positivity among subjects decreased from 16.3% in the adults to 5.2% in the graduate students and then to 2.8% for the undergraduate students (P = 0.0007).
     explanation: HBsAg positivity indicates current hepatitis B infection, as discussed in the study.
   - reference: PMID:37001946
+    reference_title: &#34;Chronic Hepatitis B Virus: What an Internist Needs to Know: Serologic Diagnosis, Treatment Options, and Hepatitis B Virus Reactivation.&#34;
     supports: SUPPORT
     snippet: Chronic HBV is diagnosed with positive HBsAg and detectable HBV DNA.
     explanation: The presence of HBsAg is used to diagnose chronic hepatitis B virus infection.
   - reference: PMID:25218700
+    reference_title: &#34;Occult hepatitis B virus infection with positive hepatitis B e antigen.&#34;
     supports: SUPPORT
     snippet: Occult HBV infection (OBI), referred to persistence of HBV DNA in serum and/or liver without detectable serum hepatitis B surface (HBsAg), usually has low HBV DNA levels.
     explanation: The presence of HBsAg typically indicates active hepatitis B infection, as its absence in OBI is noted as unusual.
   - reference: PMID:22300111
+    reference_title: &#34;Diagnostic incidence of the presence of positive HBsAg: epidemiologic, clinical, and virological characteristics.&#34;
     supports: SUPPORT
     snippet: To analyze the epidemiological, clinical, and virological characteristics of patients newly diagnosed with active hepatitis B virus (HBV) infection based on the presence of positive hepatitis B surface antigen (HBsAg).
     explanation: The study focuses on diagnosing active hepatitis B infection by the presence of HBsAg.
@@ -5222,14 +5528,17 @@ diagnosis:
   notes: Indicates high levels of viral replication
   evidence:
   - reference: PMID:25218700
+    reference_title: &#34;Occult hepatitis B virus infection with positive hepatitis B e antigen.&#34;
     supports: SUPPORT
     snippet: &#39;BACKGROUND: Hepatitis B e antigen (HBeAg) is a marker to indicate active replication of hepatitis B virus (HBV).&#39;
     explanation: HBeAg is indeed a marker used to indicate active replication of HBV, supporting the statement that a positive HBeAg test indicates high levels of viral replication.
   - reference: PMID:20512987
+    reference_title: &#34;Serum hepatitis B surface antigen and hepatitis B e antigen titers: disease phase influences correlation with viral load and intrahepatic hepatitis B virus markers.&#34;
     supports: PARTIAL
     snippet: HBeAg correlated with serum HBV DNA (r = 0.60, P &lt; 0.0001), although emerging BCP/PC variants reduced HBeAg titer independent of viral replication.
     explanation: While HBeAg generally correlates with high levels of viral replication, there are instances where emerging viral variants can reduce HBeAg levels independent of viral replication, indicating that the correlation is not absolute.
   - reference: PMID:29869595
+    reference_title: &#34;Poor Sensitivity of Commercial Rapid Diagnostic Tests for Hepatitis B e Antigen in Senegal, West Africa.&#34;
     supports: PARTIAL
     snippet: Alternatively, HBV e antigen (HBeAg) may accurately indicate high viral replication.
     explanation: HBeAg can indicate high viral replication, but the prevalence of HBeAg in highly viremic patients was low, suggesting that not all high viral replication cases will test positive for HBeAg.
@@ -5239,18 +5548,22 @@ diagnosis:
   notes: Measures viral load in the blood
   evidence:
   - reference: PMID:12776281
+    reference_title: &#34;Biological dynamics of hepatitis B virus load in dialysis population.&#34;
     supports: SUPPORT
     snippet: HBV DNA was measured using the Amplicor HBV Monitor Test (Roche Diagnostics, Branchburg, NJ), an in vitro assay using polymerase chain reaction nucleic acid amplification and DNA hybridization for the quantitative measurement of HBV DNA in serum.
     explanation: This study confirms that the HBV DNA test measures viral load in the blood of hepatitis B patients.
   - reference: PMID:33453301
+    reference_title: &#34;Performance evaluation of Xpert HBV viral load (VL) assay: Point-of-care molecular test to strengthen and decentralize management of chronic hepatitis B (CHB) infection.&#34;
     supports: SUPPORT
     snippet: Estimation of hepatitis B (HBV) viral load (VL) is critical in hepatitis-B cascade-of-care and at present there is no point of care (POC) molecular assay available for the same.
     explanation: The study discusses the importance of estimating HBV viral load, which is done through testing HBV DNA.
   - reference: PMID:38163269
+    reference_title: &#34;Real-Time Polymerase Chain Reaction-Based Detection and Quantification of Hepatitis B Virus DNA.&#34;
     supports: SUPPORT
     snippet: Accurate detection and quantification of HBV DNA in the blood are essential for diagnosing and monitoring HBV infection. The most common method for detecting HBV DNA is real-time PCR, which can be used to detect the virus and assess the viral load to monitor the response to antiviral therapy.
     explanation: This reference supports that the HBV DNA test measures viral load in the blood.
   - reference: PMID:32360825
+    reference_title: &#34;Hepatitis B Core-Related Antigen to Indicate High Viral Load: Systematic Review and Meta-Analysis of 10,397 Individual Participants.&#34;
     supports: SUPPORT
     snippet: We assessed the performance of a novel immunoassay, HBV core-related antigen (HBcrAg), as a low-cost (less than US $15/assay) alternative to nucleic acid testing to indicate clinically important high viremia in chronic HBV patients infected with different genotypes.
     explanation: The study mentions nucleic acid testing (which includes HBV DNA tests) as a method to measure viral load in the blood.
@@ -5259,18 +5572,22 @@ diagnosis:
   notes: Assesses liver damage and fibrosis
   evidence:
   - reference: PMID:17613355
+    reference_title: &#34;Liver biopsy assessment in chronic hepatitis.&#34;
     supports: SUPPORT
     snippet: Liver biopsy has been a major diagnostic tool in the evaluation of individuals with chronic hepatitis for many decades and remains the most direct way of visualizing hepatic necroinflammation and fibrosis.
     explanation: The reference clearly states that liver biopsy is a major diagnostic tool for visualizing hepatic necroinflammation and fibrosis, thus supporting the statement.
   - reference: PMID:35240329
+    reference_title: &#34;Baseline Hepatitis B Virus Surface Antigen Titers in Childhood Predict the Risk of Advanced Liver Fibrosis in Adulthood.&#34;
     supports: NO_EVIDENCE
     snippet: Transient elastography was performed at a mean final age of 38.21 years to identify advanced fibrosis.
     explanation: Although the primary focus is on transient elastography, the study context implies that liver biopsy is a standard method for assessing liver fibrosis.
   - reference: PMID:23808910
+    reference_title: &#34;Fibroscan can avoid liver biopsy in Indian patients with chronic hepatitis B.&#34;
     supports: PARTIAL
     snippet: Present study was designed to correlate fibroscan with liver biopsy and determine whether fibroscan can avoid liver biopsy in patients with CHB.
     explanation: The study compares fibroscan with liver biopsy, indicating that liver biopsy is a standard method for assessing liver fibrosis.
   - reference: PMID:36458851
+    reference_title: &#34;Hepatitis delta virus: Disease assessment and stratification.&#34;
     supports: SUPPORT
     snippet: Liver biopsy remains the gold standard for staging of liver fibrosis and grading of histological activity and should remain central for diagnostic purposes.
     explanation: The reference confirms that liver biopsy is the gold standard for assessing liver fibrosis, supporting the statement.
@@ -5280,14 +5597,17 @@ environmental:
   notes: Increases the risk of transmission via medical procedures
   evidence:
   - reference: PMID:20123446
+    reference_title: &#34;US outbreak investigations highlight the need for safe injection practices and basic infection control.&#34;
     supports: SUPPORT
     snippet: Increasing recognition of outbreaks involving patient-to-patient spread of hepatitis B and hepatitis C virus infections, however, has uncovered a disturbing trend. This article highlights the importance of basic infection control and the need for increased awareness of safe injection practices.
     explanation: The article indicates that poor sterile practices can lead to patient-to-patient spread of hepatitis B, supporting the statement that poor sterile practices increase the risk of transmission via medical procedures.
   - reference: PMID:10840606
+    reference_title: &#34;[Transmission of HBV, HCV and HIV by infectious medical personnel--presentation of an overview].&#34;
     supports: SUPPORT
     snippet: Cases with the highest number of transmissions (one anesthesiologist with 217 HC transmissions, and one EEG technologist with 75 HB transmissions) were attributed to poor infection control practices.
     explanation: The report documents numerous cases of hepatitis B transmission attributed to poor infection control practices, supporting the statement.
   - reference: PMID:23074317
+    reference_title: &#34;Transmission of hepatitis B virus from an orthopedic surgeon with a high viral load.&#34;
     supports: SUPPORT
     snippet: We documented HBV transmission during orthopedic surgery to 2 patients from a surgeon with HBV. This investigation highlights the importance of evaluating individuals who do not respond to 2 series of HBV vaccination, the increased risk of HBV transmission from providers with high viral loads, and the need to evaluate the clinical practice of providers with HBV and implement appropriate procedure-based practice restrictions.
     explanation: The study demonstrates that poor sterile practices and high viral loads in healthcare providers can lead to the transmission of hepatitis B during medical procedures.
@@ -5296,18 +5616,22 @@ environmental:
   notes: Includes unprotected sexual contact and intravenous drug use
   evidence:
   - reference: PMID:2183516
+    reference_title: &#34;Hepatitis B: transmission by sexual contact and needle sharing.&#34;
     supports: SUPPORT
     snippet: In the Western world most cases of hepatitis B virus (HBV) infection are acquired through sexual intercourse and through needle sharing by intravenous drug users (IVDU).
     explanation: The literature explicitly mentions that HBV infection is commonly acquired through sexual intercourse and needle sharing, which aligns with the statement&#39;s mention of unprotected sexual contact and intravenous drug use as high-risk behaviors.
   - reference: PMID:20411413
+    reference_title: &#34;HIV risk behaviors: risky sexual activities and needle use among adolescents in substance abuse treatment.&#34;
     supports: NO_EVIDENCE
     snippet: Sex with multiple partners, sex under the influence of alcohol or drugs, and unprotected sex were the most prevalent HIV risk behaviors.
     explanation: Although this reference primarily discusses HIV, it also notes that unprotected sex is a prevalent risk behavior, which supports the statement regarding high-risk behaviors for HBV.
   - reference: PMID:32338365
+    reference_title: &#34;Prevalence of hepatitis B and anti-hepatitis C virus antibody among people who inject drugs in the Lebanese population.&#34;
     supports: SUPPORT
     snippet: People who inject drugs (PWIDs) are prone to a number of blood-borne viral infections. Hepatitis B virus (HBV) and hepatitis C virus (HCV) constitute an important public health concern in this high risk group.
     explanation: The literature states that people who inject drugs are at high risk for HBV, supporting the statement that intravenous drug use is a high-risk behavior for HBV.
   - reference: PMID:27364104
+    reference_title: &#34;Risk of occupational exposure to the HBV infection in non-clinical healthcare personnel.&#34;
     supports: PARTIAL
     snippet: The possibility of the HBV infection risk during the exposure was found in 25 cases and was significantly more frequent in the group III.
     explanation: This reference indicates that exposure to HBV infection is a significant risk, supporting the statement of high-risk behaviors related to HBV.
@@ -5316,18 +5640,22 @@ treatments:
   description: Includes drugs like tenofovir and entecavir to suppress HBV replication.
   evidence:
   - reference: PMID:26732483
+    reference_title: &#34;Recent developments in antivirals against hepatitis B virus.&#34;
     supports: SUPPORT
     snippet: Entecavir (ETV) and tenofovir disoproxil fumarate (TDF) have been recommended as the first-line anti-HBV drugs for excellent viral suppression with a low risk of antiviral resistance.
     explanation: The reference explicitly mentions tenofovir and entecavir as first-line drugs for suppressing HBV replication.
   - reference: PMID:26054819
+    reference_title: &#34;The case of chronic hepatitis B treatment with tenofovir: an update for nephrologists.&#34;
     supports: SUPPORT
     snippet: Since 2008, it has also been indicated for treatment of chronic HBV infection or HIV/HBV co-infection. The aim of the treatment consists in suppressing viral replication, thus reducing hepatic complications and improving patient survival.
     explanation: The reference supports the use of tenofovir for suppressing HBV replication.
   - reference: PMID:32050881
+    reference_title: &#34;[Evaluation of Histological Response in Chronic Hepatitis B Patients with Tenofovir or Entecavir Therapy].&#34;
     supports: SUPPORT
     snippet: The aim of this study was to evaluate the histological, virological, serological and biochemical response rates in CHB patients receiving tenofovir or entecavir therapy.
     explanation: The study evaluates the effects of tenofovir and entecavir in CHB patients, supporting their role in HBV suppression.
   - reference: PMID:27742007
+    reference_title: &#34;Hepatitis B Virus Infection and Liver Decompensation.&#34;
     supports: PARTIAL
     snippet: This is achievable by the highly active antivirals, entecavir and tenofovir, which are considered first-line therapy in most patients with immune active hepatitis C virus and after liver transplantation to prevent HBV recurrence.
     explanation: The reference confirms that tenofovir and entecavir are used to suppress HBV replication.
@@ -5340,14 +5668,17 @@ treatments:
   description: Boosts the immune system to fight the virus.
   evidence:
   - reference: PMID:25034484
+    reference_title: &#34;Interferon therapy of chronic hepatitis B.&#34;
     supports: PARTIAL
     snippet: Interferon-alpha (IFN-alpha) therapy can convert CHB into inactive hepatitis B virus (HBV) infection in 20-30% of the treated patients...IFN-alpha has multiple antiviral, antiproliferative, and immunomodulatory activities.
     explanation: The literature indicates that Interferon-alpha has immunomodulatory activities, which can help in controlling HBV infection, but it does not explicitly state that it &#39;boosts&#39; the immune system in the general sense.
   - reference: PMID:16461223
+    reference_title: &#34;Immune system and hepatitis B virus infection.&#34;
     supports: PARTIAL
     snippet: Therapeutic strategies aimed at correcting this defective T cell reactivity could represent a complementary approach to the cure of chronic HBV infection.
     explanation: The literature suggests that targeting immune responses is a strategy in treating HBV, but it does not explicitly state that Interferon Therapy &#39;boosts&#39; the immune system.
   - reference: PMID:10804945
+    reference_title: &#34;Chronic hepatitis B virus in children in Israel: clinical and epidemiological characteristics and response to interferon therapy.&#34;
     supports: PARTIAL
     snippet: We found IFN to be a safe and adequate mode of treatment in children with chronic HBV infection, regardless of their liver histology and transaminase levels.
     explanation: The study indicates that Interferon Therapy is effective in treating HBV in children, but it does not explicitly state that it &#39;boosts&#39; the immune system.
@@ -5360,10 +5691,12 @@ treatments:
   description: For end-stage liver disease.
   evidence:
   - reference: PMID:29125261
+    reference_title: &#34;Hepatitis B and liver transplantation.&#34;
     supports: SUPPORT
     snippet: Liver transplantation (LT) is the only effective treatment for hepatitis B-virus (HBV) related end stage liver disease...
     explanation: This reference explicitly states that liver transplantation is the only effective treatment for end-stage liver disease caused by hepatitis B.
   - reference: PMID:17981234
+    reference_title: &#34;Hepatitis B and end-stage liver disease.&#34;
     supports: PARTIAL
     snippet: Until recently, the options for a patient who had end-stage hepatitis B cirrhosis were severely limited, but during the past 15 years great strides have been made in prevention and treatment of hepatitis B cirrhosis.
     explanation: The reference discusses the advancements in treatment options for end-stage hepatitis B cirrhosis, implying liver transplantation as a viable option.
@@ -5376,26 +5709,32 @@ treatments:
   description: Monitoring liver function and viral load to manage chronic infection.
   evidence:
   - reference: PMID:24266913
+    reference_title: &#34;Chronic hepatitis B virus infection.&#34;
     supports: SUPPORT
     snippet: Chronically infected patients should be followed on a regular basis, preferably every 6 months, with liver function tests, and when appropriate, HBV DNA levels.
     explanation: The literature supports regular monitoring of liver function and viral load in patients with chronic hepatitis B infection.
   - reference: PMID:12776281
+    reference_title: &#34;Biological dynamics of hepatitis B virus load in dialysis population.&#34;
     supports: PARTIAL
     snippet: Periodic testing for HBV DNA to assess the virological status of HBsAg-positive dialysis patients is recommended.
     explanation: The study recommends regular monitoring of viral load in hepatitis B patients, supporting the statement.
   - reference: PMID:33467927
+    reference_title: &#34;Monitoring hepatitis B by using point-of-care testing: biomarkers, current technologies, and perspectives.&#34;
     supports: PARTIAL
     snippet: This manuscript summarized traditional biomarkers of different hepatitis B stages and recent-developed POCT platforms (including microfluidic platforms and lateral-flow strips) and discuss the challenges associated with their use.
     explanation: The article discusses the importance of monitoring hepatitis B using various biomarkers, which aligns with the statement.
   - reference: PMID:31528100
+    reference_title: &#34;On-treatment monitoring of liver fibrosis with serum hepatitis B core-related antigen in chronic hepatitis B.&#34;
     supports: SUPPORT
     snippet: HBcrAg is an excellent monitor of hepatic histological changes, especially in CHB patients treated with nucleoside analogs.
     explanation: The literature highlights the importance of monitoring liver-related biomarkers in chronic hepatitis B patients.
   - reference: PMID:26799653
+    reference_title: &#34;Hepatitis B: treatment choice and monitoring for response and resistance.&#34;
     supports: SUPPORT
     snippet: As a result, regular monitoring of the response during treatment and after treatment is required.
     explanation: The article emphasizes the necessity of regular monitoring in the management of chronic hepatitis B.
   - reference: PMID:33945063
+    reference_title: &#34;Characteristics Associated with Monitoring and Treatment of Chronic Hepatitis B in a Large Cohort of Australian Adults.&#34;
     supports: SUPPORT
     snippet: Regular monitoring and treatment of chronic hepatitis B (CHB) are known to reduce the risk of hepatocellular carcinoma.
     explanation: The literature supports regular monitoring as a vital part of managing chronic hepatitis B to reduce complications.
@@ -5403,22 +5742,27 @@ treatments:
   description: Hepatitis B vaccine provides prevention for uninfected individuals.
   evidence:
   - reference: PMID:10776195
+    reference_title: &#34;Hepatitis B vaccine.&#34;
     supports: SUPPORT
     snippet: Immunization of all newborn infants and adolescents for HBV is a vital step toward eradicating HBV from the general population.
     explanation: The article supports the statement by emphasizing the importance of immunizing infants and adolescents to prevent HBV infection.
   - reference: PMID:33200362
+    reference_title: &#34;Prevention of Hepatitis B Virus Infection and Liver Cancer.&#34;
     supports: SUPPORT
     snippet: Primary prevention by HBV vaccination targeting the general population starting from birth dose.
     explanation: The article confirms that HBV vaccination is a primary prevention strategy for the general population.
   - reference: PMID:17298912
+    reference_title: &#34;A review of the long-term protection after hepatitis A and B vaccination.&#34;
     supports: SUPPORT
     snippet: Hepatitis B vaccines have been licensed since 1982... Long-term protection has been demonstrated.
     explanation: The article discusses the long-term protection conferred by hepatitis B vaccines, supporting their role in preventing HBV infection.
   - reference: PMID:22643598
+    reference_title: &#34;Hepatitis B vaccine: prophylactic, therapeutic, and diagnostic dilemma.&#34;
     supports: SUPPORT
     snippet: Hepatitis B is a preventable disease; a safe and effective vaccine has been available for 30 years.
     explanation: The article states that hepatitis B is preventable through vaccination, supporting the statement.
   - reference: PMID:19187625
+    reference_title: &#34;Vaccination against hepatitis B: the Chinese experience.&#34;
     supports: SUPPORT
     snippet: The chronic HBV carrier rate in children &lt; 10 years of age decreased from 10.0% before the mass vaccination to 1.0% - 2.0% in 2006.
     explanation: The article provides evidence from China&#39;s mass vaccination program, showing a significant reduction in HBV carrier rates due to vaccination.

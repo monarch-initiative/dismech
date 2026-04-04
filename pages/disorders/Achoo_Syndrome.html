@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Reflex Disorder</span>
                 
             </div>
@@ -1930,6 +2103,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1987,6 +2163,14 @@
             <div class="stat-item">
                 <div class="stat-value">5</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">5</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2121,7 +2305,7 @@
                 <span class="card-count">5</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-optic-trigeminal-cross-activation">
                 <div class="item-name">Optic-Trigeminal Cross-Activation</div>
                 
                 <div class="item-desc">Abrupt luminance changes activate visual pathways that cross-activate trigeminal and autonomic circuits, leading to nasal prickle and sneezing in susceptible individuals.</div>
@@ -2204,6 +2388,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2276,7 +2461,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-parasympathetic-generalization">
                 <div class="item-name">Parasympathetic Generalization</div>
                 
                 <div class="item-desc">Light-evoked activation in parasympathetic pathways spreads to nasal secretomotor pathways, causing nasal prickle preceding the sneeze.</div>
@@ -2314,6 +2499,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2346,7 +2532,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-central-cortical-processing">
                 <div class="item-name">Central Cortical Processing</div>
                 
                 <div class="item-desc">Visual cortex excitability (particularly cuneus) and co-activation of somatosensory cortices (insula and secondary somatosensory cortex) during photic sneezing suggests a centrally mediated reflex.</div>
@@ -2405,6 +2591,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2455,7 +2642,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-trigeminal-melanopsin-photosensitivity">
                 <div class="item-name">Trigeminal Melanopsin Photosensitivity</div>
                 
                 <div class="item-desc">Melanopsin-expressing trigeminal ganglion neurons can directly detect light, providing a potential retina-independent pathway for photic sneezing. These neurons represent approximately 3% of small trigeminal ganglion neurons, are localized to the ophthalmic branch, and respond to blue light with sustained firing similar to intrinsically photosensitive retinal ganglion cells.</div>
@@ -2505,6 +2692,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -2575,7 +2763,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-brainstem-sneeze-circuit">
                 <div class="item-name">Brainstem Sneeze Circuit</div>
                 
                 <div class="item-desc">The sneeze reflex is mediated by neuromedin B (NMB) signaling from nasal sensory neurons to NMB receptor-expressing neurons in the sneeze-evoking region of the brainstem, which project to the caudal ventral respiratory group to execute the sneeze motor pattern.</div>
@@ -2632,6 +2820,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -2697,12 +2886,13 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Achoo Syndrome</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
@@ -3475,6 +3665,7 @@ prevalence:
   notes: Self-reported in GWAS cohort (n=3,417). Male 30.1% vs Female 21.1%.
   evidence:
   - reference: PMID:30899065
+    reference_title: &#34;A genome-wide association study on photic sneeze reflex in the Chinese population.&#34;
     supports: SUPPORT
     snippet: &#34;a Chinese population of 3417 individuals (PSR prevalence at 25.6%)&#34;
     explanation: Large GWAS study in Chinese population reporting prevalence.
@@ -3483,6 +3674,7 @@ prevalence:
   notes: Self-report in large online sample (n~11,840).
   evidence:
   - reference: PMID:31287245
+    reference_title: &#34;Possible association between photic sneeze syndrome and migraine and psychological distress.&#34;
     supports: SUPPORT
     snippet: &#34;The overall prevalence of PSS was 3.1%.&#34;
     explanation: Lower prevalence in Japanese cohort may reflect survey
@@ -3493,6 +3685,7 @@ inheritance:
     though GWAS indicates complex polygenic architecture.
   evidence:
   - reference: PMID:30899065
+    reference_title: &#34;A genome-wide association study on photic sneeze reflex in the Chinese population.&#34;
     supports: PARTIAL
     snippet: &#34;the result substantiated the polygenic and non-ethnicity-specific nature
       behind the PSR phenotype&#34;
@@ -3536,6 +3729,7 @@ pathophysiology:
       label: sensory perception of pain
   evidence:
   - reference: PMID:31287245
+    reference_title: &#34;Possible association between photic sneeze syndrome and migraine and psychological distress.&#34;
     supports: SUPPORT
     snippet: &#34;The optic\u2010trigeminal summation hypothesis postulates that, during light
       stimulation, the activated optic nerve pathways cross\u2010activate the trigeminal
@@ -3599,6 +3793,7 @@ pathophysiology:
       label: nasal cavity
   evidence:
   - reference: PMID:31287245
+    reference_title: &#34;Possible association between photic sneeze syndrome and migraine and psychological distress.&#34;
     supports: SUPPORT
     snippet: &#34;According to the parasympathetic generalization hypothesis, when a light
       stimulus excites a specific branch of the parasympathetic nervous system, it
@@ -3648,6 +3843,7 @@ pathophysiology:
       label: sensory perception of light stimulus
   evidence:
   - reference: PMID:20169159
+    reference_title: &#34;When the sun prickles your nose: an EEG study identifying neural bases of photic sneezing.&#34;
     supports: SUPPORT
     snippet: &#34;we found a generally enhanced excitability of the visual cortex (mainly
       in the cuneus) to visual stimuli in &#39;photic sneezers&#39; compared with control
@@ -3655,6 +3851,7 @@ pathophysiology:
     explanation: EEG study demonstrating enhanced visual cortex activation in
       photic sneezers.
   - reference: PMID:20169159
+    reference_title: &#34;When the sun prickles your nose: an EEG study identifying neural bases of photic sneezing.&#34;
     supports: SUPPORT
     snippet: &#34;a stronger prickling sensation in the nose of photic sneezers was found
       to be associated with activation in the insula and stronger activation in the
@@ -3771,6 +3968,7 @@ pathophysiology:
       label: regulation of respiratory gaseous exchange by nervous system process
   evidence:
   - reference: PMID:34133943
+    reference_title: &#34;Sneezing reflex is mediated by a peptidergic pathway from nose to brainstem.&#34;
     supports: PARTIAL
     snippet: &#34;neuromedin B (NMB) peptide is essential for signaling sneezing. Ablation
       of NMB-sensitive postsynaptic neurons in the sneeze-evoking region or deficiency
@@ -3798,6 +3996,7 @@ phenotypes:
   notes: Core diagnostic feature
   evidence:
   - reference: PMID:30899065
+    reference_title: &#34;A genome-wide association study on photic sneeze reflex in the Chinese population.&#34;
     supports: SUPPORT
     snippet: &#34;Photic sneeze reflex (PSR) is an interesting but yet mysterious phenotype
       featured by individuals&#39; response of sneezing in exposure to bright light.&#34;
@@ -3810,6 +4009,7 @@ phenotypes:
     sneeze, occurring without detectable peripheral nasal electrical activity.
   evidence:
   - reference: PMID:31287245
+    reference_title: &#34;Possible association between photic sneeze syndrome and migraine and psychological distress.&#34;
     supports: SUPPORT
     snippet: &#34;a tickling sensation in the nasal mucosa, which in turn induces the
       sneeze reflex&#34;
@@ -3827,6 +4027,7 @@ phenotypes:
       label: Migraine
   evidence:
   - reference: PMID:31287245
+    reference_title: &#34;Possible association between photic sneeze syndrome and migraine and psychological distress.&#34;
     supports: SUPPORT
     snippet: &#34;Individuals with PSS were more likely to suffer from migraine (odds
       ratio = 1.97, P = 2.18 \xD7 10-9 )&#34;
@@ -3839,6 +4040,7 @@ phenotypes:
     individuals with photic sneeze syndrome.
   evidence:
   - reference: PMID:31287245
+    reference_title: &#34;Possible association between photic sneeze syndrome and migraine and psychological distress.&#34;
     supports: SUPPORT
     snippet: &#34;clinically relevant psychological distress (K6 score \u2265 5: odds ratio
       = 1.40, P = 0.00143)&#34;
@@ -3855,6 +4057,7 @@ phenotypes:
       label: Photophobia
   evidence:
   - reference: PMID:31287245
+    reference_title: &#34;Possible association between photic sneeze syndrome and migraine and psychological distress.&#34;
     supports: PARTIAL
     snippet: &#34;intolerance to light, commonly known as photophobia, is thought to result
       from light-induced activation of the trigeminal nerve system&#34;
@@ -3869,6 +4072,7 @@ genetic:
     Chinese cohort.
   evidence:
   - reference: PMID:30899065
+    reference_title: &#34;A genome-wide association study on photic sneeze reflex in the Chinese population.&#34;
     supports: SUPPORT
     snippet: &#34;reproducibly identified both a replicative rs10427255 on 2q22.3 and
       a novel locus of rs1032507 on 3p12.1&#34;
@@ -3879,6 +4083,7 @@ genetic:
     cohort. CADM2 is involved in synaptic adhesion.
   evidence:
   - reference: PMID:30899065
+    reference_title: &#34;A genome-wide association study on photic sneeze reflex in the Chinese population.&#34;
     supports: SUPPORT
     snippet: &#34;a novel locus of rs1032507 on 3p12.1&#34;
     explanation: Novel protective locus near CADM2, which has plausible
@@ -3888,6 +4093,7 @@ genetic:
   notes: Gene near rs10427255; potential long-range regulatory effects.
   evidence:
   - reference: PMID:30899065
+    reference_title: &#34;A genome-wide association study on photic sneeze reflex in the Chinese population.&#34;
     supports: PARTIAL
     snippet: &#34;rs10427255 was 848 kb downstream of ZEB2 (Zinc Finger E-Box Binding
       Homeobox 2)&#34;
@@ -3897,6 +4103,7 @@ genetic:
   notes: Synaptic adhesion gene near protective variant rs1032507.
   evidence:
   - reference: PMID:30899065
+    reference_title: &#34;A genome-wide association study on photic sneeze reflex in the Chinese population.&#34;
     supports: PARTIAL
     snippet: &#34;the variant of rs1032507 is adjacently upstream of the coding region
       of CADM2&#34;
@@ -3907,6 +4114,7 @@ genetic:
     sensory neurons to the brainstem sneeze-evoking region.
   evidence:
   - reference: PMID:34133943
+    reference_title: &#34;Sneezing reflex is mediated by a peptidergic pathway from nose to brainstem.&#34;
     supports: PARTIAL
     snippet: &#34;neuromedin B (NMB) peptide is essential for signaling sneezing&#34;
     explanation: NMB is the key neuropeptide mediating the sneeze reflex.
@@ -3916,6 +4124,7 @@ genetic:
     required for sneeze reflex execution.
   evidence:
   - reference: PMID:34133943
+    reference_title: &#34;Sneezing reflex is mediated by a peptidergic pathway from nose to brainstem.&#34;
     supports: PARTIAL
     snippet: &#34;deficiency in NMB receptor abolished the sneezing reflex&#34;
     explanation: NMBR-expressing neurons are essential for the sneeze reflex
@@ -3928,6 +4137,7 @@ environmental:
     important stimulus parameters but systematic studies are lacking.
   evidence:
   - reference: PMID:31287245
+    reference_title: &#34;Possible association between photic sneeze syndrome and migraine and psychological distress.&#34;
     supports: SUPPORT
     snippet: &#34;Photic sneeze syndrome (PSS) is a condition that causes sneezing when
       the eye is exposed to sudden bright light.&#34;

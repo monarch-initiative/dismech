@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,7 @@
                 </span>
                 
                 
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Neurodevelopmental Disorder</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">X-linked Recessive Disorder</span>
@@ -1937,6 +2108,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1996,6 +2170,12 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
+            
+            
+            <div class="stat-item">
+                <div class="stat-value">0</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
             
             
             <a class="stat-link" href="#genetic">
@@ -2151,7 +2331,7 @@
                 <span class="card-count">2</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-mecp2-overexpression-and-neurodegeneration">
                 <div class="item-name">MECP2 Overexpression and Neurodegeneration</div>
                 
                 <div class="item-desc">Duplication of the Xq28 region leads to overexpression of MECP2 protein, a multi-functional protein required for proper brain development and maintenance of brain function. MECP2 is dosage-sensitive; even a relatively modest increase causes severe neurological disease. Overexpression leads to neuronal death in specific brain regions including cortex, hippocampus, cerebellum, and spinal cord. Astrocytic dysfunction, including breakdown of glutamate homeostatic mechanisms, likely contributes to neuronal death.
@@ -2292,6 +2472,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2346,7 +2527,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-dysfunction">
                 <div class="item-name">Immune Dysfunction</div>
                 
                 <div class="item-desc">MECP2 overexpression is associated with immunodeficiency characterized by IgA and IgG2 deficiency, low antibody titers against pneumococci, and elevated acute-phase responses. This leads to recurrent and often life-threatening respiratory infections, particularly with encapsulated bacteria. The IRAK1 gene, encoding interleukin-1 receptor-associated kinase 1, is frequently co-duplicated with MECP2, but IRAK1 duplication does not increase canonical NF-kB-induced inflammation at baseline, suggesting the immune dysfunction mechanism is more complex than simple innate immune pathway overactivation.
@@ -2397,6 +2578,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -3695,6 +3877,7 @@ prevalence:
     global both-sex prevalence is lower given X-linked inheritance.
   evidence:
   - reference: PMID:35313898
+    reference_title: &#34;A brief history of MECP2 duplication syndrome: 20-years of clinical understanding.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;MDS has an estimated live birth prevalence in males of 1/150,000.&#34;
@@ -3775,11 +3958,13 @@ pathophysiology:
       label: spinal cord
   evidence:
   - reference: PMID:33638179
+    reference_title: &#34;MECP2 and the biology of MECP2 duplication syndrome.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;MDS is a neurodegenerative disorder in which neurons die in specific parts of the central nervous system, including the cortex, hippocampus, cerebellum, and spinal cord. Neuronal death likely results from astrocytic dysfunction, including a breakdown of glutamate homeostatic mechanisms.&#34;
     explanation: Review of cell culture and mouse models shows MECP2 overexpression causes region-specific neurodegeneration via astrocytic dysfunction.
   - reference: PMID:20425814
+    reference_title: &#34;The MECP2 duplication syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;MECP2 duplication syndrome is 100% penetrant in affected males and is associated with infantile hypotonia, severe to profound mental retardation, autism or autistic features, poor speech development, recurrent infections, epilepsy, progressive spasticity, and, in some cases, developmental regression.&#34;
@@ -3812,21 +3997,25 @@ pathophysiology:
       label: lung
   evidence:
   - reference: PMID:25721700
+    reference_title: &#34;Infectious and immunologic phenotype of MECP2 duplication syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;increased susceptibility to infections in MECP2 duplication syndrome is associated with IgA/IgG2-deficiency, low antibody titers against pneumococci and elevated acute-phase responses&#34;
     explanation: First systematic immunological characterization of 27 MECP2 duplication patients showing specific humoral immune defects.
   - reference: PMID:25721700
+    reference_title: &#34;Infectious and immunologic phenotype of MECP2 duplication syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;17/27 analyzed patients suffered from pneumonia, 5/27 from at least one episode of sepsis. Encapsulated bacteria (S.pneumoniae, H.influenzae) were frequently isolated.&#34;
     explanation: Documents the infectious phenotype with predominance of encapsulated bacterial infections.
   - reference: PMID:36319802
+    reference_title: &#34;IRAK1 Duplication in MECP2 Duplication Syndrome Does Not Increase Canonical NF-κB-Induced Inflammation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;most patients with MECP2/IRAK1 duplication syndrome present with recurrent and severe infections, accompanied by strong inflammation. Respiratory infections are the most common cause of death.&#34;
     explanation: Confirms recurrent severe infections and strong inflammatory responses in MECP2/IRAK1 duplication patients.
   - reference: PMID:36319802
+    reference_title: &#34;IRAK1 Duplication in MECP2 Duplication Syndrome Does Not Increase Canonical NF-κB-Induced Inflammation.&#34;
     supports: REFUTE
     evidence_source: IN_VITRO
     snippet: &#34;Patients with MECP2/IRAK1 duplication syndrome do not show increased canonical NF-κB signaling in immortalized fibroblasts, PBMCs, and whole blood.&#34;
@@ -3843,6 +4032,7 @@ phenotypes:
       label: Severe intellectual disability
   evidence:
   - reference: PMID:20425814
+    reference_title: &#34;The MECP2 duplication syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;MECP2 duplication syndrome is 100% penetrant in affected males and is associated with infantile hypotonia, severe to profound mental retardation&#34;
@@ -3858,6 +4048,7 @@ phenotypes:
       label: Floppy infant
   evidence:
   - reference: PMID:20301461
+    reference_title: &#34;MECP2 Duplication Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;MECP2 duplication syndrome is a severe neurodevelopmental disorder characterized by early-onset hypotonia&#34;
@@ -3874,11 +4065,13 @@ phenotypes:
       label: Recurrent respiratory infections
   evidence:
   - reference: PMID:20301461
+    reference_title: &#34;MECP2 Duplication Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;recurrent respiratory infections (in ~75% of affected individuals)&#34;
     explanation: GeneReviews entry provides frequency estimate for recurrent respiratory infections.
   - reference: PMID:28938254
+    reference_title: &#34;Antibiotic Prophylaxis, Immunoglobulin Substitution and Supportive Measures Prevent Infections in MECP2 Duplication Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Respiratory infections are the main cause of early death in patients with MECP2 duplication syndrome.&#34;
@@ -3894,11 +4087,13 @@ phenotypes:
       label: Seizure
   evidence:
   - reference: PMID:20301461
+    reference_title: &#34;MECP2 Duplication Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;seizures (in ~50%)&#34;
     explanation: GeneReviews provides frequency estimate for seizures.
   - reference: PMID:33170557
+    reference_title: &#34;Phenotypic features in MECP2 duplication syndrome: Effects of age.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;At baseline visit 28 participants had epilepsy. The average age of seizure onset was 8.96 years&#34;
@@ -3913,6 +4108,7 @@ phenotypes:
       label: Progressive spasticity
   evidence:
   - reference: PMID:33170557
+    reference_title: &#34;Phenotypic features in MECP2 duplication syndrome: Effects of age.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Motor Dysfunction subscale (Figure 2) scores worsen with increasing age&#34;
@@ -3927,6 +4123,7 @@ phenotypes:
       label: Delayed speech and language development
   evidence:
   - reference: PMID:20425814
+    reference_title: &#34;The MECP2 duplication syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;poor speech development&#34;
@@ -3942,6 +4139,7 @@ phenotypes:
       label: Constipation
   evidence:
   - reference: PMID:20301461
+    reference_title: &#34;MECP2 Duplication Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;gastrointestinal manifestations including gastroesophageal reflux and constipation&#34;
@@ -3956,6 +4154,7 @@ phenotypes:
       label: Autistic behavior
   evidence:
   - reference: PMID:20425814
+    reference_title: &#34;The MECP2 duplication syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;autism or autistic features&#34;
@@ -3971,6 +4170,7 @@ phenotypes:
       label: Developmental regression
   evidence:
   - reference: PMID:33170557
+    reference_title: &#34;Phenotypic features in MECP2 duplication syndrome: Effects of age.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Twenty-two percent (n = 15 of 69 total) of the participants had regressed at the time of their visit, and average age of regression was 10.38 years&#34;
@@ -3985,6 +4185,7 @@ phenotypes:
       label: Feeding difficulties
   evidence:
   - reference: PMID:20301461
+    reference_title: &#34;MECP2 Duplication Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;early-onset hypotonia, feeding difficulty, gastrointestinal manifestations including gastroesophageal reflux and constipation&#34;
@@ -3999,11 +4200,13 @@ phenotypes:
       label: Global developmental delay
   evidence:
   - reference: PMID:20301461
+    reference_title: &#34;MECP2 Duplication Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;delayed psychomotor development leading to severe intellectual disability&#34;
     explanation: GeneReviews confirms global developmental delay as a core feature.
   - reference: PMID:35313898
+    reference_title: &#34;A brief history of MECP2 duplication syndrome: 20-years of clinical understanding.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The key features of MDS include intellectual disability, developmental delay, hypotonia, seizures, recurrent respiratory infections, gastrointestinal problems, behavioural features of autism and dysmorphic features&#34;
@@ -4027,21 +4230,25 @@ genetic:
     structure, with triplications being most severe.
   evidence:
   - reference: PMID:35313898
+    reference_title: &#34;A brief history of MECP2 duplication syndrome: 20-years of clinical understanding.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;MECP2 duplication syndrome (MDS) is a rare, X-linked, neurodevelopmental disorder caused by a duplication of the methyl-CpG-binding protein 2 (MECP2) gene&#34;
     explanation: Comprehensive review confirms MECP2 duplication as the causative genetic alteration.
   - reference: PMID:20425814
+    reference_title: &#34;The MECP2 duplication syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Most of the reported cases are inherited, however, de novo cases have been documented. While carrier females have been reported to be unaffected, more recent research demonstrates that despite normal intelligence, female carriers display a range of neuropsychiatric phenotypes&#34;
     explanation: Documents inheritance pattern and carrier female phenotype.
   - reference: PMID:39696717
+    reference_title: &#34;Structural variant allelic heterogeneity in MECP2 duplication syndrome provides insight into clinical severity and variability of disease expression.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Duplication sizes in the cohort ranging from 64.6 kb to 16.5 Mb were classified into four categories comprising of tandem duplications (48%), terminal duplications (22%), inverted triplications (20%), and other CGRs (10%).&#34;
     explanation: Largest genotype-phenotype study of 137 individuals characterizes structural variant heterogeneity.
   - reference: PMID:39696717
+    reference_title: &#34;Structural variant allelic heterogeneity in MECP2 duplication syndrome provides insight into clinical severity and variability of disease expression.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Genotype-phenotype analyses indicated a gradual worsening of phenotypic features, including overall survival, developmental levels, microcephaly, epilepsy, and genitourinary/eye abnormalities in the following order: Tandem duplications, Other complex duplications, Terminal duplications/Translocations, and Triplications encompassing MECP2.&#34;
@@ -4061,11 +4268,13 @@ genetic:
     NF-kB signaling is not increased.
   evidence:
   - reference: PMID:36319802
+    reference_title: &#34;IRAK1 Duplication in MECP2 Duplication Syndrome Does Not Increase Canonical NF-κB-Induced Inflammation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;most patients with MECP2/IRAK1 duplication syndrome present with recurrent and severe infections, accompanied by strong inflammation. Respiratory infections are the most common cause of death.&#34;
     explanation: Confirms IRAK1 co-duplication is a consistent feature and that immune dysfunction accompanies the duplication.
   - reference: PMID:36319802
+    reference_title: &#34;IRAK1 Duplication in MECP2 Duplication Syndrome Does Not Increase Canonical NF-κB-Induced Inflammation.&#34;
     supports: REFUTE
     evidence_source: IN_VITRO
     snippet: &#34;Patients with MECP2/IRAK1 duplication syndrome do not show increased canonical NF-κB signaling in immortalized fibroblasts, PBMCs, and whole blood.&#34;
@@ -4081,11 +4290,13 @@ inheritance:
     phenotypes including anxiety and mild cognitive features.
   evidence:
   - reference: PMID:20301461
+    reference_title: &#34;MECP2 Duplication Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;MECP2 duplication syndrome is inherited in an X-linked manner. The majority of affected males have inherited the MECP2 duplication from a heterozygous mother; however, de novo genetic alterations have been reported.&#34;
     explanation: GeneReviews confirms X-linked inheritance pattern.
   - reference: PMID:20425814
+    reference_title: &#34;The MECP2 duplication syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Most of the reported cases are inherited, however, de novo cases have been documented. While carrier females have been reported to be unaffected, more recent research demonstrates that despite normal intelligence, female carriers display a range of neuropsychiatric phenotypes&#34;
@@ -4100,6 +4311,7 @@ treatments:
       label: anticonvulsant agent therapy
   evidence:
   - reference: PMID:20301461
+    reference_title: &#34;MECP2 Duplication Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Routine management of feeding difficulties, constipation, developmental and speech delays, spasticity, and seizures.&#34;
@@ -4120,6 +4332,7 @@ treatments:
         label: Antibiotic
   evidence:
   - reference: PMID:28938254
+    reference_title: &#34;Antibiotic Prophylaxis, Immunoglobulin Substitution and Supportive Measures Prevent Infections in MECP2 Duplication Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Immunoglobulin substitution, daily antibiotic prophylaxis with two agents and supportive measures reduced occurrence of pneumonia to four episodes in the following 6 2/12 years of life.&#34;
@@ -4133,6 +4346,7 @@ treatments:
       label: physical therapy
   evidence:
   - reference: PMID:20301461
+    reference_title: &#34;MECP2 Duplication Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Physical therapy to maintain range of motion to reduce likelihood of contractures.&#34;
@@ -4149,6 +4363,7 @@ treatments:
       label: genetic counseling
   evidence:
   - reference: PMID:20301461
+    reference_title: &#34;MECP2 Duplication Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Once the MECP2 duplication has been identified in an affected family member (and/or the mother of the proband is found to be a carrier of a balanced translocation), prenatal testing for a pregnancy at increased risk and preimplantation genetic testing are possible.&#34;

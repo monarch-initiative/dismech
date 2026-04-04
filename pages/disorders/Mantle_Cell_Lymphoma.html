@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1921,6 +2091,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 13</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">B-cell non-Hodgkin lymphoma</span>
                 
             </div>
@@ -1932,6 +2105,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1997,6 +2173,14 @@
             <div class="stat-item">
                 <div class="stat-value">11</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">13</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2455,7 +2639,7 @@
                 <span class="card-count">10</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-ccnd1-igh-translocation">
                 <div class="item-name">CCND1/IGH translocation</div>
                 
                 <div class="item-desc">The defining t(11;14)(q13;q32) rearrangement juxtaposes CCND1 with immunoglobulin heavy-chain regulatory elements in mantle cell lymphoma cells.</div>
@@ -2474,6 +2658,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2516,10 +2701,11 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-cyclin-d1-overexpression">
                 <div class="item-name">Cyclin D1 overexpression</div>
                 
                 <div class="item-desc">Constitutive cyclin D1 expression is the canonical biochemical consequence of the CCND1 rearrangement and removes normal restraint on G1-phase control.</div>
+                
                 
                 
                 
@@ -2563,7 +2749,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-g1-s-cell-cycle-acceleration">
                 <div class="item-name">G1/S cell-cycle acceleration</div>
                 
                 <div class="item-desc">Cyclin D1-driven checkpoint escape accelerates G1-to-S progression and sustains the proliferative program of malignant mantle-zone B cells.</div>
@@ -2589,6 +2775,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2628,10 +2815,11 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-dna-damage-response-pathway-inactivation">
                 <div class="item-name">DNA damage response pathway inactivation</div>
                 
                 <div class="item-desc">Secondary lesions involving ATM, CHK1/CHK2, TP53, and related checkpoint regulators weaken the normal response to DNA damage in mantle cell lymphoma.</div>
+                
                 
                 
                 
@@ -2675,10 +2863,11 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-genetic-instability">
                 <div class="item-name">Genetic instability</div>
                 
                 <div class="item-desc">Complex secondary genomic alterations accumulate as checkpoint failure and cell-cycle dysregulation reinforce clonal diversification and biologic aggressiveness.</div>
+                
                 
                 
                 
@@ -2742,7 +2931,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-microenvironmental-crosstalk-in-marrow-and-secondary-lymphoid-organs">
                 <div class="item-name">Microenvironmental crosstalk in marrow and secondary lymphoid organs</div>
                 
                 <div class="item-desc">Mantle cell lymphoma cells occupy supportive niches in bone marrow and secondary lymphoid organs where adhesion molecules and soluble factors shape lymphoma-cell behavior.</div>
@@ -2771,6 +2960,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -2807,7 +2997,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-b-cell-receptor-signaling-activation">
                 <div class="item-name">B-cell receptor signaling activation</div>
                 
                 <div class="item-desc">Activated B-cell receptor signaling is a central prosurvival program in mantle cell lymphoma and helps integrate external cues from the tumor microenvironment.</div>
@@ -2833,6 +3023,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2872,7 +3063,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-b-cell-survival-advantage">
                 <div class="item-name">B-cell survival advantage</div>
                 
                 <div class="item-desc">Integrated prosurvival signaling reduces apoptotic restraint and helps mantle cell lymphoma clones persist within supportive tissue niches.</div>
@@ -2898,6 +3089,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2937,7 +3129,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-malignant-b-cell-expansion">
                 <div class="item-name">Malignant B-cell expansion</div>
                 
                 <div class="item-desc">Combined cell-cycle acceleration, survival signaling, and genetic complexity support net accumulation of neoplastic mantle-zone B cells over time.</div>
@@ -2982,6 +3174,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3016,7 +3209,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-widespread-tissue-infiltration-by-malignant-b-cells">
                 <div class="item-name">Widespread tissue infiltration by malignant B cells</div>
                 
                 <div class="item-desc">Mantle cell lymphoma commonly presents as advanced-stage disease with both nodal and extranodal involvement, especially in bone marrow and the gastrointestinal tract.</div>
@@ -3059,6 +3252,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -3180,12 +3374,13 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Mantle Cell Lymphoma</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
@@ -5286,6 +5481,7 @@ definitions:
   scope: General pathologic and clinical definition of mantle cell lymphoma
   evidence:
   - reference: PMID:34114641
+    reference_title: &#34;The pathologic diagnosis of mantle cell lymphoma.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Mantle cell lymphoma (MCL) is a mature B-cell non-Hodgkin lymphoma usually characterized by t(11;14) (q13;q32), or CCND1 translocation and Cyclin D1 over expression.&#34;
@@ -5305,6 +5501,7 @@ has_subtypes:
     requiring treatment.
   evidence:
   - reference: PMID:32584970
+    reference_title: &#34;Genomic and epigenomic insights into the origin, pathogenesis, and clinical behavior of mantle cell lymphoma subtypes.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Mantle cell lymphoma (MCL) is a mature B-cell neoplasm initially driven by CCND1 rearrangement with 2 molecular subtypes, conventional MCL (cMCL) and leukemic non-nodal MCL (nnMCL), that differ in their clinicobiological behavior.&#34;
@@ -5317,11 +5514,13 @@ has_subtypes:
     observation initially.
   evidence:
   - reference: PMID:32584970
+    reference_title: &#34;Genomic and epigenomic insights into the origin, pathogenesis, and clinical behavior of mantle cell lymphoma subtypes.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Mantle cell lymphoma (MCL) is a mature B-cell neoplasm initially driven by CCND1 rearrangement with 2 molecular subtypes, conventional MCL (cMCL) and leukemic non-nodal MCL (nnMCL), that differ in their clinicobiological behavior.&#34;
     explanation: This supports leukemic non-nodal MCL as a recognized major subtype distinct from conventional MCL.
   - reference: PMID:34114641
+    reference_title: &#34;The pathologic diagnosis of mantle cell lymphoma.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;However, indolent variants, including in situ mantle cell neoplasm and the recently recognized leukemic non-nodal MCL do exist.&#34;
@@ -5333,6 +5532,7 @@ has_subtypes:
     from transformation of classical MCL. Often harbors TP53 mutations.
   evidence:
   - reference: PMID:33091144
+    reference_title: &#34;Palatine Tonsils Primary Presentation of Blastoid Variant of Mantle Cell Lymphoma: Case Report.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The blastoid variant of mantle cell lymphoma (MCL) accounts for less than one-third of all MCL cases.&#34;
@@ -5345,6 +5545,7 @@ epidemiology:
   unit: percent of lymphoid neoplasms
   evidence:
   - reference: PMID:16155021
+    reference_title: &#34;Pathogenesis of mantle-cell lymphoma: all oncogenic roads lead to dysregulation of cell cycle and DNA damage response pathways.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Mantle-cell lymphoma (MCL) is a well-defined subtype of B-cell non-Hodgkin&#39;s lymphomas (B-NHL), accounts for approximately 6% of all lymphoid neoplasms, and has a median survival of 3 to 4 years.&#34;
@@ -5354,6 +5555,7 @@ prevalence:
   percentage: 3-10
   evidence:
   - reference: PMID:21850989
+    reference_title: &#34;Mantle cell lymphoma: recent insights into pathogenesis, clinical variability, and new diagnostic markers.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Mantle cell lymphoma (MCL; previously called centrocytic lymphoma or lymphocytic lymphoma of intermediate differentiation) is a distinct subtype of B-cell lymphoma, accounting for approximately 3%-10% of all lymphoma diagnoses.&#34;
@@ -5362,6 +5564,7 @@ prevalence:
   percentage: 6
   evidence:
   - reference: PMID:16155021
+    reference_title: &#34;Pathogenesis of mantle-cell lymphoma: all oncogenic roads lead to dysregulation of cell cycle and DNA damage response pathways.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Mantle-cell lymphoma (MCL) is a well-defined subtype of B-cell non-Hodgkin&#39;s lymphomas (B-NHL), accounts for approximately 6% of all lymphoid neoplasms, and has a median survival of 3 to 4 years.&#34;
@@ -5373,6 +5576,7 @@ pathophysiology:
     immunoglobulin heavy-chain regulatory elements in mantle cell lymphoma cells.
   evidence:
   - reference: PMID:16155021
+    reference_title: &#34;Pathogenesis of mantle-cell lymphoma: all oncogenic roads lead to dysregulation of cell cycle and DNA damage response pathways.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The genetic hallmark of MCL is the chromosomal translocation t(11;14)(q13;q32) that leads to deregulation and upregulation of Cyclin D1, an important regulator of the G1 phase of the cell cycle.&#34;
@@ -5388,6 +5592,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: PMID:19556426
+      reference_title: &#34;How I treat mantle cell lymphoma.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Mantle cell lymphoma is included in the World Health Organization classification as distinct lymphoma subtype characterized by the t(11;14)(q13;q32) translocation, which results in overexpression of Cyclin D1.&#34;
@@ -5398,6 +5603,7 @@ pathophysiology:
     of the CCND1 rearrangement and removes normal restraint on G1-phase control.
   evidence:
   - reference: PMID:19556426
+    reference_title: &#34;How I treat mantle cell lymphoma.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Mantle cell lymphoma is included in the World Health Organization classification as distinct lymphoma subtype characterized by the t(11;14)(q13;q32) translocation, which results in overexpression of Cyclin D1.&#34;
@@ -5408,6 +5614,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: PMID:16155021
+      reference_title: &#34;Pathogenesis of mantle-cell lymphoma: all oncogenic roads lead to dysregulation of cell cycle and DNA damage response pathways.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;The genetic hallmark of MCL is the chromosomal translocation t(11;14)(q13;q32) that leads to deregulation and upregulation of Cyclin D1, an important regulator of the G1 phase of the cell cycle.&#34;
@@ -5424,6 +5631,7 @@ pathophysiology:
       label: G1/S transition of mitotic cell cycle
   evidence:
   - reference: PMID:16155021
+    reference_title: &#34;Pathogenesis of mantle-cell lymphoma: all oncogenic roads lead to dysregulation of cell cycle and DNA damage response pathways.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The genetic hallmark of MCL is the chromosomal translocation t(11;14)(q13;q32) that leads to deregulation and upregulation of Cyclin D1, an important regulator of the G1 phase of the cell cycle.&#34;
@@ -5437,6 +5645,7 @@ pathophysiology:
     - retinoblastoma pathway bypass
     evidence:
     - reference: PMID:20940415
+      reference_title: &#34;Mantle cell lymphoma: biology, pathogenesis, and the molecular basis of treatment in the genomic era.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;In combination these changes drive cell-cycle progression and give rise to pronounced genetic instability.&#34;
@@ -5447,6 +5656,7 @@ pathophysiology:
     regulators weaken the normal response to DNA damage in mantle cell lymphoma.
   evidence:
   - reference: PMID:20940415
+    reference_title: &#34;Mantle cell lymphoma: biology, pathogenesis, and the molecular basis of treatment in the genomic era.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Secondary genetic events increase the oncogenic potential of cyclin D1 and frequently inactivate DNA damage response pathways.&#34;
@@ -5457,6 +5667,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: PMID:20940415
+      reference_title: &#34;Mantle cell lymphoma: biology, pathogenesis, and the molecular basis of treatment in the genomic era.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Secondary genetic events increase the oncogenic potential of cyclin D1 and frequently inactivate DNA damage response pathways. In combination these changes drive cell-cycle progression and give rise to pronounced genetic instability.&#34;
@@ -5468,11 +5679,13 @@ pathophysiology:
     aggressiveness.
   evidence:
   - reference: PMID:20940415
+    reference_title: &#34;Mantle cell lymphoma: biology, pathogenesis, and the molecular basis of treatment in the genomic era.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Secondary genetic events increase the oncogenic potential of cyclin D1 and frequently inactivate DNA damage response pathways. In combination these changes drive cell-cycle progression and give rise to pronounced genetic instability.&#34;
     explanation: This supports genetic instability as a discrete downstream state in mantle cell lymphoma.
   - reference: PMID:32584970
+    reference_title: &#34;Genomic and epigenomic insights into the origin, pathogenesis, and clinical behavior of mantle cell lymphoma subtypes.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;An increasing genomic complexity, together with the presence of breakage-fusion-bridge cycles and high DNA methylation changes related to the proliferative cell history, defines patients with different clinical evolution.&#34;
@@ -5486,6 +5699,7 @@ pathophysiology:
     - acquisition of additional driver lesions
     evidence:
     - reference: PMID:32584970
+      reference_title: &#34;Genomic and epigenomic insights into the origin, pathogenesis, and clinical behavior of mantle cell lymphoma subtypes.&#34;
       supports: PARTIAL
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;An increasing genomic complexity, together with the presence of breakage-fusion-bridge cycles and high DNA methylation changes related to the proliferative cell history, defines patients with different clinical evolution.&#34;
@@ -5506,6 +5720,7 @@ pathophysiology:
       label: lymph node
   evidence:
   - reference: PMID:41219853
+    reference_title: &#34;B-cell receptor signaling and microenvironment crosstalk in mantle cell lymphoma.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;MCL cells develop in specialized tissue microenvironments such as bone marrow and secondary lymphoid organs, where the pathological cells interact with several microenvironmental components through a complex network of soluble factors and adhesion molecules.&#34;
@@ -5516,6 +5731,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: PMID:41219853
+      reference_title: &#34;B-cell receptor signaling and microenvironment crosstalk in mantle cell lymphoma.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;This dynamic and complex system, including the activation of B-cell receptor signaling (BCR), promotes survival, immune evasion, and therapeutic resistance.&#34;
@@ -5533,6 +5749,7 @@ pathophysiology:
       label: B cell activation
   evidence:
   - reference: PMID:41219853
+    reference_title: &#34;B-cell receptor signaling and microenvironment crosstalk in mantle cell lymphoma.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;This dynamic and complex system, including the activation of B-cell receptor signaling (BCR), promotes survival, immune evasion, and therapeutic resistance.&#34;
@@ -5543,6 +5760,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: PMID:41219853
+      reference_title: &#34;B-cell receptor signaling and microenvironment crosstalk in mantle cell lymphoma.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Given the central role of the BCR signaling pathway in proliferation and survival of neoplastic B lymphocytes, in the last decades several biological agents against the key BCR proteins, i.e. Bruton Tyrosine Kinase inhibitors (BTKi), have been developed, and they represent the most effective treatment for MCL management.&#34;
@@ -5559,6 +5777,7 @@ pathophysiology:
       label: apoptotic process
   evidence:
   - reference: PMID:41219853
+    reference_title: &#34;B-cell receptor signaling and microenvironment crosstalk in mantle cell lymphoma.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Given the central role of the BCR signaling pathway in proliferation and survival of neoplastic B lymphocytes, in the last decades several biological agents against the key BCR proteins, i.e. Bruton Tyrosine Kinase inhibitors (BTKi), have been developed, and they represent the most effective treatment for MCL management.&#34;
@@ -5569,6 +5788,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: PMID:41219853
+      reference_title: &#34;B-cell receptor signaling and microenvironment crosstalk in mantle cell lymphoma.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Given the central role of the BCR signaling pathway in proliferation and survival of neoplastic B lymphocytes, in the last decades several biological agents against the key BCR proteins, i.e. Bruton Tyrosine Kinase inhibitors (BTKi), have been developed, and they represent the most effective treatment for MCL management.&#34;
@@ -5590,6 +5810,7 @@ pathophysiology:
       label: cell population proliferation
   evidence:
   - reference: PMID:41219853
+    reference_title: &#34;B-cell receptor signaling and microenvironment crosstalk in mantle cell lymphoma.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Given the central role of the BCR signaling pathway in proliferation and survival of neoplastic B lymphocytes, in the last decades several biological agents against the key BCR proteins, i.e. Bruton Tyrosine Kinase inhibitors (BTKi), have been developed, and they represent the most effective treatment for MCL management.&#34;
@@ -5603,6 +5824,7 @@ pathophysiology:
     - extranodal dissemination
     evidence:
     - reference: PMID:19863180
+      reference_title: &#34;Mantle cell lymphoma: state-of-the-art management and future perspective.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Most patients present with advanced stage disease, often with extranodal dissemination, and typically pursue an aggressive clinical course.&#34;
@@ -5628,11 +5850,13 @@ pathophysiology:
       label: B cell
   evidence:
   - reference: PMID:19863180
+    reference_title: &#34;Mantle cell lymphoma: state-of-the-art management and future perspective.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Most patients present with advanced stage disease, often with extranodal dissemination, and typically pursue an aggressive clinical course.&#34;
     explanation: This supports advanced-stage disseminated disease as a characteristic downstream pathobiologic state in mantle cell lymphoma.
   - reference: PMID:19556426
+    reference_title: &#34;How I treat mantle cell lymphoma.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The clinical presentation often includes extranodal involvement, particularly of the bone marrow and gut.&#34;
@@ -5643,6 +5867,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: PMID:9178843
+      reference_title: &#34;Mantle cell lymphoma: diagnostic criteria, clinical aspects and therapeutic problems.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Initial parameters in all published series are advanced disease with generalized lymphadenopathy in 90%, bone marrow infiltration in 60-75%, splenomegaly in 55%, hepatomegaly in 35%, gastrointestinal involvement in about 25% and peripheral blood lymphocytosis in 20-30% of patients.&#34;
@@ -5652,6 +5877,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: PMID:9178843
+      reference_title: &#34;Mantle cell lymphoma: diagnostic criteria, clinical aspects and therapeutic problems.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Initial parameters in all published series are advanced disease with generalized lymphadenopathy in 90%, bone marrow infiltration in 60-75%, splenomegaly in 55%, hepatomegaly in 35%, gastrointestinal involvement in about 25% and peripheral blood lymphocytosis in 20-30% of patients.&#34;
@@ -5661,6 +5887,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: PMID:9178843
+      reference_title: &#34;Mantle cell lymphoma: diagnostic criteria, clinical aspects and therapeutic problems.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Initial parameters in all published series are advanced disease with generalized lymphadenopathy in 90%, bone marrow infiltration in 60-75%, splenomegaly in 55%, hepatomegaly in 35%, gastrointestinal involvement in about 25% and peripheral blood lymphocytosis in 20-30% of patients.&#34;
@@ -5676,6 +5903,7 @@ histopathology:
   description: Mantle cell lymphoma is a mature B-cell non-Hodgkin lymphoma.
   evidence:
   - reference: PMID:34114641
+    reference_title: &#34;The pathologic diagnosis of mantle cell lymphoma.&#34;
     supports: SUPPORT
     snippet: &#34;Mantle cell lymphoma (MCL) is a mature B-cell non-Hodgkin lymphoma usually&#34;
     explanation: Abstract describes mantle cell lymphoma as a mature B-cell non-Hodgkin lymphoma.
@@ -5694,6 +5922,7 @@ phenotypes:
       label: Generalized lymphadenopathy
   evidence:
   - reference: PMID:9178843
+    reference_title: &#34;Mantle cell lymphoma: diagnostic criteria, clinical aspects and therapeutic problems.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Initial parameters in all published series are advanced disease with generalized lymphadenopathy in 90%&#34;
@@ -5711,6 +5940,7 @@ phenotypes:
       label: Splenomegaly
   evidence:
   - reference: PMID:15370245
+    reference_title: &#34;The leukemic presentation of mantle-cell lymphoma: disease features and prognostic factors in 58 patients.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Presenting features included splenomegaly (74%), lymphadenopathy (45%), hepatomegaly (17%)&#34;
@@ -5728,6 +5958,7 @@ phenotypes:
       label: Hepatomegaly
   evidence:
   - reference: PMID:9178843
+    reference_title: &#34;Mantle cell lymphoma: diagnostic criteria, clinical aspects and therapeutic problems.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Initial parameters in all published series are advanced disease with generalized lymphadenopathy in 90%, bone marrow infiltration in 60-75%, splenomegaly in 55%, hepatomegaly in 35%, gastrointestinal involvement in about 25% and peripheral blood lymphocytosis in 20-30% of patients.&#34;
@@ -5745,6 +5976,7 @@ phenotypes:
       label: Neoplasm of the gastrointestinal tract
   evidence:
   - reference: PMID:17001159
+    reference_title: &#34;Gastrointestinal involvement in mantle cell lymphoma: a prospective clinic, endoscopic, and pathologic study.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;As a whole, 92% of patients showed upper or lower GI tract infiltration by MCL.&#34;
@@ -5762,6 +5994,7 @@ phenotypes:
       label: Fever
   evidence:
   - reference: PMID:38222137
+    reference_title: &#34;Mantle Cell Lymphoma Presenting as Cholecystitis and Nephromegaly.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Mantle cell lymphoma (MCL) most commonly presents as lymphadenopathy (LAD), fevers, night sweats, weight loss, splenomegaly, and blood count abnormalities.&#34;
@@ -5779,6 +6012,7 @@ phenotypes:
       label: Night sweats
   evidence:
   - reference: PMID:38222137
+    reference_title: &#34;Mantle Cell Lymphoma Presenting as Cholecystitis and Nephromegaly.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Mantle cell lymphoma (MCL) most commonly presents as lymphadenopathy (LAD), fevers, night sweats, weight loss, splenomegaly, and blood count abnormalities.&#34;
@@ -5795,6 +6029,7 @@ phenotypes:
       label: Weight loss
   evidence:
   - reference: PMID:38222137
+    reference_title: &#34;Mantle Cell Lymphoma Presenting as Cholecystitis and Nephromegaly.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Mantle cell lymphoma (MCL) most commonly presents as lymphadenopathy (LAD), fevers, night sweats, weight loss, splenomegaly, and blood count abnormalities.&#34;
@@ -5811,6 +6046,7 @@ phenotypes:
       label: Fatigue
   evidence:
   - reference: PMID:15914363
+    reference_title: &#34;Complete and durable remission of refractory mantle cell lymphoma with repeated rituximab monotherapy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We encountered a 53-year-old man with general fatigue.&#34;
@@ -5828,6 +6064,7 @@ phenotypes:
       label: Anemia
   evidence:
   - reference: PMID:15370245
+    reference_title: &#34;The leukemic presentation of mantle-cell lymphoma: disease features and prognostic factors in 58 patients.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Median lymphocyte count was 58 x 10(9)/l, 55% had anemia and 17% had thrombocytopenia.&#34;
@@ -5845,6 +6082,7 @@ phenotypes:
       label: Increased total lymphocyte count
   evidence:
   - reference: PMID:9178843
+    reference_title: &#34;Mantle cell lymphoma: diagnostic criteria, clinical aspects and therapeutic problems.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Initial parameters in all published series are advanced disease with generalized lymphadenopathy in 90%, bone marrow infiltration in 60-75%, splenomegaly in 55%, hepatomegaly in 35%, gastrointestinal involvement in about 25% and peripheral blood lymphocytosis in 20-30% of patients.&#34;
@@ -5862,6 +6100,7 @@ phenotypes:
       label: Thrombocytopenia
   evidence:
   - reference: PMID:15370245
+    reference_title: &#34;The leukemic presentation of mantle-cell lymphoma: disease features and prognostic factors in 58 patients.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Median lymphocyte count was 58 x 10(9)/l, 55% had anemia and 17% had thrombocytopenia.&#34;
@@ -5874,6 +6113,7 @@ biochemical:
     classical from leukemic non-nodal variants.
   evidence:
   - reference: PMID:34114641
+    reference_title: &#34;The pathologic diagnosis of mantle cell lymphoma.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Mantle cell lymphoma (MCL) is a mature B-cell non-Hodgkin lymphoma usually characterized by t(11;14) (q13;q32), or CCND1 translocation and Cyclin D1 over expression.&#34;
@@ -5885,11 +6125,13 @@ biochemical:
     CLL which is typically CD23+.
   evidence:
   - reference: PMID:19846810
+    reference_title: &#34;Immunophenotypic variations in mantle cell lymphoma.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Mantle cell lymphoma (MCL) expresses pan-B-cell antigens and is usually CD5+/CD10-/CD23-/FMC7+.&#34;
     explanation: This study directly supports the typical CD5-positive, CD23-negative, FMC7-positive immunophenotype used in flow-cytometric recognition of mantle cell lymphoma.
   - reference: PMID:7713480
+    reference_title: &#34;Mantle cell lymphoma: a clinicopathological study of 55 cases.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The phenotype of the neoplastic cells was remarkably constant with expression of several pan-B cell markers, IgM, IgD and CD5, and lack of CD10 and CD23.&#34;
@@ -5908,6 +6150,7 @@ genetic:
     cyclin D1 overexpression. Detected by FISH, karyotype, or cyclin D1 IHC.
   evidence:
   - reference: PMID:16155021
+    reference_title: &#34;Pathogenesis of mantle-cell lymphoma: all oncogenic roads lead to dysregulation of cell cycle and DNA damage response pathways.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The genetic hallmark of MCL is the chromosomal translocation t(11;14)(q13;q32) that leads to deregulation and upregulation of Cyclin D1, an important regulator of the G1 phase of the cell cycle.&#34;
@@ -5925,6 +6168,7 @@ genetic:
     retain sensitivity to BTK inhibitors and novel agents.
   evidence:
   - reference: PMID:32584970
+    reference_title: &#34;Genomic and epigenomic insights into the origin, pathogenesis, and clinical behavior of mantle cell lymphoma subtypes.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Several drivers had prognostic impact, but only TP53 and MYC aberrations added value independently of genomic complexity.&#34;
@@ -5941,6 +6185,7 @@ genetic:
     Associated with genomic instability and disease progression.
   evidence:
   - reference: PMID:32584970
+    reference_title: &#34;Genomic and epigenomic insights into the origin, pathogenesis, and clinical behavior of mantle cell lymphoma subtypes.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;cMCL carried significant higher numbers of structural variants, copy number alterations, and driver changes than nnMCL, with exclusive alterations of ATM in cMCL&#34;
@@ -5958,6 +6203,7 @@ diagnosis:
       label: diagnostic procedure
   evidence:
   - reference: PMID:34114641
+    reference_title: &#34;The pathologic diagnosis of mantle cell lymphoma.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;This review will focus on the pathologic diagnosis of MCL using the traditional morphological and immunophenotypic strategies combined with cytogenetic characteristics and recently identified molecular profile.&#34;
@@ -5984,6 +6230,7 @@ diagnosis:
           label: CCND1
   evidence:
   - reference: PMID:34114641
+    reference_title: &#34;The pathologic diagnosis of mantle cell lymphoma.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Mantle cell lymphoma (MCL) is a mature B-cell non-Hodgkin lymphoma usually characterized by t(11;14) (q13;q32), or CCND1 translocation and Cyclin D1 over expression.&#34;
@@ -6004,6 +6251,7 @@ differential_diagnoses:
   - Mantle cell lymphoma is defined by t(11;14)/CCND1 dysregulation and often uses SOX11 or CD200 to resolve diagnostic uncertainty.
   evidence:
   - reference: PMID:21850989
+    reference_title: &#34;Mantle cell lymphoma: recent insights into pathogenesis, clinical variability, and new diagnostic markers.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Pitfalls in the differential diagnosis versus B-cell chronic lymphocytic leukemia, B-cell prolymphocytic leukemia, cyclin D1-positive diffuse large B-cell lymphoma, hairy cell leukemia, and plasma cell tumors will be discussed, including the usefulness new diagnostic markers SOX11 and CD200.&#34;
@@ -6023,6 +6271,7 @@ differential_diagnoses:
   - Demonstration of CCND1 rearrangement or cyclin D1 overexpression supports mantle cell lymphoma over B-PLL.
   evidence:
   - reference: PMID:21850989
+    reference_title: &#34;Mantle cell lymphoma: recent insights into pathogenesis, clinical variability, and new diagnostic markers.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Pitfalls in the differential diagnosis versus B-cell chronic lymphocytic leukemia, B-cell prolymphocytic leukemia, cyclin D1-positive diffuse large B-cell lymphoma, hairy cell leukemia, and plasma cell tumors will be discussed, including the usefulness new diagnostic markers SOX11 and CD200.&#34;
@@ -6042,6 +6291,7 @@ differential_diagnoses:
   - Cyclin D1-positive DLBCL is a specific diagnostic pitfall that requires integrated morphologic and molecular review.
   evidence:
   - reference: PMID:21850989
+    reference_title: &#34;Mantle cell lymphoma: recent insights into pathogenesis, clinical variability, and new diagnostic markers.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Pitfalls in the differential diagnosis versus B-cell chronic lymphocytic leukemia, B-cell prolymphocytic leukemia, cyclin D1-positive diffuse large B-cell lymphoma, hairy cell leukemia, and plasma cell tumors will be discussed, including the usefulness new diagnostic markers SOX11 and CD200.&#34;
@@ -6061,6 +6311,7 @@ differential_diagnoses:
   - SOX11 and CD200 can help resolve specific diagnostic pitfalls when morphology and basic markers are not definitive.
   evidence:
   - reference: PMID:21850989
+    reference_title: &#34;Mantle cell lymphoma: recent insights into pathogenesis, clinical variability, and new diagnostic markers.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Pitfalls in the differential diagnosis versus B-cell chronic lymphocytic leukemia, B-cell prolymphocytic leukemia, cyclin D1-positive diffuse large B-cell lymphoma, hairy cell leukemia, and plasma cell tumors will be discussed, including the usefulness new diagnostic markers SOX11 and CD200.&#34;
@@ -6083,11 +6334,13 @@ treatments:
         label: ibrutinib
   evidence:
   - reference: PMID:26059948
+    reference_title: &#34;Long-term follow-up of MCL patients treated with single-agent ibrutinib: updated safety and efficacy results.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Ibrutinib, an oral inhibitor of Bruton tyrosine kinase, is approved for patients with mantle cell lymphoma (MCL) who have received one prior therapy.&#34;
     explanation: This directly supports ibrutinib as an approved treatment for relapsed mantle cell lymphoma.
   - reference: PMID:26059948
+    reference_title: &#34;Long-term follow-up of MCL patients treated with single-agent ibrutinib: updated safety and efficacy results.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The ORR was 67% (23% complete response), with a median duration of response of 17.5 months.&#34;
@@ -6124,6 +6377,7 @@ treatments:
       label: hematopoietic stem cell transplantation
   evidence:
   - reference: PMID:19556426
+    reference_title: &#34;How I treat mantle cell lymphoma.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Very intensive regimens, including autologous and allogeneic stem cell transplantation, seem required to improve the outcome&#34;
@@ -6148,6 +6402,7 @@ treatments:
         label: Rituximab
   evidence:
   - reference: PMID:26411584
+    reference_title: &#34;Phase II study of bendamustine combined with rituximab in relapsed/refractory mantle cell lymphoma: efficacy, tolerability, and safety findings.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;bendamustine-rituximab is an effective therapy with manageable toxicity in relapsed/refractory MCL.&#34;
@@ -6217,6 +6472,7 @@ classifications:
     classification_value: Lymphoma
     evidence:
     - reference: PMID:34114641
+      reference_title: &#34;The pathologic diagnosis of mantle cell lymphoma.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Mantle cell lymphoma (MCL) is a mature B-cell non-Hodgkin lymphoma&#34;
@@ -6225,6 +6481,7 @@ classifications:
   - classification_value: cancer
     evidence:
     - reference: PMID:34114641
+      reference_title: &#34;The pathologic diagnosis of mantle cell lymphoma.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Mantle cell lymphoma (MCL) is a mature B-cell non-Hodgkin lymphoma&#34;
@@ -6232,6 +6489,7 @@ classifications:
   - classification_value: hematologic malignancy
     evidence:
     - reference: PMID:34114641
+      reference_title: &#34;The pathologic diagnosis of mantle cell lymphoma.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Mantle cell lymphoma (MCL) is a mature B-cell non-Hodgkin lymphoma&#34;
@@ -6255,11 +6513,13 @@ datasets:
   publication: PMID:32219041
   evidence:
   - reference: PMID:32219041
+    reference_title: &#34;Identification of key gene modules and hub genes of human mantle cell lymphoma by coexpression network analysis.&#34;
     supports: SUPPORT
     evidence_source: COMPUTATIONAL
     snippet: &#34;METHODS: The microarray dataset GSE93291 was downloaded from the Gene Expression Omnibus database.&#34;
     explanation: This explicitly identifies GSE93291 as a GEO mantle cell lymphoma microarray dataset used for transcriptomic network analysis.
   - reference: PMID:35052318
+    reference_title: &#34;Artificial Intelligence Analysis of Gene Expression Predicted the Overall Survival of Mantle Cell Lymphoma and a Large Pan-Cancer Series.&#34;
     supports: SUPPORT
     evidence_source: COMPUTATIONAL
     snippet: &#34;First, we analyzed a series of 123 cases (GSE93291).&#34;
@@ -6328,6 +6588,7 @@ references:
     supporting_text: &#34;This review will focus on the pathologic diagnosis of MCL using the traditional morphological and immunophenotypic strategies combined with cytogenetic characteristics and recently identified molecular profile.&#34;
     evidence:
     - reference: PMID:34114641
+      reference_title: &#34;The pathologic diagnosis of mantle cell lymphoma.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;This review will focus on the pathologic diagnosis of MCL using the traditional morphological and immunophenotypic strategies combined with cytogenetic characteristics and recently identified molecular profile.&#34;
@@ -6341,6 +6602,7 @@ references:
     supporting_text: &#34;Mantle cell lymphoma (MCL) is a mature B-cell neoplasm initially driven by CCND1 rearrangement with 2 molecular subtypes, conventional MCL (cMCL) and leukemic non-nodal MCL (nnMCL), that differ in their clinicobiological behavior.&#34;
     evidence:
     - reference: PMID:32584970
+      reference_title: &#34;Genomic and epigenomic insights into the origin, pathogenesis, and clinical behavior of mantle cell lymphoma subtypes.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Mantle cell lymphoma (MCL) is a mature B-cell neoplasm initially driven by CCND1 rearrangement with 2 molecular subtypes, conventional MCL (cMCL) and leukemic non-nodal MCL (nnMCL), that differ in their clinicobiological behavior.&#34;
@@ -6354,6 +6616,7 @@ references:
     supporting_text: &#34;Most of these alterations appear to disturb the cell cycle machinery/interfere with the cellular response to DNA damage, thus making MCL a paradigm for cell cycle and DNA damage response dysregulation in cancer in general.&#34;
     evidence:
     - reference: PMID:16155021
+      reference_title: &#34;Pathogenesis of mantle-cell lymphoma: all oncogenic roads lead to dysregulation of cell cycle and DNA damage response pathways.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Most of these alterations appear to disturb the cell cycle machinery/interfere with the cellular response to DNA damage, thus making MCL a paradigm for cell cycle and DNA damage response dysregulation in cancer in general.&#34;
@@ -6367,6 +6630,7 @@ references:
     supporting_text: &#34;Several signaling pathways contribute to MCL pathogenesis, including the often constitutively activated PI3K/AKT/mTOR pathway, which promotes tumor proliferation and survival. WNT, Hedgehog, and NF-κB pathways also appear to be important.&#34;
     evidence:
     - reference: PMID:20940415
+      reference_title: &#34;Mantle cell lymphoma: biology, pathogenesis, and the molecular basis of treatment in the genomic era.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Several signaling pathways contribute to MCL pathogenesis, including the often constitutively activated PI3K/AKT/mTOR pathway, which promotes tumor proliferation and survival. WNT, Hedgehog, and NF-κB pathways also appear to be important.&#34;

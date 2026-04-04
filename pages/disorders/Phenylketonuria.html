@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 16</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Metabolic Disease</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Inborn Error of Metabolism</span>
@@ -1932,6 +2105,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1989,6 +2165,14 @@
             <div class="stat-item">
                 <div class="stat-value">7</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">16</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2375,7 +2559,7 @@
                 <span class="card-count">11</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-pah-enzyme-deficiency">
                 <div class="item-name">Hepatic PAH Enzyme Deficiency</div>
                 
                 <div class="item-desc">Pathogenic PAH variants reduce hepatic phenylalanine hydroxylase activity.</div>
@@ -2442,6 +2626,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2476,7 +2661,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-hyperphenylalaninemia">
                 <div class="item-name">Hyperphenylalaninemia</div>
                 
                 <div class="item-desc">Phenylalanine accumulates in blood and tissues when PAH-dependent metabolism is impaired.</div>
@@ -2502,6 +2687,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2561,7 +2747,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-relative-tyrosine-deficiency">
                 <div class="item-name">Relative Tyrosine Deficiency</div>
                 
                 <div class="item-desc">Decreased PAH flux lowers endogenous tyrosine generation from phenylalanine.</div>
@@ -2587,6 +2773,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2646,7 +2833,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-competitive-large-neutral-amino-acid-transport-at-the-blood-brain-barrier">
                 <div class="item-name">Competitive Large Neutral Amino Acid Transport at the Blood-Brain Barrier</div>
                 
                 <div class="item-desc">Large neutral amino acids, including phenylalanine, share competitive brain-entry transport.</div>
@@ -2688,6 +2875,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2722,7 +2910,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-serotonin-biosynthesis">
                 <div class="item-name">Reduced Serotonin Biosynthesis</div>
                 
                 <div class="item-desc">High phenylalanine states inhibit serotonin production pathways.</div>
@@ -2748,6 +2936,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2787,7 +2976,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-dopamine-biosynthesis">
                 <div class="item-name">Reduced Dopamine Biosynthesis</div>
                 
                 <div class="item-desc">High phenylalanine states inhibit dopamine production pathways.</div>
@@ -2813,6 +3002,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2852,7 +3042,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-brain-phenylalanine-toxicity">
                 <div class="item-name">Brain Phenylalanine Toxicity</div>
                 
                 <div class="item-desc">Elevated phenylalanine in the CNS drives diffuse brain dysfunction.</div>
@@ -2894,6 +3084,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2928,7 +3119,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-white-matter-and-subcortical-structural-injury">
                 <div class="item-name">White Matter and Subcortical Structural Injury</div>
                 
                 <div class="item-desc">Treated adults still exhibit white-matter damage and subcortical volume loss associated with phenylalanine burden.</div>
@@ -2982,6 +3173,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -3038,7 +3230,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurocognitive-dysfunction">
                 <div class="item-name">Neurocognitive Dysfunction</div>
                 
                 <div class="item-desc">PKU causes global and executive cognitive impairment, especially when metabolic control is poor or untreated.</div>
@@ -3057,6 +3249,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3099,7 +3292,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-melanin-biosynthesis">
                 <div class="item-name">Impaired Melanin Biosynthesis</div>
                 
                 <div class="item-desc">Reduced tyrosine availability limits melanin synthesis in untreated or poorly controlled disease.</div>
@@ -3125,6 +3318,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3164,10 +3358,11 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-phenylketone-accumulation">
                 <div class="item-name">Phenylketone Accumulation</div>
                 
                 <div class="item-desc">Alternative phenylalanine metabolism increases phenylketones such as phenylpyruvate.</div>
+                
                 
                 
                 
@@ -3224,18 +3419,19 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Phenylketonuria</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Brain Phenylalanine Toxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated phenylalanine in the CNS drives diffuse brain dysfunction.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"nervous system development\"], \"locations\": [\"brain\"]}}, {\"id\": \"Competitive Large Neutral Amino Acid Transport at the Blood-Brain Barrier\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Large neutral amino acids, including phenylalanine, share competitive brain-entry transport.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"neutral amino acid transport\"], \"locations\": [\"blood brain barrier\"]}}, {\"id\": \"Hepatic PAH Enzyme Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic PAH variants reduce hepatic phenylalanine hydroxylase activity.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"L-phenylalanine catabolic process\"], \"genes\": [\"PAH\"], \"locations\": [\"liver\"]}}, {\"id\": \"Hyperphenylalaninemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Phenylalanine accumulates in blood and tissues when PAH-dependent metabolism is impaired.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"L-phenylalanine metabolic process\"]}}, {\"id\": \"Hypopigmentation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001010\"}}, {\"id\": \"Impaired Melanin Biosynthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced tyrosine availability limits melanin synthesis in untreated or poorly controlled disease.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"melanin biosynthetic process\"]}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Musty Odor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0410021\"}}, {\"id\": \"Neurocognitive Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PKU causes global and executive cognitive impairment, especially when metabolic control is poor or untreated.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"]}}, {\"id\": \"Phenylketone Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Alternative phenylalanine metabolism increases phenylketones such as phenylpyruvate.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Reduced Dopamine Biosynthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"High phenylalanine states inhibit dopamine production pathways.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"dopamine biosynthetic process\"]}}, {\"id\": \"Reduced Serotonin Biosynthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"High phenylalanine states inhibit serotonin production pathways.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"serotonin biosynthetic process\"]}}, {\"id\": \"Relative Tyrosine Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Decreased PAH flux lowers endogenous tyrosine generation from phenylalanine.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"tyrosine metabolic process\"]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"White Matter and Subcortical Structural Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Treated adults still exhibit white-matter damage and subcortical volume loss associated with phenylalanine burden.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"oligodendrocyte\"], \"biological_processes\": [\"myelination\"], \"locations\": [\"white matter\"]}}], \"edges\": [{\"source\": \"Hepatic PAH Enzyme Deficiency\", \"target\": \"Hyperphenylalaninemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatic PAH Enzyme Deficiency\", \"target\": \"Relative Tyrosine Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperphenylalaninemia\", \"target\": \"Competitive Large Neutral Amino Acid Transport at the Blood-Brain Barrier\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperphenylalaninemia\", \"target\": \"Brain Phenylalanine Toxicity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperphenylalaninemia\", \"target\": \"Phenylketone Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Relative Tyrosine Deficiency\", \"target\": \"Impaired Melanin Biosynthesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Relative Tyrosine Deficiency\", \"target\": \"Reduced Dopamine Biosynthesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Competitive Large Neutral Amino Acid Transport at the Blood-Brain Barrier\", \"target\": \"Reduced Serotonin Biosynthesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Competitive Large Neutral Amino Acid Transport at the Blood-Brain Barrier\", \"target\": \"Reduced Dopamine Biosynthesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced Serotonin Biosynthesis\", \"target\": \"Neurocognitive Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced Dopamine Biosynthesis\", \"target\": \"Neurocognitive Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Brain Phenylalanine Toxicity\", \"target\": \"White Matter and Subcortical Structural Injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Brain Phenylalanine Toxicity\", \"target\": \"Neurocognitive Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"White Matter and Subcortical Structural Injury\", \"target\": \"Neurocognitive Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurocognitive Dysfunction\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurocognitive Dysfunction\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Melanin Biosynthesis\", \"target\": \"Hypopigmentation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Phenylketone Accumulation\", \"target\": \"Musty Odor\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Brain Phenylalanine Toxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated phenylalanine in the CNS drives diffuse brain dysfunction.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"nervous system development\"], \"locations\": [\"brain\"]}}, {\"id\": \"Competitive Large Neutral Amino Acid Transport at the Blood-Brain Barrier\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Large neutral amino acids, including phenylalanine, share competitive brain-entry transport.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"neutral amino acid transport\"], \"locations\": [\"blood brain barrier\"]}}, {\"id\": \"Hepatic PAH Enzyme Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic PAH variants reduce hepatic phenylalanine hydroxylase activity.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"L-phenylalanine catabolic process\"], \"genes\": [\"PAH\"], \"locations\": [\"liver\"]}}, {\"id\": \"Hyperphenylalaninemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Phenylalanine accumulates in blood and tissues when PAH-dependent metabolism is impaired.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"L-phenylalanine metabolic process\"]}}, {\"id\": \"Hypopigmentation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001010\"}}, {\"id\": \"Impaired Melanin Biosynthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced tyrosine availability limits melanin synthesis in untreated or poorly controlled disease.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"melanin biosynthetic process\"]}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Musty Odor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0410021\"}}, {\"id\": \"Neurocognitive Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PKU causes global and executive cognitive impairment, especially when metabolic control is poor or untreated.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"]}}, {\"id\": \"PAH\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PAH\"], \"association\": \"Causative\"}}, {\"id\": \"Phenylketone Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Alternative phenylalanine metabolism increases phenylketones such as phenylpyruvate.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Reduced Dopamine Biosynthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"High phenylalanine states inhibit dopamine production pathways.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"dopamine biosynthetic process\"]}}, {\"id\": \"Reduced Serotonin Biosynthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"High phenylalanine states inhibit serotonin production pathways.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"serotonin biosynthetic process\"]}}, {\"id\": \"Relative Tyrosine Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Decreased PAH flux lowers endogenous tyrosine generation from phenylalanine.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"tyrosine metabolic process\"]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"White Matter and Subcortical Structural Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Treated adults still exhibit white-matter damage and subcortical volume loss associated with phenylalanine burden.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"oligodendrocyte\"], \"biological_processes\": [\"myelination\"], \"locations\": [\"white matter\"]}}], \"edges\": [{\"source\": \"Hepatic PAH Enzyme Deficiency\", \"target\": \"Hyperphenylalaninemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatic PAH Enzyme Deficiency\", \"target\": \"Relative Tyrosine Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperphenylalaninemia\", \"target\": \"Competitive Large Neutral Amino Acid Transport at the Blood-Brain Barrier\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperphenylalaninemia\", \"target\": \"Brain Phenylalanine Toxicity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperphenylalaninemia\", \"target\": \"Phenylketone Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Relative Tyrosine Deficiency\", \"target\": \"Impaired Melanin Biosynthesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Relative Tyrosine Deficiency\", \"target\": \"Reduced Dopamine Biosynthesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Competitive Large Neutral Amino Acid Transport at the Blood-Brain Barrier\", \"target\": \"Reduced Serotonin Biosynthesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Competitive Large Neutral Amino Acid Transport at the Blood-Brain Barrier\", \"target\": \"Reduced Dopamine Biosynthesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced Serotonin Biosynthesis\", \"target\": \"Neurocognitive Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced Dopamine Biosynthesis\", \"target\": \"Neurocognitive Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Brain Phenylalanine Toxicity\", \"target\": \"White Matter and Subcortical Structural Injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Brain Phenylalanine Toxicity\", \"target\": \"Neurocognitive Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"White Matter and Subcortical Structural Injury\", \"target\": \"Neurocognitive Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurocognitive Dysfunction\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurocognitive Dysfunction\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Melanin Biosynthesis\", \"target\": \"Hypopigmentation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Phenylketone Accumulation\", \"target\": \"Musty Odor\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PAH\", \"target\": \"Hepatic PAH Enzyme Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6159,6 +6355,7 @@ has_subtypes:
   description: Severe PAH deficiency with blood Phe greater than 1200 micromol/L untreated.
   evidence:
   - reference: PMID:21555948
+    reference_title: &#34;Phenylalanine hydroxylase deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Deficiency of this enzyme produces a spectrum of disorders including classic phenylketonuria, mild phenylketonuria, and mild hyperphenylalaninemia.&#34;
@@ -6167,6 +6364,7 @@ has_subtypes:
   description: Moderate PAH deficiency with blood Phe 600-1200 micromol/L untreated.
   evidence:
   - reference: PMID:21555948
+    reference_title: &#34;Phenylalanine hydroxylase deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Deficiency of this enzyme produces a spectrum of disorders including classic phenylketonuria, mild phenylketonuria, and mild hyperphenylalaninemia.&#34;
@@ -6175,6 +6373,7 @@ has_subtypes:
   description: Responds to tetrahydrobiopterin supplementation.
   evidence:
   - reference: PMID:34017006
+    reference_title: &#34;Phenylketonuria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Pharmacological treatments are available, such as tetrahydrobiopterin, which is effective in only a minority of patients (usually those with milder PKU)&#34;
@@ -6189,6 +6388,7 @@ inheritance:
       label: Autosomal recessive inheritance
   evidence:
   - reference: PMID:21555948
+    reference_title: &#34;Phenylalanine hydroxylase deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Phenylalanine hydroxylase deficiency is an autosomal recessive disorder that results in intolerance to the dietary intake of the essential amino acid phenylalanine.&#34;
@@ -6239,6 +6439,7 @@ pathophysiology:
     modifier: DECREASED
   evidence:
   - reference: PMID:29025426
+    reference_title: &#34;The complete European guidelines on phenylketonuria: diagnosis and treatment.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Phenylketonuria (PKU) is an autosomal recessive inborn error of phenylalanine metabolism caused by deficiency in the enzyme phenylalanine hydroxylase that converts phenylalanine into tyrosine.&#34;
@@ -6248,6 +6449,7 @@ pathophysiology:
     description: Reduced PAH activity impairs phenylalanine clearance from blood.
     evidence:
     - reference: PMID:24385074
+      reference_title: &#34;Phenylalanine hydroxylase deficiency: diagnosis and management guideline.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Phenylalanine hydroxylase deficiency, traditionally known as phenylketonuria, results in the accumulation of phenylalanine in the blood of affected individuals and was the first inborn error of metabolism to be identified through population screening.&#34;
@@ -6256,6 +6458,7 @@ pathophysiology:
     description: Blocked conversion of phenylalanine to tyrosine reduces tyrosine availability.
     evidence:
     - reference: PMID:29025426
+      reference_title: &#34;The complete European guidelines on phenylketonuria: diagnosis and treatment.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Phenylketonuria (PKU) is an autosomal recessive inborn error of phenylalanine metabolism caused by deficiency in the enzyme phenylalanine hydroxylase that converts phenylalanine into tyrosine.&#34;
@@ -6276,11 +6479,13 @@ pathophysiology:
     modifier: DYSREGULATED
   evidence:
   - reference: PMID:24385074
+    reference_title: &#34;Phenylalanine hydroxylase deficiency: diagnosis and management guideline.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Phenylalanine hydroxylase deficiency, traditionally known as phenylketonuria, results in the accumulation of phenylalanine in the blood of affected individuals and was the first inborn error of metabolism to be identified through population screening.&#34;
     explanation: Clinical guideline abstract confirms blood phenylalanine accumulation in PKU.
   - reference: PMID:21216643
+    reference_title: &#34;The effect of blood phenylalanine concentration on Kuvan™ response in phenylketonuria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Phenylketonuria (PKU) is caused by mutations in the phenylalanine hydroxylase gene (PAH) with consequent elevation of blood phenylalanine (Phe), reduction in tyrosine (Tyr) and elevation of Phe/Tyr ratio (P/T).&#34;
@@ -6290,6 +6495,7 @@ pathophysiology:
     description: Excess phenylalanine competitively perturbs transport of other neutral amino acids into brain.
     evidence:
     - reference: PMID:987768
+      reference_title: &#34;Lowering brain phenylalanine levels by giving other large neutral amino acids. A new experimental therapeutic approach to phenylketonuria.&#34;
       supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &#34;The LNAA group of amino acids--phenylalanine, tyrosine, tryptophan, leucine, isoleucine, and valine--compete with each other for entry into brain by a common transport mechanism.&#34;
@@ -6298,6 +6504,7 @@ pathophysiology:
     description: Persistent systemic hyperphenylalaninemia increases brain phenylalanine burden and toxicity.
     evidence:
     - reference: PMID:34017006
+      reference_title: &#34;Phenylketonuria.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Phenylketonuria (PKU; also known as phenylalanine hydroxylase (PAH) deficiency) is an autosomal recessive disorder of phenylalanine metabolism, in which especially high phenylalanine concentrations cause brain dysfunction.&#34;
@@ -6306,6 +6513,7 @@ pathophysiology:
     description: Excess phenylalanine is diverted to alternative metabolites, including phenylketones.
     evidence:
     - reference: PMID:21565303
+      reference_title: &#34;Study on urinary metabolic profile of phenylketonuria by micellar electrokinetic capillary chromatography with dual electrochemical detection--potential clinical application in fast diagnosis of phenylketonuria.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;The urinary metabolic marker compounds, namely phenylpyruvic acid (PPA), 2-hydroxyphenylacetic acid (oOPAA), 4-hydroxyphenylacetic acid (pOPAA), phenyllactic acid (PLA) and phenylacetic acid (PAA) of phenylketonuric individuals were detected&#34;
@@ -6326,11 +6534,13 @@ pathophysiology:
     modifier: DECREASED
   evidence:
   - reference: PMID:29025426
+    reference_title: &#34;The complete European guidelines on phenylketonuria: diagnosis and treatment.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Phenylketonuria (PKU) is an autosomal recessive inborn error of phenylalanine metabolism caused by deficiency in the enzyme phenylalanine hydroxylase that converts phenylalanine into tyrosine.&#34;
     explanation: Impaired conversion from phenylalanine to tyrosine implies substrate deficiency downstream.
   - reference: PMID:21216643
+    reference_title: &#34;The effect of blood phenylalanine concentration on Kuvan™ response in phenylketonuria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Phenylketonuria (PKU) is caused by mutations in the phenylalanine hydroxylase gene (PAH) with consequent elevation of blood phenylalanine (Phe), reduction in tyrosine (Tyr) and elevation of Phe/Tyr ratio (P/T).&#34;
@@ -6340,6 +6550,7 @@ pathophysiology:
     description: Reduced tyrosine supply limits melanin production.
     evidence:
     - reference: PMID:35854334
+      reference_title: &#34;Genetic etiology and clinical challenges of phenylketonuria.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Untreated PKU, also known as PAH deficiency, results in severe and irreversible intellectual disability, epilepsy, behavioral disorders, and clinical features such as acquired microcephaly, seizures, psychological signs, and generalized hypopigmentation of skin (including hair and eyes).&#34;
@@ -6348,6 +6559,7 @@ pathophysiology:
     description: Lower tyrosine availability reduces substrate supply for catecholamine synthesis.
     evidence:
     - reference: PMID:6119011
+      reference_title: &#34;Serotonin and dopamine synthesis in phenylketonuria.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;In classical PKU, the serotonin and dopamine biosynthesis is inhibited by high L-phenylalanine in blood and tissues.&#34;
@@ -6383,6 +6595,7 @@ pathophysiology:
     modifier: DECREASED
   evidence:
   - reference: PMID:987768
+    reference_title: &#34;Lowering brain phenylalanine levels by giving other large neutral amino acids. A new experimental therapeutic approach to phenylketonuria.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;The LNAA group of amino acids--phenylalanine, tyrosine, tryptophan, leucine, isoleucine, and valine--compete with each other for entry into brain by a common transport mechanism.&#34;
@@ -6392,6 +6605,7 @@ pathophysiology:
     description: Lower brain tryptophan availability contributes to impaired serotonin synthesis.
     evidence:
     - reference: PMID:6119011
+      reference_title: &#34;Serotonin and dopamine synthesis in phenylketonuria.&#34;
       supports: PARTIAL
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;In classical PKU, the serotonin and dopamine biosynthesis is inhibited by high L-phenylalanine in blood and tissues.&#34;
@@ -6400,6 +6614,7 @@ pathophysiology:
     description: Lower brain tyrosine availability contributes to impaired dopamine synthesis.
     evidence:
     - reference: PMID:6119011
+      reference_title: &#34;Serotonin and dopamine synthesis in phenylketonuria.&#34;
       supports: PARTIAL
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;In classical PKU, the serotonin and dopamine biosynthesis is inhibited by high L-phenylalanine in blood and tissues.&#34;
@@ -6414,6 +6629,7 @@ pathophysiology:
     modifier: DECREASED
   evidence:
   - reference: PMID:6119011
+    reference_title: &#34;Serotonin and dopamine synthesis in phenylketonuria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In classical PKU, the serotonin and dopamine biosynthesis is inhibited by high L-phenylalanine in blood and tissues.&#34;
@@ -6423,6 +6639,7 @@ pathophysiology:
     description: Monoamine deficits contribute to attention, executive, and behavioral impairment.
     evidence:
     - reference: PMID:34017006
+      reference_title: &#34;Phenylketonuria.&#34;
       supports: PARTIAL
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Phenylketonuria (PKU; also known as phenylalanine hydroxylase (PAH) deficiency) is an autosomal recessive disorder of phenylalanine metabolism, in which especially high phenylalanine concentrations cause brain dysfunction.&#34;
@@ -6437,6 +6654,7 @@ pathophysiology:
     modifier: DECREASED
   evidence:
   - reference: PMID:6119011
+    reference_title: &#34;Serotonin and dopamine synthesis in phenylketonuria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In classical PKU, the serotonin and dopamine biosynthesis is inhibited by high L-phenylalanine in blood and tissues.&#34;
@@ -6446,6 +6664,7 @@ pathophysiology:
     description: Dopaminergic dysfunction contributes to executive and cognitive deficits.
     evidence:
     - reference: PMID:34017006
+      reference_title: &#34;Phenylketonuria.&#34;
       supports: PARTIAL
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Phenylketonuria (PKU; also known as phenylalanine hydroxylase (PAH) deficiency) is an autosomal recessive disorder of phenylalanine metabolism, in which especially high phenylalanine concentrations cause brain dysfunction.&#34;
@@ -6465,6 +6684,7 @@ pathophysiology:
     modifier: ABNORMAL
   evidence:
   - reference: PMID:34017006
+    reference_title: &#34;Phenylketonuria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Phenylketonuria (PKU; also known as phenylalanine hydroxylase (PAH) deficiency) is an autosomal recessive disorder of phenylalanine metabolism, in which especially high phenylalanine concentrations cause brain dysfunction.&#34;
@@ -6474,6 +6694,7 @@ pathophysiology:
     description: Brain phenylalanine toxicity contributes to persistent white-matter and subcortical abnormalities.
     evidence:
     - reference: PMID:37265600
+      reference_title: &#34;Compromised white matter is related to lower cognitive performance in adults with phenylketonuria.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;In conclusion, our findings demonstrate that white matter alterations in early-treated phenylketonuria persist into adulthood, are most prominent in the posterior white matter and are likely to be driven by axonal damage.&#34;
@@ -6482,6 +6703,7 @@ pathophysiology:
     description: Brain dysfunction manifests clinically as cognitive impairment and executive deficits.
     evidence:
     - reference: PMID:34017006
+      reference_title: &#34;Phenylketonuria.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;If untreated, this brain dysfunction results in severe intellectual disability, epilepsy and behavioural problems.&#34;
@@ -6506,11 +6728,13 @@ pathophysiology:
     modifier: ABNORMAL
   evidence:
   - reference: PMID:37265600
+    reference_title: &#34;Compromised white matter is related to lower cognitive performance in adults with phenylketonuria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In conclusion, our findings demonstrate that white matter alterations in early-treated phenylketonuria persist into adulthood, are most prominent in the posterior white matter and are likely to be driven by axonal damage.&#34;
     explanation: Supports persistent white matter injury in adults with early-treated PKU.
   - reference: PMID:38907189
+    reference_title: &#34;Volumetric brain reductions in adult patients with phenylketonuria and their relationship with blood phenylalanine levels.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Moreover, these patients showed reduced global white matter volume as well as reductions in the volume of several subcortical grey matter structures, which might be related to the existence of underlying neurodevelopmental alterations.&#34;
@@ -6520,6 +6744,7 @@ pathophysiology:
     description: Structural brain injury is associated with lower cognitive performance.
     evidence:
     - reference: PMID:37265600
+      reference_title: &#34;Compromised white matter is related to lower cognitive performance in adults with phenylketonuria.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Furthermore, diffusion tensor imaging metrics in adults with phenylketonuria were related to performance in attention and executive functions.&#34;
@@ -6533,6 +6758,7 @@ pathophysiology:
       label: neuron
   evidence:
   - reference: PMID:38907189
+    reference_title: &#34;Volumetric brain reductions in adult patients with phenylketonuria and their relationship with blood phenylalanine levels.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Adult patients with early-treated PKU showed significantly lower global intelligence than HC.&#34;
@@ -6542,6 +6768,7 @@ pathophysiology:
     description: Severe or untreated neurotoxicity can progress to intellectual disability.
     evidence:
     - reference: PMID:34017006
+      reference_title: &#34;Phenylketonuria.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;If untreated, this brain dysfunction results in severe intellectual disability, epilepsy and behavioural problems.&#34;
@@ -6550,6 +6777,7 @@ pathophysiology:
     description: Severe untreated neurotoxicity can present with epilepsy/seizures.
     evidence:
     - reference: PMID:34017006
+      reference_title: &#34;Phenylketonuria.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;If untreated, this brain dysfunction results in severe intellectual disability, epilepsy and behavioural problems.&#34;
@@ -6570,6 +6798,7 @@ pathophysiology:
     modifier: DECREASED
   evidence:
   - reference: PMID:30570999
+    reference_title: &#34;Phenylketonuria (PKU).&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;These signs can include musty odor from skin and urine, fair skin, eczema, seizures, tremors, and hyperactivity.&#34;
@@ -6579,6 +6808,7 @@ pathophysiology:
     description: Reduced melanin production leads to fair skin and lighter pigmentation phenotypes.
     evidence:
     - reference: PMID:35854334
+      reference_title: &#34;Genetic etiology and clinical challenges of phenylketonuria.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Untreated PKU, also known as PAH deficiency, results in severe and irreversible intellectual disability, epilepsy, behavioral disorders, and clinical features such as acquired microcephaly, seizures, psychological signs, and generalized hypopigmentation of skin (including hair and eyes).&#34;
@@ -6593,6 +6823,7 @@ pathophysiology:
     modifier: INCREASED
   evidence:
   - reference: PMID:21565303
+    reference_title: &#34;Study on urinary metabolic profile of phenylketonuria by micellar electrokinetic capillary chromatography with dual electrochemical detection--potential clinical application in fast diagnosis of phenylketonuria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The urinary metabolic marker compounds, namely phenylpyruvic acid (PPA), 2-hydroxyphenylacetic acid (oOPAA), 4-hydroxyphenylacetic acid (pOPAA), phenyllactic acid (PLA) and phenylacetic acid (PAA) of phenylketonuric individuals were detected&#34;
@@ -6602,6 +6833,7 @@ pathophysiology:
     description: Phenylketone byproducts contribute to characteristic musty body odor.
     evidence:
     - reference: PMID:30570999
+      reference_title: &#34;Phenylketonuria (PKU).&#34;
       supports: PARTIAL
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;These signs can include musty odor from skin and urine, fair skin, eczema, seizures, tremors, and hyperactivity.&#34;
@@ -6611,11 +6843,13 @@ diagnosis:
   description: Initial diagnosis is made from heel-prick dried blood spot screening.
   evidence:
   - reference: PMID:21555948
+    reference_title: &#34;Phenylalanine hydroxylase deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Phenylalanine hydroxylase deficiency can be diagnosed by newborn screening based on detection of the presence of hyperphenylalaninemia using the Guthrie microbial inhibition assay or other assays on a blood spot obtained from a heel prick.&#34;
     explanation: Defines newborn blood spot screening as the first-line diagnostic modality.
   - reference: PMID:34017006
+    reference_title: &#34;Phenylketonuria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Early diagnosis is based on newborn screening, and if treatment is started early and continued, intelligence is within normal limits with, on average, some suboptimal neurocognitive function.&#34;
@@ -6624,11 +6858,13 @@ diagnosis:
   description: Serial plasma phenylalanine and tyrosine measurement is required for diagnosis and longitudinal control.
   evidence:
   - reference: PMID:21555948
+    reference_title: &#34;Phenylalanine hydroxylase deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Regular monitoring of plasma phenylalanine and tyrosine concentrations is necessary.&#34;
     explanation: Confirms biochemical monitoring as a core diagnostic and management component.
   - reference: PMID:39630157
+    reference_title: &#34;Phenylalanine hydroxylase deficiency diagnosis and management: A 2023 evidence-based clinical guideline of the American College of Medical Genetics and Genomics (ACMG).&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We strongly recommend lifelong maintenance of Phe ≤360 μmol/L (using plasma or whole blood) for optimal intellectual outcomes and for reduced teratogenicity, utilizing all available and necessary dietary, pharmaceutical, and patient-educational modalities.&#34;
@@ -6642,11 +6878,13 @@ diagnosis:
       label: genetic testing
   evidence:
   - reference: PMID:39630157
+    reference_title: &#34;Phenylalanine hydroxylase deficiency diagnosis and management: A 2023 evidence-based clinical guideline of the American College of Medical Genetics and Genomics (ACMG).&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;genetic testing for PAH variants is recommended at birth to confirm diagnosis and guide therapy.&#34;
     explanation: ACMG guideline endorses early PAH genotyping for confirmation and treatment planning.
   - reference: PMID:21555948
+    reference_title: &#34;Phenylalanine hydroxylase deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Molecular genetic testing of the phenylalanine hydroxylase gene is available for genetic counseling purposes to determine carrier status of at-risk relatives and for prenatal testing.&#34;
@@ -6665,11 +6903,13 @@ differential_diagnoses:
   - Patients may develop neurologic abnormalities despite acceptable blood phenylalanine control.
   evidence:
   - reference: PMID:35952926
+    reference_title: &#34;Newborn screening and genetic features of patients with hyperphenylalaninemia in a southern Chinese population.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Newborn screening is an effective method for early detection of HPA, but differential diagnosis of BH4D is necessary.&#34;
     explanation: Explicitly states that BH4 deficiency must be differentiated from PAH-related hyperphenylalaninemia.
   - reference: PMID:8404969
+    reference_title: &#34;Differential diagnosis of hyperphenylalaninaemia by a combined phenylalanine-tetrahydrobiopterin loading test.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We describe a new fully reliable method for the differential diagnosis of tetrahydrobiopterin-dependent hyperphenylalaninaemia (HPA).&#34;
@@ -6686,11 +6926,13 @@ differential_diagnoses:
   - Distinguishing this disorder from PAH deficiency changes treatment strategy beyond phenylalanine restriction alone.
   evidence:
   - reference: PMID:3930839
+    reference_title: &#34;Differential diagnosis of tetrahydrobiopterin deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Measurement of DHPR activity in blood spots on Guthrie cards is recommended.&#34;
     explanation: Confirms DHPR enzyme testing as a key discriminator in hyperphenylalaninemia workup.
   - reference: PMID:8404969
+    reference_title: &#34;Differential diagnosis of hyperphenylalaninaemia by a combined phenylalanine-tetrahydrobiopterin loading test.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;It should be performed together with the measurement of dihydropteridine reductase (DHPR) activity in blood.&#34;
@@ -6707,11 +6949,13 @@ differential_diagnoses:
   - Requires BH4-focused biochemical and/or genetic testing to identify correctly.
   evidence:
   - reference: PMID:35952926
+    reference_title: &#34;Newborn screening and genetic features of patients with hyperphenylalaninemia in a southern Chinese population.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Of the 296 newborns who tested HPA positive, 56 were diagnosed with HPA, including 47 with phenylalanine hydroxylase deficiency and nine with tetrahydrobiopterin deficiency (BH4D).&#34;
     explanation: Demonstrates a real newborn-screen cohort where BH4-deficient cases coexist with PAH deficiency and require distinction.
   - reference: PMID:35952926
+    reference_title: &#34;Newborn screening and genetic features of patients with hyperphenylalaninemia in a southern Chinese population.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Thirty-three PAH variants and five PTS variants were detected in HPA patients;&#34;
@@ -6728,11 +6972,13 @@ differential_diagnoses:
   - Phenylalanine thresholds for lifelong intensive treatment differ from classic PKU-range disease.
   evidence:
   - reference: PMID:21555948
+    reference_title: &#34;Phenylalanine hydroxylase deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Mild phenylketonuria and mild hyperphenylalaninemia are associated with lower risk of impaired cognitive development in the absence of treatment.&#34;
     explanation: Supports lower neurodevelopmental risk profile relative to classic untreated PKU.
   - reference: PMID:39630157
+    reference_title: &#34;Phenylalanine hydroxylase deficiency diagnosis and management: A 2023 evidence-based clinical guideline of the American College of Medical Genetics and Genomics (ACMG).&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;treatment for PAH deficiency should be lifelong for individuals with untreated phenylalanine (Phe) levels &gt;360 μmol/L&#34;
@@ -6750,11 +6996,13 @@ phenotypes:
       label: Intellectual disability
   evidence:
   - reference: PMID:34017006
+    reference_title: &#34;Phenylketonuria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;If untreated, this brain dysfunction results in severe intellectual disability, epilepsy and behavioural problems.&#34;
     explanation: The Nature Reviews Primer confirms severe intellectual disability as a key untreated phenotype.
   - reference: PMID:38907189
+    reference_title: &#34;Volumetric brain reductions in adult patients with phenylketonuria and their relationship with blood phenylalanine levels.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Adult patients with PKU showed significantly lower performance than HC in Full Scale IQ&#34;
@@ -6770,6 +7018,7 @@ phenotypes:
       label: Seizure
   evidence:
   - reference: PMID:29025426
+    reference_title: &#34;The complete European guidelines on phenylketonuria: diagnosis and treatment.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;If left untreated, PKU results in increased phenylalanine concentrations in blood and brain, which cause severe intellectual disability, epilepsy and behavioural problems.&#34;
@@ -6785,11 +7034,13 @@ phenotypes:
       label: Microcephaly
   evidence:
   - reference: PMID:17092471
+    reference_title: &#34;Phenylketonuria in pediatric neurology practice: a series of 146 cases.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In addition to well-known findings such as mental retardation, autistic features, microcephaly, and tremor, motor retardation was common and responded promptly to dietary treatment.&#34;
     explanation: Pediatric PKU case series documents microcephaly among established neurologic manifestations.
   - reference: PMID:35854334
+    reference_title: &#34;Genetic etiology and clinical challenges of phenylketonuria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Untreated PKU, also known as PAH deficiency, results in severe and irreversible intellectual disability, epilepsy, behavioral disorders, and clinical features such as acquired microcephaly, seizures, psychological signs, and generalized hypopigmentation of skin (including hair and eyes).&#34;
@@ -6805,11 +7056,13 @@ phenotypes:
       label: Hypertonia
   evidence:
   - reference: PMID:17092471
+    reference_title: &#34;Phenylketonuria in pediatric neurology practice: a series of 146 cases.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Hypotonia and diminished reflexes were more frequent findings than hypertonia.&#34;
     explanation: Confirms hypertonia occurs in PKU while indicating lower relative frequency.
   - reference: PMID:2516176
+    reference_title: &#34;Neurological deterioration in adult phenylketonuria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Dietary therapy reduced serum phenylalanine levels, improved symptoms of hypertonicity, and cerebrospinal fluid neurotransmitter metabolites became normal.&#34;
@@ -6825,11 +7078,13 @@ phenotypes:
       label: Hypopigmentation of the skin
   evidence:
   - reference: PMID:35854334
+    reference_title: &#34;Genetic etiology and clinical challenges of phenylketonuria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Untreated PKU, also known as PAH deficiency, results in severe and irreversible intellectual disability, epilepsy, behavioral disorders, and clinical features such as acquired microcephaly, seizures, psychological signs, and generalized hypopigmentation of skin (including hair and eyes).&#34;
     explanation: Supports generalized skin, hair, and eye hypopigmentation as a PKU phenotype.
   - reference: PMID:30570999
+    reference_title: &#34;Phenylketonuria (PKU).&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;These signs can include musty odor from skin and urine, fair skin, eczema, seizures, tremors, and hyperactivity.&#34;
@@ -6844,6 +7099,7 @@ phenotypes:
       label: Eczematoid dermatitis
   evidence:
   - reference: PMID:30570999
+    reference_title: &#34;Phenylketonuria (PKU).&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;These signs can include musty odor from skin and urine, fair skin, eczema, seizures, tremors, and hyperactivity.&#34;
@@ -6859,6 +7115,7 @@ phenotypes:
       label: Musty odor
   evidence:
   - reference: PMID:30570999
+    reference_title: &#34;Phenylketonuria (PKU).&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;These signs can include musty odor from skin and urine, fair skin, eczema, seizures, tremors, and hyperactivity.&#34;
@@ -6869,11 +7126,13 @@ biochemical:
   context: Greater than 120 micromol/L, often greater than 1200 micromol/L in classic PKU
   evidence:
   - reference: PMID:24385074
+    reference_title: &#34;Phenylalanine hydroxylase deficiency: diagnosis and management guideline.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Phenylalanine hydroxylase deficiency, traditionally known as phenylketonuria, results in the accumulation of phenylalanine in the blood of affected individuals and was the first inborn error of metabolism to be identified through population screening.&#34;
     explanation: Supports elevated blood phenylalanine as the defining biochemical abnormality.
   - reference: PMID:21216643
+    reference_title: &#34;The effect of blood phenylalanine concentration on Kuvan™ response in phenylketonuria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Phenylketonuria (PKU) is caused by mutations in the phenylalanine hydroxylase gene (PAH) with consequent elevation of blood phenylalanine (Phe), reduction in tyrosine (Tyr) and elevation of Phe/Tyr ratio (P/T).&#34;
@@ -6883,11 +7142,13 @@ biochemical:
   context: Low due to blocked conversion from phenylalanine
   evidence:
   - reference: PMID:30570999
+    reference_title: &#34;Phenylketonuria (PKU).&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Elevated blood Phe levels and decreased Tyr levels characterize PKU.&#34;
     explanation: Directly supports low tyrosine as a characteristic biochemical feature.
   - reference: PMID:21216643
+    reference_title: &#34;The effect of blood phenylalanine concentration on Kuvan™ response in phenylketonuria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Phenylketonuria (PKU) is caused by mutations in the phenylalanine hydroxylase gene (PAH) with consequent elevation of blood phenylalanine (Phe), reduction in tyrosine (Tyr) and elevation of Phe/Tyr ratio (P/T).&#34;
@@ -6897,11 +7158,13 @@ biochemical:
   context: Diagnostic marker
   evidence:
   - reference: PMID:35952926
+    reference_title: &#34;Newborn screening and genetic features of patients with hyperphenylalaninemia in a southern Chinese population.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;All patients had elevated Phe and Phe/Tyr levels.&#34;
     explanation: Supports elevation of the phenylalanine:tyrosine index in diagnosed HPA/PKU cohorts.
   - reference: PMID:21216643
+    reference_title: &#34;The effect of blood phenylalanine concentration on Kuvan™ response in phenylketonuria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Phenylketonuria (PKU) is caused by mutations in the phenylalanine hydroxylase gene (PAH) with consequent elevation of blood phenylalanine (Phe), reduction in tyrosine (Tyr) and elevation of Phe/Tyr ratio (P/T).&#34;
@@ -6911,6 +7174,7 @@ biochemical:
   context: Alternative metabolite in urine
   evidence:
   - reference: PMID:21565303
+    reference_title: &#34;Study on urinary metabolic profile of phenylketonuria by micellar electrokinetic capillary chromatography with dual electrochemical detection--potential clinical application in fast diagnosis of phenylketonuria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The urinary metabolic marker compounds, namely phenylpyruvic acid (PPA), 2-hydroxyphenylacetic acid (oOPAA), 4-hydroxyphenylacetic acid (pOPAA), phenyllactic acid (PLA) and phenylacetic acid (PAA) of phenylketonuric individuals were detected&#34;
@@ -6926,11 +7190,13 @@ genetic:
   notes: Autosomal recessive; multiple pathogenic PAH variants are reported across populations.
   evidence:
   - reference: PMID:35854334
+    reference_title: &#34;Genetic etiology and clinical challenges of phenylketonuria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;PKU, an autosomal recessive disease, is an inborn error of phenylalanine (Phe) metabolism caused by pathogenic variants in the phenylalanine hydroxylase (PAH) gene.&#34;
     explanation: Directly supports PAH as the causative gene in classical PKU.
   - reference: PMID:35952926
+    reference_title: &#34;Newborn screening and genetic features of patients with hyperphenylalaninemia in a southern Chinese population.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Thirty-three PAH variants and five PTS variants were detected in HPA patients; 80.6 % PAH variants and 100 % PTS variants were classified as pathogenic or likely pathogenic.&#34;
@@ -6940,11 +7206,13 @@ environmental:
   notes: Primary determinant of metabolic control
   evidence:
   - reference: PMID:24385074
+    reference_title: &#34;Phenylalanine hydroxylase deficiency: diagnosis and management guideline.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Treatment has predominantly been dietary manipulation, and use of low protein and phenylalanine medical foods is likely to remain a major component of therapy for the immediate future.&#34;
     explanation: Supports that phenylalanine intake control through diet is central to metabolic management.
   - reference: PMID:35854334
+    reference_title: &#34;Genetic etiology and clinical challenges of phenylketonuria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Dietary treatment, including natural protein restriction and Phe-free supplements, must be used to maintain blood Phe concentrations of 120-360 μmol/L throughout the life span.&#34;
@@ -6953,11 +7221,13 @@ environmental:
   notes: Contains phenylalanine, must be avoided
   evidence:
   - reference: PMID:33672234
+    reference_title: &#34;Accidental Consumption of Aspartame in Phenylketonuria: Patient Experiences.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Aspartame is a phenylalanine containing sweetener, added to foods and drinks, which is avoided in phenylketonuria (PKU).&#34;
     explanation: Directly supports aspartame avoidance as a relevant environmental exposure issue in PKU.
   - reference: PMID:3291200
+    reference_title: &#34;Aspartame: review of recent experimental and observational data.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Persons suffering from phenylketonuria (PKU-homozygotes) on a phenylalanine-restricted diet should avoid consumption of aspartame.&#34;
@@ -6972,11 +7242,13 @@ treatments:
       label: dietary intervention
   evidence:
   - reference: PMID:34017006
+    reference_title: &#34;Phenylketonuria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Dietary restriction of phenylalanine has been the mainstay of treatment for over 60 years and has been highly successful, although outcomes are still suboptimal and patients can find the treatment difficult to adhere to.&#34;
     explanation: Confirms diet as the primary and long-standing treatment approach.
   - reference: PMID:21555948
+    reference_title: &#34;Phenylalanine hydroxylase deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The mainstay of treatment for hyperphenylalaninemia involves a low-protein diet and use of a phenylalanine-free medical formula.&#34;
@@ -6990,11 +7262,13 @@ treatments:
       label: dietary intervention
   evidence:
   - reference: PMID:21555948
+    reference_title: &#34;Phenylalanine hydroxylase deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The mainstay of treatment for hyperphenylalaninemia involves a low-protein diet and use of a phenylalanine-free medical formula.&#34;
     explanation: Directly supports phenylalanine-free medical formula as standard PKU therapy.
   - reference: PMID:35854334
+    reference_title: &#34;Genetic etiology and clinical challenges of phenylketonuria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Dietary treatment, including natural protein restriction and Phe-free supplements, must be used to maintain blood Phe concentrations of 120-360 μmol/L throughout the life span.&#34;
@@ -7013,11 +7287,13 @@ treatments:
         label: sapropterin
   evidence:
   - reference: PMID:34017006
+    reference_title: &#34;Phenylketonuria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Pharmacological treatments are available, such as tetrahydrobiopterin, which is effective in only a minority of patients (usually those with milder PKU)&#34;
     explanation: Confirms sapropterin (BH4) effectiveness in a subset of patients with milder disease.
   - reference: PMID:17693179
+    reference_title: &#34;Efficacy of sapropterin dihydrochloride (tetrahydrobiopterin, 6R-BH4) for reduction of phenylalanine concentration in patients with phenylketonuria: a phase III randomised placebo-controlled study.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In some patients with phenylketonuria who are responsive to BH4, sapropterin treatment to reduce blood phenylalanine could be used as an adjunct to a restrictive low-phenylalanine diet, and might even replace the diet in some instances.&#34;
@@ -7036,11 +7312,13 @@ treatments:
         label: Pegvaliase
   evidence:
   - reference: PMID:34017006
+    reference_title: &#34;Phenylketonuria.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;pegylated phenylalanine ammonia lyase, which requires daily subcutaneous injections and causes adverse immune responses&#34;
     explanation: Confirms pegvaliase as an available treatment, noting its route and immunogenicity concerns.
   - reference: PMID:29628378
+    reference_title: &#34;Pegvaliase for the treatment of phenylketonuria: A pivotal, double-blind randomized discontinuation Phase 3 clinical trial.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Results from this study confirmed the efficacy of pegvaliase in maintaining reduced blood Phe concentrations with a manageable safety profile for most participants.&#34;
@@ -7054,11 +7332,13 @@ treatments:
       label: dietary intervention
   evidence:
   - reference: PMID:987768
+    reference_title: &#34;Lowering brain phenylalanine levels by giving other large neutral amino acids. A new experimental therapeutic approach to phenylketonuria.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Increasing the serum concentrations of amino acids competitive with phenylalanine for transport across the blood brain barrier might form an alternative approach to effective dietary treatment of PKU.&#34;
     explanation: Supports LNAA supplementation rationale as an adjunctive PKU dietary strategy.
   - reference: PMID:35854334
+    reference_title: &#34;Genetic etiology and clinical challenges of phenylketonuria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Additional treatments include the casein glycomacropeptide (GMP), which contains very limited aromatic amino acids and may improve immunological function, and large neutral amino acid (LNAA) supplementation to prevent plasma Phe transport into the brain.&#34;
@@ -7249,6 +7529,7 @@ computational_models:
   publication: PMID:36880400
   evidence:
   - reference: PMID:36880400
+    reference_title: &#34;Competitive, multi-objective, and compartmented Flux Balance Analysis for addressing tissue-specific inborn errors of metabolism.&#34;
     supports: SUPPORT
     evidence_source: COMPUTATIONAL
     snippet: &#34;We built a three-compartment model, made the common transport across the BBB explicit, and included dopamine and serotonin synthesis as parts of the brain function to be delivered by FBA.&#34;
@@ -7271,6 +7552,7 @@ computational_models:
   publication: PMID:29457794
   evidence:
   - reference: PMID:29457794
+    reference_title: &#34;Recon3D enables a three-dimensional view of gene variation in human metabolism.&#34;
     supports: SUPPORT
     evidence_source: COMPUTATIONAL
     snippet: &#34;Recon3D represents the most comprehensive human metabolic network model to date, accounting for 3,288 open reading frames (representing 17% of functionally annotated human genes), 13,543 metabolic reactions involving 4,140 unique metabolites, and 12,890 protein structures.&#34;
@@ -7289,11 +7571,13 @@ computational_models:
   publication: PMID:32463598
   evidence:
   - reference: PMID:32463598
+    reference_title: &#34;Personalized whole-body models integrate metabolism, physiology, and the gut microbiome.&#34;
     supports: SUPPORT
     evidence_source: COMPUTATIONAL
     snippet: &#34;We developed a new metabolic network reconstruction approach that used organ-specific information from literature and omics data to generate two sex-specific whole-body metabolic (WBM) reconstructions.&#34;
     explanation: Supports whole-body sex-specific metabolic reconstruction framework underlying Harvey/Harvetta-style models.
   - reference: PMID:32463598
+    reference_title: &#34;Personalized whole-body models integrate metabolism, physiology, and the gut microbiome.&#34;
     supports: SUPPORT
     evidence_source: COMPUTATIONAL
     snippet: &#34;We also illustrate that the WBM models can predict known biomarkers of inherited metabolic diseases in different biofluids.&#34;
@@ -7347,6 +7631,7 @@ classifications:
   - classification_value: hereditary disease
     evidence:
     - reference: PMID:21555948
+      reference_title: &#34;Phenylalanine hydroxylase deficiency.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Phenylalanine hydroxylase deficiency is an autosomal recessive disorder that results in intolerance to the dietary intake of the essential amino acid phenylalanine.&#34;
