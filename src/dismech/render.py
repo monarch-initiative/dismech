@@ -978,11 +978,19 @@ def render_module(
         "https://github.com/monarch-initiative/dismech/blob/main/"
         f"kb/modules/{yaml_path.name}"
     )
+    graph = build_causal_graph(module)
+    pathograph_data = graph_to_json(graph, module)
+    pathograph_node_count = len(
+        {node_name for edge in graph.edges for node_name in (edge.source, edge.target)}
+    )
 
     html = template.render(
         module=module,
         module_id=yaml_path.stem,
         disorder_usage=disorder_usage,
+        pathograph_data=pathograph_data,
+        pathograph_node_count=pathograph_node_count,
+        graph_issues=graph.integrity_issues,
         yaml_content=yaml_content,
         source_file=source_file,
     )
