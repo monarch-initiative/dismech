@@ -544,6 +544,12 @@ gen-all: gen-browser-data gen-pages gen-schema-docs
 
 # ============== KGX Export ==============
 
+# Generate derived disease-to-ontology context score tables
+[group('Export')]
+export-context-scores output_dir="output/context_scores":
+    mkdir -p {{output_dir}}
+    uv run dismech-context-scores -i {{kb_dir}} -o {{output_dir}}
+
 # Generate KGX edges from disorder knowledge base
 [group('Export')]
 export-kgx:
@@ -1007,7 +1013,7 @@ normalize-cache:
     echo "Normalizing enum caches..."
     for f in cache/enums/*.csv; do
         header=$(head -1 "$f")
-        tail -n+2 "$f" | sort > /tmp/_sorted_enum.csv
+        tail -n+2 "$f" | sort -u > /tmp/_sorted_enum.csv
         echo "$header" > "$f"
         cat /tmp/_sorted_enum.csv >> "$f"
     done
