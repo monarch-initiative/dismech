@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1037,6 +1101,52 @@
             text-decoration: underline;
         }
 
+        /* Experimental Models */
+        .exp-model-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .exp-model-box .item-name { color: #92400e; }
+        .exp-model-box .item-desc { color: #b45309; }
+
+        .tag-exp-model-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .tag-namo-type {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+        .tag-condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .model-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .model-detail-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .model-detail-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 110px;
+        }
+        .model-detail-value {
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+        }
+        .model-detail-value a {
+            color: inherit;
+        }
+
         /* Computational Models */
         .comp-model-box {
             background: #f0fdf4;
@@ -1382,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1470,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1477,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1489,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1637,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1723,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1737,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1792,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1877,6 +2093,7 @@
                 </span>
                 
                 
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Gastrointestinal Disease</span>
                 
             </div>
@@ -1884,6 +2101,11 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
+        
+        
         
         
         
@@ -1939,6 +2161,12 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
+            
+            
+            <div class="stat-item">
+                <div class="stat-value">0</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
             
             
             <a class="stat-link" href="#genetic">
@@ -2038,7 +2266,7 @@
                 <span class="card-count">4</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-recurrent-acinar-cell-injury">
                 <div class="item-name">Recurrent Acinar Cell Injury</div>
                 
                 <div class="item-desc">Repeated episodes of pancreatic inflammation cause progressive acinar cell damage. Alcohol, smoking, and genetic factors are major causes. Premature trypsin activation injures cells.
@@ -2080,6 +2308,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2113,7 +2342,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-pancreatic-fibrosis">
                 <div class="item-name">Pancreatic Fibrosis</div>
                 
                 <div class="item-desc">Activated pancreatic stellate cells produce excessive collagen, leading to progressive fibrosis. Fibrosis replaces functional parenchyma and causes ductal strictures.
@@ -2153,6 +2382,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2186,7 +2416,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-exocrine-insufficiency">
                 <div class="item-name">Exocrine Insufficiency</div>
                 
                 <div class="item-desc">Loss of acinar cell mass leads to insufficient digestive enzyme production. Steatorrhea and malabsorption occur when &gt;90% of exocrine function is lost.
@@ -2207,6 +2437,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2262,7 +2493,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-endocrine-insufficiency">
                 <div class="item-name">Endocrine Insufficiency</div>
                 
                 <div class="item-desc">Progressive loss of islet cells leads to diabetes mellitus (type 3c). Often occurs later in disease course.
@@ -2282,6 +2513,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3521,6 +3753,9 @@
         <!-- Clinical Trials -->
         
 
+        <!-- Experimental Models -->
+        
+
         <!-- Computational Models -->
         
 
@@ -3564,6 +3799,7 @@ pathophysiology:
       label: inflammatory response
   evidence:
   - reference: PMID:23622130
+    reference_title: &#34;A starring role for stellate cells in the pancreatic cancer microenvironment.&#34;
     supports: NO_EVIDENCE
     snippet: &#34;Pancreatic ductal adenocarcinoma is a devastating disease, and patient
       outcomes have not improved in decades.&#34;
@@ -3586,6 +3822,7 @@ pathophysiology:
   - preferred_term: Extracellular Matrix Organization
   evidence:
   - reference: PMID:23622130
+    reference_title: &#34;A starring role for stellate cells in the pancreatic cancer microenvironment.&#34;
     supports: PARTIAL
     snippet: &#34;There is compelling in vitro and in vivo evidence for the influence
       of pancreatic stellate cells on pancreatic cancer development; several recent
@@ -3605,6 +3842,7 @@ pathophysiology:
   - preferred_term: Digestive System Process
   evidence:
   - reference: PMID:30074926
+    reference_title: &#34;Exocrine Pancreatic Insufficiency and Malnutrition in Chronic Pancreatitis: Identification, Treatment, and Consequences.&#34;
     supports: SUPPORT
     snippet: &#34;Exocrine pancreatic insufficiency was diagnosed in 84.6% (77/91) of
       patients based on symptoms of bloating, steatorrhea, or weight loss.&#34;
@@ -3612,6 +3850,7 @@ pathophysiology:
       chronic pancreatitis patients, manifesting as bloating, steatorrhea, or
       weight loss.
   - reference: PMID:30074926
+    reference_title: &#34;Exocrine Pancreatic Insufficiency and Malnutrition in Chronic Pancreatitis: Identification, Treatment, and Consequences.&#34;
     supports: SUPPORT
     snippet: &#34;There is a high prevalence of fat-soluble vitamin deficiencies, osteopathy,
       and malnutrition in CP patients, which is underestimated due to a lack of effective
@@ -3630,6 +3869,7 @@ pathophysiology:
       label: type B pancreatic cell
   evidence:
   - reference: PMID:28404095
+    reference_title: &#34;Type 3c (pancreatogenic) diabetes mellitus secondary to chronic pancreatitis and pancreatic cancer.&#34;
     supports: SUPPORT
     snippet: &#34;The most commonly identified causes of type 3c diabetes are chronic
       pancreatitis, pancreatic ductal adenocarcinoma, haemochromatosis, cystic fibrosis,
@@ -3650,6 +3890,7 @@ phenotypes:
       label: Abdominal pain
   evidence:
   - reference: PMID:38680261
+    reference_title: &#34;Pain management in chronic pancreatitis.&#34;
     supports: SUPPORT
     snippet: &#34;Pain in chronic pancreatitis (CP) is difficult to manage. Many patients
       suffer from inadequate pain relief, completely incapacitating them in their
@@ -3667,6 +3908,7 @@ phenotypes:
       label: Steatorrhea
   evidence:
   - reference: PMID:27941156
+    reference_title: &#34;Efficacy of pancreatic enzyme replacement therapy in chronic pancreatitis: systematic review and meta-analysis.&#34;
     supports: SUPPORT
     snippet: &#34;PERT improved coefficient of nitrogen absorption, reduced faecal fat
       excretion, faecal nitrogen excretion, faecal weight and abdominal pain, without
@@ -3684,6 +3926,7 @@ phenotypes:
       label: Weight loss
   evidence:
   - reference: PMID:18554234
+    reference_title: &#34;Cause and effect relationship of malnutrition with idiopathic chronic pancreatitis: prospective case-control study.&#34;
     supports: SUPPORT
     snippet: &#34;After the onset of chronic pancreatitis, 56.5% of patients lost weight
       and significantly more patients became malnourished compared with controls (45.8%
@@ -3702,6 +3945,7 @@ phenotypes:
       label: Diabetes mellitus
   evidence:
   - reference: PMID:28404095
+    reference_title: &#34;Type 3c (pancreatogenic) diabetes mellitus secondary to chronic pancreatitis and pancreatic cancer.&#34;
     supports: SUPPORT
     snippet: &#34;Diabetes can also develop as a direct consequence of other diseases,
       including diseases of the exocrine pancreas.&#34;
@@ -3722,6 +3966,7 @@ biochemical:
   context: Marker of exocrine insufficiency
   evidence:
   - reference: PMID:17048055
+    reference_title: &#34;Fecal pancreatic elastase: a reproducible marker for severe exocrine pancreatic insufficiency.&#34;
     supports: SUPPORT
     snippet: &#34;Fecal pancreatic elastase is a reproducible marker for severe exocrine
       pancreatic insufficiency.&#34;
@@ -3729,6 +3974,7 @@ biochemical:
       marker for diagnosing severe exocrine pancreatic insufficiency in chronic
       pancreatitis.
   - reference: PMID:17048055
+    reference_title: &#34;Fecal pancreatic elastase: a reproducible marker for severe exocrine pancreatic insufficiency.&#34;
     supports: SUPPORT
     snippet: &#34;The sensitivities were 16.7% for mild, 12.5% for moderate, and 72.2%
       for severe exocrine pancreatic insufficiency.&#34;
@@ -3750,6 +3996,7 @@ genetic:
   notes: Hereditary pancreatitis
   evidence:
   - reference: PMID:37389024
+    reference_title: &#34;Spectrum of PRSS1, SPINK1, CTRC, CFTR, and CPA1 Gene Variants in Chronic Pancreatitis Patients in Russia.&#34;
     supports: PARTIAL
     snippet: &#34;Pathogenic and likely-pathogenic variants associated with the risk of
       CP development were identified in the following genes: CTRC (37.1% of patients),
@@ -3761,6 +4008,7 @@ genetic:
   notes: Trypsin inhibitor
   evidence:
   - reference: PMID:37389024
+    reference_title: &#34;Spectrum of PRSS1, SPINK1, CTRC, CFTR, and CPA1 Gene Variants in Chronic Pancreatitis Patients in Russia.&#34;
     supports: SUPPORT
     snippet: &#34;Pathogenic and likely-pathogenic variants associated with the risk of
       CP development were identified in the following genes: CTRC (37.1% of patients),
@@ -3772,6 +4020,7 @@ genetic:
   notes: Cystic fibrosis-related
   evidence:
   - reference: PMID:37389024
+    reference_title: &#34;Spectrum of PRSS1, SPINK1, CTRC, CFTR, and CPA1 Gene Variants in Chronic Pancreatitis Patients in Russia.&#34;
     supports: SUPPORT
     snippet: &#34;Pathogenic and likely-pathogenic variants associated with the risk of
       CP development were identified in the following genes: CTRC (37.1% of patients),
@@ -3782,6 +4031,7 @@ genetic:
   association: Risk Factor
   evidence:
   - reference: PMID:37389024
+    reference_title: &#34;Spectrum of PRSS1, SPINK1, CTRC, CFTR, and CPA1 Gene Variants in Chronic Pancreatitis Patients in Russia.&#34;
     supports: SUPPORT
     snippet: &#34;Pathogenic and likely-pathogenic variants associated with the risk of
       CP development were identified in the following genes: CTRC (37.1% of patients),
@@ -3794,6 +4044,7 @@ environmental:
   notes: Most common cause
   evidence:
   - reference: PMID:15753536
+    reference_title: &#34;Cigarette smoking accelerates progression of alcoholic chronic pancreatitis.&#34;
     supports: SUPPORT
     snippet: &#34;We used data from a retrospective cohort of 934 patients with chronic
       alcoholic pancreatitis where information on smoking was available, who were
@@ -3804,12 +4055,14 @@ environmental:
   notes: Independent risk factor, accelerates progression
   evidence:
   - reference: PMID:15753536
+    reference_title: &#34;Cigarette smoking accelerates progression of alcoholic chronic pancreatitis.&#34;
     supports: SUPPORT
     snippet: &#34;The diagnosis of pancreatitis was made, on average, 4.7 years earlier
       in smokers than in non-smokers (p = 0.001).&#34;
     explanation: Smoking accelerates disease onset, with diagnosis occurring
       nearly 5 years earlier in smokers.
   - reference: PMID:15753536
+    reference_title: &#34;Cigarette smoking accelerates progression of alcoholic chronic pancreatitis.&#34;
     supports: SUPPORT
     snippet: &#34;Tobacco smoking increased significantly the risk of pancreatic calcifications
       (hazard ratio (HR) 4.9 (95% confidence interval (CI) 2.3-10.5) for smokers v
@@ -3825,6 +4078,7 @@ treatments:
   description: Analgesics, nerve blocks, endoscopic therapy.
   evidence:
   - reference: PMID:38680261
+    reference_title: &#34;Pain management in chronic pancreatitis.&#34;
     supports: SUPPORT
     snippet: &#34;Clinicians should follow a holistic approach to the management of CP-associated
       pain, which must involve lifestyle changes that are coupled with analgesic medications
@@ -3836,12 +4090,14 @@ treatments:
   description: For exocrine insufficiency (lipase with meals).
   evidence:
   - reference: PMID:27941156
+    reference_title: &#34;Efficacy of pancreatic enzyme replacement therapy in chronic pancreatitis: systematic review and meta-analysis.&#34;
     supports: SUPPORT
     snippet: &#34;PERT improved CFA compared with baseline (83.7±6.0 vs 63.1±15.0, p&lt;0.00001)&#34;
     explanation: Meta-analysis of 17 randomized controlled trials demonstrates
       significant improvement in fat absorption with pancreatic enzyme
       replacement therapy.
   - reference: PMID:27941156
+    reference_title: &#34;Efficacy of pancreatic enzyme replacement therapy in chronic pancreatitis: systematic review and meta-analysis.&#34;
     supports: SUPPORT
     snippet: &#34;PERT improved coefficient of nitrogen absorption, reduced faecal fat
       excretion, faecal nitrogen excretion, faecal weight and abdominal pain, without
@@ -3853,6 +4109,7 @@ treatments:
   description: Insulin often required for type 3c diabetes.
   evidence:
   - reference: PMID:28404095
+    reference_title: &#34;Type 3c (pancreatogenic) diabetes mellitus secondary to chronic pancreatitis and pancreatic cancer.&#34;
     supports: PARTIAL
     snippet: &#34;The most commonly identified causes of type 3c diabetes are chronic
       pancreatitis, pancreatic ductal adenocarcinoma, haemochromatosis, cystic fibrosis,
@@ -3864,6 +4121,7 @@ treatments:
   description: Small frequent meals, medium-chain triglycerides.
   evidence:
   - reference: PMID:30074926
+    reference_title: &#34;Exocrine Pancreatic Insufficiency and Malnutrition in Chronic Pancreatitis: Identification, Treatment, and Consequences.&#34;
     supports: SUPPORT
     snippet: &#34;There is a high prevalence of fat-soluble vitamin deficiencies, osteopathy,
       and malnutrition in CP patients, which is underestimated due to a lack of effective
@@ -3875,12 +4133,14 @@ treatments:
   description: Essential to slow progression.
   evidence:
   - reference: PMID:38013125
+    reference_title: &#34;Impact of alcohol and smoking cessation on the course of chronic pancreatitis.&#34;
     supports: SUPPORT
     snippet: &#34;Alcohol cessation in chronic pancreatitis reduces exocrine insufficiency,
       abdominal pain, and local complications.&#34;
     explanation: Large cohort study demonstrates that alcohol cessation reduces
       key complications of chronic pancreatitis.
   - reference: PMID:38013125
+    reference_title: &#34;Impact of alcohol and smoking cessation on the course of chronic pancreatitis.&#34;
     supports: SUPPORT
     snippet: &#34;Compared to patients with LTDH, &#39;former drinkers&#39; had a lower rate of
       exocrine insufficiency (29% vs. 59%) and pseudocysts (33% vs. 49%), were more
@@ -3892,12 +4152,14 @@ treatments:
   description: Reduces pain and slows progression.
   evidence:
   - reference: PMID:38013125
+    reference_title: &#34;Impact of alcohol and smoking cessation on the course of chronic pancreatitis.&#34;
     supports: PARTIAL
     snippet: &#34;The cumulative amount of nicotine consumed correlated with overall disease
       severity and the development of pseudocysts.&#34;
     explanation: Dose-dependent relationship between smoking and disease
       severity supports smoking cessation as an important intervention.
   - reference: PMID:15753536
+    reference_title: &#34;Cigarette smoking accelerates progression of alcoholic chronic pancreatitis.&#34;
     supports: SUPPORT
     snippet: &#34;Tobacco smoking increased significantly the risk of pancreatic calcifications
       (hazard ratio (HR) 4.9 (95% confidence interval (CI) 2.3-10.5) for smokers v
@@ -3908,6 +4170,7 @@ treatments:
   description: Stricture dilation, stone removal, stenting.
   evidence:
   - reference: PMID:30654394
+    reference_title: &#34;Endoscopic treatment of chronic pancreatitis: European Society of Gastrointestinal Endoscopy (ESGE) Guideline - Updated August 2018.&#34;
     supports: SUPPORT
     snippet: &#34;ESGE suggests endoscopic therapy and/or extracorporeal shockwave lithotripsy
       (ESWL) as the first-line therapy for painful uncomplicated chronic pancreatitis
@@ -3919,6 +4182,7 @@ treatments:
   description: Drainage or resection procedures for refractory pain.
   evidence:
   - reference: PMID:18471517
+    reference_title: &#34;Resection vs drainage in treatment of chronic pancreatitis: long-term results of a randomized trial.&#34;
     supports: SUPPORT
     snippet: &#34;Both procedures provide adequate pain relief and quality of life after
       long-term follow-up with no differences regarding exocrine and endocrine function.&#34;

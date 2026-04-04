@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1037,6 +1101,52 @@
             text-decoration: underline;
         }
 
+        /* Experimental Models */
+        .exp-model-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .exp-model-box .item-name { color: #92400e; }
+        .exp-model-box .item-desc { color: #b45309; }
+
+        .tag-exp-model-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .tag-namo-type {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+        .tag-condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .model-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .model-detail-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .model-detail-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 110px;
+        }
+        .model-detail-value {
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+        }
+        .model-detail-value a {
+            color: inherit;
+        }
+
         /* Computational Models */
         .comp-model-box {
             background: #f0fdf4;
@@ -1382,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1470,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1477,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1489,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1637,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1723,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1737,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1792,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1877,6 +2093,7 @@
                 </span>
                 
                 
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">tracheal disorder</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">esophageal disorder</span>
@@ -1890,6 +2107,11 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
+        
+        
         
         
         
@@ -1945,6 +2167,12 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
+            
+            
+            <div class="stat-item">
+                <div class="stat-value">0</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
             
             
             <a class="stat-link" href="#genetic">
@@ -2213,7 +2441,7 @@
                 <span class="card-count">5</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-failed-foregut-partitioning">
                 <div class="item-name">Failed foregut partitioning</div>
                 
                 <div class="item-desc">Abnormal separation of the anterior foregut permits persistent communication between airway and esophagus.</div>
@@ -2267,6 +2495,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -2323,7 +2552,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-bmp4-signaling-during-larynx-development">
                 <div class="item-name">Disrupted BMP4 signaling during larynx development</div>
                 
                 <div class="item-desc">Disruption of BMP4 signaling perturbs laryngeal development and is associated with laryngeal cleft in a mouse model.</div>
@@ -2368,6 +2597,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2402,7 +2632,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-posterior-communication-between-larynx-trachea-and-esophagus">
                 <div class="item-name">Posterior communication between larynx/trachea and esophagus</div>
                 
                 <div class="item-desc">Abnormal posterior cleft connects the larynx/trachea with the esophagus.</div>
@@ -2440,6 +2670,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2474,7 +2705,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-foregut-maldevelopment-during-respiratory-and-digestive-tract-development">
                 <div class="item-name">Foregut maldevelopment during respiratory and digestive tract development</div>
                 
                 <div class="item-desc">Disrupted foregut development underlies formation of the cleft.</div>
@@ -2530,6 +2761,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2564,7 +2796,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-enriched-esophageal-malformation-gene-expression-in-lateral-plate-mesoderm">
                 <div class="item-name">Enriched esophageal malformation gene expression in lateral plate mesoderm</div>
                 
                 <div class="item-desc">Esophageal malformation genes show highest expression in lateral plate mesoderm during early development, implicating this tissue in maldevelopment.</div>
@@ -2586,6 +2818,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -4476,6 +4709,9 @@
         <!-- Clinical Trials -->
         
 
+        <!-- Experimental Models -->
+        
+
         <!-- Computational Models -->
         
 
@@ -4516,6 +4752,7 @@ prevalence:
     undergoing flexible endoscopy at a single institution.
   evidence:
   - reference: PMID:35596199
+    reference_title: &#34;Early detection of laryngeal cleft in infants by novel technique of flexible endoscopy with sustained pharyngeal inflation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;This equates to a prevalence of 0.28% in all the children who underwent
@@ -4589,6 +4826,7 @@ pathophysiology:
     explanation: Case report links LTEC to foregut maldevelopment, supporting
       failed partitioning.
   - reference: PMID:38380453
+    reference_title: &#34;Laryngotracheoesophageal Cleft Type IV in a Preterm Neonate. A Case Report and Literature Review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;failure of separation of the trachea and the oesophagus during fetal
@@ -4611,6 +4849,7 @@ pathophysiology:
     modifier: DYSREGULATED
   evidence:
   - reference: PMID:37230380
+    reference_title: &#34;Disruption of BMP4 signaling is associated with laryngeal birth defects in a mouse model.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Disruption of BMP4 signaling is associated with laryngeal birth defects
@@ -4715,6 +4954,7 @@ phenotypes:
     snippet: &#34;The patient experienced frequent vomiting and aspiration pneumonia&#34;
     explanation: Case report documents aspiration pneumonia in LTEC.
   - reference: PMID:32593610
+    reference_title: &#34;Not Just for Kids: A Rare Case of Congenital Laryngeal Cleft in an Adult.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;He had chronic aspiration, recurrent pneumonia, and a hoarse voice for
@@ -4722,12 +4962,14 @@ phenotypes:
     explanation: Adult case report documents recurrent pneumonia in a laryngeal
       cleft patient.
   - reference: PMID:40227884
+    reference_title: &#34;Pulmonary and Radiographic Findings in Pediatric Type 1 Laryngeal Cleft.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;nearly half (44%) had a history of pneumonia&#34;
     explanation: Cohort study reports frequent pneumonia history in type 1
       laryngeal cleft.
   - reference: PMID:6873110
+    reference_title: &#34;Laryngo-tracheo-oesophageal cleft. Clinical features, diagnosis and therapy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;life-threatening disturbances in the form of asphyxia and aspiration
@@ -4745,6 +4987,7 @@ phenotypes:
       label: Aspiration pneumonia
   evidence:
   - reference: PMID:6873110
+    reference_title: &#34;Laryngo-tracheo-oesophageal cleft. Clinical features, diagnosis and therapy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;life-threatening disturbances in the form of asphyxia and aspiration
@@ -4764,18 +5007,21 @@ phenotypes:
       label: Cough
   evidence:
   - reference: PMID:32593610
+    reference_title: &#34;Not Just for Kids: A Rare Case of Congenital Laryngeal Cleft in an Adult.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;a 56-year-old male referred for hoarseness and chronic cough that was
       discovered to have a type 2 laryngeal cleft.&#34;
     explanation: Adult case report documents chronic cough in laryngeal cleft.
   - reference: PMID:39543566
+    reference_title: &#34;The Breathing Struggle: A Case Study of Congenital Lung Malformation in a Young Child.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;severe coughing&#34;
     explanation: Case report describes severe coughing in a child with a
       posterior laryngeal cleft.
   - reference: PMID:40330935
+    reference_title: &#34;Type 1 laryngeal cleft management: a pediatric tertiary care center case series.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;All patients experienced cough and choking with feeding.&#34;
@@ -4793,6 +5039,7 @@ phenotypes:
       label: Choking episodes
   evidence:
   - reference: PMID:40330935
+    reference_title: &#34;Type 1 laryngeal cleft management: a pediatric tertiary care center case series.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;All patients experienced cough and choking with feeding.&#34;
@@ -4810,6 +5057,7 @@ phenotypes:
       label: Upper airway obstruction
   evidence:
   - reference: PMID:37436152
+    reference_title: &#34;Type 3 Laryngeal Clefts Presenting with Upper Airway Obstruction without Aspiration.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;the sole presenting feature may be airway obstruction.&#34;
@@ -4827,6 +5075,7 @@ phenotypes:
       label: Dysphagia
   evidence:
   - reference: PMID:37441989
+    reference_title: &#34;Timeline to dysphagia resolution after endoscopic intervention of an interarytenoid defect based on Video Fluoroscopic Swallow Study dysphagia severity.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;children with dysphagia found to have a LC-1 or DIG on endoscopic exam&#34;
@@ -4843,6 +5092,7 @@ phenotypes:
       label: Stridor
   evidence:
   - reference: PMID:40330935
+    reference_title: &#34;Type 1 laryngeal cleft management: a pediatric tertiary care center case series.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;one had a stridor&#34;
@@ -4859,11 +5109,13 @@ phenotypes:
       label: Hoarse voice
   evidence:
   - reference: PMID:32593610
+    reference_title: &#34;Not Just for Kids: A Rare Case of Congenital Laryngeal Cleft in an Adult.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;referred for hoarseness and chronic cough&#34;
     explanation: Adult case report lists hoarseness as a presenting symptom.
   - reference: PMID:39543566
+    reference_title: &#34;The Breathing Struggle: A Case Study of Congenital Lung Malformation in a Young Child.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;He presented with hoarseness&#34;
@@ -4881,11 +5133,13 @@ phenotypes:
       label: Dyspnea
   evidence:
   - reference: PMID:30783751
+    reference_title: &#34;Repair of type IV laryngotracheoesophageal cleft (LTEC) on ECMO.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;showed severe dyspnea and dysphagia&#34;
     explanation: Case report documents severe dyspnea in type IV LTEC.
   - reference: PMID:39543566
+    reference_title: &#34;The Breathing Struggle: A Case Study of Congenital Lung Malformation in a Young Child.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;shortness of breath&#34;
@@ -4903,6 +5157,7 @@ phenotypes:
       label: Wheezing
   evidence:
   - reference: PMID:39543566
+    reference_title: &#34;The Breathing Struggle: A Case Study of Congenital Lung Malformation in a Young Child.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;severe wheezing&#34;
@@ -4920,6 +5175,7 @@ phenotypes:
       label: Aspiration
   evidence:
   - reference: PMID:40227884
+    reference_title: &#34;Pulmonary and Radiographic Findings in Pediatric Type 1 Laryngeal Cleft.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;can result in chronic microaspiration and subsequent lung disease&#34;
@@ -4936,6 +5192,7 @@ phenotypes:
       label: Atelectasis
   evidence:
   - reference: PMID:40227884
+    reference_title: &#34;Pulmonary and Radiographic Findings in Pediatric Type 1 Laryngeal Cleft.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;atelectasis (56%)&#34;
@@ -4952,6 +5209,7 @@ phenotypes:
       label: Bronchial wall thickening
   evidence:
   - reference: PMID:40227884
+    reference_title: &#34;Pulmonary and Radiographic Findings in Pediatric Type 1 Laryngeal Cleft.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;bronchial wall thickening (59%)&#34;
@@ -4968,6 +5226,7 @@ diagnosis:
       label: laryngoscopy
   evidence:
   - reference: PMID:38380453
+    reference_title: &#34;Laryngotracheoesophageal Cleft Type IV in a Preterm Neonate. A Case Report and Literature Review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;direct laryngoscopy/bronchoscopy finally depicts the exact extension
@@ -4975,12 +5234,14 @@ diagnosis:
     explanation: Case report highlights direct laryngoscopy as definitive for
       delineating cleft extent.
   - reference: PMID:6873110
+    reference_title: &#34;Laryngo-tracheo-oesophageal cleft. Clinical features, diagnosis and therapy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The diagnosis is made through direct laryngoscopy.&#34;
     explanation: Review states that direct laryngoscopy establishes the
       diagnosis.
   - reference: PMID:37816841
+    reference_title: &#34;Congenital laryngo-tracheo-esophageal clefts: updates from a quaternary care pediatric airway unit.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Every patient underwent a diagnostic endoscopy under general anesthesia&#34;
@@ -4996,6 +5257,7 @@ diagnosis:
       label: bronchoscopy
   evidence:
   - reference: PMID:38380453
+    reference_title: &#34;Laryngotracheoesophageal Cleft Type IV in a Preterm Neonate. A Case Report and Literature Review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;direct laryngoscopy/bronchoscopy finally depicts the exact extension
@@ -5003,6 +5265,7 @@ diagnosis:
     explanation: Case report notes bronchoscopy as part of definitive
       evaluation.
   - reference: PMID:30783751
+    reference_title: &#34;Repair of type IV laryngotracheoesophageal cleft (LTEC) on ECMO.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We also performed observations with a rigid bronchoscope to assess extent
@@ -5019,6 +5282,7 @@ diagnosis:
       label: chest radiograph procedure
   evidence:
   - reference: PMID:40227884
+    reference_title: &#34;Pulmonary and Radiographic Findings in Pediatric Type 1 Laryngeal Cleft.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Abnormal CXR findings were common (80%), with atelectasis (56%) and
@@ -5035,6 +5299,7 @@ diagnosis:
       label: laryngoscopy
   evidence:
   - reference: PMID:35596199
+    reference_title: &#34;Early detection of laryngeal cleft in infants by novel technique of flexible endoscopy with sustained pharyngeal inflation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;flexible endoscopy with noninvasive ventilation (NIV) and sustained
@@ -5052,12 +5317,14 @@ diagnosis:
       label: barium swallow radiograph procedure
   evidence:
   - reference: PMID:37441989
+    reference_title: &#34;Timeline to dysphagia resolution after endoscopic intervention of an interarytenoid defect based on Video Fluoroscopic Swallow Study dysphagia severity.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Video Fluoroscopic Swallow Study dysphagia severity&#34;
     explanation: Study uses VFSS to characterize dysphagia severity in LC1/DIG
       patients undergoing endoscopic intervention.
   - reference: PMID:6873110
+    reference_title: &#34;Laryngo-tracheo-oesophageal cleft. Clinical features, diagnosis and therapy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Radiological demonstration of swallowing and tracheo-oesophagoscopy
@@ -5074,6 +5341,7 @@ diagnosis:
       label: computed tomography procedure
   evidence:
   - reference: PMID:35596199
+    reference_title: &#34;Early detection of laryngeal cleft in infants by novel technique of flexible endoscopy with sustained pharyngeal inflation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;missed by 11 prior bronchoscopy and 5 computer tomography examinations.&#34;
@@ -5089,6 +5357,7 @@ differential_diagnoses:
       label: esophageal atresia
   evidence:
   - reference: PMID:30232040
+    reference_title: &#34;Laryngotracheoesophageal cleft, a rare differential diagnosis of esophageal atresia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Laryngotracheoesophageal cleft, a rare differential diagnosis of esophageal
@@ -5105,6 +5374,7 @@ differential_diagnoses:
       label: isolated tracheo-esophageal fistula
   evidence:
   - reference: PMID:22151899
+    reference_title: &#34;Laryngo-tracheo-oesophageal clefts.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Differential diagnoses include tracheo-bronchial fistula, gastro-esophageal
@@ -5122,6 +5392,7 @@ differential_diagnoses:
       label: gastroesophageal reflux disease
   evidence:
   - reference: PMID:22151899
+    reference_title: &#34;Laryngo-tracheo-oesophageal clefts.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Differential diagnoses include tracheo-bronchial fistula, gastro-esophageal
@@ -5138,6 +5409,7 @@ differential_diagnoses:
       label: congenital laryngomalacia
   evidence:
   - reference: PMID:22151899
+    reference_title: &#34;Laryngo-tracheo-oesophageal clefts.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Differential diagnoses include tracheo-bronchial fistula, gastro-esophageal
@@ -5149,6 +5421,7 @@ treatments:
   description: Endoscopic laser repair used for type 1 laryngeal clefts.
   evidence:
   - reference: PMID:40330935
+    reference_title: &#34;Type 1 laryngeal cleft management: a pediatric tertiary care center case series.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;endoscopic laser repair remains the gold standard treatment for type
@@ -5175,6 +5448,7 @@ treatments:
   description: Staged endoscopic CO2 laser-assisted repair for type 3 clefts.
   evidence:
   - reference: PMID:40579891
+    reference_title: &#34;Minimally Invasive Staged Endoscopic CO2 Laser Repair of Type III Laryngo-Tracheo-Esophageal Clefts: When and How.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Nineteen patients with Type III laryngeal clefts who were treated with
@@ -5212,6 +5486,7 @@ treatments:
     intervention in laryngeal cleft.
   evidence:
   - reference: PMID:39260330
+    reference_title: &#34;International perspective of injection laryngoplasty for laryngeal cleft - A survey study.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;LC can be treated surgically by performing suture repair or by Injection
@@ -5219,6 +5494,7 @@ treatments:
     explanation: Survey study identifies injection laryngoplasty as a treatment
       option for laryngeal cleft.
   - reference: PMID:40330935
+    reference_title: &#34;Type 1 laryngeal cleft management: a pediatric tertiary care center case series.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;we initially managed patients with type 1 LC with hyaluronic acid injections
@@ -5226,6 +5502,7 @@ treatments:
     explanation: Case series documents injection laryngoplasty used in initial
       management.
   - reference: PMID:35236684
+    reference_title: &#34;Injection laryngoplasty for laryngeal cleft type I in an 8-week-old infant.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;injection laryngoplasty is performed safely on an 8-week-old child&#34;
@@ -5251,18 +5528,21 @@ treatments:
   description: Operative repair of laryngeal cleft improves aspiration symptoms.
   evidence:
   - reference: PMID:40629707
+    reference_title: &#34;Familial Laryngeal Cleft: Pediatric Detection Leads to Adult Diagnosis and Intervention.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;All showed marked improvement after surgical repair.&#34;
     explanation: Familial case report shows symptom improvement after surgical
       repair.
   - reference: PMID:6873110
+    reference_title: &#34;Laryngo-tracheo-oesophageal cleft. Clinical features, diagnosis and therapy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;an early operative correction of the defect is required.&#34;
     explanation: Review emphasizes early operative correction for
       laryngotracheoesophageal cleft.
   - reference: PMID:30783751
+    reference_title: &#34;Repair of type IV laryngotracheoesophageal cleft (LTEC) on ECMO.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;repair of the cleft was performed by an anterior approach via median
@@ -5270,6 +5550,7 @@ treatments:
     explanation: Type IV case report documents surgical repair of LTEC with an
       anterior approach under ECMO.
   - reference: PMID:35039336
+    reference_title: &#34;Simultaneous anterior cervical repair of type IV laryngeal cleft and tracheo-oesophageal fistula.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Simultaneous anterior cervical repair of type IV laryngeal cleft and
@@ -5277,11 +5558,13 @@ treatments:
     explanation: Case report demonstrates surgical repair for type IV laryngeal
       cleft with TEF.
   - reference: PMID:32593610
+    reference_title: &#34;Not Just for Kids: A Rare Case of Congenital Laryngeal Cleft in an Adult.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;successfully treated with an endoscopic approach using absorbable suture&#34;
     explanation: Adult case report supports endoscopic surgical repair.
   - reference: PMID:37073597
+    reference_title: &#34;Repair of posterior laryngeal cleft: a 10-year experience in a tertiary referral hospital.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Surgical management in the form of endoscopic Coblation-assisted or
@@ -5309,6 +5592,7 @@ treatments:
     grafting for type III/IV LTEC.
   evidence:
   - reference: PMID:38761217
+    reference_title: &#34;Outcomes of surgical repair of Type III and IV laryngotracheoesophageal clefts with posterior cartilage grafting.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;an anterior approach that involved interposition a posterior cartilage
@@ -5325,6 +5609,7 @@ treatments:
     clefts with tracheal extension.
   evidence:
   - reference: PMID:37816841
+    reference_title: &#34;Congenital laryngo-tracheo-esophageal clefts: updates from a quaternary care pediatric airway unit.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Primary and revision repair of long clefts with tracheal extension may
@@ -5390,6 +5675,7 @@ genetic:
   association: Associated
   evidence:
   - reference: PMID:30245899
+    reference_title: &#34;Type IV Laryngotracheoesophageal Cleft Associated with Type III Esophageal Atresia in 1p36 Deletions Containing the RERE Gene: Is There a Causal Role for the Genetic Alteration?&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;a 1p36 deletion including the RERE gene was detected.&#34;

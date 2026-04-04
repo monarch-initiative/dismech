@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1037,6 +1101,52 @@
             text-decoration: underline;
         }
 
+        /* Experimental Models */
+        .exp-model-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .exp-model-box .item-name { color: #92400e; }
+        .exp-model-box .item-desc { color: #b45309; }
+
+        .tag-exp-model-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .tag-namo-type {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+        .tag-condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .model-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .model-detail-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .model-detail-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 110px;
+        }
+        .model-detail-value {
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+        }
+        .model-detail-value a {
+            color: inherit;
+        }
+
         /* Computational Models */
         .comp-model-box {
             background: #f0fdf4;
@@ -1382,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1470,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1477,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1489,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1637,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1723,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1737,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1792,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1877,6 +2093,7 @@
                 </span>
                 
                 
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Glycogen Storage Disease</span>
                 
             </div>
@@ -1889,6 +2106,11 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
+        
+        
         
         
         
@@ -1946,6 +2168,12 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
+            
+            
+            <div class="stat-item">
+                <div class="stat-value">0</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
             
             
             <div class="stat-item">
@@ -2284,7 +2512,7 @@
                 <span class="card-count">3</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-glycogen-debranching-enzyme-deficiency">
                 <div class="item-name">Glycogen debranching enzyme deficiency</div>
                 
                 <div class="item-desc">Deficiency of the glycogen debranching enzyme (AGL) impairs the complete degradation of glycogen. The enzyme normally has two catalytic activities: oligo-1,4-1,4-glucantransferase (transferase) and amylo-1,6-glucosidase (glucosidase). Without this enzyme, glycogen breakdown halts at the branch points, leading to accumulation of limit dextrin (abnormally short-branched glycogen) in hepatocytes, skeletal myocytes, and cardiomyocytes.
@@ -2351,6 +2579,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2430,7 +2659,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-glycogen-accumulation-and-fibrosis">
                 <div class="item-name">Hepatic glycogen accumulation and fibrosis</div>
                 
                 <div class="item-desc">Progressive accumulation of limit dextrin in hepatocytes causes hepatomegaly and hepatic dysfunction. Over time, the glycogen storage leads to hepatocyte injury, inflammation, fibrosis, and potentially cirrhosis. Hepatocellular adenomas and carcinoma can develop as long-term complications. Liver fibrosis can begin early in life; aminotransferases may paradoxically normalize with age as fibrosis progresses.
@@ -2477,6 +2706,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2556,7 +2786,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-skeletal-and-cardiac-myopathy">
                 <div class="item-name">Skeletal and cardiac myopathy</div>
                 
                 <div class="item-desc">In GSD IIIa, glycogen accumulation in skeletal and cardiac muscle leads to progressive myopathy and cardiomyopathy. Muscle involvement may be minimal in childhood but typically worsens with age. The myopathy is slowly progressive and can lead to significant disability. Cardiac involvement manifests primarily as left ventricular hypertrophy, which may progress to cardiomyopathy.
@@ -2603,6 +2833,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3608,6 +3839,9 @@
         <!-- Clinical Trials -->
         
 
+        <!-- Experimental Models -->
+        
+
         <!-- Computational Models -->
         
 
@@ -3644,6 +3878,24 @@ disease_term:
     label: glycogen storage disease III
 parents:
 - Glycogen Storage Disease
+prevalence:
+- population: Global and founder populations
+  percentage: 1 in 100,000 globally; 1 in 5,400 in North African Jews; 1 in 3,100-3,600 in the Faroe Islands
+  notes: &gt;-
+    Glycogen storage disease type III is rare in the general population but
+    shows major founder enrichment in certain populations, especially North
+    African Jewish and Faroese groups.
+  evidence:
+  - reference: PMID:9412782
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The overall incidence of the disease is about 1:100,000 life births in the USA; however, it is unusually frequent among North African Jews in Israel (prevalence 1:5,400, carrier prevalence 1:35).&#34;
+    explanation: This population study provides both the general-population incidence estimate and the founder-population prevalence estimate for North African Jews.
+  - reference: PMID:11378828
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;From the fact that we are currently aware of a total of 14 GSD IIIA cases in the Faroese population of 45 000, the observed prevalence is 1 : 3100.&#34;
+    explanation: This founder-population study documents exceptionally high prevalence of GSD IIIA in the Faroe Islands.
 inheritance:
 - name: Autosomal recessive
   inheritance_term:
@@ -3658,6 +3910,7 @@ inheritance:
     and Inuit communities.
   evidence:
   - reference: PMID:20301788
+    reference_title: &#34;Glycogen Storage Disease Type III.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;GSD III is inherited in an autosomal recessive manner. If both parents
@@ -3668,6 +3921,7 @@ inheritance:
     explanation: GeneReviews confirms autosomal recessive inheritance of GSD III with
       standard Mendelian ratios for carrier parents.
   - reference: PMID:11949933
+    reference_title: &#34;Molecular characterization of glycogen storage disease type III.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Deficiency of the glycogen debranching enzyme (gene, AGL) causes glycogen
@@ -3684,6 +3938,7 @@ has_subtypes:
   subtype_frequency: &#34;~85%&#34;
   evidence:
   - reference: PMID:20301788
+    reference_title: &#34;Glycogen Storage Disease Type III.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;GSD IIIa is the most common subtype, present in about 85% of affected
@@ -3698,6 +3953,7 @@ has_subtypes:
   subtype_frequency: &#34;~15%&#34;
   evidence:
   - reference: PMID:20301788
+    reference_title: &#34;Glycogen Storage Disease Type III.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;GSD IIIb, with liver involvement only, comprises about 15% of all
@@ -3705,6 +3961,7 @@ has_subtypes:
     explanation: GeneReviews confirms GSD IIIb as the liver-only subtype comprising
       approximately 15% of cases.
   - reference: PMID:11949933
+    reference_title: &#34;Molecular characterization of glycogen storage disease type III.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;exon 3 mutations (17delAG and Q6X) are specifically associated with
@@ -3730,12 +3987,14 @@ pathophysiology:
       label: AGL
   evidence:
   - reference: PMID:11949933
+    reference_title: &#34;Molecular characterization of glycogen storage disease type III.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Most GSD-III patients have AGL deficiency in both the liver and muscle
       (type IIIa), but some have it in the liver but not muscle (type IIIb).&#34;
     explanation: Confirms AGL deficiency causes GSD III with tissue-specific subtypes.
   - reference: PMID:27106217
+    reference_title: &#34;Glycogen storage disease type III: diagnosis, genotype, management, clinical course and outcome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Glycogen storage disease type III (GSDIII) is a rare disorder of
@@ -3744,6 +4003,7 @@ pathophysiology:
     explanation: Large international cohort study confirms AGL mutations cause
       debranching enzyme deficiency and limit dextrin accumulation.
   - reference: PMID:33368379
+    reference_title: &#34;Narrative review of glycogen storage disorder type III with a focus on neuromuscular, cardiac and therapeutic aspects.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Glycogen storage disorder type III (GSDIII) is a rare inborn error of
@@ -3784,6 +4044,7 @@ pathophysiology:
     age as fibrosis progresses.
   evidence:
   - reference: PMID:31263214
+    reference_title: &#34;Liver fibrosis during clinical ascertainment of glycogen storage disease type III: a need for improved and systematic monitoring.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Liver fibrosis can occur at an early age, and may explain the decrease
@@ -3791,6 +4052,7 @@ pathophysiology:
     explanation: Demonstrates that liver fibrosis occurs early in GSD III and that
       normalization of aminotransferases with age does not indicate hepatic improvement.
   - reference: PMID:27106217
+    reference_title: &#34;Glycogen storage disease type III: diagnosis, genotype, management, clinical course and outcome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Chronic complications involved the liver (hepatic cirrhosis, adenoma(s),
@@ -3798,6 +4060,7 @@ pathophysiology:
     explanation: Large cohort study documents hepatic cirrhosis and HCC as chronic
       complications of GSD III.
   - reference: PMID:34820282
+    reference_title: &#34;A retrospective longitudinal study and comprehensive review of adult patients with glycogen storage disease type III.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;hepatomegaly and cirrhosis were the most common radiological findings;
@@ -3828,6 +4091,7 @@ pathophysiology:
     as left ventricular hypertrophy, which may progress to cardiomyopathy.
   evidence:
   - reference: PMID:20301788
+    reference_title: &#34;Glycogen Storage Disease Type III.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Most individuals develop cardiac involvement with cardiac hypertrophy
@@ -3837,6 +4101,7 @@ pathophysiology:
     explanation: GeneReviews describes the progressive nature of cardiac and skeletal
       muscle involvement in GSD III.
   - reference: PMID:27106217
+    reference_title: &#34;Glycogen storage disease type III: diagnosis, genotype, management, clinical course and outcome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;heart (cardiac involvement and cardiomyopathy, in 58 % and 15 %,
@@ -3845,6 +4110,7 @@ pathophysiology:
     explanation: Large international cohort quantifies cardiac involvement at 58%
       and cardiomyopathy at 15% in GSD III patients.
   - reference: PMID:34820282
+    reference_title: &#34;A retrospective longitudinal study and comprehensive review of adult patients with glycogen storage disease type III.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;muscle weakness was a major feature, noted in 89% of the GSD IIIa cohort,
@@ -3879,6 +4145,7 @@ phenotypes:
       label: Hepatomegaly
   evidence:
   - reference: PMID:27106217
+    reference_title: &#34;Glycogen storage disease type III: diagnosis, genotype, management, clinical course and outcome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;GSDIII patients first presented before the age of 1.5 years,
@@ -3898,6 +4165,7 @@ phenotypes:
       label: Fasting hypoglycemia
   evidence:
   - reference: PMID:20301788
+    reference_title: &#34;Glycogen Storage Disease Type III.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In infancy and early childhood, liver involvement presents as
@@ -3906,6 +4174,7 @@ phenotypes:
     explanation: GeneReviews describes fasting ketotic hypoglycemia as a key feature
       of GSD III in infancy and early childhood.
   - reference: PMID:38196773
+    reference_title: &#34;Glycogen storage disease type III: a mixed-methods study to assess the burden of disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Hypoglycemia was frequently reported in both adults and children, with
@@ -3923,6 +4192,7 @@ phenotypes:
       label: Hyperlipidemia
   evidence:
   - reference: PMID:20301788
+    reference_title: &#34;Glycogen Storage Disease Type III.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;fasting ketotic hypoglycemia, hyperlipidemia, and elevated hepatic
@@ -3941,6 +4211,7 @@ phenotypes:
       label: Myopathy
   evidence:
   - reference: PMID:34820282
+    reference_title: &#34;A retrospective longitudinal study and comprehensive review of adult patients with glycogen storage disease type III.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In the GSD IIIa group, muscle weakness was a major feature, noted in 89%
@@ -3949,6 +4220,7 @@ phenotypes:
     explanation: Retrospective study of adults quantifies muscle weakness at 89%
       prevalence in GSD IIIa with significant functional impact.
   - reference: PMID:38196773
+    reference_title: &#34;Glycogen storage disease type III: a mixed-methods study to assess the burden of disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Adults most often reported muscle weakness as a top interfering symptom
@@ -3969,6 +4241,7 @@ phenotypes:
       label: Hypertrophic cardiomyopathy
   evidence:
   - reference: PMID:34820282
+    reference_title: &#34;A retrospective longitudinal study and comprehensive review of adult patients with glycogen storage disease type III.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Asymptomatic left ventricular hypertrophy (LVH) was the most common
@@ -3977,6 +4250,7 @@ phenotypes:
     explanation: Adult cohort study quantifies LVH at 43% and symptomatic
       cardiomyopathy at 10%.
   - reference: PMID:27106217
+    reference_title: &#34;Glycogen storage disease type III: diagnosis, genotype, management, clinical course and outcome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;heart (cardiac involvement and cardiomyopathy, in 58 % and 15 %,
@@ -3995,6 +4269,7 @@ phenotypes:
       label: Elevated circulating creatine kinase concentration
   evidence:
   - reference: PMID:31263214
+    reference_title: &#34;Liver fibrosis during clinical ascertainment of glycogen storage disease type III: a need for improved and systematic monitoring.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Creatine phosphokinase was also elevated with no significant correlation
@@ -4014,6 +4289,7 @@ phenotypes:
       label: Hepatic fibrosis
   evidence:
   - reference: PMID:31263214
+    reference_title: &#34;Liver fibrosis during clinical ascertainment of glycogen storage disease type III: a need for improved and systematic monitoring.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Liver fibrosis can occur at an early age, and may explain the decrease
@@ -4021,6 +4297,7 @@ phenotypes:
     explanation: Study demonstrates early onset of liver fibrosis in GSD III
       and its paradoxical relationship to normalizing aminotransferases.
   - reference: PMID:34820282
+    reference_title: &#34;A retrospective longitudinal study and comprehensive review of adult patients with glycogen storage disease type III.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;28% developed decompensated liver disease and portal hypertension&#34;
@@ -4038,6 +4315,7 @@ phenotypes:
       label: Failure to thrive
   evidence:
   - reference: PMID:20301788
+    reference_title: &#34;Glycogen Storage Disease Type III.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In infancy and early childhood, liver involvement presents as
@@ -4055,6 +4333,7 @@ phenotypes:
       label: Elevated circulating hepatic transaminase concentration
   evidence:
   - reference: PMID:31263214
+    reference_title: &#34;Liver fibrosis during clinical ascertainment of glycogen storage disease type III: a need for improved and systematic monitoring.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Markers of liver injury (aminotransferases), dysfunction (cholesterol,
@@ -4077,6 +4356,7 @@ treatments:
       label: dietary intervention
   evidence:
   - reference: PMID:20301788
+    reference_title: &#34;Glycogen Storage Disease Type III.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Dietary management tailored to the individual patient remains the
@@ -4085,6 +4365,7 @@ treatments:
     explanation: GeneReviews establishes dietary management as the primary therapy
       with specific recommendations for meal frequency.
   - reference: PMID:2403059
+    reference_title: &#34;Efficacy of cornstarch therapy in type III glycogen-storage disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Cornstarch therapy was associated with maintenance of normoglycemia,
@@ -4093,6 +4374,7 @@ treatments:
     explanation: Clinical study demonstrates efficacy of cornstarch therapy in
       GSD III for glycemic control, growth, and liver function.
   - reference: PMID:25308556
+    reference_title: &#34;Improvement of Cardiomyopathy After High-Fat Diet in Two Siblings with Glycogen Storage Disease Type III.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;A diet rich in fats as well as proteins and poor in carbohydrates could
@@ -4111,6 +4393,7 @@ treatments:
       label: organ transplantation
   evidence:
   - reference: PMID:20301788
+    reference_title: &#34;Glycogen Storage Disease Type III.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Liver transplantation is reserved for those with severe hepatic
@@ -4130,6 +4413,7 @@ treatments:
       label: genetic counseling
   evidence:
   - reference: PMID:20301788
+    reference_title: &#34;Glycogen Storage Disease Type III.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Once the AGL pathogenic variants have been identified in an affected

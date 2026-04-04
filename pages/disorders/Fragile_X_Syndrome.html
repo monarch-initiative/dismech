@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1037,6 +1101,52 @@
             text-decoration: underline;
         }
 
+        /* Experimental Models */
+        .exp-model-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .exp-model-box .item-name { color: #92400e; }
+        .exp-model-box .item-desc { color: #b45309; }
+
+        .tag-exp-model-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .tag-namo-type {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+        .tag-condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .model-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .model-detail-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .model-detail-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 110px;
+        }
+        .model-detail-value {
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+        }
+        .model-detail-value a {
+            color: inherit;
+        }
+
         /* Computational Models */
         .comp-model-box {
             background: #f0fdf4;
@@ -1382,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1470,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1477,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1489,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1637,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1723,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1737,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1792,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1877,6 +2093,7 @@
                 </span>
                 
                 
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Intellectual Disability Syndrome</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Trinucleotide Repeat Disorder</span>
@@ -1886,6 +2103,11 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
+        
+        
         
         
         
@@ -1941,6 +2163,12 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
+            
+            
+            <div class="stat-item">
+                <div class="stat-value">0</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
             
             
             <a class="stat-link" href="#genetic">
@@ -2099,7 +2327,7 @@
                 <span class="card-count">2</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-fmrp-deficiency">
                 <div class="item-name">FMRP Deficiency</div>
                 
                 <div class="item-desc">Expansion of CGG trinucleotide repeat in FMR1 gene 5&#39; UTR beyond 200 repeats causes hypermethylation and transcriptional silencing. This results in absence of fragile X mental retardation protein (FMRP), an RNA-binding protein essential for synaptic plasticity.
@@ -2141,6 +2369,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2173,7 +2402,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-synaptic-development">
                 <div class="item-name">Abnormal Synaptic Development</div>
                 
                 <div class="item-desc">FMRP normally suppresses translation of many synaptic proteins. Its absence leads to excessive protein synthesis at synapses, abnormal dendritic spine morphology (long, thin spines), and impaired synaptic maturation and pruning.
@@ -2210,6 +2439,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2945,6 +3175,9 @@
         <!-- Clinical Trials -->
         
 
+        <!-- Experimental Models -->
+        
+
         <!-- Computational Models -->
         
 
@@ -2976,6 +3209,23 @@ has_subtypes:
   description: More than 200 CGG repeats with methylation, full syndrome expression in males.
 - name: Premutation Carrier
   description: 55-200 CGG repeats, risk for FXTAS (tremor-ataxia) and FXPOI in carriers.
+prevalence:
+- population: General population
+  percentage: 1.4 per 10,000 males; 0.9 per 10,000 females
+  notes: &gt;-
+    Meta-analysis estimates the full FMR1 mutation frequency at about 1 in
+    7,143 males and 1 in 11,111 females in the total population.
+  evidence:
+  - reference: PMID:24700618
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Using the random-effects model, frequency of the full mutation was 1.4 (95% CI: 0.1-3.1) per 10,000 males and 0.9 (95% CI: 0.0-2.9) per 10,000 females (1:7,143 and 1:11,111, respectively) in the total population.&#34;
+    explanation: This systematic review and meta-analysis provides pooled sex-specific full-mutation frequencies for fragile X syndrome.
+  - reference: PMID:9032640
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Revised prevalence figures have been calculated giving rise to an overall prevalence figure of 1/2720 (range 1/2198-1/3089). If the four children lost to follow up are also assumed not to have the fragile X syndrome, the revised prevalence figure was 1/5714 (range 1/4762-1/6349).&#34;
+    explanation: This molecular re-evaluation of an older population cohort supports that fragile X syndrome prevalence is lower than earlier historical estimates and within the rare-disease range.
 pathophysiology:
 - name: FMRP Deficiency
   description: &gt;
@@ -2994,6 +3244,7 @@ pathophysiology:
       label: regulation of synaptic plasticity
   evidence:
   - reference: PMID:24346713
+    reference_title: &#34;From FMRP function to potential therapies for fragile X syndrome.&#34;
     supports: SUPPORT
     snippet: &#34;Most FXS cases occur due to the expansion of the CGG trinucleotide repeats in the 5&#39; un-translated region of FMR1, which leads to hypermethylation and in turn silences the expression of FMRP&#34;
     explanation: Review confirms CGG repeat expansion leads to FMRP silencing in Fragile X syndrome.
@@ -3014,10 +3265,12 @@ pathophysiology:
       label: synapse organization
   evidence:
   - reference: PMID:24346713
+    reference_title: &#34;From FMRP function to potential therapies for fragile X syndrome.&#34;
     supports: SUPPORT
     snippet: &#34;In the absence of FMRP, the basal protein translation is enhanced and not responsive to neuronal stimulation. The altered protein translation may contribute to functional abnormalities in certain aspects of synaptic plasticity&#34;
     explanation: Review confirms FMRP absence leads to altered synaptic protein synthesis and plasticity.
   - reference: PMID:22483044
+    reference_title: &#34;The pathophysiology of fragile X (and what it teaches us about synapses).&#34;
     supports: SUPPORT
     snippet: &#34;FMRP is an mRNA-binding protein that functions at many synapses to inhibit local translation stimulated by metabotropic glutamate receptors (mGluRs) 1 and 5.&#34;
     explanation: Review confirms FMRP normally inhibits synaptic protein translation.
@@ -3034,6 +3287,7 @@ phenotypes:
       label: Intellectual disability
   evidence:
   - reference: PMID:22483044
+    reference_title: &#34;The pathophysiology of fragile X (and what it teaches us about synapses).&#34;
     supports: SUPPORT
     snippet: &#34;Fragile X is the most common known inherited cause of intellectual disability and autism&#34;
     explanation: Review confirms intellectual disability as a cardinal feature of Fragile X syndrome.
@@ -3048,6 +3302,7 @@ phenotypes:
       label: Autistic behavior
   evidence:
   - reference: PMID:22483044
+    reference_title: &#34;The pathophysiology of fragile X (and what it teaches us about synapses).&#34;
     supports: PARTIAL
     snippet: &#34;Fragile X is the most common known inherited cause of intellectual disability and autism&#34;
     explanation: Review confirms autism as a common feature of Fragile X syndrome.
@@ -3062,6 +3317,7 @@ phenotypes:
       label: Macroorchidism
   evidence:
   - reference: PMID:8190590
+    reference_title: &#34;Do young boys with fragile X syndrome have macroorchidism?&#34;
     supports: SUPPORT
     snippet: &#34;Macroorchidism is one of the most well-described clinical characteristics of men with fragile X syndrome&#34;
     explanation: Study confirms macroorchidism as a well-described clinical feature of Fragile X syndrome.
@@ -3076,6 +3332,7 @@ phenotypes:
       label: Long face
   evidence:
   - reference: PMID:8190590
+    reference_title: &#34;Do young boys with fragile X syndrome have macroorchidism?&#34;
     supports: NO_EVIDENCE
     snippet: &#34;Clinical assessments were performed on 73 boys, 2.2 to 10.2 years, in whom fragile X either had been diagnosed or who had been referred for fragile X evaluations&#34;
     explanation: This methods statement does not provide direct evidence for elongated face phenotype.
@@ -3089,6 +3346,7 @@ phenotypes:
       label: Macrotia
   evidence:
   - reference: PMID:8190590
+    reference_title: &#34;Do young boys with fragile X syndrome have macroorchidism?&#34;
     supports: NO_EVIDENCE
     snippet: &#34;Clinical assessments were performed on 73 boys, 2.2 to 10.2 years, in whom fragile X either had been diagnosed or who had been referred for fragile X evaluations&#34;
     explanation: This methods statement does not provide direct evidence for large ears/macrotia.
@@ -3103,6 +3361,7 @@ phenotypes:
       label: Hyperactivity
   evidence:
   - reference: PMID:22483044
+    reference_title: &#34;The pathophysiology of fragile X (and what it teaches us about synapses).&#34;
     supports: NO_EVIDENCE
     snippet: &#34;Fragile X is the most common known inherited cause of intellectual disability and autism, and it typically results from transcriptional silencing of FMR1 and loss of the encoded protein, FMRP&#34;
     explanation: Snippet supports FMR1/FMRP disease mechanism and autism/intellectual disability, but does not directly mention hyperactivity.
@@ -3125,6 +3384,7 @@ genetic:
   notes: X-linked, CGG repeat expansion (&gt;200 repeats), most common inherited cause of intellectual disability
   evidence:
   - reference: PMID:24346713
+    reference_title: &#34;From FMRP function to potential therapies for fragile X syndrome.&#34;
     supports: SUPPORT
     snippet: &#34;Fragile X syndrome (FXS) is caused by mutations in the fragile X mental retardation 1 (FMR1) gene.&#34;
     explanation: Review confirms FMR1 gene mutations cause Fragile X syndrome.
@@ -3133,6 +3393,7 @@ treatments:
   description: Applied behavior analysis and educational interventions for cognitive and behavioral symptoms.
   evidence:
   - reference: PMID:22483044
+    reference_title: &#34;The pathophysiology of fragile X (and what it teaches us about synapses).&#34;
     supports: NO_EVIDENCE
     snippet: &#34;Recent studies on the biology of FMRP and the signaling pathways downstream of mGluR1/5 have yielded deeper insight into how synaptic protein synthesis and plasticity are regulated by experience.&#34;
     explanation: Snippet discusses pathophysiology insight and does not directly provide evidence for behavioral therapy efficacy.

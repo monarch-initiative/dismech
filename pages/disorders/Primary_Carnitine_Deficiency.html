@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1037,6 +1101,52 @@
             text-decoration: underline;
         }
 
+        /* Experimental Models */
+        .exp-model-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .exp-model-box .item-name { color: #92400e; }
+        .exp-model-box .item-desc { color: #b45309; }
+
+        .tag-exp-model-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .tag-namo-type {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+        .tag-condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .model-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .model-detail-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .model-detail-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 110px;
+        }
+        .model-detail-value {
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+        }
+        .model-detail-value a {
+            color: inherit;
+        }
+
         /* Computational Models */
         .comp-model-box {
             background: #f0fdf4;
@@ -1382,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1470,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1477,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1489,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1637,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1723,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1737,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1792,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1877,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 10</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Fatty Acid Oxidation Disorder</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Inborn Error of Metabolism</span>
@@ -1891,6 +2110,11 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
+        
+        
         
         
         
@@ -1944,6 +2168,14 @@
             <div class="stat-item">
                 <div class="stat-value">12</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">10</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2188,7 +2420,7 @@
                 <span class="card-count">5</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-slc22a5-octn2-transporter-dysfunction">
                 <div class="item-name">SLC22A5/OCTN2 transporter dysfunction</div>
                 
                 <div class="item-desc">Loss-of-function variants in SLC22A5 impair OCTN2-mediated transmembrane carnitine transport in kidney and other tissues.
@@ -2264,6 +2496,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2298,7 +2531,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-carnitine-depletion">
                 <div class="item-name">Systemic carnitine depletion</div>
                 
                 <div class="item-desc">Defective renal tubular reabsorption causes urinary carnitine wasting, producing low plasma free carnitine and tissue carnitine depletion. This is the proximal biochemical consequence driving downstream metabolic failure.
@@ -2351,6 +2584,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2385,7 +2619,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-mitochondrial-fatty-acid-beta-oxidation">
                 <div class="item-name">Impaired mitochondrial fatty acid beta-oxidation</div>
                 
                 <div class="item-desc">Intracellular carnitine depletion impairs the carnitine shuttle system, reducing transfer of long-chain fatty acids into mitochondria for beta-oxidation. This causes energy failure particularly in tissues with high fatty acid oxidation demand such as heart and skeletal muscle, and drives metabolic decompensation during fasting or catabolic stress.
@@ -2432,6 +2666,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2491,7 +2726,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-remodeling-and-fibrosis-in-octn2-deficiency">
                 <div class="item-name">Cardiac remodeling and fibrosis in OCTN2 deficiency</div>
                 
                 <div class="item-desc">Chronic carnitine depletion in cardiomyocytes suppresses contractile and calcium-handling gene programs, triggers fibroblast expansion, and activates pro-fibrotic macrophage signaling. Single-nucleus RNA-seq studies of OCTN2-deficient hearts reveal downregulation of contractile genes (MYH7, TNNI3, TNNT2, RYR2), increased fibroblast abundance, elevated GAS6-AXL signaling initiating fibrosis through EMT, and SPP1-positive macrophage-driven fibroblast activation.
@@ -2574,6 +2809,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2608,7 +2844,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-metabolic-decompensation-and-encephalopathy">
                 <div class="item-name">Hepatic metabolic decompensation and encephalopathy</div>
                 
                 <div class="item-desc">In the liver, carnitine deficiency impairs fatty acid oxidation and ketogenesis, leading to hypoketotic hypoglycemia during fasting. Accumulation of toxic metabolites contributes to hyperammonemia and hepatic encephalopathy, particularly in the infantile presentation of PCD.
@@ -2659,6 +2895,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -2728,18 +2965,19 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Primary Carnitine Deficiency</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cardiac remodeling and fibrosis in OCTN2 deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic carnitine depletion in cardiomyocytes suppresses contractile and calcium-handling gene programs, triggers fibroblast expansion, and activates pro-fibrotic macrophage signaling. Single-nucleus RNA-seq studies of OCTN2-deficient hearts reveal downregulation of contractile genes (MYH7, TNNI3, TNNT2, RYR2), increased fibroblast abundance, elevated GAS6-AXL signaling initiating fibrosis through EMT, and SPP1-positive macrophage-driven fibroblast activation.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\", \"fibroblast\", \"macrophage\"], \"biological_processes\": [\"extracellular matrix organization\", \"cardiac muscle contraction\"], \"locations\": [\"heart\"]}}, {\"id\": \"Hepatic metabolic decompensation and encephalopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the liver, carnitine deficiency impairs fatty acid oxidation and ketogenesis, leading to hypoketotic hypoglycemia during fasting. Accumulation of toxic metabolites contributes to hyperammonemia and hepatic encephalopathy, particularly in the infantile presentation of PCD.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"ketone body biosynthetic process\"], \"locations\": [\"liver\"]}}, {\"id\": \"Impaired mitochondrial fatty acid beta-oxidation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Intracellular carnitine depletion impairs the carnitine shuttle system, reducing transfer of long-chain fatty acids into mitochondria for beta-oxidation. This causes energy failure particularly in tissues with high fatty acid oxidation demand such as heart and skeletal muscle, and drives metabolic decompensation during fasting or catabolic stress.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiac muscle cell\", \"skeletal muscle fiber\"], \"biological_processes\": [\"fatty acid beta-oxidation\"]}}, {\"id\": \"SLC22A5/OCTN2 transporter dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss-of-function variants in SLC22A5 impair OCTN2-mediated transmembrane carnitine transport in kidney and other tissues.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"epithelial cell of proximal tubule\"], \"biological_processes\": [\"carnitine transmembrane transport\"], \"genes\": [\"SLC22A5\"], \"locations\": [\"kidney\"]}}, {\"id\": \"Systemic carnitine depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective renal tubular reabsorption causes urinary carnitine wasting, producing low plasma free carnitine and tissue carnitine depletion. This is the proximal biochemical consequence driving downstream metabolic failure.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"epithelial cell of proximal tubule\"], \"biological_processes\": [\"carnitine transmembrane transport\"], \"locations\": [\"kidney\"]}}], \"edges\": [{\"source\": \"SLC22A5/OCTN2 transporter dysfunction\", \"target\": \"Systemic carnitine depletion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic carnitine depletion\", \"target\": \"Impaired mitochondrial fatty acid beta-oxidation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial fatty acid beta-oxidation\", \"target\": \"Cardiac remodeling and fibrosis in OCTN2 deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial fatty acid beta-oxidation\", \"target\": \"Hepatic metabolic decompensation and encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cardiac remodeling and fibrosis in OCTN2 deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic carnitine depletion in cardiomyocytes suppresses contractile and calcium-handling gene programs, triggers fibroblast expansion, and activates pro-fibrotic macrophage signaling. Single-nucleus RNA-seq studies of OCTN2-deficient hearts reveal downregulation of contractile genes (MYH7, TNNI3, TNNT2, RYR2), increased fibroblast abundance, elevated GAS6-AXL signaling initiating fibrosis through EMT, and SPP1-positive macrophage-driven fibroblast activation.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\", \"fibroblast\", \"macrophage\"], \"biological_processes\": [\"extracellular matrix organization\", \"cardiac muscle contraction\"], \"locations\": [\"heart\"]}}, {\"id\": \"Hepatic metabolic decompensation and encephalopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the liver, carnitine deficiency impairs fatty acid oxidation and ketogenesis, leading to hypoketotic hypoglycemia during fasting. Accumulation of toxic metabolites contributes to hyperammonemia and hepatic encephalopathy, particularly in the infantile presentation of PCD.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"ketone body biosynthetic process\"], \"locations\": [\"liver\"]}}, {\"id\": \"Impaired mitochondrial fatty acid beta-oxidation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Intracellular carnitine depletion impairs the carnitine shuttle system, reducing transfer of long-chain fatty acids into mitochondria for beta-oxidation. This causes energy failure particularly in tissues with high fatty acid oxidation demand such as heart and skeletal muscle, and drives metabolic decompensation during fasting or catabolic stress.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiac muscle cell\", \"skeletal muscle fiber\"], \"biological_processes\": [\"fatty acid beta-oxidation\"]}}, {\"id\": \"SLC22A5 (OCTN2) pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"variant_count\": 4}}, {\"id\": \"SLC22A5 - c.1400C\u003eG (p.Ser467Cys)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The most common pathogenic variant in Chinese PCD patients, accounting for approximately 45% of alleles. Regional variation exists with lower frequency in southern China.\\n\"}, {\"id\": \"SLC22A5 - c.51C\u003eG (p.Phe17Leu)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Second most common variant in Chinese PCD, accounting for approximately 26% of alleles.\\n\"}, {\"id\": \"SLC22A5 - c.760C\u003eT (p.Arg254*)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Nonsense variant accounting for approximately 14% of alleles in Chinese PCD. Homozygous c.760C\u003eT carriers are more likely to present with cardiomyopathy.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"SLC22A5 - c.821G\u003eA (p.Trp274Ter)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Novel nonsense variant identified in an Iranian family, associated with hypertrophic cardiomyopathy. Docking analysis demonstrated reduced carnitine binding affinity.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"SLC22A5/OCTN2 transporter dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss-of-function variants in SLC22A5 impair OCTN2-mediated transmembrane carnitine transport in kidney and other tissues.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"epithelial cell of proximal tubule\"], \"biological_processes\": [\"carnitine transmembrane transport\"], \"genes\": [\"SLC22A5\"], \"locations\": [\"kidney\"]}}, {\"id\": \"Systemic carnitine depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective renal tubular reabsorption causes urinary carnitine wasting, producing low plasma free carnitine and tissue carnitine depletion. This is the proximal biochemical consequence driving downstream metabolic failure.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"epithelial cell of proximal tubule\"], \"biological_processes\": [\"carnitine transmembrane transport\"], \"locations\": [\"kidney\"]}}], \"edges\": [{\"source\": \"SLC22A5/OCTN2 transporter dysfunction\", \"target\": \"Systemic carnitine depletion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic carnitine depletion\", \"target\": \"Impaired mitochondrial fatty acid beta-oxidation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial fatty acid beta-oxidation\", \"target\": \"Cardiac remodeling and fibrosis in OCTN2 deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial fatty acid beta-oxidation\", \"target\": \"Hepatic metabolic decompensation and encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"SLC22A5 - c.1400C\u003eG (p.Ser467Cys)\", \"target\": \"SLC22A5 (OCTN2) pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"SLC22A5 - c.51C\u003eG (p.Phe17Leu)\", \"target\": \"SLC22A5 (OCTN2) pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"SLC22A5 - c.760C\u003eT (p.Arg254*)\", \"target\": \"SLC22A5 (OCTN2) pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"SLC22A5 - c.821G\u003eA (p.Trp274Ter)\", \"target\": \"SLC22A5 (OCTN2) pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4282,6 +4520,9 @@
         <!-- Clinical Trials -->
         
 
+        <!-- Experimental Models -->
+        
+
         <!-- Computational Models -->
         
 
@@ -4336,6 +4577,7 @@ has_subtypes:
     &#39;
   evidence:
   - reference: PMID:38585546
+    reference_title: &#34;A Rare Treatable Cause of Cardiomyopathy: Primary Carnitine Deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Carnitine deficiency can result in acute metabolic decompensation or, in a more insidious presentation, cardiomyopathy.
@@ -4347,6 +4589,7 @@ has_subtypes:
     &#39;
   evidence:
   - reference: PMID:38585546
+    reference_title: &#34;A Rare Treatable Cause of Cardiomyopathy: Primary Carnitine Deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Cardiomyopathy associated with PCD often presents with life-threatening heart failure.
@@ -4392,6 +4635,7 @@ pathophysiology:
       label: kidney
   evidence:
   - reference: PMID:38961493
+    reference_title: &#34;Screening primary carnitine deficiency in 10 million Chinese newborns: a systematic review and meta-analysis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Primary carnitine deficiency (PCD) is a rare autosomal recessive fatty acid oxidation disorder caused by variants
@@ -4422,6 +4666,7 @@ pathophysiology:
       label: kidney
   evidence:
   - reference: PMID:38585546
+    reference_title: &#34;A Rare Treatable Cause of Cardiomyopathy: Primary Carnitine Deficiency.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: Carnitine deficiency can result in acute metabolic decompensation or, in a more insidious presentation, cardiomyopathy.
@@ -4451,6 +4696,7 @@ pathophysiology:
       label: skeletal muscle fiber
   evidence:
   - reference: PMID:39091928
+    reference_title: &#34;Unraveling cardiomyocyte responses and intercellular communication alterations in primary carnitine deficiency cardiomyopathy via single-nucleus RNA sequencing.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: Primary Carnitine Deficiency (PCD) is a potentially life-threatening autosomal recessive monogenic disorder arising
@@ -4459,6 +4705,7 @@ pathophysiology:
     explanation: Links OCTN2 mutations to cardiomyopathy and metabolic disturbance, supporting impaired fatty acid oxidation
       as a central mechanism.
   - reference: PMID:38585546
+    reference_title: &#34;A Rare Treatable Cause of Cardiomyopathy: Primary Carnitine Deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Carnitine deficiency can result in acute metabolic decompensation or, in a more insidious presentation, cardiomyopathy.
@@ -4502,6 +4749,7 @@ pathophysiology:
       label: heart
   evidence:
   - reference: PMID:39091928
+    reference_title: &#34;Unraveling cardiomyocyte responses and intercellular communication alterations in primary carnitine deficiency cardiomyopathy via single-nucleus RNA sequencing.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: OCTN2-deficient cardiomyocytes displayed transcriptomic alterations indicative of reduced contractility, developmental
@@ -4530,6 +4778,7 @@ pathophysiology:
       label: liver
   evidence:
   - reference: PMID:40406429
+    reference_title: &#34;The role of genetic defects in carnitine-associated hepatic encephalopathy: a review of literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Carnitine acts as a vital component in facilitating the transport of long-chain fatty acids into the mitochondria,
@@ -4538,6 +4787,7 @@ pathophysiology:
       low levels of carnitine.
     explanation: Supports carnitine&#39;s role in hepatic fatty acid oxidation and brain function, linking deficiency to encephalopathy.
   - reference: PMID:38585546
+    reference_title: &#34;A Rare Treatable Cause of Cardiomyopathy: Primary Carnitine Deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Carnitine deficiency can result in acute metabolic decompensation or, in a more insidious presentation, cardiomyopathy.
@@ -4556,11 +4806,13 @@ phenotypes:
       label: Dilated cardiomyopathy
   evidence:
   - reference: PMID:38585546
+    reference_title: &#34;A Rare Treatable Cause of Cardiomyopathy: Primary Carnitine Deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Cardiomyopathy associated with PCD often presents with life-threatening heart failure.
     explanation: Directly supports cardiomyopathy as a frequent life-threatening manifestation.
   - reference: PMID:39091928
+    reference_title: &#34;Unraveling cardiomyocyte responses and intercellular communication alterations in primary carnitine deficiency cardiomyopathy via single-nucleus RNA sequencing.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: Dilated cardiomyopathy (DCM) is a prevalent symptom associated with this condition, and episodes of metabolic
@@ -4579,12 +4831,14 @@ phenotypes:
       label: Hypertrophic cardiomyopathy
   evidence:
   - reference: PMID:39691889
+    reference_title: &#34;Unmasking Primary Carnitine Deficiency as a Mimic of Hypertrophic Cardiomyopathy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Primary carnitine deficiency may mimic hypertrophic cardiomyopathy and be mistakenly attributed to genotype-negative
       sarcomeric protein dysfunction in hypertrophic cardiomyopathy.
     explanation: Directly supports HCM as a phenocopy presentation of PCD.
   - reference: PMID:38166572
+    reference_title: &#34;A novel pathogenic variant in the carnitine transporter gene, SLC22A5, in association with metabolic carnitine deficiency and cardiomyopathy features.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Clinical evaluations, echocardiography, and cardiac magnetic resonance imaging findings revealed hypertrophic
@@ -4603,11 +4857,13 @@ phenotypes:
       label: Hypoketotic hypoglycemia
   evidence:
   - reference: PMID:38585546
+    reference_title: &#34;A Rare Treatable Cause of Cardiomyopathy: Primary Carnitine Deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Carnitine deficiency can result in acute metabolic decompensation or, in a more insidious presentation, cardiomyopathy.
     explanation: Supports metabolic decompensation as a clinical presentation, which includes hypoketotic hypoglycemia.
   - reference: PMID:40406429
+    reference_title: &#34;The role of genetic defects in carnitine-associated hepatic encephalopathy: a review of literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Carnitine deficiency is associated with various types of inherited disorders related to low levels of carnitine.
@@ -4625,11 +4881,13 @@ phenotypes:
       label: Hyperammonemia
   evidence:
   - reference: PMID:40406429
+    reference_title: &#34;The role of genetic defects in carnitine-associated hepatic encephalopathy: a review of literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: A strong correlation exists between the insufficiency of carnitine and the occurrence of HE.
     explanation: Supports the link between carnitine deficiency and hyperammonemia/encephalopathy.
   - reference: PMID:38585546
+    reference_title: &#34;A Rare Treatable Cause of Cardiomyopathy: Primary Carnitine Deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Carnitine deficiency can result in acute metabolic decompensation or, in a more insidious presentation, cardiomyopathy.
@@ -4647,6 +4905,7 @@ phenotypes:
       label: Myopathy
   evidence:
   - reference: PMID:38585546
+    reference_title: &#34;A Rare Treatable Cause of Cardiomyopathy: Primary Carnitine Deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: This presentation also usually includes skeletal muscle myopathy.
@@ -4663,6 +4922,7 @@ phenotypes:
       label: Hypotonia
   evidence:
   - reference: PMID:38585546
+    reference_title: &#34;A Rare Treatable Cause of Cardiomyopathy: Primary Carnitine Deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: This presentation also usually includes skeletal muscle myopathy.
@@ -4690,6 +4950,7 @@ phenotypes:
       label: Lethargy
   evidence:
   - reference: PMID:38166572
+    reference_title: &#34;A novel pathogenic variant in the carnitine transporter gene, SLC22A5, in association with metabolic carnitine deficiency and cardiomyopathy features.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: We herein describe an 8-year-old boy with symptoms of weakness and lethargy diagnosed with PCD through clinical
@@ -4708,6 +4969,7 @@ phenotypes:
       label: Cardiac arrest
   evidence:
   - reference: PMID:39091928
+    reference_title: &#34;Unraveling cardiomyocyte responses and intercellular communication alterations in primary carnitine deficiency cardiomyopathy via single-nucleus RNA sequencing.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: episodes of metabolic disturbance may lead to sudden death.
@@ -4725,6 +4987,7 @@ phenotypes:
       label: Encephalopathy
   evidence:
   - reference: PMID:40406429
+    reference_title: &#34;The role of genetic defects in carnitine-associated hepatic encephalopathy: a review of literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: A strong correlation exists between the insufficiency of carnitine and the occurrence of HE.
@@ -4762,6 +5025,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:39248612
+    reference_title: &#34;Incorporating Next-Generation Sequencing as a Second-Tier Test for Primary Carnitine Deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Newborns with free carnitine (C0) levels below 8.5 μmol/L were selected for second-tier genetic testing.
@@ -4780,6 +5044,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:39201429
+    reference_title: &#34;The Human OCTN Sub-Family: Gene and Protein Structure, Expression, and Regulation.&#34;
     supports: SUPPORT
     evidence_source: COMPUTATIONAL
     snippet: Due to their involvement in human pathologies, such as inflammatory-based diseases (OCTN1/2), systemic primary
@@ -4794,6 +5059,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:40406429
+    reference_title: &#34;The role of genetic defects in carnitine-associated hepatic encephalopathy: a review of literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: A strong correlation exists between the insufficiency of carnitine and the occurrence of HE.
@@ -4806,6 +5072,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:38585546
+    reference_title: &#34;A Rare Treatable Cause of Cardiomyopathy: Primary Carnitine Deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Carnitine deficiency can result in acute metabolic decompensation or, in a more insidious presentation, cardiomyopathy.
@@ -4818,6 +5085,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:38585546
+    reference_title: &#34;A Rare Treatable Cause of Cardiomyopathy: Primary Carnitine Deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: This presentation also usually includes skeletal muscle myopathy.
@@ -4828,6 +5096,7 @@ genetic:
   - name: Autosomal recessive
     evidence:
     - reference: PMID:38961493
+      reference_title: &#34;Screening primary carnitine deficiency in 10 million Chinese newborns: a systematic review and meta-analysis.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: Primary carnitine deficiency (PCD) is a rare autosomal recessive fatty acid oxidation disorder caused by variants
@@ -4850,12 +5119,14 @@ genetic:
       &#39;
     evidence:
     - reference: PMID:38125748
+      reference_title: &#34;Primary carnitine deficiency: Estimation of prevalence in Chinese population and insights into newborn screening.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: patients carrying homozygous c.760C&gt;T and c.844C&gt;T were more likely to present cardiomyopathy, whereas those
         carrying homozygous c.1400C&gt;G were more likely to be asymptomatic
       explanation: Establishes genotype-phenotype correlation for c.760C&gt;T with cardiomyopathy.
     - reference: PMID:39248612
+      reference_title: &#34;Incorporating Next-Generation Sequencing as a Second-Tier Test for Primary Carnitine Deficiency.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: the three most common variants were c.760C&gt;T (p.Arg254*), c.51C&gt;G (p.Phe17Leu), and c.1400C&gt;G (p.Ser467Cys).
@@ -4867,6 +5138,7 @@ genetic:
       &#39;
     evidence:
     - reference: PMID:38166572
+      reference_title: &#34;A novel pathogenic variant in the carnitine transporter gene, SLC22A5, in association with metabolic carnitine deficiency and cardiomyopathy features.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#39;Whole-exome sequencing identified a new homozygous variant, SLC22A5 (NM_003060.4), c.821G &gt; A: p.Trp274Ter,
@@ -4882,6 +5154,7 @@ genetic:
     &#39;
   evidence:
   - reference: PMID:39201429
+    reference_title: &#34;The Human OCTN Sub-Family: Gene and Protein Structure, Expression, and Regulation.&#34;
     supports: SUPPORT
     evidence_source: COMPUTATIONAL
     snippet: A plethora of missense variants with uncertain clinical significance are reported both in the dbSNP and the Catalogue
@@ -4901,6 +5174,7 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:38585546
+    reference_title: &#34;A Rare Treatable Cause of Cardiomyopathy: Primary Carnitine Deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Early recognition of this disorder and treatment with carnitine can avoid life-threatening complications related
@@ -4918,6 +5192,7 @@ treatments:
       label: dietary intervention
   evidence:
   - reference: PMID:38585546
+    reference_title: &#34;A Rare Treatable Cause of Cardiomyopathy: Primary Carnitine Deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Carnitine deficiency can result in acute metabolic decompensation or, in a more insidious presentation, cardiomyopathy.
@@ -4935,11 +5210,13 @@ treatments:
       label: supportive care
   evidence:
   - reference: PMID:38585546
+    reference_title: &#34;A Rare Treatable Cause of Cardiomyopathy: Primary Carnitine Deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Carnitine deficiency can result in acute metabolic decompensation or, in a more insidious presentation, cardiomyopathy.
     explanation: Acute metabolic decompensation requires emergency supportive management.
   - reference: PMID:40406429
+    reference_title: &#34;The role of genetic defects in carnitine-associated hepatic encephalopathy: a review of literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: If a deficiency of carnitine is identified through clinical symptoms or laboratory results in patients with liver
@@ -4958,11 +5235,13 @@ treatments:
       label: disease screening
   evidence:
   - reference: PMID:36810318
+    reference_title: &#34;Newborn Screening of Primary Carnitine Deficiency: An Overview of Worldwide Practices and Pitfalls to Define an Algorithm before Expansion of Newborn Screening in France.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: This disease is of high complexity to screen, due to its pathophysiology and wide clinical spectrum.
     explanation: Confirms the complexity and importance of NBS for PCD.
   - reference: PMID:39248612
+    reference_title: &#34;Incorporating Next-Generation Sequencing as a Second-Tier Test for Primary Carnitine Deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The PPV reached 20% after combining with second-tier NGS.
@@ -4980,6 +5259,7 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:38585546
+    reference_title: &#34;A Rare Treatable Cause of Cardiomyopathy: Primary Carnitine Deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Cardiomyopathy associated with PCD often presents with life-threatening heart failure.
@@ -4997,6 +5277,7 @@ treatments:
       label: genetic counseling
   evidence:
   - reference: PMID:38961493
+    reference_title: &#34;Screening primary carnitine deficiency in 10 million Chinese newborns: a systematic review and meta-analysis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Primary carnitine deficiency (PCD) is a rare autosomal recessive fatty acid oxidation disorder caused by variants
@@ -5014,6 +5295,7 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:40406429
+    reference_title: &#34;The role of genetic defects in carnitine-associated hepatic encephalopathy: a review of literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: the administration of acetyl-L-carnitine in patients with HE can improve their mental and psychological conditions.

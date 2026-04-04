@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1037,6 +1101,52 @@
             text-decoration: underline;
         }
 
+        /* Experimental Models */
+        .exp-model-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .exp-model-box .item-name { color: #92400e; }
+        .exp-model-box .item-desc { color: #b45309; }
+
+        .tag-exp-model-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .tag-namo-type {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+        .tag-condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .model-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .model-detail-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .model-detail-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 110px;
+        }
+        .model-detail-value {
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+        }
+        .model-detail-value a {
+            color: inherit;
+        }
+
         /* Computational Models */
         .comp-model-box {
             background: #f0fdf4;
@@ -1382,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1470,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1477,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1489,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1637,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1723,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1737,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1792,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1877,6 +2093,7 @@
                 </span>
                 
                 
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Bleeding Disorder</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Coagulation Disorder</span>
@@ -1886,6 +2103,11 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
+        
+        
         
         
         
@@ -1941,6 +2163,12 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
+            
+            
+            <div class="stat-item">
+                <div class="stat-value">0</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
             
             
             <a class="stat-link" href="#genetic">
@@ -2156,7 +2384,7 @@
                 <span class="card-count">2</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-factor-viii-deficiency">
                 <div class="item-name">Factor VIII Deficiency</div>
                 
                 <div class="item-desc">Mutations in the F8 gene cause deficient or dysfunctional factor VIII protein. Factor VIII is a cofactor for factor IXa in the intrinsic coagulation pathway, essential for thrombin generation and fibrin clot formation.
@@ -2179,6 +2407,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2234,7 +2463,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-thrombin-generation">
                 <div class="item-name">Impaired Thrombin Generation</div>
                 
                 <div class="item-desc">Without functional factor VIII, the intrinsic tenase complex cannot form efficiently. This results in inadequate thrombin generation and unstable fibrin clot formation, leading to prolonged bleeding.
@@ -2257,6 +2486,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2973,6 +3203,9 @@
         <!-- Clinical Trials -->
         
 
+        <!-- Experimental Models -->
+        
+
         <!-- Computational Models -->
         
 
@@ -3006,6 +3239,41 @@ has_subtypes:
   description: Factor VIII activity 1-5%, bleeding with minor trauma.
 - name: Mild Hemophilia A
   description: Factor VIII activity 5-40%, bleeding with surgery or major trauma.
+prevalence:
+- population: Males in high-income-country registry meta-analysis
+  percentage: 17.1 per 100,000 males
+  notes: &gt;-
+    Meta-analysis of national registries estimated hemophilia A prevalence at
+    17.1 per 100,000 males for all severities and 24.6 per 100,000 males at
+    birth.
+  evidence:
+  - reference: PMID:31499529
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Prevalence (per 100 000 males) is 17.1 cases for all severities of hemophilia A, 6.0 cases for severe hemophilia A&#34;
+    explanation: This registry-based meta-analysis provides the clearest pooled prevalence estimate for hemophilia A among living males.
+  - reference: PMID:31499529
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Prevalence at birth (per 100 000 males) is 24.6 cases for all severities of hemophilia A, 9.5 cases for severe hemophilia A&#34;
+    explanation: The same study adds birth prevalence, which helps contextualize disease burden before survival effects.
+- population: United States males
+  percentage: 12 per 100,000 males
+  notes: &gt;-
+    U.S. surveillance through hemophilia treatment centers estimated a period
+    prevalence of 12 per 100,000 males for hemophilia A and an overall
+    incidence of 1 case per 4,334 live male births for hemophilia.
+  evidence:
+  - reference: PMID:32329553
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Results:  During the period, 21 748 males with haemophilia visited the HTCs resulting in an age-adjusted prevalence of 15.7 cases per 100 000 males (12 for haemophilia A and 3.7 for haemophilia B).&#34;
+    explanation: This U.S. surveillance study directly reports age-adjusted prevalence for hemophilia A among males.
+  - reference: PMID:32329553
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Based on 9587 males born during the index period, the average haemophilia incidence was 1 case per 4334 live male births.&#34;
+    explanation: The same surveillance study provides a complementary incidence estimate from a modern U.S. cohort.
 pathophysiology:
 - name: Factor VIII Deficiency
   description: &gt;
@@ -3019,10 +3287,12 @@ pathophysiology:
       label: blood coagulation
   evidence:
   - reference: PMID:3096583
+    reference_title: &#34;The physiology and pathophysiology of the factor VIII complex.&#34;
     supports: SUPPORT
     snippet: &#34;FVIII acts as a cofactor in the factor Xa-generating enzyme complex of the intrinsic coagulation cascade.&#34;
     explanation: Review establishes the molecular role of Factor VIII as a cofactor in the intrinsic pathway.
   - reference: PMID:34197690
+    reference_title: &#34;Hemophilic arthropathy: Current knowledge and future perspectives.&#34;
     supports: SUPPORT
     snippet: &#34;Hemophilia A and B are rare X-linked inherited bleeding disorders caused by complete or partial deficiency in or the absence of coagulation factors VIII and IX.&#34;
     explanation: Clinical review confirms Factor VIII deficiency as the cause of hemophilia A.
@@ -3038,6 +3308,7 @@ pathophysiology:
       label: blood coagulation, fibrin clot formation
   evidence:
   - reference: PMID:11806995
+    reference_title: &#34;Mechanism of factor VIIa-dependent coagulation in hemophilia blood.&#34;
     supports: SUPPORT
     snippet: &#34;pharmacologic concentrations of factor VIIa cannot restore normal thrombin generation in hemophilia A and hemophilia B blood in vitro.&#34;
     explanation: Study demonstrates that thrombin generation is fundamentally impaired in hemophilia A blood even with bypass therapy attempts.
@@ -3054,6 +3325,7 @@ phenotypes:
       label: Joint hemorrhage
   evidence:
   - reference: PMID:34197690
+    reference_title: &#34;Hemophilic arthropathy: Current knowledge and future perspectives.&#34;
     supports: SUPPORT
     snippet: &#34;Recurrent joint bleeding (hemarthrosis) is the most frequent clinical manifestation of severe hemophilia.&#34;
     explanation: Review confirms hemarthrosis as the primary clinical feature of severe hemophilia.
@@ -3069,6 +3341,7 @@ phenotypes:
       label: Abnormal bleeding
   evidence:
   - reference: PMID:27890816
+    reference_title: &#34;Pathophysiology of hemophilic arthropathy and potential targets for therapy.&#34;
     supports: PARTIAL
     snippet: &#34;Hemophilia is a congenital clotting factor deficiency characterized by spontaneous and trauma-related bleeding.&#34;
     explanation: Review establishes that bleeding following trauma is a defining feature of hemophilia.
@@ -3082,6 +3355,7 @@ phenotypes:
       label: Bruising susceptibility
   evidence:
   - reference: PMID:27890816
+    reference_title: &#34;Pathophysiology of hemophilic arthropathy and potential targets for therapy.&#34;
     supports: NO_EVIDENCE
     snippet: &#34;Hemophilia is a congenital clotting factor deficiency characterized by spontaneous and trauma-related bleeding.&#34;
     explanation: Spontaneous and trauma-related bleeding in hemophilia manifests as easy bruising due to defective clot formation.
@@ -3096,6 +3370,7 @@ phenotypes:
       label: Intramuscular hematoma
   evidence:
   - reference: PMID:27890816
+    reference_title: &#34;Pathophysiology of hemophilic arthropathy and potential targets for therapy.&#34;
     supports: SUPPORT
     snippet: &#34;Spontaneous bleeding shows a predilection for joints, and repeated hemarthroses lead to a disabling condition called hemophilic arthropathy.&#34;
     explanation: While joints are the primary site, the same pathophysiology causes bleeding into muscles; spontaneous bleeding is characteristic of hemophilia.
@@ -3111,6 +3386,7 @@ phenotypes:
       label: Prolonged partial thromboplastin time
   evidence:
   - reference: PMID:36409923
+    reference_title: &#34;Phenotypic variation in severe hemophilia A is related to endogenous thrombin potential and plasma levels of factor VII.&#34;
     supports: PARTIAL
     snippet: &#34;Hemophilia A is a bleeding disorder caused by deficiency or low activity of circulating factor VIII characterized by prolonged blood coagulation time and often spontaneous bleeding.&#34;
     explanation: Study confirms prolonged coagulation time as a defining characteristic of hemophilia A.
@@ -3133,6 +3409,7 @@ treatments:
   description: Recombinant or plasma-derived factor VIII concentrate for bleeding episodes and prophylaxis.
   evidence:
   - reference: PMID:12640572
+    reference_title: &#34;Desmopressin in mild hemophilia A: indications, limitations, efficacy, and safety.&#34;
     supports: SUPPORT
     snippet: &#34;Plasma-derived cryoprecipitate and factor (F) VIII concentrates, which have been used for hemophilia A patients, involve the risk of transmitting blood-borne diseases.&#34;
     explanation: Review confirms factor VIII concentrates as established treatment for hemophilia A patients.
@@ -3140,6 +3417,7 @@ treatments:
   description: Bispecific antibody mimicking factor VIII function, subcutaneous prophylaxis.
   evidence:
   - reference: PMID:30157389
+    reference_title: &#34;Emicizumab Prophylaxis in Patients Who Have Hemophilia A without Inhibitors.&#34;
     supports: SUPPORT
     snippet: &#34;Emicizumab is a bispecific monoclonal antibody that bridges activated factor IX and factor X to replace the function of missing activated factor VIII, thereby restoring hemostasis.&#34;
     explanation: Phase 3 HAVEN 3 trial demonstrates emicizumab mechanism and efficacy in hemophilia A without inhibitors.
@@ -3147,6 +3425,7 @@ treatments:
   description: Releases endogenous factor VIII, useful in mild hemophilia A.
   evidence:
   - reference: PMID:12640572
+    reference_title: &#34;Desmopressin in mild hemophilia A: indications, limitations, efficacy, and safety.&#34;
     supports: SUPPORT
     snippet: &#34;Desmopressin is today a widely used hemostatic agent not only in patients with mild hemophilia A or von Willebrand disease (vWD) but also in those with congenital or acquired platelet dysfunction.&#34;
     explanation: Review confirms desmopressin as a widely used hemostatic agent in mild hemophilia A.
@@ -3154,6 +3433,7 @@ treatments:
   description: Tranexamic acid or aminocaproic acid as adjunctive therapy.
   evidence:
   - reference: PMID:26704192
+    reference_title: &#34;Antifibrinolytic therapy for preventing oral bleeding in patients with haemophilia or Von Willebrand disease undergoing minor oral surgery or dental extractions.&#34;
     supports: SUPPORT
     snippet: &#34;Overall, the two included trials showed a beneficial effect of tranexamic acid and EACA, administered systemically, in reducing the number of bleedings, the amount of blood loss and the need for therapeutic clotting factor concentrates.&#34;
     explanation: Cochrane systematic review confirms beneficial effect of tranexamic acid and aminocaproic acid in reducing bleeding in hemophilia patients.
@@ -3161,6 +3441,7 @@ treatments:
   description: Emerging treatment using AAV vectors to deliver functional F8 gene.
   evidence:
   - reference: PMID:35294811
+    reference_title: &#34;Valoctocogene Roxaparvovec Gene Therapy for Hemophilia A.&#34;
     supports: SUPPORT
     snippet: &#34;In patients with severe hemophilia A, valoctocogene roxaparvovec treatment provided endogenous factor VIII production and significantly reduced bleeding and factor VIII concentrate use relative to factor VIII prophylaxis.&#34;
     explanation: Phase 3 GENEr8-1 trial demonstrates AAV5-based gene therapy efficacy in severe hemophilia A.

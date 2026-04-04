@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1037,6 +1101,52 @@
             text-decoration: underline;
         }
 
+        /* Experimental Models */
+        .exp-model-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .exp-model-box .item-name { color: #92400e; }
+        .exp-model-box .item-desc { color: #b45309; }
+
+        .tag-exp-model-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .tag-namo-type {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+        .tag-condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .model-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .model-detail-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .model-detail-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 110px;
+        }
+        .model-detail-value {
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+        }
+        .model-detail-value a {
+            color: inherit;
+        }
+
         /* Computational Models */
         .comp-model-box {
             background: #f0fdf4;
@@ -1382,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1470,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1477,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1489,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1637,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1723,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1737,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1792,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1877,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Iron Metabolism Disorders</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Hereditary Metabolic Diseases</span>
@@ -1886,6 +2105,11 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
+        
+        
         
         
         
@@ -1939,6 +2163,14 @@
             <div class="stat-item">
                 <div class="stat-value">7</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">8</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2020,7 +2252,7 @@
                 <span class="card-count">5</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-hfe-loss-lowers-hepcidin">
                 <div class="item-name">HFE Loss Lowers Hepcidin</div>
                 
                 <div class="item-desc">Pathogenic HFE variants (most commonly C282Y homozygosity) blunt hepcidin induction, leaving circulating hepcidin inappropriately low relative to body iron stores.
@@ -2058,6 +2290,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2090,7 +2323,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-low-hepcidin-leads-to-ferroportin-hyperabsorption">
                 <div class="item-name">Low Hepcidin Leads to Ferroportin Hyperabsorption</div>
                 
                 <div class="item-desc">Suppressed hepcidin fails to internalize and degrade ferroportin on enterocytes, so dietary iron efflux into plasma is unchecked, driving systemic iron overload.
@@ -2152,6 +2385,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2184,7 +2418,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-iron-toxicity">
                 <div class="item-name">Hepatic Iron Toxicity</div>
                 
                 <div class="item-desc">Excess iron deposits in hepatocytes leading to oxidative stress, lipid peroxidation, and hepatocellular damage. Progressive iron accumulation causes fibrosis and can lead to cirrhosis and hepatocellular carcinoma.
@@ -2246,6 +2480,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2278,7 +2513,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-iron-deposition">
                 <div class="item-name">Cardiac Iron Deposition</div>
                 
                 <div class="item-desc">Iron accumulation in cardiomyocytes causes oxidative damage and impaired contractility, leading to cardiomyopathy and cardiac failure, particularly dilated cardiomyopathy.
@@ -2340,6 +2575,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2372,7 +2608,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-pancreatic-iron-toxicity">
                 <div class="item-name">Pancreatic Iron Toxicity</div>
                 
                 <div class="item-desc">Iron deposition in pancreatic beta cells causes oxidative damage and impaired insulin secretion, leading to diabetes mellitus (&#34;bronze diabetes&#34;).
@@ -2434,6 +2670,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2479,12 +2716,13 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Hemochromatosis</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
@@ -3468,6 +3706,9 @@
         <!-- Clinical Trials -->
         
 
+        <!-- Experimental Models -->
+        
+
         <!-- Computational Models -->
         
 
@@ -3494,6 +3735,21 @@ disease_term:
 parents:
 - Iron Metabolism Disorders
 - Hereditary Metabolic Diseases
+prevalence:
+- population: White primary care patients in Rochester, New York
+  percentage: 5.4 per 1,000
+  notes: &gt;-
+    Screening-based U.S. estimates show hereditary hemochromatosis is relatively
+    common among white adults, though prevalence varies substantially by
+    ancestry and clinical penetrance is incomplete.
+  evidence:
+  - reference: PMID:9867748
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The prevalence of clinically proven and biopsy-proven hemochromatosis combined was 4.5 per 1000 (95% CI, 3.3 to 5.8 per 1000) in the total sample and 5.4 per 1000 (CI, 4.0 to 7.1 per 1000) in white persons.&#34;
+    explanation: Large primary-care screening study provides a quantitative
+      prevalence estimate for clinically ascertained hereditary
+      hemochromatosis in white adults.
 pathophysiology:
 - name: HFE Loss Lowers Hepcidin
   description: &gt;
@@ -3501,6 +3757,7 @@ pathophysiology:
     leaving circulating hepcidin inappropriately low relative to body iron stores.
   evidence:
   - reference: PMID:23985001
+    reference_title: &#34;Diagnosis and treatment of hereditary hemochromatosis: an update.&#34;
     supports: SUPPORT
     snippet: &#34;Hereditary hemochromatosis is an inherited iron overload disorder caused by inappropriately low hepcidin secretion leading to increased duodenal absorption of dietary iron, most commonly in C282Y homozygous individuals.&#34;
     explanation: Impaired HFE signaling results in low hepcidin in C282Y homozygotes.
@@ -3523,6 +3780,7 @@ pathophysiology:
     dietary iron efflux into plasma is unchecked, driving systemic iron overload.
   evidence:
   - reference: PMID:23985001
+    reference_title: &#34;Diagnosis and treatment of hereditary hemochromatosis: an update.&#34;
     supports: PARTIAL
     snippet: &#34;Hereditary hemochromatosis is an inherited iron overload disorder caused by inappropriately low hepcidin secretion leading to increased duodenal absorption of dietary iron&#34;
     explanation: Low hepcidin permits unregulated ferroportin-mediated iron export from the gut.
@@ -3558,6 +3816,7 @@ pathophysiology:
     lead to cirrhosis and hepatocellular carcinoma.
   evidence:
   - reference: PMID:37763705
+    reference_title: &#34;A \&#34;Mix and Match\&#34; in Hemochromatosis-A Case Report and Literature Focus on the Liver.&#34;
     supports: PARTIAL
     snippet: &#34;The key organ that is affected by iron overload is the liver, suffering from fibrosis, cirrhosis or hepatocellular carcinoma&#34;
     explanation: Liver iron overload drives fibrotic injury and malignant risk.
@@ -3588,6 +3847,7 @@ pathophysiology:
     leading to cardiomyopathy and cardiac failure, particularly dilated cardiomyopathy.
   evidence:
   - reference: PMID:35449524
+    reference_title: &#34;Juvenile Hemochromatosis due to a Homozygous Variant in the HJV Gene.&#34;
     supports: PARTIAL
     snippet: &#34;Hemochromatosis type 2 or juvenile hemochromatosis has an early onset of severe iron overload resulting in organ manifestation such as liver fibrosis, cirrhosis, cardiomyopathy, arthropathy, hypogonadism, diabetes&#34;
     explanation: Early severe iron overload includes cardiomyopathy, consistent with cardiac iron toxicity.
@@ -3618,6 +3878,7 @@ pathophysiology:
     secretion, leading to diabetes mellitus (&#34;bronze diabetes&#34;).
   evidence:
   - reference: PMID:38886778
+    reference_title: &#34;SLC40A1-related hemochromatosis associated with a p.Y333H mutation in mainland China: a pedigree report and literature review.&#34;
     supports: PARTIAL
     snippet: &#34;Magnetic resonance imaging showed iron deposition in the liver, spleen, and pancreas, along with cirrhosis and splenomegaly.&#34;
     explanation: Imaging confirms pancreatic iron deposition contributing to endocrine dysfunction.
@@ -3654,6 +3915,7 @@ phenotypes:
       label: Hepatomegaly
   evidence:
   - reference: PMID:37168645
+    reference_title: &#34;Juvenile Hemochromatosis in an Asymptomatic Patient-Importance of Early Diagnosis.&#34;
     supports: PARTIAL
     snippet: &#34;One of the most serious clinical characteristics associated with early-onset iron overload is liver disease with eventual cirrhosis&#34;
     explanation: Liver involvement early in disease course leads to enlargement and progression to cirrhosis.
@@ -3668,6 +3930,7 @@ phenotypes:
       label: Generalized bronze hyperpigmentation
   evidence:
   - reference: PMID:38886778
+    reference_title: &#34;SLC40A1-related hemochromatosis associated with a p.Y333H mutation in mainland China: a pedigree report and literature review.&#34;
     supports: PARTIAL
     snippet: &#34;The proband is a 64-year-old man complaining of persistent abnormality of liver enzyme levels for 1 year, with a history of knee joint pain, diabetes and skin pigmentation.&#34;
     explanation: Case report documents skin pigmentation in ferroportin-related hemochromatosis.
@@ -3682,6 +3945,7 @@ phenotypes:
       label: Diabetes mellitus
   evidence:
   - reference: PMID:38886778
+    reference_title: &#34;SLC40A1-related hemochromatosis associated with a p.Y333H mutation in mainland China: a pedigree report and literature review.&#34;
     supports: PARTIAL
     snippet: &#34;The proband is a 64-year-old man complaining of persistent abnormality of liver enzyme levels for 1 year, with a history of knee joint pain, diabetes and skin pigmentation.&#34;
     explanation: Diabetes reported as part of the hemochromatosis presentation.
@@ -3696,6 +3960,7 @@ phenotypes:
       label: Arthropathy
   evidence:
   - reference: PMID:38886778
+    reference_title: &#34;SLC40A1-related hemochromatosis associated with a p.Y333H mutation in mainland China: a pedigree report and literature review.&#34;
     supports: PARTIAL
     snippet: &#34;The proband is a 64-year-old man complaining of persistent abnormality of liver enzyme levels for 1 year, with a history of knee joint pain, diabetes and skin pigmentation.&#34;
     explanation: Knee joint pain in hemochromatosis supports arthropathy association.
@@ -3710,6 +3975,7 @@ phenotypes:
       label: Cardiomyopathy
   evidence:
   - reference: PMID:35449524
+    reference_title: &#34;Juvenile Hemochromatosis due to a Homozygous Variant in the HJV Gene.&#34;
     supports: PARTIAL
     snippet: &#34;Hemochromatosis type 2 or juvenile hemochromatosis has an early onset of severe iron overload resulting in organ manifestation such as liver fibrosis, cirrhosis, cardiomyopathy, arthropathy, hypogonadism, diabetes&#34;
     explanation: Juvenile hemochromatosis case describes cardiomyopathy among manifestations.
@@ -3724,6 +3990,7 @@ phenotypes:
       label: Hypogonadotropic hypogonadism
   evidence:
   - reference: PMID:36644615
+    reference_title: &#34;Pituitary hyposignal characteristic of hemochromatosis on MRI.&#34;
     supports: PARTIAL
     snippet: &#34;Pituitary haemochromatosis is an endocrine disorder caused by the accumulation of iron due to a lack of absorption during haemochromatosis.&#34;
     explanation: Pituitary iron deposition disrupts gonadotropin signaling leading to hypogonadism.
@@ -3738,10 +4005,12 @@ phenotypes:
       label: Fatigue
   evidence:
   - reference: PMID:39337031
+    reference_title: &#34;Fatigue Assessment in Patients with Hereditary Hemochromatosis: First Use of the Popular Diagnostic Tools.&#34;
     supports: SUPPORT
     snippet: &#34;The HH patients exhibited significantly worse fatigue across all the scales.&#34;
     explanation: Fatigue questionnaires show higher fatigue burden in HH compared with controls.
   - reference: PMID:30244162
+    reference_title: &#34;Reduced phenotypic expression in genetic hemochromatosis with time: Role of exposure to non-genetic modifiers.&#34;
     supports: SUPPORT
     snippet: &#34;It results in chronic fatigue and in potential liver (cirrhosis), pancreas (diabetes) and joint (arthritis) damage in adulthood.&#34;
     explanation: Long-term cohort notes chronic fatigue as a characteristic manifestation of genetic hemochromatosis.
@@ -3753,22 +4022,27 @@ treatments:
     weekly until iron stores normalize, then maintenance every 2-3 months.
   evidence:
   - reference: PMID:23985001
+    reference_title: &#34;Diagnosis and treatment of hereditary hemochromatosis: an update.&#34;
     supports: SUPPORT
     snippet: &#34;Phlebotomy remains the mainstay of treatment and new treatments being studied include erythrocytapheresis and &#39;mini-hepcidins&#39;.&#34;
     explanation: &#34;This review confirms phlebotomy as the standard first-line treatment for hereditary hemochromatosis.&#34;
   - reference: PMID:38886778
+    reference_title: &#34;SLC40A1-related hemochromatosis associated with a p.Y333H mutation in mainland China: a pedigree report and literature review.&#34;
     supports: SUPPORT
     snippet: &#34;Four patients with organ damage in the present study received therapeutic phlebotomy, alleviating clinical symptoms and improving in transferrin saturation and serum ferritin.&#34;
     explanation: Phlebotomy improved iron indices and symptoms in a ferroportin hemochromatosis pedigree.
   - reference: PMID:37121243
+    reference_title: &#34;Haemochromatosis.&#34;
     supports: SUPPORT
     snippet: &#34;Early diagnosis by genetic testing and therapy by periodic phlebotomy can prevent the most serious complications, which include liver cirrhosis, liver cancer, and death.&#34;
     explanation: Seminar notes phlebotomy prevents cirrhosis and mortality when started early.
   - reference: PMID:35662478
+    reference_title: &#34;EASL Clinical Practice Guidelines on haemochromatosis.&#34;
     supports: SUPPORT
     snippet: &#34;Early diagnosis and treatment by phlebotomy can prevent cirrhosis, hepatocellular carcinoma, diabetes, arthropathy and other complications.&#34;
     explanation: EASL guideline highlights phlebotomy as preventive for multi-organ complications.
   - reference: PMID:5339192
+    reference_title: &#34;The treatment of hemochromatosis by phlebotomy.&#34;
     supports: PARTIAL
     snippet: &#34;The treatment of hemochromatosis by phlebotomy.&#34;
     explanation: Early clinical report established phlebotomy as definitive iron removal.
@@ -3778,10 +4052,12 @@ treatments:
     phlebotomy is contraindicated or insufficient, such as in patients with anemia.
   evidence:
   - reference: PMID:19727383
+    reference_title: &#34;The treatment of secondary hemochromatosis.&#34;
     supports: PARTIAL
     snippet: &#34;Because secondary hemochromatosis is due to hereditary or acquired anemia, phlebotomy is not a suitable means of removing excess iron in this situation. Rather, the treatment is based on the targeted elimination of iron by means of iron chelators.&#34;
     explanation: Secondary hemochromatosis requires chelation when phlebotomy is not feasible.
   - reference: PMID:29620054
+    reference_title: &#34;Haemochromatosis.&#34;
     supports: SUPPORT
     snippet: &#34;The mainstay therapy is phlebotomy, although iron chelation can be used in some patients.&#34;
     explanation: Primer notes chelation as an alternative for selected patients.
@@ -3796,6 +4072,7 @@ treatments:
     absorption), and reducing alcohol consumption to protect the liver.
   evidence:
   - reference: PMID:38361672
+    reference_title: &#34;Alcohol Use Unmasking Heterozygous Hereditary Hemochromatosis.&#34;
     supports: PARTIAL
     snippet: &#34;This patient was counseled on lifestyle modifications which included abstaining from alcohol and reducing iron and vitamin C intake. As a result, his iron panel parameters improved.&#34;
     explanation: Lifestyle changes in alcohol and dietary iron/Vitamin C improved iron indices.
@@ -3810,6 +4087,7 @@ treatments:
     recessive inheritance pattern and the benefits of early intervention.
   evidence:
   - reference: PMID:37121243
+    reference_title: &#34;Haemochromatosis.&#34;
     supports: PARTIAL
     snippet: &#34;Early diagnosis by genetic testing and therapy by periodic phlebotomy can prevent the most serious complications, which include liver cirrhosis, liver cancer, and death.&#34;
     explanation: Emphasizes early genetic testing to enable preventive treatment.
@@ -3828,6 +4106,7 @@ differential_diagnoses:
   - Iron loading often involves reticuloendothelial system in addition to parenchyma
   evidence:
   - reference: PMID:19727383
+    reference_title: &#34;The treatment of secondary hemochromatosis.&#34;
     supports: SUPPORT
     snippet: &#34;Because secondary hemochromatosis is due to hereditary or acquired anemia, phlebotomy is not a suitable means of removing excess iron in this situation. Rather, the treatment is based on the targeted elimination of iron by means of iron chelators.&#34;
     explanation: Highlights anemia/transfusion-related iron overload where chelation is required instead of phlebotomy.
@@ -3840,6 +4119,7 @@ differential_diagnoses:
   - Genetic testing reveals SLC40A1 variants affecting ferroportin
   evidence:
   - reference: PMID:38886778
+    reference_title: &#34;SLC40A1-related hemochromatosis associated with a p.Y333H mutation in mainland China: a pedigree report and literature review.&#34;
     supports: SUPPORT
     snippet: &#34;SLC40A1-related haemochromatosis is associated with gain-of-function mutations in the SLC40A1 gene, which encodes ferroportin.&#34;
     explanation: Establishes ferroportin-associated iron overload as a distinct entity to differentiate.
@@ -3851,6 +4131,7 @@ genetic:
   - name: Autosomal Recessive
   evidence:
   - reference: PMID:23985001
+    reference_title: &#34;Diagnosis and treatment of hereditary hemochromatosis: an update.&#34;
     supports: SUPPORT
     snippet: &#34;most commonly in C282Y homozygous individuals&#34;
     explanation: &#34;Review confirms C282Y homozygosity as the most common cause of hereditary hemochromatosis.&#34;

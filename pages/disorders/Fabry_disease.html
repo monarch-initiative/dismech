@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1037,6 +1101,52 @@
             text-decoration: underline;
         }
 
+        /* Experimental Models */
+        .exp-model-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .exp-model-box .item-name { color: #92400e; }
+        .exp-model-box .item-desc { color: #b45309; }
+
+        .tag-exp-model-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .tag-namo-type {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+        .tag-condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .model-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .model-detail-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .model-detail-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 110px;
+        }
+        .model-detail-value {
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+        }
+        .model-detail-value a {
+            color: inherit;
+        }
+
         /* Computational Models */
         .comp-model-box {
             background: #f0fdf4;
@@ -1382,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1470,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1477,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1489,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1637,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1723,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1737,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1792,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1877,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 6</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Lysosomal storage diseases</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">X-linked genetic disorders</span>
@@ -1891,6 +2110,11 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
+        
+        
         
         
         
@@ -1944,6 +2168,14 @@
             <div class="stat-item">
                 <div class="stat-value">7</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">6</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2025,7 +2257,7 @@
                 <span class="card-count">7</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-lysosomal-alpha-galactosidase-a-deficiency-and-gb3-accumulation">
                 <div class="item-name">Lysosomal alpha-galactosidase A deficiency and Gb3 accumulation</div>
                 
                 <div class="item-desc">GLA mutations reduce or abolish α-galactosidase A enzyme activity, causing accumulation of globotriaosylceramide (Gb3) and its deacylated form lyso-Gb3 in lysosomes. Lyso-Gb3 is closely associated with disease severity and exerts direct cytotoxic effects on podocytes, neurons, and other cell types. Substrate accumulation initiates lysosomal dysfunction with impaired autophagy and reduced ATP production.
@@ -2074,6 +2306,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2106,7 +2339,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-endoplasmic-reticulum-stress-and-unfolded-protein-response">
                 <div class="item-name">Endoplasmic reticulum stress and unfolded protein response</div>
                 
                 <div class="item-desc">Misfolded α-Gal A variants trigger endoplasmic reticulum stress and activate the unfolded protein response (UPR). Persistent UPR activation causes apoptosis and inflammatory signaling through NF-κB and MAPK pathways, contributing to cell death and tissue injury.
@@ -2144,6 +2377,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2176,7 +2410,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-dysfunction-and-oxidative-stress">
                 <div class="item-name">Mitochondrial dysfunction and oxidative stress</div>
                 
                 <div class="item-desc">Gb3 and lyso-Gb3 accumulation impairs mitochondrial function with reduced ATP production, complex I/III impairment, and elevated reactive oxygen species (ROS) production. Oxidative damage correlates with cardiac hypertrophy and contributes to cell death and inflammation.
@@ -2214,6 +2448,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2246,7 +2481,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-autophagy-impairment">
                 <div class="item-name">Autophagy impairment</div>
                 
                 <div class="item-desc">Lysosomal Gb3 accumulation impairs autophagic flux, leading to accumulation of damaged proteins and organelles. Persistent podocyte injury despite enzyme replacement therapy is mediated in part by α-synuclein accumulation, implicating lysosomal toxicity as a disease driver beyond Gb3 storage.
@@ -2285,6 +2520,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2317,7 +2553,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-innate-immune-activation-and-inflammation">
                 <div class="item-name">Innate immune activation and inflammation</div>
                 
                 <div class="item-desc">Substrate accumulation activates NLRP3 inflammasome and NF-κB-mediated inflammatory responses, leading to elevation of IL-1β, IL-6, IL-18, and TNF-α. Complement cascade is activated with elevated C3a and C5a, particularly in patients with anti-drug antibodies. These inflammatory mediators propagate endothelial dysfunction and tissue injury.
@@ -2350,6 +2586,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2405,7 +2642,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-endothelial-dysfunction-and-vascular-remodeling">
                 <div class="item-name">Endothelial dysfunction and vascular remodeling</div>
                 
                 <div class="item-desc">Gb3/lyso-Gb3 accumulation in endothelial cells leads to upregulation of adhesion molecules (VCAM1, ICAM1), eNOS uncoupling, and reduced nitric oxide availability. Vascular smooth muscle proliferation and remodeling occur, contributing to microvascular dysfunction and increased thrombotic risk.
@@ -2447,6 +2684,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2479,7 +2717,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-fibrosis-and-extracellular-matrix-remodeling">
                 <div class="item-name">Fibrosis and extracellular matrix remodeling</div>
                 
                 <div class="item-desc">TGF-β-driven profibrotic signaling leads to extracellular matrix deposition in kidney and heart. This fibrotic process becomes partially independent of Gb3 substrate levels and contributes to progressive organ dysfunction through epithelial-to-mesenchymal transition and myofibroblast activation.
@@ -2528,6 +2766,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2567,6 +2806,29 @@
         
 
         <!-- Causal Graph (Pathograph) -->
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
+                <h2 class="card-title">Pathograph</h2>
+            </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
+            
+            <div class="pathograph-container" id="pathograph">
+                <div class="pathograph-legend" id="pathograph-legend"></div>
+                <svg id="pathograph-svg" role="img">
+                    <title>Pathograph: causal mechanism network for Fabry disease</title>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
+                </svg>
+                <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
+            </div>
+            <script>
+            (function() {
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acrodystrophic neuropathic pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe, burning pain affecting the extremities, particularly hands and feet, often the earliest clinical manifestation. Pain crises can be disabling. Pathophysiology involves neuronal sensitization from lyso-Gb3 effects and lysosomal dysfunction.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012531\"}}, {\"id\": \"Cardiac arrhythmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atrial fibrillation and ventricular arrhythmias result from cardiomyocyte hypertrophy, fibrosis, and inflammatory remodeling that create arrhythmogenic substrate.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0011675\"}}, {\"id\": \"Chronic kidney disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive renal dysfunction leading to end-stage renal disease. Driven by podocyte loss, glomerulosclerosis, tubulointerstitial fibrosis, and persistent inflammation.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012622\"}}, {\"id\": \"Enzyme replacement therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Recombinant \\u03b1-galactosidase A (agalsidase alfa/beta and pegunigalsidase alfa) restores enzyme activity and reduces Gb3 accumulation. Early initiation improves outcomes but cannot reverse established organ damage or fibrosis.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Proteinuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Urinary protein excretion, often the earliest sign of Fabry nephropathy. Progresses from microalbuminuria to overt proteinuria. Results from podocyte injury due to Gb3/lyso-Gb3 accumulation, autophagy impairment, and inflammatory signaling.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000093\"}}, {\"id\": \"Supportive care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Management of complications including pain control, renal protection with ACE inhibitors, cardiac monitoring, and stroke prevention. Pain management and cardiovascular monitoring are essential for quality of life.\\n\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Enzyme replacement therapy\", \"target\": \"Proteinuria\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Enzyme replacement therapy\", \"target\": \"Chronic kidney disease\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive care\", \"target\": \"Acrodystrophic neuropathic pain\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive care\", \"target\": \"Cardiac arrhythmia\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                renderPathograph("pathograph", graphData);
+            })();
+            </script>
+        </div>
         
 
         <!-- Phenotypes -->
@@ -3822,6 +4084,9 @@
         <!-- Clinical Trials -->
         
 
+        <!-- Experimental Models -->
+        
+
         <!-- Computational Models -->
         
 
@@ -3857,6 +4122,42 @@ description: &gt;
   cellular stress responses including endoplasmic reticulum stress, autophagy impairment, mitochondrial dysfunction, and
   activation of innate immune pathways, leading to progressive organ damage in kidney, heart, vasculature, and nervous system.
 
+prevalence:
+- population: Global clinically recognized populations
+  percentage: 1 in 100,000
+  notes: &gt;-
+    Traditional clinically recognized Fabry disease incidence is about 1 in
+    100,000, but this likely underestimates true prevalence because late-onset
+    and heterozygous cases are frequently missed outside screening programs.
+  evidence:
+  - reference: PMID:21092187
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;FD is pan-ethnic and the reported annual incidence of 1 in 100,000 may underestimate the true prevalence of the disease.&#34;
+    explanation: This review provides the conventional global clinical incidence estimate and explicitly notes underascertainment.
+  - reference: PMID:19621417
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Newborn screening identified a surprisingly high frequency of Taiwanese males with Fabry disease (approximately 1 in 1,250), 86% having the IVS4+919G&gt;A mutation previously found in later-onset cardiac phenotype patients.&#34;
+    explanation: This newborn-screening study supports the point that traditional clinical incidence underestimates Fabry prevalence in screened populations.
+- population: Taiwanese male newborns
+  percentage: 1 in 1,250
+  notes: &gt;-
+    Newborn screening in Taiwan detected a much higher frequency than
+    traditional clinical estimates, driven largely by the later-onset IVS4
+    founder splice variant.
+  evidence:
+  - reference: PMID:19621417
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Newborn screening identified a surprisingly high frequency of Taiwanese males with Fabry disease (approximately 1 in 1,250), 86% having the IVS4+919G&gt;A mutation previously found in later-onset cardiac phenotype patients.&#34;
+    explanation: This pilot newborn-screening study directly reports the screened prevalence among Taiwanese male newborns.
+  - reference: PMID:21092187
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;FD is pan-ethnic and the reported annual incidence of 1 in 100,000 may underestimate the true prevalence of the disease.&#34;
+    explanation: The review contextualizes the Taiwan screening estimate as substantially higher than older clinically recognized incidence estimates.
+
 pathophysiology:
 - name: Lysosomal alpha-galactosidase A deficiency and Gb3 accumulation
   description: &gt;
@@ -3866,6 +4167,7 @@ pathophysiology:
     with impaired autophagy and reduced ATP production.
   evidence:
   - reference: PMID:31939530
+    reference_title: &#34;Fabry disease: genetics, pathology, and treatment.&#34;
     supports: PARTIAL
     snippet: &#34;Mutations in the GLA gene lead to the progressive accumulation of globotriaosylceramide (Gb3). Gb3 accumulates in lysosomes of different types of cells of the heart, kidneys, skin, eyes, central nervous system, and gastrointestinal system&#34;
     explanation: &#34;Supports the core GLA deficiency/Gb3 accumulation mechanism, but not the full lyso-Gb3 cytotoxicity and autophagy-ATP details.&#34;
@@ -3891,6 +4193,7 @@ pathophysiology:
     to cell death and tissue injury.
   evidence:
   - reference: PMID:39978321
+    reference_title: &#34;The Inflammatory Pathogenetic Pathways of Fabry Nephropathy and Agalopathy: &lt;italic&gt;GLA&lt;/italic&gt; Variant Induction of Endoplasmic Reticulum Stress.&#34;
     supports: PARTIAL
     snippet: &#34;Missense variants in the coding sequence of the GLA gene would generate the misfolding of the altered protein alpha-galactosidase A. Emergence of misfolded proteins may generate stress of the endoplasmic reticulum, leading to induction of the unfolded protein response (UPR)&#34;
     explanation: &#34;Supports ER stress/UPR induction from misfolded GLA variants, but does not fully establish all downstream pathway details stated.&#34;
@@ -3911,6 +4214,7 @@ pathophysiology:
     contributes to cell death and inflammation.
   evidence:
   - reference: PMID:29530533
+    reference_title: &#34;Fabry disease revisited: Management and treatment recommendations for adult patients.&#34;
     supports: NO_EVIDENCE
     snippet: &#34;Fabry disease is an X-linked lysosomal storage disorder caused by mutations in the GLA gene leading to deficient α-galactosidase A activity, glycosphingolipid accumulation, and life-threatening complications&#34;
     explanation: &#34;Snippet is general disease background and does not directly support mitochondrial dysfunction or oxidative stress mechanisms.&#34;
@@ -3931,6 +4235,7 @@ pathophysiology:
     implicating lysosomal toxicity as a disease driver beyond Gb3 storage.
   evidence:
   - reference: PMID:37014703
+    reference_title: &#34;Accumulation of α-synuclein mediates podocyte injury in Fabry nephropathy.&#34;
     supports: PARTIAL
     snippet: &#34;Genetic and pharmacological inhibition of SNCA improved lysosomal structure and function in Fabry podocytes, exceeding the benefits of ERT&#34;
     explanation: &#34;Shows that α-synuclein accumulation impairs lysosomal function and autophagy in Fabry podocytes, and that SNCA is a key driver of injury beyond Gb3 accumulation&#34;
@@ -3952,10 +4257,12 @@ pathophysiology:
     with anti-drug antibodies. These inflammatory mediators propagate endothelial dysfunction and tissue injury.
   evidence:
   - reference: PMID:38304433
+    reference_title: &#34;Complement activation and cellular inflammation in Fabry disease patients despite enzyme replacement therapy.&#34;
     supports: SUPPORT
     snippet: &#34;we demonstrate strong activation of the complement system in 17 classical male FD patients with either missense or nonsense mutations before and after ERT as evidenced by high C3a and C5a serum levels&#34;
     explanation: &#34;Demonstrates that complement system is strongly activated in Fabry disease patients, supporting the role of innate immune activation in pathogenesis&#34;
   - reference: PMID:38932991
+    reference_title: &#34;Inflammation in Fabry disease: stages, molecular pathways, and therapeutic implications.&#34;
     supports: PARTIAL
     snippet: &#34;Inflammation is emerging as an important aspect of the pathogenesis of Fabry disease. This is thought to be predominantly mediated by the innate immune response, with growing evidence pointing towards the potential involvement of adaptive immune mechanisms&#34;
     explanation: &#34;Confirms inflammation as a key pathogenic mechanism in Fabry disease, with emphasis on innate immune response&#34;
@@ -3976,6 +4283,7 @@ pathophysiology:
     microvascular dysfunction and increased thrombotic risk.
   evidence:
   - reference: PMID:31939530
+    reference_title: &#34;Fabry disease: genetics, pathology, and treatment.&#34;
     supports: NO_EVIDENCE
     snippet: &#34;Subsequently, symptoms related to progressive impairment appear, such as angiokeratomas, cornea verticillata, left ventricular hypertrophy, myocardial fibrosis, proteinuria, and renal insufficiency&#34;
     explanation: &#34;Snippet lists clinical manifestations but does not directly support the specific endothelial dysfunction/vascular remodeling mechanisms stated.&#34;
@@ -3997,6 +4305,7 @@ pathophysiology:
     transition and myofibroblast activation.
   evidence:
   - reference: PMID:38304433
+    reference_title: &#34;Complement activation and cellular inflammation in Fabry disease patients despite enzyme replacement therapy.&#34;
     supports: PARTIAL
     snippet: &#34;we found increased IL-6, IL-10 and TGF-ß1 serum levels in FD patients&#34;
     explanation: &#34;Supports elevated profibrotic cytokine signaling (TGF-β1), but not the full extracellular matrix remodeling cascade described.&#34;
@@ -4024,6 +4333,7 @@ phenotypes:
   frequency: VERY_FREQUENT
   evidence:
   - reference: PMID:31939530
+    reference_title: &#34;Fabry disease: genetics, pathology, and treatment.&#34;
     supports: SUPPORT
     snippet: &#34;The onset of symptoms occurs during childhood, with acroparesthesia, heat intolerance, and gastrointestinal symptoms, such as nausea, vomiting, abdominal pain, and neuropathic pain&#34;
     explanation: &#34;Establishes acroparesthesia and neuropathic pain as early clinical manifestations in Fabry disease&#34;
@@ -4041,6 +4351,7 @@ phenotypes:
   frequency: FREQUENT
   evidence:
   - reference: PMID:31939530
+    reference_title: &#34;Fabry disease: genetics, pathology, and treatment.&#34;
     supports: SUPPORT
     snippet: &#34;Subsequently, symptoms related to progressive impairment appear, such as angiokeratomas, cornea verticillata, left ventricular hypertrophy, myocardial fibrosis, proteinuria, and renal insufficiency&#34;
     explanation: &#34;Identifies angiokeratomas as a characteristic progressive clinical manifestation of Fabry disease&#34;
@@ -4058,6 +4369,7 @@ phenotypes:
   frequency: VERY_FREQUENT
   evidence:
   - reference: PMID:39100494
+    reference_title: &#34;Genome-wide expression analysis in a Fabry disease human podocyte cell line.&#34;
     supports: PARTIAL
     snippet: &#34;This study focuses on genome-wide expression analysis in an FD human podocyte model to gain insights into the underlying mechanisms of podocyte dysfunction&#34;
     explanation: &#34;Supports podocyte dysfunction mechanisms, but does not directly report clinical proteinuria frequency.&#34;
@@ -4075,6 +4387,7 @@ phenotypes:
   frequency: FREQUENT
   evidence:
   - reference: PMID:31939530
+    reference_title: &#34;Fabry disease: genetics, pathology, and treatment.&#34;
     supports: SUPPORT
     snippet: &#34;Subsequently, symptoms related to progressive impairment appear...proteinuria, and renal insufficiency. The latter being the main cause of death in FD&#34;
     explanation: &#34;Identifies progressive renal failure as the primary cause of death in Fabry disease&#34;
@@ -4092,6 +4405,7 @@ phenotypes:
   frequency: FREQUENT
   evidence:
   - reference: PMID:33602475
+    reference_title: &#34;Cardiac Involvement in Fabry Disease: JACC Review Topic of the Week.&#34;
     supports: SUPPORT
     snippet: &#34;Cardiovascular involvement usually manifests as left ventricular hypertrophy, myocardial fibrosis, heart failure, and arrhythmias, which limit quality of life and represent the most common causes of death&#34;
     explanation: &#34;Confirms that left ventricular hypertrophy is a major cardiac manifestation of Fabry disease&#34;
@@ -4109,6 +4423,7 @@ phenotypes:
   frequency: OCCASIONAL
   evidence:
   - reference: PMID:31939530
+    reference_title: &#34;Fabry disease: genetics, pathology, and treatment.&#34;
     supports: NO_EVIDENCE
     snippet: &#34;Subsequently, symptoms related to progressive impairment appear, such as angiokeratomas, cornea verticillata, left ventricular hypertrophy, myocardial fibrosis, proteinuria, and renal insufficiency&#34;
     explanation: &#34;Snippet supports myocardial fibrosis but does not directly report arrhythmia as a phenotype.&#34;
@@ -4126,6 +4441,7 @@ phenotypes:
   frequency: OCCASIONAL
   evidence:
   - reference: PMID:35652398
+    reference_title: &#34;Fabry Disease: Current and Novel Therapeutic Strategies. A Narrative Review.&#34;
     supports: NO_EVIDENCE
     snippet: &#34;A multidisciplinary symptomatic treatment is recommended for FD patients, personalized according to disease manifestations and their severity&#34;
     explanation: &#34;Snippet discusses treatment approach and does not directly support stroke frequency/risk.&#34;
@@ -4143,6 +4459,7 @@ biochemical:
   - globotriaosylsphingosine
   evidence:
   - reference: PMID:37207471
+    reference_title: &#34;An expert consensus on the recommendations for the use of biomarkers in Fabry disease.&#34;
     supports: PARTIAL
     snippet: &#34;Disease-specific biomarkers are useful in the diagnosis of Fabry disease; non-disease-specific biomarkers may be useful to assess organ damage&#34;
     explanation: &#34;Supports biomarker use in Fabry disease broadly, but does not specifically name lyso-Gb3 in the quoted text.&#34;
@@ -4158,10 +4475,12 @@ genetic:
     insertions, deletions, and deep intronic variants. Long-read sequencing approaches enable comprehensive variant detection.
   evidence:
   - reference: PMID:39100494
+    reference_title: &#34;Genome-wide expression analysis in a Fabry disease human podocyte cell line.&#34;
     supports: SUPPORT
     snippet: &#34;Fabry disease (FD) is an X-linked lysosomal disease caused by an enzyme deficiency of alpha-galactosidase A (α-gal A)&#34;
     explanation: &#34;Confirms that Fabry disease is X-linked and caused by deficiency of alpha-galactosidase A enzyme&#34;
   - reference: PMID:39609713
+    reference_title: &#34;Long-read sequencing enables comprehensive molecular genetic diagnosis of Fabry disease.&#34;
     supports: SUPPORT
     snippet: &#34;Genetic testing is the gold standard for precise diagnosis of FD, however conventional genetic testing could miss deep intronic variants and large deletions or duplications&#34;
     explanation: &#34;Establishes genetic testing as diagnostic gold standard and highlights need for comprehensive sequencing approaches to detect all variant types&#34;
@@ -4170,10 +4489,12 @@ genetic:
     description: Males are hemizygous and severely affected; females are heterozygous carriers with variable presentation. In males, diagnosis is based on enzyme activity testing showing very low or absent α-galactosidase A activity in classical forms (near zero) or reduced activity (under 30%) in late-onset forms.
     evidence:
     - reference: PMID:31939530
+      reference_title: &#34;Fabry disease: genetics, pathology, and treatment.&#34;
       supports: SUPPORT
       snippet: &#34;Fabry disease (FD) is a recessive monogenic inheritance disease linked to chromosome X, secondary to mutations in the GLA gene&#34;
       explanation: &#34;Confirms X-linked recessive inheritance pattern of Fabry disease&#34;
     - reference: PMID:32723516
+      reference_title: &#34;When and How to Diagnose Fabry Disease in Clinical Pratice.&#34;
       supports: SUPPORT
       snippet: &#34;In male, diagnosis is made with alpha-galactosidase A enzyme activity dosage in leukocyte, that is very low or null in classical forms and under 30 percent in late-onset forms&#34;
       explanation: &#34;Describes enzyme activity testing thresholds for diagnosis in males based on disease form severity&#34;
@@ -4185,6 +4506,7 @@ treatments:
     accumulation. Early initiation improves outcomes but cannot reverse established organ damage or fibrosis.
   evidence:
   - reference: PMID:37014703
+    reference_title: &#34;Accumulation of α-synuclein mediates podocyte injury in Fabry nephropathy.&#34;
     supports: PARTIAL
     snippet: &#34;long-term use of ERT reduced Gb3 accumulation in podocytes but did not reverse podocyte injury&#34;
     explanation: &#34;Shows that ERT reduces substrate accumulation but cannot fully reverse organ damage in Fabry nephropathy&#34;
@@ -4209,6 +4531,7 @@ treatments:
     with amenable mutations.
   evidence:
   - reference: PMID:40310476
+    reference_title: &#34;Progress and Challenges in the Treatment of Fabry Disease.&#34;
     supports: SUPPORT
     snippet: &#34;if a responding (&#39;amenable&#39;) α-galactosidase A mutation is present, oral pharmacological chaperone therapy (migalastat 123 mg, every other day)&#34;
     explanation: &#34;Confirms migalastat is an approved oral chaperone therapy for amenable GLA mutations&#34;
@@ -4224,6 +4547,7 @@ treatments:
     durable Gb3 clearance and reduced need for repeated infusions.
   evidence:
   - reference: PMID:40310476
+    reference_title: &#34;Progress and Challenges in the Treatment of Fabry Disease.&#34;
     supports: PARTIAL
     snippet: &#34;Future therapeutic options may include substrate reduction therapy, gene therapy, messenger RNA therapy, and/or vesicle-packaged enzyme replacement therapy&#34;
     explanation: &#34;Supports gene therapy as a future option, but not established clinical efficacy outcomes.&#34;
@@ -4239,6 +4563,7 @@ treatments:
     Pain management and cardiovascular monitoring are essential for quality of life.
   evidence:
   - reference: PMID:32183665
+    reference_title: &#34;Treatment of Anderson-Fabry Disease.&#34;
     supports: NO_EVIDENCE
     snippet: &#34;The current treatment of Anderson-Fabry disease is represented by enzyme replacement therapy (ERT) and oral pharmacological chaperone&#34;
     explanation: &#34;Snippet supports disease-specific therapy standards, not the supportive-care interventions described in this item.&#34;
@@ -4283,6 +4608,7 @@ differential_diagnoses:
   - Prominent papillary muscles are characteristic of Fabry disease
   evidence:
   - reference: PMID:33922740
+    reference_title: &#34;Fabry Disease and the Heart: A Comprehensive Review.&#34;
     supports: PARTIAL
     snippet: &#34;Hypertrophic cardiomyopathy (HCM) is the main cardiac manifestation of FD&#34;
     explanation: &#34;Establishes HCM as the primary cardiac differential diagnosis for Fabry disease&#34;
@@ -4307,6 +4633,7 @@ differential_diagnoses:
   - Skin or conjunctival biopsy showing amyloid (amyloidosis) versus genetic testing for GLA mutations (Fabry disease) provides definitive diagnosis
   evidence:
   - reference: PMID:33922740
+    reference_title: &#34;Fabry Disease and the Heart: A Comprehensive Review.&#34;
     supports: PARTIAL
     snippet: &#34;An apical sparing pattern on longitudinal strain has also been described in FD, similarly to amyloidosis&#34;
     explanation: &#34;Identifies cardiac amyloidosis as an important differential diagnosis based on overlapping imaging patterns&#34;
@@ -4331,6 +4658,7 @@ differential_diagnoses:
   - Prodromal viral illness preceding acute myocarditis is typically absent in Fabry disease
   evidence:
   - reference: PMID:33922740
+    reference_title: &#34;Fabry Disease and the Heart: A Comprehensive Review.&#34;
     supports: PARTIAL
     snippet: &#34;Endomyocardial biopsies have shown myocarditis in 56% of FD patients&#34;
     explanation: &#34;Establishes the high prevalence of myocardial inflammation in Fabry disease and importance of differential diagnosis&#34;
@@ -4355,6 +4683,7 @@ differential_diagnoses:
   - Serological testing for Trypanosoma cruzi antibodies versus genetic testing for GLA mutations provides definitive diagnosis
   evidence:
   - reference: PMID:33922740
+    reference_title: &#34;Fabry Disease and the Heart: A Comprehensive Review.&#34;
     supports: PARTIAL
     snippet: &#34;This LGE pattern is not exclusive of FD and may also be found in myocarditis, Chagas disease, and sarcoidosis&#34;
     explanation: &#34;Highlights the imaging overlap between Fabry disease and Chagas disease as cardiac differentials&#34;
@@ -4380,6 +4709,7 @@ differential_diagnoses:
   - Skin or conjunctival biopsy showing granulomas versus genetic testing for GLA mutations provides definitive diagnosis
   evidence:
   - reference: PMID:33922740
+    reference_title: &#34;Fabry Disease and the Heart: A Comprehensive Review.&#34;
     supports: PARTIAL
     snippet: &#34;This LGE pattern is not exclusive of FD and may also be found in myocarditis, Chagas disease, and sarcoidosis&#34;
     explanation: &#34;Establishes sarcoidosis as a multisystem differential diagnosis for Fabry disease with overlapping imaging patterns&#34;

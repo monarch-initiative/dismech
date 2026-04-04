@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1037,6 +1101,52 @@
             text-decoration: underline;
         }
 
+        /* Experimental Models */
+        .exp-model-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .exp-model-box .item-name { color: #92400e; }
+        .exp-model-box .item-desc { color: #b45309; }
+
+        .tag-exp-model-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .tag-namo-type {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+        .tag-condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .model-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .model-detail-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .model-detail-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 110px;
+        }
+        .model-detail-value {
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+        }
+        .model-detail-value a {
+            color: inherit;
+        }
+
         /* Computational Models */
         .comp-model-box {
             background: #f0fdf4;
@@ -1382,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1470,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1477,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1489,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1637,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1723,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1737,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1792,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1877,6 +2093,7 @@
                 </span>
                 
                 
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Hamartomatous polyp</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Hereditary cancer syndrome</span>
@@ -1886,6 +2103,11 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
+        
+        
         
         
         
@@ -1941,6 +2163,12 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
+            
+            
+            <div class="stat-item">
+                <div class="stat-value">0</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
             
             
             <a class="stat-link" href="#genetic">
@@ -2020,7 +2248,7 @@
                 <span class="card-count">3</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-stk11-loss-of-function-signaling-disruption">
                 <div class="item-name">STK11 loss-of-function signaling disruption</div>
                 
                 <div class="item-desc">Germline loss-of-function variants in STK11 (LKB1) disrupt tumor suppressor signaling and drive hamartomatous polyp formation throughout the GI tract.
@@ -2100,6 +2328,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2132,7 +2361,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-mtorc1-pathway-hyperactivation">
                 <div class="item-name">mTORC1 pathway hyperactivation</div>
                 
                 <div class="item-desc">LKB1-deficient tissues and hamartomas show increased mTORC1 signaling that promotes polyp growth and proliferation.
@@ -2185,6 +2414,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2235,7 +2465,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-arborizing-smooth-muscle-core-formation">
                 <div class="item-name">Arborizing smooth muscle core formation</div>
                 
                 <div class="item-desc">Hamartomatous polyps contain branching bundles of smooth muscle fibers covered by hyperplastic mucosa, producing the characteristic arborizing architecture.
@@ -2296,6 +2526,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -3458,6 +3689,9 @@
         <!-- Clinical Trials -->
         
 
+        <!-- Experimental Models -->
+        
+
         <!-- Computational Models -->
         
 
@@ -3484,6 +3718,29 @@ disease_term:
 parents:
 - Hamartomatous polyp
 - Hereditary cancer syndrome
+prevalence:
+- population: Japan, nationwide 2022 Peutz-Jeghers syndrome survey
+  percentage: 0.6 per 100,000
+  notes: &gt;-
+    This syndrome-level estimate is used because Peutz-Jeghers polyps are the
+    defining hamartomatous lesion of Peutz-Jeghers syndrome.
+  evidence:
+  - reference: PMID:39623880
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The 3-year period prevalences of PJS and JPS were 0.6/100000 and 0.15/100000, whereas the incidences in 2021 were 0.07/100000 and 0.02/100000, respectively.&#34;
+    explanation: This nationwide Japanese survey directly reports Peutz-Jeghers syndrome prevalence at 0.6 per 100,000.
+- population: Review-based global estimates for Peutz-Jeghers syndrome
+  percentage: 1 in 8,300 to 1 in 280,000
+  notes: &gt;-
+    Published estimates vary widely across ascertainment settings, but all place
+    Peutz-Jeghers syndrome firmly within the rare-disease range.
+  evidence:
+  - reference: PMID:19916169
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Prevalence of PJS is estimated from 1 in 8300 to 1 in 280,000 individuals.&#34;
+    explanation: This clinical review summarizes the broad range of published prevalence estimates for Peutz-Jeghers syndrome.
 pathophysiology:
 - name: STK11 loss-of-function signaling disruption
   description: &gt;
@@ -3491,6 +3748,7 @@ pathophysiology:
     signaling and drive hamartomatous polyp formation throughout the GI tract.
   evidence:
   - reference: PMID:37054692
+    reference_title: &#34;Clinical Guidelines for Diagnosis and Management of Peutz-Jeghers Syndrome in Children and Adults.&#34;
     supports: SUPPORT
     snippet: &#34;Peutz-Jeghers syndrome (PJS) is a rare disease characterized by the presence of hamartomatous polyposis throughout the gastrointestinal tract, except for the esophagus, along with characteristic mucocutaneous pigmentation. It is caused by germline pathogenic variants of the STK11 gene, which exhibit an autosomal dominant mode of inheritance&#34;
     explanation: Establishes STK11 germline variants as the driver of hamartomatous polyposis in PJS.
@@ -3527,10 +3785,12 @@ pathophysiology:
     promotes polyp growth and proliferation.
   evidence:
   - reference: PMID:19541609
+    reference_title: &#34;mTOR and HIF-1alpha-mediated tumor metabolism in an LKB1 mouse model of Peutz-Jeghers syndrome.&#34;
     supports: SUPPORT
     snippet: &#34;Among mitogenic signaling pathways, the mammalian-target of rapamycin complex 1 (mTORC1) pathway is hyperactivated in tissues and tumors derived from LKB1-deficient mice.&#34;
     explanation: Demonstrates mTORC1 pathway hyperactivation in LKB1-deficient PJS models.
   - reference: PMID:19541609
+    reference_title: &#34;mTOR and HIF-1alpha-mediated tumor metabolism in an LKB1 mouse model of Peutz-Jeghers syndrome.&#34;
     supports: SUPPORT
     snippet: &#34;Importantly, we demonstrate that polyps from human Peutz-Jeghers patients similarly exhibit up-regulated mTORC1 signaling, HIF-1alpha, and GLUT1 levels.&#34;
     explanation: Confirms mTORC1 signaling is upregulated in human PJS polyps.
@@ -3556,6 +3816,7 @@ pathophysiology:
     architecture.
   evidence:
   - reference: PMID:36998347
+    reference_title: &#34;Endoscopic resection for a solitary Peutz-Jeghers type polyp in the duodenum: A case report with literature review.&#34;
     supports: SUPPORT
     snippet: &#34;The resected specimen showed a branching bundle of smooth muscle fibers covered by hyperplastic mucosa, consistent with a hamartomatous polyp&#34;
     explanation: Histologic description supports the arborizing smooth muscle core in PJS polyps.
@@ -3587,6 +3848,7 @@ phenotypes:
     These polyps are benign but can grow large and cause complications.
   evidence:
   - reference: PMID:37892343
+    reference_title: &#34;Small Intestinal Polyp Burden in Pediatric Peutz-Jeghers Syndrome Assessed through Capsule Endoscopy: A Longitudinal Study.&#34;
     supports: SUPPORT
     snippet: &#34;The management of pediatric Peutz-Jeghers Syndrome (PJS) focuses on the prevention of intussusception complicating small intestinal (SI) polyposis&#34;
     explanation: &#34;Confirms small intestinal polyposis as a hallmark manifestation of PJS&#34;
@@ -3603,6 +3865,7 @@ phenotypes:
     Chronic blood loss may lead to iron deficiency anemia.
   evidence:
   - reference: PMID:20301443
+    reference_title: &#34;Peutz-Jeghers Syndrome.&#34;
     supports: SUPPORT
     snippet: &#34;GI polyps can result in chronic bleeding, anemia, and recurrent obstruction and intussusception requiring repeated laparotomy and bowel resection&#34;
     explanation: &#34;Establishes chronic gastrointestinal bleeding from polyps as a major complication of PJS&#34;
@@ -3618,6 +3881,7 @@ phenotypes:
     Abdominal pain due to polyp-related obstruction, intussusception, or inflammation.
   evidence:
   - reference: PMID:20301443
+    reference_title: &#34;Peutz-Jeghers Syndrome.&#34;
     supports: SUPPORT
     snippet: &#34;GI polyps can result in chronic bleeding, anemia, and recurrent obstruction and intussusception&#34;
     explanation: &#34;Intussusception from Peutz-Jeghers polyps causes abdominal pain and obstruction&#34;
@@ -3633,6 +3897,7 @@ phenotypes:
     Characteristic dark brown macules on the lips and intraoral mucosa, often present before gastrointestinal manifestations appear.
   evidence:
   - reference: PMID:20301443
+    reference_title: &#34;Peutz-Jeghers Syndrome.&#34;
     supports: SUPPORT
     snippet: &#34;Mucocutaneous hyperpigmentation presents in childhood as dark blue to dark brown macules around the mouth, eyes, and nostrils, in the perianal area, and on the buccal mucosa&#34;
     explanation: &#34;Oral and mucocutaneous pigmentation is a characteristic diagnostic feature of PJS, often appearing before GI polyps&#34;
@@ -3648,6 +3913,7 @@ phenotypes:
     Pigmented macules on the lips that often precede gastrointestinal symptoms.
   evidence:
   - reference: PMID:36970589
+    reference_title: &#34;Clinical features, diagnosis, and treatment of Peutz-Jeghers syndrome: Experience with 566 Chinese cases.&#34;
     supports: SUPPORT
     snippet: &#34;Peutz-Jeghers syndrome (PJS) is a clinically rare disease with pigmented spots on the lips and mucous membranes and extremities, scattered gastrointestinal polyps, and susceptibility to tumors&#34;
     explanation: This cohort description identifies lip pigmentation as a characteristic feature of PJS.
@@ -3663,10 +3929,12 @@ phenotypes:
     Significantly elevated lifetime risk of gastrointestinal cancers (stomach, duodenal, colorectal, pancreatic) and non-GI cancers (breast, lung, ovarian).
   evidence:
   - reference: PMID:20301443
+    reference_title: &#34;Peutz-Jeghers Syndrome.&#34;
     supports: SUPPORT
     snippet: &#34;Individuals with PJS are at increased risk for a wide variety of epithelial malignancies (colorectal, gastric, pancreatic, breast, and ovarian cancers)&#34;
     explanation: &#34;PJS patients have substantially elevated lifetime cancer risk across multiple organ systems&#34;
   - reference: PMID:33513864
+    reference_title: &#34;The Management of Peutz-Jeghers Syndrome: European Hereditary Tumour Group (EHTG) Guideline.&#34;
     supports: SUPPORT
     snippet: &#34;The available evidence has been reviewed and discussed by diverse medical specialists in the field of PJS to update the previous guideline from 2010 and formulate a revised practical guideline for colleagues managing PJS patients&#34;
     explanation: &#34;European hereditary tumor group recognizes comprehensive cancer risk across multiple organ systems as defining feature requiring multisystem management&#34;
@@ -3688,10 +3956,12 @@ biochemical:
       label: Butyric Acid
   evidence:
   - reference: PMID:38036954
+    reference_title: &#34;Changes of gut microbiota and short chain fatty acids in patients with Peutz-Jeghers syndrome.&#34;
     supports: SUPPORT
     snippet: &#34;The results showed dysbiosis in the gut microbiota of patients with PJS, and decreased synthesis of short-chain fatty acids.&#34;
     explanation: This study reports reduced short-chain fatty acid synthesis in PJS.
   - reference: PMID:38036954
+    reference_title: &#34;Changes of gut microbiota and short chain fatty acids in patients with Peutz-Jeghers syndrome.&#34;
     supports: SUPPORT
     snippet: &#34;Furthermore, the butyric acid level was negatively correlated with the frequency of endoscopic surgeries.&#34;
     explanation: Lower butyric acid levels associate with higher polyp-related intervention burden.
@@ -3702,6 +3972,7 @@ genetic:
     The second STK11 allele is somatically inactivated in polyp tissue (two-hit model). Mutation types include nonsense, frameshift, splice site, and missense mutations.
   evidence:
   - reference: PMID:37054692
+    reference_title: &#34;Clinical Guidelines for Diagnosis and Management of Peutz-Jeghers Syndrome in Children and Adults.&#34;
     supports: SUPPORT
     snippet: &#34;It is caused by germline pathogenic variants of the STK11 gene, which exhibit an autosomal dominant mode of inheritance&#34;
     explanation: &#34;Confirms germline STK11 mutations as the causative genetic basis for Peutz-Jeghers syndrome&#34;
@@ -3710,6 +3981,7 @@ genetic:
     Rare STK11-negative Peutz-Jeghers-like cases have PTEN mutations. PTEN loss further enhances mTORC1 pathway activation.
   evidence:
   - reference: PMID:37377590
+    reference_title: &#34;Peutz-Jeghers syndrome without STK11 mutation may correlate with less severe clinical manifestations in Chinese patients.&#34;
     supports: SUPPORT
     snippet: &#34;Among 19 patients with no detectable STK11 mutations, six had no pathogenic germline mutations of other genes, while 13 had other genetic mutations&#34;
     explanation: &#34;Alternative genetic mutations including PTEN can account for STK11-negative PJS-like presentations&#34;
@@ -3719,6 +3991,7 @@ environmental:
     Large polyps (&gt;15 mm) are more prone to intussusception, particularly in children and adolescents, which may require endoscopic intervention or surgery.
   evidence:
   - reference: PMID:36970589
+    reference_title: &#34;Clinical features, diagnosis, and treatment of Peutz-Jeghers syndrome: Experience with 566 Chinese cases.&#34;
     supports: SUPPORT
     snippet: &#34;At 40 years of age, the cumulative risk of intussusception in PJS was approximately 72.0%, and at 50 years, the cumulative risk of intussusception in PJS was approximately 89.6%&#34;
     explanation: &#34;Age is a critical environmental/clinical factor that significantly increases intussusception risk in PJS patients&#34;
@@ -3729,6 +4002,7 @@ treatments:
     Multiple sessions may be needed given the polyp burden.
   evidence:
   - reference: PMID:20301443
+    reference_title: &#34;Peutz-Jeghers Syndrome.&#34;
     supports: SUPPORT
     snippet: &#34;Routine endoscopic surveillance with polypectomy decreases the frequency of emergency laparotomy and bowel loss resulting from intussusception&#34;
     explanation: &#34;Endoscopic polyp removal is the standard therapeutic approach to prevent complications from Peutz-Jeghers polyps&#34;
@@ -3742,6 +4016,7 @@ treatments:
     Reserved for cases with severe polyp burden, recurrent intussusception, or malignant transformation.
   evidence:
   - reference: PMID:34928720
+    reference_title: &#34;Small bowel intussusception and concurrent jejunal polyp with neoplastic transformation: a new diagnosis of Peutz-Jeghers syndrome.&#34;
     supports: SUPPORT
     snippet: &#34;The patient underwent exploratory laparotomy during which right hemicolectomy and small bowel resection were performed&#34;
     explanation: &#34;Surgical resection is indicated for intussusception and polyps with neoplastic transformation&#34;
@@ -3755,6 +4030,7 @@ treatments:
     Family members should receive counseling and cascade genetic testing for STK11 mutations.
   evidence:
   - reference: PMID:36998347
+    reference_title: &#34;Endoscopic resection for a solitary Peutz-Jeghers type polyp in the duodenum: A case report with literature review.&#34;
     supports: SUPPORT
     snippet: &#34;Endoscopic resection was conducted for a definitive diagnosis and treatment. The resected specimen showed a branching bundle of smooth muscle fibers covered by hyperplastic mucosa, consistent with a hamartomatous polyp&#34;
     explanation: &#34;Genetic counseling for at-risk family members and molecular testing are critical given the autosomal dominant inheritance pattern and health implications of STK11 mutations&#34;
@@ -3779,6 +4055,7 @@ differential_diagnoses:
   - Different genetic basis (BMPR1A/SMAD4 vs. STK11)
   evidence:
   - reference: PMID:35988962
+    reference_title: &#34;Juvenile polyposis syndrome: An overview.&#34;
     supports: SUPPORT
     snippet: &#34;JPS should be clinically suspected when the other hamartomatous polyposis syndromes are excluded (i.e., Peutz-Jeghers and Cowden), in presence of numerous juvenile polyps in the colorectum or in other GI locations&#34;
     explanation: &#34;Establishes juvenile polyposis as a distinct differential diagnosis that must be excluded when evaluating hamartomatous polyp syndromes like PJS&#34;
@@ -3796,6 +4073,7 @@ differential_diagnoses:
   - Cancer risk profile emphasizes breast, thyroid, and endometrial malignancies.
   evidence:
   - reference: PMID:36925460
+    reference_title: &#34;Hamartomatous polyps: Diagnosis, surveillance, and management.&#34;
     supports: SUPPORT
     snippet: &#34;Peutz-Jeghers syndrome, Cowden syndrome, and juvenile polyposis syndrome are the most common displays of hamartomatous polyposis syndrome (HPS).&#34;
     explanation: This review lists Cowden syndrome among the major hamartomatous polyposis syndromes that must be distinguished from PJS.
@@ -3814,6 +4092,7 @@ differential_diagnoses:
   - Different molecular basis (APC vs. STK11)
   evidence:
   - reference: PMID:36925460
+    reference_title: &#34;Hamartomatous polyps: Diagnosis, surveillance, and management.&#34;
     supports: SUPPORT
     snippet: &#34;Peutz-Jeghers syndrome, Cowden syndrome, and juvenile polyposis syndrome are the most common displays of hamartomatous polyposis syndrome (HPS)&#34;
     explanation: &#34;Distinguishes PJS as a hamartomatous polyposis syndrome, separate from adenomatous syndromes like FAP&#34;
@@ -3832,6 +4111,7 @@ differential_diagnoses:
   - Molecular basis involves MMR genes, not STK11
   evidence:
   - reference: PMID:34680270
+    reference_title: &#34;Peutz-Jeghers Syndrome and the Role of Imaging: Pathophysiology, Diagnosis, and Associated Cancers.&#34;
     supports: SUPPORT
     snippet: &#34;Patients with PJS are at a 15- to 18-fold increased malignancy risk relative to the general population&#34;
     explanation: &#34;PJS carries a distinctive pattern of multi-organ cancer predisposition (GI, breast, lung, genitourinary) that differs from Lynch syndrome&#39;s primarily colorectal focus&#34;

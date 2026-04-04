@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1037,6 +1101,52 @@
             text-decoration: underline;
         }
 
+        /* Experimental Models */
+        .exp-model-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .exp-model-box .item-name { color: #92400e; }
+        .exp-model-box .item-desc { color: #b45309; }
+
+        .tag-exp-model-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .tag-namo-type {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+        .tag-condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .model-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .model-detail-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .model-detail-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 110px;
+        }
+        .model-detail-value {
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+        }
+        .model-detail-value a {
+            color: inherit;
+        }
+
         /* Computational Models */
         .comp-model-box {
             background: #f0fdf4;
@@ -1382,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1470,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1477,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1489,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1637,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1723,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1737,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1792,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1877,6 +2093,7 @@
                 </span>
                 
                 
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Respiratory Disease</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Inflammatory Lung Disease</span>
@@ -1890,6 +2107,11 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
+        
+        
         
         
         
@@ -1947,6 +2169,12 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
+            
+            
+            <div class="stat-item">
+                <div class="stat-value">0</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
             
             
             <a class="stat-link" href="#genetic">
@@ -2171,7 +2399,7 @@
                 <span class="card-count">11</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-exposure-to-avian-proteins">
                 <div class="item-name">Exposure to Avian Proteins</div>
                 
                 <div class="item-desc">Repeated inhalation of avian proteins from bird droppings, feathers, or serum triggers bird-related hypersensitivity pneumonitis.</div>
@@ -2193,6 +2421,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -2269,7 +2498,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-expansion-of-resident-monocytes-and-interstitial-macrophages">
                 <div class="item-name">Expansion of Resident Monocytes and Interstitial Macrophages</div>
                 
                 <div class="item-desc">Bird antigen exposure is associated with increased resident monocytes, interstitial macrophages, and type 2 dendritic cells in the lung.</div>
@@ -2327,6 +2556,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2361,7 +2591,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduction-of-inflammatory-monocytes-and-alveolar-macrophages">
                 <div class="item-name">Reduction of Inflammatory Monocytes and Alveolar Macrophages</div>
                 
                 <div class="item-desc">Bird antigen exposure is associated with reduced inflammatory monocytes, alveolar macrophages, and tolerogenic dendritic cells in the lung.</div>
@@ -2429,6 +2659,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2463,7 +2694,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-th1-th2-to-th2-th17-cytokine-shift">
                 <div class="item-name">Th1/Th2 to Th2/Th17 Cytokine Shift</div>
                 
                 <div class="item-desc">Early disease shows a mixed Th1/Th2 response, while progression shifts toward a Th2/Th17 mixed response.</div>
@@ -2515,6 +2746,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2549,7 +2781,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-bird-antigen-driven-humoral-response">
                 <div class="item-name">Bird Antigen-Driven Humoral Response</div>
                 
                 <div class="item-desc">Bird antigen exposure triggers B cell activation and elevated serum IgG/IgA to avian proteins in bird-related hypersensitivity pneumonitis.</div>
@@ -2611,6 +2843,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2645,10 +2878,11 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-species-specific-bird-antigen-panels">
                 <div class="item-name">Species-Specific Bird Antigen Panels</div>
                 
                 <div class="item-desc">Diagnostic panels for bird-related hypersensitivity pneumonitis use antigens from pigeon, parrot, and budgerigar species.</div>
+                
                 
                 
                 
@@ -2692,7 +2926,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-classical-monocyte-enrichment">
                 <div class="item-name">Classical Monocyte Enrichment</div>
                 
                 <div class="item-desc">Fibrotic hypersensitivity pneumonitis shows elevated classical monocytes enriched for CCL3hi/CCL4hi and S100Ahi states.</div>
@@ -2744,6 +2978,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2778,7 +3013,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-monocyte-to-spp1hi-macrophage-differentiation">
                 <div class="item-name">Monocyte-to-SPP1hi Macrophage Differentiation</div>
                 
                 <div class="item-desc">Specific classical monocyte states differentiate into SPP1hi lung macrophages associated with fibrosis.</div>
@@ -2826,6 +3061,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2860,7 +3096,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-cytotoxic-t-cell-program-with-profibrotic-signaling">
                 <div class="item-name">Cytotoxic T Cell Program with Profibrotic Signaling</div>
                 
                 <div class="item-desc">Fibrotic hypersensitivity pneumonitis features GZMhi cytotoxic T cells with transcriptional programs implicating TGFβ, TNFα, and NFκB pathways.</div>
@@ -2912,6 +3148,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2946,7 +3183,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-mmp14-high-macrophage-profibrotic-activity">
                 <div class="item-name">MMP14-High Macrophage Profibrotic Activity</div>
                 
                 <div class="item-desc">MMP14-high macrophages with an M2-like phenotype promote fibroblast-to-myofibroblast transition in hypersensitivity pneumonitis models, contributing to fibrotic remodeling.</div>
@@ -2998,6 +3235,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3032,7 +3270,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-tlr2-and-nf-b-regulation-of-mmp14-and-exosome-secretion">
                 <div class="item-name">TLR2 and NF-κB Regulation of MMP14 and Exosome Secretion</div>
                 
                 <div class="item-desc">TLR2 and NF-κB signaling regulate MMP14 expression and macrophage exosome secretion in antigen-stimulated hypersensitivity pneumonitis models.</div>
@@ -3051,6 +3289,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -4881,6 +5120,9 @@
         </div>
         
 
+        <!-- Experimental Models -->
+        
+
         <!-- Computational Models -->
         
 
@@ -4907,6 +5149,7 @@ has_subtypes:
   description: Chronic BFL with recurrent acute episodes that progress to interstitial pulmonary fibrosis.
   evidence:
   - reference: PMID:12839317
+    reference_title: &#34;Clinical features of recurrent and insidious chronic bird fancier&#39;s lung.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;One subgroup of patients develops interstitial pulmonary fibrosis after recurrent acute episodes (recurrent BFL)&#34;
@@ -4915,6 +5158,7 @@ has_subtypes:
   description: Chronic BFL with slowly progressive respiratory disease without a history of acute episodes.
   evidence:
   - reference: PMID:12839317
+    reference_title: &#34;Clinical features of recurrent and insidious chronic bird fancier&#39;s lung.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;the other subgroup of patients has no history of acute episodes but has slowly progressive chronic respiratory disease (insidious BFL).&#34;
@@ -4941,6 +5185,7 @@ prevalence:
   notes: Reported overall annual incidence of hypersensitivity pneumonitis in a British study (approximately 1 per 100,000 per year).
   evidence:
   - reference: PMID:23101639
+    reference_title: &#34;[Domestic hypersensitivity pneumonitis].&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Domestic hypersensitivity pneumonitis (HP) cases are relatively widespread, with an overall annual incidence of approximately 1/100,000 reported in a British study covering several million patients.&#34;
@@ -4950,6 +5195,7 @@ epidemiology:
   description: Pigeon fanciers have a high prevalence of bird fancier&#39;s lung in regional cohort studies.
   evidence:
   - reference: PMID:1053441
+    reference_title: &#34;Pigeon breeders&#39; disease--a prevalence study and review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Among fifty-three Salt Lake City, Utah area pigeon fanciers, 21% were found to have the clinical picture of pigeon breeders&#39; disease.&#34;
@@ -4958,6 +5204,7 @@ epidemiology:
   description: Bird fancier&#39;s lung is a common form of hypersensitivity pneumonitis among exposed populations.
   evidence:
   - reference: PMID:21870048
+    reference_title: &#34;Bird fancier&#39;s lung: a state-of-the-art review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Bird fancier&#39;s lung (BFL) resulting from avian antigen exposure is a very common form of hypersensitivity pneumonitis.&#34;
@@ -4967,6 +5214,7 @@ progression:
   notes: Acute hypersensitivity pneumonitis presents within hours after heavy antigen exposure.
   evidence:
   - reference: PMID:6761066
+    reference_title: &#34;Immunology of hypersensitivity pneumonitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Symptoms usually begin 4 to 6 hr after exposure to large quantities of causative organic dust.&#34;
@@ -4975,6 +5223,7 @@ progression:
   notes: Chronic disease shows gradual symptom onset and can progress to pulmonary fibrosis.
   evidence:
   - reference: PMID:6761066
+    reference_title: &#34;Immunology of hypersensitivity pneumonitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Chronically, these diseases may present with the gradual onset of cough, dyspnea on exertion, fatigue, anorexia, and weight loss which may progress to pulmonary fibrosis or severe pulmonary insufficiency.&#34;
@@ -4984,6 +5233,7 @@ stages:
   description: Acute hypersensitivity pneumonitis with rapid symptom onset after high-level antigen exposure.
   evidence:
   - reference: PMID:6761066
+    reference_title: &#34;Immunology of hypersensitivity pneumonitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Symptoms usually begin 4 to 6 hr after exposure to large quantities of causative organic dust.&#34;
@@ -4992,6 +5242,7 @@ stages:
   description: Chronic hypersensitivity pneumonitis with gradual onset and risk of pulmonary fibrosis.
   evidence:
   - reference: PMID:6761066
+    reference_title: &#34;Immunology of hypersensitivity pneumonitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Chronically, these diseases may present with the gradual onset of cough, dyspnea on exertion, fatigue, anorexia, and weight loss which may progress to pulmonary fibrosis or severe pulmonary insufficiency.&#34;
@@ -5011,11 +5262,13 @@ pathophysiology:
     snippet: &#34;Bird-related hypersensitivity pneumonitis (BRHP) is an interstitial lung disease induced by avian proteins.&#34;
     explanation: The review defines BRHP as an avian protein-induced interstitial lung disease.
   - reference: PMID:39958101
+    reference_title: &#34;Advanced Imaging and Occupational History in the Diagnosis of Bird Fancier&#39;s Lung: A Case Report.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Bird fancier&#39;s lung (BFL) is a subtype of hypersensitivity pneumonitis (HP), an immune-mediated interstitial lung disease (ILD) resulting from the repeated inhalation of avian proteins found in bird droppings, feathers, and serum.&#34;
     explanation: The case report links BFL to repeated inhalation of avian proteins as the causative trigger for interstitial lung disease.
   - reference: PMID:33318919
+    reference_title: &#34;Bird Fancier&#39;s lung: An underdiagnosed etiology of dyspnea.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Bird Fancier&#39;s Lung is a type of hypersensitivity pneumonitis, an immunologically mediated lung disease due to repetitive exposure of air-borne avian antigen.&#34;
@@ -5122,6 +5375,7 @@ pathophysiology:
       label: lung
   evidence:
   - reference: PMID:33041192
+    reference_title: &#34;Screening and diagnosis of acute and chronic bird-related hypersensitivity pneumonitis by serum IgG and IgA antibodies to bird antigens with ImmunoCAP®.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The levels of sIgG/sIgA against the bird antigens of the three species were significantly higher in subjects with acute bird-related HP and chronic bird-related HP with acute episodes (recurrent type) than in the control subjects.&#34;
@@ -5143,6 +5397,7 @@ pathophysiology:
       label: Melopsittacus undulatus
   evidence:
   - reference: PMID:33041192
+    reference_title: &#34;Screening and diagnosis of acute and chronic bird-related hypersensitivity pneumonitis by serum IgG and IgA antibodies to bird antigens with ImmunoCAP®.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We executed a clinical performance test by conducting a multi-institutional study to measure the levels of sIgG/sIgA against pigeon, parrot and budgerigar antigens by the ImmunoCAP® system in 29 acute and 46 chronic bird-related HP patients.&#34;
@@ -5166,6 +5421,7 @@ pathophysiology:
       label: lung
   evidence:
   - reference: PMID:38924775
+    reference_title: &#34;Single-Cell Analysis Reveals Novel Immune Perturbations in Fibrotic Hypersensitivity Pneumonitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Compared with control samples, FHP has elevated classical monocytes (adjusted-P = 2.5 × 10-3) and is enriched in CCL3hi/CCL4hi and S100Ahi classical monocytes (adjusted-P &lt; 2.2 × 10-16).&#34;
@@ -5188,6 +5444,7 @@ pathophysiology:
       label: lung
   evidence:
   - reference: PMID:38924775
+    reference_title: &#34;Single-Cell Analysis Reveals Novel Immune Perturbations in Fibrotic Hypersensitivity Pneumonitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Trajectory analyses demonstrate that S100Ahi classical monocytes differentiate into SPP1hi lung macrophages associated with fibrosis.&#34;
@@ -5211,6 +5468,7 @@ pathophysiology:
       label: lung
   evidence:
   - reference: PMID:38924775
+    reference_title: &#34;Single-Cell Analysis Reveals Novel Immune Perturbations in Fibrotic Hypersensitivity Pneumonitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Compared with both control subjects and IPF, cells from patients with FHP are significantly enriched in GZMhi cytotoxic T cells. These cells exhibit TF activities indicative of TGFβ and TNFα and NFκB pathways.&#34;
@@ -5234,6 +5492,7 @@ pathophysiology:
       label: alveolus of lung
   evidence:
   - reference: PMID:38218353
+    reference_title: &#34;MMP14(high) macrophages orchestrate progressive pulmonary fibrosis in SR-Ag-induced hypersensitivity pneumonitis.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;we identified MMP14high macrophage subcluster with a predominant M2 phenotype that exhibited higher activity in promoting fibroblast-to myofibroblast transition (FMT).&#34;
@@ -5247,6 +5506,7 @@ pathophysiology:
       label: macrophage
   evidence:
   - reference: PMID:38218353
+    reference_title: &#34;MMP14(high) macrophages orchestrate progressive pulmonary fibrosis in SR-Ag-induced hypersensitivity pneumonitis.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;We demonstrated that suppressing toll-like receptor 2 (TLR2) and nuclear factor kappa-B (NF-κB) could attenuate MMP14 expression and exosome secretion in macrophages stimulation with SR-Ag.&#34;
@@ -5263,11 +5523,13 @@ phenotypes:
       label: Dyspnea
   evidence:
   - reference: PMID:14503346
+    reference_title: &#34;[A case of acute bird fancier&#39;s lung caused by feather duvet].&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;A 57-year-old woman was admitted to our hospital because of cough and low-grade fever for 2 months and shortness of breath for 2 weeks.&#34;
     explanation: The case report documents shortness of breath in bird fancier&#39;s lung.
   - reference: PMID:39958101
+    reference_title: &#34;Advanced Imaging and Occupational History in the Diagnosis of Bird Fancier&#39;s Lung: A Case Report.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We present the case of a 43-year-old male pigeon keeper with an eight-week history of progressive dyspnea on exertion and intermittent chest pain.&#34;
@@ -5283,6 +5545,7 @@ phenotypes:
       label: Cough
   evidence:
   - reference: PMID:14503346
+    reference_title: &#34;[A case of acute bird fancier&#39;s lung caused by feather duvet].&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;A 57-year-old woman was admitted to our hospital because of cough and low-grade fever for 2 months and shortness of breath for 2 weeks.&#34;
@@ -5298,21 +5561,25 @@ phenotypes:
       label: Pulmonary fibrosis
   evidence:
   - reference: PMID:37028940
+    reference_title: &#34;Pirfenidone in fibrotic hypersensitivity pneumonitis: a double-blind, randomised clinical trial of efficacy and safety.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Fibrotic hypersensitivity pneumonitis (FHP) is an irreversible lung disease with high morbidity and mortality.&#34;
     explanation: The trial focuses on fibrotic hypersensitivity pneumonitis, supporting pulmonary fibrosis as a clinical phenotype.
   - reference: PMID:32145830
+    reference_title: &#34;Nintedanib in patients with progressive fibrosing interstitial lung diseases-subgroup analyses by interstitial lung disease diagnosis in the INBUILD trial: a randomised, double-blind, placebo-controlled, parallel-group trial.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;the rate of decline in FVC (mL/year) over 52 weeks in patients who received at least one dose of nintedanib or placebo in five prespecified subgroups based on the ILD diagnoses documented by the investigators: hypersensitivity pneumonitis&#34;
     explanation: The INBUILD subgroup analysis includes hypersensitivity pneumonitis within progressive fibrosing ILD populations, supporting a fibrotic phenotype.
   - reference: PMID:24480143
+    reference_title: &#34;Chronic hypersensitivity pneumonitis and pulmonary sarcoidosis: differentiation from usual interstitial pneumonia using high-resolution computed tomography.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In the 3 diseases, most important prognosis-predicting factor is the extent of fibrotic score (the extent of honeycombing and reticulation) calculated on high-resolution computed tomography scans or fibrosis estimated on chest radiographs.&#34;
     explanation: Chronic HP is discussed alongside fibrotic scoring on HRCT, reinforcing pulmonary fibrosis as a key disease feature.
   - reference: PMID:38218353
+    reference_title: &#34;MMP14(high) macrophages orchestrate progressive pulmonary fibrosis in SR-Ag-induced hypersensitivity pneumonitis.&#34;
     supports: PARTIAL
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Importantly, it was observed that the transfer of MMP14-overexpressing macrophages into mice promoted lung inflammation and fibrosis induced by SR-Ag.&#34;
@@ -5328,6 +5595,7 @@ phenotypes:
       label: Hypoxemia
   evidence:
   - reference: PMID:11131880
+    reference_title: &#34;[A misleading form of hypersensitivity pneumonitis].&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;A 47-year-old woman, without significant past medical history, presented an acute dyspnea with hypoxia, marked pulmonary arterial hypertension (PAH) and signs of right heart failure.&#34;
@@ -5343,6 +5611,7 @@ phenotypes:
       label: Fatigue
   evidence:
   - reference: PMID:6761066
+    reference_title: &#34;Immunology of hypersensitivity pneumonitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Chronically, these diseases may present with the gradual onset of cough, dyspnea on exertion, fatigue, anorexia, and weight loss which may progress to pulmonary fibrosis or severe pulmonary insufficiency.&#34;
@@ -5358,6 +5627,7 @@ phenotypes:
       label: Fever
   evidence:
   - reference: PMID:14503346
+    reference_title: &#34;[A case of acute bird fancier&#39;s lung caused by feather duvet].&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;A 57-year-old woman was admitted to our hospital because of cough and low-grade fever for 2 months and shortness of breath for 2 weeks.&#34;
@@ -5367,6 +5637,7 @@ histopathology:
   description: Transbronchial lung biopsy may show alveolitis due to mononuclear cell infiltration.
   evidence:
   - reference: PMID:14503346
+    reference_title: &#34;[A case of acute bird fancier&#39;s lung caused by feather duvet].&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;a transbronchial lung biopsy (TBLB) specimen showed alveolitis due to the infiltration of mononuclear cells.&#34;
@@ -5377,16 +5648,19 @@ biochemical:
   presence: Positive
   evidence:
   - reference: PMID:33041192
+    reference_title: &#34;Screening and diagnosis of acute and chronic bird-related hypersensitivity pneumonitis by serum IgG and IgA antibodies to bird antigens with ImmunoCAP®.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The levels of sIgG/sIgA against the bird antigens of the three species were significantly higher in subjects with acute bird-related HP and chronic bird-related HP with acute episodes (recurrent type) than in the control subjects.&#34;
     explanation: Elevated bird-specific antibodies are reported in affected patients.
   - reference: PMID:38762468
+    reference_title: &#34;Longitudinal changes in serum immunoglobulin G testing in patients with fibrotic avian hypersensitivity pneumonitis.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Serum IgG testing against pigeon serum was conducted twice using two methods: enzyme linked-immunosorbent assay (ELISA) and ImmunoCAP.&#34;
     explanation: The study uses serial bird-specific IgG testing against pigeon serum in fibrotic avian HP.
   - reference: PMID:40049235
+    reference_title: &#34;Anti-chicken and anti-pigeon immunoglobulin G testing in patients with bird-related fibrotic hypersensitivity pneumonitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The mean titers of anti-pigeon IgG antibody by ELISA were 0.659 ± 0.381 and 0.494 ± 0.187 in the bird-related fibrotic HP and control groups, respectively (p = 0.012).&#34;
@@ -5401,6 +5675,7 @@ genetic:
       label: MUC5B
   evidence:
   - reference: PMID:38309995
+    reference_title: &#34;Polymorphisms and haplotypes of TOLLIP and MUC5B are associated with susceptibility and survival in patients with fibrotic hypersensitivity pneumonitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;MUC5B rs35705950 and three neighboring TOLLIP variants (rs3750920, rs111521887, and rs5743894) were associated with increased susceptibility to fHP.&#34;
@@ -5414,6 +5689,7 @@ genetic:
       label: TOLLIP
   evidence:
   - reference: PMID:38309995
+    reference_title: &#34;Polymorphisms and haplotypes of TOLLIP and MUC5B are associated with susceptibility and survival in patients with fibrotic hypersensitivity pneumonitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;MUC5B rs35705950 and three neighboring TOLLIP variants (rs3750920, rs111521887, and rs5743894) were associated with increased susceptibility to fHP.&#34;
@@ -5423,6 +5699,7 @@ diagnosis:
   description: BAL shows a marked increase in lymphocytes in bird fancier&#39;s lung.
   evidence:
   - reference: PMID:14503346
+    reference_title: &#34;[A case of acute bird fancier&#39;s lung caused by feather duvet].&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Bronchoalveolar lavage (BAL) revealed a marked increase in lymphocytes&#34;
@@ -5431,11 +5708,13 @@ diagnosis:
   description: HRCT shows centrilobular small nodules and lobular areas of decreased attenuation in chronic hypersensitivity pneumonitis.
   evidence:
   - reference: PMID:24480143
+    reference_title: &#34;Chronic hypersensitivity pneumonitis and pulmonary sarcoidosis: differentiation from usual interstitial pneumonia using high-resolution computed tomography.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In chronic HP, the presence of lobular areas of decreased attenuation and centrilobular small nodules and the absence of lower lung zone predominance are characteristically observed.&#34;
     explanation: The HRCT pattern distinguishes chronic HP from other fibrotic ILDs.
   - reference: PMID:39958101
+    reference_title: &#34;Advanced Imaging and Occupational History in the Diagnosis of Bird Fancier&#39;s Lung: A Case Report.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;HRCT revealed bilateral diffuse centrilobular nodules, patchy ground-glass opacities, and a mosaic attenuation pattern without fibrosis, consistent with acute HP.&#34;
@@ -5444,16 +5723,19 @@ diagnosis:
   description: Elevated bird-specific IgG/IgA supports exposure attribution.
   evidence:
   - reference: PMID:33041192
+    reference_title: &#34;Screening and diagnosis of acute and chronic bird-related hypersensitivity pneumonitis by serum IgG and IgA antibodies to bird antigens with ImmunoCAP®.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The levels of sIgG/sIgA against the bird antigens of the three species were significantly higher in subjects with acute bird-related HP and chronic bird-related HP with acute episodes (recurrent type) than in the control subjects.&#34;
     explanation: Elevated bird-specific IgG/IgA is a diagnostic serologic marker.
   - reference: PMID:38762468
+    reference_title: &#34;Longitudinal changes in serum immunoglobulin G testing in patients with fibrotic avian hypersensitivity pneumonitis.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Serum IgG testing against pigeon serum was conducted twice using two methods: enzyme linked-immunosorbent assay (ELISA) and ImmunoCAP.&#34;
     explanation: Serial IgG testing against pigeon serum supports diagnostic attribution to avian antigens.
   - reference: PMID:40049235
+    reference_title: &#34;Anti-chicken and anti-pigeon immunoglobulin G testing in patients with bird-related fibrotic hypersensitivity pneumonitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The mean titers of anti-pigeon IgG antibody by ELISA were 0.659 ± 0.381 and 0.494 ± 0.187 in the bird-related fibrotic HP and control groups, respectively (p = 0.012).&#34;
@@ -5462,6 +5744,7 @@ diagnosis:
   description: Inhalation challenge testing is a sensitive diagnostic tool for bird-related fibrotic hypersensitivity pneumonitis.
   evidence:
   - reference: PMID:35779842
+    reference_title: &#34;Validation of inhalation challenge test and serum immunoglobulin G test for bird-related fibrotic hypersensitivity pneumonitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The inhalation challenge test for bird-related fibrotic HP was more sensitive than the anti-bird IgG antibodies.&#34;
@@ -5470,6 +5753,7 @@ diagnosis:
   description: Detailed occupational or avian exposure history is critical for diagnosing bird fancier&#39;s lung.
   evidence:
   - reference: PMID:39958101
+    reference_title: &#34;Advanced Imaging and Occupational History in the Diagnosis of Bird Fancier&#39;s Lung: A Case Report.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;A thorough occupational history uncovered significant avian antigen exposure, and a family history suggested genetic susceptibility.&#34;
@@ -5498,6 +5782,7 @@ treatments:
     snippet: &#34;Actually HP has been treated with Prednisone and occasionally with Azathioprine, but unfortunately the treatment with these drugs have not an effective result to treat the interstitial fibrosis.&#34;
     explanation: The trial summary notes existing use of prednisone and azathioprine in chronic hypersensitivity pneumonitis.
   - reference: PMID:39958101
+    reference_title: &#34;Advanced Imaging and Occupational History in the Diagnosis of Bird Fancier&#39;s Lung: A Case Report.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The patient was diagnosed with BFL and treated with a tapering regimen of oral corticosteroids, starting at 40 mg/day.&#34;
@@ -5520,6 +5805,7 @@ treatments:
         label: azathioprine
   evidence:
   - reference: PMID:27816444
+    reference_title: &#34;Use of Mycophenolate Mofetil or Azathioprine for the Management of Chronic Hypersensitivity Pneumonitis.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We aimed to determine the effect of treatment with mycophenolate mofetil (MMF) or azathioprine (AZA) on lung function in patients with cHP.&#34;
@@ -5538,6 +5824,7 @@ treatments:
         label: pirfenidone
   evidence:
   - reference: PMID:37028940
+    reference_title: &#34;Pirfenidone in fibrotic hypersensitivity pneumonitis: a double-blind, randomised clinical trial of efficacy and safety.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Pirfenidone was found to be safe and improved PFS in patients with FHP.&#34;
@@ -5561,6 +5848,7 @@ treatments:
         label: nintedanib
   evidence:
   - reference: PMID:32145830
+    reference_title: &#34;Nintedanib in patients with progressive fibrosing interstitial lung diseases-subgroup analyses by interstitial lung disease diagnosis in the INBUILD trial: a randomised, double-blind, placebo-controlled, parallel-group trial.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The effect of nintedanib versus placebo on reducing the rate of FVC decline (mL/year) was consistent across the five subgroups by ILD diagnosis&#34;
@@ -5578,6 +5866,7 @@ differential_diagnoses:
   - Absence of centrilobular small nodules
   evidence:
   - reference: PMID:24480143
+    reference_title: &#34;Chronic hypersensitivity pneumonitis and pulmonary sarcoidosis: differentiation from usual interstitial pneumonia using high-resolution computed tomography.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In idiopathic pulmonary fibrosis or usual interstitial pneumonia, however, the presence of honeycombing with lower lung zone predominance and the absence of centrilobular small nodules are important findings that allow us to differentiate the disease from chronic HP or advanced-stage sarcoidosis.&#34;
@@ -5594,6 +5883,7 @@ differential_diagnoses:
   - Reticulation, traction bronchiectasis, architectural distortion, and honeycomblike cysts
   evidence:
   - reference: PMID:24480143
+    reference_title: &#34;Chronic hypersensitivity pneumonitis and pulmonary sarcoidosis: differentiation from usual interstitial pneumonia using high-resolution computed tomography.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In advanced-stage sarcoidosis, patchy areas of reticulation, traction bronchiectasis, architectural distortion, honeycomblike cysts, bullae, and paracicatricial emphysema are observed in the upper and middle lung zones. Lung bases are usually spared.&#34;
@@ -5610,6 +5900,7 @@ differential_diagnoses:
   - Similar ILD features without avian exposure history
   evidence:
   - reference: PMID:40338891
+    reference_title: &#34;Hypersensitivity pneumonitis associated with home mold exposure: A retrospective cohort analysis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Home mold exposure was identified as the culprit antigen in 54 of 231 hypersensitivity pneumonitis patients.&#34;
@@ -5624,26 +5915,31 @@ environmental:
       label: exposure to animal waste material
   evidence:
   - reference: PMID:33041192
+    reference_title: &#34;Screening and diagnosis of acute and chronic bird-related hypersensitivity pneumonitis by serum IgG and IgA antibodies to bird antigens with ImmunoCAP®.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Possible sources of bird antigens are bird breeding, feather products and fertilizer with fowl droppings.&#34;
     explanation: The abstract explicitly lists common avian antigen exposure sources.
   - reference: PMID:14503346
+    reference_title: &#34;[A case of acute bird fancier&#39;s lung caused by feather duvet].&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;She had raised two budgerigars for the last 15 years and had been using a feather duvet for one year.&#34;
     explanation: The case report documents direct bird exposure and feather product exposure associated with bird fancier&#39;s lung.
   - reference: PMID:1053441
+    reference_title: &#34;Pigeon breeders&#39; disease--a prevalence study and review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Among fifty-three Salt Lake City, Utah area pigeon fanciers, 21% were found to have the clinical picture of pigeon breeders&#39; disease.&#34;
     explanation: Pigeon fancier exposure is directly tied to bird fancier&#39;s lung in this prevalence study.
   - reference: PMID:39958101
+    reference_title: &#34;Advanced Imaging and Occupational History in the Diagnosis of Bird Fancier&#39;s Lung: A Case Report.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;immune-mediated interstitial lung disease (ILD) resulting from the repeated inhalation of avian proteins found in bird droppings, feathers, and serum.&#34;
     explanation: The case report explicitly identifies avian protein sources (droppings, feathers, serum) as exposure triggers.
   - reference: PMID:33318919
+    reference_title: &#34;Bird Fancier&#39;s lung: An underdiagnosed etiology of dyspnea.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;triggered by exposure to highly antigenic avian proteins excreted in bird droppings and waxy proteins covering feathers of a variety of birds&#34;
@@ -5725,6 +6021,7 @@ animal_models:
   description: Pigeon breeder&#39;s lung model generated by tracheal instillation of pigeon dropping extract protein powder.
   evidence:
   - reference: PMID:39844643
+    reference_title: &#34;Immunopathological characteristics and therapeutic effects of UC-MSCs in a pigeon breeder&#39;s lung mouse model.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;PBL models are created in A/J mice through tracheal instillation of pigeon dropping extract (PDE) protein powder.&#34;
@@ -5753,6 +6050,7 @@ datasets:
   publication: PMID:32602730
   evidence:
   - reference: PMID:32602730
+    reference_title: &#34;Chronic Hypersensitivity Pneumonitis, an Interstitial Lung Disease with Distinct Molecular Signatures.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Transcriptome analysis of lung samples from CHP (n = 82), IPF (n = 103), and unaffected controls (n = 103) was conducted.&#34;
@@ -5787,6 +6085,7 @@ datasets:
   publication: PMID:38924775
   evidence:
   - reference: PMID:38924775
+    reference_title: &#34;Single-Cell Analysis Reveals Novel Immune Perturbations in Fibrotic Hypersensitivity Pneumonitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Single-cell 5&#39; RNA sequencing was conducted on peripheral blood mononuclear cells and BAL cells obtained from 45 patients with FHP, 63 patients with idiopathic pulmonary fibrosis (IPF), 4 patients with nonfibrotic hypersensitivity pneumonitis, and 36 healthy control subjects in the United States and Mexico.&#34;

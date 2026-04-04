@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1037,6 +1101,52 @@
             text-decoration: underline;
         }
 
+        /* Experimental Models */
+        .exp-model-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .exp-model-box .item-name { color: #92400e; }
+        .exp-model-box .item-desc { color: #b45309; }
+
+        .tag-exp-model-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .tag-namo-type {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+        .tag-condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .model-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .model-detail-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .model-detail-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 110px;
+        }
+        .model-detail-value {
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+        }
+        .model-detail-value a {
+            color: inherit;
+        }
+
         /* Computational Models */
         .comp-model-box {
             background: #f0fdf4;
@@ -1382,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1470,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1477,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1489,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1637,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1723,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1737,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1792,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1877,6 +2093,7 @@
                 </span>
                 
                 
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Pulmonary disease</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Autoimmune disease</span>
@@ -1886,6 +2103,11 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
+        
+        
         
         
         
@@ -1941,6 +2163,12 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
+            
+            
+            <div class="stat-item">
+                <div class="stat-value">0</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
             
             
             <div class="stat-item">
@@ -2018,7 +2246,7 @@
                 <span class="card-count">4</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-gluten-triggered-intestinal-autoimmunity-in-celiac-disease">
                 <div class="item-name">Gluten-triggered intestinal autoimmunity in celiac disease</div>
                 
                 <div class="item-desc">Lane Hamilton Syndrome begins with celiac disease, an autoimmune condition triggered by gluten ingestion in genetically predisposed individuals. Gluten exposure activates intestinal immune responses with increased intraepithelial lymphocytes, villous atrophy, and crypt hyperplasia in the small intestine, particularly the duodenum. This localized intestinal autoimmunity generates systemic immune activation and circulating autoantibodies, including anti-tissue transglutaminase (anti-tTG) and anti-endomysial antibodies.
@@ -2065,6 +2293,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2120,7 +2349,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-mediated-increase-in-pulmonary-capillary-permeability">
                 <div class="item-name">Immune-mediated increase in pulmonary capillary permeability</div>
                 
                 <div class="item-desc">Systemic immune mediators generated by intestinal celiac disease act on the pulmonary microvasculature, increasing capillary endothelial permeability without causing vasculitis or immune complex deposition. Mediators such as histamine (released by eosinophils and basophils), eosinophil cationic protein (ECP), and vascular endothelial growth factor (VEGF) increase endothelial gap formation between capillary endothelial cells. This allows erythrocyte extravasation into the alveolar space in the absence of structural vascular damage or capillaritis.
@@ -2192,6 +2421,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2242,7 +2472,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-alveolar-hemorrhage-and-hemosiderin-accumulation">
                 <div class="item-name">Alveolar hemorrhage and hemosiderin accumulation</div>
                 
                 <div class="item-desc">Increased capillary permeability allows red blood cells and hemoglobin to escape into the alveolar space, causing diffuse alveolar hemorrhage (DAH). Alveolar macrophages rapidly phagocytose the extravasated erythrocytes and break down hemoglobin, converting iron and heme into hemosiderin. These hemosiderin-laden macrophages (HLM) accumulate in alveolar spaces and can be detected via bronchoalveolar lavage (BAL) or lung biopsy, serving as a hallmark histologic finding of prior alveolar bleeding.
@@ -2304,6 +2534,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2354,7 +2585,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-iron-and-heme-driven-oxidative-injury-and-chronic-remodeling">
                 <div class="item-name">Iron and heme-driven oxidative injury and chronic remodeling</div>
                 
                 <div class="item-desc">Chronic recurrent alveolar hemorrhage leads to progressive iron and heme overload in the alveolar space, driving oxidative stress through iron-catalyzed free radical generation (Fenton reaction) and heme-driven lipid peroxidation. Oxidative injury damages alveolar epithelial cells, triggering type II pneumocyte hyperplasia as a reparative response. Over time, recurrent cycles of hemorrhage, oxidative injury, and epithelial repair may progress to pulmonary fibrosis and respiratory impairment if the underlying celiac disease is not controlled.
@@ -2397,6 +2628,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3717,6 +3949,9 @@
         <!-- Clinical Trials -->
         
 
+        <!-- Experimental Models -->
+        
+
         <!-- Computational Models -->
         
 
@@ -3754,10 +3989,12 @@ pathophysiology:
     including anti-tissue transglutaminase (anti-tTG) and anti-endomysial antibodies.
   evidence:
   - reference: PMID:35912848
+    reference_title: &#34;Celiac disease and idiopathic pulmonary hemosiderosis: a literature review of the Lane-Hamilton syndrome.&#34;
     supports: PARTIAL
     snippet: &#34;Celiac disease (CD) and IPH diagnosis was made concurrently in 46 patients, whereas in 21 patients, the diagnosis of LHS was delayed for 2.5y (3 months-11 years).&#34;
     explanation: Literature review documents the coexistence of celiac disease and pulmonary hemosiderosis in Lane-Hamilton syndrome
   - reference: PMID:35088581
+    reference_title: &#34;Association between idiopathic pulmonary hemosiderosis and celiac disease in pediatric patients: A scoping review of the literature over the past 50 years.&#34;
     supports: PARTIAL
     snippet: &#34;Nearly one-third of pediatric patients with IPH test positive for Celiac disease (CD) serology. Several hypothetical mechanisms have been proposed to unify the coexistence of these two entities, also referred to as Lane-Hamilton syndrome (LHS).&#34;
     explanation: Scoping review documents the association between idiopathic pulmonary hemosiderosis and celiac disease in pediatric patients
@@ -3785,10 +4022,12 @@ pathophysiology:
     structural vascular damage or capillaritis.
   evidence:
   - reference: PMID:37416498
+    reference_title: &#34;Lane-Hamilton syndrome.&#34;
     supports: NO_EVIDENCE
     snippet: &#34;The co-existence of idiopathic hemosiderosis and celiac disease is Lane-Hamilton Syndrome. This is a rare condition with only a few dozen cases reported to date.&#34;
     explanation: Review article describes Lane-Hamilton syndrome as the coexistence of pulmonary hemosiderosis and celiac disease
   - reference: PMID:34708697
+    reference_title: &#34;Lane-Hamilton syndrome - Is it really a needle in a haystack?&#34;
     supports: NO_EVIDENCE
     snippet: &#34;The association of pulmonary hemosiderosis with celiac disease (Lane-Hamilton syndrome) is extremely rare.&#34;
     explanation: Clinical analysis documents Lane-Hamilton syndrome as an association between pulmonary hemosiderosis and celiac disease
@@ -3823,10 +4062,12 @@ pathophysiology:
     lung biopsy, serving as a hallmark histologic finding of prior alveolar bleeding.
   evidence:
   - reference: PMID:36241572
+    reference_title: &#34;Lane-Hamilton syndrome: A rare cause of recurrent alveolar hemorrhage in an adult.&#34;
     supports: SUPPORT
     snippet: &#34;Lane-Hamilton syndrome: A rare cause of recurrent alveolar hemorrhage in an adult&#34;
     explanation: Case report identifies Lane-Hamilton syndrome as a cause of recurrent alveolar hemorrhage in adult patients
   - reference: PMID:35754673
+    reference_title: &#34;Late presentation of lane-hamilton syndrome in a 33 year old female: A case report.&#34;
     supports: NO_EVIDENCE
     snippet: &#34;HRCT of the chest and duodenal biopsy helped in concluding the diagnosis&#34;
     explanation: Case report documents diagnostic findings in alveolar hemorrhage including HRCT imaging and biopsy results
@@ -3858,9 +4099,11 @@ pathophysiology:
     disease is not controlled.
   evidence:
   - reference: PMID:36324124
+    reference_title: &#34;Updates in idiopathic pulmonary hemosiderosis in 2022: A state of the art review.&#34;
     supports: PARTIAL
     explanation: Review of updates in idiopathic pulmonary hemosiderosis in 2022 discusses chronic sequelae of recurrent hemorrhage and oxidative injury
   - reference: PMID:34401285
+    reference_title: &#34;Coincidence or connection? A patient with concurrent Lane Hamilton Syndrome and idiopathic membranous nephropathy.&#34;
     supports: PARTIAL
     explanation: Case report of Lane-Hamilton syndrome with concurrent idiopathic membranous nephropathy suggests systemic immune-mediated complications
   biological_processes:
@@ -3888,6 +4131,7 @@ phenotypes:
       label: Diffuse alveolar hemorrhage
   evidence:
   - reference: PMID:35475077
+    reference_title: &#34;Comparative Analysis of Adult Patients With Idiopathic Pulmonary Hemosiderosis and Lane-Hamilton Syndrome: A Systematic Review of the Literature in the Period 1971-2022.&#34;
     supports: PARTIAL
     snippet: &#34;Idiopathic pulmonary hemosiderosis (IPH) causes diffuse alveolar hemorrhage (DAH) by a yet unknown mechanism&#34;
     explanation: Systematic review identifies diffuse alveolar hemorrhage as the core pulmonary manifestation
@@ -3905,6 +4149,7 @@ phenotypes:
     supports: PARTIAL
     explanation: Case report highlighting hemoptysis as a key clinical manifestation responsive to gluten-free diet
   - reference: PMID:41356730
+    reference_title: &#34;Back to the Diving Board: A Rare Cause of Hemoptysis in a Healthy Female Athlete.&#34;
     supports: SUPPORT
     snippet: &#34;Lane-Hamilton syndrome is a rare association between idiopathic pulmonary hemosiderosis (IPH) and celiac disease that can present with isolated hemoptysis&#34;
     explanation: Case report describes hemoptysis as a presenting symptom in Lane-Hamilton syndrome
@@ -3919,6 +4164,7 @@ phenotypes:
       label: Iron deficiency anemia
   evidence:
   - reference: PMID:35475077
+    reference_title: &#34;Comparative Analysis of Adult Patients With Idiopathic Pulmonary Hemosiderosis and Lane-Hamilton Syndrome: A Systematic Review of the Literature in the Period 1971-2022.&#34;
     supports: NO_EVIDENCE
     snippet: &#34;The coexistence of IPH and celiac disease (CD), also known as Lane-Hamilton syndrome (LHS), has been reported in both pediatric and adult patients&#34;
     explanation: Systematic review documents iron-deficiency anemia as a consistent finding in Lane Hamilton Syndrome patients
@@ -3932,6 +4178,7 @@ phenotypes:
       label: Dyspnea
   evidence:
   - reference: PMID:35475077
+    reference_title: &#34;Comparative Analysis of Adult Patients With Idiopathic Pulmonary Hemosiderosis and Lane-Hamilton Syndrome: A Systematic Review of the Literature in the Period 1971-2022.&#34;
     supports: NO_EVIDENCE
     snippet: &#34;The classic triad was more likely to be present in patients with LHS&#34;
     explanation: Systematic review documents dyspnea as part of clinical presentation in Lane Hamilton Syndrome
@@ -3941,6 +4188,7 @@ phenotypes:
     during acute or subacute alveolar hemorrhage.
   evidence:
   - reference: PMID:35475077
+    reference_title: &#34;Comparative Analysis of Adult Patients With Idiopathic Pulmonary Hemosiderosis and Lane-Hamilton Syndrome: A Systematic Review of the Literature in the Period 1971-2022.&#34;
     supports: NO_EVIDENCE
     explanation: Systematic review documents radiological findings in Lane Hamilton Syndrome presenting as diffuse alveolar hemorrhage
 - name: Malabsorption
@@ -3949,6 +4197,7 @@ phenotypes:
     in adult Lane Hamilton Syndrome cases. When present, includes diarrhea and weight loss.
   evidence:
   - reference: PMID:35475077
+    reference_title: &#34;Comparative Analysis of Adult Patients With Idiopathic Pulmonary Hemosiderosis and Lane-Hamilton Syndrome: A Systematic Review of the Literature in the Period 1971-2022.&#34;
     supports: PARTIAL
     snippet: &#34;Only 20% of patients in the LHS cohort had any significant gastrointestinal (GI) symptoms at the time of IPH diagnosis&#34;
     explanation: Systematic review documents that GI symptoms are often absent despite underlying celiac disease
@@ -3959,6 +4208,7 @@ biochemical:
   context: Diagnostic and monitoring indicator; reflects chronic blood loss and iron sequestration in hemosiderin
   evidence:
   - reference: PMID:35912848
+    reference_title: &#34;Celiac disease and idiopathic pulmonary hemosiderosis: a literature review of the Lane-Hamilton syndrome.&#34;
     supports: NO_EVIDENCE
     snippet: &#34;Celiac disease (CD) and IPH diagnosis was made concurrently in 46 patients, whereas in 21 patients, the diagnosis of LHS was delayed for 2.5y (3 months-11 years).&#34;
     explanation: The literature documents iron deficiency anemia as a common finding in Lane Hamilton Syndrome patients, resulting from chronic pulmonary bleeding
@@ -3967,6 +4217,7 @@ biochemical:
   context: Marker of systemic iron stores; elevated due to hemosiderin accumulation from chronic red blood cell breakdown in lungs
   evidence:
   - reference: PMID:34708697
+    reference_title: &#34;Lane-Hamilton syndrome - Is it really a needle in a haystack?&#34;
     supports: NO_EVIDENCE
     snippet: &#34;The association of pulmonary hemosiderosis with celiac disease (Lane-Hamilton syndrome) is extremely rare.&#34;
     explanation: The chronic hemosiderin accumulation in alveolar macrophages reflects elevated ferritin levels consistent with pulmonary hemosiderosis
@@ -3975,6 +4226,7 @@ biochemical:
   context: Diagnostic indicator; reflects iron-deficiency anemia from chronic pulmonary blood loss
   evidence:
   - reference: PMID:35475077
+    reference_title: &#34;Comparative Analysis of Adult Patients With Idiopathic Pulmonary Hemosiderosis and Lane-Hamilton Syndrome: A Systematic Review of the Literature in the Period 1971-2022.&#34;
     supports: PARTIAL
     snippet: &#34;The classic triad was more likely to be present in patients with LHS&#34;
     explanation: Systematic review documents that anemia is part of the clinical manifestations in Lane Hamilton Syndrome resulting from chronic alveolar hemorrhage
@@ -3983,6 +4235,7 @@ biochemical:
   context: Serologic marker of celiac disease; detects autoimmune response to gluten
   evidence:
   - reference: PMID:35088581
+    reference_title: &#34;Association between idiopathic pulmonary hemosiderosis and celiac disease in pediatric patients: A scoping review of the literature over the past 50 years.&#34;
     supports: PARTIAL
     snippet: &#34;Nearly one-third of pediatric patients with IPH test positive for Celiac disease (CD) serology. Several hypothetical mechanisms have been proposed to unify the coexistence of these two entities, also referred to as Lane-Hamilton syndrome (LHS).&#34;
     explanation: The literature documents elevated celiac disease serology, including tTG antibodies, as a diagnostic marker for Lane Hamilton Syndrome
@@ -3991,6 +4244,7 @@ biochemical:
   context: Serologic marker of celiac disease; confirms gluten-triggered autoimmunity
   evidence:
   - reference: PMID:35088581
+    reference_title: &#34;Association between idiopathic pulmonary hemosiderosis and celiac disease in pediatric patients: A scoping review of the literature over the past 50 years.&#34;
     supports: SUPPORT
     snippet: &#34;Nearly one-third of pediatric patients with IPH test positive for Celiac disease (CD) serology.&#34;
     explanation: Anti-endomysial antibodies are part of celiac disease serology testing that helps establish the Lane Hamilton Syndrome diagnosis
@@ -3999,6 +4253,7 @@ biochemical:
   context: Hallmark diagnostic finding; indicates recent or chronic alveolar bleeding
   evidence:
   - reference: PMID:36241572
+    reference_title: &#34;Lane-Hamilton syndrome: A rare cause of recurrent alveolar hemorrhage in an adult.&#34;
     supports: NO_EVIDENCE
     snippet: &#34;Lane-Hamilton syndrome: A rare cause of recurrent alveolar hemorrhage in an adult&#34;
     explanation: The presence of hemosiderin-laden macrophages in BAL fluid is a diagnostic hallmark of pulmonary hemosiderosis in Lane Hamilton Syndrome
@@ -4017,6 +4272,7 @@ treatments:
       label: dietary intervention
   evidence:
   - reference: PMID:35475077
+    reference_title: &#34;Comparative Analysis of Adult Patients With Idiopathic Pulmonary Hemosiderosis and Lane-Hamilton Syndrome: A Systematic Review of the Literature in the Period 1971-2022.&#34;
     supports: SUPPORT
     snippet: &#34;A gluten-free diet alone was effective in the majority of patients&#34;
     explanation: Systematic review demonstrates gluten-free diet as effective primary therapy
@@ -4036,10 +4292,12 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:36751263
+    reference_title: &#34;Lane-Hamilton Syndrome in an Adult With Down Syndrome: A Case Report.&#34;
     supports: PARTIAL
     snippet: &#34;A gluten-free diet and steroids were given to the patient with a very good clinical response&#34;
     explanation: Case report demonstrates corticosteroids are needed when gluten-free diet alone is insufficient
   - reference: PMID:35475077
+    reference_title: &#34;Comparative Analysis of Adult Patients With Idiopathic Pulmonary Hemosiderosis and Lane-Hamilton Syndrome: A Systematic Review of the Literature in the Period 1971-2022.&#34;
     supports: PARTIAL
     snippet: &#34;Fewer patients in the LHS cohort received systemic corticosteroid than the IPH cohort&#34;
     explanation: Systematic review compares corticosteroid usage between LHS and IPH patients
@@ -4055,6 +4313,7 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:35475077
+    reference_title: &#34;Comparative Analysis of Adult Patients With Idiopathic Pulmonary Hemosiderosis and Lane-Hamilton Syndrome: A Systematic Review of the Literature in the Period 1971-2022.&#34;
     supports: NO_EVIDENCE
     snippet: &#34;The coexistence of IPH and celiac disease (CD), also known as Lane-Hamilton syndrome (LHS), has been reported in both pediatric and adult patients&#34;
     explanation: Systematic review identifies steroid-sparing agents as alternative immunosuppressive options
@@ -4078,10 +4337,12 @@ differential_diagnoses:
   - Requires corticosteroids and/or immunosuppressive therapy from disease onset
   evidence:
   - reference: PMID:35088581
+    reference_title: &#34;Association between idiopathic pulmonary hemosiderosis and celiac disease in pediatric patients: A scoping review of the literature over the past 50 years.&#34;
     supports: PARTIAL
     snippet: &#34;Nearly one-third of pediatric patients with IPH test positive for Celiac disease (CD) serology. Several hypothetical mechanisms have been proposed to unify the coexistence of these two entities, also referred to as Lane-Hamilton syndrome (LHS).&#34;
     explanation: Scoping review documents the coexistence of IPH and celiac disease in pediatric patients
   - reference: PMID:36324124
+    reference_title: &#34;Updates in idiopathic pulmonary hemosiderosis in 2022: A state of the art review.&#34;
     supports: SUPPORT
     snippet: &#34;A substantial number of patients suffer from coexisting CD, also known as Lane-Hamilton syndrome (LHS), and all patients with IPH need to be evaluated for LHS by serology.&#34;
     explanation: Review of IPH updates recommends evaluating all IPH patients for coexisting celiac disease
@@ -4103,6 +4364,7 @@ differential_diagnoses:
   - No association with celiac disease or gluten exposure
   evidence:
   - reference: PMID:35475077
+    reference_title: &#34;Comparative Analysis of Adult Patients With Idiopathic Pulmonary Hemosiderosis and Lane-Hamilton Syndrome: A Systematic Review of the Literature in the Period 1971-2022.&#34;
     supports: NO_EVIDENCE
     snippet: &#34;Serologic testing for CD should be performed in all patients diagnosed with IPH&#34;
     explanation: Systematic review distinguishes Lane Hamilton Syndrome from other causes of diffuse alveolar hemorrhage through celiac disease screening
@@ -4119,6 +4381,7 @@ differential_diagnoses:
   - Pulmonary involvement rare and not primary manifestation
   evidence:
   - reference: PMID:34401285
+    reference_title: &#34;Coincidence or connection? A patient with concurrent Lane Hamilton Syndrome and idiopathic membranous nephropathy.&#34;
     supports: PARTIAL
     explanation: Case report documents Lane-Hamilton syndrome with concurrent membranous nephropathy, highlighting that renal involvement is distinct from the more common associations with celiac disease
 - name: Goodpasture syndrome (anti-glomerular basement membrane disease)
@@ -4140,6 +4403,7 @@ differential_diagnoses:
   - Presents acutely; more severe at onset than Lane Hamilton Syndrome
   evidence:
   - reference: PMID:35475077
+    reference_title: &#34;Comparative Analysis of Adult Patients With Idiopathic Pulmonary Hemosiderosis and Lane-Hamilton Syndrome: A Systematic Review of the Literature in the Period 1971-2022.&#34;
     supports: PARTIAL
     explanation: Systematic review contextualizes Lane Hamilton Syndrome within the broader differential diagnosis of diffuse alveolar hemorrhage
 - name: Acute leukemia with leukostasis and pulmonary hemorrhage
@@ -4160,6 +4424,7 @@ differential_diagnoses:
   - No improvement with gluten-free diet
   evidence:
   - reference: PMID:35475077
+    reference_title: &#34;Comparative Analysis of Adult Patients With Idiopathic Pulmonary Hemosiderosis and Lane-Hamilton Syndrome: A Systematic Review of the Literature in the Period 1971-2022.&#34;
     supports: PARTIAL
     explanation: Systematic review discusses differential diagnosis of pulmonary hemorrhage and hematologic causes
 datasets:

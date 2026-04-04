@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1037,6 +1101,52 @@
             text-decoration: underline;
         }
 
+        /* Experimental Models */
+        .exp-model-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .exp-model-box .item-name { color: #92400e; }
+        .exp-model-box .item-desc { color: #b45309; }
+
+        .tag-exp-model-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .tag-namo-type {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+        .tag-condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .model-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .model-detail-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .model-detail-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 110px;
+        }
+        .model-detail-value {
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+        }
+        .model-detail-value a {
+            color: inherit;
+        }
+
         /* Computational Models */
         .comp-model-box {
             background: #f0fdf4;
@@ -1382,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1470,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1477,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1489,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1637,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1723,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1737,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1792,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1877,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 25</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">dermatitis</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">disorder of pilosebaceous unit</span>
@@ -1890,6 +2109,11 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
+        
+        
         
         
         
@@ -1945,6 +2169,14 @@
             <div class="stat-item">
                 <div class="stat-value">5</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">25</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2634,7 +2866,7 @@
                 <span class="card-count">21</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-staphylococcus-aureus-follicular-colonization">
                 <div class="item-name">Staphylococcus aureus follicular colonization</div>
                 
                 <div class="item-desc">S. aureus colonization of hair follicles is a common proximal trigger for infectious folliculitis.
@@ -2657,6 +2889,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -2693,11 +2926,12 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-staphylococcal-virulence-factor-activity">
                 <div class="item-name">Staphylococcal virulence factor activity</div>
                 
                 <div class="item-desc">S. aureus expresses cytolytic, superantigenic, and immune-evasion factors that enable progression from colonization to tissue-level inflammation.
 </div>
+                
                 
                 
                 
@@ -2741,7 +2975,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-keratinocyte-innate-immune-activation">
                 <div class="item-name">Keratinocyte innate immune activation</div>
                 
                 <div class="item-desc">Keratinocytes act as early epithelial sentinels and initiate innate immune responses after bacterial challenge.
@@ -2783,6 +3017,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2817,7 +3052,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-neutrophil-recruitment-and-activation">
                 <div class="item-name">Neutrophil recruitment and activation</div>
                 
                 <div class="item-desc">Neutrophils are recruited and activated, amplifying follicular inflammatory injury.
@@ -2859,6 +3094,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2893,7 +3129,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-acute-suppurative-follicular-inflammation">
                 <div class="item-name">Acute suppurative follicular inflammation</div>
                 
                 <div class="item-desc">Follicular inflammation progresses to acute suppuration with histologic evidence of neutrophil-rich tissue injury.
@@ -2916,6 +3152,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2955,7 +3192,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-non-staphylococcal-microbial-follicular-colonization">
                 <div class="item-name">Non-staphylococcal microbial follicular colonization</div>
                 
                 <div class="item-desc">Gram-negative bacterial, fungal, parasitic, and viral pathogens can also colonize follicles and converge on inflammatory papulopustular disease.
@@ -2978,6 +3215,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -3014,11 +3252,12 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-prolonged-broad-spectrum-antibiotic-exposure-in-acne-or-rosacea">
                 <div class="item-name">Prolonged broad-spectrum antibiotic exposure in acne or rosacea</div>
                 
                 <div class="item-desc">Extended broad-spectrum antibiotic exposure can create conditions that favor gram-negative follicular infection.
 </div>
+                
                 
                 
                 
@@ -3062,7 +3301,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-gram-negative-follicular-overgrowth-and-infection">
                 <div class="item-name">Gram-negative follicular overgrowth and infection</div>
                 
                 <div class="item-desc">Gram-negative organisms including Klebsiella, Escherichia coli, Enterobacter, and Proteus can overgrow and infect follicles.
@@ -3085,6 +3324,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -3121,7 +3361,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-demodex-follicular-colonization">
                 <div class="item-name">Demodex follicular colonization</div>
                 
                 <div class="item-desc">Demodex mites are present in a subset of follicles and are associated with inflammatory follicular histopathology.
@@ -3144,6 +3384,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -3180,11 +3421,12 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-demodex-associated-follicular-inflammation">
                 <div class="item-name">Demodex-associated follicular inflammation</div>
                 
                 <div class="item-desc">Follicles containing Demodex mites frequently show inflammatory changes, supporting a mite-associated inflammatory folliculitis pathway.
 </div>
+                
                 
                 
                 
@@ -3228,7 +3470,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-malassezia-follicular-colonization">
                 <div class="item-name">Malassezia follicular colonization</div>
                 
                 <div class="item-desc">Malassezia yeast exists as part of the normal follicular mycobiome before symptomatic disease develops.
@@ -3251,6 +3493,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -3287,11 +3530,12 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-pathogenic-malassezia-transition-with-virulence-factor-production">
                 <div class="item-name">Pathogenic Malassezia transition with virulence factor production</div>
                 
                 <div class="item-desc">Host-agent interactions can drive Malassezia transition from commensal to pathogenic states with production of inflammatory virulence factors.
 </div>
+                
                 
                 
                 
@@ -3335,11 +3579,12 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-malassezia-associated-follicular-inflammation">
                 <div class="item-name">Malassezia-associated follicular inflammation</div>
                 
                 <div class="item-desc">Symptomatic Malassezia folliculitis manifests as inflammatory pruritic papulopustular follicular lesions.
 </div>
+                
                 
                 
                 
@@ -3383,7 +3628,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-eosinophilic-follicular-inflammation-in-advanced-hiv">
                 <div class="item-name">Eosinophilic follicular inflammation in advanced HIV</div>
                 
                 <div class="item-desc">In advanced HIV infection, a culture-negative eosinophilic folliculitis pattern can occur with chronic pruritic disease.
@@ -3403,6 +3648,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3445,7 +3691,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-folliculitis-decalvans-follicular-dysbiosis">
                 <div class="item-name">Folliculitis decalvans follicular dysbiosis</div>
                 
                 <div class="item-desc">Folliculitis decalvans exhibits a disease-associated shift in follicular bacterial community structure.
@@ -3468,6 +3714,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -3504,11 +3751,12 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-antibacterial-cytokine-response-in-folliculitis-decalvans">
                 <div class="item-name">Impaired antibacterial cytokine response in folliculitis decalvans</div>
                 
                 <div class="item-desc">Patients with folliculitis decalvans show reduced cytokine responses to bacterial stimulation.
 </div>
+                
                 
                 
                 
@@ -3592,7 +3840,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-neutrophilic-scarring-follicular-inflammation-in-folliculitis-decalvans">
                 <div class="item-name">Neutrophilic scarring follicular inflammation in folliculitis decalvans</div>
                 
                 <div class="item-desc">Folliculitis decalvans is characterized by chronic neutrophilic follicular inflammation with scarring progression.
@@ -3612,6 +3860,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3674,11 +3923,12 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-egfr-pathway-disruption-in-follicular-stem-cell-niche">
                 <div class="item-name">EGFR pathway disruption in follicular stem-cell niche</div>
                 
                 <div class="item-desc">EGFR pathway loss removes protective signaling in the follicular stem-cell niche and predisposes to inflammatory tissue injury.
 </div>
+                
                 
                 
                 
@@ -3722,11 +3972,12 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-jak-stat1-pathway-hypersensitivity-in-egfr-deficient-follicles">
                 <div class="item-name">JAK-STAT1 pathway hypersensitivity in EGFR-deficient follicles</div>
                 
                 <div class="item-desc">EGFR-deficient follicular cells develop heightened JAK-STAT1 signaling sensitivity.
 </div>
+                
                 
                 
                 
@@ -3770,11 +4021,12 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-interferon-cd8-t-cell-and-nk-cell-inflammatory-amplification">
                 <div class="item-name">Interferon-γ CD8 T-cell and NK-cell inflammatory amplification</div>
                 
                 <div class="item-desc">Interferon-γ-expressing CD8 T cells and NK cells amplify follicular inflammatory injury in EGFR-deficient settings.
 </div>
+                
                 
                 
                 
@@ -3818,11 +4070,12 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-stem-cell-niche-compromise-and-scarring-follicle-destruction">
                 <div class="item-name">Stem-cell niche compromise and scarring follicle destruction</div>
                 
                 <div class="item-desc">Compromised follicular stem-cell niche integrity and associated signaling changes culminate in scarring follicular injury.
 </div>
+                
                 
                 
                 
@@ -4080,12 +4333,13 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Folliculitis</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
@@ -5841,6 +6095,9 @@
         </div>
         
 
+        <!-- Experimental Models -->
+        
+
         <!-- Computational Models -->
         
 
@@ -5873,6 +6130,7 @@ classifications:
   - classification_value: skin disorder
     evidence:
     - reference: PMID:22639852
+      reference_title: &#34;First step in the differential diagnosis of folliculitis: cytology.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Folliculitis is a superficial inflammation of the hair follicles, and can be observed in individuals of any age or race.&#34;
@@ -5886,11 +6144,13 @@ has_subtypes:
   description: Superficial bacterial folliculitis in which Staphylococcus aureus is the predominant causative organism.
   evidence:
   - reference: PMID:22639852
+    reference_title: &#34;First step in the differential diagnosis of folliculitis: cytology.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;There are various infectious and non-infectious causes of folliculitis, and the most common causative agent is Staphylococcus aureus.&#34;
     explanation: Supports staphylococcal folliculitis as the most common etiologic subtype.
   - reference: PMID:15482221
+    reference_title: &#34;Treatment of staphylococcal scalded skin syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;S. aureus is one of the most common causes of skin infection, giving rise to folliculitis, furunculosis, carbuncles, ecthyma, impetigo, cellulitis and abscesses.&#34;
@@ -5900,6 +6160,7 @@ has_subtypes:
   description: Water-exposure-associated folliculitis caused by Pseudomonas aeruginosa after contaminated hot-tub or spa use.
   evidence:
   - reference: PMID:6402527
+    reference_title: &#34;Hot tub dermatitis: a familial outbreak of Pseudomonas folliculitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Pseudomonas folliculitis resulting from the use of spa pools, whirlpools, and hot tubs is a newly described disease that typically develops 8 to 48 hours after exposure in a contaminated facility.&#34;
@@ -5909,6 +6170,7 @@ has_subtypes:
   description: Lipophilic yeast-associated folliculitis presenting with pruritic papules and pustules.
   evidence:
   - reference: PMID:36912427
+    reference_title: &#34;Position statement: Recommendations on the diagnosis and treatment of Malassezia folliculitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Malassezia folliculitis appears when the benign colonization of the hair follicles, by the Malassezia yeasts, becomes symptomatic with pruritic papules and pustules.&#34;
@@ -5918,6 +6180,7 @@ has_subtypes:
   description: Folliculitis associated with Demodex mite colonization and increased histologic inflammation.
   evidence:
   - reference: PMID:8989930
+    reference_title: &#34;Demodex-associated folliculitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Demodex mites were found in 42% of follicles with inflammation, but in just 10% of the follicles without inflammation.&#34;
@@ -5927,6 +6190,7 @@ has_subtypes:
   description: Folliculitis caused by gram-negative rods, commonly emerging after prolonged broad-spectrum antibiotic therapy in acne/rosacea contexts.
   evidence:
   - reference: PMID:10321942
+    reference_title: &#34;Bacteriologic and immunologic aspects of gram-negative folliculitis: a study of 46 patients.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Gram-negative folliculitis is an infection with gram-negative rods that most often occurs as a complication of prolonged broad-spectrum antibiotic therapy in patients suffering from acne and rosacea.&#34;
@@ -5936,6 +6200,7 @@ has_subtypes:
   description: Culture-negative chronic pruritic folliculitis with eosinophilic inflammatory pattern in advanced HIV.
   evidence:
   - reference: PMID:1671328
+    reference_title: &#34;Human immunodeficiency virus-associated eosinophilic folliculitis. A unique dermatosis associated with advanced human immunodeficiency virus infection.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;These observations demonstrate that HIV-associated eosinophilic folliculitis is a unique HIV-related cutaneous disorder that is characterized by a culture-negative, chronic, pruritic folliculitis and a characteristic histopathologic picture.&#34;
@@ -5945,11 +6210,13 @@ has_subtypes:
   description: Chronic neutrophilic scarring folliculitis of the scalp with recurrent inflammation and progressive alopecia.
   evidence:
   - reference: PMID:36716709
+    reference_title: &#34;Folliculitis Decalvans Has a Heterogeneous Microbiological Signature and Impaired Immunological Response.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;BACKGROUND: Folliculitis decalvans (FD) is a rare primary neutrophilic scarring alopecia whose etiology has not been completely elucidated yet.&#34;
     explanation: Supports folliculitis decalvans as a clinically distinct scarring subtype.
   - reference: PMID:18715292
+    reference_title: &#34;Folliculitis decalvans.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Folliculitis decalvans is classified as primary neutrophilic cicatricial alopecia and predominantly occurs in middle-aged adults.&#34;
@@ -5973,11 +6240,13 @@ infectious_agent:
   description: Most common microbial cause of infectious folliculitis.
   evidence:
   - reference: PMID:22639852
+    reference_title: &#34;First step in the differential diagnosis of folliculitis: cytology.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;There are various infectious and non-infectious causes of folliculitis, and the most common causative agent is Staphylococcus aureus.&#34;
     explanation: The review identifies S. aureus as the most common causative pathogen.
   - reference: PMID:15482221
+    reference_title: &#34;Treatment of staphylococcal scalded skin syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;S. aureus is one of the most common causes of skin infection, giving rise to folliculitis, furunculosis, carbuncles, ecthyma, impetigo, cellulitis and abscesses.&#34;
@@ -5991,11 +6260,13 @@ infectious_agent:
   description: Water-associated pathogen causing hot-tub folliculitis outbreaks.
   evidence:
   - reference: PMID:6402527
+    reference_title: &#34;Hot tub dermatitis: a familial outbreak of Pseudomonas folliculitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;A family of three and a neighbor developed Pseudomonas folliculitis after using a home hot tub from which P. aeruginosa was cultured.&#34;
     explanation: Human outbreak evidence supports P. aeruginosa as an etiologic agent in exposure-associated folliculitis.
   - reference: PMID:3955486
+    reference_title: &#34;Nosocomial outbreak of Pseudomonas aeruginosa folliculitis associated with a physiotherapy pool.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Outbreaks of community-acquired Pseudomonas aeruginosa folliculitis have recently been described in association with health spa whirlpools.&#34;
@@ -6009,6 +6280,7 @@ infectious_agent:
   description: Lipophilic yeast associated with symptomatic follicular eruption.
   evidence:
   - reference: PMID:36912427
+    reference_title: &#34;Position statement: Recommendations on the diagnosis and treatment of Malassezia folliculitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Malassezia folliculitis appears when the benign colonization of the hair follicles, by the Malassezia yeasts, becomes symptomatic with pruritic papules and pustules.&#34;
@@ -6022,6 +6294,7 @@ infectious_agent:
   description: Demodex mites are associated with inflammatory follicular histopathology.
   evidence:
   - reference: PMID:8989930
+    reference_title: &#34;Demodex-associated folliculitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Demodex mites were found in 42% of follicles with inflammation, but in just 10% of the follicles without inflammation.&#34;
@@ -6031,6 +6304,7 @@ prevalence:
   notes: True incidence is likely underestimated due to under-presentation for care.
   evidence:
   - reference: PMID:22639852
+    reference_title: &#34;First step in the differential diagnosis of folliculitis: cytology.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The incidence of folliculitis is unknown because most patients only consult a doctor in cases of increasing lesions.&#34;
@@ -6041,11 +6315,13 @@ progression:
   notes: Fractional-day encoding (0.3-2) represents an approximately 8-48 hour onset window after contaminated water exposure.
   evidence:
   - reference: PMID:6402527
+    reference_title: &#34;Hot tub dermatitis: a familial outbreak of Pseudomonas folliculitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Pseudomonas folliculitis resulting from the use of spa pools, whirlpools, and hot tubs is a newly described disease that typically develops 8 to 48 hours after exposure in a contaminated facility.&#34;
     explanation: Defines the incubation window for water-exposure-associated folliculitis.
   - reference: PMID:6828809
+    reference_title: &#34;Pseudomonas folliculitis: an outbreak and review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Thirty-seven (62%) of 60 members who used the swimming pool on these two days developed a papulopustular rash within eight hours to five days after swimming in the pool.&#34;
@@ -6055,6 +6331,7 @@ progression:
   notes: Many uncomplicated cases are self-limited if re-exposure is avoided.
   evidence:
   - reference: PMID:6402527
+    reference_title: &#34;Hot tub dermatitis: a familial outbreak of Pseudomonas folliculitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Although the eruption usually resolves spontaneously within 7 to 10 days, proper maintenance of equipment and adequate disinfectant levels are necessary to prevent its recurrence.&#34;
@@ -6064,6 +6341,7 @@ progression:
   notes: Mean improvement time is shorter with oral itraconazole than topical ketoconazole in one cohort.
   evidence:
   - reference: PMID:27581777
+    reference_title: &#34;Treatment Outcomes for Malassezia Folliculitis in theDermatology Department of a University Hospital in Japan.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The mean period required for improvement was 27±16 days in 37 patients receiving the topical antifungal agent and 14±4 days in the 7 patients receiving the systemic antifungal agent.&#34;
@@ -6072,11 +6350,13 @@ progression:
   notes: Staphylococcal follicular infection can remain superficial or progress to deeper furunculosis/carbuncle involvement.
   evidence:
   - reference: PMID:11980459
+    reference_title: &#34;Skin and soft tissue infection.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Folliculitis, furunculosis and carbuncle are folliculocentric infections caused by S. aureus involving the variable depth and extent of the follicle(s) and surrounding tissue.&#34;
     explanation: Supports depth-wise clinical progression within the staphylococcal folliculocentric infection spectrum.
   - reference: PMID:15482221
+    reference_title: &#34;Treatment of staphylococcal scalded skin syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;S. aureus is one of the most common causes of skin infection, giving rise to folliculitis, furunculosis, carbuncles, ecthyma, impetigo, cellulitis and abscesses.&#34;
@@ -6085,6 +6365,7 @@ progression:
   notes: Gram-negative folliculitis commonly emerges after prolonged broad-spectrum antibiotic exposure in acne or rosacea.
   evidence:
   - reference: PMID:10321942
+    reference_title: &#34;Bacteriologic and immunologic aspects of gram-negative folliculitis: a study of 46 patients.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Gram-negative folliculitis is an infection with gram-negative rods that most often occurs as a complication of prolonged broad-spectrum antibiotic therapy in patients suffering from acne and rosacea.&#34;
@@ -6093,6 +6374,7 @@ progression:
   duration: 4-48 months without recurrence after stopping effective systemic therapy in one follow-up cohort.
   evidence:
   - reference: PMID:6333214
+    reference_title: &#34;Gram-negative folliculitis. Follow-up observations in 20 patients.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The systemic antibiotic therapy was discontinued after varying periods and the infection remained clear without further treatment for four to 48 months.&#34;
@@ -6112,12 +6394,14 @@ pathophysiology:
     description: Colonization permits expression of bacterial factors that promote tissue invasion and immune modulation.
     evidence:
     - reference: PMID:22639852
+      reference_title: &#34;First step in the differential diagnosis of folliculitis: cytology.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;There are various infectious and non-infectious causes of folliculitis, and the most common causative agent is Staphylococcus aureus.&#34;
       explanation: Supports frequent S. aureus follicular involvement as an upstream event in infectious folliculitis.
   evidence:
   - reference: PMID:22639852
+    reference_title: &#34;First step in the differential diagnosis of folliculitis: cytology.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;There are various infectious and non-infectious causes of folliculitis, and the most common causative agent is Staphylococcus aureus.&#34;
@@ -6213,6 +6497,7 @@ pathophysiology:
     description: Suppurative follicular inflammation produces papular lesions.
     evidence:
     - reference: PMID:6402527
+      reference_title: &#34;Hot tub dermatitis: a familial outbreak of Pseudomonas folliculitis.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;The eruption consists of pruritic papules, papulopustules, nodules, and urticarial lesions on the trunk and extremities.&#34;
@@ -6221,6 +6506,7 @@ pathophysiology:
     description: Purulent follicular lesions emerge with ongoing suppurative inflammation.
     evidence:
     - reference: PMID:6402527
+      reference_title: &#34;Hot tub dermatitis: a familial outbreak of Pseudomonas folliculitis.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;The eruption consists of pruritic papules, papulopustules, nodules, and urticarial lesions on the trunk and extremities.&#34;
@@ -6229,12 +6515,14 @@ pathophysiology:
     description: Inflammatory follicular lesions frequently produce itch.
     evidence:
     - reference: PMID:6402527
+      reference_title: &#34;Hot tub dermatitis: a familial outbreak of Pseudomonas folliculitis.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;The eruption consists of pruritic papules, papulopustules, nodules, and urticarial lesions on the trunk and extremities.&#34;
       explanation: Supports itch as a downstream symptom of inflammatory follicular lesions.
   evidence:
   - reference: PMID:6402527
+    reference_title: &#34;Hot tub dermatitis: a familial outbreak of Pseudomonas folliculitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Skin biopsies showed an acute, suppurative folliculitis and dermal abscess formation.&#34;
@@ -6253,12 +6541,14 @@ pathophysiology:
     description: Diverse folliculotropic pathogens can trigger convergent inflammatory pathways.
     evidence:
     - reference: PMID:22639852
+      reference_title: &#34;First step in the differential diagnosis of folliculitis: cytology.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;In addition, several Gram-negative bacterial, fungal, parasitic, and viral pathogens can cause follicular papules and pustules.&#34;
       explanation: Supports multi-pathogen convergence on inflammatory follicular disease.
   evidence:
   - reference: PMID:22639852
+    reference_title: &#34;First step in the differential diagnosis of folliculitis: cytology.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In addition, several Gram-negative bacterial, fungal, parasitic, and viral pathogens can cause follicular papules and pustules.&#34;
@@ -6272,12 +6562,14 @@ pathophysiology:
     description: Antibiotic pressure can precede overgrowth of gram-negative folliculotropic organisms.
     evidence:
     - reference: PMID:10321942
+      reference_title: &#34;Bacteriologic and immunologic aspects of gram-negative folliculitis: a study of 46 patients.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Gram-negative folliculitis is an infection with gram-negative rods that most often occurs as a complication of prolonged broad-spectrum antibiotic therapy in patients suffering from acne and rosacea.&#34;
       explanation: Supports antibiotic-associated emergence of gram-negative folliculitis as a distinct mechanistic step.
   evidence:
   - reference: PMID:10321942
+    reference_title: &#34;Bacteriologic and immunologic aspects of gram-negative folliculitis: a study of 46 patients.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Gram-negative folliculitis is an infection with gram-negative rods that most often occurs as a complication of prolonged broad-spectrum antibiotic therapy in patients suffering from acne and rosacea.&#34;
@@ -6296,12 +6588,14 @@ pathophysiology:
     description: Gram-negative follicular infection converges on suppurative follicular inflammation.
     evidence:
     - reference: PMID:10321942
+      reference_title: &#34;Bacteriologic and immunologic aspects of gram-negative folliculitis: a study of 46 patients.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;The gram-negative organisms most frequently cultivated from nares, facial skin, and pustules were Klebsiella spp., Escherichia coli, Enterobacter spp., and Proteus spp.&#34;
       explanation: Supports pathogen-specific follicular infection in gram-negative folliculitis.
   evidence:
   - reference: PMID:10321942
+    reference_title: &#34;Bacteriologic and immunologic aspects of gram-negative folliculitis: a study of 46 patients.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The gram-negative organisms most frequently cultivated from nares, facial skin, and pustules were Klebsiella spp., Escherichia coli, Enterobacter spp., and Proteus spp.&#34;
@@ -6320,12 +6614,14 @@ pathophysiology:
     description: Colonized follicles show higher rates of histologic inflammation.
     evidence:
     - reference: PMID:8989930
+      reference_title: &#34;Demodex-associated folliculitis.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Demodex mites were found in 42% of follicles with inflammation, but in just 10% of the follicles without inflammation.&#34;
       explanation: Supports a quantitative association between Demodex presence and follicular inflammation.
   evidence:
   - reference: PMID:8989930
+    reference_title: &#34;Demodex-associated folliculitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Demodex mites were found in 42% of follicles with inflammation, but in just 10% of the follicles without inflammation.&#34;
@@ -6336,6 +6632,7 @@ pathophysiology:
     supporting a mite-associated inflammatory folliculitis pathway.
   evidence:
   - reference: PMID:8989930
+    reference_title: &#34;Demodex-associated folliculitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Eighty-three percent of follicles with Demodex showed inflammation.&#34;
@@ -6354,12 +6651,14 @@ pathophysiology:
     description: Commensal colonization can shift toward pathogenic behavior under permissive host-agent conditions.
     evidence:
     - reference: PMID:36912427
+      reference_title: &#34;Position statement: Recommendations on the diagnosis and treatment of Malassezia folliculitis.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Malassezia is a lipophilic yeast that is a part of the human mycobiome.&#34;
       explanation: Supports a commensal baseline state preceding symptomatic Malassezia folliculitis.
   evidence:
   - reference: PMID:36912427
+    reference_title: &#34;Position statement: Recommendations on the diagnosis and treatment of Malassezia folliculitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Malassezia is a lipophilic yeast that is a part of the human mycobiome.&#34;
@@ -6373,12 +6672,14 @@ pathophysiology:
     description: Virulence factor production promotes symptomatic follicular inflammatory disease.
     evidence:
     - reference: PMID:35751534
+      reference_title: &#34;Malassezia virulence factors and their role in dermatological disorders.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;This phenomenon is influenced by a unique host-agent interaction that triggers the production of several virulence factors, such as indoles, reactive oxygen species, azelaic acid, hyphae formation, and biofilm formation.&#34;
       explanation: Supports a biomolecular transition stage characterized by virulence factor induction.
   evidence:
   - reference: PMID:35751534
+    reference_title: &#34;Malassezia virulence factors and their role in dermatological disorders.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;However, in certain conditions and individuals, it may transform into a pathogenic yeast with multiple associated dermatological disorders and various clinical manifestations.&#34;
@@ -6392,6 +6693,7 @@ pathophysiology:
     description: Malassezia-driven inflammation contributes to follicular pustule formation.
     evidence:
     - reference: PMID:36912427
+      reference_title: &#34;Position statement: Recommendations on the diagnosis and treatment of Malassezia folliculitis.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Malassezia folliculitis appears when the benign colonization of the hair follicles, by the Malassezia yeasts, becomes symptomatic with pruritic papules and pustules.&#34;
@@ -6400,12 +6702,14 @@ pathophysiology:
     description: Malassezia-associated inflammatory lesions are characteristically pruritic.
     evidence:
     - reference: PMID:36912427
+      reference_title: &#34;Position statement: Recommendations on the diagnosis and treatment of Malassezia folliculitis.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Malassezia folliculitis appears when the benign colonization of the hair follicles, by the Malassezia yeasts, becomes symptomatic with pruritic papules and pustules.&#34;
       explanation: Supports itch as a downstream manifestation of Malassezia follicular inflammation.
   evidence:
   - reference: PMID:36912427
+    reference_title: &#34;Position statement: Recommendations on the diagnosis and treatment of Malassezia folliculitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Malassezia folliculitis appears when the benign colonization of the hair follicles, by the Malassezia yeasts, becomes symptomatic with pruritic papules and pustules.&#34;
@@ -6424,12 +6728,14 @@ pathophysiology:
     description: Eosinophilic inflammatory lesions are strongly pruritic.
     evidence:
     - reference: PMID:1671328
+      reference_title: &#34;Human immunodeficiency virus-associated eosinophilic folliculitis. A unique dermatosis associated with advanced human immunodeficiency virus infection.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;These observations demonstrate that HIV-associated eosinophilic folliculitis is a unique HIV-related cutaneous disorder that is characterized by a culture-negative, chronic, pruritic folliculitis and a characteristic histopathologic picture.&#34;
       explanation: Supports pruritus as a downstream hallmark of eosinophilic follicular inflammation.
   evidence:
   - reference: PMID:1671328
+    reference_title: &#34;Human immunodeficiency virus-associated eosinophilic folliculitis. A unique dermatosis associated with advanced human immunodeficiency virus infection.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;These observations demonstrate that HIV-associated eosinophilic folliculitis is a unique HIV-related cutaneous disorder that is characterized by a culture-negative, chronic, pruritic folliculitis and a characteristic histopathologic picture.&#34;
@@ -6450,12 +6756,14 @@ pathophysiology:
     description: Dysbiotic follicular microbiota is associated with abnormal host immune response profiles.
     evidence:
     - reference: PMID:36716709
+      reference_title: &#34;Folliculitis Decalvans Has a Heterogeneous Microbiological Signature and Impaired Immunological Response.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;β-diversity analysis showed statistically significant differences regarding bacteria comparing follicular microbiota of healthy and FD-affected hairs.&#34;
       explanation: Supports a discrete microbiome-disruption stage in folliculitis decalvans pathogenesis.
   evidence:
   - reference: PMID:36716709
+    reference_title: &#34;Folliculitis Decalvans Has a Heterogeneous Microbiological Signature and Impaired Immunological Response.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;CONCLUSION: FD hair follicles have a specific heterogenous follicular bacterial microbiota signature.&#34;
@@ -6471,12 +6779,14 @@ pathophysiology:
     description: Aberrant immune response contributes to persistent neutrophilic inflammatory disease with scarring outcomes.
     evidence:
     - reference: PMID:36716709
+      reference_title: &#34;Folliculitis Decalvans Has a Heterogeneous Microbiological Signature and Impaired Immunological Response.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;IL-10, TNF-α, and IL-6 levels were significantly decreased in patients after incubation with various strains of bacteria compared with controls.&#34;
       explanation: Supports a molecular immune-dysregulation stage downstream of dysbiosis and upstream of chronic inflammatory damage.
   evidence:
   - reference: PMID:36716709
+    reference_title: &#34;Folliculitis Decalvans Has a Heterogeneous Microbiological Signature and Impaired Immunological Response.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;IL-10, TNF-α, and IL-6 levels were significantly decreased in patients after incubation with various strains of bacteria compared with controls.&#34;
@@ -6487,6 +6797,7 @@ pathophysiology:
     snippet: &#34;FD is a non-curable disease for which inflammatory pathways involving several cytokines as TNF, IL1β, IL8, TGFβ, IL12 and 23, could also play a role.&#34;
     explanation: Trial rationale provides additional human-clinical support for cytokine pathway involvement in FD pathobiology.
   - reference: PMID:18715292
+    reference_title: &#34;Folliculitis decalvans.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Staphylococcus aureus and a deficient host immune response seem to play an important role in the development of this disfiguring scalp disease.&#34;
@@ -6507,17 +6818,20 @@ pathophysiology:
     description: Progressive scarring follicular inflammation causes permanent hair loss.
     evidence:
     - reference: PMID:36716709
+      reference_title: &#34;Folliculitis Decalvans Has a Heterogeneous Microbiological Signature and Impaired Immunological Response.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;BACKGROUND: Folliculitis decalvans (FD) is a rare primary neutrophilic scarring alopecia whose etiology has not been completely elucidated yet.&#34;
       explanation: Supports downstream linkage from neutrophilic scarring inflammation to alopecia in FD.
   evidence:
   - reference: PMID:36716709
+    reference_title: &#34;Folliculitis Decalvans Has a Heterogeneous Microbiological Signature and Impaired Immunological Response.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;BACKGROUND: Folliculitis decalvans (FD) is a rare primary neutrophilic scarring alopecia whose etiology has not been completely elucidated yet.&#34;
     explanation: Supports a distinct chronic neutrophilic scarring-inflammatory stage in FD.
   - reference: PMID:18715292
+    reference_title: &#34;Folliculitis decalvans.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Histology displays a mainly neutrophilic inflammatory infiltrate in early lesions and additionally lymphocytes and plasma cells in advanced lesions.&#34;
@@ -6533,12 +6847,14 @@ pathophysiology:
     description: EGFR pathway disruption triggers cell-intrinsic hypersensitivity to inflammatory signaling.
     evidence:
     - reference: PMID:39521937
+      reference_title: &#34;JAK-STAT1 as therapeutic target for EGFR deficiency-associated inflammation and scarring alopecia.&#34;
       supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &#34;In this study, we demonstrated the protective role of hair follicle-specific epidermal growth factor receptor (EGFR) against scarring hair follicle destruction.&#34;
       explanation: Supports a discrete upstream event where EGFR signaling protects against scarring follicular injury.
   evidence:
   - reference: PMID:39521937
+    reference_title: &#34;JAK-STAT1 as therapeutic target for EGFR deficiency-associated inflammation and scarring alopecia.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;In this study, we demonstrated the protective role of hair follicle-specific epidermal growth factor receptor (EGFR) against scarring hair follicle destruction.&#34;
@@ -6554,12 +6870,14 @@ pathophysiology:
     description: Heightened JAK-STAT1 signaling synergizes with interferon-γ-driven lymphoid inflammation.
     evidence:
     - reference: PMID:39521937
+      reference_title: &#34;JAK-STAT1 as therapeutic target for EGFR deficiency-associated inflammation and scarring alopecia.&#34;
       supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &#34;Mechanistically, disruption of EGFR signaling generated a cell-intrinsic hypersensitivity within the JAK-STAT1 pathway, which, synergistically with interferon gamma expressing CD8 T-cell and NK-cell-mediated inflammation, compromised the stem cell niche.&#34;
       explanation: Supports a specific intracellular signaling step linking EGFR loss to amplified immune-mediated follicular injury.
   evidence:
   - reference: PMID:39521937
+    reference_title: &#34;JAK-STAT1 as therapeutic target for EGFR deficiency-associated inflammation and scarring alopecia.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Mechanistically, disruption of EGFR signaling generated a cell-intrinsic hypersensitivity within the JAK-STAT1 pathway, which, synergistically with interferon gamma expressing CD8 T-cell and NK-cell-mediated inflammation, compromised the stem cell niche.&#34;
@@ -6575,12 +6893,14 @@ pathophysiology:
     description: Inflammatory amplification damages the follicular stem-cell niche and drives scarring destruction.
     evidence:
     - reference: PMID:39521937
+      reference_title: &#34;JAK-STAT1 as therapeutic target for EGFR deficiency-associated inflammation and scarring alopecia.&#34;
       supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &#34;Mechanistically, disruption of EGFR signaling generated a cell-intrinsic hypersensitivity within the JAK-STAT1 pathway, which, synergistically with interferon gamma expressing CD8 T-cell and NK-cell-mediated inflammation, compromised the stem cell niche.&#34;
       explanation: Supports immune-cell-mediated amplification as an intermediate causal step before structural follicular destruction.
   evidence:
   - reference: PMID:39521937
+    reference_title: &#34;JAK-STAT1 as therapeutic target for EGFR deficiency-associated inflammation and scarring alopecia.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Mechanistically, disruption of EGFR signaling generated a cell-intrinsic hypersensitivity within the JAK-STAT1 pathway, which, synergistically with interferon gamma expressing CD8 T-cell and NK-cell-mediated inflammation, compromised the stem cell niche.&#34;
@@ -6596,12 +6916,14 @@ pathophysiology:
     description: Scarring follicular destruction leads to permanent hair loss phenotypes.
     evidence:
     - reference: PMID:39521937
+      reference_title: &#34;JAK-STAT1 as therapeutic target for EGFR deficiency-associated inflammation and scarring alopecia.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Skin biopsies from EGFR inhibitor-treated and cicatricial alopecia patients revealed an active JAK-STAT1 signaling signature along with upregulation of antigen presentation and downregulation of key components of the EGFR pathway.&#34;
       explanation: Human biopsy evidence supports terminal scarring-destruction biology linked to alopecia.
   evidence:
   - reference: PMID:39521937
+    reference_title: &#34;JAK-STAT1 as therapeutic target for EGFR deficiency-associated inflammation and scarring alopecia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Skin biopsies from EGFR inhibitor-treated and cicatricial alopecia patients revealed an active JAK-STAT1 signaling signature along with upregulation of antigen presentation and downregulation of key components of the EGFR pathway.&#34;
@@ -6616,6 +6938,7 @@ phenotypes:
       label: Erythematous papule
   evidence:
   - reference: PMID:6402527
+    reference_title: &#34;Hot tub dermatitis: a familial outbreak of Pseudomonas folliculitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The eruption consists of pruritic papules, papulopustules, nodules, and urticarial lesions on the trunk and extremities.&#34;
@@ -6629,11 +6952,13 @@ phenotypes:
       label: Pustule
   evidence:
   - reference: PMID:22639852
+    reference_title: &#34;First step in the differential diagnosis of folliculitis: cytology.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In addition, several Gram-negative bacterial, fungal, parasitic, and viral pathogens can cause follicular papules and pustules.&#34;
     explanation: Supports pustules as a core lesion type across infectious etiologies.
   - reference: PMID:18715292
+    reference_title: &#34;Folliculitis decalvans.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Clinically, the lesions present with follicular pustules, lack of ostia, diffuse and perifollicular erythema, follicular tufting, and, oftentimes, hemorrhagic crusts and erosions.&#34;
@@ -6647,6 +6972,7 @@ phenotypes:
       label: Pruritus
   evidence:
   - reference: PMID:6402527
+    reference_title: &#34;Hot tub dermatitis: a familial outbreak of Pseudomonas folliculitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The eruption consists of pruritic papules, papulopustules, nodules, and urticarial lesions on the trunk and extremities.&#34;
@@ -6660,6 +6986,7 @@ phenotypes:
       label: Fever
   evidence:
   - reference: PMID:2307901
+    reference_title: &#34;Hot tub (Pseudomonas) folliculitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The condition is characterized by painful, papulopustular skin lesions often accompanied by low-grade fever, malaise, and other systemic symptoms.&#34;
@@ -6674,11 +7001,13 @@ phenotypes:
       label: Alopecia
   evidence:
   - reference: PMID:41146582
+    reference_title: &#34;Management of Folliculitis Decalvans: A Systematic Review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Folliculitis decalvans (FD) and Tufted Hair Folliculitis (THF) present with recurrent episodes of follicular inflammation, pustules and crusting, predominantly of the scalp, leading to scarring alopecia.&#34;
     explanation: Supports alopecia as a clinically important sequela in scarring folliculitis subtypes.
   - reference: PMID:36716709
+    reference_title: &#34;Folliculitis Decalvans Has a Heterogeneous Microbiological Signature and Impaired Immunological Response.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Folliculitis decalvans (FD) is a rare primary neutrophilic scarring alopecia whose etiology has not been completely elucidated yet.&#34;
@@ -6689,6 +7018,7 @@ histopathology:
   subtype: Pseudomonas hot-tub folliculitis
   evidence:
   - reference: PMID:6402527
+    reference_title: &#34;Hot tub dermatitis: a familial outbreak of Pseudomonas folliculitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Skin biopsies showed an acute, suppurative folliculitis and dermal abscess formation.&#34;
@@ -6698,6 +7028,7 @@ histopathology:
   subtype: HIV-associated eosinophilic folliculitis
   evidence:
   - reference: PMID:1671328
+    reference_title: &#34;Human immunodeficiency virus-associated eosinophilic folliculitis. A unique dermatosis associated with advanced human immunodeficiency virus infection.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;These observations demonstrate that HIV-associated eosinophilic folliculitis is a unique HIV-related cutaneous disorder that is characterized by a culture-negative, chronic, pruritic folliculitis and a characteristic histopathologic picture.&#34;
@@ -6707,6 +7038,7 @@ histopathology:
   subtype: Demodex-associated folliculitis
   evidence:
   - reference: PMID:8989930
+    reference_title: &#34;Demodex-associated folliculitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Eighty-three percent of follicles with Demodex showed inflammation.&#34;
@@ -6716,11 +7048,13 @@ histopathology:
   subtype: Folliculitis decalvans
   evidence:
   - reference: PMID:36716709
+    reference_title: &#34;Folliculitis Decalvans Has a Heterogeneous Microbiological Signature and Impaired Immunological Response.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;BACKGROUND: Folliculitis decalvans (FD) is a rare primary neutrophilic scarring alopecia whose etiology has not been completely elucidated yet.&#34;
     explanation: Supports a chronic neutrophilic scarring histopathology context for folliculitis decalvans.
   - reference: PMID:18715292
+    reference_title: &#34;Folliculitis decalvans.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Histology displays a mainly neutrophilic inflammatory infiltrate in early lesions and additionally lymphocytes and plasma cells in advanced lesions.&#34;
@@ -6733,6 +7067,7 @@ environmental:
   effect: Triggers acute exposure-associated folliculitis
   evidence:
   - reference: PMID:6402527
+    reference_title: &#34;Hot tub dermatitis: a familial outbreak of Pseudomonas folliculitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Pseudomonas folliculitis resulting from the use of spa pools, whirlpools, and hot tubs is a newly described disease that typically develops 8 to 48 hours after exposure in a contaminated facility.&#34;
@@ -6742,6 +7077,7 @@ environmental:
   effect: Predisposes to chronic eosinophilic folliculitis phenotype
   evidence:
   - reference: PMID:1671328
+    reference_title: &#34;Human immunodeficiency virus-associated eosinophilic folliculitis. A unique dermatosis associated with advanced human immunodeficiency virus infection.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Of special importance, because it is associated with CD4 counts of less than 250 to 300 cells per cubic millimeter, eosinophilic folliculitis appears to be an important clinical marker of HIV infection and, particularly, of patients at increased risk of developing opportunistic infections.&#34;
@@ -6787,6 +7123,7 @@ treatments:
           label: Antibiotic
   evidence:
   - reference: PMID:22639852
+    reference_title: &#34;First step in the differential diagnosis of folliculitis: cytology.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Therefore, topical and/or systemic antibacterial treatment is recommended, but this involves the risk of being misused for months or even years.&#34;
@@ -6836,11 +7173,13 @@ treatments:
           label: Antifungal Agent
   evidence:
   - reference: PMID:27581777
+    reference_title: &#34;Treatment Outcomes for Malassezia Folliculitis in theDermatology Department of a University Hospital in Japan.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Treatment consisted of topical application of 2% ketoconazole cream or 100 mg oral itraconazole based on symptom severity and patients&#39; preferences.&#34;
     explanation: Documents real-world topical and oral antifungal regimens.
   - reference: PMID:27581777
+    reference_title: &#34;Treatment Outcomes for Malassezia Folliculitis in theDermatology Department of a University Hospital in Japan.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The results were \&#34;improved\&#34; and the treatment was \&#34;effective\&#34; in all patients.&#34;
@@ -6876,11 +7215,13 @@ treatments:
           label: Anti-Infective Agent
   evidence:
   - reference: PMID:41146582
+    reference_title: &#34;Management of Folliculitis Decalvans: A Systematic Review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Combination therapy with systemic antibiotics, topical, local and/or other systemic agents may provide the best outcome and longest DoE for FD/THF patients, with a greater role for biologic agents and laser therapy in their management.&#34;
     explanation: Systematic review supports multimodal treatment strategy for chronic scarring folliculitis variants.
   - reference: PMID:29864465
+    reference_title: &#34;Folliculitis decalvans: Effectiveness of therapies and prognostic factors in a multicenter series of 60 patients with long-term follow-up.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Treatment with rifampicin and clindamycin, tetracyclines, and intralesional steroids was the most effective.&#34;
@@ -6921,6 +7262,7 @@ treatments:
           label: Clobetasol
   evidence:
   - reference: PMID:1671328
+    reference_title: &#34;Human immunodeficiency virus-associated eosinophilic folliculitis. A unique dermatosis associated with advanced human immunodeficiency virus infection.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;A clinical response was noted to astemizole, to ultraviolet light in the B range, and to topical clobetasol propionate.&#34;
@@ -6931,11 +7273,13 @@ transmission:
   effect: Causes clustered Pseudomonas folliculitis cases after shared exposure
   evidence:
   - reference: PMID:6402527
+    reference_title: &#34;Hot tub dermatitis: a familial outbreak of Pseudomonas folliculitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;A family of three and a neighbor developed Pseudomonas folliculitis after using a home hot tub from which P. aeruginosa was cultured.&#34;
     explanation: Demonstrates clustered exposure-associated transmission dynamics.
   - reference: PMID:3955486
+    reference_title: &#34;Nosocomial outbreak of Pseudomonas aeruginosa folliculitis associated with a physiotherapy pool.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;After hyperchlorination and structural repairs to the pool, no further cases were identified among pool users.&#34;
@@ -6961,6 +7305,7 @@ diagnosis:
           label: Cytology
   evidence:
   - reference: PMID:22639852
+    reference_title: &#34;First step in the differential diagnosis of folliculitis: cytology.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Cytology, a simple, rapid, inexpensive, and repeatable diagnostic method, can reveal various bacterial, fungal, viral, and parasitic pathogens.&#34;
@@ -6985,11 +7330,13 @@ diagnosis:
           label: Microscopy
   evidence:
   - reference: PMID:27581777
+    reference_title: &#34;Treatment Outcomes for Malassezia Folliculitis in theDermatology Department of a University Hospital in Japan.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The diagnosis of Malassezia folliculitis was established on the basis of characteristic clinical features and direct microscopic findings (10 or more yeast-like fungi per follicle).&#34;
     explanation: Provides a specific microscopy-based diagnostic threshold.
   - reference: PMID:35249719
+    reference_title: &#34;Dermoscopy as an Auxiliary Tool in the Assessment of Malassezia Folliculitis: An Observational Study.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Ten percent potassium hydroxide examination is usually performed to confirm the diagnosis.&#34;
@@ -7038,11 +7385,13 @@ diagnosis:
           label: Microbial Culture Procedure
   evidence:
   - reference: PMID:6402527
+    reference_title: &#34;Hot tub dermatitis: a familial outbreak of Pseudomonas folliculitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;A family of three and a neighbor developed Pseudomonas folliculitis after using a home hot tub from which P. aeruginosa was cultured.&#34;
     explanation: Supports microbiological source confirmation during outbreak investigation.
   - reference: PMID:3955486
+    reference_title: &#34;Nosocomial outbreak of Pseudomonas aeruginosa folliculitis associated with a physiotherapy pool.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;P. aeruginosa, serotype O:10, was isolated from three physiotherapists, the patient with an infected surgical wound and the pool.&#34;
@@ -7154,6 +7503,7 @@ differential_diagnoses:
   - Folliculitis often has follicle-centered lesions and may be linked to specific infectious exposures.
   evidence:
   - reference: PMID:12113648
+    reference_title: &#34;Pustular skin disorders: diagnosis and treatment.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Localized pustular eruptions are seen on the hands and feet in adults with pustulosis palmaris et plantaris and acrodermatitis continua (both of which may be variants of psoriasis); on the face in patients with acne vulgaris, rosacea, and perioral dermatitis; and on the trunk and/or extremities in patients with folliculitis.&#34;
@@ -7175,6 +7525,7 @@ differential_diagnoses:
     snippet: &#34;The most frequent &lt;i&gt;S. aureus&lt;/i&gt; infections include impetigo, folliculitis, furuncles, furunculosis, abscesses, hidradenitis suppurativa, and mastitis.&#34;
     explanation: Places folliculitis and furunculosis within overlapping staphylococcal skin infection spectrum requiring clinical differentiation.
   - reference: PMID:15482221
+    reference_title: &#34;Treatment of staphylococcal scalded skin syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;S. aureus is one of the most common causes of skin infection, giving rise to folliculitis, furunculosis, carbuncles, ecthyma, impetigo, cellulitis and abscesses.&#34;

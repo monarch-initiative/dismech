@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1037,6 +1101,52 @@
             text-decoration: underline;
         }
 
+        /* Experimental Models */
+        .exp-model-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .exp-model-box .item-name { color: #92400e; }
+        .exp-model-box .item-desc { color: #b45309; }
+
+        .tag-exp-model-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .tag-namo-type {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+        .tag-condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .model-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .model-detail-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .model-detail-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 110px;
+        }
+        .model-detail-value {
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+        }
+        .model-detail-value a {
+            color: inherit;
+        }
+
         /* Computational Models */
         .comp-model-box {
             background: #f0fdf4;
@@ -1382,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1470,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1477,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1489,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1637,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1723,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1737,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1792,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1877,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 60</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Bone Marrow Failure</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Congenital Disorder</span>
@@ -1890,6 +2109,11 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
+        
+        
         
         
         
@@ -1931,7 +2155,7 @@
             
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
-                <div class="stat-value">23</div>
+                <div class="stat-value">22</div>
                 <div class="stat-label">Pathophysiology</div>
             </div>
             </a>
@@ -1947,6 +2171,14 @@
             <div class="stat-item">
                 <div class="stat-value">92</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">60</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -4167,10 +4399,10 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">23</span>
+                <span class="card-count">22</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-dna-repair-deficiency">
                 <div class="item-name">DNA Repair Deficiency</div>
                 
                 <div class="item-desc">Mutations in FA genes impair the body&#39;s ability to repair DNA damage, leading to increased sensitivity to crosslinking agents and propensity for chromosomal instability.</div>
@@ -4179,19 +4411,6 @@
                 
                 
                 
-                <div class="item-meta">
-                    
-                    <span class="tag tag-bio">
-                        interstrand cross-link repair
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0036297" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-    
-    
-                    
-                </div>
                 
                 
                 
@@ -4229,7 +4448,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-bone-marrow-failure">
                 <div class="item-name">Bone Marrow Failure</div>
                 
                 <div class="item-desc">Inability of the bone marrow to produce sufficient blood cells due to hematopoietic stem cell defects.</div>
@@ -4238,33 +4457,9 @@
                 
                 
                 
-                <div class="item-meta">
-                    
-                    <span class="tag tag-bio">
-                        hemopoiesis
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0030097" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-    
-    
-                    
-                </div>
                 
                 
                 
-                
-                <div class="item-meta">
-                    
-                    <span class="tag tag-location">
-                        bone marrow
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-                </div>
                 
                 
     
@@ -4301,7 +4496,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-genomic-instability">
                 <div class="item-name">Genomic Instability</div>
                 
                 <div class="item-desc">Increased tendency for genomic alterations including chromosomal breaks, deletions, and rearrangements.</div>
@@ -4310,19 +4505,6 @@
                 
                 
                 
-                <div class="item-meta">
-                    
-                    <span class="tag tag-bio">
-                        DNA damage response
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006974" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-    
-    
-                    
-                </div>
                 
                 
                 
@@ -4360,7 +4542,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-hematopoietic-stem-cell-attrition">
                 <div class="item-name">Hematopoietic Stem Cell Attrition</div>
                 
                 <div class="item-desc">Progressive depletion of long-term hematopoietic stem cells in bone marrow due to replication stress, aldehyde-induced DNA damage, and chronic inflammatory signaling.</div>
@@ -4422,6 +4604,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4476,7 +4659,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-translesion-synthesis-defect">
                 <div class="item-name">Translesion Synthesis Defect</div>
                 
                 <div class="item-desc">Impaired ability to bypass DNA lesions during replication through translesion synthesis polymerases, requiring functional FANCD2-FANCI complex and PCNA monoubiquitination.</div>
@@ -4498,6 +4681,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -4537,7 +4721,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-homologous-recombination-impairment">
                 <div class="item-name">Homologous Recombination Impairment</div>
                 
                 <div class="item-desc">Defective repair of DNA double-strand breaks following interstrand crosslink unhooking, due to mutations in FA genes involved in HR pathway including BRCA2, PALB2, and BRCA1.</div>
@@ -4559,6 +4743,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -4598,7 +4783,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-aldehyde-induced-genotoxicity">
                 <div class="item-name">Aldehyde-Induced Genotoxicity</div>
                 
                 <div class="item-desc">Endogenous aldehydes (acetaldehyde and formaldehyde) from normal metabolism generate DNA interstrand crosslinks and DNA-protein crosslinks; impaired detoxification by ALDH2 and ADH5 exacerbates DNA damage burden.</div>
@@ -4620,6 +4805,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -4679,7 +4865,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-core-complex-dysfunction">
                 <div class="item-name">Core Complex Dysfunction</div>
                 
                 <div class="item-desc">Mutations in FA core complex genes (FANCA, FANCB, FANCC, FANCE, FANCF, FANCG, FANCL, FANCM, UBE2T/FANCT) disrupt the E3 ubiquitin ligase that monoubiquitinates the FANCD2-FANCI complex, abolishing the central signaling step of the FA pathway. FANCA mutations account for 60-70% of all FA cases.</div>
@@ -4749,6 +4935,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4783,7 +4970,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-id-complex-dysfunction">
                 <div class="item-name">ID Complex Dysfunction</div>
                 
                 <div class="item-desc">Mutations in FANCD2 or FANCI disrupt the central ID2 complex whose monoubiquitination is the critical signaling event in FA pathway activation. In wild type, the core complex E3 ligase monoubiquitinates both FANCD2 and FANCI, causing the ID2 heterodimer to clamp onto chromatin at stalled replication forks and recruit downstream nucleases and HR effectors. Loss of either subunit abolishes this signaling hub.</div>
@@ -4838,6 +5025,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4872,7 +5060,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-downstream-effector-dysfunction">
                 <div class="item-name">Downstream Effector Dysfunction</div>
                 
                 <div class="item-desc">Mutations in downstream effector genes (BRCA2/FANCD1, PALB2/FANCN, BRCA1/FANCS, RAD51C/FANCO, XRCC2/FANCU) impair homologous recombination and translesion synthesis. These overlap with familial breast/ovarian cancer genes; biallelic mutations produce the most severe FA phenotypes with early-onset solid tumors and more congenital anomalies.</div>
@@ -4899,19 +5087,6 @@
                 
                 
                 
-                <div class="item-meta">
-                    
-                    <span class="tag tag-bio">
-                        double-strand break repair via homologous recombination
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0000724" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-    
-    
-                    
-                </div>
                 
                 
                 
@@ -4951,7 +5126,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-inflammatory-bone-marrow-microenvironment">
                 <div class="item-name">Inflammatory Bone Marrow Microenvironment</div>
                 
                 <div class="item-desc">Excess sterile inflammatory signaling (TNF-alpha, interferon-gamma, Type I interferons) in the bone marrow creates a hostile microenvironment for HSCs. Both hematopoietic and stromal cells contribute to chronic inflammation, driving proteostasis deregulation and accelerating stem cell attrition.</div>
@@ -5003,6 +5178,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5037,7 +5213,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-developmental-progenitor-apoptosis">
                 <div class="item-name">Developmental Progenitor Apoptosis</div>
                 
                 <div class="item-desc">Unrepaired DNA damage in rapidly dividing embryonic progenitor cells activates p53-dependent apoptosis during critical developmental windows. This mechanism underlies the congenital malformations of FA, explaining the midline predominance of anomalies and correlation between pathway position and congenital abnormality burden.</div>
@@ -5069,6 +5245,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -5108,7 +5285,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-clonal-evolution">
                 <div class="item-name">Clonal Evolution</div>
                 
                 <div class="item-desc">Progressive accumulation of somatic mutations and chromosomal aberrations in genomically unstable hematopoietic cells drives clonal selection and malignant transformation. Characteristic cytogenetic changes include gain of 1q and 3q and loss of 7q. Clones with selective growth advantage expand, leading to MDS and AML. Single-cell DNA sequencing has revealed polyclonal evolution at the MDS stage, with sequential acquisition of driver mutations and MDM4-mediated p53 dampening via chromosome 1q gain as the canonical initiating event.</div>
@@ -5144,6 +5321,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -5222,7 +5400,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-epithelial-cancer-susceptibility">
                 <div class="item-name">Epithelial Cancer Susceptibility</div>
                 
                 <div class="item-desc">Impaired genome maintenance in epithelial tissues renders them vulnerable to accumulation of oncogenic mutations. Squamous epithelia of the head/neck, oral cavity, esophagus, and anogenital regions are particularly susceptible due to high proliferative turnover and exposure to environmental mutagens including HPV.</div>
@@ -5241,6 +5419,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -5323,10 +5502,11 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-hpv-mediated-epithelial-damage">
                 <div class="item-name">HPV-Mediated Epithelial Damage</div>
                 
                 <div class="item-desc">Human papillomavirus infection compounds epithelial cancer risk in FA patients. HPV oncoproteins E6 and E7 degrade p53 and Rb tumor suppressors, further disabling the already compromised DNA damage response. HPV vaccination is recommended to reduce gynecologic and oropharyngeal cancer risk.</div>
+                
                 
                 
                 
@@ -5370,7 +5550,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-endocrine-gland-dysfunction">
                 <div class="item-name">Endocrine Gland Dysfunction</div>
                 
                 <div class="item-desc">Widespread endocrine abnormalities affect approximately 73-80% of FA patients. Developmental pituitary/hypothalamic defects (68% have small pituitary on MRI), direct effects of genomic instability on endocrine cell function, and chronic illness contribute. Manifests as GH deficiency, hypothyroidism, glucose dysregulation, hypogonadism, dyslipidemia, and metabolic syndrome.</div>
@@ -5392,6 +5572,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -5448,10 +5629,11 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-congenital-structural-anomalies">
                 <div class="item-name">Congenital Structural Anomalies</div>
                 
                 <div class="item-desc">Developmental progenitor loss during embryogenesis causes structural malformations affecting limbs, heart, kidneys, GI tract, ears, and genitourinary system. Approximately 75% of FA patients have at least one congenital anomaly, with burden correlating with complementation group, mutation type, and pathway position.</div>
+                
                 
                 
                 
@@ -5495,7 +5677,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-cns-developmental-anomalies">
                 <div class="item-name">CNS Developmental Anomalies</div>
                 
                 <div class="item-desc">Midline brain structural defects from neural progenitor loss during early CNS development. Includes small pituitary (68%), posterior fossa abnormalities (30% including Chiari I malformation and Dandy-Walker variant), and corpus callosum structural variation (30%).</div>
@@ -5524,6 +5706,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -5580,10 +5763,11 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-skin-pigmentation-changes">
                 <div class="item-name">Skin Pigmentation Changes</div>
                 
                 <div class="item-desc">Melanocyte progenitor defects during embryonic development cause characteristic pigmentary anomalies including café-au-lait spots and hypopigmented patches. Skin pigmentation changes are the most common congenital anomaly in FA, affecting over 50% of patients.</div>
+                
                 
                 
                 
@@ -5627,7 +5811,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-myc-driven-hspc-dysfunction">
                 <div class="item-name">MYC-Driven HSPC Dysfunction</div>
                 
                 <div class="item-desc">Single-cell RNA sequencing of primary FA patient bone marrow HSPCs revealed MYC overexpression as a novel pathogenic driver alongside p53 and TGF-beta upregulation. Distinct HSPC subpopulations co-expressing high TP53 or high MYC coexist in FA bone marrow. MYC-high HSPCs show downregulation of cell adhesion genes (including CXCR4), promoting enhanced egress from bone marrow to peripheral blood and contributing to HSC exhaustion and bone marrow failure.</div>
@@ -5677,6 +5861,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -5733,7 +5918,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-differentiation-induced-genotoxic-stress">
                 <div class="item-name">Differentiation-Induced Genotoxic Stress</div>
                 
                 <div class="item-desc">Transcriptional reprogramming during hematopoietic differentiation generates a surge of genotoxic stress from formaldehyde, an obligate by-product of oxidative protein demethylation during transcription regulation. In the absence of functional FA DNA repair, this differentiation-associated DNA damage causes aborted differentiation and depletion of FA progenitor cells, providing a mechanistic explanation for the hematopoietic-specific failure in FA despite it being a germline disorder.</div>
@@ -5784,6 +5969,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5818,7 +6004,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-ipsc-revealed-p53-driven-progenitor-exhaustion">
                 <div class="item-name">iPSC-Revealed p53-Driven Progenitor Exhaustion</div>
                 
                 <div class="item-desc">Induced pluripotent stem cell modeling of FA hematopoietic differentiation revealed that FANCA-deficient human hematopoietic progenitor cells undergo accelerated terminal differentiation driven by p53/p21 activation. GAS6 (growth arrest specific 6) was identified as a novel p53 target gene; GAS6 signaling modulation rescues hematopoiesis. This iPSC-based new approach methodology overcomes the lack of faithful murine FA models and enables drug screening for FA therapeutics.</div>
@@ -5854,6 +6040,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -5913,97 +6100,6 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
-                <div class="item-name">PCNA Monoubiquitination and ICL Pathway Choice</div>
-                
-                <div class="item-desc">PCNA monoubiquitination at lysine 164 (PCNA-Ub) has a dual function in ICL repair: it coordinates translesion synthesis opposite the unhooked ICL, and it excludes the mismatch recognition complex MSH2/MSH6 from ICL sites to channel repair toward the canonical FA pathway. Loss of PCNA-Ub (PcnaK164R) combined with FA deficiency is embryonically lethal, establishing PCNA-Ub as an essential co-regulator of FA-mediated ICL repair and pathway fidelity.</div>
-                
-                
-                
-                
-                
-                <div class="item-meta">
-                    
-                    <span class="tag tag-bio">
-                        translesion synthesis
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0019985" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-    
-    
-                    
-                    <span class="tag tag-bio">
-                        protein monoubiquitination
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006513" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-    
-    
-                    
-                </div>
-                
-                
-                
-                
-                
-    
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38957451" target="_blank">PMID:38957451</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"our results uncovered a dual function of PCNA-Ub in ICL repair, i.e. exclude MSH2/MSH6 recruitment to channel the ICL toward canonical FA repair, in addition to its established role in coordinating TLS opposite the unhooked ICL."</div>
-                
-                
-                <div class="evidence-explanation">Demonstrates that PCNA-Ub is required for both TLS and exclusion of mismatch repair from ICLs, making it essential for faithful FA pathway engagement.</div>
-                
-            </div>
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38957451" target="_blank">PMID:38957451</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"A combined mutation (PcnaK164R/K164R; Fancg−/−) was found embryonically lethal."</div>
-                
-                
-                <div class="evidence-explanation">In vivo mouse data establishing that simultaneous loss of PCNA-Ub and FA pathway is incompatible with embryonic survival, confirming PCNA-Ub as an essential co-regulator of FA-mediated ICL repair.</div>
-                
-            </div>
-            
-            
-        </div>
-    </details>
-    
-    
-            </div>
-            
         </div>
         
 
@@ -6017,18 +6113,19 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Fanconi_Anemia</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Glucose Homeostasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormal glucose and insulin metabolism including insulin resistance, impaired glucose tolerance, and diabetes mellitus.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0011014\"}}, {\"id\": \"Absent or Hypoplastic Thumbs\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absent thumbs, hypoplastic thumbs, or supernumerary thumbs are common upper limb anomalies in FA, frequently accompanied by radial ray defects.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0009777\"}}, {\"id\": \"Aldehyde-Induced Genotoxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Endogenous aldehydes (acetaldehyde and formaldehyde) from normal metabolism generate DNA interstrand crosslinks and DNA-protein crosslinks; impaired detoxification by ALDH2 and ADH5 exacerbates DNA damage burden.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cellular response to aldehyde\"]}}, {\"id\": \"Aplastic Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bone marrow failure resulting in severely reduced production of all blood cell types.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001903\"}}, {\"id\": \"Bone Marrow Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inability of the bone marrow to produce sufficient blood cells due to hematopoietic stem cell defects.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"hemopoiesis\"], \"locations\": [\"bone marrow\"]}}, {\"id\": \"CNS Developmental Anomalies\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Midline brain structural defects from neural progenitor loss during early CNS development. Includes small pituitary (68%), posterior fossa abnormalities (30% including Chiari I malformation and Dandy-Walker variant), and corpus callosum structural variation (30%).\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"brain\", \"pituitary gland\"]}}, {\"id\": \"Caf\\u00e9-au-Lait Spots\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyperpigmented skin macules commonly seen in FA patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000957\"}}, {\"id\": \"Clonal Evolution\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive accumulation of somatic mutations and chromosomal aberrations in genomically unstable hematopoietic cells drives clonal selection and malignant transformation. Characteristic cytogenetic changes include gain of 1q and 3q and loss of 7q. Clones with selective growth advantage expand, leading to MDS and AML. Single-cell DNA sequencing has revealed polyclonal evolution at the MDS stage, with sequential acquisition of driver mutations and MDM4-mediated p53 dampening via chromosome 1q gain as the canonical initiating event.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"hematopoietic stem cell\"], \"locations\": [\"bone marrow\"]}}, {\"id\": \"Congenital Heart Defects\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Structural heart anomalies including ventricular septal defects, atrial septal defects, patent ductus arteriosus, and other cardiac malformations.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Congenital Structural Anomalies\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Developmental progenitor loss during embryogenesis causes structural malformations affecting limbs, heart, kidneys, GI tract, ears, and genitourinary system. Approximately 75% of FA patients have at least one congenital anomaly, with burden correlating with complementation group, mutation type, and pathway position.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Core Complex Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in FA core complex genes (FANCA, FANCB, FANCC, FANCE, FANCF, FANCG, FANCL, FANCM, UBE2T/FANCT) disrupt the E3 ubiquitin ligase that monoubiquitinates the FANCD2-FANCI complex, abolishing the central signaling step of the FA pathway. FANCA mutations account for 60-70% of all FA cases.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein ubiquitination\"], \"genes\": [\"FANCA\", \"FANCB\", \"FANCC\", \"FANCG\"]}}, {\"id\": \"Cryptorchidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Undescended testes, a common genitourinary malformation in male FA patients.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000028\"}}, {\"id\": \"DNA Repair Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in FA genes impair the body\u0027s ability to repair DNA damage, leading to increased sensitivity to crosslinking agents and propensity for chromosomal instability.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"interstrand cross-link repair\"]}}, {\"id\": \"Delayed Puberty and Hypogonadism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed onset of puberty and hypogonadism affecting both sexes, with males commonly showing cryptorchidism and females showing ovarian insufficiency.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000823\"}}, {\"id\": \"Dental and Craniofacial Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dental anomalies including tooth agenesis, root abnormalities, tooth rotation, enamel defects, and craniofacial dysmorphisms.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000164\"}}, {\"id\": \"Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive and/or motor developmental delays present in a subset of FA patients.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Developmental Progenitor Apoptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Unrepaired DNA damage in rapidly dividing embryonic progenitor cells activates p53-dependent apoptosis during critical developmental windows. This mechanism underlies the congenital malformations of FA, explaining the midline predominance of anomalies and correlation between pathway position and congenital abnormality burden.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"apoptotic process\", \"embryo development\"]}}, {\"id\": \"Differentiation-Induced Genotoxic Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Transcriptional reprogramming during hematopoietic differentiation generates a surge of genotoxic stress from formaldehyde, an obligate by-product of oxidative protein demethylation during transcription regulation. In the absence of functional FA DNA repair, this differentiation-associated DNA damage causes aborted differentiation and depletion of FA progenitor cells, providing a mechanistic explanation for the hematopoietic-specific failure in FA despite it being a germline disorder.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hematopoietic precursor cell\"], \"biological_processes\": [\"hematopoietic progenitor cell differentiation\", \"cellular response to aldehyde\"]}}, {\"id\": \"Downstream Effector Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in downstream effector genes (BRCA2/FANCD1, PALB2/FANCN, BRCA1/FANCS, RAD51C/FANCO, XRCC2/FANCU) impair homologous recombination and translesion synthesis. These overlap with familial breast/ovarian cancer genes; biallelic mutations produce the most severe FA phenotypes with early-onset solid tumors and more congenital anomalies.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"double-strand break repair via homologous recombination\"], \"genes\": [\"BRCA2\", \"BRCA1\"]}}, {\"id\": \"Early-Onset Solid Tumors in FANCD1/BRCA2\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Patients with biallelic FANCD1/BRCA2 mutations have a uniquely severe cancer predisposition with early-onset solid tumors in childhood, including medulloblastoma, Wilms tumor, and neuroblastoma, distinct from the typical FA tumor spectrum.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\"}}, {\"id\": \"Endocrine Gland Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Widespread endocrine abnormalities affect approximately 73-80% of FA patients. Developmental pituitary/hypothalamic defects (68% have small pituitary on MRI), direct effects of genomic instability on endocrine cell function, and chronic illness contribute. Manifests as GH deficiency, hypothyroidism, glucose dysregulation, hypogonadism, dyslipidemia, and metabolic syndrome.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"pituitary gland\"]}}, {\"id\": \"Epithelial Cancer Susceptibility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired genome maintenance in epithelial tissues renders them vulnerable to accumulation of oncogenic mutations. Squamous epithelia of the head/neck, oral cavity, esophagus, and anogenital regions are particularly susceptible due to high proliferative turnover and exposure to environmental mutagens including HPV.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"epithelial cell\"]}}, {\"id\": \"Genitourinary Malformations\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital abnormalities of the kidneys and reproductive organs.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000119\"}}, {\"id\": \"Genomic Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Increased tendency for genomic alterations including chromosomal breaks, deletions, and rearrangements.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"DNA damage response\"]}}, {\"id\": \"Growth Hormone Deficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Insufficient growth hormone production contributing to short stature beyond what is expected from the underlying condition alone.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0008240\"}}, {\"id\": \"HPV-Mediated Epithelial Damage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Human papillomavirus infection compounds epithelial cancer risk in FA patients. HPV oncoproteins E6 and E7 degrade p53 and Rb tumor suppressors, further disabling the already compromised DNA damage response. HPV vaccination is recommended to reduce gynecologic and oropharyngeal cancer risk.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Conductive and/or sensorineural hearing loss, often associated with external ear anomalies or middle ear malformations.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000365\"}}, {\"id\": \"Hematopoietic Stem Cell Attrition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive depletion of long-term hematopoietic stem cells in bone marrow due to replication stress, aldehyde-induced DNA damage, and chronic inflammatory signaling.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hematopoietic stem cell\"], \"biological_processes\": [\"cellular response to aldehyde\", \"cellular response to oxidative stress\"], \"locations\": [\"bone marrow\"]}}, {\"id\": \"Homologous Recombination Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective repair of DNA double-strand breaks following interstrand crosslink unhooking, due to mutations in FA genes involved in HR pathway including BRCA2, PALB2, and BRCA1.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"homologous recombination\"]}}, {\"id\": \"Hypopigmentation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Areas of decreased skin pigmentation, often in combination with hyperpigmented lesions such as caf\\u00e9-au-lait spots.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000951\"}}, {\"id\": \"Hypothyroidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thyroid hormone deficiency requiring monitoring and potentially replacement therapy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000821\"}}, {\"id\": \"ID Complex Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in FANCD2 or FANCI disrupt the central ID2 complex whose monoubiquitination is the critical signaling event in FA pathway activation. In wild type, the core complex E3 ligase monoubiquitinates both FANCD2 and FANCI, causing the ID2 heterodimer to clamp onto chromatin at stalled replication forks and recruit downstream nucleases and HR effectors. Loss of either subunit abolishes this signaling hub.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein monoubiquitination\", \"interstrand cross-link repair\"], \"genes\": [\"FANCD2\", \"FANCI\"]}}, {\"id\": \"Impaired Fertility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced fertility in both sexes, with males often showing azoospermia or oligospermia due to gonadal failure, and females showing diminished ovarian reserve and premature menopause.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000789\"}}, {\"id\": \"Increased Risk of Leukemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Significantly elevated risk of developing leukemia, predominantly acute myeloid leukemia (AML) with an incidence of 13% by age 50. Acute lymphoblastic leukemia (ALL) also reported, especially in FANCD1/BRCA2 patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001909\"}}, {\"id\": \"Inflammatory Bone Marrow Microenvironment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess sterile inflammatory signaling (TNF-alpha, interferon-gamma, Type I interferons) in the bone marrow creates a hostile microenvironment for HSCs. Both hematopoietic and stromal cells contribute to chronic inflammation, driving proteostasis deregulation and accelerating stem cell attrition.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hematopoietic stem cell\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"bone marrow\"]}}, {\"id\": \"Intrauterine Growth Retardation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low birth weight for gestational age, reflecting prenatal growth restriction.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001511\"}}, {\"id\": \"MYC-Driven HSPC Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Single-cell RNA sequencing of primary FA patient bone marrow HSPCs revealed MYC overexpression as a novel pathogenic driver alongside p53 and TGF-beta upregulation. Distinct HSPC subpopulations co-expressing high TP53 or high MYC coexist in FA bone marrow. MYC-high HSPCs show downregulation of cell adhesion genes (including CXCR4), promoting enhanced egress from bone marrow to peripheral blood and contributing to HSC exhaustion and bone marrow failure.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hematopoietic stem cell\"], \"biological_processes\": [\"regulation of gene expression\"], \"locations\": [\"bone marrow\"]}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormally small head circumference, present in a subset of FA patients as part of congenital anomalies.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000252\"}}, {\"id\": \"Microphthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormally small eyes, part of the spectrum of ophthalmic anomalies seen in FA patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000568\"}}, {\"id\": \"Myelodysplastic Syndrome\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Clonal hematopoietic disorder with dysplastic bone marrow and cytopenias, frequently preceding progression to acute myeloid leukemia.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002863\"}}, {\"id\": \"Osteopenia and Osteoporosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced bone mineral density affecting the majority of adult FA patients, likely related to endocrine dysfunction, chronic illness, and potentially direct effects of FA pathway deficiency on osteoblast function.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000938\"}}, {\"id\": \"PCNA Monoubiquitination and ICL Pathway Choice\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PCNA monoubiquitination at lysine 164 (PCNA-Ub) has a dual function in ICL repair: it coordinates translesion synthesis opposite the unhooked ICL, and it excludes the mismatch recognition complex MSH2/MSH6 from ICL sites to channel repair toward the canonical FA pathway. Loss of PCNA-Ub (PcnaK164R) combined with FA deficiency is embryonically lethal, establishing PCNA-Ub as an essential co-regulator of FA-mediated ICL repair and pathway fidelity.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"translesion synthesis\", \"protein monoubiquitination\"]}}, {\"id\": \"Pancytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive decline in all blood cell lineages due to bone marrow failure.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001876\"}}, {\"id\": \"Radial Ray Defects\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Upper limb malformations affecting the radius and thumb, including hypoplasia or aplasia of the radius and thumb abnormalities.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002984\"}}, {\"id\": \"Renal Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital kidney malformations including ectopic kidneys, horseshoe kidneys, renal agenesis, or hypoplastic kidneys.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000119\"}}, {\"id\": \"Short Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Growth deficiency present from birth, affecting approximately 60% of patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Skeletal Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Upper limb malformations including absent or hypoplastic thumbs, radial ray defects, and hip abnormalities.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005775\"}}, {\"id\": \"Skin Pigmentation Changes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Melanocyte progenitor defects during embryonic development cause characteristic pigmentary anomalies including caf\\u00e9-au-lait spots and hypopigmented patches. Skin pigmentation changes are the most common congenital anomaly in FA, affecting over 50% of patients.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Squamous Cell Carcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Markedly increased risk of early-onset squamous cell carcinomas, particularly of the head and neck, oral cavity, esophagus, and anogenital regions.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002860\"}}, {\"id\": \"Strabismus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Misalignment of the eyes, a relatively common ophthalmic finding in FA patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000486\"}}, {\"id\": \"Structural Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital malformations of the gastrointestinal tract.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\"}}, {\"id\": \"Translesion Synthesis Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired ability to bypass DNA lesions during replication through translesion synthesis polymerases, requiring functional FANCD2-FANCI complex and PCNA monoubiquitination.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"translesion synthesis\"]}}, {\"id\": \"iPSC-Revealed p53-Driven Progenitor Exhaustion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Induced pluripotent stem cell modeling of FA hematopoietic differentiation revealed that FANCA-deficient human hematopoietic progenitor cells undergo accelerated terminal differentiation driven by p53/p21 activation. GAS6 (growth arrest specific 6) was identified as a novel p53 target gene; GAS6 signaling modulation rescues hematopoiesis. This iPSC-based new approach methodology overcomes the lack of faithful murine FA models and enables drug screening for FA therapeutics.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hematopoietic precursor cell\"], \"biological_processes\": [\"intrinsic apoptotic signaling pathway by p53 class mediator\"]}}], \"edges\": [{\"source\": \"DNA Repair Deficiency\", \"target\": \"Genomic Instability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bone Marrow Failure\", \"target\": \"Pancytopenia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bone Marrow Failure\", \"target\": \"Aplastic Anemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Genomic Instability\", \"target\": \"Hematopoietic Stem Cell Attrition\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Genomic Instability\", \"target\": \"Developmental Progenitor Apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Genomic Instability\", \"target\": \"Clonal Evolution\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Genomic Instability\", \"target\": \"Epithelial Cancer Susceptibility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hematopoietic Stem Cell Attrition\", \"target\": \"Bone Marrow Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Translesion Synthesis Defect\", \"target\": \"Genomic Instability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Homologous Recombination Impairment\", \"target\": \"Genomic Instability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Aldehyde-Induced Genotoxicity\", \"target\": \"Hematopoietic Stem Cell Attrition\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Core Complex Dysfunction\", \"target\": \"DNA Repair Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ID Complex Dysfunction\", \"target\": \"DNA Repair Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Downstream Effector Dysfunction\", \"target\": \"Homologous Recombination Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Inflammatory Bone Marrow Microenvironment\", \"target\": \"Hematopoietic Stem Cell Attrition\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Developmental Progenitor Apoptosis\", \"target\": \"Congenital Structural Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Developmental Progenitor Apoptosis\", \"target\": \"CNS Developmental Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Developmental Progenitor Apoptosis\", \"target\": \"Endocrine Gland Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Developmental Progenitor Apoptosis\", \"target\": \"Skin Pigmentation Changes\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Developmental Progenitor Apoptosis\", \"target\": \"Intrauterine Growth Retardation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Clonal Evolution\", \"target\": \"Myelodysplastic Syndrome\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Clonal Evolution\", \"target\": \"Increased Risk of Leukemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Epithelial Cancer Susceptibility\", \"target\": \"Squamous Cell Carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Epithelial Cancer Susceptibility\", \"target\": \"Early-Onset Solid Tumors in FANCD1/BRCA2\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"HPV-Mediated Epithelial Damage\", \"target\": \"Epithelial Cancer Susceptibility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endocrine Gland Dysfunction\", \"target\": \"Growth Hormone Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endocrine Gland Dysfunction\", \"target\": \"Hypothyroidism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endocrine Gland Dysfunction\", \"target\": \"Abnormal Glucose Homeostasis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endocrine Gland Dysfunction\", \"target\": \"Delayed Puberty and Hypogonadism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endocrine Gland Dysfunction\", \"target\": \"Osteopenia and Osteoporosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endocrine Gland Dysfunction\", \"target\": \"Short Stature\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endocrine Gland Dysfunction\", \"target\": \"Impaired Fertility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Congenital Structural Anomalies\", \"target\": \"Skeletal Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Congenital Structural Anomalies\", \"target\": \"Radial Ray Defects\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Congenital Structural Anomalies\", \"target\": \"Absent or Hypoplastic Thumbs\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Congenital Structural Anomalies\", \"target\": \"Congenital Heart Defects\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Congenital Structural Anomalies\", \"target\": \"Genitourinary Malformations\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Congenital Structural Anomalies\", \"target\": \"Renal Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Congenital Structural Anomalies\", \"target\": \"Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Congenital Structural Anomalies\", \"target\": \"Microphthalmia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Congenital Structural Anomalies\", \"target\": \"Strabismus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Congenital Structural Anomalies\", \"target\": \"Structural Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Congenital Structural Anomalies\", \"target\": \"Dental and Craniofacial Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Congenital Structural Anomalies\", \"target\": \"Cryptorchidism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"CNS Developmental Anomalies\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"CNS Developmental Anomalies\", \"target\": \"Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skin Pigmentation Changes\", \"target\": \"Caf\\u00e9-au-Lait Spots\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skin Pigmentation Changes\", \"target\": \"Hypopigmentation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"MYC-Driven HSPC Dysfunction\", \"target\": \"Hematopoietic Stem Cell Attrition\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"MYC-Driven HSPC Dysfunction\", \"target\": \"Bone Marrow Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Differentiation-Induced Genotoxic Stress\", \"target\": \"Hematopoietic Stem Cell Attrition\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Differentiation-Induced Genotoxic Stress\", \"target\": \"Bone Marrow Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"iPSC-Revealed p53-Driven Progenitor Exhaustion\", \"target\": \"Hematopoietic Stem Cell Attrition\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"iPSC-Revealed p53-Driven Progenitor Exhaustion\", \"target\": \"Bone Marrow Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PCNA Monoubiquitination and ICL Pathway Choice\", \"target\": \"DNA Repair Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PCNA Monoubiquitination and ICL Pathway Choice\", \"target\": \"Genomic Instability\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Glucose Homeostasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormal glucose and insulin metabolism including insulin resistance, impaired glucose tolerance, and diabetes mellitus.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0011014\"}}, {\"id\": \"Absent or Hypoplastic Thumbs\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absent thumbs, hypoplastic thumbs, or supernumerary thumbs are common upper limb anomalies in FA, frequently accompanied by radial ray defects.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0009777\"}}, {\"id\": \"Aldehyde-Induced Genotoxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Endogenous aldehydes (acetaldehyde and formaldehyde) from normal metabolism generate DNA interstrand crosslinks and DNA-protein crosslinks; impaired detoxification by ALDH2 and ADH5 exacerbates DNA damage burden.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cellular response to aldehyde\"]}}, {\"id\": \"Aplastic Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bone marrow failure resulting in severely reduced production of all blood cell types.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001903\"}}, {\"id\": \"BRCA1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"BRCA2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Bone Marrow Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inability of the bone marrow to produce sufficient blood cells due to hematopoietic stem cell defects.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"CNS Developmental Anomalies\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Midline brain structural defects from neural progenitor loss during early CNS development. Includes small pituitary (68%), posterior fossa abnormalities (30% including Chiari I malformation and Dandy-Walker variant), and corpus callosum structural variation (30%).\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"brain\", \"pituitary gland\"]}}, {\"id\": \"Caf\\u00e9-au-Lait Spots\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyperpigmented skin macules commonly seen in FA patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000957\"}}, {\"id\": \"Clonal Evolution\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive accumulation of somatic mutations and chromosomal aberrations in genomically unstable hematopoietic cells drives clonal selection and malignant transformation. Characteristic cytogenetic changes include gain of 1q and 3q and loss of 7q. Clones with selective growth advantage expand, leading to MDS and AML. Single-cell DNA sequencing has revealed polyclonal evolution at the MDS stage, with sequential acquisition of driver mutations and MDM4-mediated p53 dampening via chromosome 1q gain as the canonical initiating event.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"hematopoietic stem cell\"], \"locations\": [\"bone marrow\"]}}, {\"id\": \"Congenital Heart Defects\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Structural heart anomalies including ventricular septal defects, atrial septal defects, patent ductus arteriosus, and other cardiac malformations.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Congenital Structural Anomalies\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Developmental progenitor loss during embryogenesis causes structural malformations affecting limbs, heart, kidneys, GI tract, ears, and genitourinary system. Approximately 75% of FA patients have at least one congenital anomaly, with burden correlating with complementation group, mutation type, and pathway position.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Core Complex Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in FA core complex genes (FANCA, FANCB, FANCC, FANCE, FANCF, FANCG, FANCL, FANCM, UBE2T/FANCT) disrupt the E3 ubiquitin ligase that monoubiquitinates the FANCD2-FANCI complex, abolishing the central signaling step of the FA pathway. FANCA mutations account for 60-70% of all FA cases.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein ubiquitination\"], \"genes\": [\"FANCA\", \"FANCB\", \"FANCC\", \"FANCG\"]}}, {\"id\": \"Cryptorchidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Undescended testes, a common genitourinary malformation in male FA patients.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000028\"}}, {\"id\": \"DNA Repair Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in FA genes impair the body\u0027s ability to repair DNA damage, leading to increased sensitivity to crosslinking agents and propensity for chromosomal instability.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Delayed Puberty and Hypogonadism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed onset of puberty and hypogonadism affecting both sexes, with males commonly showing cryptorchidism and females showing ovarian insufficiency.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000823\"}}, {\"id\": \"Dental and Craniofacial Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dental anomalies including tooth agenesis, root abnormalities, tooth rotation, enamel defects, and craniofacial dysmorphisms.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000164\"}}, {\"id\": \"Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive and/or motor developmental delays present in a subset of FA patients.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Developmental Progenitor Apoptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Unrepaired DNA damage in rapidly dividing embryonic progenitor cells activates p53-dependent apoptosis during critical developmental windows. This mechanism underlies the congenital malformations of FA, explaining the midline predominance of anomalies and correlation between pathway position and congenital abnormality burden.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"apoptotic process\", \"embryo development\"]}}, {\"id\": \"Differentiation-Induced Genotoxic Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Transcriptional reprogramming during hematopoietic differentiation generates a surge of genotoxic stress from formaldehyde, an obligate by-product of oxidative protein demethylation during transcription regulation. In the absence of functional FA DNA repair, this differentiation-associated DNA damage causes aborted differentiation and depletion of FA progenitor cells, providing a mechanistic explanation for the hematopoietic-specific failure in FA despite it being a germline disorder.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hematopoietic precursor cell\"], \"biological_processes\": [\"hematopoietic progenitor cell differentiation\", \"cellular response to aldehyde\"]}}, {\"id\": \"Downstream Effector Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in downstream effector genes (BRCA2/FANCD1, PALB2/FANCN, BRCA1/FANCS, RAD51C/FANCO, XRCC2/FANCU) impair homologous recombination and translesion synthesis. These overlap with familial breast/ovarian cancer genes; biallelic mutations produce the most severe FA phenotypes with early-onset solid tumors and more congenital anomalies.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"BRCA2\", \"BRCA1\"]}}, {\"id\": \"Early-Onset Solid Tumors in FANCD1/BRCA2\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Patients with biallelic FANCD1/BRCA2 mutations have a uniquely severe cancer predisposition with early-onset solid tumors in childhood, including medulloblastoma, Wilms tumor, and neuroblastoma, distinct from the typical FA tumor spectrum.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\"}}, {\"id\": \"Endocrine Gland Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Widespread endocrine abnormalities affect approximately 73-80% of FA patients. Developmental pituitary/hypothalamic defects (68% have small pituitary on MRI), direct effects of genomic instability on endocrine cell function, and chronic illness contribute. Manifests as GH deficiency, hypothyroidism, glucose dysregulation, hypogonadism, dyslipidemia, and metabolic syndrome.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"pituitary gland\"]}}, {\"id\": \"Epithelial Cancer Susceptibility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired genome maintenance in epithelial tissues renders them vulnerable to accumulation of oncogenic mutations. Squamous epithelia of the head/neck, oral cavity, esophagus, and anogenital regions are particularly susceptible due to high proliferative turnover and exposure to environmental mutagens including HPV.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"epithelial cell\"]}}, {\"id\": \"FANCA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"FANCB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"FANCC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"FANCD2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"FANCG\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"FANCI\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Genitourinary Malformations\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital abnormalities of the kidneys and reproductive organs.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000119\"}}, {\"id\": \"Genomic Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Increased tendency for genomic alterations including chromosomal breaks, deletions, and rearrangements.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Growth Hormone Deficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Insufficient growth hormone production contributing to short stature beyond what is expected from the underlying condition alone.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0008240\"}}, {\"id\": \"HPV-Mediated Epithelial Damage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Human papillomavirus infection compounds epithelial cancer risk in FA patients. HPV oncoproteins E6 and E7 degrade p53 and Rb tumor suppressors, further disabling the already compromised DNA damage response. HPV vaccination is recommended to reduce gynecologic and oropharyngeal cancer risk.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Conductive and/or sensorineural hearing loss, often associated with external ear anomalies or middle ear malformations.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000365\"}}, {\"id\": \"Hematopoietic Stem Cell Attrition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive depletion of long-term hematopoietic stem cells in bone marrow due to replication stress, aldehyde-induced DNA damage, and chronic inflammatory signaling.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hematopoietic stem cell\"], \"biological_processes\": [\"cellular response to aldehyde\", \"cellular response to oxidative stress\"], \"locations\": [\"bone marrow\"]}}, {\"id\": \"Homologous Recombination Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective repair of DNA double-strand breaks following interstrand crosslink unhooking, due to mutations in FA genes involved in HR pathway including BRCA2, PALB2, and BRCA1.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"homologous recombination\"]}}, {\"id\": \"Hypopigmentation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Areas of decreased skin pigmentation, often in combination with hyperpigmented lesions such as caf\\u00e9-au-lait spots.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000951\"}}, {\"id\": \"Hypothyroidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thyroid hormone deficiency requiring monitoring and potentially replacement therapy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000821\"}}, {\"id\": \"ID Complex Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in FANCD2 or FANCI disrupt the central ID2 complex whose monoubiquitination is the critical signaling event in FA pathway activation. In wild type, the core complex E3 ligase monoubiquitinates both FANCD2 and FANCI, causing the ID2 heterodimer to clamp onto chromatin at stalled replication forks and recruit downstream nucleases and HR effectors. Loss of either subunit abolishes this signaling hub.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein monoubiquitination\", \"interstrand cross-link repair\"], \"genes\": [\"FANCD2\", \"FANCI\"]}}, {\"id\": \"Impaired Fertility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced fertility in both sexes, with males often showing azoospermia or oligospermia due to gonadal failure, and females showing diminished ovarian reserve and premature menopause.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000789\"}}, {\"id\": \"Increased Risk of Leukemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Significantly elevated risk of developing leukemia, predominantly acute myeloid leukemia (AML) with an incidence of 13% by age 50. Acute lymphoblastic leukemia (ALL) also reported, especially in FANCD1/BRCA2 patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001909\"}}, {\"id\": \"Inflammatory Bone Marrow Microenvironment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess sterile inflammatory signaling (TNF-alpha, interferon-gamma, Type I interferons) in the bone marrow creates a hostile microenvironment for HSCs. Both hematopoietic and stromal cells contribute to chronic inflammation, driving proteostasis deregulation and accelerating stem cell attrition.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hematopoietic stem cell\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"bone marrow\"]}}, {\"id\": \"Intrauterine Growth Retardation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low birth weight for gestational age, reflecting prenatal growth restriction.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001511\"}}, {\"id\": \"MYC-Driven HSPC Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Single-cell RNA sequencing of primary FA patient bone marrow HSPCs revealed MYC overexpression as a novel pathogenic driver alongside p53 and TGF-beta upregulation. Distinct HSPC subpopulations co-expressing high TP53 or high MYC coexist in FA bone marrow. MYC-high HSPCs show downregulation of cell adhesion genes (including CXCR4), promoting enhanced egress from bone marrow to peripheral blood and contributing to HSC exhaustion and bone marrow failure.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hematopoietic stem cell\"], \"biological_processes\": [\"regulation of gene expression\"], \"locations\": [\"bone marrow\"]}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormally small head circumference, present in a subset of FA patients as part of congenital anomalies.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000252\"}}, {\"id\": \"Microphthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormally small eyes, part of the spectrum of ophthalmic anomalies seen in FA patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000568\"}}, {\"id\": \"Myelodysplastic Syndrome\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Clonal hematopoietic disorder with dysplastic bone marrow and cytopenias, frequently preceding progression to acute myeloid leukemia.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002863\"}}, {\"id\": \"Osteopenia and Osteoporosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced bone mineral density affecting the majority of adult FA patients, likely related to endocrine dysfunction, chronic illness, and potentially direct effects of FA pathway deficiency on osteoblast function.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000938\"}}, {\"id\": \"Pancytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive decline in all blood cell lineages due to bone marrow failure.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001876\"}}, {\"id\": \"Radial Ray Defects\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Upper limb malformations affecting the radius and thumb, including hypoplasia or aplasia of the radius and thumb abnormalities.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002984\"}}, {\"id\": \"Renal Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital kidney malformations including ectopic kidneys, horseshoe kidneys, renal agenesis, or hypoplastic kidneys.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000119\"}}, {\"id\": \"Short Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Growth deficiency present from birth, affecting approximately 60% of patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Skeletal Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Upper limb malformations including absent or hypoplastic thumbs, radial ray defects, and hip abnormalities.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005775\"}}, {\"id\": \"Skin Pigmentation Changes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Melanocyte progenitor defects during embryonic development cause characteristic pigmentary anomalies including caf\\u00e9-au-lait spots and hypopigmented patches. Skin pigmentation changes are the most common congenital anomaly in FA, affecting over 50% of patients.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Squamous Cell Carcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Markedly increased risk of early-onset squamous cell carcinomas, particularly of the head and neck, oral cavity, esophagus, and anogenital regions.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002860\"}}, {\"id\": \"Strabismus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Misalignment of the eyes, a relatively common ophthalmic finding in FA patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000486\"}}, {\"id\": \"Structural Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital malformations of the gastrointestinal tract.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\"}}, {\"id\": \"Translesion Synthesis Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired ability to bypass DNA lesions during replication through translesion synthesis polymerases, requiring functional FANCD2-FANCI complex and PCNA monoubiquitination.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"translesion synthesis\"]}}, {\"id\": \"iPSC-Revealed p53-Driven Progenitor Exhaustion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Induced pluripotent stem cell modeling of FA hematopoietic differentiation revealed that FANCA-deficient human hematopoietic progenitor cells undergo accelerated terminal differentiation driven by p53/p21 activation. GAS6 (growth arrest specific 6) was identified as a novel p53 target gene; GAS6 signaling modulation rescues hematopoiesis. This iPSC-based new approach methodology overcomes the lack of faithful murine FA models and enables drug screening for FA therapeutics.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hematopoietic precursor cell\"], \"biological_processes\": [\"intrinsic apoptotic signaling pathway by p53 class mediator\"]}}], \"edges\": [{\"source\": \"DNA Repair Deficiency\", \"target\": \"Genomic Instability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bone Marrow Failure\", \"target\": \"Pancytopenia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bone Marrow Failure\", \"target\": \"Aplastic Anemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Genomic Instability\", \"target\": \"Hematopoietic Stem Cell Attrition\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Genomic Instability\", \"target\": \"Developmental Progenitor Apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Genomic Instability\", \"target\": \"Clonal Evolution\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Genomic Instability\", \"target\": \"Epithelial Cancer Susceptibility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hematopoietic Stem Cell Attrition\", \"target\": \"Bone Marrow Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Translesion Synthesis Defect\", \"target\": \"Genomic Instability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Homologous Recombination Impairment\", \"target\": \"Genomic Instability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Aldehyde-Induced Genotoxicity\", \"target\": \"Hematopoietic Stem Cell Attrition\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Core Complex Dysfunction\", \"target\": \"DNA Repair Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ID Complex Dysfunction\", \"target\": \"DNA Repair Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Downstream Effector Dysfunction\", \"target\": \"Homologous Recombination Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Inflammatory Bone Marrow Microenvironment\", \"target\": \"Hematopoietic Stem Cell Attrition\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Developmental Progenitor Apoptosis\", \"target\": \"Congenital Structural Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Developmental Progenitor Apoptosis\", \"target\": \"CNS Developmental Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Developmental Progenitor Apoptosis\", \"target\": \"Endocrine Gland Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Developmental Progenitor Apoptosis\", \"target\": \"Skin Pigmentation Changes\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Developmental Progenitor Apoptosis\", \"target\": \"Intrauterine Growth Retardation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Clonal Evolution\", \"target\": \"Myelodysplastic Syndrome\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Clonal Evolution\", \"target\": \"Increased Risk of Leukemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Epithelial Cancer Susceptibility\", \"target\": \"Squamous Cell Carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Epithelial Cancer Susceptibility\", \"target\": \"Early-Onset Solid Tumors in FANCD1/BRCA2\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"HPV-Mediated Epithelial Damage\", \"target\": \"Epithelial Cancer Susceptibility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endocrine Gland Dysfunction\", \"target\": \"Growth Hormone Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endocrine Gland Dysfunction\", \"target\": \"Hypothyroidism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endocrine Gland Dysfunction\", \"target\": \"Abnormal Glucose Homeostasis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endocrine Gland Dysfunction\", \"target\": \"Delayed Puberty and Hypogonadism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endocrine Gland Dysfunction\", \"target\": \"Osteopenia and Osteoporosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endocrine Gland Dysfunction\", \"target\": \"Short Stature\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endocrine Gland Dysfunction\", \"target\": \"Impaired Fertility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Congenital Structural Anomalies\", \"target\": \"Skeletal Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Congenital Structural Anomalies\", \"target\": \"Radial Ray Defects\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Congenital Structural Anomalies\", \"target\": \"Absent or Hypoplastic Thumbs\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Congenital Structural Anomalies\", \"target\": \"Congenital Heart Defects\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Congenital Structural Anomalies\", \"target\": \"Genitourinary Malformations\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Congenital Structural Anomalies\", \"target\": \"Renal Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Congenital Structural Anomalies\", \"target\": \"Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Congenital Structural Anomalies\", \"target\": \"Microphthalmia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Congenital Structural Anomalies\", \"target\": \"Strabismus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Congenital Structural Anomalies\", \"target\": \"Structural Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Congenital Structural Anomalies\", \"target\": \"Dental and Craniofacial Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Congenital Structural Anomalies\", \"target\": \"Cryptorchidism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"CNS Developmental Anomalies\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"CNS Developmental Anomalies\", \"target\": \"Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skin Pigmentation Changes\", \"target\": \"Caf\\u00e9-au-Lait Spots\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skin Pigmentation Changes\", \"target\": \"Hypopigmentation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"MYC-Driven HSPC Dysfunction\", \"target\": \"Hematopoietic Stem Cell Attrition\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"MYC-Driven HSPC Dysfunction\", \"target\": \"Bone Marrow Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Differentiation-Induced Genotoxic Stress\", \"target\": \"Hematopoietic Stem Cell Attrition\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Differentiation-Induced Genotoxic Stress\", \"target\": \"Bone Marrow Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"iPSC-Revealed p53-Driven Progenitor Exhaustion\", \"target\": \"Hematopoietic Stem Cell Attrition\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"iPSC-Revealed p53-Driven Progenitor Exhaustion\", \"target\": \"Bone Marrow Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FANCA\", \"target\": \"Core Complex Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FANCB\", \"target\": \"Core Complex Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FANCC\", \"target\": \"Core Complex Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FANCG\", \"target\": \"Core Complex Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FANCD2\", \"target\": \"ID Complex Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FANCI\", \"target\": \"ID Complex Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BRCA2\", \"target\": \"Downstream Effector Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BRCA1\", \"target\": \"Downstream Effector Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -16343,6 +16440,9 @@
         </div>
         
 
+        <!-- Experimental Models -->
+        
+
         <!-- Computational Models -->
         
         <div class="card" id="models">
@@ -16960,7 +17060,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Fanconi_Anemia
 creation_date: &#39;2025-12-04T16:57:31Z&#39;
-updated_date: &#39;2026-03-13T00:00:00Z&#39;
+updated_date: &#39;2026-02-17T21:53:14Z&#39;
 description: &gt;-
   Fanconi anemia is a rare inherited bone marrow failure syndrome characterized
   by genomic instability, congenital abnormalities, progressive bone marrow failure,
@@ -17191,13 +17291,9 @@ pathophysiology:
   description: Mutations in FA genes impair the body&#39;s ability to repair DNA
     damage, leading to increased sensitivity to crosslinking agents and
     propensity for chromosomal instability.
-  biological_processes:
-  - preferred_term: interstrand cross-link repair
-    term:
-      id: GO:0036297
-      label: interstrand cross-link repair
   evidence:
   - reference: PMID:35596788
+    reference_title: &#34;Fanconi anemia: current insights regarding epidemiology, cancer, and DNA repair.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: At least 22 genes are associated with Fanconi anemia, constituting
@@ -17209,18 +17305,9 @@ pathophysiology:
 - name: Bone Marrow Failure
   description: Inability of the bone marrow to produce sufficient blood cells
     due to hematopoietic stem cell defects.
-  biological_processes:
-  - preferred_term: hemopoiesis
-    term:
-      id: GO:0030097
-      label: hemopoiesis
-  locations:
-  - preferred_term: bone marrow
-    term:
-      id: UBERON:0002371
-      label: bone marrow
   evidence:
   - reference: PMID:38424108
+    reference_title: &#34;Deregulated protein homeostasis constrains fetal hematopoietic stem cell pool expansion in Fanconi anemia.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;we identify increased protein synthesis rates in the fetal hematopoietic
@@ -17234,13 +17321,9 @@ pathophysiology:
 - name: Genomic Instability
   description: Increased tendency for genomic alterations including chromosomal
     breaks, deletions, and rearrangements.
-  biological_processes:
-  - preferred_term: DNA damage response
-    term:
-      id: GO:0006974
-      label: DNA damage response
   evidence:
   - reference: PMID:35596788
+    reference_title: &#34;Fanconi anemia: current insights regarding epidemiology, cancer, and DNA repair.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: ICLs can interfere with DNA transactions, including replication and
@@ -17265,6 +17348,7 @@ pathophysiology:
     chronic inflammatory signaling.
   evidence:
   - reference: PMID:38424108
+    reference_title: &#34;Deregulated protein homeostasis constrains fetal hematopoietic stem cell pool expansion in Fanconi anemia.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;proteostasis deregulation itself is driven by excess sterile inflammatory
@@ -17274,6 +17358,7 @@ pathophysiology:
     explanation: Demonstrates that inflammatory signaling drives HSC pool
       deficits in FA, and that dampening inflammation rescues HSC numbers.
   - reference: PMID:24037726
+    reference_title: &#34;Variant ALDH2 is associated with accelerated progression of bone marrow failure in Japanese Fanconi anemia patients.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;the FA proteins might counteract aldehyde-induced genotoxicity in hematopoietic
@@ -17307,6 +17392,7 @@ pathophysiology:
     and PCNA monoubiquitination.
   evidence:
   - reference: PMID:25237197
+    reference_title: &#34;Stress and DNA repair biology of the Fanconi anemia pathway.&#34;
     supports: PARTIAL
     evidence_source: OTHER
     snippet: &#34;Establishing the interaction network involving the FA proteins and their
@@ -17328,6 +17414,7 @@ pathophysiology:
     pathway including BRCA2, PALB2, and BRCA1.
   evidence:
   - reference: PMID:25237197
+    reference_title: &#34;Stress and DNA repair biology of the Fanconi anemia pathway.&#34;
     supports: PARTIAL
     evidence_source: OTHER
     snippet: &#34;the fact that 5 FA genes are in fact familial breast cancer genes and
@@ -17349,6 +17436,7 @@ pathophysiology:
     impaired detoxification by ALDH2 and ADH5 exacerbates DNA damage burden.
   evidence:
   - reference: PMID:24037726
+    reference_title: &#34;Variant ALDH2 is associated with accelerated progression of bone marrow failure in Japanese Fanconi anemia patients.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We examined 64 Japanese FA patients, and found that the ALDH2 variant
@@ -17357,6 +17445,7 @@ pathophysiology:
       detoxification (ALDH2 variant) accelerates bone marrow failure in FA
       patients.
   - reference: PMID:25237197
+    reference_title: &#34;Stress and DNA repair biology of the Fanconi anemia pathway.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;recent studies have shown a major involvement of the FA pathway in the
@@ -17408,6 +17497,7 @@ pathophysiology:
       label: FANCG
   evidence:
   - reference: PMID:35596788
+    reference_title: &#34;Fanconi anemia: current insights regarding epidemiology, cancer, and DNA repair.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;At least 22 genes are associated with Fanconi anemia, constituting the
@@ -17445,6 +17535,7 @@ pathophysiology:
       label: interstrand cross-link repair
   evidence:
   - reference: PMID:32106311
+    reference_title: &#34;Association of clinical severity with FANCB variant type in Fanconi anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;This reflects the indispensable role of FANCB protein in the enzymatic
@@ -17472,13 +17563,9 @@ pathophysiology:
     term:
       id: hgnc:1100
       label: BRCA1
-  biological_processes:
-  - preferred_term: double-strand break repair via homologous recombination
-    term:
-      id: GO:0000724
-      label: double-strand break repair via homologous recombination
   evidence:
   - reference: PMID:25237197
+    reference_title: &#34;Stress and DNA repair biology of the Fanconi anemia pathway.&#34;
     supports: PARTIAL
     evidence_source: OTHER
     snippet: &#34;the fact that 5 FA genes are in fact familial breast cancer genes and
@@ -17513,6 +17600,7 @@ pathophysiology:
       label: bone marrow
   evidence:
   - reference: PMID:38424108
+    reference_title: &#34;Deregulated protein homeostasis constrains fetal hematopoietic stem cell pool expansion in Fanconi anemia.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;proteostasis deregulation itself is driven by excess sterile inflammatory
@@ -17543,6 +17631,7 @@ pathophysiology:
       label: embryo development
   evidence:
   - reference: PMID:26369989
+    reference_title: &#34;Central nervous system abnormalities in Fanconi anaemia: patterns and frequency on magnetic resonance imaging.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The incidence of central nervous system (CNS) abnormalities in FA is
@@ -17583,6 +17672,7 @@ pathophysiology:
       label: bone marrow
   evidence:
   - reference: PMID:31558676
+    reference_title: &#34;Characterization and genotype-phenotype correlation of patients with Fanconi anemia in a multi-ethnic population.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;30% developed myelodysplastic syndrome (MDS), leukemia and/or solid
@@ -17590,6 +17680,7 @@ pathophysiology:
     explanation: 30% malignancy rate reflects ongoing clonal evolution in FA
       HSCs.
   - reference: PMID:36736290
+    reference_title: &#34;Clonal hematopoiesis driven by chromosome 1q/MDM4 trisomy defines a canonical route toward leukemia in Fanconi anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Clonal hematopoiesis driven by chromosome 1q/MDM4 trisomy defines a
@@ -17598,6 +17689,7 @@ pathophysiology:
       gain (containing MDM4) as the most common early clonal event, dampening
       p53 and driving clonal hematopoiesis.
   - reference: PMID:36167633
+    reference_title: &#34;Polyclonal evolution of Fanconi anemia to MDS and AML revealed at single cell resolution.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Polyclonal evolution of Fanconi anemia to MDS and AML revealed at single
@@ -17606,6 +17698,7 @@ pathophysiology:
       MDS/AML revealed polyclonal patterns with sequential acquisition of
       UBASH3A, SF3B1, RUNX1, and IDH2 mutations.
   - reference: PMID:37391485
+    reference_title: &#34;RUNX1 mutations mitigate quiescence to promote transformation of hematopoietic progenitors in Fanconi anemia.&#34;
     supports: PARTIAL
     evidence_source: IN_VITRO
     snippet: &#34;we performed multiplexed gene editing of mutational hotspots in MDS-associated
@@ -17630,12 +17723,14 @@ pathophysiology:
       label: epithelial cell
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Solid tumors – particularly of the head and neck, skin, and genitourinary
       tract – are more common in individuals with FA.&#34;
     explanation: Confirms epithelial tissue susceptibility to malignancy in FA.
   - reference: PMID:36912284
+    reference_title: &#34;Fanconi anemia-isogenic head and neck cancer cell line pairs: A basic and translational science resource.&#34;
     supports: PARTIAL
     evidence_source: IN_VITRO
     snippet: &#34;We developed the Fanconi Anemia Cancer Cell Line Resource (FA-CCLR)
@@ -17647,6 +17742,7 @@ pathophysiology:
       to identify FA-dependent cancer phenotypes and test therapeutic
       strategies.
   - reference: PMID:36450981
+    reference_title: &#34;Genomic signature of Fanconi anaemia DNA repair pathway deficiency in cancer.&#34;
     supports: PARTIAL
     evidence_source: COMPUTATIONAL
     snippet: &#34;Genomic signature of Fanconi anaemia DNA repair pathway deficiency in
@@ -17665,6 +17761,7 @@ pathophysiology:
     recommended to reduce gynecologic and oropharyngeal cancer risk.
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Human papilloma virus (HPV) vaccination to reduce the risk for gynecologic
@@ -17689,6 +17786,7 @@ pathophysiology:
       label: pituitary gland
   evidence:
   - reference: PMID:17426088
+    reference_title: &#34;Endocrine abnormalities in patients with Fanconi anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Endocrine abnormalities were present in 73%, including short stature
@@ -17696,6 +17794,7 @@ pathophysiology:
       (17%)&#34;
     explanation: Giri et al. documents 73% endocrine abnormality prevalence.
   - reference: PMID:26369989
+    reference_title: &#34;Central nervous system abnormalities in Fanconi anaemia: patterns and frequency on magnetic resonance imaging.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Abnormalities were identified in 18 (90%) patients with FA, the commonest
@@ -17718,6 +17817,7 @@ pathophysiology:
     burden correlating with complementation group, mutation type, and pathway position.
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Physical abnormalities, present in approximately 75% of affected individuals,
@@ -17755,12 +17855,14 @@ pathophysiology:
       label: pituitary gland
   evidence:
   - reference: PMID:26369989
+    reference_title: &#34;Central nervous system abnormalities in Fanconi anaemia: patterns and frequency on magnetic resonance imaging.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Abnormalities were identified in 18 (90%) patients with FA, the commonest
       being a small pituitary (68%, p &lt; 0.01 females and p &lt; 0.001 males)&#34;
     explanation: 90% brain MRI abnormality rate with midline predominance.
   - reference: PMID:26369989
+    reference_title: &#34;Central nervous system abnormalities in Fanconi anaemia: patterns and frequency on magnetic resonance imaging.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Posterior fossa abnormalities were seen in six cases (30%, p = 0.01)
@@ -17779,6 +17881,7 @@ pathophysiology:
     affecting over 50% of patients.
   evidence:
   - reference: PMID:31558676
+    reference_title: &#34;Characterization and genotype-phenotype correlation of patients with Fanconi anemia in a multi-ethnic population.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;More than half had café-au-lait spots (52.3%) followed by renal anomalies
@@ -17813,6 +17916,7 @@ pathophysiology:
       label: bone marrow
   evidence:
   - reference: PMID:32997960
+    reference_title: &#34;MYC Promotes Bone Marrow Stem Cell Dysfunction in Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In addition to overexpression of p53 and TGF-β pathway genes, we identified
@@ -17822,6 +17926,7 @@ pathophysiology:
     explanation: scRNA-seq of primary FA patient HSPCs identifies MYC as a novel
       driver of BMF alongside known p53/TGF-beta pathways.
   - reference: PMID:32997960
+    reference_title: &#34;MYC Promotes Bone Marrow Stem Cell Dysfunction in Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Inhibiting MYC expression with the BET bromodomain inhibitor (+)-JQ1
@@ -17860,6 +17965,7 @@ pathophysiology:
       label: cellular response to aldehyde
   evidence:
   - reference: PMID:33338401
+    reference_title: &#34;A Surge of DNA Damage Links Transcriptional Reprogramming and Hematopoietic Deficit in Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;reprogramming transcription during hematopoietic differentiation results
@@ -17896,6 +18002,7 @@ pathophysiology:
       label: intrinsic apoptotic signaling pathway by p53 class mediator
   evidence:
   - reference: PMID:33002135
+    reference_title: &#34;An induced pluripotent stem cell model of Fanconi anemia reveals mechanisms of p53-driven progenitor cell differentiation.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;FANCA-deficient human HPCs underwent accelerated terminal differentiation
@@ -17905,6 +18012,7 @@ pathophysiology:
     explanation: iPSC-derived FA model reveals p53/p21/GAS6 axis driving
       progenitor exhaustion and validates GAS6 as a therapeutic target.
   - reference: PMID:33512438
+    reference_title: &#34;Analysis of disease model iPSCs derived from patients with a novel Fanconi anemia-like IBMFS ADH5/ALDH2 deficiency.&#34;
     supports: PARTIAL
     evidence_source: IN_VITRO
     snippet: &#34;disease model iPSCs displayed drastically defective cell expansion when
@@ -17917,49 +18025,6 @@ pathophysiology:
   downstream:
   - target: Hematopoietic Stem Cell Attrition
   - target: Bone Marrow Failure
-- name: PCNA Monoubiquitination and ICL Pathway Choice
-  description: &gt;-
-    PCNA monoubiquitination at lysine 164 (PCNA-Ub) has a dual function in ICL
-    repair: it coordinates translesion synthesis opposite the unhooked ICL, and
-    it excludes the mismatch recognition complex MSH2/MSH6 from ICL sites to
-    channel repair toward the canonical FA pathway. Loss of PCNA-Ub (PcnaK164R)
-    combined with FA deficiency is embryonically lethal, establishing PCNA-Ub
-    as an essential co-regulator of FA-mediated ICL repair and pathway fidelity.
-  biological_processes:
-  - preferred_term: translesion synthesis
-    term:
-      id: GO:0019985
-      label: translesion synthesis
-  - preferred_term: protein monoubiquitination
-    term:
-      id: GO:0006513
-      label: protein monoubiquitination
-  evidence:
-  - reference: PMID:38957451
-    supports: SUPPORT
-    evidence_source: IN_VITRO
-    snippet: &#34;our results uncovered a dual function of PCNA-Ub in ICL repair,
-      i.e. exclude MSH2/MSH6 recruitment to channel the ICL toward canonical FA
-      repair, in addition to its established role in coordinating TLS opposite
-      the unhooked ICL.&#34;
-    explanation: Demonstrates that PCNA-Ub is required for both TLS and
-      exclusion of mismatch repair from ICLs, making it essential for faithful
-      FA pathway engagement.
-  - reference: PMID:38957451
-    supports: SUPPORT
-    evidence_source: MODEL_ORGANISM
-    snippet: &#34;A combined mutation (PcnaK164R/K164R; Fancg−/−) was found embryonically
-      lethal.&#34;
-    explanation: In vivo mouse data establishing that simultaneous loss of
-      PCNA-Ub and FA pathway is incompatible with embryonic survival, confirming
-      PCNA-Ub as an essential co-regulator of FA-mediated ICL repair.
-  downstream:
-  - target: DNA Repair Deficiency
-    description: Loss of PCNA-Ub misdirects ICL repair away from the FA
-      pathway, compounding repair failure
-  - target: Genomic Instability
-    description: Misdirection of ICL repair toward inappropriate pathways
-      (MMR engagement at ICL sites) generates chromosomal instability
 phenotypes:
 - category: Hematologic
   name: Pancytopenia
@@ -17974,6 +18039,7 @@ phenotypes:
     (biallelic BRCA1) patients also characteristically lack bone marrow failure.
   evidence:
   - reference: PMID:35596788
+    reference_title: &#34;Fanconi anemia: current insights regarding epidemiology, cancer, and DNA repair.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Fanconi anemia is a genetic disorder that is characterized by bone
@@ -17989,6 +18055,7 @@ phenotypes:
     frequency: VERY_FREQUENT
     evidence:
     - reference: PMID:31558676
+      reference_title: &#34;Characterization and genotype-phenotype correlation of patients with Fanconi anemia in a multi-ethnic population.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;82% of the patients developed BMF&#34;
@@ -18007,6 +18074,7 @@ phenotypes:
       no complications by age 17.
     evidence:
     - reference: PMID:31558676
+      reference_title: &#34;Characterization and genotype-phenotype correlation of patients with Fanconi anemia in a multi-ethnic population.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;neither of the patients with FANCD1 mutations developed BMF&#34;
@@ -18026,6 +18094,7 @@ phenotypes:
       failure, distinguishing them from most other FA complementation groups.
     evidence:
     - reference: PMID:38146508
+      reference_title: &#34;The emergence of Fanconi anaemia type S: a phenotypic spectrum of biallelic BRCA1 mutations.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Unlike most other types of FA, FA-S patients lack bone marrow failure.&#34;
@@ -18038,6 +18107,7 @@ phenotypes:
       were not affected.
     evidence:
     - reference: PMID:24037726
+      reference_title: &#34;Variant ALDH2 is associated with accelerated progression of bone marrow failure in Japanese Fanconi anemia patients.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;the ALDH2 variant is associated with accelerated progression of BMF,
@@ -18060,6 +18130,7 @@ phenotypes:
     age 10.
   evidence:
   - reference: PMID:24037726
+    reference_title: &#34;Variant ALDH2 is associated with accelerated progression of bone marrow failure in Japanese Fanconi anemia patients.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;It is characterized by phenotypes including progressive bone marrow
@@ -18089,6 +18160,7 @@ phenotypes:
       cancer after age 10.
     evidence:
     - reference: PMID:31558676
+      reference_title: &#34;Characterization and genotype-phenotype correlation of patients with Fanconi anemia in a multi-ethnic population.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Patients with FANCA mutations developed cancer at a significantly
@@ -18127,6 +18199,7 @@ phenotypes:
       FANCG patients may have less MDS and cancer overall.
     evidence:
     - reference: PMID:31558676
+      reference_title: &#34;Characterization and genotype-phenotype correlation of patients with Fanconi anemia in a multi-ethnic population.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Patients with FANCA mutations developed cancer at a significantly
@@ -18143,6 +18216,7 @@ phenotypes:
       significantly younger age than patients with deletions (P=0.011).
     evidence:
     - reference: PMID:31558676
+      reference_title: &#34;Characterization and genotype-phenotype correlation of patients with Fanconi anemia in a multi-ethnic population.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;patients with nonsense and splice site mutations developed the first
@@ -18157,6 +18231,7 @@ phenotypes:
       significantly younger age than patients with deletions (P=0.012).
     evidence:
     - reference: PMID:31558676
+      reference_title: &#34;Characterization and genotype-phenotype correlation of patients with Fanconi anemia in a multi-ethnic population.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;patients with nonsense and splice site mutations developed the first
@@ -18175,6 +18250,7 @@ phenotypes:
       compared to other FA genes (not statistically significant).
     evidence:
     - reference: PMID:31558676
+      reference_title: &#34;Characterization and genotype-phenotype correlation of patients with Fanconi anemia in a multi-ethnic population.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;There was a trend towards more MDS in patients with FANCC mutations
@@ -18189,6 +18265,7 @@ phenotypes:
   frequency: VERY_FREQUENT
   evidence:
   - reference: PMID:24037726
+    reference_title: &#34;Variant ALDH2 is associated with accelerated progression of bone marrow failure in Japanese Fanconi anemia patients.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;It is characterized by phenotypes including progressive bone marrow
@@ -18255,6 +18332,7 @@ phenotypes:
     include GH deficiency, hypothyroidism, and constitutional factors.
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Physical abnormalities, present in approximately 75% of affected individuals,
@@ -18272,6 +18350,7 @@ phenotypes:
   - notes: 57% met criteria for short stature in the Israeli cohort (n=111).
     evidence:
     - reference: PMID:31558676
+      reference_title: &#34;Characterization and genotype-phenotype correlation of patients with Fanconi anemia in a multi-ethnic population.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;57% fit criteria for short stature&#34;
@@ -18291,6 +18370,7 @@ phenotypes:
     severity: More severe
     evidence:
     - reference: PMID:31558676
+      reference_title: &#34;Characterization and genotype-phenotype correlation of patients with Fanconi anemia in a multi-ethnic population.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Patients with mutations in the downstream genes FANCD1 and FANCJ were
@@ -18304,6 +18384,7 @@ phenotypes:
       mutations.
     evidence:
     - reference: PMID:31558676
+      reference_title: &#34;Characterization and genotype-phenotype correlation of patients with Fanconi anemia in a multi-ethnic population.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Patients with deletions were shorter than patients with nonsense mutations
@@ -18317,6 +18398,7 @@ phenotypes:
   notes: Includes areas such as the radius, thumb, and hips
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;physical abnormalities, present in approximately 75% of affected individuals,
@@ -18342,6 +18424,7 @@ phenotypes:
       group.
     evidence:
     - reference: PMID:31558676
+      reference_title: &#34;Characterization and genotype-phenotype correlation of patients with Fanconi anemia in a multi-ethnic population.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Rib abnormalities were observed only in patients with FANCC mutations.&#34;
@@ -18358,6 +18441,7 @@ phenotypes:
       mutations compared with other FA genes (P&lt;0.001).
     evidence:
     - reference: PMID:31558676
+      reference_title: &#34;Characterization and genotype-phenotype correlation of patients with Fanconi anemia in a multi-ethnic population.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Cleft lip was more common in patients with FANCD1 mutations, compared
@@ -18379,6 +18463,7 @@ phenotypes:
       with more favorable outcome. FANCB is X-linked, so only males are affected.
     evidence:
     - reference: PMID:32106311
+      reference_title: &#34;Association of clinical severity with FANCB variant type in Fanconi anemia.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Those with FANCB deletion or truncation demonstrate earlier-than-average
@@ -18399,6 +18484,7 @@ phenotypes:
       to ~5% in FA overall.
     evidence:
     - reference: PMID:26590883
+      reference_title: &#34;Novel FANCI mutations in Fanconi anemia with VACTERL association.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;There are now 16 reported cases of FA due to FANCI of whom 7 have
@@ -18412,6 +18498,7 @@ phenotypes:
   notes: One of the abnormal skin pigmentation findings in FA
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;physical abnormalities, present in approximately 75% of affected individuals,
@@ -18431,6 +18518,7 @@ phenotypes:
       most common congenital anomaly.
     evidence:
     - reference: PMID:31558676
+      reference_title: &#34;Characterization and genotype-phenotype correlation of patients with Fanconi anemia in a multi-ethnic population.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;More than half had café-au-lait spots (52.3%) followed by renal anomalies
@@ -18451,6 +18539,7 @@ phenotypes:
     from age 10 years are recommended.
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Solid tumors – particularly of the head and neck, skin, and genitourinary
@@ -18473,6 +18562,7 @@ phenotypes:
       was 26.6 years, significantly later than MDS/leukemia.
     evidence:
     - reference: PMID:31558676
+      reference_title: &#34;Characterization and genotype-phenotype correlation of patients with Fanconi anemia in a multi-ethnic population.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;for solid tumors 26.6 years (SD 4.9)&#34;
@@ -18486,6 +18576,7 @@ phenotypes:
       annually from age 18.
     evidence:
     - reference: PMID:20301575
+      reference_title: &#34;Fanconi Anemia.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Human papilloma virus (HPV) vaccination to reduce the risk for gynecologic
@@ -18506,6 +18597,7 @@ phenotypes:
       spectrum.
     evidence:
     - reference: PMID:38146508
+      reference_title: &#34;The emergence of Fanconi anaemia type S: a phenotypic spectrum of biallelic BRCA1 mutations.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;predisposition to breast/ovarian cancer and/or childhood cancers&#34;
@@ -18518,6 +18610,7 @@ phenotypes:
   notes: Includes esophageal atresia, duodenal atresia, and other malformations
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Physical abnormalities, present in approximately 75% of affected individuals&#34;
@@ -18699,6 +18792,7 @@ phenotypes:
       (P=0.03).
     evidence:
     - reference: PMID:31558676
+      reference_title: &#34;Characterization and genotype-phenotype correlation of patients with Fanconi anemia in a multi-ethnic population.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Patients with downstream mutations were found to have significantly
@@ -18709,6 +18803,7 @@ phenotypes:
         anomalies.
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;physical abnormalities, present in approximately 75% of affected individuals,
@@ -18726,6 +18821,7 @@ phenotypes:
     (biallelic BRCA1) patients also frequently present with microcephaly.
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;physical abnormalities, present in approximately 75% of affected individuals,
@@ -18756,6 +18852,7 @@ phenotypes:
       mutations (P&lt;0.001).
     evidence:
     - reference: PMID:31558676
+      reference_title: &#34;Characterization and genotype-phenotype correlation of patients with Fanconi anemia in a multi-ethnic population.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Patients with downstream mutations were found to have significantly
@@ -18776,6 +18873,7 @@ phenotypes:
     notes: FA-S (biallelic BRCA1) patients frequently present with microcephaly.
     evidence:
     - reference: PMID:38146508
+      reference_title: &#34;The emergence of Fanconi anaemia type S: a phenotypic spectrum of biallelic BRCA1 mutations.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;this FA-S cohort phenotype includes short stature, microcephaly, facial
@@ -18790,6 +18888,7 @@ phenotypes:
       points to impact in early stages of CNS development.
     evidence:
     - reference: PMID:26369989
+      reference_title: &#34;Central nervous system abnormalities in Fanconi anaemia: patterns and frequency on magnetic resonance imaging.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Abnormalities were identified in 18 (90%) patients with FA, the commonest
@@ -19060,6 +19159,7 @@ phenotypes:
     thumbs
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;skeletal malformations of the upper and/or lower limbs&#34;
@@ -19088,12 +19188,14 @@ phenotypes:
     overrepresented in FA complementation groups D1, E, and F.
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;skeletal malformations of the upper and/or lower limbs&#34;
     explanation: GeneReviews confirms upper limb skeletal malformations as
       common in FA.
   - reference: PMID:16015582
+    reference_title: &#34;Should chromosome breakage studies be performed in patients with VACTERL association?&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;all have radial ray anomalies and 12 of these 13 subjects show at least
@@ -19374,6 +19476,7 @@ phenotypes:
     patients with higher congenital abnormality burden scores.
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;ophthalmic and genitourinary tract anomalies&#34;
@@ -19392,6 +19495,7 @@ phenotypes:
   notes: Part of the ophthalmic anomaly spectrum in FA.
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;ophthalmic and genitourinary tract anomalies&#34;
@@ -19497,6 +19601,7 @@ phenotypes:
     with more severe congenital anomalies.
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Treatment of growth deficiency, limb anomalies, ocular anomalies, renal
@@ -19505,6 +19610,7 @@ phenotypes:
     explanation: GeneReviews lists cardiac anomalies as part of the FA clinical
       spectrum requiring subspecialty management.
   - reference: PMID:31558676
+    reference_title: &#34;Characterization and genotype-phenotype correlation of patients with Fanconi anemia in a multi-ethnic population.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Patients with missense mutations had significantly less congenital heart
@@ -19533,6 +19639,7 @@ phenotypes:
       heart disease (P=0.022) in the Israeli cohort.
     evidence:
     - reference: PMID:31558676
+      reference_title: &#34;Characterization and genotype-phenotype correlation of patients with Fanconi anemia in a multi-ethnic population.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Patients with missense mutations had significantly less congenital
@@ -19670,12 +19777,14 @@ phenotypes:
     evaluation.
   evidence:
   - reference: PMID:31558676
+    reference_title: &#34;Characterization and genotype-phenotype correlation of patients with Fanconi anemia in a multi-ethnic population.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Of the 18% of the patients with hearing loss, all had a conductive component&#34;
     explanation: Israeli cohort documents 18% hearing loss prevalence with
       conductive component in FA patients.
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Hearing aids may be helpful for hearing loss as per otolaryngologist&#34;
@@ -19785,6 +19894,7 @@ phenotypes:
     TSH and free T4 screening is recommended.
   evidence:
   - reference: PMID:25575015
+    reference_title: &#34;Endocrine disorders in Fanconi anemia: recommendations for screening and treatment.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;About 80% of children and adults with FA have at least one endocrine
@@ -19805,6 +19915,7 @@ phenotypes:
       and free T4 screening is recommended.
     evidence:
     - reference: PMID:17426088
+      reference_title: &#34;Endocrine abnormalities in patients with Fanconi anemia.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;short stature and/or GH deficiency (51%), hypothyroidism (37%)&#34;
@@ -19822,12 +19933,14 @@ phenotypes:
     patients aged 18 or older had osteopenia or osteoporosis.
   evidence:
   - reference: PMID:17426088
+    reference_title: &#34;Endocrine abnormalities in patients with Fanconi anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;short stature and/or GH deficiency (51%)&#34;
     explanation: NCI cohort study of 45 FA patients found GH deficiency in 51%,
       establishing it as a frequent phenotype.
   - reference: PMID:25575015
+    reference_title: &#34;Endocrine disorders in Fanconi anemia: recommendations for screening and treatment.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;About 80% of children and adults with FA have at least one endocrine
@@ -19850,6 +19963,7 @@ phenotypes:
       patients, and 60% of those were GH-deficient.
     evidence:
     - reference: PMID:17426088
+      reference_title: &#34;Endocrine abnormalities in patients with Fanconi anemia.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;short stature and/or GH deficiency (51%), hypothyroidism (37%), midline
@@ -19867,6 +19981,7 @@ phenotypes:
     recommended as part of annual endocrine surveillance.
   evidence:
   - reference: PMID:25575015
+    reference_title: &#34;Endocrine disorders in Fanconi anemia: recommendations for screening and treatment.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;About 80% of children and adults with FA have at least one endocrine
@@ -19887,6 +20002,7 @@ phenotypes:
       cohort (Giri et al. 2007). 21% met criteria for metabolic syndrome.
     evidence:
     - reference: PMID:17426088
+      reference_title: &#34;Endocrine abnormalities in patients with Fanconi anemia.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;abnormal glucose/insulin metabolism (39%)&#34;
@@ -19904,6 +20020,7 @@ phenotypes:
     assessed at puberty and every two years until complete.
   evidence:
   - reference: PMID:25575015
+    reference_title: &#34;Endocrine disorders in Fanconi anemia: recommendations for screening and treatment.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;About 80% of children and adults with FA have at least one endocrine
@@ -19924,6 +20041,7 @@ phenotypes:
       in the NCI cohort (Giri et al. 2007).
     evidence:
     - reference: PMID:17426088
+      reference_title: &#34;Endocrine abnormalities in patients with Fanconi anemia.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;65% of peripubertal or postpubertal patients had gonadal dysfunction&#34;
@@ -19940,6 +20058,7 @@ phenotypes:
     preservation counseling should be offered early.
   evidence:
   - reference: PMID:25575015
+    reference_title: &#34;Endocrine disorders in Fanconi anemia: recommendations for screening and treatment.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;About 80% of children and adults with FA have at least one endocrine
@@ -19959,6 +20078,7 @@ phenotypes:
     notes: Near-universal azoospermia due to primary gonadal failure.
     evidence:
     - reference: PMID:25575015
+      reference_title: &#34;Endocrine disorders in Fanconi anemia: recommendations for screening and treatment.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;About 80% of children and adults with FA have at least one endocrine
@@ -19973,6 +20093,7 @@ phenotypes:
       menopause, but pregnancies have been reported.
     evidence:
     - reference: PMID:25575015
+      reference_title: &#34;Endocrine disorders in Fanconi anemia: recommendations for screening and treatment.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;About 80% of children and adults with FA have at least one endocrine
@@ -19991,12 +20112,14 @@ phenotypes:
     (FANCD1, FANCJ) compared to core complex mutations in the Israeli cohort.
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;ophthalmic and genitourinary tract anomalies&#34;
     explanation: GeneReviews lists genitourinary anomalies including genital
       anomalies as part of FA.
   - reference: PMID:31558676
+    reference_title: &#34;Characterization and genotype-phenotype correlation of patients with Fanconi anemia in a multi-ethnic population.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Patients with downstream mutations were found to have significantly
@@ -20028,6 +20151,7 @@ phenotypes:
       more common in downstream FA gene mutations (P=0.03).
     evidence:
     - reference: PMID:31558676
+      reference_title: &#34;Characterization and genotype-phenotype correlation of patients with Fanconi anemia in a multi-ethnic population.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Patients with downstream mutations were found to have significantly
@@ -20274,6 +20398,7 @@ phenotypes:
     score.
   evidence:
   - reference: PMID:31558676
+    reference_title: &#34;Characterization and genotype-phenotype correlation of patients with Fanconi anemia in a multi-ethnic population.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;More than half had café-au-lait spots (52.3%) followed by renal anomalies
@@ -20281,6 +20406,7 @@ phenotypes:
     explanation: Israeli cohort found renal anomalies in nearly 40% of FA
       patients.
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;ophthalmic and genitourinary tract anomalies&#34;
@@ -20309,6 +20435,7 @@ phenotypes:
     postnatally.
   evidence:
   - reference: PMID:31558676
+    reference_title: &#34;Characterization and genotype-phenotype correlation of patients with Fanconi anemia in a multi-ethnic population.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;20% were born small for the gestational age, and 57% fit criteria for
@@ -20328,12 +20455,14 @@ phenotypes:
       restriction is independent of aldehyde-mediated damage.
     evidence:
     - reference: PMID:31558676
+      reference_title: &#34;Characterization and genotype-phenotype correlation of patients with Fanconi anemia in a multi-ethnic population.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;20% were born small for the gestational age, and 57% fit criteria
         for short stature.&#34;
       explanation: 20% SGA prevalence in Israeli FA cohort.
     - reference: PMID:24037726
+      reference_title: &#34;Variant ALDH2 is associated with accelerated progression of bone marrow failure in Japanese Fanconi anemia patients.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;the ALDH2 variant is associated with accelerated progression of BMF,
@@ -20353,6 +20482,7 @@ phenotypes:
     patients frequently present with intellectual disability.
   evidence:
   - reference: PMID:31558676
+    reference_title: &#34;Characterization and genotype-phenotype correlation of patients with Fanconi anemia in a multi-ethnic population.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Patients with splice site mutations had significantly more CNS anomalies
@@ -20361,6 +20491,7 @@ phenotypes:
     explanation: Israeli cohort found developmental delay associated with splice
       site mutations in FA.
   - reference: PMID:38146508
+    reference_title: &#34;The emergence of Fanconi anaemia type S: a phenotypic spectrum of biallelic BRCA1 mutations.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;this FA-S cohort phenotype includes short stature, microcephaly, facial
@@ -20384,6 +20515,7 @@ phenotypes:
       mutation types.
     evidence:
     - reference: PMID:31558676
+      reference_title: &#34;Characterization and genotype-phenotype correlation of patients with Fanconi anemia in a multi-ethnic population.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Patients with splice site mutations had significantly more CNS anomalies
@@ -20408,6 +20540,7 @@ phenotypes:
       CNS abnormalities (P=0.005) compared to core complex mutations.
     evidence:
     - reference: PMID:31558676
+      reference_title: &#34;Characterization and genotype-phenotype correlation of patients with Fanconi anemia in a multi-ethnic population.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Patients with downstream mutations were found to have significantly
@@ -20429,6 +20562,7 @@ phenotypes:
       disability as part of the characteristic FA-S phenotypic spectrum.
     evidence:
     - reference: PMID:38146508
+      reference_title: &#34;The emergence of Fanconi anaemia type S: a phenotypic spectrum of biallelic BRCA1 mutations.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;this FA-S cohort phenotype includes short stature, microcephaly, facial
@@ -20486,6 +20620,7 @@ phenotypes:
     (café-au-lait spots) were the most common congenital anomaly (52.3%).
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;abnormal skin pigmentation&#34;
@@ -20527,6 +20662,7 @@ phenotypes:
     hypogonadism, and post-HSCT conditioning effects.
   evidence:
   - reference: PMID:17426088
+    reference_title: &#34;Endocrine abnormalities in patients with Fanconi anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Ninety-two percent of the patients 18 yr or older had osteopenia or
@@ -20549,6 +20685,7 @@ phenotypes:
     underwent HSCT at age 14 or older.
   evidence:
   - reference: PMID:39568270
+    reference_title: &#34;Dental and Craniofacial Anomalies in Fanconi Anemia: A Systematic Review and Additional 46 Reports.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In our cohort, 93.5% of patients exhibited anomalies, primarily root
@@ -20572,6 +20709,7 @@ phenotypes:
     more MDS in FANCC patients.
   evidence:
   - reference: PMID:31558676
+    reference_title: &#34;Characterization and genotype-phenotype correlation of patients with Fanconi anemia in a multi-ethnic population.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;30% developed myelodysplastic syndrome (MDS), leukemia and/or solid
@@ -20579,6 +20717,7 @@ phenotypes:
     explanation: Israeli cohort documents that 30% of FA patients developed MDS,
       leukemia, and/or solid tumors.
   - reference: PMID:31558676
+    reference_title: &#34;Characterization and genotype-phenotype correlation of patients with Fanconi anemia in a multi-ethnic population.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The mean age of the first cancer was 18.5 years (SD 6.3 years) for patients
@@ -20599,6 +20738,7 @@ phenotypes:
       There was a trend toward more MDS in FANCC patients.
     evidence:
     - reference: PMID:31558676
+      reference_title: &#34;Characterization and genotype-phenotype correlation of patients with Fanconi anemia in a multi-ethnic population.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;30% developed myelodysplastic syndrome (MDS), leukemia and/or solid
@@ -20622,6 +20762,7 @@ phenotypes:
     cancer predisposition.
   evidence:
   - reference: PMID:31558676
+    reference_title: &#34;Characterization and genotype-phenotype correlation of patients with Fanconi anemia in a multi-ethnic population.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Patients with FANCD1 mutations have been previously described as uniquely
@@ -20629,6 +20770,7 @@ phenotypes:
     explanation: Confirms early-onset solid tumor predisposition unique to
       FANCD1/BRCA2 subtype.
   - reference: PMID:38146508
+    reference_title: &#34;The emergence of Fanconi anaemia type S: a phenotypic spectrum of biallelic BRCA1 mutations.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Unlike most other types of FA, FA-S patients lack bone marrow failure.&#34;
@@ -20648,6 +20790,7 @@ genetic:
   notes: Most common FA gene, accounting for approximately 60-70% of cases.
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;biallelic pathogenic variants in one of the 21 genes known to cause
@@ -20661,6 +20804,7 @@ genetic:
   notes: Component of FA core complex; X-linked inheritance pattern.
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;a hemizygous pathogenic variant in FANCB known to cause X-linked FA&#34;
@@ -20670,6 +20814,7 @@ genetic:
   notes: Second most common FA gene in certain populations.
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;biallelic pathogenic variants in one of the 21 genes known to cause
@@ -20681,6 +20826,7 @@ genetic:
   notes: Component of FA core complex.
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;biallelic pathogenic variants in one of the 21 genes known to cause
@@ -20692,6 +20838,7 @@ genetic:
   notes: Component of FA core complex.
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;biallelic pathogenic variants in one of the 21 genes known to cause
@@ -20703,6 +20850,7 @@ genetic:
   notes: Associated with more severe phenotype requiring earlier intervention.
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;biallelic pathogenic variants in one of the 21 genes known to cause
@@ -20715,6 +20863,7 @@ genetic:
     FANCD2-FANCI complex.
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;biallelic pathogenic variants in one of the 21 genes known to cause
@@ -20729,6 +20878,7 @@ genetic:
     but classification differs across curation resources.
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;biallelic pathogenic variants in one of the 21 genes known to cause
@@ -20742,6 +20892,7 @@ genetic:
     FANCL to monoubiquitinate FANCD2-FANCI.
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;biallelic pathogenic variants in one of the 21 genes known to cause
@@ -20754,6 +20905,7 @@ genetic:
     activation and DNA repair.
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;biallelic pathogenic variants in one of the 21 genes known to cause
@@ -20766,6 +20918,7 @@ genetic:
     regulate ICL repair.
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;biallelic pathogenic variants in one of the 21 genes known to cause
@@ -20778,6 +20931,7 @@ genetic:
     multiple nucleases for DNA unhooking.
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;biallelic pathogenic variants in one of the 21 genes known to cause
@@ -20790,6 +20944,7 @@ genetic:
     downstream of ICL unhooking.
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;biallelic pathogenic variants in one of the 21 genes known to cause
@@ -20802,6 +20957,7 @@ genetic:
     repair.
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;biallelic pathogenic variants in one of the 21 genes known to cause
@@ -20814,6 +20970,7 @@ genetic:
     damage response.
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;biallelic pathogenic variants in one of the 21 genes known to cause
@@ -20826,6 +20983,7 @@ genetic:
     homologous recombination.
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;biallelic pathogenic variants in one of the 21 genes known to cause
@@ -20838,6 +20996,7 @@ genetic:
     interstrand crosslink and nucleotide excision repair.
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;biallelic pathogenic variants in one of the 21 genes known to cause
@@ -20850,6 +21009,7 @@ genetic:
     recombination.
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;biallelic pathogenic variants in one of the 21 genes known to cause
@@ -20864,6 +21024,7 @@ genetic:
     autosomal dominant FA-R subtype.
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;a heterozygous pathogenic variant in RAD51 known to cause autosomal
@@ -20875,6 +21036,7 @@ genetic:
   notes: Also known as FANCU; involved in homologous recombination repair.
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;biallelic pathogenic variants in one of the 21 genes known to cause
@@ -20887,6 +21049,7 @@ genetic:
     translesion synthesis.
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;biallelic pathogenic variants in one of the 21 genes known to cause
@@ -20899,6 +21062,7 @@ genetic:
     forks that supports homologous recombination.
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;biallelic pathogenic variants in one of the 21 genes known to cause
@@ -20911,6 +21075,7 @@ genetic:
     accelerates bone marrow failure progression in FA patients.
   evidence:
   - reference: PMID:24037726
+    reference_title: &#34;Variant ALDH2 is associated with accelerated progression of bone marrow failure in Japanese Fanconi anemia patients.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;the ALDH2 variant is associated with accelerated progression of BMF&#34;
@@ -20922,6 +21087,7 @@ genetic:
     protection against aldehyde-induced DNA damage.
   evidence:
   - reference: PMID:22081012
+    reference_title: &#34;Formaldehyde catabolism is essential in cells deficient for the Fanconi anemia DNA-repair pathway.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;a synthetic lethal interaction in avian cells between ADH5, encoding
@@ -20954,6 +21120,7 @@ treatments:
     to chemotherapy and radiation.
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: hematopoietic stem cell transplantation (HSCT) is the only curative
@@ -20968,6 +21135,7 @@ treatments:
     as a bridge to transplantation.
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Administration of oral androgens (e.g., oxymetholone) improves
@@ -20983,6 +21151,7 @@ treatments:
     stature.
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Treatment of growth deficiency, limb anomalies, ocular anomalies, renal
@@ -21002,6 +21171,7 @@ treatments:
     prophylaxis
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;granulocyte colony-stimulating factor improves the neutrophil count
@@ -21021,6 +21191,7 @@ treatments:
     especially squamous cell carcinomas at young ages
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;oral examinations for tumors every six months beginning at age nine
@@ -21039,6 +21210,7 @@ treatments:
     X-linked inheritance patterns
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Carrier testing for at-risk relatives (for autosomal recessive and X-linked
@@ -21063,6 +21235,7 @@ treatments:
     upregulation of DNA damage response and telomere maintenance pathways.
   evidence:
   - reference: PMID:37021532
+    reference_title: &#34;Gene therapy restores the transcriptional program of hematopoietic stem cells in Fanconi anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;gene therapy reverts the transcriptional signature of FA HSPC, which
@@ -21070,6 +21243,7 @@ treatments:
     explanation: Single-cell RNA-seq of gene therapy-treated FA patients
       demonstrates molecular rescue of the FA HSPC transcriptional program.
   - reference: PMID:37021532
+    reference_title: &#34;Gene therapy restores the transcriptional program of hematopoietic stem cells in Fanconi anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;a down-regulated expression of TGF-β and p21, typically up-regulated
@@ -21092,6 +21266,7 @@ treatments:
     in FA cells. Restores FANCA expression and FA pathway function.
   evidence:
   - reference: PMID:36371486
+    reference_title: &#34;Adenine base editing efficiently restores the function of Fanconi anemia hematopoietic stem and progenitor cells.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;optimizing adenine base editor construct, vector type, guide RNA format,
@@ -21100,6 +21275,7 @@ treatments:
     explanation: ABE8e base editing achieves effective correction across
       multiple FANCA mutation backgrounds.
   - reference: PMID:36371486
+    reference_title: &#34;Adenine base editing efficiently restores the function of Fanconi anemia hematopoietic stem and progenitor cells.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;Optimized base editing restored FANCA expression, molecular function
@@ -21221,6 +21397,7 @@ datasets:
       dysregulation
   evidence:
   - reference: PMID:32997960
+    reference_title: &#34;MYC Promotes Bone Marrow Stem Cell Dysfunction in Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;MYC overexpression impairs HSPC function in FA patients and contributes
@@ -21251,6 +21428,7 @@ datasets:
       upregulation of DDR and telomere maintenance
   evidence:
   - reference: PMID:37021532
+    reference_title: &#34;Gene therapy restores the transcriptional program of hematopoietic stem cells in Fanconi anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;gene therapy reverts the transcriptional signature of FA HSPC, which
@@ -21278,6 +21456,7 @@ computational_models:
       damage
   evidence:
   - reference: PMID:22267503
+    reference_title: &#34;A Boolean network model of the FA/BRCA pathway.&#34;
     supports: SUPPORT
     evidence_source: COMPUTATIONAL
     snippet: &#34;Our model is able to simulate the ICL repair process mediated by the
@@ -21303,6 +21482,7 @@ computational_models:
       tumorigenesis mechanisms
   evidence:
   - reference: PMID:38028610
+    reference_title: &#34;Concepts of multi-level dynamical modelling: understanding mechanisms of squamous cell carcinoma development in Fanconi anemia.&#34;
     supports: PARTIAL
     evidence_source: COMPUTATIONAL
     snippet: &#34;we introduce here the concept of multi-level dynamical modelling using
@@ -21329,6 +21509,7 @@ computational_models:
       repurposed drugs in FA
   evidence:
   - reference: PMID:31266445
+    reference_title: &#34;Exploring the druggable space around the Fanconi anemia pathway using machine learning and mechanistic models.&#34;
     supports: SUPPORT
     evidence_source: COMPUTATIONAL
     snippet: &#34;The application of multi-output regression machine learning methodologies
@@ -21338,6 +21519,7 @@ computational_models:
     explanation: ML approach identifies novel drug targets for FA using
       mechanistic pathway modeling.
   - reference: PMID:38510973
+    reference_title: &#34;drexml: A command line tool and Python package for drug repurposing.&#34;
     supports: SUPPORT
     evidence_source: COMPUTATIONAL
     snippet: &#34;In the Fanconi Anemia case, the model successfully predicts previously
@@ -21365,6 +21547,7 @@ computational_models:
       mutational data
   evidence:
   - reference: PMID:32939280
+    reference_title: &#34;Deep learning enables the atomic structure determination of the Fanconi Anemia core complex from cryoEM.&#34;
     supports: SUPPORT
     evidence_source: COMPUTATIONAL
     snippet: &#34;we are able to determine an almost-complete atomic model of FAcc, in
@@ -21390,6 +21573,7 @@ computational_models:
       chromosome breakage
   evidence:
   - reference: PMID:37865086
+    reference_title: &#34;Identification of a robust DNA methylation signature for Fanconi anemia.&#34;
     supports: SUPPORT
     evidence_source: COMPUTATIONAL
     snippet: &#34;We identified 82 differentially methylated CpG sites that allow to distinguish
@@ -21398,6 +21582,7 @@ computational_models:
     explanation: ML-based episignature provides a complementary diagnostic tool
       for FA.
   - reference: PMID:37865086
+    reference_title: &#34;Identification of a robust DNA methylation signature for Fanconi anemia.&#34;
     supports: SUPPORT
     evidence_source: COMPUTATIONAL
     snippet: &#34;the generated episignature includes CpG sites that do not undergo functional
@@ -21424,6 +21609,7 @@ computational_models:
       markers
   evidence:
   - reference: PMID:32605631
+    reference_title: &#34;High content drug screening for Fanconi anemia therapeutics.&#34;
     supports: PARTIAL
     evidence_source: IN_VITRO
     snippet: &#34;we developed a novel high-content cell-based screening assay to identify
@@ -21453,6 +21639,7 @@ has_subtypes:
   - FA-T
   evidence:
   - reference: PMID:31558676
+    reference_title: &#34;Characterization and genotype-phenotype correlation of patients with Fanconi anemia in a multi-ethnic population.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Patients with FANCA mutations developed cancer at a significantly older
@@ -21495,6 +21682,7 @@ has_subtypes:
   - FA-W
   evidence:
   - reference: PMID:31558676
+    reference_title: &#34;Characterization and genotype-phenotype correlation of patients with Fanconi anemia in a multi-ethnic population.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Patients with downstream mutations were found to have significantly
@@ -21524,6 +21712,7 @@ has_subtypes:
   subtype_frequency: &#34;60-70%&#34;
   evidence:
   - reference: PMID:31558676
+    reference_title: &#34;Characterization and genotype-phenotype correlation of patients with Fanconi anemia in a multi-ethnic population.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;two-thirds of genetically diagnosed patients had biallelic FANCA mutations.
@@ -21532,6 +21721,7 @@ has_subtypes:
     explanation: Israeli cohort confirms FANCA accounts for approximately 60-70%
       of FA cases.
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;biallelic pathogenic variants in one of the 21 genes known to cause
@@ -21558,6 +21748,7 @@ has_subtypes:
   - name: X-linked recessive
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;a hemizygous pathogenic variant in FANCB known to cause X-linked FA&#34;
@@ -21581,6 +21772,7 @@ has_subtypes:
   subtype_frequency: &#34;~10-15%&#34;
   evidence:
   - reference: PMID:31558676
+    reference_title: &#34;Characterization and genotype-phenotype correlation of patients with Fanconi anemia in a multi-ethnic population.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;FANCA (67%), FANCC (13%), FANCG (14%), FANCJ (3%) and FANCD1 (2%)&#34;
@@ -21606,6 +21798,7 @@ has_subtypes:
   subtype_frequency: &#34;~2%&#34;
   evidence:
   - reference: PMID:31558676
+    reference_title: &#34;Characterization and genotype-phenotype correlation of patients with Fanconi anemia in a multi-ethnic population.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;one patient with a FANCD1 mutation developed medulloblastoma at the
@@ -21631,6 +21824,7 @@ has_subtypes:
   subtype_frequency: &#34;~3%&#34;
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;biallelic pathogenic variants in one of the 21 genes known to cause
@@ -21653,6 +21847,7 @@ has_subtypes:
   subtype_frequency: &#34;&lt;1%&#34;
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;biallelic pathogenic variants in one of the 21 genes known to cause
@@ -21675,6 +21870,7 @@ has_subtypes:
   subtype_frequency: &#34;&lt;1%&#34;
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;biallelic pathogenic variants in one of the 21 genes known to cause
@@ -21699,6 +21895,7 @@ has_subtypes:
   subtype_frequency: &#34;~10%&#34;
   evidence:
   - reference: PMID:31558676
+    reference_title: &#34;Characterization and genotype-phenotype correlation of patients with Fanconi anemia in a multi-ethnic population.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;FANCA (67%), FANCC (13%), FANCG (14%), FANCJ (3%) and FANCD1 (2%)&#34;
@@ -21723,6 +21920,7 @@ has_subtypes:
   subtype_frequency: &#34;&lt;1%&#34;
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;biallelic pathogenic variants in one of the 21 genes known to cause
@@ -21748,6 +21946,7 @@ has_subtypes:
   subtype_frequency: &#34;~3%&#34;
   evidence:
   - reference: PMID:31558676
+    reference_title: &#34;Characterization and genotype-phenotype correlation of patients with Fanconi anemia in a multi-ethnic population.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;FANCA (67%), FANCC (13%), FANCG (14%), FANCJ (3%) and FANCD1 (2%)&#34;
@@ -21771,6 +21970,7 @@ has_subtypes:
   subtype_frequency: &#34;&lt;1%&#34;
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;biallelic pathogenic variants in one of the 21 genes known to cause
@@ -21797,6 +21997,7 @@ has_subtypes:
   subtype_frequency: &#34;&lt;1%&#34;
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;biallelic pathogenic variants in one of the 21 genes known to cause
@@ -21821,6 +22022,7 @@ has_subtypes:
   subtype_frequency: &#34;&lt;1%&#34;
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;biallelic pathogenic variants in one of the 21 genes known to cause
@@ -21846,6 +22048,7 @@ has_subtypes:
   subtype_frequency: &#34;&lt;1%&#34;
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;biallelic pathogenic variants in one of the 21 genes known to cause
@@ -21871,6 +22074,7 @@ has_subtypes:
   subtype_frequency: &#34;&lt;1%&#34;
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;biallelic pathogenic variants in one of the 21 genes known to cause
@@ -21897,6 +22101,7 @@ has_subtypes:
   - name: Autosomal dominant
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;a heterozygous pathogenic variant in RAD51 known to cause autosomal
@@ -21924,6 +22129,7 @@ has_subtypes:
   subtype_frequency: &#34;&lt;1%&#34;
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;biallelic pathogenic variants in one of the 21 genes known to cause
@@ -21948,6 +22154,7 @@ has_subtypes:
   subtype_frequency: &#34;&lt;1%&#34;
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;biallelic pathogenic variants in one of the 21 genes known to cause
@@ -21971,6 +22178,7 @@ has_subtypes:
   subtype_frequency: &#34;&lt;1%&#34;
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;biallelic pathogenic variants in one of the 21 genes known to cause
@@ -21995,6 +22203,7 @@ has_subtypes:
   subtype_frequency: &#34;&lt;1%&#34;
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;biallelic pathogenic variants in one of the 21 genes known to cause
@@ -22019,6 +22228,7 @@ has_subtypes:
   subtype_frequency: &#34;&lt;1%&#34;
   evidence:
   - reference: PMID:20301575
+    reference_title: &#34;Fanconi Anemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;biallelic pathogenic variants in one of the 21 genes known to cause
@@ -22045,7 +22255,7 @@ references:
   title: Histone-methyltransferase KMT2D deficiency impairs the Fanconi
     anemia/BRCA pathway upon glycolytic inhibition in squamous cell carcinoma
   findings: []
-- reference: PMID:38957451
+- reference: DOI:10.1093/pnasnexus/pgae242
   title: Dual role of proliferating cell nuclear antigen monoubiquitination in
     facilitating Fanconi anemia-mediated interstrand crosslink repair
   findings: []

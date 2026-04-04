@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1037,6 +1101,52 @@
             text-decoration: underline;
         }
 
+        /* Experimental Models */
+        .exp-model-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .exp-model-box .item-name { color: #92400e; }
+        .exp-model-box .item-desc { color: #b45309; }
+
+        .tag-exp-model-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .tag-namo-type {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+        .tag-condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .model-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .model-detail-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .model-detail-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 110px;
+        }
+        .model-detail-value {
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+        }
+        .model-detail-value a {
+            color: inherit;
+        }
+
         /* Computational Models */
         .comp-model-box {
             background: #f0fdf4;
@@ -1382,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1470,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1477,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1489,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1637,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1723,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1737,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1792,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1877,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">nevoid basal cell carcinoma syndrome</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">hereditary cancer predisposition syndrome</span>
@@ -1892,6 +2111,11 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
+        
+        
         
         
         
@@ -1947,6 +2171,14 @@
             <div class="stat-item">
                 <div class="stat-value">5</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">5</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2081,7 +2313,7 @@
                 <span class="card-count">2</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-sufu-loss-with-gli-derepression">
                 <div class="item-name">SUFU Loss with GLI Derepression</div>
                 
                 <div class="item-desc">SUFU is a negative regulator of Hedgehog pathway transcriptional output. Germline SUFU pathogenic variants, often followed by additional somatic events, reduce repression of GLI targets and predispose to early SHH-lineage tumors.</div>
@@ -2137,6 +2369,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2187,10 +2420,11 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-downstream-pathway-therapeutic-constraint">
                 <div class="item-name">Downstream-Pathway Therapeutic Constraint</div>
                 
                 <div class="item-desc">Because SUFU alterations are downstream of SMO in pathway control, response to SMO inhibitors depends on lesion-level genomic architecture and can be limited when downstream reactivation is present.</div>
+                
                 
                 
                 
@@ -2263,6 +2497,7 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="graph-warning">
                 <strong>Referential integrity issues (2):</strong>
@@ -2280,13 +2515,13 @@
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for SUFU-related nevoid basal cell carcinoma syndrome</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Downstream-Pathway Therapeutic Constraint\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because SUFU alterations are downstream of SMO in pathway control, response to SMO inhibitors depends on lesion-level genomic architecture and can be limited when downstream reactivation is present.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Early SHH-Medulloblastoma Predisposition\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Reduced Predictability of SMO-Inhibitor Benefit\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"SUFU Loss with GLI Derepression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SUFU is a negative regulator of Hedgehog pathway transcriptional output. Germline SUFU pathogenic variants, often followed by additional somatic events, reduce repression of GLI targets and predispose to early SHH-lineage tumors.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"negative regulation of smoothened signaling pathway\", \"smoothened signaling pathway\"], \"genes\": [\"SUFU\"]}}], \"edges\": [{\"source\": \"SUFU Loss with GLI Derepression\", \"target\": \"Early SHH-Medulloblastoma Predisposition\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"Downstream-Pathway Therapeutic Constraint\", \"target\": \"Reduced Predictability of SMO-Inhibitor Benefit\", \"predicate\": \"causes\", \"is_orphan\": true}], \"orphan_targets\": [\"Early SHH-Medulloblastoma Predisposition\", \"Reduced Predictability of SMO-Inhibitor Benefit\"]}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Downstream-Pathway Therapeutic Constraint\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because SUFU alterations are downstream of SMO in pathway control, response to SMO inhibitors depends on lesion-level genomic architecture and can be limited when downstream reactivation is present.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Early SHH-Medulloblastoma Predisposition\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Reduced Predictability of SMO-Inhibitor Benefit\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"SUFU\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"association\": \"Causative (Primary)\"}}, {\"id\": \"SUFU Loss with GLI Derepression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SUFU is a negative regulator of Hedgehog pathway transcriptional output. Germline SUFU pathogenic variants, often followed by additional somatic events, reduce repression of GLI targets and predispose to early SHH-lineage tumors.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"negative regulation of smoothened signaling pathway\", \"smoothened signaling pathway\"], \"genes\": [\"SUFU\"]}}], \"edges\": [{\"source\": \"SUFU Loss with GLI Derepression\", \"target\": \"Early SHH-Medulloblastoma Predisposition\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"Downstream-Pathway Therapeutic Constraint\", \"target\": \"Reduced Predictability of SMO-Inhibitor Benefit\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"SUFU\", \"target\": \"SUFU Loss with GLI Derepression\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": [\"Early SHH-Medulloblastoma Predisposition\", \"Reduced Predictability of SMO-Inhibitor Benefit\"]}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -2929,6 +3164,9 @@
         <!-- Clinical Trials -->
         
 
+        <!-- Experimental Models -->
+        
+
         <!-- Computational Models -->
         
 
@@ -2974,9 +3212,30 @@ inheritance:
     dominant tumor predisposition syndrome.
   evidence:
   - reference: PMID:29186568
+    reference_title: &#34;Germline SUFU mutation carriers and medulloblastoma: clinical characteristics, cancer risk, and prognosis.&#34;
     supports: SUPPORT
     snippet: &#34;Mutations were inherited in 79% of patients, and 34 additional SUFU mutation carriers were identified within 14 families.&#34;
     explanation: Supports familial dominant transmission of SUFU-associated disease.
+prevalence:
+- population: Derived from nevoid basal cell carcinoma syndrome cohorts
+  percentage: Approximately 1 in 800,000-3,600,000 individuals
+  notes: &gt;-
+    Direct SUFU-specific population prevalence is not well measured. This
+    approximate range is inferred from overall nevoid basal cell carcinoma
+    syndrome prevalence (1/57,000 to 1/256,000) and a genotype-phenotype cohort
+    in which 9 of 126 molecularly diagnosed Gorlin syndrome patients carried SUFU
+    pathogenic variants.
+  evidence:
+  - reference: PMID:19032739
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The estimated prevalence varies from 1/57,000 to 1/256,000, with a male-to-female ratio of 1:1.&#34;
+    explanation: This Orphanet review provides the overall prevalence range for nevoid basal cell carcinoma syndrome.
+  - reference: PMID:28596197
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;A total of 126 patients had a heterozygous pathogenic variant, 9 had SUFU pathogenic variants and 46 had no identified mutation.&#34;
+    explanation: This genotype-phenotype cohort shows that SUFU accounts for a small minority of molecularly diagnosed Gorlin syndrome cases, allowing an approximate gene-specific prevalence inference.
 pathophysiology:
 - name: SUFU Loss with GLI Derepression
   description: &gt;-
@@ -3001,10 +3260,12 @@ pathophysiology:
       label: smoothened signaling pathway
   evidence:
   - reference: PMID:25403219
+    reference_title: &#34;Germline mutations in SUFU cause Gorlin syndrome-associated childhood medulloblastoma and redefine the risk associated with PTCH1 mutations.&#34;
     supports: SUPPORT
     snippet: &#34;We demonstrate convincing evidence that SUFU mutations can cause classical Gorlin syndrome.&#34;
     explanation: Establishes SUFU as a direct causal locus for the syndrome.
   - reference: PMID:29186568
+    reference_title: &#34;Germline SUFU mutation carriers and medulloblastoma: clinical characteristics, cancer risk, and prognosis.&#34;
     supports: SUPPORT
     snippet: &#34;Germline SUFU mutations strongly predispose to medulloblastoma in the first years of life, with worse prognosis than usually observed for SHH medulloblastoma.&#34;
     explanation: Supports high-risk early-childhood tumor predisposition in SUFU carriers.
@@ -3013,6 +3274,7 @@ pathophysiology:
     description: Reduced SUFU control of GLI output increases susceptibility in cerebellar developmental windows.
     evidence:
     - reference: PMID:29186568
+      reference_title: &#34;Germline SUFU mutation carriers and medulloblastoma: clinical characteristics, cancer risk, and prognosis.&#34;
       supports: SUPPORT
       snippet: &#34;Germline SUFU mutations strongly predispose to medulloblastoma in the first years of life, with worse prognosis than usually observed for SHH medulloblastoma.&#34;
       explanation: Supports the downstream consequence of SUFU loss as early SHH-medulloblastoma susceptibility.
@@ -3048,10 +3310,12 @@ phenotypes:
     early childhood, often with severe clinical course.
   evidence:
   - reference: PMID:25403219
+    reference_title: &#34;Germline mutations in SUFU cause Gorlin syndrome-associated childhood medulloblastoma and redefine the risk associated with PTCH1 mutations.&#34;
     supports: SUPPORT
     snippet: &#34;We found a &lt; 2% risk in PTCH1 mutation-positive individuals, with a risk up to 20× higher in SUFU mutation-positive individuals.&#34;
     explanation: Quantifies major relative medulloblastoma risk increase in SUFU carriers.
   - reference: PMID:29186568
+    reference_title: &#34;Germline SUFU mutation carriers and medulloblastoma: clinical characteristics, cancer risk, and prognosis.&#34;
     supports: SUPPORT
     snippet: &#34;Twenty-two patients from 17 families were identified with medulloblastoma and a germline SUFU mutation (median age at diagnosis: 16.5 mo).&#34;
     explanation: Supports very early-onset medulloblastoma in SUFU-related disease.
@@ -3071,6 +3335,7 @@ phenotypes:
     SUFU carriers have increased meningioma risk compared with PTCH1 carriers.
   evidence:
   - reference: PMID:28596197
+    reference_title: &#34;First evidence of genotype-phenotype correlations in Gorlin syndrome.&#34;
     supports: SUPPORT
     snippet: &#34;Patients with SUFU pathogenic variants were significantly more likely than those with PTCH1 pathogenic variants to develop a medulloblastoma (p=0.009), a meningioma (p=0.02) or an ovarian fibroma (p=0.015), but were less likely to develop a jaw cyst (p=0.0004).&#34;
     explanation: Supports SUFU-enriched meningioma risk relative to PTCH1 carriers.
@@ -3086,6 +3351,7 @@ phenotypes:
     Ovarian fibromas are part of the SUFU-associated extra-CNS tumor spectrum.
   evidence:
   - reference: PMID:28596197
+    reference_title: &#34;First evidence of genotype-phenotype correlations in Gorlin syndrome.&#34;
     supports: SUPPORT
     snippet: &#34;Patients with SUFU pathogenic variants were significantly more likely than those with PTCH1 pathogenic variants to develop a medulloblastoma (p=0.009), a meningioma (p=0.02) or an ovarian fibroma (p=0.015), but were less likely to develop a jaw cyst (p=0.0004).&#34;
     explanation: Supports increased ovarian fibroma frequency in SUFU disease.
@@ -3101,6 +3367,7 @@ phenotypes:
     BCC can occur in SUFU carriers but incidence is lower than in PTCH1-related disease.
   evidence:
   - reference: PMID:29186568
+    reference_title: &#34;Germline SUFU mutation carriers and medulloblastoma: clinical characteristics, cancer risk, and prognosis.&#34;
     supports: SUPPORT
     snippet: &#34;The clinical spectrum differs between SUFU and PTCH1 mutation carriers, and BCC incidence is much lower in SUFU mutation carriers.&#34;
     explanation: Supports lower relative BCC burden in SUFU-associated syndrome.
@@ -3116,6 +3383,7 @@ phenotypes:
     Jaw keratocysts are less frequent in SUFU-related disease than in PTCH1-related disease.
   evidence:
   - reference: PMID:25403219
+    reference_title: &#34;Germline mutations in SUFU cause Gorlin syndrome-associated childhood medulloblastoma and redefine the risk associated with PTCH1 mutations.&#34;
     supports: SUPPORT
     snippet: &#34;All three SUFU-positive families fulfilled diagnostic criteria for Gorlin syndrome, although none had odontogenic jaw keratocysts.&#34;
     explanation: Supports reduced jaw-cyst burden in SUFU-positive families.
@@ -3137,6 +3405,7 @@ genetic:
       explanation: Supports predominantly inherited, autosomal dominant transmission in SUFU-associated disease.
   evidence:
   - reference: PMID:25403219
+    reference_title: &#34;Germline mutations in SUFU cause Gorlin syndrome-associated childhood medulloblastoma and redefine the risk associated with PTCH1 mutations.&#34;
     supports: SUPPORT
     snippet: &#34;We demonstrate convincing evidence that SUFU mutations can cause classical Gorlin syndrome.&#34;
     explanation: Supports SUFU as the primary causal gene in basal cell nevus syndrome 2.
@@ -3160,6 +3429,7 @@ treatments:
     exposure in high-risk childhood SUFU-associated medulloblastoma.
   evidence:
   - reference: PMID:29186568
+    reference_title: &#34;Germline SUFU mutation carriers and medulloblastoma: clinical characteristics, cancer risk, and prognosis.&#34;
     supports: SUPPORT
     snippet: &#34;Despite treatment with surgery and chemotherapy, to avoid radiotherapy in all patients except one, the outcome was worse than expected for SHH medulloblastoma, due to the high incidence of local relapses (8/22 patients) and second malignancies (n = 6 in 4/22 patients).&#34;
     explanation: Documents real-world treatment strategy and outcomes in SUFU-associated medulloblastoma.
@@ -3173,6 +3443,7 @@ treatments:
     Counseling and cascade testing are recommended because of inherited tumor risk.
   evidence:
   - reference: PMID:29186568
+    reference_title: &#34;Germline SUFU mutation carriers and medulloblastoma: clinical characteristics, cancer risk, and prognosis.&#34;
     supports: SUPPORT
     snippet: &#34;Mutations were inherited in 79% of patients, and 34 additional SUFU mutation carriers were identified within 14 families.&#34;
     explanation: Supports counseling and family-based cascade testing in SUFU-associated disease.

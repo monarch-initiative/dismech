@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1037,6 +1101,52 @@
             text-decoration: underline;
         }
 
+        /* Experimental Models */
+        .exp-model-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .exp-model-box .item-name { color: #92400e; }
+        .exp-model-box .item-desc { color: #b45309; }
+
+        .tag-exp-model-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .tag-namo-type {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+        .tag-condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .model-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .model-detail-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .model-detail-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 110px;
+        }
+        .model-detail-value {
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+        }
+        .model-detail-value a {
+            color: inherit;
+        }
+
         /* Computational Models */
         .comp-model-box {
             background: #f0fdf4;
@@ -1382,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1470,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1477,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1489,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1637,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1723,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1737,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1792,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1877,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 14</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Metabolic bone disease</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Endocrine disorder</span>
@@ -1891,6 +2110,11 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
+        
+        
         
         
         
@@ -1952,6 +2176,14 @@
             <div class="stat-item">
                 <div class="stat-value">12</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">14</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2213,7 +2445,7 @@
                 <span class="card-count">4</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-endocrine-mediated-calvarial-bone-overgrowth">
                 <div class="item-name">Endocrine-mediated calvarial bone overgrowth</div>
                 
                 <div class="item-desc">The precise pathogenesis of frontal bone thickening remains unclear. Well-supported hypotheses include prolonged estrogen exposure stimulating osteoblastic activity in the frontal bone inner table (supported by large-scale anthropological studies) and elevated leptin levels associated with obesity promoting bone formation. A more contested hypothesis involves dysregulated growth hormone secretion from pituitary microadenomatosis; however, recent evidence shows no direct causative role for GH excess or hyperprolactinemia in HFI etiopathogenesis. The condition predominantly affects females and is associated with age, being much less frequent in females under 40 years.
@@ -2274,6 +2506,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -2352,7 +2585,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurological-compression-from-calvarial-thickening">
                 <div class="item-name">Neurological compression from calvarial thickening</div>
                 
                 <div class="item-desc">Progressive thickening of the frontal bone inner table can lead to compression of underlying brain parenchyma, particularly the frontal lobes. This mechanical compression may result in cerebral atrophy, cognitive impairment, neuropsychiatric symptoms including depression and anxiety, headaches, seizures, and cranial nerve dysfunction affecting olfaction and vision.
@@ -2403,6 +2636,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -2479,7 +2713,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-hyperprolactinemia-associated-endocrine-dysfunction">
                 <div class="item-name">Hyperprolactinemia-associated endocrine dysfunction</div>
                 
                 <div class="item-desc">Hyperostosis frontalis interna is strongly associated with acromegaly and hyperprolactinemia, particularly when both conditions coexist. Elevated prolactin levels may contribute to menstrual disturbances, galactorrhea, and hirsutism observed in MSM syndrome. The relationship between HFI and hyperprolactinemia appears to be particularly strong in acromegalic patients.
@@ -2530,6 +2764,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -2606,7 +2841,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-intracranial-pressure-from-frontal-bone-expansion">
                 <div class="item-name">Increased intracranial pressure from frontal bone expansion</div>
                 
                 <div class="item-desc">Progressive frontal bone thickening can result in increased intracranial pressure due to reduced intracranial volume and potential obstruction of CSF flow pathways. This increased pressure may contribute to headaches and other neurological symptoms observed in MSM syndrome. The mechanism links the skeletal abnormality (hyperostosis) to neurological manifestations through biomechanical effects.
@@ -2643,6 +2878,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -2712,12 +2948,13 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Morgagni-Stewart-Morel Syndrome</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
@@ -4523,6 +4760,9 @@
         <!-- Clinical Trials -->
         
 
+        <!-- Experimental Models -->
+        
+
         <!-- Computational Models -->
         
 
@@ -4597,11 +4837,13 @@ inheritance:
     has been documented, and X-linked dominant inheritance has not been excluded.
   evidence:
   - reference: PMID:16909048
+    reference_title: &#34;Evidence of a genetic basis of Morgagni-Stewart-Morel syndrome. A case report of identical twins.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We report two 71-year-old female monozygotic twins presenting with advanced hyperostosis frontalis interna, obesity, shortness and cognitive impairment. They both have suffered from generalized seizures since their early adulthood.&#34;
     explanation: Monozygotic twin concordance for MSM syndrome features strongly supports a genetic basis for the disorder.
   - reference: PMID:16909048
+    reference_title: &#34;Evidence of a genetic basis of Morgagni-Stewart-Morel syndrome. A case report of identical twins.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The symptoms common to both twins appear to correspond to the Morgagni-Stewart-Morel syndrome and indicate a genetic basis of this disorder as these features occur in genetically identical patients.&#34;
@@ -4643,26 +4885,31 @@ pathophysiology:
   - target: Increased intracranial pressure from frontal bone expansion
   evidence:
   - reference: PMID:10407462
+    reference_title: &#34;Hyperostosis frontalis interna: an anthropological perspective.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;It is most commonly found among females and is believed to be associated with prolonged estrogen stimulation&#34;
     explanation: Establishes the estrogen hypothesis for HFI pathogenesis based on a large-scale anthropological study of over 1,700 skulls.
   - reference: PMID:10407462
+    reference_title: &#34;Hyperostosis frontalis interna: an anthropological perspective.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;While its magnitude of manifestation and frequency are much higher in females, HFI is not a purely female phenomenon. Males with hormonal disturbances such as atrophic testis were found to manifest HFI type D.&#34;
     explanation: The association of HFI with hormonal disturbances in males further supports the endocrine-mediated pathogenesis hypothesis.
   - reference: PMID:36217295
+    reference_title: &#34;Hyperostosis Frontalis Interna and a Question on Its Pathology: A Case Report.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;It is most often found in women after menopause. It is also associated with hormonal imbalance, being overweight, history of headaches, and neurocognitive degenerative conditions. Female gender, advanced age, extended estrogen stimulation, and elevated leptin levels may also play a role.&#34;
     explanation: Summarizes the leading etiological theories including estrogen, leptin, and hormonal imbalance for HFI development.
   - reference: PMID:36223065
+    reference_title: &#34;Frequency of hyperostosis frontalis interna in patients with active acromegaly: is there a possible role of GH excess or hyperprolactinemia in its etiopathogenesis?&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Although the frequency of HFI is 22% in patients with acromegaly, neither excess GH nor hyperprolactinemia plays a role in its etiopathogenesis. Various genetic or epigenetic factors may contribute to its etiology.&#34;
     explanation: While HFI is more frequent in acromegaly, this study found no direct role for GH excess or hyperprolactinemia, suggesting genetic/epigenetic factors instead.
   - reference: PMID:23284007
+    reference_title: &#34;Full penetrance of Morgagni-Stewart-Morel syndrome in a 75-year-old woman: case report and review of the literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Endocrine or nutritional disorders may have led to an altered bone metabolism with frontal bone apposition.&#34;
@@ -4697,16 +4944,19 @@ pathophysiology:
   - target: Vertigo
   evidence:
   - reference: PMID:27428347
+    reference_title: &#34;[Morgagni-Stewart-Morel syndrome. Case report and review of the literature].&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In she were performed imaging of the skull where was observed the presence of extensive hyperostosis frontalis interna, cortical atrophy and a left thalamic lacunar infarction.&#34;
     explanation: Imaging findings demonstrate the association between HFI and cortical atrophy in a patient with MSM syndrome.
   - reference: PMID:25382447
+    reference_title: &#34;Neuropsychological profile of a male psychiatric patient with a Morgagni-Stewart-Morel syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In 1928 Stewart and in 1930 Morel added neuropsychiatric symptoms, e.g. depression and dementia, which led to the definition of the Morgagni-Stewart-Morel Syndrome (MSM).&#34;
     explanation: Establishes the historical association between HFI and neuropsychiatric symptoms including depression and dementia as core features of MSM.
   - reference: PMID:23284007
+    reference_title: &#34;Full penetrance of Morgagni-Stewart-Morel syndrome in a 75-year-old woman: case report and review of the literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;the severity of our patient&#39;s neurological and psychiatric symptoms correlates well with the severity of her hyperostosis frontalis interna and the cortical atrophy.&#34;
@@ -4740,16 +4990,19 @@ pathophysiology:
   - target: Hirsutism
   evidence:
   - reference: PMID:2349162
+    reference_title: &#34;Hyperostosis frontalis interna, acromegaly and hyperprolactinaemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Acromegalic patients with hyperprolactinaemia also expressed HFI in a higher proportion of individuals than the control group (P = 0.0001).&#34;
     explanation: Demonstrates a highly significant association between hyperprolactinemia and HFI in acromegalic patients.
   - reference: PMID:2349162
+    reference_title: &#34;Hyperostosis frontalis interna, acromegaly and hyperprolactinaemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The cause of HFI remains unknown but appears to be strongly associated with acromegaly, particularly in the presence of co-existent hyperprolactinaemia.&#34;
     explanation: Supports the association between HFI and hyperprolactinemia as a contributing pathway in MSM syndrome.
   - reference: PMID:36223065
+    reference_title: &#34;Frequency of hyperostosis frontalis interna in patients with active acromegaly: is there a possible role of GH excess or hyperprolactinemia in its etiopathogenesis?&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;There was no difference between the HFI positive and negative acromegalic patients in basal GH, IGF-1, and PRL levels, IGF-1 index, diagnosis lag time, and insulin resistance.&#34;
@@ -4775,11 +5028,13 @@ pathophysiology:
   - target: Headache
   evidence:
   - reference: PMID:36217295
+    reference_title: &#34;Hyperostosis Frontalis Interna and a Question on Its Pathology: A Case Report.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;It is most often found in women after menopause. It is also associated with hormonal imbalance, being overweight, history of headaches, and neurocognitive degenerative conditions.&#34;
     explanation: Establishes the association between HFI and headaches in affected individuals, supporting the increased ICP hypothesis.
   - reference: PMID:27428347
+    reference_title: &#34;[Morgagni-Stewart-Morel syndrome. Case report and review of the literature].&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In she were performed imaging of the skull where was observed the presence of extensive hyperostosis frontalis interna, cortical atrophy and a left thalamic lacunar infarction.&#34;
@@ -4801,16 +5056,19 @@ phenotypes:
       label: Hyperostosis frontalis interna
   evidence:
   - reference: PMID:36484746
+    reference_title: &#34;[Hyperostosis frontalis interna : etiology and differential diagnosis].&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Hyperostosis frontalis interna was first described in 1719 in association with obesity and hirsutism, forming Morgagni&#39;s syndrome.&#34;
     explanation: Confirms hyperostosis frontalis interna as the defining feature of the syndrome, historically described from its first report.
   - reference: PMID:10407462
+    reference_title: &#34;Hyperostosis frontalis interna: an anthropological perspective.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Hyperostosis frontalis interna (HFI) is manifested by the accretion of bone on the inner table of the frontal bone.&#34;
     explanation: Defines HFI as bone accretion on the inner table of the frontal bone, consistent with the phenotype description.
   - reference: PMID:36484746
+    reference_title: &#34;[Hyperostosis frontalis interna : etiology and differential diagnosis].&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The anomaly exclusively involves the inner table and constantly spares the diploe and the external table.&#34;
@@ -4829,16 +5087,19 @@ phenotypes:
       label: Obesity
   evidence:
   - reference: PMID:16909048
+    reference_title: &#34;Evidence of a genetic basis of Morgagni-Stewart-Morel syndrome. A case report of identical twins.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We report two 71-year-old female monozygotic twins presenting with advanced hyperostosis frontalis interna, obesity, shortness and cognitive impairment.&#34;
     explanation: Obesity is documented as a core feature in this twin case report of MSM syndrome.
   - reference: PMID:27428347
+    reference_title: &#34;[Morgagni-Stewart-Morel syndrome. Case report and review of the literature].&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;During this hospital stay the presence of grade I obesity, hyperglycemia, hypertriglyceridemia and hyperuricemia was documented.&#34;
     explanation: Obesity and metabolic disturbances documented in a clinical case of MSM syndrome.
   - reference: PMID:36452994
+    reference_title: &#34;Morgagni-Stewart-Morel syndrome presenting with neurological symptoms: a case report.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Morgagni-Stewart-Morel (MSM) syndrome is characterized by the thickening of the frontal bone of the skull (hyperostosis frontalis interna) obesity, neurological symptoms, and hypertrichosis.&#34;
@@ -4857,11 +5118,13 @@ phenotypes:
       label: Headache
   evidence:
   - reference: PMID:36452994
+    reference_title: &#34;Morgagni-Stewart-Morel syndrome presenting with neurological symptoms: a case report.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We present the case of a 76-year-old patient who complained of confusion, extreme irritability, and headache and was diagnosed with MSM based on examination, imaging, and test results.&#34;
     explanation: Headache is documented as a presenting symptom in this case of MSM syndrome.
   - reference: PMID:23284007
+    reference_title: &#34;Full penetrance of Morgagni-Stewart-Morel syndrome in a 75-year-old woman: case report and review of the literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;A 75-year-old woman presented with severe frontal headache and a history of psychotic disorders.&#34;
@@ -4880,6 +5143,7 @@ phenotypes:
       label: Seizure
   evidence:
   - reference: PMID:16909048
+    reference_title: &#34;Evidence of a genetic basis of Morgagni-Stewart-Morel syndrome. A case report of identical twins.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;They both have suffered from generalized seizures since their early adulthood.&#34;
@@ -4897,11 +5161,13 @@ phenotypes:
       label: Cognitive impairment
   evidence:
   - reference: PMID:16909048
+    reference_title: &#34;Evidence of a genetic basis of Morgagni-Stewart-Morel syndrome. A case report of identical twins.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We report two 71-year-old female monozygotic twins presenting with advanced hyperostosis frontalis interna, obesity, shortness and cognitive impairment.&#34;
     explanation: Cognitive impairment is documented in both twins with MSM syndrome.
   - reference: PMID:27428347
+    reference_title: &#34;[Morgagni-Stewart-Morel syndrome. Case report and review of the literature].&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;A 74 years old female with a history of exposure to wood smoke, vitiligo, type 2 diabetes mellitus, hypertension and cognitive impairment who enters the hospital by malaise, dizziness, anxiety, confusion, disorientation and difficulty walking.&#34;
@@ -4919,11 +5185,13 @@ phenotypes:
       label: Depression
   evidence:
   - reference: PMID:25382447
+    reference_title: &#34;Neuropsychological profile of a male psychiatric patient with a Morgagni-Stewart-Morel syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In 1928 Stewart and in 1930 Morel added neuropsychiatric symptoms, e.g. depression and dementia, which led to the definition of the Morgagni-Stewart-Morel Syndrome (MSM).&#34;
     explanation: Depression is one of the classic neuropsychiatric features that helped define MSM syndrome.
   - reference: PMID:16909048
+    reference_title: &#34;Evidence of a genetic basis of Morgagni-Stewart-Morel syndrome. A case report of identical twins.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Moreover, the patients showed some additional conditions only occurring in one individual or the other such as migraine, marked recurrent depressive disorder or polyarthrosis.&#34;
@@ -4942,11 +5210,13 @@ phenotypes:
       label: Hirsutism
   evidence:
   - reference: PMID:36484746
+    reference_title: &#34;[Hyperostosis frontalis interna : etiology and differential diagnosis].&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Hyperostosis frontalis interna was first described in 1719 in association with obesity and hirsutism, forming Morgagni&#39;s syndrome.&#34;
     explanation: Hirsutism was one of the original features described by Morgagni in 1719 alongside HFI and obesity.
   - reference: PMID:36452994
+    reference_title: &#34;Morgagni-Stewart-Morel syndrome presenting with neurological symptoms: a case report.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Morgagni-Stewart-Morel (MSM) syndrome is characterized by the thickening of the frontal bone of the skull (hyperostosis frontalis interna) obesity, neurological symptoms, and hypertrichosis.&#34;
@@ -4964,6 +5234,7 @@ phenotypes:
       label: Vertigo
   evidence:
   - reference: PMID:27428347
+    reference_title: &#34;[Morgagni-Stewart-Morel syndrome. Case report and review of the literature].&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;A 74 years old female with a history of exposure to wood smoke, vitiligo, type 2 diabetes mellitus, hypertension and cognitive impairment who enters the hospital by malaise, dizziness, anxiety, confusion, disorientation and difficulty walking.&#34;
@@ -4982,6 +5253,7 @@ phenotypes:
       label: Amenorrhea
   evidence:
   - reference: PMID:2349162
+    reference_title: &#34;Hyperostosis frontalis interna, acromegaly and hyperprolactinaemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Acromegalic patients with hyperprolactinaemia also expressed HFI in a higher proportion of individuals than the control group (P = 0.0001).&#34;
@@ -5000,6 +5272,7 @@ phenotypes:
       label: Galactorrhea
   evidence:
   - reference: PMID:2349162
+    reference_title: &#34;Hyperostosis frontalis interna, acromegaly and hyperprolactinaemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The cause of HFI remains unknown but appears to be strongly associated with acromegaly, particularly in the presence of co-existent hyperprolactinaemia.&#34;
@@ -5018,16 +5291,19 @@ phenotypes:
       label: Diabetes mellitus
   evidence:
   - reference: PMID:27428347
+    reference_title: &#34;[Morgagni-Stewart-Morel syndrome. Case report and review of the literature].&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;A 74 years old female with a history of exposure to wood smoke, vitiligo, type 2 diabetes mellitus, hypertension and cognitive impairment who enters the hospital by malaise, dizziness, anxiety, confusion, disorientation and difficulty walking.&#34;
     explanation: Type 2 diabetes mellitus is documented as a comorbidity in this MSM syndrome case report.
   - reference: PMID:27428347
+    reference_title: &#34;[Morgagni-Stewart-Morel syndrome. Case report and review of the literature].&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;During this hospital stay the presence of grade I obesity, hyperglycemia, hypertriglyceridemia and hyperuricemia was documented.&#34;
     explanation: Hyperglycemia and metabolic disturbances are documented features of MSM syndrome.
   - reference: PMID:23284007
+    reference_title: &#34;Full penetrance of Morgagni-Stewart-Morel syndrome in a 75-year-old woman: case report and review of the literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Metabolic and endocrine dysfunctions should be interpreted not only as isolated components of the syndrome, but also as the reason behind its pathogenesis.&#34;
@@ -5054,11 +5330,13 @@ biochemical:
       label: Somatotropin
   evidence:
   - reference: PMID:36223065
+    reference_title: &#34;Frequency of hyperostosis frontalis interna in patients with active acromegaly: is there a possible role of GH excess or hyperprolactinemia in its etiopathogenesis?&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The frequency of HFI was higher in acromegalic patients than in the controls (22%, 0%, and 2.2%, respectively).&#34;
     explanation: HFI is significantly more frequent in patients with GH excess (acromegaly), though the study found no direct causal role for GH in HFI etiopathogenesis.
   - reference: PMID:2349162
+    reference_title: &#34;Hyperostosis frontalis interna, acromegaly and hyperprolactinaemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;There was a higher prevalence of HFI in the skull X-rays of the acromegalic cohort (P = 0.0002) when compared to the control group.&#34;
@@ -5073,11 +5351,13 @@ biochemical:
       label: Prolactin
   evidence:
   - reference: PMID:2349162
+    reference_title: &#34;Hyperostosis frontalis interna, acromegaly and hyperprolactinaemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Acromegalic patients with hyperprolactinaemia also expressed HFI in a higher proportion of individuals than the control group (P = 0.0001).&#34;
     explanation: Highly significant association between hyperprolactinemia and HFI in acromegalic patients.
   - reference: PMID:36223065
+    reference_title: &#34;Frequency of hyperostosis frontalis interna in patients with active acromegaly: is there a possible role of GH excess or hyperprolactinemia in its etiopathogenesis?&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;There was no difference between the HFI positive and negative acromegalic patients in basal GH, IGF-1, and PRL levels, IGF-1 index, diagnosis lag time, and insulin resistance.&#34;
@@ -5093,11 +5373,13 @@ genetic:
     X-linked dominant inheritance cannot be excluded.
   evidence:
   - reference: PMID:16909048
+    reference_title: &#34;Evidence of a genetic basis of Morgagni-Stewart-Morel syndrome. A case report of identical twins.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The symptoms common to both twins appear to correspond to the Morgagni-Stewart-Morel syndrome and indicate a genetic basis of this disorder as these features occur in genetically identical patients.&#34;
     explanation: Identical phenotype in monozygotic twins provides strong evidence for a genetic basis of MSM syndrome.
   - reference: PMID:36223065
+    reference_title: &#34;Frequency of hyperostosis frontalis interna in patients with active acromegaly: is there a possible role of GH excess or hyperprolactinemia in its etiopathogenesis?&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Various genetic or epigenetic factors may contribute to its etiology.&#34;
@@ -5116,16 +5398,19 @@ environmental:
       label: exposure to estrogens
   evidence:
   - reference: PMID:10407462
+    reference_title: &#34;Hyperostosis frontalis interna: an anthropological perspective.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;It is most commonly found among females and is believed to be associated with prolonged estrogen stimulation&#34;
     explanation: Large-scale anthropological study supports prolonged estrogen stimulation as a contributing factor to HFI development.
   - reference: PMID:10407462
+    reference_title: &#34;Hyperostosis frontalis interna: an anthropological perspective.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;HFI is associated with age insofar as it is much less frequent in females under 40 years of age.&#34;
     explanation: Age-related increase in HFI frequency is consistent with cumulative estrogen exposure as a risk factor.
   - reference: PMID:36217295
+    reference_title: &#34;Hyperostosis Frontalis Interna and a Question on Its Pathology: A Case Report.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Female gender, advanced age, extended estrogen stimulation, and elevated leptin levels may also play a role.&#34;
@@ -5142,11 +5427,13 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:23284007
+    reference_title: &#34;Full penetrance of Morgagni-Stewart-Morel syndrome in a 75-year-old woman: case report and review of the literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;A 75-year-old woman presented with severe frontal headache and a history of psychotic disorders.&#34;
     explanation: Severe frontal headache is a prominent presenting symptom in MSM syndrome requiring pharmacological management.
   - reference: PMID:36452994
+    reference_title: &#34;Morgagni-Stewart-Morel syndrome presenting with neurological symptoms: a case report.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We present the case of a 76-year-old patient who complained of confusion, extreme irritability, and headache and was diagnosed with MSM based on examination, imaging, and test results.&#34;
@@ -5161,6 +5448,7 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:16909048
+    reference_title: &#34;Evidence of a genetic basis of Morgagni-Stewart-Morel syndrome. A case report of identical twins.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;They both have suffered from generalized seizures since their early adulthood.&#34;
@@ -5176,11 +5464,13 @@ treatments:
       label: supportive care
   evidence:
   - reference: PMID:41229651
+    reference_title: &#34;Morgagni-Stewart-Morel Syndrome Presenting as Acute Neurological and Respiratory Distress.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;A multidisciplinary approach targeting the neurological, endocrine, and respiratory components led to progressive clinical improvement and a favourable recovery.&#34;
     explanation: Multidisciplinary management targeting multiple organ systems led to favorable outcomes in an acute MSM case.
   - reference: PMID:41229651
+    reference_title: &#34;Morgagni-Stewart-Morel Syndrome Presenting as Acute Neurological and Respiratory Distress.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Multidisciplinary collaboration is crucial in managing complex cases of Morgagni-Stewart-Morel syndrome, especially in acute settings where diagnosis is challenging.&#34;
@@ -5196,6 +5486,7 @@ treatments:
       label: genetic counseling
   evidence:
   - reference: PMID:16909048
+    reference_title: &#34;Evidence of a genetic basis of Morgagni-Stewart-Morel syndrome. A case report of identical twins.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The symptoms common to both twins appear to correspond to the Morgagni-Stewart-Morel syndrome and indicate a genetic basis of this disorder as these features occur in genetically identical patients.&#34;
@@ -5210,11 +5501,13 @@ prevalence:
     in females than males and increases in frequency with age.
   evidence:
   - reference: PMID:36223065
+    reference_title: &#34;Frequency of hyperostosis frontalis interna in patients with active acromegaly: is there a possible role of GH excess or hyperprolactinemia in its etiopathogenesis?&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The frequency of HFI was higher in acromegalic patients than in the controls (22%, 0%, and 2.2%, respectively).&#34;
     explanation: The 2.2% frequency in healthy controls is consistent with the reported general population prevalence of approximately 2.5%.
   - reference: PMID:15228235
+    reference_title: &#34;Hyperostosis frontalis interna: case report and review of literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Hyperostosis frontalis interna (HFI) has been reported in high frequency among post-menopausal elderly women.&#34;
@@ -5230,16 +5523,19 @@ differential_diagnoses:
   - Paget disease involves both inner and outer tables and diploe with characteristic cotton-wool appearance on imaging, unlike HFI which exclusively affects the inner table.
   evidence:
   - reference: PMID:36484746
+    reference_title: &#34;[Hyperostosis frontalis interna : etiology and differential diagnosis].&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The main differential diagnosis of cranial hyperostosis is made between meningioma, osteoma, Paget&#39;s disease and fibrous dysplasia.&#34;
     explanation: Paget disease is listed as a major differential diagnosis for cranial hyperostosis.
   - reference: PMID:15228235
+    reference_title: &#34;Hyperostosis frontalis interna: case report and review of literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;HFI should be recognized as a benign entity and distinguished from other disorders that involve the frontal skull bone, such as Paget&#39;s disease, acromegaly, and malignancy.&#34;
     explanation: Emphasizes the importance of distinguishing HFI from Paget disease and other conditions affecting the frontal skull bone.
   - reference: PMID:36484746
+    reference_title: &#34;[Hyperostosis frontalis interna : etiology and differential diagnosis].&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The anomaly exclusively involves the inner table and constantly spares the diploe and the external table.&#34;
@@ -5254,6 +5550,7 @@ differential_diagnoses:
   - Meningiomas can cause focal hyperostosis but typically present as a mass lesion with contrast enhancement on imaging, unlike the diffuse bilateral inner table thickening of HFI.
   evidence:
   - reference: PMID:36484746
+    reference_title: &#34;[Hyperostosis frontalis interna : etiology and differential diagnosis].&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The main differential diagnosis of cranial hyperostosis is made between meningioma, osteoma, Paget&#39;s disease and fibrous dysplasia.&#34;
@@ -5268,6 +5565,7 @@ differential_diagnoses:
   - Fibrous dysplasia involves replacement of normal bone with fibrous tissue and has a ground-glass appearance on imaging, affecting the diploe rather than the inner table exclusively.
   evidence:
   - reference: PMID:36484746
+    reference_title: &#34;[Hyperostosis frontalis interna : etiology and differential diagnosis].&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The main differential diagnosis of cranial hyperostosis is made between meningioma, osteoma, Paget&#39;s disease and fibrous dysplasia.&#34;

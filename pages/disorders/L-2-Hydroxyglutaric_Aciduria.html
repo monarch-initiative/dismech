@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1037,6 +1101,52 @@
             text-decoration: underline;
         }
 
+        /* Experimental Models */
+        .exp-model-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .exp-model-box .item-name { color: #92400e; }
+        .exp-model-box .item-desc { color: #b45309; }
+
+        .tag-exp-model-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .tag-namo-type {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+        .tag-condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .model-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .model-detail-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .model-detail-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 110px;
+        }
+        .model-detail-value {
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+        }
+        .model-detail-value a {
+            color: inherit;
+        }
+
         /* Computational Models */
         .comp-model-box {
             background: #f0fdf4;
@@ -1382,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1470,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1477,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1489,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1637,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1723,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1737,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1792,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1877,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Organic Acidemia</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Inborn Error of Metabolism</span>
@@ -1891,6 +2110,11 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
+        
+        
         
         
         
@@ -1944,6 +2168,14 @@
             <div class="stat-item">
                 <div class="stat-value">14</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">9</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2023,7 +2255,7 @@
                 <span class="card-count">5</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-l2hgdh-enzymatic-deficiency">
                 <div class="item-name">L2HGDH enzymatic deficiency</div>
                 
                 <div class="item-desc">Pathogenic variants in L2HGDH reduce mitochondrial L-2-hydroxyglutarate dehydrogenase activity.
@@ -2071,11 +2303,12 @@
                 </div>
                 
                 
+                
     
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-l-2-hydroxyglutarate-accumulation">
                 <div class="item-name">L-2-hydroxyglutarate accumulation</div>
                 
                 <div class="item-desc">Loss of L-2-hydroxyglutarate dehydrogenase activity impairs the metabolite-repair pathway that clears L-2-hydroxyglutarate (L-2-HG), an aberrant off-pathway metabolite produced from alpha-ketoglutarate by L-malate dehydrogenase. L-2-HG accumulates in body fluids, particularly brain and CSF, at concentrations 10-300 times above normal.
@@ -2128,6 +2361,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2162,7 +2396,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-white-matter-vulnerability-and-progressive-leukoencephalopathy">
                 <div class="item-name">White-matter vulnerability and progressive leukoencephalopathy</div>
                 
                 <div class="item-desc">L-2-HG accumulation leads to selective vulnerability of subcortical cerebral white matter with basal ganglia and dentate nucleus involvement. In mouse models, L2HGDH deficiency causes progressive leukoencephalopathy with demyelination, extensive gliosis, microglia-mediated neuroinflammation, and expansion of oligodendrocyte progenitor cells.
@@ -2232,6 +2466,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2286,7 +2521,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-dysfunction-and-metabolic-reprogramming">
                 <div class="item-name">Mitochondrial dysfunction and metabolic reprogramming</div>
                 
                 <div class="item-desc">Elevated L-2-HG impairs mitochondrial bioenergetics, reducing maximal respiratory capacity and shifting neuronal cell metabolism toward anaerobic glycolysis. In neuronal cell models, L-2-HG exposure leads to decreased glucose uptake, increased lactate release, and reduced carbon flux through the TCA cycle.
@@ -2335,6 +2570,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2369,7 +2605,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-epigenetic-dysregulation-via-inhibition-of-alpha-kg-dependent-dioxygenases">
                 <div class="item-name">Epigenetic dysregulation via inhibition of alpha-KG-dependent dioxygenases</div>
                 
                 <div class="item-desc">L-2-HG is a structural analog of alpha-ketoglutarate and can inhibit alpha-KG-dependent dioxygenases, including TET DNA hydroxylases and JmjC histone demethylases. In L2HGDH-deficient mouse brain, this manifests as increased histone methylation, linking metabolite accumulation to epigenetic perturbation.
@@ -2420,6 +2656,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -2489,18 +2726,19 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for L-2-Hydroxyglutaric Aciduria</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Epigenetic dysregulation via inhibition of alpha-KG-dependent dioxygenases\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"L-2-HG is a structural analog of alpha-ketoglutarate and can inhibit alpha-KG-dependent dioxygenases, including TET DNA hydroxylases and JmjC histone demethylases. In L2HGDH-deficient mouse brain, this manifests as increased histone methylation, linking metabolite accumulation to epigenetic perturbation.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"DNA demethylation\"], \"locations\": [\"nucleus\"]}}, {\"id\": \"L-2-hydroxyglutarate accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of L-2-hydroxyglutarate dehydrogenase activity impairs the metabolite-repair pathway that clears L-2-hydroxyglutarate (L-2-HG), an aberrant off-pathway metabolite produced from alpha-ketoglutarate by L-malate dehydrogenase. L-2-HG accumulates in body fluids, particularly brain and CSF, at concentrations 10-300 times above normal.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"organic acid metabolic process\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"L2HGDH enzymatic deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants in L2HGDH reduce mitochondrial L-2-hydroxyglutarate dehydrogenase activity.\\n\", \"meta\": {\"cell_types\": [\"neuron\"], \"genes\": [\"L2HGDH\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Mitochondrial dysfunction and metabolic reprogramming\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated L-2-HG impairs mitochondrial bioenergetics, reducing maximal respiratory capacity and shifting neuronal cell metabolism toward anaerobic glycolysis. In neuronal cell models, L-2-HG exposure leads to decreased glucose uptake, increased lactate release, and reduced carbon flux through the TCA cycle.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"oxidative phosphorylation\", \"glycolytic process\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"L-2-HG accumulation leads to selective vulnerability of subcortical cerebral white matter with basal ganglia and dentate nucleus involvement. In mouse models, L2HGDH deficiency causes progressive leukoencephalopathy with demyelination, extensive gliosis, microglia-mediated neuroinflammation, and expansion of oligodendrocyte progenitor cells.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"oligodendrocyte\", \"microglial cell\"], \"biological_processes\": [\"myelination\"], \"locations\": [\"white matter\", \"basal ganglion\"]}}], \"edges\": [{\"source\": \"L2HGDH enzymatic deficiency\", \"target\": \"L-2-hydroxyglutarate accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"Mitochondrial dysfunction and metabolic reprogramming\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"Epigenetic dysregulation via inhibition of alpha-KG-dependent dioxygenases\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Epigenetic dysregulation via inhibition of alpha-KG-dependent dioxygenases\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"L-2-HG is a structural analog of alpha-ketoglutarate and can inhibit alpha-KG-dependent dioxygenases, including TET DNA hydroxylases and JmjC histone demethylases. In L2HGDH-deficient mouse brain, this manifests as increased histone methylation, linking metabolite accumulation to epigenetic perturbation.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"DNA demethylation\"], \"locations\": [\"nucleus\"]}}, {\"id\": \"L-2-hydroxyglutarate accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of L-2-hydroxyglutarate dehydrogenase activity impairs the metabolite-repair pathway that clears L-2-hydroxyglutarate (L-2-HG), an aberrant off-pathway metabolite produced from alpha-ketoglutarate by L-malate dehydrogenase. L-2-HG accumulates in body fluids, particularly brain and CSF, at concentrations 10-300 times above normal.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"organic acid metabolic process\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"L2HGDH enzymatic deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants in L2HGDH reduce mitochondrial L-2-hydroxyglutarate dehydrogenase activity.\\n\", \"meta\": {\"cell_types\": [\"neuron\"], \"genes\": [\"L2HGDH\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"L2HGDH variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"variant_count\": 3}}, {\"id\": \"Mitochondrial dysfunction and metabolic reprogramming\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated L-2-HG impairs mitochondrial bioenergetics, reducing maximal respiratory capacity and shifting neuronal cell metabolism toward anaerobic glycolysis. In neuronal cell models, L-2-HG exposure leads to decreased glucose uptake, increased lactate release, and reduced carbon flux through the TCA cycle.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"oxidative phosphorylation\", \"glycolytic process\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"L-2-HG accumulation leads to selective vulnerability of subcortical cerebral white matter with basal ganglia and dentate nucleus involvement. In mouse models, L2HGDH deficiency causes progressive leukoencephalopathy with demyelination, extensive gliosis, microglia-mediated neuroinflammation, and expansion of oligodendrocyte progenitor cells.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"oligodendrocyte\", \"microglial cell\"], \"biological_processes\": [\"myelination\"], \"locations\": [\"white matter\", \"basal ganglion\"]}}, {\"id\": \"c.164G\u003eA (p.Gly55Asp)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense variant affecting a conserved glycine residue, identified in a patient with severe dystonia requiring DBS intervention.\\n\"}, {\"id\": \"c.407delA and c.699_700insA compound heterozygous\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Compound heterozygous frameshift mutations leading to premature termination codons and truncated FAD/NAD(P)-binding domain. Identified in a Chinese patient with psychomotor retardation and progressive ataxia.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"c.829C\u003eT (p.Arg227*)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Nonsense variant creating a premature stop codon, identified in a consanguineous Pakistani family. Both affected sisters were homozygous.\\n\"}], \"edges\": [{\"source\": \"L2HGDH enzymatic deficiency\", \"target\": \"L-2-hydroxyglutarate accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"Mitochondrial dysfunction and metabolic reprogramming\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"Epigenetic dysregulation via inhibition of alpha-KG-dependent dioxygenases\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"c.829C\u003eT (p.Arg227*)\", \"target\": \"L2HGDH variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.164G\u003eA (p.Gly55Asp)\", \"target\": \"L2HGDH variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.407delA and c.699_700insA compound heterozygous\", \"target\": \"L2HGDH variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4413,6 +4651,9 @@
         <!-- Clinical Trials -->
         
 
+        <!-- Experimental Models -->
+        
+
         <!-- Computational Models -->
         
 
@@ -4510,6 +4751,7 @@ pathophysiology:
       label: mitochondrion
   evidence:
   - reference: PMID:22391998
+    reference_title: &#34;Progress in understanding 2-hydroxyglutaric acidurias.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Accumulation of D-2-hydroxyglutarate (D-2-HG) and/or L-2-hydroxyglutarate (L-2-HG) in body fluids are the biochemical
@@ -4553,12 +4795,14 @@ pathophysiology:
       label: basal ganglion
   evidence:
   - reference: PMID:28137912
+    reference_title: &#34;L2hgdh Deficiency Accumulates l-2-Hydroxyglutarate with Progressive Leukoencephalopathy and Neurodegeneration.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: KO mice exhibit white matter abnormalities, extensive gliosis, microglia-mediated neuroinflammation, and an expansion
       of oligodendrocyte progenitor cells (OPCs).
     explanation: Mouse model demonstrates leukoencephalopathy, gliosis, neuroinflammation, and OPC expansion.
   - reference: PMID:37113859
+    reference_title: &#34;L-2-hydroxyglutaric aciduria - review of literature and case series.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Neuroradiological features of centripetal subcortical leukoencephalopathy with basal ganglia and dentate nuclei
@@ -4586,6 +4830,7 @@ pathophysiology:
       label: mitochondrion
   evidence:
   - reference: PMID:38862727
+    reference_title: &#34;Both Enantiomers of 2-Hydroxyglutarate Modulate the Metabolism of Cultured Human Neuroblastoma Cells.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: both enantiomers of 2HG comparably stimulate anaerobic metabolism of glucose and inhibit the uptake of several
@@ -4614,6 +4859,7 @@ pathophysiology:
       label: nucleus
   evidence:
   - reference: PMID:38716347
+    reference_title: &#34;Malignant glioma in L-2-Hydroxyglutaric Aciduria: thorough molecular characterization of a case and literature review.&#34;
     supports: REFUTE
     evidence_source: HUMAN_CLINICAL
     snippet: These findings were against all our expectations given the inhibitory potential of 2-HG on DNA-demethylation
@@ -4622,6 +4868,7 @@ pathophysiology:
       expected from dioxygenase inhibition, unlike IDH-mutant tumors with D-2-HG accumulation.
       This argues against a simple epigenetic oncogenic mechanism in L-2-HGA.
   - reference: PMID:28137912
+    reference_title: &#34;L2hgdh Deficiency Accumulates l-2-Hydroxyglutarate with Progressive Leukoencephalopathy and Neurodegeneration.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: a corresponding increase in histone methylation in these tissues
@@ -4642,12 +4889,14 @@ phenotypes:
       label: Intellectual disability
   evidence:
   - reference: PMID:37113859
+    reference_title: &#34;L-2-hydroxyglutaric aciduria - review of literature and case series.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: L-2-hydroxyglutaric aciduria (L2HGA) is an autosomal recessive, slowly progressive neurodegenerative disease
       characterized by psychomotor delay and cerebellar dysfunction.
     explanation: Psychomotor delay leading to intellectual disability is a defining feature of L2HGA.
   - reference: PMID:37275239
+    reference_title: &#34;Glutaric aciduria and L-2-hydroxyglutaric aciduria: Clinical and molecular findings of 35 patients from Turkey.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The most common clinical symptoms were developmental delay, intellectual disability, and movement disorders.
@@ -4664,6 +4913,7 @@ phenotypes:
       label: Global developmental delay
   evidence:
   - reference: PMID:37113859
+    reference_title: &#34;L-2-hydroxyglutaric aciduria - review of literature and case series.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: L-2-hydroxyglutaric aciduria (L2HGA) is an autosomal recessive, slowly progressive neurodegenerative disease
@@ -4682,11 +4932,13 @@ phenotypes:
       label: Seizure
   evidence:
   - reference: PMID:37113859
+    reference_title: &#34;L-2-hydroxyglutaric aciduria - review of literature and case series.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The 15- and 17-year-old girls presented with psychomotor delay, seizures, ataxia, intentional tremors, and dysarthria.
     explanation: Seizures are part of the core clinical presentation described in this case series.
   - reference: PMID:24321868
+    reference_title: &#34;[L-2-hydroxyglutaric aciduria: report on two cases].&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: It occurs in childhood with mental retardation, cerebellar ataxia, and epilepsy.
@@ -4704,12 +4956,14 @@ phenotypes:
       label: Ataxia
   evidence:
   - reference: PMID:37113859
+    reference_title: &#34;L-2-hydroxyglutaric aciduria - review of literature and case series.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: L-2-hydroxyglutaric aciduria (L2HGA) is an autosomal recessive, slowly progressive neurodegenerative disease
       characterized by psychomotor delay and cerebellar dysfunction.
     explanation: Cerebellar dysfunction is described as a defining feature of L2HGA.
   - reference: PMID:37113859
+    reference_title: &#34;L-2-hydroxyglutaric aciduria - review of literature and case series.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The 15- and 17-year-old girls presented with psychomotor delay, seizures, ataxia, intentional tremors, and dysarthria.
@@ -4727,12 +4981,14 @@ phenotypes:
       label: Dystonia
   evidence:
   - reference: PMID:38714179
+    reference_title: &#34;Deep Brain Stimulation of the Globus Pallidus Internus in a Child with Refractory Dystonia due to L2-Hydroxyglutaric Aciduria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Neurological exam revealed generalized dystonia, significant choreic movements in the upper extremities, slurred
       speech, bilateral dysmetria, and a wide-based gait.
     explanation: Describes generalized dystonia in a patient with L2HGA requiring DBS intervention.
   - reference: PMID:38714179
+    reference_title: &#34;Deep Brain Stimulation of the Globus Pallidus Internus in a Child with Refractory Dystonia due to L2-Hydroxyglutaric Aciduria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Following minimal response to pharmacotherapy, GPi-DBS was performed.
@@ -4750,11 +5006,13 @@ phenotypes:
       label: Dysarthria
   evidence:
   - reference: PMID:37113859
+    reference_title: &#34;L-2-hydroxyglutaric aciduria - review of literature and case series.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The 15- and 17-year-old girls presented with psychomotor delay, seizures, ataxia, intentional tremors, and dysarthria.
     explanation: Dysarthria was present in both reported patients.
   - reference: PMID:38714179
+    reference_title: &#34;Deep Brain Stimulation of the Globus Pallidus Internus in a Child with Refractory Dystonia due to L2-Hydroxyglutaric Aciduria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Neurological exam revealed generalized dystonia, significant choreic movements in the upper extremities, slurred
@@ -4773,6 +5031,7 @@ phenotypes:
       label: Macrocephaly
   evidence:
   - reference: PMID:24321868
+    reference_title: &#34;[L-2-hydroxyglutaric aciduria: report on two cases].&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Macrocephaly is present in half of the cases.
@@ -4792,12 +5051,14 @@ phenotypes:
   diagnostic: true
   evidence:
   - reference: PMID:37113859
+    reference_title: &#34;L-2-hydroxyglutaric aciduria - review of literature and case series.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Brain MRI of the 15-year-old showed diffuse subcortical white matter changes evident by T2/FLAIR hyperintense
       signals bilaterally, particularly in the frontal region in the centripetal distribution
     explanation: Describes the characteristic centripetal subcortical white matter MRI pattern.
   - reference: PMID:37113859
+    reference_title: &#34;L-2-hydroxyglutaric aciduria - review of literature and case series.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Neuroradiological features of centripetal subcortical leukoencephalopathy with basal ganglia and dentate nuclei
@@ -4816,11 +5077,13 @@ phenotypes:
       label: Spasticity
   evidence:
   - reference: PMID:37113859
+    reference_title: &#34;L-2-hydroxyglutaric aciduria - review of literature and case series.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Exaggerated tendon reflexes and bilateral sustained ankle clonus were observed in addition to cerebellar signs.
     explanation: Upper motor neuron signs consistent with spasticity were present in both patients.
   - reference: PMID:38714179
+    reference_title: &#34;Deep Brain Stimulation of the Globus Pallidus Internus in a Child with Refractory Dystonia due to L2-Hydroxyglutaric Aciduria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Brisk deep tendon reflexes, clonus, and bilateral Babinski signs were present.
@@ -4838,6 +5101,7 @@ phenotypes:
       label: Intention tremor
   evidence:
   - reference: PMID:37113859
+    reference_title: &#34;L-2-hydroxyglutaric aciduria - review of literature and case series.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The 15- and 17-year-old girls presented with psychomotor delay, seizures, ataxia, intentional tremors, and dysarthria.
@@ -4855,6 +5119,7 @@ phenotypes:
       label: Atypical behavior
   evidence:
   - reference: PMID:37275239
+    reference_title: &#34;Glutaric aciduria and L-2-hydroxyglutaric aciduria: Clinical and molecular findings of 35 patients from Turkey.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Behavioural problems were more common in L2HGA than in GA-I patients.
@@ -4872,6 +5137,7 @@ phenotypes:
       label: Chorea
   evidence:
   - reference: PMID:38714179
+    reference_title: &#34;Deep Brain Stimulation of the Globus Pallidus Internus in a Child with Refractory Dystonia due to L2-Hydroxyglutaric Aciduria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Neurological exam revealed generalized dystonia, significant choreic movements in the upper extremities, slurred
@@ -4889,6 +5155,7 @@ phenotypes:
       label: Gait ataxia
   evidence:
   - reference: PMID:38714179
+    reference_title: &#34;Deep Brain Stimulation of the Globus Pallidus Internus in a Child with Refractory Dystonia due to L2-Hydroxyglutaric Aciduria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Neurological exam revealed generalized dystonia, significant choreic movements in the upper extremities, slurred
@@ -4908,6 +5175,7 @@ phenotypes:
       label: Malignant neoplasm of the central nervous system
   evidence:
   - reference: PMID:38716347
+    reference_title: &#34;Malignant glioma in L-2-Hydroxyglutaric Aciduria: thorough molecular characterization of a case and literature review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: L-2-HGA patients have a significantly increased lifetime risk of central nervous system (CNS) tumors.
@@ -4921,12 +5189,14 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:22391998
+    reference_title: &#34;Progress in understanding 2-hydroxyglutaric acidurias.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Accumulation of D-2-hydroxyglutarate (D-2-HG) and/or L-2-hydroxyglutarate (L-2-HG) in body fluids are the biochemical
       hallmarks of these disorders.
     explanation: Establishes L-2-HG accumulation in body fluids as the biochemical hallmark.
   - reference: PMID:37113859
+    reference_title: &#34;L-2-hydroxyglutaric aciduria - review of literature and case series.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Urine organic acids analysis showed marked excretion of 2-hydroxyglutaric acid, chiral differentiation of 2-hydroxyglutaric
@@ -4940,12 +5210,14 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:22391998
+    reference_title: &#34;Progress in understanding 2-hydroxyglutaric acidurias.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Accumulation of D-2-hydroxyglutarate (D-2-HG) and/or L-2-hydroxyglutarate (L-2-HG) in body fluids are the biochemical
       hallmarks of these disorders.
     explanation: CSF is one of the body fluids in which L-2-HG accumulates.
   - reference: PMID:28137912
+    reference_title: &#34;L2hgdh Deficiency Accumulates l-2-Hydroxyglutarate with Progressive Leukoencephalopathy and Neurodegeneration.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: The highest levels of L-2-HG were observed in the brain and testis
@@ -4958,6 +5230,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:22391998
+    reference_title: &#34;Progress in understanding 2-hydroxyglutaric acidurias.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Accumulation of D-2-hydroxyglutarate (D-2-HG) and/or L-2-hydroxyglutarate (L-2-HG) in body fluids are the biochemical
@@ -4972,6 +5245,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:26610379
+    reference_title: &#34;In Vivo NMR Studies of the Brain with Hereditary or Acquired Metabolic Disorders.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: Metabolic disturbances lead to alterations in cellular function as well as microscopic and macroscopic structural
@@ -4986,6 +5260,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:38714179
+    reference_title: &#34;Deep Brain Stimulation of the Globus Pallidus Internus in a Child with Refractory Dystonia due to L2-Hydroxyglutaric Aciduria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Urine 2-OH-glutaric acid level was significantly elevated.
@@ -4996,6 +5271,7 @@ genetic:
   - name: Autosomal recessive
     evidence:
     - reference: PMID:37113859
+      reference_title: &#34;L-2-hydroxyglutaric aciduria - review of literature and case series.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: L-2-hydroxyglutaric aciduria (L2HGA) is an autosomal recessive, slowly progressive neurodegenerative disease
@@ -5018,6 +5294,7 @@ genetic:
       &#39;
     evidence:
     - reference: PMID:29980873
+      reference_title: &#34;A novel compound heterozygous mutation of the L2HGDH gene in a Chinese boy with L-2-hydroxyglutaric aciduria: case report and literature review.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: Next-generation sequencing (NGS) revealed two novel compound heterozygous frameshift mutations, c.407 del A
@@ -5031,6 +5308,7 @@ genetic:
     &#39;
   evidence:
   - reference: PMID:22391998
+    reference_title: &#34;Progress in understanding 2-hydroxyglutaric acidurias.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: We report on the clinical, genetic, enzymatic and metabolic characterization of D-2-HGA type I, D-2-HGA type
@@ -5051,16 +5329,19 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:37275239
+    reference_title: &#34;Glutaric aciduria and L-2-hydroxyglutaric aciduria: Clinical and molecular findings of 35 patients from Turkey.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: In all L2HGA patients, there was a significant decrease in the mean urinary 2- hydoxy glutarate with treatment.
     explanation: Demonstrates significant biochemical response to riboflavin/levocarnitine in L2HGA cohort.
   - reference: PMID:37275239
+    reference_title: &#34;Glutaric aciduria and L-2-hydroxyglutaric aciduria: Clinical and molecular findings of 35 patients from Turkey.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Relative neurologic improvement was seen in three L2HGA patients.
     explanation: Documents some clinical improvement with riboflavin-based treatment.
   - reference: PMID:24321868
+    reference_title: &#34;[L-2-hydroxyglutaric aciduria: report on two cases].&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Under specific treatment, the progression of the disease was subsequently stopped.
@@ -5077,11 +5358,13 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:37275239
+    reference_title: &#34;Glutaric aciduria and L-2-hydroxyglutaric aciduria: Clinical and molecular findings of 35 patients from Turkey.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Current treatment strategies are based on levocarnitine, vitamin B2, and diet.
     explanation: Confirms levocarnitine as a component of standard treatment for L2HGA.
   - reference: PMID:37275239
+    reference_title: &#34;Glutaric aciduria and L-2-hydroxyglutaric aciduria: Clinical and molecular findings of 35 patients from Turkey.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: In L2HGA patients, we used levocarnitine and vitamin B2.
@@ -5098,11 +5381,13 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:24321868
+    reference_title: &#34;[L-2-hydroxyglutaric aciduria: report on two cases].&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: It occurs in childhood with mental retardation, cerebellar ataxia, and epilepsy.
     explanation: Epilepsy is a core feature of L2HGA, necessitating antiepileptic pharmacotherapy as part of symptomatic management.
   - reference: PMID:37113859
+    reference_title: &#34;L-2-hydroxyglutaric aciduria - review of literature and case series.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The 15- and 17-year-old girls presented with psychomotor delay, seizures, ataxia, intentional tremors, and dysarthria.
@@ -5120,12 +5405,14 @@ treatments:
       label: surgical procedure
   evidence:
   - reference: PMID:38714179
+    reference_title: &#34;Deep Brain Stimulation of the Globus Pallidus Internus in a Child with Refractory Dystonia due to L2-Hydroxyglutaric Aciduria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Significant increases in mobility and decrease in dystonia were observed at 3 weeks, 6 months, and 12 months
       postoperatively.
     explanation: Documents significant improvement with GPi-DBS in L2HGA-related dystonia.
   - reference: PMID:38714179
+    reference_title: &#34;Deep Brain Stimulation of the Globus Pallidus Internus in a Child with Refractory Dystonia due to L2-Hydroxyglutaric Aciduria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: This is the first utilization of DBS as treatment for L2HGA-related dystonia.
@@ -5142,6 +5429,7 @@ treatments:
       label: supportive care
   evidence:
   - reference: PMID:37275239
+    reference_title: &#34;Glutaric aciduria and L-2-hydroxyglutaric aciduria: Clinical and molecular findings of 35 patients from Turkey.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Relative neurologic improvement was seen in three L2HGA patients.
@@ -5160,6 +5448,7 @@ treatments:
       label: genetic counseling
   evidence:
   - reference: PMID:37113859
+    reference_title: &#34;L-2-hydroxyglutaric aciduria - review of literature and case series.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Both parents were heterozygous carriers of the familial variant.
@@ -5177,6 +5466,7 @@ treatments:
       label: dietary intervention
   evidence:
   - reference: PMID:37275239
+    reference_title: &#34;Glutaric aciduria and L-2-hydroxyglutaric aciduria: Clinical and molecular findings of 35 patients from Turkey.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Current treatment strategies are based on levocarnitine, vitamin B2, and diet.
@@ -5193,6 +5483,7 @@ treatments:
       label: supportive care
   evidence:
   - reference: PMID:38716347
+    reference_title: &#34;Malignant glioma in L-2-Hydroxyglutaric Aciduria: thorough molecular characterization of a case and literature review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: L-2-HGA patients have a significantly increased lifetime risk of central nervous system (CNS) tumors.

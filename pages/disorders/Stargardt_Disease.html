@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1037,6 +1101,52 @@
             text-decoration: underline;
         }
 
+        /* Experimental Models */
+        .exp-model-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .exp-model-box .item-name { color: #92400e; }
+        .exp-model-box .item-desc { color: #b45309; }
+
+        .tag-exp-model-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .tag-namo-type {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+        .tag-condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .model-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .model-detail-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .model-detail-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 110px;
+        }
+        .model-detail-value {
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+        }
+        .model-detail-value a {
+            color: inherit;
+        }
+
         /* Computational Models */
         .comp-model-box {
             background: #f0fdf4;
@@ -1382,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1470,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1477,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1489,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1637,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1723,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1737,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1792,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1877,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 15</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Ophthalmological Disease</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Retinal Dystrophy</span>
@@ -1895,6 +2114,11 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
+        
+        
         
         
         
@@ -1954,6 +2178,14 @@
             </a>
             
             
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">15</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
+            </a>
+            
+            
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-value">3</div>
@@ -2002,10 +2234,12 @@
             </a>
             
             
+            <a class="stat-link" href="#models">
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Models</div>
             </div>
+            </a>
             
             
         </div>
@@ -2316,7 +2550,7 @@
                 <span class="card-count">6</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-abca4-transporter-dysfunction">
                 <div class="item-name">ABCA4 transporter dysfunction</div>
                 
                 <div class="item-desc">ABCA4 normally flips N-retinylidene-phosphatidylethanolamine across photoreceptor disc membranes. Loss of ABCA4 function impairs this outer-segment transport step and disrupts normal retinoid handling in photoreceptors.
@@ -2382,6 +2616,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2436,7 +2671,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-retinoid-adduct-retention-and-bisretinoid-precursor-formation">
                 <div class="item-name">Retinoid-adduct retention and bisretinoid precursor formation</div>
                 
                 <div class="item-desc">Failure to clear all-trans-retinal adducts from photoreceptor outer segment discs promotes retention of retinoid-phospholipid intermediates and formation of toxic bisretinoid precursors upstream of A2E and lipofuscin accumulation.
@@ -2502,6 +2737,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2536,7 +2772,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-lipofuscin-and-a2e-accumulation-in-rpe">
                 <div class="item-name">Lipofuscin and A2E accumulation in RPE</div>
                 
                 <div class="item-desc">Failure to clear all-trans-retinal adducts from photoreceptor discs leads to formation of A2E and related bisretinoids that accumulate as lipofuscin in retinal pigment epithelial cells. These fluorophores are phototoxic and drive oxidative, lysosomal, and inflammatory stress in the RPE.
@@ -2583,6 +2819,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2642,7 +2879,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-rpe-endo-lysosomal-dysfunction">
                 <div class="item-name">RPE endo-lysosomal dysfunction</div>
                 
                 <div class="item-desc">Bisretinoid stress elevates lysosomal pH, impairs cathepsin D maturation and activity, and compromises degradation of photoreceptor outer segments in retinal pigment epithelium.
@@ -2689,6 +2926,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2748,7 +2986,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-rpe-dysfunction-and-atrophy">
                 <div class="item-name">RPE dysfunction and atrophy</div>
                 
                 <div class="item-desc">Lipofuscin toxicity, oxidative stress, and lysosomal failure culminate in loss of retinal pigment epithelial homeostasis, functional decline, and progressive atrophic injury in the macula.
@@ -2768,6 +3006,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2810,7 +3049,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-secondary-macular-photoreceptor-degeneration">
                 <div class="item-name">Secondary macular photoreceptor degeneration</div>
                 
                 <div class="item-desc">Loss of retinal pigment epithelial support drives progressive degeneration of macular photoreceptors, especially cones, leading to central visual dysfunction.
@@ -2861,6 +3100,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2933,18 +3173,19 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Stargardt Disease</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ABCA4 transporter dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ABCA4 normally flips N-retinylidene-phosphatidylethanolamine across photoreceptor disc membranes. Loss of ABCA4 function impairs this outer-segment transport step and disrupts normal retinoid handling in photoreceptors.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"photoreceptor cell\", \"retinal cone cell\", \"retinal rod cell\"], \"biological_processes\": [\"lipid transport\"]}}, {\"id\": \"Central scotoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Central visual field loss corresponds to macular photoreceptor degeneration and may be a presenting symptom in adolescent-onset disease.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000603\"}}, {\"id\": \"Lipofuscin and A2E accumulation in RPE\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure to clear all-trans-retinal adducts from photoreceptor discs leads to formation of A2E and related bisretinoids that accumulate as lipofuscin in retinal pigment epithelial cells. These fluorophores are phototoxic and drive oxidative, lysosomal, and inflammatory stress in the RPE.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal pigment epithelial cell\"], \"biological_processes\": [\"response to oxidative stress\", \"phagocytosis\"]}}, {\"id\": \"Macular atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive atrophy of the macular RPE and neurosensory retina, ranging from early beaten-bronze change to frank geographic atrophy.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0007401\"}}, {\"id\": \"RPE dysfunction and atrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lipofuscin toxicity, oxidative stress, and lysosomal failure culminate in loss of retinal pigment epithelial homeostasis, functional decline, and progressive atrophic injury in the macula.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"retinal pigment epithelial cell\"]}}, {\"id\": \"RPE endo-lysosomal dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Bisretinoid stress elevates lysosomal pH, impairs cathepsin D maturation and activity, and compromises degradation of photoreceptor outer segments in retinal pigment epithelium.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal pigment epithelial cell\"], \"biological_processes\": [\"lysosome organization\", \"phagocytosis\"]}}, {\"id\": \"Reduced visual acuity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive loss of central visual acuity is the dominant presenting complaint and often worsens to 20/200 or worse over time.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0007663\"}}, {\"id\": \"Retinoid-adduct retention and bisretinoid precursor formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure to clear all-trans-retinal adducts from photoreceptor outer segment discs promotes retention of retinoid-phospholipid intermediates and formation of toxic bisretinoid precursors upstream of A2E and lipofuscin accumulation.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"photoreceptor cell\", \"retinal cone cell\", \"retinal rod cell\"], \"biological_processes\": [\"retinoid metabolic process\"]}}, {\"id\": \"Secondary macular photoreceptor degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of retinal pigment epithelial support drives progressive degeneration of macular photoreceptors, especially cones, leading to central visual dysfunction.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal cone cell\", \"retinal rod cell\"], \"biological_processes\": [\"visual perception\"]}}], \"edges\": [{\"source\": \"ABCA4 transporter dysfunction\", \"target\": \"Retinoid-adduct retention and bisretinoid precursor formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Retinoid-adduct retention and bisretinoid precursor formation\", \"target\": \"Lipofuscin and A2E accumulation in RPE\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lipofuscin and A2E accumulation in RPE\", \"target\": \"RPE endo-lysosomal dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lipofuscin and A2E accumulation in RPE\", \"target\": \"RPE dysfunction and atrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"RPE endo-lysosomal dysfunction\", \"target\": \"RPE dysfunction and atrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"RPE dysfunction and atrophy\", \"target\": \"Secondary macular photoreceptor degeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary macular photoreceptor degeneration\", \"target\": \"Macular atrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary macular photoreceptor degeneration\", \"target\": \"Reduced visual acuity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary macular photoreceptor degeneration\", \"target\": \"Central scotoma\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ABCA4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ABCA4\"], \"association\": \"Causative\"}}, {\"id\": \"ABCA4 transporter dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ABCA4 normally flips N-retinylidene-phosphatidylethanolamine across photoreceptor disc membranes. Loss of ABCA4 function impairs this outer-segment transport step and disrupts normal retinoid handling in photoreceptors.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"photoreceptor cell\", \"retinal cone cell\", \"retinal rod cell\"], \"biological_processes\": [\"lipid transport\"], \"genes\": [\"ABCA4\"]}}, {\"id\": \"Central scotoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Central visual field loss corresponds to macular photoreceptor degeneration and may be a presenting symptom in adolescent-onset disease.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000603\"}}, {\"id\": \"Gene therapy (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Several ABCA4 gene replacement strategies are under investigation. The large ABCA4 cDNA exceeds standard AAV packaging capacity, motivating dual-vector and lentiviral approaches.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Lipofuscin and A2E accumulation in RPE\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure to clear all-trans-retinal adducts from photoreceptor discs leads to formation of A2E and related bisretinoids that accumulate as lipofuscin in retinal pigment epithelial cells. These fluorophores are phototoxic and drive oxidative, lysosomal, and inflammatory stress in the RPE.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal pigment epithelial cell\"], \"biological_processes\": [\"response to oxidative stress\", \"phagocytosis\"]}}, {\"id\": \"Low vision rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Assistive devices, magnification aids, adaptive technologies, and rehabilitation strategies help maximize remaining functional vision and quality of life.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Lysosomal re-acidification (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Drug-mediated lysosomal re-acidification is an RPE-targeted strategy intended to restore cathepsin D activity and improve photoreceptor outer segment degradation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Macular atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive atrophy of the macular RPE and neurosensory retina, ranging from early beaten-bronze change to frank geographic atrophy.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0007401\"}}, {\"id\": \"RPE dysfunction and atrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lipofuscin toxicity, oxidative stress, and lysosomal failure culminate in loss of retinal pigment epithelial homeostasis, functional decline, and progressive atrophic injury in the macula.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"retinal pigment epithelial cell\"]}}, {\"id\": \"RPE endo-lysosomal dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Bisretinoid stress elevates lysosomal pH, impairs cathepsin D maturation and activity, and compromises degradation of photoreceptor outer segments in retinal pigment epithelium.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal pigment epithelial cell\"], \"biological_processes\": [\"lysosome organization\", \"phagocytosis\"]}}, {\"id\": \"Reduced visual acuity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive loss of central visual acuity is the dominant presenting complaint and often worsens to 20/200 or worse over time.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0007663\"}}, {\"id\": \"Retinoid-adduct retention and bisretinoid precursor formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure to clear all-trans-retinal adducts from photoreceptor outer segment discs promotes retention of retinoid-phospholipid intermediates and formation of toxic bisretinoid precursors upstream of A2E and lipofuscin accumulation.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"photoreceptor cell\", \"retinal cone cell\", \"retinal rod cell\"], \"biological_processes\": [\"retinoid metabolic process\"]}}, {\"id\": \"Secondary macular photoreceptor degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of retinal pigment epithelial support drives progressive degeneration of macular photoreceptors, especially cones, leading to central visual dysfunction.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal cone cell\", \"retinal rod cell\"], \"biological_processes\": [\"visual perception\"]}}, {\"id\": \"Stem cell therapy (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Transplantation of retinal pigment epithelial cells derived from pluripotent stem cells is being explored to replace degenerated RPE and preserve retinal structure.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Visual cycle modulators (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pharmacologic strategies such as emixustat and deuterated vitamin A derivatives aim to slow the visual cycle and reduce bisretinoid formation.\\n\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"ABCA4 transporter dysfunction\", \"target\": \"Retinoid-adduct retention and bisretinoid precursor formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Retinoid-adduct retention and bisretinoid precursor formation\", \"target\": \"Lipofuscin and A2E accumulation in RPE\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lipofuscin and A2E accumulation in RPE\", \"target\": \"RPE endo-lysosomal dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lipofuscin and A2E accumulation in RPE\", \"target\": \"RPE dysfunction and atrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"RPE endo-lysosomal dysfunction\", \"target\": \"RPE dysfunction and atrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"RPE dysfunction and atrophy\", \"target\": \"Secondary macular photoreceptor degeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary macular photoreceptor degeneration\", \"target\": \"Macular atrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary macular photoreceptor degeneration\", \"target\": \"Reduced visual acuity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary macular photoreceptor degeneration\", \"target\": \"Central scotoma\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Low vision rehabilitation\", \"target\": \"Reduced visual acuity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Low vision rehabilitation\", \"target\": \"Central scotoma\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Gene therapy (investigational)\", \"target\": \"ABCA4 transporter dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Visual cycle modulators (investigational)\", \"target\": \"Lipofuscin and A2E accumulation in RPE\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Stem cell therapy (investigational)\", \"target\": \"RPE dysfunction and atrophy\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lysosomal re-acidification (investigational)\", \"target\": \"RPE endo-lysosomal dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ABCA4\", \"target\": \"ABCA4 transporter dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6462,6 +6703,387 @@
         </div>
         
 
+        <!-- Experimental Models -->
+        
+        <div id="experimental-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fffbeb; color: #f59e0b;">🧫</div>
+                <h2 class="card-title">Experimental Models</h2>
+                <span class="card-count">2</span>
+            </div>
+            
+            <div class="item-box exp-model-box anchor-target" id="experimental-model-patient-derived-retinal-organoid-model">
+                <div class="item-name">
+                    Patient-derived retinal organoid model
+                    
+                    <span class="tag tag-exp-model-type">ORGANOID</span>
+                    
+                    
+                    <span class="tag tag-namo-type">
+                        <a href="https://w3id.org/monarch-initiative/namo/Organoid" target="_blank" style="color: inherit; text-decoration: none;">namo:Organoid ↗</a>
+                    </span>
+                    
+                </div>
+                
+                <div class="item-desc">Human retinal organoids generated from unresolved and genetically confirmed STGD1 cases to model genotype-phenotype correlations, photoreceptor-retina developmental abnormalities, and therapeutic-response hypotheses.
+</div>
+                
+                
+                <div class="tag-list" style="margin-top: 10px;">
+                    
+                    <span class="tag tag-condition">Stargardt disease</span>
+                    
+                    <span class="tag tag-condition">late-onset STGD1</span>
+                    
+                    <span class="tag tag-condition">unaffected control</span>
+                    
+                </div>
+                
+                
+                
+                <div class="model-detail-list">
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Organism</div>
+                        <div class="model-detail-value">
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank">human ↗</a>
+                            
+                        </div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Tissue</div>
+                        <div class="model-detail-value">
+                            
+                            <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank">retina ↗</a>
+                            
+                        </div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Cell source</div>
+                        <div class="model-detail-value">Patient-derived induced pluripotent stem cells differentiated into retinal organoids</div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Culture</div>
+                        <div class="model-detail-value">Three-dimensional retinal organoid culture</div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Publication</div>
+                        <div class="model-detail-value">
+                            <a href="http://www.ncbi.nlm.nih.gov/pubmed/39971915" target="_blank">PMID:39971915 ↗</a>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+                
+                
+    
+    <div class="findings-section">
+        <div class="findings-title">Findings</div>
+        
+        <div class="finding-item">
+            
+            <div class="finding-statement">Retinal organoids recapitulate genotype-dependent developmental and transcriptomic abnormalities in STGD1</div>
+            
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39971915" target="_blank">PMID:39971915</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Collectively, these results highlight the suitability of retinal organoids in STGD1 modelling."</div>
+                
+                
+                <div class="evidence-explanation">Establishes retinal organoids as a disease-relevant model system for STGD1.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39971915" target="_blank">PMID:39971915</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Their ability to display genotype-phenotype correlations enhances their utility as a platform for therapeutic development."</div>
+                
+                
+                <div class="evidence-explanation">Supports use of retinal organoids for mechanistic stratification and therapy development.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+                <div style="margin-top: 8px; font-style: italic; font-size: 0.85rem; color: var(--text-muted);">This is the primary NAMO-style organoid anchor for Stargardt disease in dismech.
+</div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39971915" target="_blank">PMID:39971915</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Collectively, these results highlight the suitability of retinal organoids in STGD1 modelling."</div>
+                
+                
+                <div class="evidence-explanation">Supports a first-class Stargardt retinal organoid model entry.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box exp-model-box anchor-target" id="experimental-model-stgd1-ipsc-derived-rpe-disease-in-a-dish-model">
+                <div class="item-name">
+                    STGD1 iPSC-derived RPE disease-in-a-dish model
+                    
+                    <span class="tag tag-exp-model-type">IPSC_DERIVED_MODEL</span>
+                    
+                    
+                    <span class="tag tag-namo-type">
+                        <a href="https://w3id.org/monarch-initiative/namo/TwoDCellCulture" target="_blank" style="color: inherit; text-decoration: none;">namo:TwoDCellCulture ↗</a>
+                    </span>
+                    
+                </div>
+                
+                <div class="item-desc">Patient-derived induced pluripotent stem cell retinal pigment epithelium model revealing autofluorescent-material accumulation, lysosomal alkalinization, and cathepsin D dysfunction in STGD1.
+</div>
+                
+                
+                <div class="tag-list" style="margin-top: 10px;">
+                    
+                    <span class="tag tag-condition">Stargardt disease</span>
+                    
+                    <span class="tag tag-condition">confirmed STGD1 patient-derived RPE</span>
+                    
+                </div>
+                
+                
+                <div class="tag-list" style="margin-top: 10px;">
+                    
+                    <span class="tag tag-cell">
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" style="color: inherit; text-decoration: none;">retinal pigment epithelial cell ↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="model-detail-list">
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Organism</div>
+                        <div class="model-detail-value">
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank">human ↗</a>
+                            
+                        </div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Tissue</div>
+                        <div class="model-detail-value">
+                            
+                            <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank">retina ↗</a>
+                            
+                        </div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Cell source</div>
+                        <div class="model-detail-value">Patient-derived induced pluripotent stem cell retinal pigment epithelium</div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Culture</div>
+                        <div class="model-detail-value">Two-dimensional disease-in-a-dish retinal pigment epithelium culture</div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Publication</div>
+                        <div class="model-detail-value">
+                            <a href="http://www.ncbi.nlm.nih.gov/pubmed/38837708" target="_blank">PMID:38837708 ↗</a>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+                
+                
+    
+    <div class="findings-section">
+        <div class="findings-title">Findings</div>
+        
+        <div class="finding-item">
+            
+            <div class="finding-statement">STGD1 iPSC-RPE cultures show lysosomal dysfunction and impaired cathepsin D processing linked to ABCA4 deficiency</div>
+            
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38837708" target="_blank">PMID:38837708</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"we identified cathepsin D (CatD), the primary RPE lysosomal protease, as a key molecular player contributing to endo-lysosomal dysfunction in STGD1 using a newly developed &#34;disease-in-a-dish&#34; RPE model from confirmed STGD1 patients"</div>
+                
+                
+                <div class="evidence-explanation">Directly supports disease-relevant mechanistic fidelity of the iPSC-RPE model.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38837708" target="_blank">PMID:38837708</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Induced pluripotent stem cell (iPSC)-derived RPE originating from three STGD1 patients exhibited elevated lysosomal pH, as previously reported in Abca4-/- mice. CatD protein maturation and activity were impaired in RPE from STGD1 patients and Abca4-/- mice."</div>
+                
+                
+                <div class="evidence-explanation">Confirms the lysosomal and protease defects captured by the model.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+                <div style="margin-top: 8px; font-style: italic; font-size: 0.85rem; color: var(--text-muted);">Provides the main non-organoid NAMO bridge for Stargardt, complementing retinal organoid transcriptomic models.
+</div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38837708" target="_blank">PMID:38837708</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"dysfunctional ABCA4 in STGD1 RPE cells results in intracellular accumulation of autofluorescent material and phosphatidylethanolamine (PE)"</div>
+                
+                
+                <div class="evidence-explanation">Supports the disease-in-a-dish RPE platform as a core Stargardt experimental model.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+        </div>
+        
+
         <!-- Computational Models -->
         
 
@@ -6478,7 +7100,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Stargardt Disease
 creation_date: &#34;2026-02-26T00:00:00Z&#34;
-updated_date: &#34;2026-03-17T00:00:00Z&#34;
+updated_date: &#34;2026-03-30T00:00:00Z&#34;
 category: Mendelian
 description: &gt;
   Stargardt disease (STGD1) is the most common inherited macular dystrophy, typically
@@ -6552,6 +7174,35 @@ inheritance:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Stargardt disease (STGD, also known as fundus flavimaculatus; FFM) is an autosomal recessive retinal disorder characterized by a juvenile-onset macular dystrophy, alterations of the peripheral retina, and subretinal deposition of lipofuscin-like material.&#34;
     explanation: This landmark genetic paper directly supports autosomal recessive inheritance for classic ABCA4-related Stargardt disease.
+prevalence:
+- population: Netherlands nationwide registry, 2018 point prevalence
+  percentage: approximately 1 in 22,000 to 1 in 19,000
+  notes: &gt;-
+    This registry-derived estimate is based on clinically diagnosed STGD1 cases
+    and includes a sensitivity analysis for potentially unregistered cases.
+  evidence:
+  - reference: PMID:34431609
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Results:  A total of 800 patients were registered, 56% were female and 83% were of European ancestry. The incidence was 1.67-1.95:1,000,000 per year and the point prevalence in 2018 was approximately 1:22,000-1:19,000 (with and without 10% of potentially unregistered cases).
+    explanation: &gt;-
+      This nationwide Dutch registry provides one of the strongest direct
+      point-prevalence estimates for clinically diagnosed Stargardt disease.
+- population: Israeli nationwide inherited retinal disease cohort
+  percentage: approximately 1 in 16,000
+  notes: &gt;-
+    This is a phenotype-level nationwide prevalence estimate from a multicenter
+    Israeli inherited retinal disease consortium.
+  evidence:
+  - reference: PMID:38753338
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Results:  Among the 9396 participants in our cohort, the most common IRD in Israel was retinitis pigmentosa with a disease prevalence of approximately 1:2400 individuals, followed by cone-rod dystrophy (approximately 1:14 000), Stargardt disease (approximately 1:16 000), Usher syndrome (approximately 1:16,000), and congenital stationary night blindness (approximately 1:18 000).
+    explanation: &gt;-
+      This multicenter nationwide Israeli study independently supports a
+      Stargardt prevalence in the roughly 1-in-16,000 range.
 pathophysiology:
 - name: ABCA4 transporter dysfunction
   description: &gt;
@@ -7597,6 +8248,102 @@ environmental:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;approximately 29% and 60% of astronauts on short and long-duration missions, respectively, experienced a degradation in distant and near visual acuity&#34;
     explanation: The high incidence of visual acuity degradation in astronauts establishes spaceflight as a significant environmental risk factor for retinal dysfunction.
+experimental_models:
+- name: Patient-derived retinal organoid model
+  description: &gt;
+    Human retinal organoids generated from unresolved and genetically confirmed
+    STGD1 cases to model genotype-phenotype correlations, photoreceptor-retina
+    developmental abnormalities, and therapeutic-response hypotheses.
+  experimental_model_type: ORGANOID
+  namo_type: namo:Organoid
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  tissue_term:
+    preferred_term: retina
+    term:
+      id: UBERON:0000966
+      label: retina
+  conditions:
+  - Stargardt disease
+  - late-onset STGD1
+  - unaffected control
+  cell_source: Patient-derived induced pluripotent stem cells differentiated into retinal organoids
+  culture_system: Three-dimensional retinal organoid culture
+  publication: PMID:39971915
+  findings:
+  - statement: Retinal organoids recapitulate genotype-dependent developmental and transcriptomic abnormalities in STGD1
+    evidence:
+    - reference: PMID:39971915
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &#34;Collectively, these results highlight the suitability of retinal organoids in STGD1 modelling.&#34;
+      explanation: Establishes retinal organoids as a disease-relevant model system for STGD1.
+    - reference: PMID:39971915
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &#34;Their ability to display genotype-phenotype correlations enhances their utility as a platform for therapeutic development.&#34;
+      explanation: Supports use of retinal organoids for mechanistic stratification and therapy development.
+  evidence:
+  - reference: PMID:39971915
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;Collectively, these results highlight the suitability of retinal organoids in STGD1 modelling.&#34;
+    explanation: Supports a first-class Stargardt retinal organoid model entry.
+  notes: &gt;
+    This is the primary NAMO-style organoid anchor for Stargardt disease in dismech.
+- name: STGD1 iPSC-derived RPE disease-in-a-dish model
+  description: &gt;
+    Patient-derived induced pluripotent stem cell retinal pigment epithelium model
+    revealing autofluorescent-material accumulation, lysosomal alkalinization, and
+    cathepsin D dysfunction in STGD1.
+  experimental_model_type: IPSC_DERIVED_MODEL
+  namo_type: namo:TwoDCellCulture
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  tissue_term:
+    preferred_term: retina
+    term:
+      id: UBERON:0000966
+      label: retina
+  cell_types:
+  - preferred_term: retinal pigment epithelial cell
+    term:
+      id: CL:0002586
+      label: retinal pigment epithelial cell
+  conditions:
+  - Stargardt disease
+  - confirmed STGD1 patient-derived RPE
+  cell_source: Patient-derived induced pluripotent stem cell retinal pigment epithelium
+  culture_system: Two-dimensional disease-in-a-dish retinal pigment epithelium culture
+  publication: PMID:38837708
+  findings:
+  - statement: STGD1 iPSC-RPE cultures show lysosomal dysfunction and impaired cathepsin D processing linked to ABCA4 deficiency
+    evidence:
+    - reference: PMID:38837708
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &#34;we identified cathepsin D (CatD), the primary RPE lysosomal protease, as a key molecular player contributing to endo-lysosomal dysfunction in STGD1 using a newly developed \&#34;disease-in-a-dish\&#34; RPE model from confirmed STGD1 patients&#34;
+      explanation: Directly supports disease-relevant mechanistic fidelity of the iPSC-RPE model.
+    - reference: PMID:38837708
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &#34;Induced pluripotent stem cell (iPSC)-derived RPE originating from three STGD1 patients exhibited elevated lysosomal pH, as previously reported in Abca4-/- mice. CatD protein maturation and activity were impaired in RPE from STGD1 patients and Abca4-/- mice.&#34;
+      explanation: Confirms the lysosomal and protease defects captured by the model.
+  evidence:
+  - reference: PMID:38837708
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;dysfunctional ABCA4 in STGD1 RPE cells results in intracellular accumulation of autofluorescent material and phosphatidylethanolamine (PE)&#34;
+    explanation: Supports the disease-in-a-dish RPE platform as a core Stargardt experimental model.
+  notes: &gt;
+    Provides the main non-organoid NAMO bridge for Stargardt, complementing retinal
+    organoid transcriptomic models.
 datasets:
 - accession: geo:GSE236097
   title: &#34;Unravelling Stargardt Disease (STGD1): Modelling Genotype-Phenotype Correlations and Unresolved Genetic Variants in iPSC-Derived Retinal Organoids&#34;

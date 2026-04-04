@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1037,6 +1101,52 @@
             text-decoration: underline;
         }
 
+        /* Experimental Models */
+        .exp-model-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .exp-model-box .item-name { color: #92400e; }
+        .exp-model-box .item-desc { color: #b45309; }
+
+        .tag-exp-model-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .tag-namo-type {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+        .tag-condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .model-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .model-detail-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .model-detail-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 110px;
+        }
+        .model-detail-value {
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+        }
+        .model-detail-value a {
+            color: inherit;
+        }
+
         /* Computational Models */
         .comp-model-box {
             background: #f0fdf4;
@@ -1382,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1470,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1477,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1489,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1637,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1723,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1737,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1792,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -2004,31 +2220,31 @@
     {% endif %}
     {% endmacro %}
 
-    {% macro render_inheritance_meta(inh) %}
-    {% set has_meta = inh.inheritance_term or inh.penetrance or inh.penetrance_percentage or inh.expressivity or inh.de_novo_rate %}
+    {% macro render_inheritance_meta(inheritance_item) %}
+    {% set has_meta = inheritance_item.inheritance_term or inheritance_item.penetrance or inheritance_item.penetrance_percentage or inheritance_item.expressivity or inheritance_item.de_novo_rate %}
     {% if has_meta %}
     <div class="item-meta">
-        {% if inh.inheritance_term %}
+        {% if inheritance_item.inheritance_term %}
         <span class="tag tag-classification">
-            {{ inh.inheritance_term.preferred_term or (inh.inheritance_term.term and inh.inheritance_term.term.label) or 'Inheritance term' }}
+            {{ inheritance_item.inheritance_term.preferred_term or (inheritance_item.inheritance_term.term and inheritance_item.inheritance_term.term.label) or 'Inheritance term' }}
         </span>
         {% endif %}
-        {% if inh.penetrance %}
-        <span class="tag tag-classification">Penetrance: {{ inh.penetrance }}</span>
+        {% if inheritance_item.penetrance %}
+        <span class="tag tag-classification">Penetrance: {{ inheritance_item.penetrance }}</span>
         {% endif %}
-        {% if inh.penetrance_percentage %}
-        <span class="tag tag-classification">Penetrance %: {{ inh.penetrance_percentage }}</span>
+        {% if inheritance_item.penetrance_percentage %}
+        <span class="tag tag-classification">Penetrance %: {{ inheritance_item.penetrance_percentage }}</span>
         {% endif %}
-        {% if inh.expressivity %}
-        <span class="tag tag-classification">Expressivity: {{ inh.expressivity }}</span>
+        {% if inheritance_item.expressivity %}
+        <span class="tag tag-classification">Expressivity: {{ inheritance_item.expressivity }}</span>
         {% endif %}
-        {% if inh.de_novo_rate %}
-        <span class="tag tag-classification">De novo rate: {{ inh.de_novo_rate }}</span>
+        {% if inheritance_item.de_novo_rate %}
+        <span class="tag tag-classification">De novo rate: {{ inheritance_item.de_novo_rate }}</span>
         {% endif %}
     </div>
     {% endif %}
-    {% if inh.parent_of_origin_effect %}
-    <div class="item-desc"><strong>Parent-of-origin effect:</strong> {{ inh.parent_of_origin_effect }}</div>
+    {% if inheritance_item.parent_of_origin_effect %}
+    <div class="item-desc"><strong>Parent-of-origin effect:</strong> {{ inheritance_item.parent_of_origin_effect }}</div>
     {% endif %}
     {% endmacro %}
 
@@ -2054,6 +2270,9 @@
                     </a>
                 </span>
                 {% endif %}
+                {% if pathograph_node_count %}
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph {{ pathograph_node_count }}</a>
+                {% endif %}
                 {% for parent in disorder.parents or [] %}
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">{{ parent }}</span>
                 {% endfor %}
@@ -2071,13 +2290,18 @@
         {% set phenotypes_count = (disorder.phenotypes or []) | length %}
         {% set genetic_count = (disorder.genetic or []) | length %}
         {% set treatments_count = (disorder.treatments or []) | length %}
+        {% set pathograph_nodes_count = pathograph_node_count or 0 %}
         {% set definitions_count = (disorder.definitions or []) | length %}
         {% set inheritance_count = (disorder.inheritance or []) | length %}
         {% set subtypes_count = (disorder.has_subtypes or []) | length %}
         {% set differentials_count = (disorder.differential_diagnoses or []) | length %}
         {% set datasets_count = (disorder.datasets or []) | length %}
         {% set trials_count = (disorder.clinical_trials or []) | length %}
-        {% set models_count = (disorder.computational_models or []) | length %}
+        {% set experimental_models = disorder.experimental_models or [] %}
+        {% set computational_models = disorder.computational_models or [] %}
+        {% set experimental_models_count = experimental_models | length %}
+        {% set computational_models_count = computational_models | length %}
+        {% set models_count = experimental_models_count + computational_models_count %}
         {% set reports_count = (report_sections or []) | length %}
         {% set ns = namespace(mappings_count=0) %}
         {% for mapping_list in (disorder.mappings or {}).values() %}
@@ -2162,6 +2386,19 @@
             <div class="stat-item">
                 <div class="stat-value">{{ phenotypes_count }}</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            {% endif %}
+            {% if pathograph_nodes_count %}
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">{{ pathograph_nodes_count }}</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
+            </a>
+            {% else %}
+            <div class="stat-item">
+                <div class="stat-value">{{ pathograph_nodes_count }}</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             {% endif %}
             {% if genetic_count %}
@@ -2534,23 +2771,23 @@
                 <h2 class="card-title">Inheritance</h2>
                 <span class="card-count">{{ disorder.inheritance | length }}</span>
             </div>
-            {% for inh in disorder.inheritance %}
+            {% for inheritance_item in disorder.inheritance %}
             <div class="item-box inheritance-box">
                 <div class="item-name">
-                    {{ inh.name }}
-                    {% if inh.inheritance_term and inh.inheritance_term.term %}
+                    {{ inheritance_item.name }}
+                    {% if inheritance_item.inheritance_term and inheritance_item.inheritance_term.term %}
                     <span class="phenotype-id">
-                        <a href="{{ inh.inheritance_term.term.id | curie_to_url }}" target="_blank">
-                            {{ inh.inheritance_term.term.id }}
+                        <a href="{{ inheritance_item.inheritance_term.term.id | curie_to_url }}" target="_blank">
+                            {{ inheritance_item.inheritance_term.term.id }}
                         </a>
                     </span>
                     {% endif %}
                 </div>
-                {% if inh.description %}
-                <div class="item-desc">{{ inh.description }}</div>
+                {% if inheritance_item.description %}
+                <div class="item-desc">{{ inheritance_item.description }}</div>
                 {% endif %}
-                {{ render_inheritance_meta(inh) }}
-                {{ render_evidence(inh.evidence) }}
+                {{ render_inheritance_meta(inheritance_item) }}
+                {{ render_evidence(inheritance_item.evidence) }}
             </div>
             {% endfor %}
         </div>
@@ -2610,8 +2847,8 @@
                             {% endfor %}
                         {% endif %}
                         {% if subtype.inheritance %}
-                            {% for inh in subtype.inheritance %}
-                            <span class="subtype-inheritance-tag">{{ inh.inheritance_term.preferred_term if inh.inheritance_term else inh }}</span>
+                            {% for inheritance_item in subtype.inheritance %}
+                            <span class="subtype-inheritance-tag">{{ inheritance_item.inheritance_term.preferred_term if inheritance_item.inheritance_term else inheritance_item }}</span>
                             {% endfor %}
                         {% endif %}
                     </div>
@@ -2671,7 +2908,7 @@
                 <span class="card-count">{{ disorder.pathophysiology | length }}</span>
             </div>
             {% for patho in disorder.pathophysiology %}
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="{{ patho._anchor_id }}">
                 <div class="item-name">{{ patho.name }}</div>
                 {% if patho.description %}
                 <div class="item-desc">{{ patho.description }}</div>
@@ -2763,6 +3000,24 @@
                     {% endfor %}
                 </div>
                 {% endif %}
+                {% if patho._experimental_model_links %}
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Experimental models</div>
+                    <div class="crosslink-list">
+                        {% for link in patho._experimental_model_links %}
+                        <div class="crosslink-item">
+                            <a href="#{{ link.model_anchor }}">{{ link.model_name }}</a>
+                            {% if link.experimental_model_type %}
+                            <span class="crosslink-meta">{{ link.experimental_model_type | replace('_', ' ') }}</span>
+                            {% endif %}
+                            {% if link.description %}
+                            <span class="crosslink-desc">{{ link.description }}</span>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
                 {{ render_evidence(patho.evidence) }}
             </div>
             {% endfor %}
@@ -2801,6 +3056,7 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             {% if graph_issues %}
             <div class="graph-warning">
                 <strong>Referential integrity issues ({{ graph_issues | length }}):</strong>
@@ -2818,7 +3074,7 @@
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for {{ disorder.name }}</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
@@ -2969,8 +3225,8 @@
                 </div>
                 {% if gene.inheritance %}
                 <div class="item-meta">
-                    {% for inh in gene.inheritance %}
-                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">{{ inh.name }}</span>
+                    {% for inheritance_item in gene.inheritance %}
+                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">{{ inheritance_item.name }}</span>
                     {% endfor %}
                 </div>
                 {% endif %}
@@ -3332,15 +3588,134 @@
         </div>
         {% endif %}
 
-        <!-- Computational Models -->
-        {% if disorder.computational_models %}
+        <!-- Experimental Models -->
+        {% if experimental_models %}
+        <div id="experimental-models"></div>
         <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fffbeb; color: #f59e0b;">🧫</div>
+                <h2 class="card-title">Experimental Models</h2>
+                <span class="card-count">{{ experimental_models | length }}</span>
+            </div>
+            {% for model in experimental_models %}
+            <div class="item-box exp-model-box anchor-target"{% if model._anchor_id %} id="{{ model._anchor_id }}"{% endif %}>
+                <div class="item-name">
+                    {{ model.name }}
+                    {% if model.experimental_model_type %}
+                    <span class="tag tag-exp-model-type">{{ model.experimental_model_type }}</span>
+                    {% endif %}
+                    {% if model.namo_type %}
+                    <span class="tag tag-namo-type">
+                        <a href="{{ model.namo_type | curie_to_url }}" target="_blank" style="color: inherit; text-decoration: none;">{{ model.namo_type }} ↗</a>
+                    </span>
+                    {% endif %}
+                </div>
+                {% if model.description %}
+                <div class="item-desc">{{ model.description }}</div>
+                {% endif %}
+                {% if model.conditions %}
+                <div class="tag-list" style="margin-top: 10px;">
+                    {% for condition in model.conditions %}
+                    <span class="tag tag-condition">{{ condition }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% if model.cell_types %}
+                <div class="tag-list" style="margin-top: 10px;">
+                    {% for cell in model.cell_types %}
+                    <span class="tag tag-cell">
+                        {% if cell.term and cell.term.id %}
+                        <a href="{{ cell.term.id | curie_to_url }}" target="_blank" style="color: inherit; text-decoration: none;">{{ cell.preferred_term or cell.term.label }} ↗</a>
+                        {% else %}
+                        {{ cell.preferred_term or (cell.term.label if cell.term else '') }}
+                        {% endif %}
+                    </span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% if model.organism or model.tissue_term or model.cell_source or model.culture_system or model.publication %}
+                <div class="model-detail-list">
+                    {% if model.organism %}
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Organism</div>
+                        <div class="model-detail-value">
+                            {% if model.organism.term and model.organism.term.id %}
+                            <a href="{{ model.organism.term.id | curie_to_url }}" target="_blank">{{ model.organism.preferred_term or model.organism.term.label }} ↗</a>
+                            {% else %}
+                            {{ model.organism.preferred_term or (model.organism.term.label if model.organism.term else '') }}
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% if model.tissue_term %}
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Tissue</div>
+                        <div class="model-detail-value">
+                            {% if model.tissue_term.term and model.tissue_term.term.id %}
+                            <a href="{{ model.tissue_term.term.id | curie_to_url }}" target="_blank">{{ model.tissue_term.preferred_term or model.tissue_term.term.label }} ↗</a>
+                            {% else %}
+                            {{ model.tissue_term.preferred_term or (model.tissue_term.term.label if model.tissue_term.term else '') }}
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% if model.cell_source %}
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Cell source</div>
+                        <div class="model-detail-value">{{ model.cell_source }}</div>
+                    </div>
+                    {% endif %}
+                    {% if model.culture_system %}
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Culture</div>
+                        <div class="model-detail-value">{{ model.culture_system }}</div>
+                    </div>
+                    {% endif %}
+                    {% if model.publication %}
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Publication</div>
+                        <div class="model-detail-value">
+                            <a href="{{ model.publication | curie_to_url }}" target="_blank">{{ model.publication }} ↗</a>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% if model._modeled_mechanisms_resolved %}
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Pathograph links</div>
+                    <div class="crosslink-list">
+                        {% for link in model._modeled_mechanisms_resolved %}
+                        <div class="crosslink-item">
+                            <a href="#{{ link._target_anchor }}">{{ link.target }}</a>
+                            {% if link.description %}
+                            <span class="crosslink-desc">{{ link.description }}</span>
+                            {% endif %}
+                            {{ render_evidence(link.evidence, max_visible=1) }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                {{ render_findings(model.findings) }}
+                {% if model.notes %}
+                <div style="margin-top: 8px; font-style: italic; font-size: 0.85rem; color: var(--text-muted);">{{ model.notes }}</div>
+                {% endif %}
+                {{ render_evidence(model.evidence) }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Computational Models -->
+        {% if computational_models %}
+        <div class="card"{% if not experimental_models %} id="models"{% endif %}>
             <div class="card-header">
                 <div class="card-icon" style="background: #f0fdf4; color: #22c55e;">🧮</div>
                 <h2 class="card-title">Computational Models</h2>
-                <span class="card-count">{{ disorder.computational_models | length }}</span>
+                <span class="card-count">{{ computational_models | length }}</span>
             </div>
-            {% for model in disorder.computational_models %}
+            {% for model in computational_models %}
             <div class="item-box comp-model-box">
                 <div class="item-name">
                     {{ model.name }}

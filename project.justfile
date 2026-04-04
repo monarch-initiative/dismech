@@ -506,16 +506,22 @@ deploy-browser: gen-browser-data
     @echo "Browser app ready at app/index.html"
     @echo "Data generated with $(find {{kb_dir}} -maxdepth 1 -type f -name '*.yaml' ! -name '*.history.yaml' | wc -l | tr -d ' ') disorders"
 
-# Generate individual HTML pages for all disorders and comorbidities
+# Generate individual HTML pages for all disorders, comorbidities, and modules
 [group('Pages')]
 gen-pages:
     uv run python -m dismech.render --all
-    @echo "Generated $(ls -1 pages/disorders/*.html 2>/dev/null | wc -l | tr -d ' ') disorder pages and $(ls -1 pages/comorbidities/*.html 2>/dev/null | wc -l | tr -d ' ') comorbidity pages"
+    @echo "Generated $(ls -1 pages/disorders/*.html 2>/dev/null | wc -l | tr -d ' ') disorder pages, $(ls -1 pages/comorbidities/*.html 2>/dev/null | wc -l | tr -d ' ') comorbidity pages, and $(ls -1 pages/modules/*.html 2>/dev/null | wc -l | tr -d ' ') module pages"
 
 # Generate a single disorder page
 [group('Pages')]
 gen-page file:
     uv run python -m dismech.render {{file}}
+
+# Generate all shared module pages
+[group('Pages')]
+gen-module-pages:
+    uv run python -m dismech.render --module {{modules_dir}}
+    @echo "Generated $(ls -1 pages/modules/*.html 2>/dev/null | wc -l | tr -d ' ') module pages"
 
 # Generate a single comorbidity page
 [group('Pages')]
@@ -543,6 +549,12 @@ gen-all: gen-browser-data gen-pages gen-schema-docs
     @echo "Generated browser data, disorder/comorbidity pages, and schema docs"
 
 # ============== KGX Export ==============
+
+# Generate derived disease-to-ontology context score tables
+[group('Export')]
+export-context-scores output_dir="output/context_scores":
+    mkdir -p {{output_dir}}
+    uv run dismech-context-scores -i {{kb_dir}} -o {{output_dir}}
 
 # Generate KGX edges from disorder knowledge base
 [group('Export')]
@@ -1007,7 +1019,7 @@ normalize-cache:
     echo "Normalizing enum caches..."
     for f in cache/enums/*.csv; do
         header=$(head -1 "$f")
-        tail -n+2 "$f" | sort > /tmp/_sorted_enum.csv
+        tail -n+2 "$f" | sort -u > /tmp/_sorted_enum.csv
         echo "$header" > "$f"
         cat /tmp/_sorted_enum.csv >> "$f"
     done
@@ -1016,17 +1028,42 @@ normalize-cache:
 # Compare dismech phenotypes against OMIM/Orphanet for a single disease
 [group('Analysis')]
 d2p-compare disease:
-    uv run python -m dismech.d2p_compare compare "{{disease}}"
+    uv run python -m dismech.compare.d2p compare "{{disease}}"
 
 # Compare all diseases in the KB against OMIM/Orphanet
 [group('Analysis')]
 d2p-compare-all:
-    uv run python -m dismech.d2p_compare compare-all
+    uv run python -m dismech.compare.d2p compare-all
 
 # Compare with JSON output
 [group('Analysis')]
 d2p-compare-json disease:
-    uv run python -m dismech.d2p_compare compare "{{disease}}" --format json
+    uv run python -m dismech.compare.d2p compare "{{disease}}" --format json
+
+# Compare G2P gene assertions against dismech for a single gene
+[group('Analysis')]
+g2p-compare gene:
+    uv run python -m dismech.compare.g2p compare "{{gene}}"
+
+# Compare multiple G2P genes against dismech
+[group('Analysis')]
+g2p-compare-all *genes:
+    uv run python -m dismech.compare.g2p compare-all {{genes}}
+
+# Compare the full current G2P release against dismech
+[group('Analysis')]
+g2p-compare-release:
+    uv run python -m dismech.compare.g2p compare-all --all-genes
+
+# Export actionable row-level triage for the full current G2P release
+[group('Analysis')]
+g2p-compare-release-triage:
+    uv run python -m dismech.compare.g2p compare-all --all-genes --format tsv --actionable-only
+
+# Compare G2P with JSON output
+[group('Analysis')]
+g2p-compare-json gene:
+    uv run python -m dismech.compare.g2p compare "{{gene}}" --format json
 
 # Run causal perturbation analysis on a disorder
 # Examples:

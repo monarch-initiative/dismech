@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1037,6 +1101,52 @@
             text-decoration: underline;
         }
 
+        /* Experimental Models */
+        .exp-model-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .exp-model-box .item-name { color: #92400e; }
+        .exp-model-box .item-desc { color: #b45309; }
+
+        .tag-exp-model-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .tag-namo-type {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+        .tag-condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .model-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .model-detail-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .model-detail-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 110px;
+        }
+        .model-detail-value {
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+        }
+        .model-detail-value a {
+            color: inherit;
+        }
+
         /* Computational Models */
         .comp-model-box {
             background: #f0fdf4;
@@ -1382,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1470,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1477,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1489,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1637,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1723,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1737,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1792,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1877,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 11</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Leukodystrophy</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Lysosomal Storage Disease</span>
@@ -1893,6 +2112,11 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
+        
+        
         
         
         
@@ -1930,7 +2154,7 @@
             
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
-                <div class="stat-value">5</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Pathophysiology</div>
             </div>
             </a>
@@ -1946,6 +2170,14 @@
             <div class="stat-item">
                 <div class="stat-value">8</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">11</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2022,13 +2254,13 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">8</span>
             </div>
             
-            <div class="item-box pathophys-box">
-                <div class="item-name">GALC Deficiency and Psychosine Accumulation</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-galc-deficiency">
+                <div class="item-name">GALC Deficiency</div>
                 
-                <div class="item-desc">Loss-of-function mutations in the GALC gene lead to deficiency of galactosylceramidase, causing accumulation of the cytotoxic lipid psychosine (galactosylsphingosine) in oligodendrocytes and Schwann cells. Psychosine is generated catabolically through deacylation of galactosylceramide by acid ceramidase.
+                <div class="item-desc">Loss-of-function mutations in GALC cause deficiency of the lysosomal enzyme galactosylceramidase.
 </div>
                 
                 
@@ -2096,29 +2328,12 @@
                 
                 
                 
-                <div class="item-meta">
-                    
-                    <span class="tag tag-location">
-                        brain white matter
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0003544" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-                    <span class="tag tag-location">
-                        cerebral hemisphere white matter
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0002437" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-                </div>
                 
                 
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
             
@@ -2139,7 +2354,100 @@
 "</div>
                 
                 
-                <div class="evidence-explanation">Confirms that GALC deficiency causes psychosine accumulation, and that psychosine is the key cytotoxic agent in Krabbe disease.
+                <div class="evidence-explanation">Confirms GALC deficiency as the initiating enzymatic defect in Krabbe disease.
+</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-psychosine-accumulation">
+                <div class="item-name">Psychosine Accumulation</div>
+                
+                <div class="item-desc">Psychosine is the key toxic lipid that accumulates in Krabbe disease.
+</div>
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-cell">
+                        oligodendrocyte
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+                    
+                    <span class="tag tag-cell">
+                        Schwann cell
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-location">
+                        brain white matter
+                        
+                        <a href="http://purl.obolibrary.org/obo/UBERON_0003544" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+                    <span class="tag tag-location">
+                        cerebral hemisphere white matter
+                        
+                        <a href="http://purl.obolibrary.org/obo/UBERON_0002437" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+                </div>
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31527255" target="_blank">PMID:31527255</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Infantile globoid cell leukodystrophy (GLD, Krabbe disease) is a fatal demyelinating disorder caused by a deficiency in the lysosomal enzyme galactosylceramidase (GALC). GALC deficiency leads to the accumulation of the cytotoxic glycolipid, galactosylsphingosine (psychosine).
+"</div>
+                
+                
+                <div class="evidence-explanation">Confirms psychosine accumulation as the key toxic storage abnormality in Krabbe disease.
 </div>
                 
             </div>
@@ -2166,6 +2474,59 @@
                 
             </div>
             
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-oligodendrocyte-and-schwann-cell-toxicity">
+                <div class="item-name">Oligodendrocyte and Schwann Cell Toxicity</div>
+                
+                <div class="item-desc">Psychosine toxicity injures myelin-producing oligodendrocytes and Schwann cells.
+</div>
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-cell">
+                        oligodendrocyte
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+                    
+                    <span class="tag tag-cell">
+                        Schwann cell
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
@@ -2183,7 +2544,7 @@
 "</div>
                 
                 
-                <div class="evidence-explanation">Seminal paper establishing that psychosine accumulation kills oligodendrocytes, forming the basis of the psychosine hypothesis.
+                <div class="evidence-explanation">This seminal paper directly supports oligodendroglial toxicity from psychosine accumulation.
 </div>
                 
             </div>
@@ -2195,10 +2556,10 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-demyelination">
                 <div class="item-name">Demyelination</div>
                 
-                <div class="item-desc">Psychosine-mediated destruction of oligodendrocytes and Schwann cells causes progressive loss of myelin in the central and peripheral nervous systems. This leads to formation of multinucleated globoid cells (macrophages containing undigested galactosylceramide) and severe gliosis as hallmark neuropathological features.
+                <div class="item-desc">Krabbe disease causes progressive loss of myelin in the central and peripheral nervous systems.
 </div>
                 
                 
@@ -2285,10 +2646,11 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
             
@@ -2314,6 +2676,59 @@
                 
             </div>
             
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-globoid-cell-accumulation">
+                <div class="item-name">Globoid Cell Accumulation</div>
+                
+                <div class="item-desc">Multinucleated globoid macrophages accumulate in Krabbe disease white matter as a hallmark neuropathologic lesion.
+</div>
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-cell">
+                        microglial cell
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+                    
+                    <span class="tag tag-cell">
+                        macrophage
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
@@ -2331,29 +2746,7 @@
 "</div>
                 
                 
-                <div class="evidence-explanation">Quantifies the presence of globoid cells as a hallmark neuropathological feature, with more severe cases showing greater globoid cell burden.
-</div>
-                
-            </div>
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39636943" target="_blank">PMID:39636943</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"Kd organoids have no obvious defects in neurogenesis, astrogenesis, and oligodendrogenesis but manifest early myelination defects
-"</div>
-                
-                
-                <div class="evidence-explanation">Human iPSC-derived organoids recapitulate early myelination defects in Krabbe disease, showing shorter myelin internodes before frank demyelination occurs.
+                <div class="evidence-explanation">Quantifies the presence of globoid cells as a hallmark neuropathologic lesion in Krabbe disease.
 </div>
                 
             </div>
@@ -2365,10 +2758,10 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
-                <div class="item-name">Neuroinflammation</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-microglial-and-astrocyte-reactivity">
+                <div class="item-name">Microglial and Astrocyte Reactivity</div>
                 
-                <div class="item-desc">Psychosine accumulation triggers robust neuroinflammatory responses including microglial activation, astrogliosis, and elevated proinflammatory cytokines. This neuroinflammation contributes to progressive white matter destruction and neuronal damage.
+                <div class="item-desc">Krabbe disease triggers marked activation of microglia and astrocytes in affected white matter.
 </div>
                 
                 
@@ -2399,73 +2792,17 @@
                 
                 
                 
-                <div class="item-meta">
-                    
-                    <span class="tag tag-bio">
-                        microglial cell activation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0001774" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-    
-    
-                    
-                    <span class="tag tag-bio">
-                        inflammatory response
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-    
-    
-                    
-                </div>
                 
                 
                 
-                
-                <div class="item-meta">
-                    
-                    <span class="tag tag-location">
-                        brain white matter
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0003544" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-                </div>
                 
                 
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36113749" target="_blank">PMID:36113749</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"we quantified that an early-infantile case (age of death at 10 months) had about 3-fold increases in both globoid cells, a pathological hallmark for KD, and CD8-positive T lymphocytes, a pathological marker for multiple sclerosis, in the white matter
-"</div>
-                
-                
-                <div class="evidence-explanation">Demonstrates neuroinflammatory changes in Krabbe disease white matter including infiltration of CD8-positive T lymphocytes alongside globoid cells, indicating immune-mediated pathology.
-</div>
-                
-            </div>
             
             <div class="evidence-item">
                 <div class="evidence-header">
@@ -2484,7 +2821,7 @@
 "</div>
                 
                 
-                <div class="evidence-explanation">Demonstrates robust astrocyte and microglial reactivity in twitcher mouse brains that can be attenuated by rapamycin, confirming neuroinflammation as a key disease feature.
+                <div class="evidence-explanation">Demonstrates robust astrocyte and microglial reactivity in twitcher mouse brains, supporting a distinct glial-reactivity node.
 </div>
                 
             </div>
@@ -2496,7 +2833,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-inflammasome-activation">
                 <div class="item-name">Inflammasome Activation</div>
                 
                 <div class="item-desc">Non-canonical (caspase-11) and canonical (caspase-1) inflammasome pathways and gasdermin D are progressively induced in nervous tissue in Krabbe disease. Caspase-11 localizes to reactive microglia/macrophages and astrocytes, while caspase-1 and gasdermin D are restricted to reactive microglia/macrophages. This inflammasome signature accompanies demyelination and gliosis and may represent a therapeutic target.
@@ -2566,6 +2903,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2624,7 +2962,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-proteostasis-failure">
                 <div class="item-name">Proteostasis Failure</div>
                 
                 <div class="item-desc">Psychosine causes dysfunction of autophagy and the ubiquitin-proteasome system, leading to accumulation of insoluble ubiquitinated protein aggregates in the brain. This proteostasis failure contributes to neurodegeneration and can be partially rescued by mTOR inhibition with rapamycin.
@@ -2661,6 +2999,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -2729,6 +3068,29 @@
 
         <!-- Causal Graph (Pathograph) -->
         
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
+                <h2 class="card-title">Pathograph</h2>
+            </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
+            
+            <div class="pathograph-container" id="pathograph">
+                <div class="pathograph-legend" id="pathograph-legend"></div>
+                <svg id="pathograph-svg" role="img">
+                    <title>Pathograph: causal mechanism network for Krabbe Disease</title>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
+                </svg>
+                <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
+            </div>
+            <script>
+            (function() {
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"30-kb deletion (intron 10-17)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Large deletion encompassing exons 11-17, the most common pathogenic variant in European populations.\\n\"}, {\"id\": \"Demyelination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Krabbe disease causes progressive loss of myelin in the central and peripheral nervous systems.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"oligodendrocyte\", \"microglial cell\", \"macrophage\"], \"biological_processes\": [\"myelination\", \"central nervous system myelination\"], \"locations\": [\"brain white matter\", \"white matter of spinal cord\"]}}, {\"id\": \"GALC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"association\": \"Pathogenic Mutations\", \"variant_count\": 1}}, {\"id\": \"GALC Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss-of-function mutations in GALC cause deficiency of the lysosomal enzyme galactosylceramidase.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"oligodendrocyte\", \"Schwann cell\"], \"biological_processes\": [\"galactosylceramide metabolic process\", \"galactosylceramide catabolic process\", \"sphingolipid catabolic process\"]}}, {\"id\": \"Inflammasome Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Non-canonical (caspase-11) and canonical (caspase-1) inflammasome pathways and gasdermin D are progressively induced in nervous tissue in Krabbe disease. Caspase-11 localizes to reactive microglia/macrophages and astrocytes, while caspase-1 and gasdermin D are restricted to reactive microglia/macrophages. This inflammasome signature accompanies demyelination and gliosis and may represent a therapeutic target.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"microglial cell\", \"astrocyte\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"spinal cord\", \"brain white matter\"]}}, {\"id\": \"Leukodystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive white matter degeneration visible on MRI as symmetric signal abnormalities in cerebral white matter, with eventual atrophy.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002415\"}}, {\"id\": \"Microglial and Astrocyte Reactivity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Krabbe disease triggers marked activation of microglia and astrocytes in affected white matter.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"microglial cell\", \"astrocyte\"]}}, {\"id\": \"Oligodendrocyte and Schwann Cell Toxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Psychosine toxicity injures myelin-producing oligodendrocytes and Schwann cells.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"oligodendrocyte\", \"Schwann cell\"]}}, {\"id\": \"Peripheral Neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Demyelinating peripheral neuropathy due to Schwann cell loss, manifesting as hyporeflexia and reduced nerve conduction velocities.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007108\"}}, {\"id\": \"Proteostasis Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Psychosine causes dysfunction of autophagy and the ubiquitin-proteasome system, leading to accumulation of insoluble ubiquitinated protein aggregates in the brain. This proteostasis failure contributes to neurodegeneration and can be partially rescued by mTOR inhibition with rapamycin.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"autophagy\"], \"locations\": [\"brain white matter\"]}}, {\"id\": \"Psychosine Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Psychosine is the key toxic lipid that accumulates in Krabbe disease.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"oligodendrocyte\", \"Schwann cell\"], \"locations\": [\"brain white matter\", \"cerebral hemisphere white matter\"]}}], \"edges\": [{\"source\": \"GALC Deficiency\", \"target\": \"Psychosine Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Psychosine Accumulation\", \"target\": \"Oligodendrocyte and Schwann Cell Toxicity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Psychosine Accumulation\", \"target\": \"Proteostasis Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oligodendrocyte and Schwann Cell Toxicity\", \"target\": \"Demyelination\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Demyelination\", \"target\": \"Leukodystrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Demyelination\", \"target\": \"Peripheral Neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Microglial and Astrocyte Reactivity\", \"target\": \"Inflammasome Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"30-kb deletion (intron 10-17)\", \"target\": \"GALC\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                renderPathograph("pathograph", graphData);
+            })();
+            </script>
+        </div>
+        
 
         <!-- Phenotypes -->
         
@@ -2777,11 +3139,40 @@
                         
                     </div>
                     
-                    <div class="item-desc">Feeding difficulties are a well-recognized clinical feature of infantile Krabbe disease. Specific quotable evidence from abstracts not yet identified.
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32912261" target="_blank">PMID:32912261</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Irritability, abnormalities in movement pattern as well as general developmental regression were the first symptoms in the infantile group; disease course was severe with rapid progression, e.g. loss of visual fixation, need for tube feeding and then an early death.
+"</div>
+                
+                
+                <div class="evidence-explanation">This natural history study supports clinically significant feeding dysfunction in infantile Krabbe disease through the frequent need for tube feeding during rapid progression.
 </div>
-                    
-                    
-                    
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
                     
@@ -2812,7 +3203,7 @@
                         
                     </div>
                     
-                    <div class="item-desc">Optic atrophy is a well-recognized clinical feature of Krabbe disease resulting from demyelination of the optic nerves. Specific quotable evidence from abstracts not yet identified.
+                    <div class="item-desc">Optic atrophy is a recognized feature of infantile Krabbe disease, but a stable abstract-backed quote was not identified in this pass.
 </div>
                     
                     
@@ -2859,7 +3250,7 @@
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15901860" target="_blank">PMID:15901860</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32912261" target="_blank">PMID:32912261</a>
                     </span>
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
@@ -2869,11 +3260,11 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"a few had mild-to-moderate delays in expressive language and mild-to-severe delays in gross motor function
+                <div class="evidence-snippet">"Developmental and disease trajectories were described based on the acquisition and loss of milestones as well as the time of first clearly identifiable symptoms and needs such as spasticity, seizures and tube feeding.
 "</div>
                 
                 
-                <div class="evidence-explanation">The Escolar et al. NEJM study documents motor function impairment even in transplanted infants, reflecting the spasticity and motor involvement characteristic of Krabbe disease.
+                <div class="evidence-explanation">This natural history study directly identifies spasticity as a tracked neurological manifestation in Krabbe disease, providing more specific support than generic motor-delay language.
 </div>
                 
             </div>
@@ -2923,7 +3314,7 @@
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36113749" target="_blank">PMID:36113749</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32912261" target="_blank">PMID:32912261</a>
                     </span>
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
@@ -2933,11 +3324,11 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"GALC protein is predominantly localized to oligodendrocytes in cerebral white matter of an infant brain, consistent with its functional role in myelination
+                <div class="evidence-snippet">"The different forms of the disease were characterized by different MRI patterns (infantile: diffuse white matter involvement and cerebellar structures specifically affected, later onset: parieto-occipital white matter and splenium affected, adult: motor tracts specifically affected).
 "</div>
                 
                 
-                <div class="evidence-explanation">GALC protein localization to oligodendrocytes in white matter explains why its deficiency leads to progressive leukodystrophy.
+                <div class="evidence-explanation">This natural history study directly documents characteristic white-matter MRI abnormalities across Krabbe disease forms, supporting leukodystrophy as an observed phenotype.
 </div>
                 
             </div>
@@ -2966,11 +3357,40 @@
                         
                     </div>
                     
-                    <div class="item-desc">Irritability is universally described as the earliest symptom of infantile Krabbe disease. Specific quotable evidence from abstracts not yet identified.
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32912261" target="_blank">PMID:32912261</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Irritability, abnormalities in movement pattern as well as general developmental regression were the first symptoms in the infantile group
+"</div>
+                
+                
+                <div class="evidence-explanation">This natural history study directly identifies irritability as one of the first symptoms in infantile Krabbe disease.
 </div>
-                    
-                    
-                    
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
                     
@@ -3623,6 +4043,9 @@
         <!-- Clinical Trials -->
         
 
+        <!-- Experimental Models -->
+        
+
         <!-- Computational Models -->
         
 
@@ -3639,7 +4062,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Krabbe Disease
 creation_date: &#34;2026-03-14T00:00:00Z&#34;
-updated_date: &#34;2026-03-16T00:00:00Z&#34;
+updated_date: &#34;2026-03-30T23:35:00Z&#34;
 description: &gt;
   Krabbe disease (globoid cell leukodystrophy) is a severe autosomal recessive
   lysosomal storage disorder caused by deficiency of galactosylceramidase (GALC),
@@ -3684,13 +4107,10 @@ progression:
       Rarest form with slowly progressive spastic paraparesis, peripheral
       neuropathy, and variable cognitive involvement.
 pathophysiology:
-  - name: GALC Deficiency and Psychosine Accumulation
+  - name: GALC Deficiency
     description: &gt;
-      Loss-of-function mutations in the GALC gene lead to deficiency of
-      galactosylceramidase, causing accumulation of the cytotoxic lipid
-      psychosine (galactosylsphingosine) in oligodendrocytes and Schwann cells.
-      Psychosine is generated catabolically through deacylation of
-      galactosylceramide by acid ceramidase.
+      Loss-of-function mutations in GALC cause deficiency of the lysosomal
+      enzyme galactosylceramidase.
     cell_types:
       - preferred_term: oligodendrocyte
         term:
@@ -3713,15 +4133,21 @@ pathophysiology:
         term:
           id: GO:0030149
           label: sphingolipid catabolic process
-    locations:
-      - preferred_term: brain white matter
-        term:
-          id: UBERON:0003544
-          label: brain white matter
-      - preferred_term: cerebral hemisphere white matter
-        term:
-          id: UBERON:0002437
-          label: cerebral hemisphere white matter
+    downstream:
+      - target: Psychosine Accumulation
+        description: GALC deficiency leads directly to accumulation of the toxic metabolite psychosine.
+        causal_link_type: DIRECT
+        evidence:
+          - reference: PMID:31527255
+            supports: SUPPORT
+            evidence_source: MODEL_ORGANISM
+            snippet: &gt;
+              Infantile globoid cell leukodystrophy (GLD, Krabbe disease) is a fatal
+              demyelinating disorder caused by a deficiency in the lysosomal enzyme
+              galactosylceramidase (GALC). GALC deficiency leads to the accumulation
+              of the cytotoxic glycolipid, galactosylsphingosine (psychosine).
+            explanation: &gt;
+              This directly links GALC deficiency to psychosine accumulation.
     evidence:
       - reference: PMID:31527255
         supports: SUPPORT
@@ -3732,8 +4158,69 @@ pathophysiology:
           galactosylceramidase (GALC). GALC deficiency leads to the accumulation
           of the cytotoxic glycolipid, galactosylsphingosine (psychosine).
         explanation: &gt;
-          Confirms that GALC deficiency causes psychosine accumulation, and
-          that psychosine is the key cytotoxic agent in Krabbe disease.
+          Confirms GALC deficiency as the initiating enzymatic defect in
+          Krabbe disease.
+  - name: Psychosine Accumulation
+    description: &gt;
+      Psychosine is the key toxic lipid that accumulates in Krabbe disease.
+    cell_types:
+      - preferred_term: oligodendrocyte
+        term:
+          id: CL:0000128
+          label: oligodendrocyte
+      - preferred_term: Schwann cell
+        term:
+          id: CL:0002573
+          label: Schwann cell
+    locations:
+      - preferred_term: brain white matter
+        term:
+          id: UBERON:0003544
+          label: brain white matter
+      - preferred_term: cerebral hemisphere white matter
+        term:
+          id: UBERON:0002437
+          label: cerebral hemisphere white matter
+    downstream:
+      - target: Oligodendrocyte and Schwann Cell Toxicity
+        description: Psychosine accumulation is toxic to myelin-producing cells in both CNS and PNS.
+        causal_link_type: DIRECT
+        evidence:
+          - reference: PMID:7354254
+            supports: SUPPORT
+            evidence_source: HUMAN_CLINICAL
+            snippet: &gt;
+              The concentration of psychosine will steadily increase and reach toxic
+              levels and kill the oligodendroglial cells. This results in an arrest of
+              the galactosylceramide biosynthesis.
+            explanation: &gt;
+              This seminal paper directly links psychosine accumulation to
+              oligodendroglial toxicity.
+      - target: Proteostasis Failure
+        description: Psychosine accumulation impairs autophagy and ubiquitin-proteasome handling.
+        causal_link_type: DIRECT
+        evidence:
+          - reference: PMID:37048066
+            supports: SUPPORT
+            evidence_source: MODEL_ORGANISM
+            snippet: &gt;
+              psychosine causes dysfunction of autophagy and the ubiquitin-proteasome
+              system underlying the pathogenesis of globoid cell leukodystrophy (GLD),
+              a devastating lysosomal storage disease complicated by global demyelination
+            explanation: &gt;
+              This directly links psychosine accumulation to proteostasis failure.
+    evidence:
+      - reference: PMID:31527255
+        supports: SUPPORT
+        evidence_source: MODEL_ORGANISM
+        snippet: &gt;
+          Infantile globoid cell leukodystrophy (GLD, Krabbe disease) is a fatal
+          demyelinating disorder caused by a deficiency in the lysosomal enzyme
+          galactosylceramidase (GALC). GALC deficiency leads to the accumulation
+          of the cytotoxic glycolipid, galactosylsphingosine (psychosine).
+        explanation: &gt;
+          Confirms psychosine accumulation as the key toxic storage abnormality
+          in Krabbe disease.
       - reference: PMID:31527255
         supports: SUPPORT
         evidence_source: MODEL_ORGANISM
@@ -3743,6 +4230,35 @@ pathophysiology:
         explanation: &gt;
           Demonstrates the catabolic pathway of psychosine generation via
           acid ceramidase, clarifying the mechanism of psychosine synthesis.
+  - name: Oligodendrocyte and Schwann Cell Toxicity
+    description: &gt;
+      Psychosine toxicity injures myelin-producing oligodendrocytes and Schwann
+      cells.
+    cell_types:
+      - preferred_term: oligodendrocyte
+        term:
+          id: CL:0000128
+          label: oligodendrocyte
+      - preferred_term: Schwann cell
+        term:
+          id: CL:0002573
+          label: Schwann cell
+    downstream:
+      - target: Demyelination
+        description: Toxic injury to myelin-producing cells drives downstream demyelination.
+        causal_link_type: DIRECT
+        evidence:
+          - reference: PMID:36113749
+            supports: SUPPORT
+            evidence_source: HUMAN_CLINICAL
+            snippet: &gt;
+              Functional deficiency of GALC is toxic to myelin-producing cells, which
+              leads to progressive demyelination in both the central and peripheral
+              nervous systems.
+            explanation: &gt;
+              This neuropathology study directly links toxicity to myelin-producing
+              cells with downstream demyelination.
+    evidence:
       - reference: PMID:7354254
         supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
@@ -3751,15 +4267,12 @@ pathophysiology:
           levels and kill the oligodendroglial cells. This results in an arrest of
           the galactosylceramide biosynthesis.
         explanation: &gt;
-          Seminal paper establishing that psychosine accumulation kills
-          oligodendrocytes, forming the basis of the psychosine hypothesis.
+          This seminal paper directly supports oligodendroglial toxicity from
+          psychosine accumulation.
   - name: Demyelination
     description: &gt;
-      Psychosine-mediated destruction of oligodendrocytes and Schwann cells
-      causes progressive loss of myelin in the central and peripheral nervous
-      systems. This leads to formation of multinucleated globoid cells
-      (macrophages containing undigested galactosylceramide) and severe
-      gliosis as hallmark neuropathological features.
+      Krabbe disease causes progressive loss of myelin in the central and
+      peripheral nervous systems.
     cell_types:
       - preferred_term: oligodendrocyte
         term:
@@ -3791,6 +4304,35 @@ pathophysiology:
         term:
           id: UBERON:0002318
           label: white matter of spinal cord
+    downstream:
+      - target: Leukodystrophy
+        description: CNS demyelination produces the characteristic leukodystrophy phenotype.
+        causal_link_type: DIRECT
+        evidence:
+          - reference: PMID:36113749
+            supports: SUPPORT
+            evidence_source: HUMAN_CLINICAL
+            snippet: &gt;
+              Functional deficiency of GALC is toxic to myelin-producing cells, which
+              leads to progressive demyelination in both the central and peripheral
+              nervous systems.
+            explanation: &gt;
+              This directly supports demyelination as the mechanism underlying
+              Krabbe disease leukodystrophy.
+      - target: Peripheral Neuropathy
+        description: Peripheral demyelination causes the peripheral neuropathy phenotype.
+        causal_link_type: DIRECT
+        evidence:
+          - reference: PMID:36113749
+            supports: SUPPORT
+            evidence_source: HUMAN_CLINICAL
+            snippet: &gt;
+              Functional deficiency of GALC is toxic to myelin-producing cells, which
+              leads to progressive demyelination in both the central and peripheral
+              nervous systems.
+            explanation: &gt;
+              This directly supports peripheral demyelination as the basis of
+              peripheral neuropathy in Krabbe disease.
     evidence:
       - reference: PMID:36113749
         supports: SUPPORT
@@ -3802,6 +4344,20 @@ pathophysiology:
         explanation: &gt;
           Neuropathological study of human Krabbe disease brains confirming
           progressive demyelination in CNS and PNS due to GALC deficiency.
+  - name: Globoid Cell Accumulation
+    description: &gt;
+      Multinucleated globoid macrophages accumulate in Krabbe disease white
+      matter as a hallmark neuropathologic lesion.
+    cell_types:
+      - preferred_term: microglial cell
+        term:
+          id: CL:0000129
+          label: microglial cell
+      - preferred_term: macrophage
+        term:
+          id: CL:0000235
+          label: macrophage
+    evidence:
       - reference: PMID:36113749
         supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
@@ -3809,24 +4365,12 @@ pathophysiology:
           an early-infantile case (age of death at 10 months) had about 3-fold
           increases in both globoid cells, a pathological hallmark for KD
         explanation: &gt;
-          Quantifies the presence of globoid cells as a hallmark neuropathological
-          feature, with more severe cases showing greater globoid cell burden.
-      - reference: PMID:39636943
-        supports: SUPPORT
-        evidence_source: IN_VITRO
-        snippet: &gt;
-          Kd organoids have no obvious defects in neurogenesis, astrogenesis, and
-          oligodendrogenesis but manifest early myelination defects
-        explanation: &gt;
-          Human iPSC-derived organoids recapitulate early myelination defects
-          in Krabbe disease, showing shorter myelin internodes before frank
-          demyelination occurs.
-  - name: Neuroinflammation
+          Quantifies the presence of globoid cells as a hallmark neuropathologic
+          lesion in Krabbe disease.
+  - name: Microglial and Astrocyte Reactivity
     description: &gt;
-      Psychosine accumulation triggers robust neuroinflammatory responses
-      including microglial activation, astrogliosis, and elevated
-      proinflammatory cytokines. This neuroinflammation contributes to
-      progressive white matter destruction and neuronal damage.
+      Krabbe disease triggers marked activation of microglia and astrocytes in
+      affected white matter.
     cell_types:
       - preferred_term: microglial cell
         term:
@@ -3836,33 +4380,22 @@ pathophysiology:
         term:
           id: CL:0000127
           label: astrocyte
-    biological_processes:
-      - preferred_term: microglial cell activation
-        term:
-          id: GO:0001774
-          label: microglial cell activation
-      - preferred_term: inflammatory response
-        term:
-          id: GO:0006954
-          label: inflammatory response
-    locations:
-      - preferred_term: brain white matter
-        term:
-          id: UBERON:0003544
-          label: brain white matter
+    downstream:
+      - target: Inflammasome Activation
+        description: Activated glial cells participate in downstream inflammasome-related inflammatory signaling.
+        causal_link_type: DIRECT
+        evidence:
+          - reference: PMID:36519759
+            supports: SUPPORT
+            evidence_source: MODEL_ORGANISM
+            snippet: &gt;
+              Caspase-11 is found in reactive microglia/macrophages as well as
+              astrocytes but caspase-1 and gasdermin D are restricted to reactive
+              microglia/macrophages
+            explanation: &gt;
+              This directly links reactive glial populations to inflammasome
+              component expression in Krabbe disease tissue.
     evidence:
-      - reference: PMID:36113749
-        supports: SUPPORT
-        evidence_source: HUMAN_CLINICAL
-        snippet: &gt;
-          we quantified that an early-infantile case (age of death at 10 months) had
-          about 3-fold increases in both globoid cells, a pathological hallmark for
-          KD, and CD8-positive T lymphocytes, a pathological marker for multiple
-          sclerosis, in the white matter
-        explanation: &gt;
-          Demonstrates neuroinflammatory changes in Krabbe disease white matter
-          including infiltration of CD8-positive T lymphocytes alongside globoid
-          cells, indicating immune-mediated pathology.
       - reference: PMID:37048066
         supports: SUPPORT
         evidence_source: MODEL_ORGANISM
@@ -3872,8 +4405,7 @@ pathophysiology:
           brains of rapamycin-treated twitcher mice
         explanation: &gt;
           Demonstrates robust astrocyte and microglial reactivity in twitcher
-          mouse brains that can be attenuated by rapamycin, confirming
-          neuroinflammation as a key disease feature.
+          mouse brains, supporting a distinct glial-reactivity node.
   - name: Inflammasome Activation
     description: &gt;
       Non-canonical (caspase-11) and canonical (caspase-1) inflammasome
@@ -3977,16 +4509,18 @@ phenotypes:
         id: HP:0002415
         label: Leukodystrophy
     evidence:
-      - reference: PMID:36113749
+      - reference: PMID:32912261
         supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &gt;
-          GALC protein is predominantly localized to oligodendrocytes in cerebral
-          white matter of an infant brain, consistent with its functional role in
-          myelination
+          The different forms of the disease were characterized by different MRI
+          patterns (infantile: diffuse white matter involvement and cerebellar
+          structures specifically affected, later onset: parieto-occipital white
+          matter and splenium affected, adult: motor tracts specifically affected).
         explanation: &gt;
-          GALC protein localization to oligodendrocytes in white matter explains
-          why its deficiency leads to progressive leukodystrophy.
+          This natural history study directly documents characteristic
+          white-matter MRI abnormalities across Krabbe disease forms, supporting
+          leukodystrophy as an observed phenotype.
   - category: Neurologic
     name: Spasticity
     description: &gt;
@@ -3998,16 +4532,18 @@ phenotypes:
         id: HP:0001257
         label: Spasticity
     evidence:
-      - reference: PMID:15901860
+      - reference: PMID:32912261
         supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &gt;
-          a few had mild-to-moderate delays in expressive language and
-          mild-to-severe delays in gross motor function
+          Developmental and disease trajectories were described based on the
+          acquisition and loss of milestones as well as the time of first clearly
+          identifiable symptoms and needs such as spasticity, seizures and tube
+          feeding.
         explanation: &gt;
-          The Escolar et al. NEJM study documents motor function impairment
-          even in transplanted infants, reflecting the spasticity and motor
-          involvement characteristic of Krabbe disease.
+          This natural history study directly identifies spasticity as a tracked
+          neurological manifestation in Krabbe disease, providing more specific
+          support than generic motor-delay language.
   - category: Neurologic
     name: Peripheral Neuropathy
     description: &gt;
@@ -4035,16 +4571,21 @@ phenotypes:
     description: &gt;
       Extreme irritability is often the earliest clinical feature in
       infantile Krabbe disease, frequently preceding other neurological signs.
-    notes: &gt;
-      Irritability is universally described as the earliest symptom of
-      infantile Krabbe disease. Specific quotable evidence from abstracts
-      not yet identified.
     phenotype_term:
       preferred_term: Irritability
       term:
         id: HP:0000737
         label: Irritability
-    evidence: []
+    evidence:
+      - reference: PMID:32912261
+        supports: SUPPORT
+        evidence_source: HUMAN_CLINICAL
+        snippet: &gt;
+          Irritability, abnormalities in movement pattern as well as general
+          developmental regression were the first symptoms in the infantile group
+        explanation: &gt;
+          This natural history study directly identifies irritability as one of
+          the first symptoms in infantile Krabbe disease.
   - category: Neurologic
     name: Seizures
     description: &gt;
@@ -4093,9 +4634,8 @@ phenotypes:
       Progressive optic nerve demyelination leads to optic atrophy and
       visual impairment, particularly in infantile Krabbe disease.
     notes: &gt;
-      Optic atrophy is a well-recognized clinical feature of Krabbe disease
-      resulting from demyelination of the optic nerves. Specific quotable
-      evidence from abstracts not yet identified.
+      Optic atrophy is a recognized feature of infantile Krabbe disease, but a
+      stable abstract-backed quote was not identified in this pass.
     phenotype_term:
       preferred_term: Optic atrophy
       term:
@@ -4108,16 +4648,24 @@ phenotypes:
       Difficulty with feeding due to bulbar dysfunction and progressive
       neurological deterioration, often requiring tube feeding in infantile
       Krabbe disease.
-    notes: &gt;
-      Feeding difficulties are a well-recognized clinical feature of
-      infantile Krabbe disease. Specific quotable evidence from abstracts
-      not yet identified.
     phenotype_term:
       preferred_term: Feeding difficulties
       term:
         id: HP:0011968
         label: Feeding difficulties
-    evidence: []
+    evidence:
+      - reference: PMID:32912261
+        supports: SUPPORT
+        evidence_source: HUMAN_CLINICAL
+        snippet: &gt;
+          Irritability, abnormalities in movement pattern as well as general
+          developmental regression were the first symptoms in the infantile group;
+          disease course was severe with rapid progression, e.g. loss of visual
+          fixation, need for tube feeding and then an early death.
+        explanation: &gt;
+          This natural history study supports clinically significant feeding
+          dysfunction in infantile Krabbe disease through the frequent need for
+          tube feeding during rapid progression.
 biochemical:
   - name: Psychosine (Galactosylsphingosine)
     presence: Elevated

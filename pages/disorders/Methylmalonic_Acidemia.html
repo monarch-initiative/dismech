@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1037,6 +1101,52 @@
             text-decoration: underline;
         }
 
+        /* Experimental Models */
+        .exp-model-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .exp-model-box .item-name { color: #92400e; }
+        .exp-model-box .item-desc { color: #b45309; }
+
+        .tag-exp-model-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .tag-namo-type {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+        .tag-condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .model-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .model-detail-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .model-detail-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 110px;
+        }
+        .model-detail-value {
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+        }
+        .model-detail-value a {
+            color: inherit;
+        }
+
         /* Computational Models */
         .comp-model-box {
             background: #f0fdf4;
@@ -1382,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1470,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1477,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1489,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1637,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1723,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1737,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1792,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1877,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 11</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Organic Acidemia</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Inborn error of metabolism</span>
@@ -1891,6 +2110,11 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
+        
+        
         
         
         
@@ -1944,6 +2168,14 @@
             <div class="stat-item">
                 <div class="stat-value">15</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">11</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2188,7 +2420,7 @@
                 <span class="card-count">6</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-mmut-adocbl-pathway-molecular-function-deficiency">
                 <div class="item-name">MMUT/AdoCbl pathway molecular function deficiency</div>
                 
                 <div class="item-desc">Pathogenic variants affecting MMUT and adenosylcobalamin-handling genes reduce catalytic conversion capacity for methylmalonyl-CoA utilization.
@@ -2260,6 +2492,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2294,7 +2527,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-methylmalonyl-coa-metabolism">
                 <div class="item-name">Impaired methylmalonyl-CoA metabolism</div>
                 
                 <div class="item-desc">Defects in methylmalonyl-CoA mutase or cobalamin-dependent cofactor pathways block conversion of methylmalonyl-CoA to succinyl-CoA, disrupting mitochondrial anaplerosis and the TCA cycle.
@@ -2337,6 +2570,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2396,7 +2630,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-respiratory-chain-inhibition-and-energetic-failure">
                 <div class="item-name">Mitochondrial respiratory chain inhibition and energetic failure</div>
                 
                 <div class="item-desc">Accumulated methylmalonic acid and methylmalonyl-CoA directly inhibit mitochondrial respiratory chain complexes (Complex I, Complex II/SDH) and multiple dehydrogenases, leading to impaired oxidative phosphorylation and ATP depletion.
@@ -2445,6 +2679,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2479,7 +2714,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-mitochondrial-protein-methylmalonylation">
                 <div class="item-name">Aberrant mitochondrial protein methylmalonylation</div>
                 
                 <div class="item-desc">Excess methylmalonyl-CoA, propionyl-CoA, and malonyl-CoA drive widespread lysine hyperacylation of mitochondrial proteins across TCA cycle, beta-oxidation, amino acid metabolism, urea cycle, and oxidative stress pathways. Reduced levels of mitochondrial sirtuins SIRT3/4/5, particularly SIRT5 which can remove methylmalonylation, amplify dysfunction.
@@ -2518,6 +2753,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2552,7 +2788,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-lysosomal-autophagy-system-dysfunction">
                 <div class="item-name">Lysosomal-autophagy system dysfunction</div>
                 
                 <div class="item-desc">MUT deficiency directly perturbs the lysosome-autophagy system, causing enlarged lysosomes with reduced acidity and degradative capacity, impaired autophagosome-lysosome fusion, and severely reduced autophagic flux. These defects are pharmacologically reversible with anti-propionigenic compounds.
@@ -2601,6 +2837,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2635,7 +2872,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-renal-mitochondrial-stress-and-impaired-mitophagy">
                 <div class="item-name">Renal mitochondrial stress and impaired mitophagy</div>
                 
                 <div class="item-desc">In renal epithelial cells from MMA patients, metabolic stressors cause impaired mitophagy (reduced PINK1), shifted mitochondrial dynamics toward fission (elevated DRP1, reduced OPA1), compromised antioxidant defenses, and lowered glutathione ratios, contributing to progressive chronic kidney disease.
@@ -2708,6 +2945,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2775,18 +3013,19 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Methylmalonic Acidemia</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant mitochondrial protein methylmalonylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess methylmalonyl-CoA, propionyl-CoA, and malonyl-CoA drive widespread lysine hyperacylation of mitochondrial proteins across TCA cycle, beta-oxidation, amino acid metabolism, urea cycle, and oxidative stress pathways. Reduced levels of mitochondrial sirtuins SIRT3/4/5, particularly SIRT5 which can remove methylmalonylation, amplify dysfunction.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein acylation\"], \"locations\": [\"mitochondrial matrix\"]}}, {\"id\": \"Impaired methylmalonyl-CoA metabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defects in methylmalonyl-CoA mutase or cobalamin-dependent cofactor pathways block conversion of methylmalonyl-CoA to succinyl-CoA, disrupting mitochondrial anaplerosis and the TCA cycle.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"methylmalonyl-CoA metabolic process\", \"propionate catabolic process\", \"tricarboxylic acid cycle\"]}}, {\"id\": \"Lysosomal-autophagy system dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MUT deficiency directly perturbs the lysosome-autophagy system, causing enlarged lysosomes with reduced acidity and degradative capacity, impaired autophagosome-lysosome fusion, and severely reduced autophagic flux. These defects are pharmacologically reversible with anti-propionigenic compounds.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"autophagy\", \"lysosome organization\"], \"locations\": [\"lysosome\"]}}, {\"id\": \"MMUT/AdoCbl pathway molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants affecting MMUT and adenosylcobalamin-handling genes reduce catalytic conversion capacity for methylmalonyl-CoA utilization.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"genes\": [\"MMUT\", \"MMAA\", \"MMAB\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Mitochondrial respiratory chain inhibition and energetic failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulated methylmalonic acid and methylmalonyl-CoA directly inhibit mitochondrial respiratory chain complexes (Complex I, Complex II/SDH) and multiple dehydrogenases, leading to impaired oxidative phosphorylation and ATP depletion.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"mitochondrial electron transport, NADH to ubiquinone\", \"oxidative phosphorylation\"], \"locations\": [\"mitochondrial inner membrane\"]}}, {\"id\": \"Renal mitochondrial stress and impaired mitophagy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In renal epithelial cells from MMA patients, metabolic stressors cause impaired mitophagy (reduced PINK1), shifted mitochondrial dynamics toward fission (elevated DRP1, reduced OPA1), compromised antioxidant defenses, and lowered glutathione ratios, contributing to progressive chronic kidney disease.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epithelial cell of proximal tubule\"], \"biological_processes\": [\"mitophagy\", \"mitochondrial fission\", \"response to oxidative stress\"], \"locations\": [\"kidney\"]}}], \"edges\": [{\"source\": \"MMUT/AdoCbl pathway molecular function deficiency\", \"target\": \"Impaired methylmalonyl-CoA metabolism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"Mitochondrial respiratory chain inhibition and energetic failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"Aberrant mitochondrial protein methylmalonylation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"Lysosomal-autophagy system dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lysosomal-autophagy system dysfunction\", \"target\": \"Renal mitochondrial stress and impaired mitophagy\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant mitochondrial protein methylmalonylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess methylmalonyl-CoA, propionyl-CoA, and malonyl-CoA drive widespread lysine hyperacylation of mitochondrial proteins across TCA cycle, beta-oxidation, amino acid metabolism, urea cycle, and oxidative stress pathways. Reduced levels of mitochondrial sirtuins SIRT3/4/5, particularly SIRT5 which can remove methylmalonylation, amplify dysfunction.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein acylation\"], \"locations\": [\"mitochondrial matrix\"]}}, {\"id\": \"Impaired methylmalonyl-CoA metabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defects in methylmalonyl-CoA mutase or cobalamin-dependent cofactor pathways block conversion of methylmalonyl-CoA to succinyl-CoA, disrupting mitochondrial anaplerosis and the TCA cycle.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"methylmalonyl-CoA metabolic process\", \"propionate catabolic process\", \"tricarboxylic acid cycle\"]}}, {\"id\": \"Lysosomal-autophagy system dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MUT deficiency directly perturbs the lysosome-autophagy system, causing enlarged lysosomes with reduced acidity and degradative capacity, impaired autophagosome-lysosome fusion, and severely reduced autophagic flux. These defects are pharmacologically reversible with anti-propionigenic compounds.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"autophagy\", \"lysosome organization\"], \"locations\": [\"lysosome\"]}}, {\"id\": \"MMAA (cblA complementation group)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MMAA\"]}}, {\"id\": \"MMAB (cblB complementation group)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MMAB\"]}}, {\"id\": \"MMUT (methylmalonyl-CoA mutase)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"MMUT\"], \"variant_count\": 2}}, {\"id\": \"MMUT/AdoCbl pathway molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants affecting MMUT and adenosylcobalamin-handling genes reduce catalytic conversion capacity for methylmalonyl-CoA utilization.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"genes\": [\"MMUT\", \"MMAA\", \"MMAB\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Mitochondrial respiratory chain inhibition and energetic failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulated methylmalonic acid and methylmalonyl-CoA directly inhibit mitochondrial respiratory chain complexes (Complex I, Complex II/SDH) and multiple dehydrogenases, leading to impaired oxidative phosphorylation and ATP depletion.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"mitochondrial electron transport, NADH to ubiquinone\", \"oxidative phosphorylation\"], \"locations\": [\"mitochondrial inner membrane\"]}}, {\"id\": \"Renal mitochondrial stress and impaired mitophagy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In renal epithelial cells from MMA patients, metabolic stressors cause impaired mitophagy (reduced PINK1), shifted mitochondrial dynamics toward fission (elevated DRP1, reduced OPA1), compromised antioxidant defenses, and lowered glutathione ratios, contributing to progressive chronic kidney disease.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epithelial cell of proximal tubule\"], \"biological_processes\": [\"mitophagy\", \"mitochondrial fission\", \"response to oxidative stress\"], \"locations\": [\"kidney\"]}}, {\"id\": \"mut- (partial deficiency)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Partial residual methylmalonyl-CoA mutase activity. Some forms show partial response to hydroxocobalamin.\\n\"}, {\"id\": \"mut0 (complete deficiency)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Complete loss of methylmalonyl-CoA mutase activity. Non-B12 responsive. Associated with the most severe phenotype and worst neuropsychological outcomes.\\n\"}], \"edges\": [{\"source\": \"MMUT/AdoCbl pathway molecular function deficiency\", \"target\": \"Impaired methylmalonyl-CoA metabolism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"Mitochondrial respiratory chain inhibition and energetic failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"Aberrant mitochondrial protein methylmalonylation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"Lysosomal-autophagy system dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lysosomal-autophagy system dysfunction\", \"target\": \"Renal mitochondrial stress and impaired mitophagy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"MMUT (methylmalonyl-CoA mutase)\", \"target\": \"MMUT/AdoCbl pathway molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MMAA (cblA complementation group)\", \"target\": \"MMUT/AdoCbl pathway molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MMAB (cblB complementation group)\", \"target\": \"MMUT/AdoCbl pathway molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"mut0 (complete deficiency)\", \"target\": \"MMUT (methylmalonyl-CoA mutase)\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"mut- (partial deficiency)\", \"target\": \"MMUT (methylmalonyl-CoA mutase)\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4844,6 +5083,9 @@
         </div>
         
 
+        <!-- Experimental Models -->
+        
+
         <!-- Computational Models -->
         
 
@@ -4885,6 +5127,30 @@ disease_term:
 parents:
 - Organic Acidemia
 - Inborn error of metabolism
+prevalence:
+- population: Worldwide newborn screening cohorts
+  percentage: 1.14 per 100,000 newborns
+  notes: &gt;-
+    Meta-analysis of 111 studies estimated a pooled worldwide newborn
+    prevalence of about 1 in 87,700, with higher pooled prevalence in Asia and
+    Africa than in other regions.
+  evidence:
+  - reference: PMID:34847798
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The pooled prevalence of MMA worldwide was 1.14 per 100,000 newborns (1516/190,229,777 newborns, 95% CI: 0.99-1.29)&#34;
+    explanation: Meta-analysis provides the strongest pooled newborn prevalence estimate for methylmalonic acidemia.
+- population: Conventional clinical estimates
+  percentage: ~1 in 50,000
+  notes: &gt;-
+    Clinical reviews still commonly cite an incidence around 1 in 50,000,
+    reflecting longstanding clinically ascertained estimates for MMA.
+  evidence:
+  - reference: PMID:25205257
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;MMA has an estimated incidence of ~ 1: 50,000 and PA of ~ 1:100&#39;000 -150,000.&#34;
+    explanation: This review captures the conventional incidence estimate widely cited in clinical literature.
 has_subtypes:
 - name: Vitamin B12-responsive methylmalonic acidemia
   description: &#39;Partial biochemical response to hydroxocobalamin in cblA, cblB, and some mut- genetic forms. Associated with
@@ -4893,12 +5159,14 @@ has_subtypes:
     &#39;
   evidence:
   - reference: PMID:25205257
+    reference_title: &#34;Proposed guidelines for the diagnosis and management of methylmalonic and propionic acidemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Except for vitamin B12 responsive forms of MMA the outcome remains poor despite the existence of apparently effective
       therapy with a low protein diet and carnitine.
     explanation: Directly supports existence of vitamin B12-responsive MMA forms with better outcomes.
   - reference: PMID:39075538
+    reference_title: &#34;Clinical outcomes of patients with mut-type methylmalonic acidemia identified through expanded newborn screening in China.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: NBS-detected patients showed younger age at diagnosis, less incidence of disease onset, better responsiveness
@@ -4911,6 +5179,7 @@ has_subtypes:
     &#39;
   evidence:
   - reference: PMID:25205257
+    reference_title: &#34;Proposed guidelines for the diagnosis and management of methylmalonic and propionic acidemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Except for vitamin B12 responsive forms of MMA the outcome remains poor despite the existence of apparently effective
@@ -4943,6 +5212,7 @@ pathophysiology:
       label: mitochondrion
   evidence:
   - reference: PMID:25205257
+    reference_title: &#34;Proposed guidelines for the diagnosis and management of methylmalonic and propionic acidemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Methylmalonic and propionic acidemia (MMA/PA) are inborn errors of metabolism characterized by accumulation of propionic acid and/or methylmalonic acid due to deficiency of methylmalonyl-CoA mutase (MUT) or propionyl-CoA carboxylase (PCC).
@@ -4971,11 +5241,13 @@ pathophysiology:
       label: tricarboxylic acid cycle
   evidence:
   - reference: PMID:25205257
+    reference_title: &#34;Proposed guidelines for the diagnosis and management of methylmalonic and propionic acidemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Methylmalonic and propionic acidemia (MMA/PA) are inborn errors of metabolism characterized by accumulation of propionic acid and/or methylmalonic acid due to deficiency of methylmalonyl-CoA mutase (MUT) or propionyl-CoA carboxylase (PCC).
     explanation: Supports blocked methylmalonyl-CoA handling and downstream metabolite accumulation.
   - reference: PMID:38030482
+    reference_title: &#34;Methylmalonic acid in aging and disease.&#34;
     supports: PARTIAL
     evidence_source: OTHER
     snippet: MMA is normally present at low levels in the body, but increased levels can come from different sources, such
@@ -5006,6 +5278,7 @@ pathophysiology:
       label: mitochondrial inner membrane
   evidence:
   - reference: PMID:37078237
+    reference_title: &#34;New insights into the pathophysiology of methylmalonic acidemia.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: While earlier studies have focused on the potential direct toxicity of metabolites such as methylmalonic and
@@ -5030,6 +5303,7 @@ pathophysiology:
       label: mitochondrial matrix
   evidence:
   - reference: PMID:37078237
+    reference_title: &#34;New insights into the pathophysiology of methylmalonic acidemia.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: new observations have revealed that aberrant acylation, specifically methylmalonylation, is a characteristic
@@ -5058,6 +5332,7 @@ pathophysiology:
       label: lysosome
   evidence:
   - reference: PMID:38760822
+    reference_title: &#34;Methylmalonic acidemia triggers lysosomal-autophagy dysfunctions.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: Lysosomes of MMA cells present as enlarged vacuoles with low degradative capabilities. Notwithstanding, treatment
@@ -5097,12 +5372,14 @@ pathophysiology:
       label: kidney
   evidence:
   - reference: PMID:37169781
+    reference_title: &#34;The impact of metabolic stressors on mitochondrial homeostasis in a renal epithelial cell model of methylmalonic aciduria.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: Mitophagy was disabled in MMA-uria cells, while autophagy was highly active particularly under HP and I/V conditions.
       Mitochondrial dynamics were shifted towards fission.
     explanation: Directly demonstrates impaired mitophagy and fission shift in renal MMA cells.
   - reference: PMID:37169781
+    reference_title: &#34;The impact of metabolic stressors on mitochondrial homeostasis in a renal epithelial cell model of methylmalonic aciduria.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: Creatinine levels were increased and antioxidant stress defense was severely comprised in MMA-uria cells.
@@ -5118,6 +5395,7 @@ phenotypes:
       label: Metabolic acidosis
   evidence:
   - reference: PMID:25205257
+    reference_title: &#34;Proposed guidelines for the diagnosis and management of methylmalonic and propionic acidemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Patients present either shortly after birth with acute deterioration, metabolic acidosis and hyperammonemia
@@ -5135,6 +5413,7 @@ phenotypes:
       label: Hyperammonemia
   evidence:
   - reference: PMID:25205257
+    reference_title: &#34;Proposed guidelines for the diagnosis and management of methylmalonic and propionic acidemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Patients present either shortly after birth with acute deterioration, metabolic acidosis and hyperammonemia
@@ -5182,12 +5461,14 @@ phenotypes:
       label: Global developmental delay
   evidence:
   - reference: PMID:35348993
+    reference_title: &#34;Review of neuropsychological outcomes in isolated methylmalonic acidemia: recommendations for assessing impact of treatments.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Children with this disorder still are at risk for developmental delay, cognitive difficulties and progressive
       declines in functioning.
     explanation: Directly supports developmental delay risk in MMA.
   - reference: PMID:35348993
+    reference_title: &#34;Review of neuropsychological outcomes in isolated methylmalonic acidemia: recommendations for assessing impact of treatments.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Mean IQ for all types apart from cblA defect enzymatic subtype is rarely above 85
@@ -5205,6 +5486,7 @@ phenotypes:
       label: Intellectual disability
   evidence:
   - reference: PMID:35348993
+    reference_title: &#34;Review of neuropsychological outcomes in isolated methylmalonic acidemia: recommendations for assessing impact of treatments.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Children with this disorder still are at risk for developmental delay, cognitive difficulties and progressive
@@ -5222,6 +5504,7 @@ phenotypes:
       label: Seizure
   evidence:
   - reference: PMID:35348993
+    reference_title: &#34;Review of neuropsychological outcomes in isolated methylmalonic acidemia: recommendations for assessing impact of treatments.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#39;Methylmalonic acidemia (MMA) due to methylmalonyl-CoA mutase deficiency (OMIM #251,000) is an autosomal recessive
@@ -5254,12 +5537,14 @@ phenotypes:
       label: Chronic kidney disease
   evidence:
   - reference: PMID:37243446
+    reference_title: &#34;Biomarkers to predict disease progression and therapeutic response in isolated methylmalonic acidemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: It is characterized by life-threatening episodes of ketoacidosis, chronic kidney disease, and other multiorgan
       complications.
     explanation: Directly identifies CKD as a characteristic complication of MMA.
   - reference: PMID:37169781
+    reference_title: &#34;The impact of metabolic stressors on mitochondrial homeostasis in a renal epithelial cell model of methylmalonic aciduria.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: Chronic kidney disease (CKD) is a well-known long-term complication.
@@ -5277,11 +5562,13 @@ phenotypes:
       label: Dilated cardiomyopathy
   evidence:
   - reference: PMID:38132258
+    reference_title: &#34;Cardiac Involvement in Classical Organic Acidurias: Clinical Profile and Outcome in a Pediatric Cohort.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Cardiac anomalies were found in 23/60 OA patients, all with PA or MMA, represented by DCM (17/23 patients)
     explanation: Quantifies DCM as the predominant cardiac phenotype in OA patients including MMA.
   - reference: PMID:38132258
+    reference_title: &#34;Cardiac Involvement in Classical Organic Acidurias: Clinical Profile and Outcome in a Pediatric Cohort.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: 35% in MMA with cardiomyopathy
@@ -5299,6 +5586,7 @@ phenotypes:
       label: Prolonged QT interval
   evidence:
   - reference: PMID:38132258
+    reference_title: &#34;Cardiac Involvement in Classical Organic Acidurias: Clinical Profile and Outcome in a Pediatric Cohort.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Cardiac anomalies were found in 23/60 OA patients, all with PA or MMA, represented by DCM (17/23 patients) and/or
@@ -5344,6 +5632,7 @@ phenotypes:
       label: Lipodystrophy
   evidence:
   - reference: PMID:38271099
+    reference_title: &#34;Lipodystrophy in methylmalonic acidemia associated with elevated FGF21 and abnormal methylmalonylation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: A distinct adipose tissue distribution pattern was observed in patients with methylmalonyl-CoA mutase deficiency,
@@ -5359,12 +5648,14 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:37243446
+    reference_title: &#34;Biomarkers to predict disease progression and therapeutic response in isolated methylmalonic acidemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Canonical metabolic markers, such as serum methylmalonic acid and propionylcarnitine, are variable and affected
       by dietary intake and renal function.
     explanation: Identifies serum methylmalonic acid as a canonical metabolic marker in MMA.
   - reference: PMID:38030482
+    reference_title: &#34;Methylmalonic acid in aging and disease.&#34;
     supports: PARTIAL
     evidence_source: OTHER
     snippet: MMA is normally present at low levels in the body, but increased levels can come from different sources, such
@@ -5378,12 +5669,14 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:37243446
+    reference_title: &#34;Biomarkers to predict disease progression and therapeutic response in isolated methylmalonic acidemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Canonical metabolic markers, such as serum methylmalonic acid and propionylcarnitine, are variable and affected
       by dietary intake and renal function.
     explanation: Directly identifies propionylcarnitine as a canonical metabolic marker.
   - reference: PMID:39075538
+    reference_title: &#34;Clinical outcomes of patients with mut-type methylmalonic acidemia identified through expanded newborn screening in China.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: NBS-detected patients showed younger age at diagnosis, less incidence of disease onset, better responsiveness
@@ -5397,6 +5690,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:37169781
+    reference_title: &#34;The impact of metabolic stressors on mitochondrial homeostasis in a renal epithelial cell model of methylmalonic aciduria.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: Methylcitrate as potentially toxic, disease-specific metabolite was increased by HP and I/V load.
@@ -5416,6 +5710,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:38271099
+    reference_title: &#34;Lipodystrophy in methylmalonic acidemia associated with elevated FGF21 and abnormal methylmalonylation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Fibroblast growth factor 21 levels were associated with acyl-CoA accretion, aberrant methylmalonylation in adipose
@@ -5429,11 +5724,13 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:37243446
+    reference_title: &#34;Biomarkers to predict disease progression and therapeutic response in isolated methylmalonic acidemia.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: growth differentiation factor 15 [GDF15]
     explanation: Identifies GDF15 as one of the circulating biomarkers evaluated in isolated MMA cohorts.
   - reference: PMID:37243446
+    reference_title: &#34;Biomarkers to predict disease progression and therapeutic response in isolated methylmalonic acidemia.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: Biomarker concentrations are higher in patients with the severe mut0 -type and cblB-type MMA
@@ -5446,6 +5743,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:37243446
+    reference_title: &#34;Biomarkers to predict disease progression and therapeutic response in isolated methylmalonic acidemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: kidney injury (lipocalin-2 [LCN2])
@@ -5458,6 +5756,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:25205257
+    reference_title: &#34;Proposed guidelines for the diagnosis and management of methylmalonic and propionic acidemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Patients present either shortly after birth with acute deterioration, metabolic acidosis and hyperammonemia
@@ -5473,6 +5772,7 @@ genetic:
   - name: Autosomal recessive
     evidence:
     - reference: PMID:35348993
+      reference_title: &#34;Review of neuropsychological outcomes in isolated methylmalonic acidemia: recommendations for assessing impact of treatments.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#39;Methylmalonic acidemia (MMA) due to methylmalonyl-CoA mutase deficiency (OMIM #251,000) is an autosomal recessive
@@ -5503,6 +5803,7 @@ genetic:
   - name: Autosomal recessive
     evidence:
     - reference: PMID:35348993
+      reference_title: &#34;Review of neuropsychological outcomes in isolated methylmalonic acidemia: recommendations for assessing impact of treatments.&#34;
       supports: PARTIAL
       evidence_source: HUMAN_CLINICAL
       snippet: &#39;These other disorders include enzymatic subtypes related to cobalamin A defect (cblA) (OMIM #25,110), cobalamin
@@ -5514,6 +5815,7 @@ genetic:
     &#39;
   evidence:
   - reference: PMID:35348993
+    reference_title: &#34;Review of neuropsychological outcomes in isolated methylmalonic acidemia: recommendations for assessing impact of treatments.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#39;These other disorders include enzymatic subtypes related to cobalamin A defect (cblA) (OMIM #25,110), cobalamin
@@ -5529,6 +5831,7 @@ genetic:
   - name: Autosomal recessive
     evidence:
     - reference: PMID:35348993
+      reference_title: &#34;Review of neuropsychological outcomes in isolated methylmalonic acidemia: recommendations for assessing impact of treatments.&#34;
       supports: PARTIAL
       evidence_source: HUMAN_CLINICAL
       snippet: &#39;These other disorders include enzymatic subtypes related to cobalamin A defect (cblA) (OMIM #25,110), cobalamin
@@ -5540,6 +5843,7 @@ genetic:
     &#39;
   evidence:
   - reference: PMID:37243446
+    reference_title: &#34;Biomarkers to predict disease progression and therapeutic response in isolated methylmalonic acidemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Data are presented from a US natural history protocol that evaluated subjects with different types of MMA including
@@ -5554,12 +5858,14 @@ diagnosis:
     &#39;
   evidence:
   - reference: PMID:39075538
+    reference_title: &#34;Clinical outcomes of patients with mut-type methylmalonic acidemia identified through expanded newborn screening in China.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: This research highly demonstrated NBS could prevent major disease-related events and allow an earlier treatment
       initiation.
     explanation: Directly supports NBS as beneficial for improving survival in MMA.
   - reference: PMID:39075538
+    reference_title: &#34;Clinical outcomes of patients with mut-type methylmalonic acidemia identified through expanded newborn screening in China.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: By comparison of the clinically-diagnosed patients, NBS-detected patients showed younger age at diagnosis, less
@@ -5579,6 +5885,7 @@ treatments:
       label: dietary intervention
   evidence:
   - reference: PMID:25205257
+    reference_title: &#34;Proposed guidelines for the diagnosis and management of methylmalonic and propionic acidemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Except for vitamin B12 responsive forms of MMA the outcome remains poor despite the existence of apparently effective
@@ -5596,12 +5903,14 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:25205257
+    reference_title: &#34;Proposed guidelines for the diagnosis and management of methylmalonic and propionic acidemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Except for vitamin B12 responsive forms of MMA the outcome remains poor despite the existence of apparently effective
       therapy with a low protein diet and carnitine.
     explanation: Supports genotype-dependent cobalamin responsiveness in MMA management.
   - reference: PMID:39075538
+    reference_title: &#34;Clinical outcomes of patients with mut-type methylmalonic acidemia identified through expanded newborn screening in China.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: NBS-detected patients showed younger age at diagnosis, less incidence of disease onset, better responsiveness
@@ -5619,6 +5928,7 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:25205257
+    reference_title: &#34;Proposed guidelines for the diagnosis and management of methylmalonic and propionic acidemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Except for vitamin B12 responsive forms of MMA the outcome remains poor despite the existence of apparently effective
@@ -5636,6 +5946,7 @@ treatments:
       label: supportive care
   evidence:
   - reference: PMID:25205257
+    reference_title: &#34;Proposed guidelines for the diagnosis and management of methylmalonic and propionic acidemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Patients present either shortly after birth with acute deterioration, metabolic acidosis and hyperammonemia
@@ -5653,18 +5964,21 @@ treatments:
       label: organ transplantation
   evidence:
   - reference: PMID:33422927
+    reference_title: &#34;Safety and efficacy of liver transplantation for methylmalonic acidemia: A systematic review and meta-analysis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Liver transplantation (LT) and combined liver and kidney transplantation (CLKT) have been proposed as enzyme
       replacement therapies for methylmalonic aciduria (MMA).
     explanation: Directly supports transplantation as an established therapeutic strategy.
   - reference: PMID:33422927
+    reference_title: &#34;Safety and efficacy of liver transplantation for methylmalonic acidemia: A systematic review and meta-analysis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The pooled estimate rates were 99.9% (95% CI 95.3-100.0) for patient survival, 98.5% (95% CI 91.5-100.0) for
       graft survival after LT/CLKT.
     explanation: Quantifies favorable survival outcomes after transplantation.
   - reference: PMID:38132258
+    reference_title: &#34;Cardiac Involvement in Classical Organic Acidurias: Clinical Profile and Outcome in a Pediatric Cohort.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Liver transplantation was performed in seven patients (12%), all with PA or MMA, due to worsening cardiac impairment,
@@ -5682,6 +5996,7 @@ treatments:
       label: genetic counseling
   evidence:
   - reference: PMID:25205257
+    reference_title: &#34;Proposed guidelines for the diagnosis and management of methylmalonic and propionic acidemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#39;MMA has an estimated incidence of ~ 1: 50,000&#39;
@@ -5715,12 +6030,14 @@ treatments:
       who have previously participated in other clinical studies of mRNA-3705.
     explanation: Supports long-term extension evaluation of mRNA-3705 in the same MMA population.
   - reference: PMID:37243446
+    reference_title: &#34;Biomarkers to predict disease progression and therapeutic response in isolated methylmalonic acidemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Liver transplantation can improve patient stability and survival and thus provides clinical and biochemical benchmarks
       for the development of hepatocyte-targeted genomic therapies.
     explanation: Supports the rationale for hepatocyte-targeted therapies including mRNA replacement.
   - reference: PMID:37243446
+    reference_title: &#34;Biomarkers to predict disease progression and therapeutic response in isolated methylmalonic acidemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: A combination of biomarkers reflecting disease severity and multisystem involvement will be needed to help stratify

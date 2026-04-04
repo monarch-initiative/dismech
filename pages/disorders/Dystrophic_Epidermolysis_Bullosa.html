@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1037,6 +1101,52 @@
             text-decoration: underline;
         }
 
+        /* Experimental Models */
+        .exp-model-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .exp-model-box .item-name { color: #92400e; }
+        .exp-model-box .item-desc { color: #b45309; }
+
+        .tag-exp-model-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .tag-namo-type {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+        .tag-condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .model-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .model-detail-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .model-detail-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 110px;
+        }
+        .model-detail-value {
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+        }
+        .model-detail-value a {
+            color: inherit;
+        }
+
         /* Computational Models */
         .comp-model-box {
             background: #f0fdf4;
@@ -1382,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1470,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1477,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1489,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1637,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1723,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1737,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1792,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1877,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Dermatological Disease</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Genetic Disease</span>
@@ -1890,6 +2109,11 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
+        
+        
         
         
         
@@ -1955,6 +2179,14 @@
             <div class="stat-item">
                 <div class="stat-value">15</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">8</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2422,7 +2654,7 @@
                 <span class="card-count">7</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-col7a1-mutations-and-loss-of-type-vii-collagen">
                 <div class="item-name">COL7A1 Mutations and Loss of Type VII Collagen</div>
                 
                 <div class="item-desc">Mutations in the COL7A1 gene encoding type VII collagen result in absent, reduced, or dysfunctional protein. In RDEB, biallelic loss-of-function mutations typically cause complete absence of type VII collagen, while in DDEB, dominant-negative mutations produce structurally abnormal collagen that disrupts anchoring fibril formation. Type VII collagen is the major structural component of anchoring fibrils at the dermal-epidermal junction.
@@ -2503,6 +2735,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2577,7 +2810,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-anchoring-fibrils-and-loss-of-dermal-epidermal-adhesion">
                 <div class="item-name">Defective Anchoring Fibrils and Loss of Dermal-Epidermal Adhesion</div>
                 
                 <div class="item-desc">Type VII collagen forms the anchoring fibrils that connect the lamina densa of the basement membrane zone to the papillary dermis. In DEB, defective or absent anchoring fibrils cause tissue separation at the sub-lamina densa level, resulting in blistering and erosions with minimal mechanical trauma.
@@ -2618,6 +2851,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2677,7 +2911,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-wound-inflammation-fibrosis-cycle">
                 <div class="item-name">Chronic Wound-Inflammation-Fibrosis Cycle</div>
                 
                 <div class="item-desc">Repeated blistering and impaired wound healing in DEB create chronic wounds that drive persistent inflammation and progressive fibrosis. TGF-beta signaling is upregulated in RDEB fibroblasts, promoting excessive collagen deposition, tissue contraction, and extracellular matrix remodeling. This cycle underlies the progressive scarring, pseudosyndactyly, and tissue contractures characteristic of severe RDEB.
@@ -2751,6 +2985,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2805,7 +3040,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-scarring-and-pseudosyndactyly">
                 <div class="item-name">Progressive Scarring and Pseudosyndactyly</div>
                 
                 <div class="item-desc">Chronic fibrosis from repeated wound-healing cycles leads to progressive scarring, joint contractures, and fusion of digits (pseudosyndactyly or mitten deformities). In severe RDEB, the hands and feet become encased in a cocoon of scar tissue, causing severe functional impairment.
@@ -2832,6 +3067,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2871,7 +3107,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-esophageal-and-mucosal-blistering">
                 <div class="item-name">Esophageal and Mucosal Blistering</div>
                 
                 <div class="item-desc">Blistering and erosions of the esophageal and oral mucosa lead to progressive stricture formation, microstomia, and fusion of the tongue to the floor of the mouth. Esophageal strictures cause severe dysphagia, contributing to malnutrition and growth failure.
@@ -2898,6 +3134,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2957,11 +3194,12 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-malnutrition-and-growth-failure">
                 <div class="item-name">Malnutrition and Growth Failure</div>
                 
                 <div class="item-desc">Chronic dysphagia from esophageal strictures, increased metabolic demands from chronic wound healing, and malabsorption lead to protein- calorie malnutrition, iron deficiency anemia, and growth retardation in children with severe RDEB. Vitamin and mineral deficiencies are common.
 </div>
+                
                 
                 
                 
@@ -3005,7 +3243,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-wounds-and-aggressive-squamous-cell-carcinoma">
                 <div class="item-name">Chronic Wounds and Aggressive Squamous Cell Carcinoma</div>
                 
                 <div class="item-desc">Chronic non-healing wounds in RDEB create an immunosuppressive and pro-tumorigenic microenvironment that promotes development of aggressive cutaneous squamous cell carcinoma. SCC is the leading cause of death in RDEB, with cumulative risk in severe generalized RDEB rising from 7.5% by age 20 to over 90% by age 55. These SCCs are unusually aggressive, with high rates of metastasis and mortality.
@@ -3071,6 +3309,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3165,18 +3404,19 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Dystrophic Epidermolysis Bullosa</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"COL7A1 Mutations and Loss of Type VII Collagen\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in the COL7A1 gene encoding type VII collagen result in absent, reduced, or dysfunctional protein. In RDEB, biallelic loss-of-function mutations typically cause complete absence of type VII collagen, while in DDEB, dominant-negative mutations produce structurally abnormal collagen that disrupts anchoring fibril formation. Type VII collagen is the major structural component of anchoring fibrils at the dermal-epidermal junction.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"keratinocyte\", \"fibroblast\"], \"biological_processes\": [\"collagen fibril organization\", \"extracellular matrix organization\"], \"genes\": [\"COL7A1\"]}}, {\"id\": \"Chronic Wound-Inflammation-Fibrosis Cycle\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Repeated blistering and impaired wound healing in DEB create chronic wounds that drive persistent inflammation and progressive fibrosis. TGF-beta signaling is upregulated in RDEB fibroblasts, promoting excessive collagen deposition, tissue contraction, and extracellular matrix remodeling. This cycle underlies the progressive scarring, pseudosyndactyly, and tissue contractures characteristic of severe RDEB.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"wound healing\", \"inflammatory response\", \"response to transforming growth factor beta\"]}}, {\"id\": \"Chronic Wounds and Aggressive Squamous Cell Carcinoma\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic non-healing wounds in RDEB create an immunosuppressive and pro-tumorigenic microenvironment that promotes development of aggressive cutaneous squamous cell carcinoma. SCC is the leading cause of death in RDEB, with cumulative risk in severe generalized RDEB rising from 7.5% by age 20 to over 90% by age 55. These SCCs are unusually aggressive, with high rates of metastasis and mortality.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"wound healing\", \"immune response\"], \"genes\": [\"COL7A1\"]}}, {\"id\": \"Defective Anchoring Fibrils and Loss of Dermal-Epidermal Adhesion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Type VII collagen forms the anchoring fibrils that connect the lamina densa of the basement membrane zone to the papillary dermis. In DEB, defective or absent anchoring fibrils cause tissue separation at the sub-lamina densa level, resulting in blistering and erosions with minimal mechanical trauma.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"cell-matrix adhesion\"]}}, {\"id\": \"Esophageal and Mucosal Blistering\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Blistering and erosions of the esophageal and oral mucosa lead to progressive stricture formation, microstomia, and fusion of the tongue to the floor of the mouth. Esophageal strictures cause severe dysphagia, contributing to malnutrition and growth failure.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell-matrix adhesion\"]}}, {\"id\": \"Malnutrition and Growth Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic dysphagia from esophageal strictures, increased metabolic demands from chronic wound healing, and malabsorption lead to protein- calorie malnutrition, iron deficiency anemia, and growth retardation in children with severe RDEB. Vitamin and mineral deficiencies are common.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Progressive Scarring and Pseudosyndactyly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic fibrosis from repeated wound-healing cycles leads to progressive scarring, joint contractures, and fusion of digits (pseudosyndactyly or mitten deformities). In severe RDEB, the hands and feet become encased in a cocoon of scar tissue, causing severe functional impairment.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"extracellular matrix organization\"]}}], \"edges\": [{\"source\": \"COL7A1 Mutations and Loss of Type VII Collagen\", \"target\": \"Defective Anchoring Fibrils and Loss of Dermal-Epidermal Adhesion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Defective Anchoring Fibrils and Loss of Dermal-Epidermal Adhesion\", \"target\": \"Chronic Wound-Inflammation-Fibrosis Cycle\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Defective Anchoring Fibrils and Loss of Dermal-Epidermal Adhesion\", \"target\": \"Esophageal and Mucosal Blistering\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic Wound-Inflammation-Fibrosis Cycle\", \"target\": \"Progressive Scarring and Pseudosyndactyly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic Wound-Inflammation-Fibrosis Cycle\", \"target\": \"Chronic Wounds and Aggressive Squamous Cell Carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Esophageal and Mucosal Blistering\", \"target\": \"Malnutrition and Growth Failure\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"COL7A1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"association\": \"Causative\"}}, {\"id\": \"COL7A1 Mutations and Loss of Type VII Collagen\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in the COL7A1 gene encoding type VII collagen result in absent, reduced, or dysfunctional protein. In RDEB, biallelic loss-of-function mutations typically cause complete absence of type VII collagen, while in DDEB, dominant-negative mutations produce structurally abnormal collagen that disrupts anchoring fibril formation. Type VII collagen is the major structural component of anchoring fibrils at the dermal-epidermal junction.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"keratinocyte\", \"fibroblast\"], \"biological_processes\": [\"collagen fibril organization\", \"extracellular matrix organization\"], \"genes\": [\"COL7A1\"]}}, {\"id\": \"Chronic Wound-Inflammation-Fibrosis Cycle\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Repeated blistering and impaired wound healing in DEB create chronic wounds that drive persistent inflammation and progressive fibrosis. TGF-beta signaling is upregulated in RDEB fibroblasts, promoting excessive collagen deposition, tissue contraction, and extracellular matrix remodeling. This cycle underlies the progressive scarring, pseudosyndactyly, and tissue contractures characteristic of severe RDEB.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"wound healing\", \"inflammatory response\", \"response to transforming growth factor beta\"]}}, {\"id\": \"Chronic Wounds and Aggressive Squamous Cell Carcinoma\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic non-healing wounds in RDEB create an immunosuppressive and pro-tumorigenic microenvironment that promotes development of aggressive cutaneous squamous cell carcinoma. SCC is the leading cause of death in RDEB, with cumulative risk in severe generalized RDEB rising from 7.5% by age 20 to over 90% by age 55. These SCCs are unusually aggressive, with high rates of metastasis and mortality.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"wound healing\", \"immune response\"], \"genes\": [\"COL7A1\"]}}, {\"id\": \"Defective Anchoring Fibrils and Loss of Dermal-Epidermal Adhesion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Type VII collagen forms the anchoring fibrils that connect the lamina densa of the basement membrane zone to the papillary dermis. In DEB, defective or absent anchoring fibrils cause tissue separation at the sub-lamina densa level, resulting in blistering and erosions with minimal mechanical trauma.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"cell-matrix adhesion\"]}}, {\"id\": \"Esophageal and Mucosal Blistering\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Blistering and erosions of the esophageal and oral mucosa lead to progressive stricture formation, microstomia, and fusion of the tongue to the floor of the mouth. Esophageal strictures cause severe dysphagia, contributing to malnutrition and growth failure.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell-matrix adhesion\"]}}, {\"id\": \"Malnutrition and Growth Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic dysphagia from esophageal strictures, increased metabolic demands from chronic wound healing, and malabsorption lead to protein- calorie malnutrition, iron deficiency anemia, and growth retardation in children with severe RDEB. Vitamin and mineral deficiencies are common.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Progressive Scarring and Pseudosyndactyly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic fibrosis from repeated wound-healing cycles leads to progressive scarring, joint contractures, and fusion of digits (pseudosyndactyly or mitten deformities). In severe RDEB, the hands and feet become encased in a cocoon of scar tissue, causing severe functional impairment.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"extracellular matrix organization\"]}}], \"edges\": [{\"source\": \"COL7A1 Mutations and Loss of Type VII Collagen\", \"target\": \"Defective Anchoring Fibrils and Loss of Dermal-Epidermal Adhesion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Defective Anchoring Fibrils and Loss of Dermal-Epidermal Adhesion\", \"target\": \"Chronic Wound-Inflammation-Fibrosis Cycle\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Defective Anchoring Fibrils and Loss of Dermal-Epidermal Adhesion\", \"target\": \"Esophageal and Mucosal Blistering\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic Wound-Inflammation-Fibrosis Cycle\", \"target\": \"Progressive Scarring and Pseudosyndactyly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic Wound-Inflammation-Fibrosis Cycle\", \"target\": \"Chronic Wounds and Aggressive Squamous Cell Carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Esophageal and Mucosal Blistering\", \"target\": \"Malnutrition and Growth Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"COL7A1\", \"target\": \"COL7A1 Mutations and Loss of Type VII Collagen\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"COL7A1\", \"target\": \"Chronic Wounds and Aggressive Squamous Cell Carcinoma\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5501,6 +5741,9 @@
         </div>
         
 
+        <!-- Experimental Models -->
+        
+
         <!-- Computational Models -->
         
 
@@ -5555,6 +5798,7 @@ classifications:
   - classification_value: skin disorder
     evidence:
     - reference: PMID:20301481
+      reference_title: &#34;Dystrophic Epidermolysis Bullosa.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Dystrophic epidermolysis bullosa (DEB) is characterized by skin
@@ -5563,6 +5807,7 @@ classifications:
   - classification_value: hereditary disease
     evidence:
     - reference: PMID:20301481
+      reference_title: &#34;Dystrophic Epidermolysis Bullosa.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;DEB is inherited in either an autosomal dominant (DDEB) or
@@ -5608,6 +5853,7 @@ prevalence:
     cause of death.
   evidence:
   - reference: PMID:27463098
+    reference_title: &#34;Epidemiology of Inherited Epidermolysis Bullosa Based on Incidence and Prevalence Estimates From the National Epidermolysis Bullosa Registry.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;the overall incidence and prevalence of inherited EB were 19.60
@@ -5615,6 +5861,7 @@ prevalence:
     explanation: US National EB Registry provides overall EB incidence and
       prevalence data including DEB subtypes.
   - reference: PMID:31920360
+    reference_title: &#34;From Clinical Phenotype to Genotypic Modelling: Incidence and Prevalence of Recessive Dystrophic Epidermolysis Bullosa (RDEB).&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;the widely estimated incidence (0.2-6.65 per million births)
@@ -5623,6 +5870,7 @@ prevalence:
     explanation: Summarizes the range of published RDEB incidence and
       prevalence estimates across multiple registries.
   - reference: PMID:19026465
+    reference_title: &#34;Epidermolysis bullosa and the risk of life-threatening cancers: the National EB Registry experience, 1986-2006.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Cumulative risks rose steeply in RDEB-HS, from 7.5% by age 20
@@ -5634,6 +5882,7 @@ inheritance:
   description: Dominant dystrophic epidermolysis bullosa (DDEB)
   evidence:
   - reference: PMID:20301481
+    reference_title: &#34;Dystrophic Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;About 70% of individuals diagnosed with DDEB are reported to have an affected parent&#34;
@@ -5642,6 +5891,7 @@ inheritance:
   description: Recessive dystrophic epidermolysis bullosa (RDEB)
   evidence:
   - reference: PMID:20301481
+    reference_title: &#34;Dystrophic Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;If both parents are known to be heterozygous for a COL7A1 pathogenic variant, each sib of an affected individual has at conception a 25% chance of being affected&#34;
@@ -5688,16 +5938,19 @@ pathophysiology:
       anchoring fibrils that fail to secure the epidermis to the dermis.
   evidence:
   - reference: PMID:36516090
+    reference_title: &#34;Trial of Beremagene Geperpavec (B-VEC) for Dystrophic Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Dystrophic epidermolysis bullosa is a rare genetic blistering skin disease caused by mutations in COL7A1, which encodes type VII collagen (C7)&#34;
     explanation: Confirms COL7A1 mutations as the cause of DEB.
   - reference: PMID:32973163
+    reference_title: &#34;Epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;pathogenetic mutations in 16 distinct genes have been implicated in EB, encoding proteins influencing cellular integrity and adhesion&#34;
     explanation: Confirms that EB is caused by mutations in genes encoding structural proteins critical for cell adhesion.
   - reference: PMID:20301481
+    reference_title: &#34;Dystrophic Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;biallelic COL7A1 pathogenic variants (for RDEB) or a heterozygous pathogenic variant in COL7A1 (for DDEB)&#34;
@@ -5731,11 +5984,13 @@ pathophysiology:
       in the esophagus, oral cavity, and other mucosal surfaces.
   evidence:
   - reference: PMID:32973163
+    reference_title: &#34;Epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;mucocutaneous fragility and blister formation, inducible by often minimal trauma&#34;
     explanation: Confirms that EB is characterized by skin fragility and blister formation from minimal trauma.
   - reference: PMID:20301481
+    reference_title: &#34;Dystrophic Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;skin fragility manifested by blistering and erosions with minimal trauma&#34;
@@ -5780,11 +6035,13 @@ pathophysiology:
       promote development of aggressive squamous cell carcinoma.
   evidence:
   - reference: PMID:35779740
+    reference_title: &#34;Mechanistic interrogation of mutation-independent disease modulators of RDEB identifies the small leucine-rich proteoglycan PRELP as a TGF-β antagonist and inhibitor of fibrosis.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;severe RDEB was associated with enhanced response to TGF-beta stimulus, oxidoreductase activity, and cell contraction&#34;
     explanation: Gene expression profiling of RDEB fibroblasts reveals enhanced TGF-beta responsiveness driving fibrosis.
   - reference: PMID:35779740
+    reference_title: &#34;Mechanistic interrogation of mutation-independent disease modulators of RDEB identifies the small leucine-rich proteoglycan PRELP as a TGF-β antagonist and inhibitor of fibrosis.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;The disease manifests with devastating mucocutaneous fragility leading to progressive fibrosis and metastatic squamous cell carcinomas&#34;
@@ -5803,6 +6060,7 @@ pathophysiology:
       label: extracellular matrix organization
   evidence:
   - reference: PMID:20301481
+    reference_title: &#34;Dystrophic Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Blistering of the hands and feet followed by scarring results in contractures and pseudosyndactyly&#34;
@@ -5826,11 +6084,13 @@ pathophysiology:
       intake, leading to growth retardation and nutritional deficiencies.
   evidence:
   - reference: PMID:20301481
+    reference_title: &#34;Dystrophic Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Esophageal erosions can lead to webs and strictures that can cause severe dysphagia&#34;
     explanation: GeneReviews confirms esophageal stricture formation from mucosal blistering.
   - reference: PMID:19700011
+    reference_title: &#34;Extracutaneous manifestations and complications of inherited epidermolysis bullosa: part II. Other organs.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Some epidermolysis bullosa subtypes are at risk for severe injury of the bone marrow, musculoskeletal system, heart, kidney, and teeth&#34;
@@ -5848,6 +6108,7 @@ pathophysiology:
     biological processes.
   evidence:
   - reference: PMID:20301481
+    reference_title: &#34;Dystrophic Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Malnutrition with vitamin and mineral deficiency may lead to growth deficiency in young children&#34;
@@ -5883,21 +6144,25 @@ pathophysiology:
       label: keratinocyte
   evidence:
   - reference: PMID:19026465
+    reference_title: &#34;Epidermolysis bullosa and the risk of life-threatening cancers: the National EB Registry experience, 1986-2006.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Cumulative risks rose steeply in RDEB-HS, from 7.5% by age 20 to 67.8%, 80.2%, and 90.1% by ages 35, 45, and 55, respectively&#34;
     explanation: National EB Registry data demonstrates extremely high cumulative SCC risk in severe RDEB.
   - reference: PMID:19026465
+    reference_title: &#34;Epidermolysis bullosa and the risk of life-threatening cancers: the National EB Registry experience, 1986-2006.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;By mid-adulthood, nearly all will have had at least one SCC, and nearly 80% will have died of metastatic SCC despite aggressive surgical resection&#34;
     explanation: Confirms SCC as the leading cause of death in RDEB with high metastatic potential.
   - reference: PMID:32973163
+    reference_title: &#34;Epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;the most feared of which - and also the leading cause of mortality - is squamous cell carcinoma&#34;
     explanation: Confirms SCC as the most feared complication and leading cause of death in EB.
   - reference: PMID:20301481
+    reference_title: &#34;Dystrophic Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The lifetime risk of aggressive squamous cell carcinoma (SCC) is greater than 90%&#34;
@@ -5918,11 +6183,13 @@ phenotypes:
       label: Abnormal blistering of the skin
   evidence:
   - reference: PMID:32973163
+    reference_title: &#34;Epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;mucocutaneous fragility and blister formation, inducible by often minimal trauma&#34;
     explanation: Confirms skin blistering induced by minimal trauma as the defining feature of EB.
   - reference: PMID:20301481
+    reference_title: &#34;Dystrophic Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;skin fragility manifested by blistering and erosions with minimal trauma&#34;
@@ -5941,6 +6208,7 @@ phenotypes:
       label: Atrophic scars
   evidence:
   - reference: PMID:20301481
+    reference_title: &#34;Dystrophic Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;skin fragility manifested by blistering and erosions with minimal trauma that heals with milia and scarring&#34;
@@ -5958,6 +6226,7 @@ phenotypes:
       label: Milia
   evidence:
   - reference: PMID:20301481
+    reference_title: &#34;Dystrophic Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;blistering and erosions with minimal trauma that heals with milia and scarring&#34;
@@ -5976,6 +6245,7 @@ phenotypes:
       label: Nail dystrophy
   evidence:
   - reference: PMID:20301481
+    reference_title: &#34;Dystrophic Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Dystrophic nails, especially toenails, are common and may be the only manifestation of DDEB&#34;
@@ -5995,6 +6265,7 @@ phenotypes:
       label: Cutaneous finger syndactyly
   evidence:
   - reference: PMID:20301481
+    reference_title: &#34;Dystrophic Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Blistering of the hands and feet followed by scarring results in contractures and pseudosyndactyly&#34;
@@ -6014,6 +6285,7 @@ phenotypes:
       label: Esophageal stricture
   evidence:
   - reference: PMID:20301481
+    reference_title: &#34;Dystrophic Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Esophageal erosions can lead to webs and strictures that can cause severe dysphagia&#34;
@@ -6033,6 +6305,7 @@ phenotypes:
       label: Dysphagia
   evidence:
   - reference: PMID:20301481
+    reference_title: &#34;Dystrophic Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Esophageal erosions can lead to webs and strictures that can cause severe dysphagia&#34;
@@ -6052,6 +6325,7 @@ phenotypes:
       label: Narrow mouth
   evidence:
   - reference: PMID:20301481
+    reference_title: &#34;Dystrophic Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Oral involvement may lead to mouth blistering, fusion of the tongue to the floor of the mouth, and progressive diminution of the size of the oral cavity and mouth opening&#34;
@@ -6071,6 +6345,7 @@ phenotypes:
       label: Growth delay
   evidence:
   - reference: PMID:20301481
+    reference_title: &#34;Dystrophic Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Malnutrition with vitamin and mineral deficiency may lead to growth deficiency in young children&#34;
@@ -6090,6 +6365,7 @@ phenotypes:
       label: Anemia
   evidence:
   - reference: PMID:20301481
+    reference_title: &#34;Dystrophic Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Anemia is treated with iron supplements and transfusions as needed&#34;
@@ -6110,11 +6386,13 @@ phenotypes:
       label: Squamous cell carcinoma of the skin
   evidence:
   - reference: PMID:19026465
+    reference_title: &#34;Epidermolysis bullosa and the risk of life-threatening cancers: the National EB Registry experience, 1986-2006.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Cumulative risks rose steeply in RDEB-HS, from 7.5% by age 20 to 67.8%, 80.2%, and 90.1% by ages 35, 45, and 55, respectively&#34;
     explanation: National EB Registry documents extremely high lifetime SCC risk in severe RDEB.
   - reference: PMID:19026465
+    reference_title: &#34;Epidermolysis bullosa and the risk of life-threatening cancers: the National EB Registry experience, 1986-2006.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;nearly 80% will have died of metastatic SCC despite aggressive surgical resection&#34;
@@ -6132,6 +6410,7 @@ phenotypes:
       label: Corneal erosion
   evidence:
   - reference: PMID:20301481
+    reference_title: &#34;Dystrophic Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Corneal erosions can lead to scarring and loss of vision&#34;
@@ -6150,12 +6429,14 @@ phenotypes:
       label: Carious teeth
   evidence:
   - reference: PMID:20301481
+    reference_title: &#34;Dystrophic Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;good dental care&#34;
     explanation: GeneReviews recommends dental care as part of DEB management,
       indicating dental complications including caries from enamel involvement.
   - reference: PMID:19700011
+    reference_title: &#34;Extracutaneous manifestations and complications of inherited epidermolysis bullosa: part II. Other organs.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Some epidermolysis bullosa subtypes are at risk for severe injury
@@ -6176,6 +6457,7 @@ phenotypes:
       label: Osteoporosis
   evidence:
   - reference: PMID:20301481
+    reference_title: &#34;Dystrophic Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Calcium and vitamin D supplementation and bisphosphonates as needed for osteoporosis&#34;
@@ -6193,6 +6475,7 @@ phenotypes:
       label: Constipation
   evidence:
   - reference: PMID:20301481
+    reference_title: &#34;Dystrophic Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;management of constipation&#34;
@@ -6212,11 +6495,13 @@ treatments:
       label: gene therapy
   evidence:
   - reference: PMID:36516090
+    reference_title: &#34;Trial of Beremagene Geperpavec (B-VEC) for Dystrophic Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Complete wound healing at 3 and 6 months in patients with dystrophic epidermolysis bullosa was more likely with topical administration of B-VEC than with placebo&#34;
     explanation: Phase III trial conclusions confirming B-VEC efficacy for wound healing in DEB.
   - reference: PMID:36516090
+    reference_title: &#34;Trial of Beremagene Geperpavec (B-VEC) for Dystrophic Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Beremagene geperpavec (B-VEC) is a topical investigational herpes simplex virus type 1 (HSV-1)-based gene therapy designed to restore C7 protein by delivering COL7A1&#34;
@@ -6236,6 +6521,7 @@ treatments:
       label: gene therapy
   evidence:
   - reference: PMID:40570869
+    reference_title: &#34;Prademagene zamikeracel for recessive dystrophic epidermolysis bullosa wounds (VIITAL): a two-centre, randomised, open-label, intrapatient-controlled phase 3 trial.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;At week 24, 35 (81%) of 43 treated wounds were at least 50%
@@ -6244,6 +6530,7 @@ treatments:
     explanation: Phase III VIITAL trial demonstrates statistically significant
       wound healing efficacy of prademagene zamikeracel in RDEB.
   - reference: PMID:40570869
+    reference_title: &#34;Prademagene zamikeracel for recessive dystrophic epidermolysis bullosa wounds (VIITAL): a two-centre, randomised, open-label, intrapatient-controlled phase 3 trial.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Prademagene zamikeracel is an autologous COL7A1 gene-modified
@@ -6265,6 +6552,7 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:34606885
+    reference_title: &#34;Systemic Collagen VII Replacement Therapy for Advanced Recessive Dystrophic Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Fortnightly IV injections of rC7 for 7 weeks in adult RDEB mice
@@ -6272,6 +6560,7 @@ treatments:
     explanation: Preclinical study demonstrates that systemic IV rC7
       reduces fibrosis in adult RDEB animal models.
   - reference: PMID:34606885
+    reference_title: &#34;Systemic Collagen VII Replacement Therapy for Advanced Recessive Dystrophic Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;IV rC7 in adult RDEB dogs incorporated in the dermal‒epidermal
@@ -6293,6 +6582,7 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:39539991
+    reference_title: &#34;Safety and tolerability of losartan to treat recessive dystrophic epidermolysis bullosa in children (REFLECT): an open-label, single-arm, phase 1/2 trial.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Losartan was well tolerated, no treatment-related severe
@@ -6300,6 +6590,7 @@ treatments:
     explanation: REFLECT Phase 1/2 trial demonstrates safety and tolerability
       of losartan in children with RDEB.
   - reference: PMID:39539991
+    reference_title: &#34;Safety and tolerability of losartan to treat recessive dystrophic epidermolysis bullosa in children (REFLECT): an open-label, single-arm, phase 1/2 trial.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Similar to the EBDASI score, the BEBS showed a mean reduction
@@ -6320,6 +6611,7 @@ treatments:
       label: chemotherapy
   evidence:
   - reference: PMID:40439508
+    reference_title: &#34;Efficacy and safety of rigosertib in patients with recessive dystrophic epidermolysis bullosa-associated advanced/metastatic cutaneous squamous cell carcinoma.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Antitumour efficacy with acceptable toxicity was seen in patients
@@ -6328,6 +6620,7 @@ treatments:
     explanation: Phase II trial demonstrates antitumour activity and complete
       responses with rigosertib in RDEB-SCC patients.
   - reference: PMID:40439508
+    reference_title: &#34;Efficacy and safety of rigosertib in patients with recessive dystrophic epidermolysis bullosa-associated advanced/metastatic cutaneous squamous cell carcinoma.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;These data identify rigosertib as a promising drug therapy for
@@ -6352,6 +6645,7 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:38366625
+    reference_title: &#34;Intravenous gentamicin therapy induces functional type VII collagen in patients with recessive dystrophic epidermolysis bullosa: an open-label clinical trial.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;After gentamicin treatment, skin biopsies from all three patients
@@ -6360,6 +6654,7 @@ treatments:
       restores type VII collagen at the DEJ in RDEB patients with nonsense
       mutations.
   - reference: PMID:38366625
+    reference_title: &#34;Intravenous gentamicin therapy induces functional type VII collagen in patients with recessive dystrophic epidermolysis bullosa: an open-label clinical trial.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;At 1 and 3 months post-treatment, 100% of the monitored wounds
@@ -6379,6 +6674,7 @@ treatments:
       label: supportive care
   evidence:
   - reference: PMID:32973163
+    reference_title: &#34;Epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;multidisciplinary care is targeted towards minimizing the risk of blister formation, wound care, symptom relief and specific complications&#34;
@@ -6395,6 +6691,7 @@ treatments:
       label: surgical procedure
   evidence:
   - reference: PMID:20301481
+    reference_title: &#34;Dystrophic Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;dilation of esophageal strictures and webs to improve swallowing&#34;
@@ -6411,6 +6708,7 @@ treatments:
       label: dietary intervention
   evidence:
   - reference: PMID:20301481
+    reference_title: &#34;Dystrophic Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;nutritional support including feeding gastrostomy tube, vitamin A, zinc, selenium, and carnitine supplementation&#34;
@@ -6427,6 +6725,7 @@ treatments:
       label: cancer screening
   evidence:
   - reference: PMID:20301481
+    reference_title: &#34;Dystrophic Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;evaluation of crusted, non-healing, and painful lesions as well as those with exuberant scar tissue at least annually beginning at age ten years; biopsies of suspicious lesions for evidence of SCC&#34;
@@ -6442,6 +6741,7 @@ treatments:
       label: surgical procedure
   evidence:
   - reference: PMID:19026465
+    reference_title: &#34;Epidermolysis bullosa and the risk of life-threatening cancers: the National EB Registry experience, 1986-2006.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;nearly 80% will have died of metastatic SCC despite aggressive surgical resection&#34;
@@ -6458,6 +6758,7 @@ treatments:
       label: supportive care
   evidence:
   - reference: PMID:20301481
+    reference_title: &#34;Dystrophic Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;topical, oral, and psychological therapies for pain and itch&#34;
@@ -6474,6 +6775,7 @@ treatments:
       label: physical therapy
   evidence:
   - reference: PMID:20301481
+    reference_title: &#34;Dystrophic Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Occupational and physical therapy may help prevent hand and other joint contractures&#34;
@@ -6491,11 +6793,13 @@ treatments:
       label: hematopoietic stem cell transplantation
   evidence:
   - reference: PMID:20818854
+    reference_title: &#34;Bone marrow transplantation for recessive dystrophic epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Increased C7 deposition and a sustained presence of donor cells were found in the skin of children with recessive dystrophic epidermolysis bullosa after allogeneic bone marrow transplantation&#34;
     explanation: Wagner et al. demonstrated increased collagen VII after BMT in RDEB children.
   - reference: PMID:20818854
+    reference_title: &#34;Bone marrow transplantation for recessive dystrophic epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;all having improved wound healing and a reduction in blister formation between 30 and 130 days after transplantation&#34;
@@ -6513,6 +6817,7 @@ treatments:
       label: genetic counseling
   evidence:
   - reference: PMID:20301481
+    reference_title: &#34;Dystrophic Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Once the COL7A1 pathogenic variant(s) have been identified in an affected family member, prenatal and preimplantation genetic testing are possible&#34;
@@ -6565,6 +6870,7 @@ genetic:
   - name: Autosomal dominant
     evidence:
     - reference: PMID:20301481
+      reference_title: &#34;Dystrophic Epidermolysis Bullosa.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;About 70% of individuals diagnosed with DDEB are reported to
@@ -6573,6 +6879,7 @@ genetic:
   - name: Autosomal recessive
     evidence:
     - reference: PMID:20301481
+      reference_title: &#34;Dystrophic Epidermolysis Bullosa.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;If both parents are known to be heterozygous for a COL7A1
@@ -6588,16 +6895,19 @@ genetic:
     pathogenic variants are associated with both DDEB and RDEB.
   evidence:
   - reference: PMID:36516090
+    reference_title: &#34;Trial of Beremagene Geperpavec (B-VEC) for Dystrophic Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Dystrophic epidermolysis bullosa is a rare genetic blistering skin disease caused by mutations in COL7A1, which encodes type VII collagen (C7)&#34;
     explanation: Confirms COL7A1 as the causative gene for DEB.
   - reference: PMID:20301481
+    reference_title: &#34;Dystrophic Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;biallelic COL7A1 pathogenic variants (for RDEB) or a heterozygous pathogenic variant in COL7A1 (for DDEB)&#34;
     explanation: GeneReviews confirms both dominant and recessive inheritance patterns for COL7A1 mutations.
   - reference: PMID:20301481
+    reference_title: &#34;Dystrophic Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Some COL7A1 pathogenic variants are associated with both DDEB and RDEB&#34;

@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1037,6 +1101,52 @@
             text-decoration: underline;
         }
 
+        /* Experimental Models */
+        .exp-model-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .exp-model-box .item-name { color: #92400e; }
+        .exp-model-box .item-desc { color: #b45309; }
+
+        .tag-exp-model-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .tag-namo-type {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+        .tag-condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .model-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .model-detail-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .model-detail-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 110px;
+        }
+        .model-detail-value {
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+        }
+        .model-detail-value a {
+            color: inherit;
+        }
+
         /* Computational Models */
         .comp-model-box {
             background: #f0fdf4;
@@ -1382,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1470,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1477,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1489,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1637,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1723,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1737,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1792,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1877,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 16</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Connective Tissue Disorder</span>
                 
             </div>
@@ -1888,6 +2107,11 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
+        
+        
         
         
         
@@ -1941,6 +2165,14 @@
             <div class="stat-item">
                 <div class="stat-value">9</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">16</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2022,10 +2254,11 @@
                 <span class="card-count">6</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-fbn1-gene-mutation">
                 <div class="item-name">FBN1 Gene Mutation</div>
                 
                 <div class="item-desc">Mutations in the FBN1 gene result in defective fibrillin-1 protein, which affects the elasticity and strength of connective tissues.</div>
+                
                 
                 
                 
@@ -2111,7 +2344,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-tgf-beta-signaling">
                 <div class="item-name">Dysregulated TGF-beta Signaling</div>
                 
                 <div class="item-desc">Defective fibrillin-1 microfibrils fail to sequester latent TGF-beta complexes, leading to increased bioavailable TGF-beta and excessive SMAD2/3 signaling that drives vascular smooth muscle cell phenotypic switching and ECM remodeling.</div>
@@ -2173,11 +2406,12 @@
                 </div>
                 
                 
+                
     
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-extracellular-matrix-remodeling">
                 <div class="item-name">Extracellular Matrix Remodeling</div>
                 
                 <div class="item-desc">Increased matrix metalloproteinase activity, elastic fiber fragmentation, altered collagen composition, and proteoglycan accumulation (especially versican) weaken the aortic wall medial layer.</div>
@@ -2249,11 +2483,12 @@
                 </div>
                 
                 
+                
     
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-mechanotransduction">
                 <div class="item-name">Impaired Mechanotransduction</div>
                 
                 <div class="item-desc">Perturbed integrin-fibrillin interactions alter focal adhesion signaling and mechanosensing, contributing to maladaptive vascular smooth muscle cell responses to hemodynamic stress.</div>
@@ -2325,11 +2560,12 @@
                 </div>
                 
                 
+                
     
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-vascular-inflammation">
                 <div class="item-name">Vascular Inflammation</div>
                 
                 <div class="item-desc">Angiotensin II type 1 receptor signaling and chemokine pathways recruit macrophages and promote inflammatory mediators that exacerbate vascular smooth muscle cell dysfunction and ECM degradation.</div>
@@ -2408,11 +2644,12 @@
                 </div>
                 
                 
+                
     
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-dysfunction">
                 <div class="item-name">Mitochondrial Dysfunction</div>
                 
                 <div class="item-desc">Emerging evidence implicates mitochondrial dysfunction and oxidative stress in vascular smooth muscle cells and endothelial cells as contributors to thoracic aortic aneurysm progression in Marfan syndrome.</div>
@@ -2484,6 +2721,7 @@
                 </div>
                 
                 
+                
     
     
             </div>
@@ -2501,18 +2739,19 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Marfan Syndrome</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aortic Aneurysm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive dilation of the aortic root beginning in childhood, with risk of life-threatening aortic dissection.\", \"meta\": {\"evidence_count\": 5, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004942\"}}, {\"id\": \"Aortic Dissection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Life-threatening tear in the aortic wall allowing blood to enter between tissue layers, the leading cause of death in untreated Marfan syndrome.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002647\"}}, {\"id\": \"Aortic Root Aneurysm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive enlargement of the aortic root diameter, typically measured by echocardiography and tracked using Z-scores adjusted for age and body surface area.\", \"meta\": {\"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002616\"}}, {\"id\": \"Arachnodactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormally long, slender fingers and toes (spider-like digits), often demonstrated by positive wrist and thumb signs.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001166\"}}, {\"id\": \"Dysregulated TGF-beta Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective fibrillin-1 microfibrils fail to sequester latent TGF-beta complexes, leading to increased bioavailable TGF-beta and excessive SMAD2/3 signaling that drives vascular smooth muscle cell phenotypic switching and ECM remodeling.\", \"meta\": {\"cell_types\": [\"vascular associated smooth muscle cell\"], \"biological_processes\": [\"transforming growth factor beta receptor signaling pathway\", \"SMAD protein signal transduction\"], \"locations\": [\"aorta\"]}}, {\"id\": \"Ectopia Lentis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Superior and temporal displacement of the lens due to weakened zonular fibers, affecting visual acuity.\", \"meta\": {\"evidence_count\": 8, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001083\"}}, {\"id\": \"Extracellular Matrix Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Increased matrix metalloproteinase activity, elastic fiber fragmentation, altered collagen composition, and proteoglycan accumulation (especially versican) weaken the aortic wall medial layer.\", \"meta\": {\"cell_types\": [\"vascular associated smooth muscle cell\", \"fibroblast\"], \"biological_processes\": [\"extracellular matrix organization\", \"proteolysis\"], \"locations\": [\"aorta tunica media\"]}}, {\"id\": \"FBN1 Gene Mutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in the FBN1 gene result in defective fibrillin-1 protein, which affects the elasticity and strength of connective tissues.\", \"meta\": {\"evidence_count\": 7}}, {\"id\": \"Impaired Mechanotransduction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Perturbed integrin-fibrillin interactions alter focal adhesion signaling and mechanosensing, contributing to maladaptive vascular smooth muscle cell responses to hemodynamic stress.\", \"meta\": {\"cell_types\": [\"vascular associated smooth muscle cell\", \"endothelial cell\"], \"biological_processes\": [\"cellular response to mechanical stimulus\", \"integrin-mediated signaling pathway\"], \"locations\": [\"aorta\"]}}, {\"id\": \"Mitochondrial Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Emerging evidence implicates mitochondrial dysfunction and oxidative stress in vascular smooth muscle cells and endothelial cells as contributors to thoracic aortic aneurysm progression in Marfan syndrome.\", \"meta\": {\"cell_types\": [\"vascular associated smooth muscle cell\", \"endothelial cell\"], \"biological_processes\": [\"mitochondrial ATP synthesis coupled electron transport\", \"response to oxidative stress\"], \"locations\": [\"aorta\"]}}, {\"id\": \"Mitral Valve Prolapse\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myxomatous degeneration of mitral valve leaflets causing prolapse into the left atrium during systole, often accompanied by mitral regurgitation.\", \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001634\"}}, {\"id\": \"Pneumothorax\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spontaneous lung collapse occurring in 5-11% of patients due to apical blebs from connective tissue abnormalities.\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002107\"}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lateral curvature of the spine occurring in approximately 63% of Marfan syndrome patients, often progressive.\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"Tall Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disproportionately tall stature with long limbs and increased arm span-to-height ratio.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000098\"}}, {\"id\": \"Vascular Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Angiotensin II type 1 receptor signaling and chemokine pathways recruit macrophages and promote inflammatory mediators that exacerbate vascular smooth muscle cell dysfunction and ECM degradation.\", \"meta\": {\"cell_types\": [\"macrophage\", \"vascular associated smooth muscle cell\"], \"biological_processes\": [\"inflammatory response\", \"leukocyte migration\"], \"locations\": [\"aorta tunica intima\", \"aorta tunica media\"]}}], \"edges\": [{\"source\": \"FBN1 Gene Mutation\", \"target\": \"Dysregulated TGF-beta Signaling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FBN1 Gene Mutation\", \"target\": \"Extracellular Matrix Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FBN1 Gene Mutation\", \"target\": \"Impaired Mechanotransduction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dysregulated TGF-beta Signaling\", \"target\": \"Extracellular Matrix Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dysregulated TGF-beta Signaling\", \"target\": \"Aortic Root Aneurysm\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dysregulated TGF-beta Signaling\", \"target\": \"Tall Stature\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dysregulated TGF-beta Signaling\", \"target\": \"Arachnodactyly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular Matrix Remodeling\", \"target\": \"Aortic Aneurysm\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular Matrix Remodeling\", \"target\": \"Mitral Valve Prolapse\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular Matrix Remodeling\", \"target\": \"Ectopia Lentis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular Matrix Remodeling\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular Matrix Remodeling\", \"target\": \"Pneumothorax\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mechanotransduction\", \"target\": \"Aortic Root Aneurysm\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vascular Inflammation\", \"target\": \"Aortic Dissection\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial Dysfunction\", \"target\": \"Aortic Dissection\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Aortic Aneurysm\", \"target\": \"Aortic Dissection\", \"predicate\": \"leads_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aortic Aneurysm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive dilation of the aortic root beginning in childhood, with risk of life-threatening aortic dissection.\", \"meta\": {\"evidence_count\": 5, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004942\"}}, {\"id\": \"Aortic Dissection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Life-threatening tear in the aortic wall allowing blood to enter between tissue layers, the leading cause of death in untreated Marfan syndrome.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002647\"}}, {\"id\": \"Aortic Root Aneurysm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive enlargement of the aortic root diameter, typically measured by echocardiography and tracked using Z-scores adjusted for age and body surface area.\", \"meta\": {\"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002616\"}}, {\"id\": \"Arachnodactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormally long, slender fingers and toes (spider-like digits), often demonstrated by positive wrist and thumb signs.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001166\"}}, {\"id\": \"Dysregulated TGF-beta Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective fibrillin-1 microfibrils fail to sequester latent TGF-beta complexes, leading to increased bioavailable TGF-beta and excessive SMAD2/3 signaling that drives vascular smooth muscle cell phenotypic switching and ECM remodeling.\", \"meta\": {\"cell_types\": [\"vascular associated smooth muscle cell\"], \"biological_processes\": [\"transforming growth factor beta receptor signaling pathway\", \"SMAD protein signal transduction\"], \"locations\": [\"aorta\"]}}, {\"id\": \"Ectopia Lentis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Superior and temporal displacement of the lens due to weakened zonular fibers, affecting visual acuity.\", \"meta\": {\"evidence_count\": 8, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001083\"}}, {\"id\": \"Extracellular Matrix Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Increased matrix metalloproteinase activity, elastic fiber fragmentation, altered collagen composition, and proteoglycan accumulation (especially versican) weaken the aortic wall medial layer.\", \"meta\": {\"cell_types\": [\"vascular associated smooth muscle cell\", \"fibroblast\"], \"biological_processes\": [\"extracellular matrix organization\", \"proteolysis\"], \"locations\": [\"aorta tunica media\"]}}, {\"id\": \"FBN1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 7, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"FBN1 Gene Mutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in the FBN1 gene result in defective fibrillin-1 protein, which affects the elasticity and strength of connective tissues.\", \"meta\": {\"evidence_count\": 7, \"genes\": [\"FBN1\"]}}, {\"id\": \"Impaired Mechanotransduction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Perturbed integrin-fibrillin interactions alter focal adhesion signaling and mechanosensing, contributing to maladaptive vascular smooth muscle cell responses to hemodynamic stress.\", \"meta\": {\"cell_types\": [\"vascular associated smooth muscle cell\", \"endothelial cell\"], \"biological_processes\": [\"cellular response to mechanical stimulus\", \"integrin-mediated signaling pathway\"], \"locations\": [\"aorta\"]}}, {\"id\": \"Mitochondrial Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Emerging evidence implicates mitochondrial dysfunction and oxidative stress in vascular smooth muscle cells and endothelial cells as contributors to thoracic aortic aneurysm progression in Marfan syndrome.\", \"meta\": {\"cell_types\": [\"vascular associated smooth muscle cell\", \"endothelial cell\"], \"biological_processes\": [\"mitochondrial ATP synthesis coupled electron transport\", \"response to oxidative stress\"], \"locations\": [\"aorta\"]}}, {\"id\": \"Mitral Valve Prolapse\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myxomatous degeneration of mitral valve leaflets causing prolapse into the left atrium during systole, often accompanied by mitral regurgitation.\", \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001634\"}}, {\"id\": \"Pneumothorax\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spontaneous lung collapse occurring in 5-11% of patients due to apical blebs from connective tissue abnormalities.\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002107\"}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lateral curvature of the spine occurring in approximately 63% of Marfan syndrome patients, often progressive.\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"Tall Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disproportionately tall stature with long limbs and increased arm span-to-height ratio.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000098\"}}, {\"id\": \"Vascular Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Angiotensin II type 1 receptor signaling and chemokine pathways recruit macrophages and promote inflammatory mediators that exacerbate vascular smooth muscle cell dysfunction and ECM degradation.\", \"meta\": {\"cell_types\": [\"macrophage\", \"vascular associated smooth muscle cell\"], \"biological_processes\": [\"inflammatory response\", \"leukocyte migration\"], \"locations\": [\"aorta tunica intima\", \"aorta tunica media\"]}}], \"edges\": [{\"source\": \"FBN1 Gene Mutation\", \"target\": \"Dysregulated TGF-beta Signaling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FBN1 Gene Mutation\", \"target\": \"Extracellular Matrix Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FBN1 Gene Mutation\", \"target\": \"Impaired Mechanotransduction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dysregulated TGF-beta Signaling\", \"target\": \"Extracellular Matrix Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dysregulated TGF-beta Signaling\", \"target\": \"Aortic Root Aneurysm\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dysregulated TGF-beta Signaling\", \"target\": \"Tall Stature\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dysregulated TGF-beta Signaling\", \"target\": \"Arachnodactyly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular Matrix Remodeling\", \"target\": \"Aortic Aneurysm\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular Matrix Remodeling\", \"target\": \"Mitral Valve Prolapse\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular Matrix Remodeling\", \"target\": \"Ectopia Lentis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular Matrix Remodeling\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular Matrix Remodeling\", \"target\": \"Pneumothorax\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mechanotransduction\", \"target\": \"Aortic Root Aneurysm\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vascular Inflammation\", \"target\": \"Aortic Dissection\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial Dysfunction\", \"target\": \"Aortic Dissection\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Aortic Aneurysm\", \"target\": \"Aortic Dissection\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"FBN1\", \"target\": \"FBN1 Gene Mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4256,6 +4495,9 @@
         <!-- Clinical Trials -->
         
 
+        <!-- Experimental Models -->
+        
+
         <!-- Computational Models -->
         
 
@@ -4286,6 +4528,7 @@ prevalence:
   percentage: 0.01-0.02
   evidence:
   - reference: PMID:21308160
+    reference_title: &#34;Marfan&#39;s syndrome: an overview.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: Marfan&#39;s syndrome is an autosomal dominant condition with an
@@ -4294,6 +4537,7 @@ prevalence:
       in a range (0.01-0.02) which matches the statement&#39;s value range, but it&#39;s
       not explicitly stated as a percentage of the global population.
   - reference: PMID:26631233
+    reference_title: &#34;Prevalence, incidence, and age at diagnosis in Marfan Syndrome.&#34;
     supports: REFUTE
     evidence_source: HUMAN_CLINICAL
     snippet: We identified a total of 1628 persons with possible Marfan
@@ -4306,6 +4550,7 @@ progression:
   age_range: Childhood-Adolescence
   evidence:
   - reference: PMID:28383843
+    reference_title: &#34;[Marfan syndrome in childhood and adolescence].&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: The expression of the Marfan syndrome varies from the severe
@@ -4315,6 +4560,7 @@ progression:
       neonatal stages to young adulthood, but it does not explicitly confirm
       that the onset is limited to childhood-adolescence.
   - reference: PMID:35420547
+    reference_title: &#34;A clinical scoring system for early onset (neonatal) Marfan syndrome.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: Distinct from classical Marfan syndrome in phenotype and morbidity,
@@ -4325,6 +4571,7 @@ progression:
       which can be diagnosed in early childhood. However, it does not specify
       that the onset is restricted to childhood-adolescence.
   - reference: PMID:26631233
+    reference_title: &#34;Prevalence, incidence, and age at diagnosis in Marfan Syndrome.&#34;
     supports: NO_EVIDENCE
     evidence_source: HUMAN_CLINICAL
     snippet: &#39;We found a median age at diagnose of 19.0 years (range: 0.0-74).&#39;
@@ -4332,6 +4579,7 @@ progression:
       from infancy to old age, suggesting that onset is not restricted to
       childhood-adolescence.
   - reference: PMID:38728377
+    reference_title: &#34;Mitral annular disjunction and its progression during childhood in Marfan syndrome.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: MAD was found in children of all ages, increased +0.18 mm/year (95%
@@ -4354,6 +4602,7 @@ pathophysiology:
       label: FBN1
   evidence:
   - reference: PMID:8180508
+    reference_title: &#34;Identification of defects in the fibrillin gene and protein in individuals with the Marfan syndrome and related disorders.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The gene encoding for fibrillin, the FBN1 gene on chromosome 15,
@@ -4365,6 +4614,7 @@ pathophysiology:
       gene as the cause of Marfan syndrome and its role in the structure of
       connective tissue.
   - reference: PMID:39096853
+    reference_title: &#34;Generation of Marfan syndrome-specific induced pluripotent stem cells harboring FBN1 mutations.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Marfan syndrome (MFS) is a hereditary condition caused by mutations
@@ -4375,6 +4625,7 @@ pathophysiology:
       affecting the function of fibrillin-1, which is crucial for connective
       tissue structure.
   - reference: PMID:17657824
+    reference_title: &#34;The importance of mutation detection in Marfan syndrome and Marfan-related disorders: report of 193 FBN1 mutations.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Mutations in the FBN1 gene have been characterised in patients
@@ -4382,6 +4633,7 @@ pathophysiology:
     explanation: The statement is supported by the identification of FBN1
       mutations in Marfan syndrome patients.
   - reference: PMID:12938084
+    reference_title: &#34;Update of the UMD-FBN1 mutation database and creation of an FBN1 polymorphism database.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Fibrillin is the major component of extracellular microfibrils.
@@ -4391,6 +4643,7 @@ pathophysiology:
       component of microfibrils and the impact of FBN1 mutations on connective
       tissue.
   - reference: PMID:24555249
+    reference_title: &#34;[Marfan syndrome].&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Marfan syndrome is a genetic disorder of the connective tissue
@@ -4398,6 +4651,7 @@ pathophysiology:
     explanation: The statement is supported by the description of Marfan
       syndrome as a genetic disorder caused by FBN1 mutations.
   - reference: PMID:36004597
+    reference_title: &#34;[Ocular manifestations of Marfan syndrome].&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Marfan syndrome is an orphan disease that is caused by a mutation
@@ -4406,6 +4660,7 @@ pathophysiology:
     explanation: The statement is supported by the identification of FBN1
       mutations as the cause of Marfan syndrome.
   - reference: PMID:25729264
+    reference_title: &#34;C596G mutation in FBN1 causes Marfan syndrome with exotropia in a Chinese family.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: A C596G mutation in FBN1 was identified in a Chinese family with
@@ -4614,6 +4869,7 @@ phenotypes:
       acute dissection.
     evidence:
     - reference: PMID:16321689
+      reference_title: &#34;Determinants of rapid progression of aortic root dilatation and complications in Marfan syndrome.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: Aortic dissection occurred more frequently in group R (7
@@ -4623,6 +4879,7 @@ phenotypes:
         rapidly progressing patients.
   evidence:
   - reference: PMID:21797750
+    reference_title: &#34;Cardiovascular surgery in Marfan syndrome: implications of new molecular concepts in thoracic aortic disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: MFS is one of the most common inherited connective tissue disorders
@@ -4633,6 +4890,7 @@ phenotypes:
     explanation: This reference confirms that aortic aneurysm and aortic
       dissection are frequent cardiovascular manifestations in Marfan Syndrome.
   - reference: PMID:36058493
+    reference_title: &#34;Early Onset Marfan Syndrome with multivalvular insufficiency: Report from a tertiary hospital in Tanzania, and a review of the recurrent c.7606G&gt;A p.0 variant in FBN1.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Early Onset Marfan Syndrome is at the severe end of the Marfan
@@ -4642,6 +4900,7 @@ phenotypes:
       manifestations of Marfan Syndrome, supporting the frequent occurrence of
       aortic aneurysm and dissection.
   - reference: PMID:20364556
+    reference_title: &#34;Clinical presentation and echocardiographic findings of Thai patients with Marfan syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The majority of those individuals had significant organ involvement
@@ -4649,6 +4908,7 @@ phenotypes:
     explanation: This study indicates a high frequency of aortic dilation, a
       precursor to aortic aneurysm, among Marfan Syndrome patients.
   - reference: PMID:32290873
+    reference_title: &#34;Clinical significance of family history and bicuspid aortic valve in children and young adult patients with Marfan syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Marfan syndrome is an autosomal dominant disorder of the connective
@@ -4658,6 +4918,7 @@ phenotypes:
       area affected in Marfan Syndrome, supporting the frequent occurrence of
       aortic aneurysms and dissection.
   - reference: PMID:7911041
+    reference_title: &#34;Cardiovascular molecular genetics.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The relation between Marfan syndrome and fibrillin mutations and
@@ -4681,6 +4942,7 @@ phenotypes:
   diagnostic: true
   evidence:
   - reference: PMID:28846673
+    reference_title: &#34;Skeletal evolution in Marfan syndrome: growth curves from a French national cohort.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Boys and girls from the MFS group were significantly taller than
@@ -4691,6 +4953,7 @@ phenotypes:
       supporting the statement that tall stature is a very frequent
       musculoskeletal diagnostic feature of Marfan syndrome.
   - reference: PMID:36058493
+    reference_title: &#34;Early Onset Marfan Syndrome with multivalvular insufficiency: Report from a tertiary hospital in Tanzania, and a review of the recurrent c.7606G&gt;A p.0 variant in FBN1.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Early Onset Marfan Syndrome is at the severe end of the Marfan
@@ -4699,6 +4962,7 @@ phenotypes:
     explanation: The report mentions that tall stature is frequently associated
       with Early Onset Marfan Syndrome, supporting the statement.
   - reference: PMID:31751304
+    reference_title: &#34;Genetic investigation of patients with tall stature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: We selected 42 patients with tall stature after exclusion of
@@ -4721,6 +4985,7 @@ phenotypes:
   diagnostic: true
   evidence:
   - reference: PMID:34021688
+    reference_title: &#34;Arachnodactyly represented in art.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Arachnodactyly, a term used since 1902 to describe abnormally long
@@ -4729,6 +4994,7 @@ phenotypes:
     explanation: The literature states that arachnodactyly is a notable feature
       of Marfan syndrome.
   - reference: PMID:23478494
+    reference_title: &#34;Arachnodactyly--a key to diagnosing heritable disorders of connective tissue.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Arachnodactyly literally means spidery fingers, and describes the
@@ -4751,11 +5017,13 @@ phenotypes:
   notes: Dislocation of the lens
   evidence:
   - reference: PMID:28902582
+    reference_title: &#34;Marfan&#39;s Syndrome with Ectopia Lentis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Marfan&#39;s Syndrome with Ectopia Lentis.
     explanation: The title directly links Marfan Syndrome with ectopia lentis.
   - reference: PMID:24853997
+    reference_title: &#34;Ocular findings in 87 adults with Ghent-1 verified Marfan syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: In this strictly defined MFS group fulfilling the Ghent-1 criteria,
@@ -4764,6 +5032,7 @@ phenotypes:
       in individuals with Marfan Syndrome, supporting the statement that it is a
       frequent ocular diagnostic feature.
   - reference: PMID:18090894
+    reference_title: &#34;Pathophysiology of zonular diseases.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The mechanisms implicated in the clinical manifestations of zonular
@@ -4771,6 +5040,7 @@ phenotypes:
     explanation: The abstract mentions ectopia lentis as a clinical
       manifestation of zonular diseases, which includes Marfan Syndrome.
   - reference: PMID:17134646
+    reference_title: &#34;Current concepts of ocular manifestations in Marfan syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Marfan syndrome is a widespread disorder of connective tissue. It
@@ -4779,6 +5049,7 @@ phenotypes:
     explanation: This reference supports the ocular diagnostic aspect of Marfan
       Syndrome.
   - reference: PMID:11705149
+    reference_title: &#34;Management of ectopia lentis in children.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Marfan syndrome, homocystinuria, trauma, and simple ectopia lentis
@@ -4786,6 +5057,7 @@ phenotypes:
     explanation: This reference supports the association of Marfan Syndrome with
       ectopia lentis.
   - reference: PMID:6984233
+    reference_title: &#34;Ectopia lentis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Ectopia lentis may cause a marked reduction in visual acuity, which
@@ -4794,6 +5066,7 @@ phenotypes:
     explanation: This reference provides information on the clinical
       significance of ectopia lentis.
   - reference: PMID:36670079
+    reference_title: &#34;Clinical and genetic findings in Chinese families with congenital ectopia lentis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Congenital ectopia lentis (EL) refers to the congenital dysplasia
@@ -4803,6 +5076,7 @@ phenotypes:
     explanation: This reference supports the statement by linking ectopia lentis
       as an ocular manifestation of Marfan Syndrome.
   - reference: PMID:38088571
+    reference_title: &#34;Uncovering the Hidden World of Aqueous Humor Proteins for Discovery of Biomarkers for Marfan Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Ectopia lentis is a hallmark of Marfan syndrome (MFS), a genetic
@@ -4825,6 +5099,7 @@ phenotypes:
   diagnostic: true
   evidence:
   - reference: PMID:9076882
+    reference_title: &#34;Infantile scoliosis in Marfan syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The data on all patients seen at one institution who had Marfan
@@ -4833,6 +5108,7 @@ phenotypes:
       syndrome, supporting the statement that scoliosis is a frequent
       musculoskeletal diagnostic in Marfan syndrome.
   - reference: PMID:37270806
+    reference_title: &#34;Analysis of GPR126 polymorphisms and their relationship with scoliosis in Marfan syndrome and Marfan-like syndrome in Mexican patients.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: A large cross-sectional study revealed a 63% prevalence of
@@ -4841,6 +5117,7 @@ phenotypes:
       of scoliosis in Marfan syndrome patients, reinforcing that scoliosis is
       frequent in this condition.
   - reference: PMID:34916231
+    reference_title: &#34;Impact of pathogenic FBN1 variant types on the development of severe scoliosis in patients with Marfan syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Among the several musculoskeletal manifestations in patients with
@@ -4850,6 +5127,7 @@ phenotypes:
       musculoskeletal manifestations in Marfan syndrome, supporting its frequent
       occurrence.
   - reference: PMID:35248143
+    reference_title: &#34;Musculoskeletal diseases in Marfan syndrome: a nationwide registry study.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#39;One out of six with Marfan syndrome was registered with scoliosis (HR:
@@ -4869,6 +5147,7 @@ phenotypes:
   frequency: OCCASIONAL
   evidence:
   - reference: PMID:31883816
+    reference_title: &#34;[Recurrent spontaneous pneumothorax revealing Marfan&#39;s syndrome].&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Though cardiovascular, skeletal and ophthalmological manifestations
@@ -4877,6 +5156,7 @@ phenotypes:
     explanation: The reference mentions that Marfan syndrome can involve the
       respiratory system, including pneumothorax.
   - reference: PMID:25765122
+    reference_title: &#34;[Respiratory manifestations of Marfan&#39;s syndrome].&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Marfan&#39;s syndrome is a rare genetic disorder...but minor diagnostic
@@ -4886,12 +5166,14 @@ phenotypes:
       patients with Marfan syndrome, supporting the statement that it occurs
       occasionally.
   - reference: PMID:33896616
+    reference_title: &#34;Optimal treatment of pneumothorax in adolescents with Marfan syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Pneumothorax often develops in patients with Marfan syndrome.
     explanation: The reference confirms that pneumothorax is a common occurrence
       in patients with Marfan syndrome.
   - reference: PMID:21252480
+    reference_title: &#34;Pneumothorax and bullae in Marfan syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Increased risk of spontaneous pneumothorax has been described in
@@ -4913,6 +5195,7 @@ phenotypes:
   frequency: FREQUENT
   evidence:
   - reference: PMID:21797750
+    reference_title: &#34;Cardiovascular surgery in Marfan syndrome: implications of new molecular concepts in thoracic aortic disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: MFS is one of the most common inherited connective tissue disorders
@@ -4923,6 +5206,7 @@ phenotypes:
     explanation: This reference directly states that aortic dissection is the
       leading cause of death in Marfan syndrome patients.
   - reference: PMID:16321689
+    reference_title: &#34;Determinants of rapid progression of aortic root dilatation and complications in Marfan syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Aortic dissection occurred more frequently in group R (7 patients,
@@ -4968,6 +5252,7 @@ biochemical:
   context: Can be used in research settings but not routine diagnostics.
   evidence:
   - reference: PMID:8180508
+    reference_title: &#34;Identification of defects in the fibrillin gene and protein in individuals with the Marfan syndrome and related disorders.&#34;
     supports: REFUTE
     evidence_source: HUMAN_CLINICAL
     snippet: Analysis of fibrillin protein or gene defects in individuals with
@@ -4977,6 +5262,7 @@ biochemical:
       are directly linked to Marfan syndrome, which is relevant for both
       research and diagnostic purposes.
   - reference: PMID:9586151
+    reference_title: &#34;[Marfan syndrome: diagnosis of cardiovascular manifestations].&#34;
     supports: REFUTE
     evidence_source: HUMAN_CLINICAL
     snippet: New diagnostic insights have eventually led to revised nosologic
@@ -4985,6 +5271,7 @@ biochemical:
       diagnosis of Marfan syndrome, indicating its relevance in routine
       diagnostics.
   - reference: PMID:22705998
+    reference_title: &#34;Marfan syndrome: from gene to therapy.&#34;
     supports: REFUTE
     evidence_source: MODEL_ORGANISM
     snippet: Although historically Marfan syndrome (MFS) has always been
@@ -4997,6 +5284,7 @@ biochemical:
       pathogenesis of Marfan syndrome, which is essential for both research and
       diagnostic purposes.
   - reference: PMID:37688493
+    reference_title: &#34;The usefulness of the genetic panel in the classification and refinement of diagnostic accuracy of Mexican patients with Marfan syndrome and other connective tissue disorders.&#34;
     supports: REFUTE
     evidence_source: HUMAN_CLINICAL
     snippet: Marfan syndrome (MFS) is a multisystem genetic disorder with over
@@ -5010,6 +5298,7 @@ genetic:
     glycoprotein.
   evidence:
   - reference: PMID:31163209
+    reference_title: &#34;FBN1 gene mutations in 26 Hungarian patients with suspected Marfan syndrome or related fibrillinopathies.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: FBN1 gene mutations lead to MFS and related connective tissue
@@ -5017,6 +5306,7 @@ genetic:
     explanation: The abstract directly states that FBN1 gene mutations are
       associated with Marfan syndrome and related disorders.
   - reference: PMID:34916231
+    reference_title: &#34;Impact of pathogenic FBN1 variant types on the development of severe scoliosis in patients with Marfan syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: We retrospectively evaluated 278 patients with pathogenic or likely
@@ -5024,6 +5314,7 @@ genetic:
     explanation: The study focuses on patients with Marfan syndrome who have
       pathogenic FBN1 variants, supporting the association.
   - reference: PMID:32130918
+    reference_title: &#34;Pathogenic FBN1 Genetic Variation and Aortic Dissection in Patients With Marfan Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Aortic risk has not been evaluated in patients with Marfan syndrome
@@ -5031,6 +5322,7 @@ genetic:
     explanation: The study describes aortic risks in patients with Marfan
       syndrome with pathogenic FBN1 variants, supporting the association.
   - reference: PMID:35419902
+    reference_title: &#34;The fibrillinopathies: New insights with focus on the paradigm of opposing phenotypes for both FBN1 and FBN2.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Different pathogenic variants in the fibrillin-1 gene (FBN1) cause
@@ -5038,6 +5330,7 @@ genetic:
     explanation: The abstract states that pathogenic variants in FBN1 cause
       Marfan syndrome, supporting the association.
   - reference: PMID:36004597
+    reference_title: &#34;[Ocular manifestations of Marfan syndrome].&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Marfan syndrome is an orphan disease that is caused by a mutation
@@ -5045,6 +5338,7 @@ genetic:
     explanation: The article reviews studies concerning the potential ocular
       manifestations of Marfan syndrome caused by FBN1 mutations.
   - reference: PMID:30485715
+    reference_title: &#34;Autosomal dominant Marfan syndrome caused by a previously reported recessive FBN1 variant.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Pathogenic variants in FBN1 cause autosomal dominant Marfan
@@ -5052,6 +5346,7 @@ genetic:
     explanation: The abstract states that pathogenic variants in FBN1 cause
       autosomal dominant Marfan syndrome, supporting the association.
   - reference: PMID:19059503
+    reference_title: &#34;Compound-heterozygous Marfan syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: We report two families in which the probands have
@@ -5100,6 +5395,7 @@ diagnosis:
   presence: Positive in affected individuals
   evidence:
   - reference: PMID:17657824
+    reference_title: &#34;The importance of mutation detection in Marfan syndrome and Marfan-related disorders: report of 193 FBN1 mutations.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Mutations in the FBN1 gene have been characterised in patients
@@ -5107,6 +5403,7 @@ diagnosis:
     explanation: This study confirms that FBN1 mutations are present in
       individuals affected by Marfan syndrome.
   - reference: PMID:26903455
+    reference_title: &#34;Genetic testing in Marfan syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Genetic testing is aiding rapid diagnosis of Marfan syndrome as a
@@ -5114,6 +5411,7 @@ diagnosis:
     explanation: This article supports the presence of genetic testing for FBN1
       mutations in individuals with Marfan syndrome.
   - reference: PMID:27234404
+    reference_title: &#34;Genetic testing of the FBN1 gene in Chinese patients with Marfan/Marfan-like syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Here, we performed genetic testing of the FBN1 gene in 39 Chinese
@@ -5122,6 +5420,7 @@ diagnosis:
     explanation: This research supports the presence of FBN1 mutations in
       affected individuals through genetic testing.
   - reference: PMID:27906200
+    reference_title: &#34;Evaluating the quality of Marfan genotype-phenotype correlations in existing FBN1 databases.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Genetic FBN1 testing is pivotal for confirming the clinical
@@ -5129,6 +5428,7 @@ diagnosis:
     explanation: The study highlights the importance of FBN1 genetic testing in
       diagnosing Marfan syndrome.
   - reference: PMID:30166242
+    reference_title: &#34;Correction of the Marfan Syndrome Pathogenic FBN1 Mutation by Base Editing in Human Cells and Heterozygous Embryos.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Taking advantage of this technology, we corrected a Marfan syndrome
@@ -5136,6 +5436,7 @@ diagnosis:
     explanation: This study demonstrates the presence of a specific FBN1
       mutation in individuals with Marfan syndrome.
   - reference: PMID:25652400
+    reference_title: &#34;The clinical presentation of Marfan syndrome is modulated by expression of wild-type FBN1 allele.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Marfan syndrome is an autosomal dominant disorder mainly caused by
@@ -5143,6 +5444,7 @@ diagnosis:
     explanation: This article supports the presence of FBN1 mutations in
       individuals with Marfan syndrome.
   - reference: PMID:19059503
+    reference_title: &#34;Compound-heterozygous Marfan syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: We report two families in which the probands have
@@ -5150,6 +5452,7 @@ diagnosis:
     explanation: This study supports the presence of FBN1 mutations in
       individuals with Marfan syndrome.
   - reference: PMID:20709720
+    reference_title: &#34;Cardiovascular manifestations in men and women carrying a FBN1 mutation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: In patients with Marfan syndrome and other type-1
@@ -5159,6 +5462,7 @@ diagnosis:
     explanation: The article supports the identification of FBN1 mutations in
       individuals with Marfan syndrome through genetic testing.
   - reference: PMID:25652356
+    reference_title: &#34;Decreased frequency of FBN1 missense variants in Ghent criteria-positive Marfan syndrome and characterization of novel FBN1 variants.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Testing yielded 207 pathogenic or likely pathogenic FBN1 variants.
@@ -5171,6 +5475,7 @@ diagnosis:
   notes: Often used to monitor cardiovascular complications.
   evidence:
   - reference: PMID:9586151
+    reference_title: &#34;[Marfan syndrome: diagnosis of cardiovascular manifestations].&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The diagnostic reliability as well as the advantage and limitation
@@ -5181,6 +5486,7 @@ diagnosis:
       other diagnostic tools, in the evaluation and management of cardiovascular
       manifestations in Marfan syndrome patients.
   - reference: PMID:33843540
+    reference_title: &#34;Comparability of different Z-score equations for aortic root dimensions in children with Marfan syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Aortic root dilation is a major complication of Marfan syndrome and
@@ -5189,6 +5495,7 @@ diagnosis:
       significant complication of Marfan syndrome and is a key criterion for
       diagnosis, which is typically monitored using echocardiography.
   - reference: PMID:35550817
+    reference_title: &#34;Prevalence and Outcomes of Primary Left Ventricular Dysfunction in Marfan Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Even in the absence of significant valvular disease, patients with
@@ -5198,6 +5505,7 @@ diagnosis:
       monitor left ventricular performance and other cardiovascular
       complications in Marfan syndrome patients.
   - reference: PMID:29972109
+    reference_title: &#34;Utility of serial 12-lead electrocardiograms in children with Marfan syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Children ≤18 years who met the revised Ghent criteria for Marfan
@@ -5212,6 +5520,7 @@ diagnosis:
   notes: Used to detect lens dislocation.
   evidence:
   - reference: PMID:24853997
+    reference_title: &#34;Ocular findings in 87 adults with Ghent-1 verified Marfan syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The position of the lens was noted by observing the eye in
@@ -5226,6 +5535,7 @@ environmental:
   effect: Reduces risk of aortic dissection.
   evidence:
   - reference: PMID:9789865
+    reference_title: &#34;Exercise and the Marfan syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The person with Marfan syndrome is often tall and agile and may
@@ -5235,6 +5545,7 @@ environmental:
       necessary to prevent aortic dissection in individuals with Marfan
       syndrome.
   - reference: PMID:36453629
+    reference_title: &#34;Can 10 000 Healthy Steps a Day Slow Aortic Root Dilation in Pediatric Patients With Marfan Syndrome?&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: We instructed patients to take 10 000 steps per day, tracked by an
@@ -5245,6 +5556,7 @@ environmental:
       reduce the rate of aortic root dilation, which is associated with a lower
       risk of aortic dissection.
   - reference: PMID:28947563
+    reference_title: &#34;Cardiovascular Benefits of Moderate Exercise Training in Marfan Syndrome: Insights From an Animal Model.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: Over the 5-month experimental period, aortic root dilation rate was
@@ -5269,6 +5581,7 @@ treatments:
   description: Used to reduce stress on the aorta and prevent its enlargement.
   evidence:
   - reference: PMID:36939732
+    reference_title: &#34;Drug-based cardiovascular prevention in patients with Marfan Syndrome: a systematic review.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: Beta-blockers remain the mainstay of therapy as they have proven to
@@ -5279,6 +5592,7 @@ treatments:
       indirectly reduces stress on the aorta. However, they do not prevent
       aortic enlargement entirely.
   - reference: PMID:17845137
+    reference_title: &#34;Therapy of Marfan syndrome.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: Traditional medical therapies, such as beta-adrenergic receptor
@@ -5287,6 +5601,7 @@ treatments:
     explanation: Beta-blockers are used to slow aortic growth and decrease
       hemodynamic stress, but they do not completely prevent aortic enlargement.
   - reference: PMID:17376944
+    reference_title: &#34;Marfan&#39;s syndrome and the heart.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: Medical treatment with beta-blockers is probably helpful in most
@@ -5316,6 +5631,7 @@ treatments:
   description: Recommended for severe aortic dilation to prevent dissection.
   evidence:
   - reference: PMID:26586198
+    reference_title: &#34;Overview of current surgical strategies for aortic disease in patients with Marfan syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: To prevent such catastrophic aortic events, a lower threshold has
@@ -5324,6 +5640,7 @@ treatments:
       replacement is recommended to prevent severe aortic events such as
       dissections.
   - reference: PMID:29948025
+    reference_title: &#34;Predictors of Rapid Aortic Root Dilation and Referral for Aortic Surgery in Marfan Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Few data exist regarding predictors of rapid aortic root dilation
@@ -5342,6 +5659,7 @@ treatments:
   description: Treatments for scoliosis and other skeletal abnormalities.
   evidence:
   - reference: PMID:11961443
+    reference_title: &#34;Surgical treatment of scoliosis in Marfan syndrome: guidelines for a successful outcome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The authors recommend arthrodesing both the primary and secondary
@@ -5350,6 +5668,7 @@ treatments:
       syndrome and provides guidelines for successful outcomes through
       orthopedic interventions.
   - reference: PMID:11880731
+    reference_title: &#34;Marfan syndrome: orthopedic and genetic review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The major orthopedic manifestations of Marfan syndrome include
@@ -5359,6 +5678,7 @@ treatments:
       syndrome, including treatments for scoliosis and other skeletal
       abnormalities.
   - reference: PMID:34916231
+    reference_title: &#34;Impact of pathogenic FBN1 variant types on the development of severe scoliosis in patients with Marfan syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: We elucidated the genetic risk factors for the development of
@@ -5367,6 +5687,7 @@ treatments:
       scoliosis in Marfan syndrome, which is relevant to orthopedic
       interventions.
   - reference: PMID:17945136
+    reference_title: &#34;Spinal deformities in Marfan syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Kyphoscoliosis, spondylolisthesis, and atlantoaxial subluxation are
@@ -5378,6 +5699,7 @@ treatments:
       syndrome and the complexities of surgical correction, supporting the
       statement on orthopedic interventions.
   - reference: PMID:26130954
+    reference_title: &#34;Disease-specific Growth Charts of Marfan Syndrome Patients in Korea.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Patients with Marfan syndrome (MFS) presents with primary skeletal
@@ -5397,6 +5719,7 @@ treatments:
     or surgery.
   evidence:
   - reference: PMID:24698610
+    reference_title: &#34;Surgical management of lens subluxation in Marfan syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Anterior lensectomy and limited vitrectomy with aphakic correction
@@ -5406,6 +5729,7 @@ treatments:
       Marfan syndrome patients, which supports the statement about managing
       ocular issues with surgery.
   - reference: PMID:23661206
+    reference_title: &#34;Ocular features and management challenges of Marfan&#39;s Syndrome in Benin City, Nigeria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The ocular features were ectopia lentis in 92.3% of the patients...
@@ -5414,6 +5738,7 @@ treatments:
     explanation: This study highlights the use of surgical intervention for
       vision correction in Marfan syndrome patients with ectopia lentis.
   - reference: PMID:30260057
+    reference_title: &#34;Ten-year reinvestigation of ocular manifestations in Marfan syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Our study indicates that even though EL typically occurs at an

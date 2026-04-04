@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1037,6 +1101,52 @@
             text-decoration: underline;
         }
 
+        /* Experimental Models */
+        .exp-model-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .exp-model-box .item-name { color: #92400e; }
+        .exp-model-box .item-desc { color: #b45309; }
+
+        .tag-exp-model-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .tag-namo-type {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+        .tag-condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .model-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .model-detail-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .model-detail-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 110px;
+        }
+        .model-detail-value {
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+        }
+        .model-detail-value a {
+            color: inherit;
+        }
+
         /* Computational Models */
         .comp-model-box {
             background: #f0fdf4;
@@ -1382,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1470,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1477,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1489,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1637,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1723,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1737,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1792,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1877,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 15</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">heavy metal poisoning</span>
                 
             </div>
@@ -1888,6 +2107,11 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
+        
+        
         
         
         
@@ -1951,6 +2175,14 @@
             <div class="stat-item">
                 <div class="stat-value">5</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">15</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2443,7 +2675,7 @@
                 <span class="card-count">10</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-gastrointestinal-absorption-of-thallium">
                 <div class="item-name">Gastrointestinal absorption of thallium</div>
                 
                 <div class="item-desc">Thallium salts are rapidly and nearly completely absorbed after exposure, with gastrointestinal ingestion being the most common route to clinically important poisoning.</div>
@@ -2481,6 +2713,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2515,7 +2748,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-thallium-distribution">
                 <div class="item-name">Systemic thallium distribution</div>
                 
                 <div class="item-desc">After absorption, thallium rapidly distributes throughout the body, including nervous tissue, skin, and hair, enabling multisystem toxicity.</div>
@@ -2541,6 +2774,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2580,7 +2814,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-potassium-mimetic-cellular-uptake">
                 <div class="item-name">Potassium-mimetic cellular uptake</div>
                 
                 <div class="item-desc">Thallium enters cells through potassium-handling pathways because its ionic charge and radius closely resemble potassium, disrupting intracellular ionic homeostasis.</div>
@@ -2635,6 +2869,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2669,7 +2904,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-bioenergetic-failure">
                 <div class="item-name">Bioenergetic failure</div>
                 
                 <div class="item-desc">Once inside cells, thallium impairs glycolysis, the Krebs cycle, and oxidative phosphorylation, creating a broad failure of energy production that contributes to multi-organ toxicity.</div>
@@ -2728,6 +2963,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2762,7 +2998,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-sodium-potassium-atpase-inhibition">
                 <div class="item-name">Sodium-potassium ATPase inhibition</div>
                 
                 <div class="item-desc">Thallium inhibits sodium-potassium ATPase, destabilizing membrane ion homeostasis and contributing to autonomic and central neurotoxicity.</div>
@@ -2807,6 +3043,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2841,10 +3078,11 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-sulfhydryl-dependent-molecular-binding">
                 <div class="item-name">Sulfhydryl-dependent molecular binding</div>
                 
                 <div class="item-desc">Thallium binds sulfhydryl-containing molecules, perturbing protein function and contributing to downstream neurotoxicity.</div>
+                
                 
                 
                 
@@ -2888,7 +3126,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-peripheral-nervous-system-injury">
                 <div class="item-name">Peripheral nervous system injury</div>
                 
                 <div class="item-desc">Thallium poisoning prominently injures the peripheral nervous system, producing a rapidly progressive, extremely painful ascending neuropathy and leaving persistent neurologic sequelae in some survivors.</div>
@@ -2924,6 +3162,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -2980,7 +3219,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-autonomic-and-central-neurotoxicity">
                 <div class="item-name">Autonomic and central neurotoxicity</div>
                 
                 <div class="item-desc">In more severe poisoning, thallium toxicity extends beyond painful peripheral neuropathy into autonomic dysfunction and central nervous system injury.</div>
@@ -3033,6 +3272,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -3089,7 +3329,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-keratin-affinity-and-appendage-accumulation">
                 <div class="item-name">Keratin affinity and appendage accumulation</div>
                 
                 <div class="item-desc">Thallium has affinity for keratin-rich tissues and accumulates in hair and nails, establishing a distinct appendage-toxicity branch of poisoning.</div>
@@ -3134,6 +3374,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3168,7 +3409,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-hair-follicle-toxicity">
                 <div class="item-name">Hair follicle toxicity</div>
                 
                 <div class="item-desc">Thallium causes dystrophic anagen injury in hair follicles, which then manifests clinically as delayed diffuse alopecia.</div>
@@ -3243,6 +3484,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -3344,18 +3586,19 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Thallium Poisoning</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alopecia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diffuse alopecia is a characteristic delayed manifestation of thallium poisoning and often becomes a key diagnostic clue after the initial toxic phase.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001596\"}}, {\"id\": \"Altered mental status\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe poisoning can cause confusion, delirium, or other alterations in mental status alongside peripheral neurotoxicity.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001289\"}}, {\"id\": \"Autonomic and central neurotoxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In more severe poisoning, thallium toxicity extends beyond painful peripheral neuropathy into autonomic dysfunction and central nervous system injury.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"autonomic neuron\", \"central nervous system neuron\"], \"locations\": [\"autonomic nervous system\", \"central nervous system\"]}}, {\"id\": \"Bioenergetic failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Once inside cells, thallium impairs glycolysis, the Krebs cycle, and oxidative phosphorylation, creating a broad failure of energy production that contributes to multi-organ toxicity.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"glycolytic process\", \"tricarboxylic acid cycle\", \"oxidative phosphorylation\"]}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Constipation is a characteristic gastrointestinal feature of thallium poisoning and may be more typical than diarrhea.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002019\"}}, {\"id\": \"Gastrointestinal absorption of thallium\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thallium salts are rapidly and nearly completely absorbed after exposure, with gastrointestinal ingestion being the most common route to clinically important poisoning.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"transmembrane transport\"], \"locations\": [\"gastrointestinal tract\"]}}, {\"id\": \"Hair follicle toxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thallium causes dystrophic anagen injury in hair follicles, which then manifests clinically as delayed diffuse alopecia.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hair follicle cell\"], \"biological_processes\": [\"hair follicle development\", \"hair cycle\"], \"locations\": [\"hair follicle\", \"hair shaft\"]}}, {\"id\": \"Keratin affinity and appendage accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thallium has affinity for keratin-rich tissues and accumulates in hair and nails, establishing a distinct appendage-toxicity branch of poisoning.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"locations\": [\"skin of body\", \"hair shaft\"]}}, {\"id\": \"Peripheral nervous system injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thallium poisoning prominently injures the peripheral nervous system, producing a rapidly progressive, extremely painful ascending neuropathy and leaving persistent neurologic sequelae in some survivors.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"peripheral nervous system neuron\"], \"locations\": [\"peripheral nervous system\"]}}, {\"id\": \"Peripheral neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thallium poisoning commonly causes a rapidly progressive, painful, ascending sensory-predominant peripheral neuropathy that may leave persistent neurologic deficits.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0009830\"}}, {\"id\": \"Potassium-mimetic cellular uptake\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thallium enters cells through potassium-handling pathways because its ionic charge and radius closely resemble potassium, disrupting intracellular ionic homeostasis.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"response to potassium ion\", \"potassium ion transport\", \"intracellular monoatomic ion homeostasis\"]}}, {\"id\": \"Sodium-potassium ATPase inhibition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thallium inhibits sodium-potassium ATPase, destabilizing membrane ion homeostasis and contributing to autonomic and central neurotoxicity.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"sodium ion transport\", \"potassium ion transport\"]}}, {\"id\": \"Sulfhydryl-dependent molecular binding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thallium binds sulfhydryl-containing molecules, perturbing protein function and contributing to downstream neurotoxicity.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Systemic thallium distribution\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"After absorption, thallium rapidly distributes throughout the body, including nervous tissue, skin, and hair, enabling multisystem toxicity.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"abnormal localization\"]}}], \"edges\": [{\"source\": \"Gastrointestinal absorption of thallium\", \"target\": \"Systemic thallium distribution\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic thallium distribution\", \"target\": \"Potassium-mimetic cellular uptake\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic thallium distribution\", \"target\": \"Keratin affinity and appendage accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Potassium-mimetic cellular uptake\", \"target\": \"Bioenergetic failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Potassium-mimetic cellular uptake\", \"target\": \"Sodium-potassium ATPase inhibition\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Potassium-mimetic cellular uptake\", \"target\": \"Sulfhydryl-dependent molecular binding\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bioenergetic failure\", \"target\": \"Peripheral nervous system injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sodium-potassium ATPase inhibition\", \"target\": \"Autonomic and central neurotoxicity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sulfhydryl-dependent molecular binding\", \"target\": \"Peripheral nervous system injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Peripheral nervous system injury\", \"target\": \"Peripheral neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Autonomic and central neurotoxicity\", \"target\": \"Constipation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Autonomic and central neurotoxicity\", \"target\": \"Altered mental status\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Keratin affinity and appendage accumulation\", \"target\": \"Hair follicle toxicity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hair follicle toxicity\", \"target\": \"Alopecia\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alopecia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diffuse alopecia is a characteristic delayed manifestation of thallium poisoning and often becomes a key diagnostic clue after the initial toxic phase.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001596\"}}, {\"id\": \"Altered mental status\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe poisoning can cause confusion, delirium, or other alterations in mental status alongside peripheral neurotoxicity.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001289\"}}, {\"id\": \"Autonomic and central neurotoxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In more severe poisoning, thallium toxicity extends beyond painful peripheral neuropathy into autonomic dysfunction and central nervous system injury.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"autonomic neuron\", \"central nervous system neuron\"], \"locations\": [\"autonomic nervous system\", \"central nervous system\"]}}, {\"id\": \"Bioenergetic failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Once inside cells, thallium impairs glycolysis, the Krebs cycle, and oxidative phosphorylation, creating a broad failure of energy production that contributes to multi-organ toxicity.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"glycolytic process\", \"tricarboxylic acid cycle\", \"oxidative phosphorylation\"]}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Constipation is a characteristic gastrointestinal feature of thallium poisoning and may be more typical than diarrhea.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002019\"}}, {\"id\": \"Exposure cessation and source removal\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Management begins with immediate cessation of exposure and removal of the toxic source to prevent ongoing absorption.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Gastrointestinal absorption of thallium\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thallium salts are rapidly and nearly completely absorbed after exposure, with gastrointestinal ingestion being the most common route to clinically important poisoning.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"transmembrane transport\"], \"locations\": [\"gastrointestinal tract\"]}}, {\"id\": \"Hair follicle toxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thallium causes dystrophic anagen injury in hair follicles, which then manifests clinically as delayed diffuse alopecia.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hair follicle cell\"], \"biological_processes\": [\"hair follicle development\", \"hair cycle\"], \"locations\": [\"hair follicle\", \"hair shaft\"]}}, {\"id\": \"Keratin affinity and appendage accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thallium has affinity for keratin-rich tissues and accumulates in hair and nails, establishing a distinct appendage-toxicity branch of poisoning.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"locations\": [\"skin of body\", \"hair shaft\"]}}, {\"id\": \"Peripheral nervous system injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thallium poisoning prominently injures the peripheral nervous system, producing a rapidly progressive, extremely painful ascending neuropathy and leaving persistent neurologic sequelae in some survivors.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"peripheral nervous system neuron\"], \"locations\": [\"peripheral nervous system\"]}}, {\"id\": \"Peripheral neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thallium poisoning commonly causes a rapidly progressive, painful, ascending sensory-predominant peripheral neuropathy that may leave persistent neurologic deficits.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0009830\"}}, {\"id\": \"Potassium-mimetic cellular uptake\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thallium enters cells through potassium-handling pathways because its ionic charge and radius closely resemble potassium, disrupting intracellular ionic homeostasis.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"response to potassium ion\", \"potassium ion transport\", \"intracellular monoatomic ion homeostasis\"]}}, {\"id\": \"Sodium-potassium ATPase inhibition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thallium inhibits sodium-potassium ATPase, destabilizing membrane ion homeostasis and contributing to autonomic and central neurotoxicity.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"sodium ion transport\", \"potassium ion transport\"]}}, {\"id\": \"Sulfhydryl-dependent molecular binding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thallium binds sulfhydryl-containing molecules, perturbing protein function and contributing to downstream neurotoxicity.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Systemic thallium distribution\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"After absorption, thallium rapidly distributes throughout the body, including nervous tissue, skin, and hair, enabling multisystem toxicity.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"abnormal localization\"]}}], \"edges\": [{\"source\": \"Gastrointestinal absorption of thallium\", \"target\": \"Systemic thallium distribution\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic thallium distribution\", \"target\": \"Potassium-mimetic cellular uptake\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic thallium distribution\", \"target\": \"Keratin affinity and appendage accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Potassium-mimetic cellular uptake\", \"target\": \"Bioenergetic failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Potassium-mimetic cellular uptake\", \"target\": \"Sodium-potassium ATPase inhibition\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Potassium-mimetic cellular uptake\", \"target\": \"Sulfhydryl-dependent molecular binding\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bioenergetic failure\", \"target\": \"Peripheral nervous system injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sodium-potassium ATPase inhibition\", \"target\": \"Autonomic and central neurotoxicity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sulfhydryl-dependent molecular binding\", \"target\": \"Peripheral nervous system injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Peripheral nervous system injury\", \"target\": \"Peripheral neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Autonomic and central neurotoxicity\", \"target\": \"Constipation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Autonomic and central neurotoxicity\", \"target\": \"Altered mental status\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Keratin affinity and appendage accumulation\", \"target\": \"Hair follicle toxicity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hair follicle toxicity\", \"target\": \"Alopecia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Exposure cessation and source removal\", \"target\": \"Gastrointestinal absorption of thallium\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4710,6 +4953,9 @@
         
 
         <!-- Clinical Trials -->
+        
+
+        <!-- Experimental Models -->
         
 
         <!-- Computational Models -->

@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1037,6 +1101,52 @@
             text-decoration: underline;
         }
 
+        /* Experimental Models */
+        .exp-model-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .exp-model-box .item-name { color: #92400e; }
+        .exp-model-box .item-desc { color: #b45309; }
+
+        .tag-exp-model-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .tag-namo-type {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+        .tag-condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .model-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .model-detail-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .model-detail-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 110px;
+        }
+        .model-detail-value {
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+        }
+        .model-detail-value a {
+            color: inherit;
+        }
+
         /* Computational Models */
         .comp-model-box {
             background: #f0fdf4;
@@ -1382,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1470,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1477,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1489,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1637,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1723,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1737,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1792,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1877,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Amino acid metabolism disorder</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Inborn Error of Metabolism</span>
@@ -1891,6 +2110,11 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
+        
+        
         
         
         
@@ -1944,6 +2168,14 @@
             <div class="stat-item">
                 <div class="stat-value">14</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">9</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2138,7 +2370,7 @@
                 <span class="card-count">6</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-slc25a13-transporter-molecular-function-deficiency">
                 <div class="item-name">SLC25A13 transporter molecular function deficiency</div>
                 
                 <div class="item-desc">Biallelic SLC25A13 pathogenic variants reduce mitochondrial aspartate-glutamate carrier transport activity.
@@ -2200,6 +2432,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2234,7 +2467,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-malate-aspartate-shuttle-dysfunction-and-hepatocellular-energy-crisis">
                 <div class="item-name">Malate-aspartate shuttle dysfunction and hepatocellular energy crisis</div>
                 
                 <div class="item-desc">Loss of citrin impairs cytosolic NADH transfer into mitochondria and reduces cytosolic aspartate, NAD+, and ATP, creating a fundamental hepatocellular energy and redox deficiency.
@@ -2297,6 +2530,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2331,7 +2565,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-hepatic-glycolysis-and-carbohydrate-toxicity">
                 <div class="item-name">Impaired hepatic glycolysis and carbohydrate toxicity</div>
                 
                 <div class="item-desc">Because glycolysis depends on cytosolic NAD+ regenerated via the MAS, citrin-deficient hepatocytes cannot sustain glycolysis efficiently. Under high carbohydrate load, metabolism is blocked at the glyceraldehyde-3-phosphate dehydrogenase (GAPDH) step, leading to accumulation of glucose metabolites, depletion of inorganic phosphate, and further ATP loss. This creates an actively harmful state termed carbohydrate toxicity.
@@ -2373,11 +2607,12 @@
                 
                 
                 
+                
     
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-urea-cycle-and-ammonia-detoxification">
                 <div class="item-name">Impaired urea cycle and ammonia detoxification</div>
                 
                 <div class="item-desc">Citrin deficiency limits cytosolic aspartate availability, which is required by argininosuccinate synthetase 1 (ASS1) for the urea cycle. This results in citrulline accumulation and impaired ureagenesis. Additionally, hyperammonemia may be driven by failure of glutamine-synthetase-dependent perivenous ammonia detoxification due to glutamate and ATP deficiency, rather than solely by ASS1 dysfunction.
@@ -2440,6 +2675,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2494,7 +2730,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-de-novo-lipogenesis-defects-and-pparalpha-mediated-beta-oxidation-impairment">
                 <div class="item-name">De novo lipogenesis defects and PPARalpha-mediated beta-oxidation impairment</div>
                 
                 <div class="item-desc">Citrin-deficient hepatocytes have primary defects in de novo lipogenesis and exhibit secondarily downregulated PPARalpha, leading to impaired fatty acid beta-oxidation. This dual impairment contributes to dyslipidemia and hepatic steatosis.
@@ -2546,11 +2782,12 @@
                 
                 
                 
+                
     
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-aspartate-and-glutamate-transmembrane-transport-disruption">
                 <div class="item-name">Aspartate and glutamate transmembrane transport disruption</div>
                 
                 <div class="item-desc">Citrin (AGC2) normally transports aspartate from the mitochondrial matrix to the cytosol in exchange for glutamate. Loss of this transport function impairs compartmentalized amino acid metabolism, affecting ureagenesis, gluconeogenesis, protein synthesis, and nucleotide biosynthesis.
@@ -2587,6 +2824,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -2636,18 +2874,19 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Citrin Deficiency</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aspartate and glutamate transmembrane transport disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Citrin (AGC2) normally transports aspartate from the mitochondrial matrix to the cytosol in exchange for glutamate. Loss of this transport function impairs compartmentalized amino acid metabolism, affecting ureagenesis, gluconeogenesis, protein synthesis, and nucleotide biosynthesis.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"L-aspartate transmembrane transport\"], \"locations\": [\"mitochondrial inner membrane\"]}}, {\"id\": \"De novo lipogenesis defects and PPARalpha-mediated beta-oxidation impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Citrin-deficient hepatocytes have primary defects in de novo lipogenesis and exhibit secondarily downregulated PPARalpha, leading to impaired fatty acid beta-oxidation. This dual impairment contributes to dyslipidemia and hepatic steatosis.\\n\", \"meta\": {\"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"fatty acid biosynthetic process\", \"fatty acid beta-oxidation\"]}}, {\"id\": \"Impaired hepatic glycolysis and carbohydrate toxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because glycolysis depends on cytosolic NAD+ regenerated via the MAS, citrin-deficient hepatocytes cannot sustain glycolysis efficiently. Under high carbohydrate load, metabolism is blocked at the glyceraldehyde-3-phosphate dehydrogenase (GAPDH) step, leading to accumulation of glucose metabolites, depletion of inorganic phosphate, and further ATP loss. This creates an actively harmful state termed carbohydrate toxicity.\\n\", \"meta\": {\"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"glycolytic process\"]}}, {\"id\": \"Impaired urea cycle and ammonia detoxification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Citrin deficiency limits cytosolic aspartate availability, which is required by argininosuccinate synthetase 1 (ASS1) for the urea cycle. This results in citrulline accumulation and impaired ureagenesis. Additionally, hyperammonemia may be driven by failure of glutamine-synthetase-dependent perivenous ammonia detoxification due to glutamate and ATP deficiency, rather than solely by ASS1 dysfunction.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"urea cycle\", \"glutamine biosynthetic process\"], \"locations\": [\"liver\"]}}, {\"id\": \"Malate-aspartate shuttle dysfunction and hepatocellular energy crisis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of citrin impairs cytosolic NADH transfer into mitochondria and reduces cytosolic aspartate, NAD+, and ATP, creating a fundamental hepatocellular energy and redox deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"malate-aspartate shuttle\", \"cellular redox homeostasis\"], \"locations\": [\"liver\"]}}, {\"id\": \"SLC25A13 transporter molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic SLC25A13 pathogenic variants reduce mitochondrial aspartate-glutamate carrier transport activity.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"genes\": [\"SLC25A13\"], \"locations\": [\"mitochondrial inner membrane\"]}}], \"edges\": [{\"source\": \"SLC25A13 transporter molecular function deficiency\", \"target\": \"Malate-aspartate shuttle dysfunction and hepatocellular energy crisis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"SLC25A13 transporter molecular function deficiency\", \"target\": \"Aspartate and glutamate transmembrane transport disruption\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Malate-aspartate shuttle dysfunction and hepatocellular energy crisis\", \"target\": \"Impaired hepatic glycolysis and carbohydrate toxicity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Malate-aspartate shuttle dysfunction and hepatocellular energy crisis\", \"target\": \"De novo lipogenesis defects and PPARalpha-mediated beta-oxidation impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired hepatic glycolysis and carbohydrate toxicity\", \"target\": \"Impaired urea cycle and ammonia detoxification\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aspartate and glutamate transmembrane transport disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Citrin (AGC2) normally transports aspartate from the mitochondrial matrix to the cytosol in exchange for glutamate. Loss of this transport function impairs compartmentalized amino acid metabolism, affecting ureagenesis, gluconeogenesis, protein synthesis, and nucleotide biosynthesis.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"L-aspartate transmembrane transport\"], \"locations\": [\"mitochondrial inner membrane\"]}}, {\"id\": \"De novo lipogenesis defects and PPARalpha-mediated beta-oxidation impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Citrin-deficient hepatocytes have primary defects in de novo lipogenesis and exhibit secondarily downregulated PPARalpha, leading to impaired fatty acid beta-oxidation. This dual impairment contributes to dyslipidemia and hepatic steatosis.\\n\", \"meta\": {\"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"fatty acid biosynthetic process\", \"fatty acid beta-oxidation\"]}}, {\"id\": \"IVS16ins3kb hotspot structural variant\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"IVS16ins3kb is a hotspot structural variant in SLC25A13 that requires specific copy number variant calling approaches for detection. It is particularly relevant for newborn screening programs in East Asian populations.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Impaired hepatic glycolysis and carbohydrate toxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because glycolysis depends on cytosolic NAD+ regenerated via the MAS, citrin-deficient hepatocytes cannot sustain glycolysis efficiently. Under high carbohydrate load, metabolism is blocked at the glyceraldehyde-3-phosphate dehydrogenase (GAPDH) step, leading to accumulation of glucose metabolites, depletion of inorganic phosphate, and further ATP loss. This creates an actively harmful state termed carbohydrate toxicity.\\n\", \"meta\": {\"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"glycolytic process\"]}}, {\"id\": \"Impaired urea cycle and ammonia detoxification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Citrin deficiency limits cytosolic aspartate availability, which is required by argininosuccinate synthetase 1 (ASS1) for the urea cycle. This results in citrulline accumulation and impaired ureagenesis. Additionally, hyperammonemia may be driven by failure of glutamine-synthetase-dependent perivenous ammonia detoxification due to glutamate and ATP deficiency, rather than solely by ASS1 dysfunction.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"urea cycle\", \"glutamine biosynthetic process\"], \"locations\": [\"liver\"]}}, {\"id\": \"Malate-aspartate shuttle dysfunction and hepatocellular energy crisis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of citrin impairs cytosolic NADH transfer into mitochondria and reduces cytosolic aspartate, NAD+, and ATP, creating a fundamental hepatocellular energy and redox deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"malate-aspartate shuttle\", \"cellular redox homeostasis\"], \"locations\": [\"liver\"]}}, {\"id\": \"Novel nonsense, frameshift, and deletion variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The variant spectrum of SLC25A13 continues to expand. A 2023 case series identified three novel variants including a nonsense mutation in exon 17 (c.1803C\u003eG), a frameshift mutation in exon 11 (c.1141delG), and a whole exon 11 deletion.\\n\"}, {\"id\": \"SLC25A13 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"variant_count\": 2}}, {\"id\": \"SLC25A13 transporter molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic SLC25A13 pathogenic variants reduce mitochondrial aspartate-glutamate carrier transport activity.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"genes\": [\"SLC25A13\"], \"locations\": [\"mitochondrial inner membrane\"]}}], \"edges\": [{\"source\": \"SLC25A13 transporter molecular function deficiency\", \"target\": \"Malate-aspartate shuttle dysfunction and hepatocellular energy crisis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"SLC25A13 transporter molecular function deficiency\", \"target\": \"Aspartate and glutamate transmembrane transport disruption\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Malate-aspartate shuttle dysfunction and hepatocellular energy crisis\", \"target\": \"Impaired hepatic glycolysis and carbohydrate toxicity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Malate-aspartate shuttle dysfunction and hepatocellular energy crisis\", \"target\": \"De novo lipogenesis defects and PPARalpha-mediated beta-oxidation impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired hepatic glycolysis and carbohydrate toxicity\", \"target\": \"Impaired urea cycle and ammonia detoxification\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"IVS16ins3kb hotspot structural variant\", \"target\": \"SLC25A13 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Novel nonsense, frameshift, and deletion variants\", \"target\": \"SLC25A13 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4198,6 +4437,9 @@
         <!-- Clinical Trials -->
         
 
+        <!-- Experimental Models -->
+        
+
         <!-- Computational Models -->
         
 
@@ -4302,6 +4544,7 @@ pathophysiology:
       label: mitochondrial inner membrane
   evidence:
   - reference: PMID:37254569
+    reference_title: &#34;Aspartate-glutamate carrier 2 (citrin): a role in glucose and amino acid metabolism in the liver.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Aspartate-glutamate carrier 2 (AGC2, citrin) is a mitochondrial carrier expressed in the liver that transports aspartate from mitochondria into the cytosol in exchange for glutamate.
@@ -4338,6 +4581,7 @@ pathophysiology:
       label: liver
   evidence:
   - reference: PMID:37254569
+    reference_title: &#34;Aspartate-glutamate carrier 2 (citrin): a role in glucose and amino acid metabolism in the liver.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Through MAS, AGC2 is necessary to maintain intracellular redox balance, mitochondrial respiration, and ATP synthesis.
@@ -4392,6 +4636,7 @@ pathophysiology:
       label: liver
   evidence:
   - reference: PMID:20301360
+    reference_title: &#34;Citrin Deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Citrin deficiency can manifest in newborns or infants as neonatal intrahepatic cholestasis caused by citrin deficiency
@@ -4399,6 +4644,7 @@ pathophysiology:
       as recurrent hyperammonemia with neuropsychiatric symptoms in citrullinemia type II (CTLN2).
     explanation: GeneReviews entry confirms hyperammonemia with neuropsychiatric symptoms as the adult CTLN2 presentation.
   - reference: PMID:37952953
+    reference_title: &#34;Pathogenesis and Management of Citrin Deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Citrin deficiency (CD) is a hereditary disorder caused by SLC25A13 mutations that manifests as neonatal intrahepatic
@@ -4443,6 +4689,7 @@ pathophysiology:
       label: mitochondrial inner membrane
   evidence:
   - reference: PMID:37254569
+    reference_title: &#34;Aspartate-glutamate carrier 2 (citrin): a role in glucose and amino acid metabolism in the liver.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Aspartate-glutamate carrier 2 (AGC2, citrin) is a mitochondrial carrier expressed in the liver that transports
@@ -4462,6 +4709,7 @@ phenotypes:
       label: Neonatal cholestatic liver disease
   evidence:
   - reference: PMID:20301360
+    reference_title: &#34;Citrin Deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Citrin deficiency can manifest in newborns or infants as neonatal intrahepatic cholestasis caused by citrin deficiency
@@ -4469,6 +4717,7 @@ phenotypes:
       as recurrent hyperammonemia with neuropsychiatric symptoms in citrullinemia type II (CTLN2).
     explanation: GeneReviews directly identifies NICCD as the neonatal presentation.
   - reference: PMID:37063661
+    reference_title: &#34;Case report: Three novel variants on SLC25A13 in four infants with neonatal intrahepatic cholestasis caused by citrin deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Neonatal intrahepatic cholestasis caused by citrin deficiency (NICCD) is a common clinical phenotype of citrin
@@ -4487,6 +4736,7 @@ phenotypes:
       label: Hyperammonemia
   evidence:
   - reference: PMID:20301360
+    reference_title: &#34;Citrin Deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Citrin deficiency can manifest in newborns or infants as neonatal intrahepatic cholestasis caused by citrin deficiency
@@ -4494,6 +4744,7 @@ phenotypes:
       as recurrent hyperammonemia with neuropsychiatric symptoms in citrullinemia type II (CTLN2).
     explanation: Directly identifies recurrent hyperammonemia as a key feature of CTLN2.
   - reference: PMID:35142380
+    reference_title: &#34;Clinical manifestation and long-term outcome of citrin deficiency: Report from a nationwide study in Japan.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#39;Citrin deficiency is an autosomal recessive disorder caused by mutations in the SLC25A13 gene. The disease can
@@ -4513,6 +4764,7 @@ phenotypes:
       label: Encephalopathy
   evidence:
   - reference: PMID:20301360
+    reference_title: &#34;Citrin Deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: in adults as recurrent hyperammonemia with neuropsychiatric symptoms in citrullinemia type II (CTLN2).
@@ -4530,6 +4782,7 @@ phenotypes:
       label: Failure to thrive
   evidence:
   - reference: PMID:35142380
+    reference_title: &#34;Clinical manifestation and long-term outcome of citrin deficiency: Report from a nationwide study in Japan.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Patients with citrin deficiency had an increased risk for low weight and length at birth, and CTLN2 patients
@@ -4548,6 +4801,7 @@ phenotypes:
       label: Hepatomegaly
   evidence:
   - reference: PMID:37063661
+    reference_title: &#34;Case report: Three novel variants on SLC25A13 in four infants with neonatal intrahepatic cholestasis caused by citrin deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: We report 4 patients with jaundice and low body weight. Furthermore, the biochemical examination of all showed
@@ -4566,11 +4820,13 @@ phenotypes:
       label: Abnormal circulating lipid concentration
   evidence:
   - reference: PMID:20301360
+    reference_title: &#34;Citrin Deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: in older children as failure to thrive and dyslipidemia caused by citrin deficiency (FTTDCD)
     explanation: Directly identifies dyslipidemia as part of the FTTDCD phenotype.
   - reference: PMID:35142380
+    reference_title: &#34;Clinical manifestation and long-term outcome of citrin deficiency: Report from a nationwide study in Japan.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: failure to thrive, and dyslipidemia by citrin deficiency (FTTDCD)
@@ -4598,6 +4854,7 @@ phenotypes:
       label: Jaundice
   evidence:
   - reference: PMID:37063661
+    reference_title: &#34;Case report: Three novel variants on SLC25A13 in four infants with neonatal intrahepatic cholestasis caused by citrin deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: We report 4 patients with jaundice and low body weight.
@@ -4616,6 +4873,7 @@ phenotypes:
       label: Abnormal eating behavior
   evidence:
   - reference: PMID:37952953
+    reference_title: &#34;Pathogenesis and Management of Citrin Deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: MCT supplementation with a diet containing minimal carbohydrates is recommended promptly after the diagnosis.
@@ -4634,6 +4892,7 @@ phenotypes:
       label: Small for gestational age
   evidence:
   - reference: PMID:35142380
+    reference_title: &#34;Clinical manifestation and long-term outcome of citrin deficiency: Report from a nationwide study in Japan.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Patients with citrin deficiency had an increased risk for low weight and length at birth
@@ -4651,6 +4910,7 @@ phenotypes:
       label: Intellectual disability
   evidence:
   - reference: PMID:37952953
+    reference_title: &#34;Pathogenesis and Management of Citrin Deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: patients with CD often exhibit growth impairment and irreversible brain and/or liver damage.
@@ -4680,6 +4940,7 @@ phenotypes:
       label: Hypoglycemia
   evidence:
   - reference: PMID:37952953
+    reference_title: &#34;Pathogenesis and Management of Citrin Deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: They are unable to utilize glucose and free fatty acids as energy sources, resulting in energy deficiencies.
@@ -4697,6 +4958,7 @@ phenotypes:
       label: Seizure
   evidence:
   - reference: PMID:20301360
+    reference_title: &#34;Citrin Deficiency.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: in adults as recurrent hyperammonemia with neuropsychiatric symptoms in citrullinemia type II (CTLN2).
@@ -4711,11 +4973,13 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:20301360
+    reference_title: &#34;Citrin Deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: in adults as recurrent hyperammonemia with neuropsychiatric symptoms in citrullinemia type II (CTLN2).
     explanation: Citrullinemia (elevated citrulline) is the defining biochemical feature of CTLN2.
   - reference: PMID:38535123
+    reference_title: &#34;Harnessing Next-Generation Sequencing as a Timely and Accurate Second-Tier Screening Test for Newborn Screening of Inborn Errors of Metabolism.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: two cases of citrullinemia type II would have been missed as false negatives if only biochemical first-tier testing
@@ -4729,6 +4993,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:20301360
+    reference_title: &#34;Citrin Deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: in adults as recurrent hyperammonemia with neuropsychiatric symptoms in citrullinemia type II (CTLN2).
@@ -4741,6 +5006,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:37063661
+    reference_title: &#34;Case report: Three novel variants on SLC25A13 in four infants with neonatal intrahepatic cholestasis caused by citrin deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: the biochemical examination of all showed abnormal liver function and metabolic changes.
@@ -4765,6 +5031,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:37063661
+    reference_title: &#34;Case report: Three novel variants on SLC25A13 in four infants with neonatal intrahepatic cholestasis caused by citrin deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: the biochemical examination of all showed abnormal liver function and metabolic changes.
@@ -4775,11 +5042,13 @@ genetic:
   - name: Autosomal recessive
     evidence:
     - reference: PMID:35142380
+      reference_title: &#34;Clinical manifestation and long-term outcome of citrin deficiency: Report from a nationwide study in Japan.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: Citrin deficiency is an autosomal recessive disorder caused by mutations in the SLC25A13 gene.
       explanation: Large nationwide study directly states autosomal recessive inheritance.
     - reference: PMID:20301360
+      reference_title: &#34;Citrin Deficiency.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: Citrin deficiency can manifest in newborns or infants as neonatal intrahepatic cholestasis caused by citrin
@@ -4793,6 +5062,7 @@ genetic:
       &#39;
     evidence:
     - reference: PMID:38535123
+      reference_title: &#34;Harnessing Next-Generation Sequencing as a Timely and Accurate Second-Tier Screening Test for Newborn Screening of Inborn Errors of Metabolism.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: The custom-designed NGS panel can detect sequence variants in the relevant genes and also specifically screen
@@ -4812,6 +5082,7 @@ genetic:
     &#39;
   evidence:
   - reference: PMID:35142380
+    reference_title: &#34;Clinical manifestation and long-term outcome of citrin deficiency: Report from a nationwide study in Japan.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Citrin deficiency is an autosomal recessive disorder caused by mutations in the SLC25A13 gene.
@@ -4831,12 +5102,14 @@ treatments:
       label: dietary intervention
   evidence:
   - reference: PMID:37952953
+    reference_title: &#34;Pathogenesis and Management of Citrin Deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Medium-chain triglyceride (MCT) supplements are effective for treating CD by providing energy to hepatocytes,
       increasing lipogenesis, and activating the malate-citrate shuttle.
     explanation: Directly describes the mechanism and effectiveness of MCT therapy.
   - reference: PMID:37952953
+    reference_title: &#34;Pathogenesis and Management of Citrin Deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: MCT supplementation with a diet containing minimal carbohydrates is recommended promptly after the diagnosis.
@@ -4869,11 +5142,13 @@ treatments:
       label: liver transplantation
   evidence:
   - reference: PMID:35142380
+    reference_title: &#34;Clinical manifestation and long-term outcome of citrin deficiency: Report from a nationwide study in Japan.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Liver transplantation has been performed in only 4 patients (1 NICCD, 3 CTLN2) with a good response thereafter.
     explanation: Quantifies transplantation frequency and outcomes in a large cohort.
   - reference: PMID:20301360
+    reference_title: &#34;Citrin Deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: NICCD is generally not severe, and clinical manifestations are often resolved by age one year with appropriate
@@ -4892,6 +5167,7 @@ treatments:
       label: supportive care
   evidence:
   - reference: PMID:20301360
+    reference_title: &#34;Citrin Deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: NICCD is generally not severe, and clinical manifestations are often resolved by age one year with appropriate
@@ -4912,6 +5188,7 @@ treatments:
       label: disease screening
   evidence:
   - reference: PMID:38535123
+    reference_title: &#34;Harnessing Next-Generation Sequencing as a Timely and Accurate Second-Tier Screening Test for Newborn Screening of Inborn Errors of Metabolism.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The false positive rate for these six conditions after the NGS second-tier test was only 0.017%, and two cases
@@ -4941,6 +5218,7 @@ treatments:
       label: genetic counseling
   evidence:
   - reference: PMID:37063661
+    reference_title: &#34;Case report: Three novel variants on SLC25A13 in four infants with neonatal intrahepatic cholestasis caused by citrin deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Our study clarified the genetic etiology of the four infants, expanded the variant spectrum of SLC25A13, and

@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1037,6 +1101,52 @@
             text-decoration: underline;
         }
 
+        /* Experimental Models */
+        .exp-model-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .exp-model-box .item-name { color: #92400e; }
+        .exp-model-box .item-desc { color: #b45309; }
+
+        .tag-exp-model-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .tag-namo-type {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+        .tag-condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .model-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .model-detail-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .model-detail-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 110px;
+        }
+        .model-detail-value {
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+        }
+        .model-detail-value a {
+            color: inherit;
+        }
+
         /* Computational Models */
         .comp-model-box {
             background: #f0fdf4;
@@ -1382,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1470,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1477,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1489,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1637,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1723,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1737,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1792,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1877,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 6</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">FGFR3-related skeletal dysplasia</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Rhizomelic limb shortening syndrome</span>
@@ -1884,13 +2103,18 @@
             </div>
             
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; opacity: 0.95; position: relative;">
-                Achondroplasia is the most common form of short-limbed dwarfism, affecting approximately 1 in 15,000-40,000 live births. It is caused by gain-of-function mutations in FGFR3, with over 95% of cases resulting from the G380R (c.1138G&gt;A) mutation. The constitutively active FGFR3 receptor inhibits chondrocyte proliferation and differentiation in growth plate cartilage, leading to impaired endochondral ossification and disproportionate short stature with rhizomelic limb shortening, macrocephaly, frontal bossing, and characteristic trident hand configuration. Vosoritide, a C-type natriuretic peptide analog that antagonizes FGFR3 signaling, was approved by the FDA in 2021 as the first disease-modifying therapy.
+                Achondroplasia is the most common form of short-limbed dwarfism, affecting approximately 1 in 15,000-40,000 live births. It is caused by gain-of-function mutations in FGFR3, with over 95% of cases resulting from the G380R (c.1138G&gt;A) mutation. The constitutively active FGFR3 receptor inhibits chondrocyte proliferation and differentiation in growth plate cartilage, leading to impaired endochondral ossification and disproportionate short stature with rhizomelic limb shortening, macrocephaly, frontal bossing, and characteristic trident hand configuration. Complications include foramen magnum stenosis with risk of cervicomedullary compression in infancy, progressive spinal stenosis, obstructive sleep apnea, recurrent otitis media, and obesity. Vosoritide, a C-type natriuretic peptide analog that antagonizes FGFR3 signaling, was approved by the FDA in 2021 as the first disease-modifying therapy.
 
             </p>
             
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
+        
+        
         
         
         
@@ -1930,7 +2154,7 @@
             
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
-                <div class="stat-value">2</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Pathophysiology</div>
             </div>
             </a>
@@ -1944,8 +2168,16 @@
             
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
-                <div class="stat-value">8</div>
+                <div class="stat-value">16</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">6</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2126,13 +2358,13 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">5</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-fgfr3-gain-of-function-signaling">
                 <div class="item-name">FGFR3 gain-of-function signaling</div>
                 
-                <div class="item-desc">The FGFR3 G380R mutation causes constitutive activation of the receptor, leading to enhanced downstream signaling through STAT1, MAPK, and other pathways. This results in premature cell cycle arrest of growth plate chondrocytes, reduced chondrocyte proliferation and hypertrophy, and impaired endochondral bone formation. The receptor normally serves as a negative regulator of bone growth; its overactivation leads to the shortened long bones characteristic of achondroplasia.
+                <div class="item-desc">The FGFR3 G380R mutation causes constitutive activation of the receptor, leading to enhanced downstream signaling through STAT1, MAPK/ERK, and p38 MAPK pathways. This results in premature cell cycle arrest of growth plate chondrocytes, reduced chondrocyte proliferation and hypertrophy, and impaired endochondral bone formation. The receptor normally serves as a negative regulator of bone growth; its overactivation leads to the shortened long bones characteristic of achondroplasia.
 </div>
                 
                 
@@ -2201,6 +2433,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2255,7 +2488,152 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-mapk-mediated-inhibition-of-chondrocyte-differentiation">
+                <div class="item-name">MAPK-mediated inhibition of chondrocyte differentiation</div>
+                
+                <div class="item-desc">The MAPK/ERK cascade is a principal effector of FGFR3-driven growth inhibition. Constitutive activation of MEK1 in chondrocytes causes achondroplasia-like dwarfism with incomplete hypertrophy and delayed endochondral ossification, while chondrocyte proliferation remains unaffected. The MAPK pathway inhibits hypertrophic differentiation, and STAT1 mediates inhibition of chondrocyte proliferation as a parallel pathway. Upregulation of FGFR3, Stat1, Stat5, and p21Cip1 in the prehypertrophic-hypertrophic zone correlates with disease severity and impaired chondrocyte differentiation.
+</div>
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-cell">
+                        Growth plate chondrocyte
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+                    
+                    <span class="tag tag-cell">
+                        Prehypertrophic chondrocyte
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0020022" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        MAPK cascade
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+    
+    
+                    
+                    <span class="tag tag-bio">
+                        Chondrocyte differentiation
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0002062" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14871928" target="_blank">PMID:14871928</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"These observations indicate that the MAPK pathway inhibits hypertrophic differentiation of chondrocytes and negatively regulates bone growth without inhibiting chondrocyte proliferation."</div>
+                
+                
+                <div class="evidence-explanation">Demonstrates that MAPK pathway specifically inhibits chondrocyte differentiation rather than proliferation, with constitutive MEK1 activation recapitulating the achondroplasia phenotype in mice.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14871928" target="_blank">PMID:14871928</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"These observations suggest a model in which Fgfr3 signaling inhibits bone growth by inhibiting chondrocyte differentiation through the MAPK pathway and by inhibiting chondrocyte proliferation through Stat1."</div>
+                
+                
+                <div class="evidence-explanation">Establishes the dual-pathway model where MAPK inhibits differentiation and STAT1 inhibits proliferation downstream of FGFR3.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14751560" target="_blank">PMID:14751560</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Our results indicate that FGFR3 mutations in the prenatal period upregulate FGFR3 and Stat-p21Cip1 expression, thus inducing premature exit of proliferative cells from the cell cycle and their differentiation into prehypertrophic chondrocytes."</div>
+                
+                
+                <div class="evidence-explanation">Human fetal tissue analysis confirms that FGFR3 mutations upregulate STAT/p21 signaling in growth plate chondrocytes, causing premature cell cycle exit and defective differentiation.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-growth-plate-cartilage-development">
                 <div class="item-name">Impaired growth plate cartilage development</div>
                 
                 <div class="item-desc">In the growth plate, FGFR3 overactivation disrupts the normal columnar organization of chondrocytes and reduces the height of the proliferative and hypertrophic zones. This results in shortened and disorganized growth plates with reduced longitudinal bone growth, particularly affecting the long bones of the limbs (rhizomelic pattern) and the skull base (leading to foramen magnum stenosis).
@@ -2292,9 +2670,9 @@
     
                     
                     <span class="tag tag-bio">
-                        Bone development
+                        Growth plate cartilage development
                         
-                        <a href="http://purl.obolibrary.org/obo/GO_0060348" target="_blank" class="linkout">link</a>
+                        <a href="http://purl.obolibrary.org/obo/GO_0003417" target="_blank" class="linkout">link</a>
                         
                     </span>
                     
@@ -2307,6 +2685,279 @@
                 
                 
                 
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14751560" target="_blank">PMID:14751560</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Immunohistochemical analysis of fetal growth plates showed a phenotype-related reduction of the collagen type X-positive hypertrophic zone."</div>
+                
+                
+                <div class="evidence-explanation">Direct histological evidence from human fetal growth plates showing reduced hypertrophic zone in achondroplasia, confirming impaired growth plate cartilage development.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-cranial-base-synchondrosis-closure">
+                <div class="item-name">Cranial base synchondrosis closure</div>
+                
+                <div class="item-desc">FGFR3-MAPK activation accelerates closure of cranial base synchondroses and fusion of ossification centers, leading to premature cranial base fusion and narrowing of the foramen magnum. This mechanism underlies the foramen magnum stenosis that poses a risk of cervicomedullary compression and sudden death in infancy.
+</div>
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-cell">
+                        Growth plate chondrocyte
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        MAPK cascade
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+    
+    
+                    
+                    <span class="tag tag-bio">
+                        Endochondral ossification
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18923003" target="_blank">PMID:18923003</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"We observed premature synchondrosis closure in the spine and cranial base in human cases of homozygous achondroplasia and thanatophoric dysplasia as well as in mouse models of achondroplasia."</div>
+                
+                
+                <div class="evidence-explanation">Direct evidence that FGFR3 activation causes premature synchondrosis closure in cranial base, demonstrated in both human skeletal dysplasia cases and mouse models.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18923003" target="_blank">PMID:18923003</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Chondrocyte-specific activation of Fgfr3 in mice induced premature synchondrosis closure and enhanced osteoblast differentiation around synchondroses."</div>
+                
+                
+                <div class="evidence-explanation">Shows that FGFR3 activation specifically in chondrocytes is sufficient to drive premature synchondrosis closure through a MAPK-dependent mechanism involving enhanced bone formation.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14871928" target="_blank">PMID:14871928</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Immunohistochemical analysis of the cranial base in transgenic embryos showed reduced staining for collagen type X and persistent expression of Sox9 in chondrocytes."</div>
+                
+                
+                <div class="evidence-explanation">Shows molecular disruption of cranial base chondrocyte maturation upon MAPK activation, consistent with premature closure mechanism.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-cnp-npr2-counter-regulatory-pathway">
+                <div class="item-name">CNP-NPR2 counter-regulatory pathway</div>
+                
+                <div class="item-desc">C-type natriuretic peptide (CNP) signaling through NPR-B (NPR2) physiologically antagonizes FGFR3-MAPK activity in growth plate chondrocytes. CNP inhibits the MAPK pathway downstream of FGFR3, correcting decreased extracellular matrix synthesis but not affecting the STAT1-mediated proliferation defect. This counter-regulatory pathway provides the mechanistic rationale for CNP analog therapy (vosoritide).
+</div>
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-cell">
+                        Growth plate chondrocyte
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        Receptor guanylyl cyclase signaling pathway
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0007168" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+                    
+                    <span class="tag tag-bio">
+                        MAPK cascade
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14702637" target="_blank">PMID:14702637</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"CNP prevented the shortening of achondroplastic bones by correcting the decreased extracellular matrix synthesis in the growth plate through inhibition of the MAPK pathway of FGF signaling."</div>
+                
+                
+                <div class="evidence-explanation">Demonstrates the mechanism by which CNP counteracts FGFR3 overactivation specifically through MAPK pathway inhibition, establishing the basis for vosoritide therapy.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14702637" target="_blank">PMID:14702637</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"CNP had no effect on the STAT-1 pathway of FGF signaling that mediates the decreased proliferation and the delayed differentiation of achondroplastic chondrocytes."</div>
+                
+                
+                <div class="evidence-explanation">Shows that CNP selectively inhibits MAPK but not STAT1, explaining why CNP therapy partially but not completely rescues the achondroplasia phenotype.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
             </div>
@@ -2319,6 +2970,29 @@
 
         <!-- Causal Graph (Pathograph) -->
         
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
+                <h2 class="card-title">Pathograph</h2>
+            </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
+            
+            <div class="pathograph-container" id="pathograph">
+                <div class="pathograph-legend" id="pathograph-legend"></div>
+                <svg id="pathograph-svg" role="img">
+                    <title>Pathograph: causal mechanism network for Achondroplasia</title>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
+                </svg>
+                <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
+            </div>
+            <script>
+            (function() {
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cranial base synchondrosis closure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FGFR3-MAPK activation accelerates closure of cranial base synchondroses and fusion of ossification centers, leading to premature cranial base fusion and narrowing of the foramen magnum. This mechanism underlies the foramen magnum stenosis that poses a risk of cervicomedullary compression and sudden death in infancy.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Growth plate chondrocyte\"], \"biological_processes\": [\"MAPK cascade\", \"Endochondral ossification\"]}}, {\"id\": \"FGFR3 G380R mutation\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Causative\", \"variant_count\": 1}}, {\"id\": \"FGFR3 gain-of-function signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The FGFR3 G380R mutation causes constitutive activation of the receptor, leading to enhanced downstream signaling through STAT1, MAPK/ERK, and p38 MAPK pathways. This results in premature cell cycle arrest of growth plate chondrocytes, reduced chondrocyte proliferation and hypertrophy, and impaired endochondral bone formation. The receptor normally serves as a negative regulator of bone growth; its overactivation leads to the shortened long bones characteristic of achondroplasia.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Growth plate chondrocyte\", \"Hypertrophic chondrocyte\"], \"biological_processes\": [\"FGFR signaling pathway\", \"Endochondral ossification\", \"Chondrocyte differentiation\"], \"genes\": [\"FGFR3\"], \"pdb_structures\": [{\"pdb_id\": \"4BSK\", \"description\": \"FGFR3 kinase domain crystal structure showing the constitutively active conformation caused by achondroplasia-associated pathogenic mutations\", \"resolution_angstrom\": 2.3, \"method\": \"X-ray\", \"target_protein\": \"FGFR3 kinase domain\"}]}}, {\"id\": \"Impaired growth plate cartilage development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the growth plate, FGFR3 overactivation disrupts the normal columnar organization of chondrocytes and reduces the height of the proliferative and hypertrophic zones. This results in shortened and disorganized growth plates with reduced longitudinal bone growth, particularly affecting the long bones of the limbs (rhizomelic pattern) and the skull base (leading to foramen magnum stenosis).\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Columnar chondrocyte\"], \"biological_processes\": [\"Growth plate chondrocyte differentiation\", \"Growth plate cartilage development\"]}}, {\"id\": \"MAPK-mediated inhibition of chondrocyte differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The MAPK/ERK cascade is a principal effector of FGFR3-driven growth inhibition. Constitutive activation of MEK1 in chondrocytes causes achondroplasia-like dwarfism with incomplete hypertrophy and delayed endochondral ossification, while chondrocyte proliferation remains unaffected. The MAPK pathway inhibits hypertrophic differentiation, and STAT1 mediates inhibition of chondrocyte proliferation as a parallel pathway. Upregulation of FGFR3, Stat1, Stat5, and p21Cip1 in the prehypertrophic-hypertrophic zone correlates with disease severity and impaired chondrocyte differentiation.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Growth plate chondrocyte\", \"Prehypertrophic chondrocyte\"], \"biological_processes\": [\"MAPK cascade\", \"Chondrocyte differentiation\"]}}, {\"id\": \"c.1138G\u003eA (p.Gly380Arg)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The most common causative mutation, accounting for over 95% of cases.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"FGFR3 gain-of-function signaling\", \"target\": \"MAPK-mediated inhibition of chondrocyte differentiation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FGFR3 gain-of-function signaling\", \"target\": \"Impaired growth plate cartilage development\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired growth plate cartilage development\", \"target\": \"Cranial base synchondrosis closure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"c.1138G\u003eA (p.Gly380Arg)\", \"target\": \"FGFR3 G380R mutation\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                renderPathograph("pathograph", graphData);
+            })();
+            </script>
+        </div>
+        
 
         <!-- Phenotypes -->
         
@@ -2326,7 +3000,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">8</span>
+                <span class="card-count">16</span>
             </div>
             
             
@@ -2334,11 +3008,15 @@
                 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Head and Neck<span class="pill-count">(3)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Limbs<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Limbs<span class="pill-count">(3)</span></button>
                 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(1)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Growth<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(2)</span></button>
+                
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Growth<span class="pill-count">(3)</span></button>
+                
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(4)</span></button>
                 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -2432,7 +3110,7 @@
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Limbs
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
                 
                 <div class="item-box phenotype-box">
@@ -2447,6 +3125,31 @@
                                 Trident hand
                             </a>
                             <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0004060)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+    
+    
+                    
+    
+    
+                </div>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Brachydactyly
+                        
+                        <span class="phenotype-freq">HP_0040281</span>
+                        
+                        
+                        <span class="phenotype-id">
+                            <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank">
+                                Brachydactyly
+                            </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001156)</span>
                         </span>
                         
                     </div>
@@ -2524,8 +3227,127 @@
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
+                    Nervous System
                     <span class="cat-count">2</span>
+                </summary>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Obstructive sleep apnea
+                        
+                        <span class="phenotype-freq">HP_0040282</span>
+                        
+                        
+                        <span class="phenotype-id">
+                            <a href="http://purl.obolibrary.org/obo/HP_0002870" target="_blank">
+                                Obstructive sleep apnea
+                            </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002870)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35028714" target="_blank">PMID:35028714</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"patients with ACH have a high prevalence of medical complications, including upper airway obstructive apnea, increased mortality, foramen magnum stenosis, hydrocephalus, developmental delay, recurrent ear infections, genu varum, obesity, and spinal canal stenosis, throughout their whole life."</div>
+                
+                
+                <div class="evidence-explanation">Comprehensive review establishing obstructive sleep apnea as a high-prevalence complication in achondroplasia.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Hydrocephalus
+                        
+                        <span class="phenotype-freq">HP_0040283</span>
+                        
+                        
+                        <span class="phenotype-id">
+                            <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank">
+                                Hydrocephalus
+                            </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000238)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35028714" target="_blank">PMID:35028714</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"patients with ACH have a high prevalence of medical complications, including upper airway obstructive apnea, increased mortality, foramen magnum stenosis, hydrocephalus, developmental delay, recurrent ear infections, genu varum, obesity, and spinal canal stenosis, throughout their whole life."</div>
+                
+                
+                <div class="evidence-explanation">Hydrocephalus is recognized as a complication of achondroplasia, secondary to skull base abnormalities.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+            </details>
+            
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">3</span>
                 </summary>
                 
                 <div class="item-box phenotype-box">
@@ -2571,6 +3393,260 @@
                     
                     
                     
+    
+    
+                    
+    
+    
+                </div>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Obesity
+                        
+                        <span class="phenotype-freq">HP_0040282</span>
+                        
+                        
+                        <span class="phenotype-id">
+                            <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank">
+                                Obesity
+                            </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001513)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35028714" target="_blank">PMID:35028714</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"patients with ACH have a high prevalence of medical complications, including upper airway obstructive apnea, increased mortality, foramen magnum stenosis, hydrocephalus, developmental delay, recurrent ear infections, genu varum, obesity, and spinal canal stenosis, throughout their whole life."</div>
+                
+                
+                <div class="evidence-explanation">Obesity is documented as a prevalent complication in achondroplasia across the lifespan.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+            </details>
+            
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">4</span>
+                </summary>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Thoracolumbar kyphosis
+                        
+                        <span class="phenotype-freq">HP_0040282</span>
+                        
+                        
+                        <span class="phenotype-id">
+                            <a href="http://purl.obolibrary.org/obo/HP_0005619" target="_blank">
+                                Thoracolumbar kyphosis
+                            </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0005619)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+    
+    
+                    
+    
+    
+                </div>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Foramen magnum stenosis
+                        
+                        <span class="phenotype-freq">HP_0040282</span>
+                        
+                        
+                        <span class="phenotype-id">
+                            <a href="http://purl.obolibrary.org/obo/HP_0002677" target="_blank">
+                                Small foramen magnum
+                            </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002677)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959505" target="_blank">PMID:29959505</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"MRI revealed four severe, four moderate, and one mild case of cervicomedullary compression, and PSG demonstrated severe sleep apnea in four cases and moderate sleep apnea in five cases."</div>
+                
+                
+                <div class="evidence-explanation">Clinical study showing high prevalence of cervicomedullary compression and sleep apnea secondary to foramen magnum stenosis in achondroplasia, even in patients asymptomatic during daytime.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Spinal canal stenosis
+                        
+                        <span class="phenotype-freq">HP_0040282</span>
+                        
+                        
+                        <span class="phenotype-id">
+                            <a href="http://purl.obolibrary.org/obo/HP_0003416" target="_blank">
+                                Spinal canal stenosis
+                            </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0003416)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35698202" target="_blank">PMID:35698202</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"the greater the probability of a positive effect on the lifetime incidence of symptomatic spinal stenosis, kyphosis, obstructive sleep apnea, and foramen magnum stenosis. These are among the most clinically important complications of achondroplasia because of their high impact on comorbidity,..."</div>
+                
+                
+                <div class="evidence-explanation">Expert consensus identifies spinal stenosis as one of the most clinically significant complications of achondroplasia due to high impact on morbidity and quality of life.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Recurrent otitis media
+                        
+                        <span class="phenotype-freq">HP_0040282</span>
+                        
+                        
+                        <span class="phenotype-id">
+                            <a href="http://purl.obolibrary.org/obo/HP_0000403" target="_blank">
+                                Recurrent otitis media
+                            </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000403)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35028714" target="_blank">PMID:35028714</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"patients with ACH have a high prevalence of medical complications, including upper airway obstructive apnea, increased mortality, foramen magnum stenosis, hydrocephalus, developmental delay, recurrent ear infections, genu varum, obesity, and spinal canal stenosis, throughout their whole life."</div>
+                
+                
+                <div class="evidence-explanation">Recurrent ear infections are listed among the high-prevalence complications of achondroplasia.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
                     
@@ -2697,7 +3773,7 @@
                 </div>
                 
                 
-                <div class="item-desc">C-type natriuretic peptide (CNP) analog that counteracts FGFR3 overactivation by stimulating the NPR-B receptor, promoting endochondral bone growth. FDA approved in 2021 for children aged 5 years and older with open growth plates. Clinical trials demonstrated increased annualized growth velocity.
+                <div class="item-desc">C-type natriuretic peptide (CNP) analog that counteracts FGFR3 overactivation by stimulating the NPR-B receptor, promoting endochondral bone growth. FDA approved in 2021 for children aged 5 years and older with open growth plates. Phase 3 extension data demonstrated sustained growth-promoting effects for up to 6 years, with a mean additional height gain of 5.75 cm over 3 years compared to untreated controls.
 </div>
                 
                 
@@ -2707,7 +3783,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
             
@@ -2731,6 +3807,46 @@
                 
             </div>
             
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39740666" target="_blank">PMID:39740666</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The mean (SD) differences in annualized growth velocity across each integer age (6-16 years) between treated and untreated children were 1.84 (0.38) cm/year in boys and 1.44 (0.63) cm/year in girls."</div>
+                
+                
+                <div class="evidence-explanation">Phase 3 extension study with 119 participants demonstrates that vosoritide provides clinically meaningful growth velocity improvements compared to untreated children across ages 6-16 years.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39740666" target="_blank">PMID:39740666</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Vosoritide treatment was well tolerated and had sustained growth-promoting effects in children with achondroplasia treated for up to 6 years."</div>
+                
+                
+                <div class="evidence-explanation">Demonstrates long-term safety and sustained efficacy over 6 years of continuous treatment with a favorable safety profile.</div>
+                
+            </div>
+            
             
         </div>
     </details>
@@ -2751,8 +3867,7 @@
                 </div>
                 
                 
-                <div class="item-desc">Distraction osteogenesis techniques (Ilizarov, PRECICE) can increase limb length but are controversial due to complications, prolonged treatment duration, and quality of life considerations.
-</div>
+                <div class="item-desc">Distraction osteogenesis techniques (Ilizarov, PRECICE) can increase limb length but are controversial due to complications, prolonged treatment duration, and quality of life considerations.</div>
                 
                 
                 
@@ -2775,13 +3890,43 @@
                 </div>
                 
                 
-                <div class="item-desc">Surgical decompression may be required for symptomatic foramen magnum stenosis with cervicomedullary compression, which can cause central apnea, hypotonia, or sudden death in infants.
+                <div class="item-desc">Surgical decompression may be required for symptomatic foramen magnum stenosis with cervicomedullary compression, which can cause central apnea, hypotonia, or sudden death in infants. Polysomnography is a useful indicator for surgical decision-making.
 </div>
                 
                 
                 
                 
                 
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959505" target="_blank">PMID:29959505</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Three of these patients demonstrated improved sleep respiration soon after surgery, while one required temporary tracheostomy due to bilateral vocal cord paralysis caused by compression during intratracheal intubation."</div>
+                
+                
+                <div class="evidence-explanation">Clinical evidence showing that cervicomedullary decompression improves sleep-related respiratory disturbance in achondroplasia patients with foramen magnum stenosis.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
             </div>
@@ -2799,8 +3944,7 @@
                 </div>
                 
                 
-                <div class="item-desc">Progressive lumbar spinal stenosis is common in adults and may require laminectomy for symptomatic relief of neurogenic claudication.
-</div>
+                <div class="item-desc">Progressive lumbar spinal stenosis is common in adults and may require laminectomy for symptomatic relief of neurogenic claudication.</div>
                 
                 
                 
@@ -2828,6 +3972,9 @@
         <!-- Clinical Trials -->
         
 
+        <!-- Experimental Models -->
+        
+
         <!-- Computational Models -->
         
         <div class="card" id="models">
@@ -2847,7 +3994,7 @@
                     
                 </div>
                 
-                <div class="item-desc">Computational structural analysis of the achondroplasia-causing p.G380R substitution in the FGFR3 transmembrane domain using multiple bioinformatics tools. The mutation adversely affects dimerization efficiency and overall stability of FGFR3, leading to constitutive receptor activation and uncontrolled negative bone growth regulation. Structural modeling predicts that the G380R substitution disrupts normal transmembrane helix packing, promoting ligand-independent receptor dimerization.</div>
+                <div class="item-desc">Computational structural analysis of the achondroplasia-causing p.G380R substitution in the FGFR3 transmembrane domain using multiple bioinformatics tools. The mutation adversely affects dimerization efficiency and overall stability of FGFR3, leading to constitutive receptor activation and uncontrolled negative bone growth regulation.</div>
                 
                 <div class="item-meta" style="margin-top: 8px;">
                     
@@ -2957,20 +4104,20 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Achondroplasia
 creation_date: &#39;2026-02-02T00:16:36Z&#39;
-updated_date: &#39;2026-03-07T14:53:10Z&#39;
+updated_date: &#39;2026-04-03T12:00:00Z&#39;
 category: Mendelian
 description: &gt;
   Achondroplasia is the most common form of short-limbed dwarfism, affecting approximately
   1 in 15,000-40,000 live births. It is caused by gain-of-function mutations in FGFR3,
   with over 95% of cases resulting from the G380R (c.1138G&gt;A) mutation. The constitutively
   active FGFR3 receptor inhibits chondrocyte proliferation and differentiation in
-  growth
-  plate cartilage, leading to impaired endochondral ossification and disproportionate
+  growth plate cartilage, leading to impaired endochondral ossification and disproportionate
   short stature with rhizomelic limb shortening, macrocephaly, frontal bossing, and
-  characteristic trident hand configuration. Vosoritide, a C-type natriuretic peptide
-  analog that antagonizes FGFR3 signaling, was approved by the FDA in 2021 as the
-  first
-  disease-modifying therapy.
+  characteristic trident hand configuration. Complications include foramen magnum stenosis
+  with risk of cervicomedullary compression in infancy, progressive spinal stenosis,
+  obstructive sleep apnea, recurrent otitis media, and obesity. Vosoritide, a C-type
+  natriuretic peptide analog that antagonizes FGFR3 signaling, was approved by the FDA
+  in 2021 as the first disease-modifying therapy.
 disease_term:
   preferred_term: achondroplasia
   term:
@@ -2988,8 +4135,7 @@ inheritance:
       label: Autosomal dominant inheritance
   penetrance: COMPLETE
   de_novo_rate: &#34;&gt;90&#34;
-  parent_of_origin_effect: Increased paternal age; de novo mutations of paternal
-    origin
+  parent_of_origin_effect: Increased paternal age; de novo mutations of paternal origin
   description: &gt;
     Achondroplasia follows autosomal dominant inheritance with complete penetrance.
     Approximately 80% of cases arise from de novo mutations, typically in the paternal
@@ -2997,29 +4143,43 @@ inheritance:
     is lethal.
   evidence:
   - reference: PMID:8078586
+    reference_title: &#34;Mutations in the gene encoding fibroblast growth factor receptor-3 in achondroplasia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Affected individuals are fertile and achondroplasia is transmitted as
-      a fully penetrant autosomal dominant trait, accounting for rare familial forms
-      of the disease (10%).&#34;
-    explanation: Establishes autosomal dominant inheritance with full penetrance
-      for achondroplasia.
+    snippet: &#34;Affected individuals are fertile and achondroplasia is transmitted as a fully penetrant autosomal dominant trait, accounting for rare familial forms of the disease (10%).&#34;
+    explanation: Establishes autosomal dominant inheritance with full penetrance for achondroplasia.
   - reference: PMID:8078586
+    reference_title: &#34;Mutations in the gene encoding fibroblast growth factor receptor-3 in achondroplasia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;More than 90% of cases are sporadic and there is an increased paternal
-      age at the time of conception of affected individuals,&#34;
-    explanation: Indicates that most cases are de novo and associated with
-      increased paternal age, supporting a paternal origin effect.
+    snippet: &#34;More than 90% of cases are sporadic and there is an increased paternal age at the time of conception of affected individuals,&#34;
+    explanation: Indicates that most cases are de novo and associated with increased paternal age, supporting a paternal origin effect.
+prevalence:
+- population: Global live births
+  percentage: 4.6 per 100,000
+  notes: &gt;-
+    A systematic review and meta-analysis estimated worldwide birth prevalence
+    at 4.6 per 100,000 live births, with a somewhat lower population-based
+    European estimate of 3.72 per 100,000 births.
+  evidence:
+  - reference: PMID:32803853
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Based on the meta-analysis, the worldwide birth prevalence of achondroplasia was estimated to be 4.6 per 100,000.&#34;
+    explanation: This meta-analysis provides the strongest aggregate global birth-prevalence estimate for achondroplasia.
+  - reference: PMID:31294928
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The study population consisted of 434 achondroplasia cases with a prevalence of 3.72 per 100,000 births (95%CIs: 3.14-4.39).&#34;
+    explanation: A large EUROCAT population-based study corroborates the rarity of achondroplasia and provides a robust European prevalence estimate.
 pathophysiology:
 - name: FGFR3 gain-of-function signaling
   description: &gt;
     The FGFR3 G380R mutation causes constitutive activation of the receptor, leading
-    to
-    enhanced downstream signaling through STAT1, MAPK, and other pathways. This results
-    in premature cell cycle arrest of growth plate chondrocytes, reduced chondrocyte
-    proliferation and hypertrophy, and impaired endochondral bone formation. The
-    receptor normally serves as a negative regulator of bone growth; its overactivation
+    to enhanced downstream signaling through STAT1, MAPK/ERK, and p38 MAPK pathways.
+    This results in premature cell cycle arrest of growth plate chondrocytes, reduced
+    chondrocyte proliferation and hypertrophy, and impaired endochondral bone formation.
+    The receptor normally serves as a negative regulator of bone growth; its overactivation
     leads to the shortened long bones characteristic of achondroplasia.
   pdb_structures:
   - pdb_id: 4BSK
@@ -3030,31 +4190,24 @@ pathophysiology:
     publication: PMID:24297434
   gene:
     preferred_term: FGFR3
-    description: Fibroblast growth factor receptor 3, a transmembrane tyrosine
-      kinase receptor that negatively regulates endochondral bone growth.
+    description: Fibroblast growth factor receptor 3, a transmembrane tyrosine kinase receptor that negatively regulates endochondral bone growth.
     modifier: INCREASED
     term:
       id: hgnc:3690
       label: FGFR3
   evidence:
   - reference: PMID:7913883
+    reference_title: &#34;Mutations in the transmembrane domain of FGFR3 cause the most common genetic form of dwarfism, achondroplasia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;DNA studies revealed point mutations in the FGFR3 gene in ACH heterozygotes
-      and homozygotes. The mutation on 15 of the 16 ACH-affected chromosomes was the
-      same, a G--&gt;A transition, at nucleotide 1138 of the cDNA.&#34;
-    explanation: This landmark 1994 Cell paper by Shiang et al. identified FGFR3
-      mutations as the cause of achondroplasia, establishing the molecular basis
-      of the disease.
+    snippet: &#34;DNA studies revealed point mutations in the FGFR3 gene in ACH heterozygotes and homozygotes. The mutation on 15 of the 16 ACH-affected chromosomes was the same, a G--&gt;A transition, at nucleotide 1138 of the cDNA.&#34;
+    explanation: This landmark 1994 Cell paper by Shiang et al. identified FGFR3 mutations as the cause of achondroplasia, establishing the molecular basis of the disease.
   - reference: PMID:7847369
+    reference_title: &#34;Achondroplasia is defined by recurrent G380R mutations of FGFR3.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;All but one, an atypical case, were found to have a glycine-to-arginine
-      substitution at codon 380. Of these, 150 had a G-to-A transition at nt 1138,
-      and 3 had a G-to-C transversion at this same position.&#34;
-    explanation: This study of 154 unrelated achondroplasia patients confirmed
-      the G380R mutation is essentially universal, with over 97% having the same
-      recurrent mutation.
+    snippet: &#34;All but one, an atypical case, were found to have a glycine-to-arginine substitution at codon 380. Of these, 150 had a G-to-A transition at nt 1138, and 3 had a G-to-C transversion at this same position.&#34;
+    explanation: This study of 154 unrelated achondroplasia patients confirmed the G380R mutation is essentially universal, with over 97% having the same recurrent mutation.
   cell_types:
   - preferred_term: Growth plate chondrocyte
     term:
@@ -3077,6 +4230,57 @@ pathophysiology:
     term:
       id: GO:0002062
       label: chondrocyte differentiation
+  downstream:
+  - target: MAPK-mediated inhibition of chondrocyte differentiation
+  - target: Impaired growth plate cartilage development
+- name: MAPK-mediated inhibition of chondrocyte differentiation
+  description: &gt;
+    The MAPK/ERK cascade is a principal effector of FGFR3-driven growth inhibition.
+    Constitutive activation of MEK1 in chondrocytes causes achondroplasia-like dwarfism
+    with incomplete hypertrophy and delayed endochondral ossification, while chondrocyte
+    proliferation remains unaffected. The MAPK pathway inhibits hypertrophic differentiation,
+    and STAT1 mediates inhibition of chondrocyte proliferation as a parallel pathway.
+    Upregulation of FGFR3, Stat1, Stat5, and p21Cip1 in the prehypertrophic-hypertrophic
+    zone correlates with disease severity and impaired chondrocyte differentiation.
+  cell_types:
+  - preferred_term: Growth plate chondrocyte
+    term:
+      id: CL:1000217
+      label: growth plate cartilage chondrocyte
+  - preferred_term: Prehypertrophic chondrocyte
+    term:
+      id: CL:0020022
+      label: prehypertrophic chondrocyte
+  biological_processes:
+  - preferred_term: MAPK cascade
+    term:
+      id: GO:0000165
+      label: MAPK cascade
+    modifier: INCREASED
+  - preferred_term: Chondrocyte differentiation
+    term:
+      id: GO:0002062
+      label: chondrocyte differentiation
+    modifier: DECREASED
+  evidence:
+  - reference: PMID:14871928
+    reference_title: &#34;Constitutive activation of MEK1 in chondrocytes causes Stat1-independent achondroplasia-like dwarfism and rescues the Fgfr3-deficient mouse phenotype.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;These observations indicate that the MAPK pathway inhibits hypertrophic differentiation of chondrocytes and negatively regulates bone growth without inhibiting chondrocyte proliferation.&#34;
+    explanation: Demonstrates that MAPK pathway specifically inhibits chondrocyte differentiation rather than proliferation, with constitutive MEK1 activation recapitulating the achondroplasia phenotype in mice.
+  - reference: PMID:14871928
+    reference_title: &#34;Constitutive activation of MEK1 in chondrocytes causes Stat1-independent achondroplasia-like dwarfism and rescues the Fgfr3-deficient mouse phenotype.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;These observations suggest a model in which Fgfr3 signaling inhibits bone growth by inhibiting chondrocyte differentiation through the MAPK pathway and by inhibiting chondrocyte proliferation through Stat1.&#34;
+    explanation: Establishes the dual-pathway model where MAPK inhibits differentiation and STAT1 inhibits proliferation downstream of FGFR3.
+  - reference: PMID:14751560
+    reference_title: &#34;Overexpression of FGFR3, Stat1, Stat5 and p21Cip1 correlates with phenotypic severity and defective chondrocyte differentiation in FGFR3-related chondrodysplasias.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;Our results indicate that FGFR3 mutations in the prenatal period upregulate FGFR3 and Stat-p21Cip1 expression, thus inducing premature exit of proliferative cells from the cell cycle and their differentiation into prehypertrophic chondrocytes.&#34;
+    explanation: Human fetal tissue analysis confirms that FGFR3 mutations upregulate STAT/p21 signaling in growth plate chondrocytes, causing premature cell cycle exit and defective differentiation.
 - name: Impaired growth plate cartilage development
   description: &gt;
     In the growth plate, FGFR3 overactivation disrupts the normal columnar organization
@@ -3094,10 +4298,94 @@ pathophysiology:
     term:
       id: GO:0003418
       label: growth plate cartilage chondrocyte differentiation
-  - preferred_term: Bone development
+  - preferred_term: Growth plate cartilage development
     term:
-      id: GO:0060348
-      label: bone development
+      id: GO:0003417
+      label: growth plate cartilage development
+  evidence:
+  - reference: PMID:14751560
+    reference_title: &#34;Overexpression of FGFR3, Stat1, Stat5 and p21Cip1 correlates with phenotypic severity and defective chondrocyte differentiation in FGFR3-related chondrodysplasias.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;Immunohistochemical analysis of fetal growth plates showed a phenotype-related reduction of the collagen type X-positive hypertrophic zone.&#34;
+    explanation: Direct histological evidence from human fetal growth plates showing reduced hypertrophic zone in achondroplasia, confirming impaired growth plate cartilage development.
+  downstream:
+  - target: Cranial base synchondrosis closure
+- name: Cranial base synchondrosis closure
+  description: &gt;
+    FGFR3-MAPK activation accelerates closure of cranial base synchondroses and
+    fusion of ossification centers, leading to premature cranial base fusion and
+    narrowing of the foramen magnum. This mechanism underlies the foramen magnum
+    stenosis that poses a risk of cervicomedullary compression and sudden death in infancy.
+  cell_types:
+  - preferred_term: Growth plate chondrocyte
+    term:
+      id: CL:1000217
+      label: growth plate cartilage chondrocyte
+  biological_processes:
+  - preferred_term: MAPK cascade
+    term:
+      id: GO:0000165
+      label: MAPK cascade
+    modifier: INCREASED
+  - preferred_term: Endochondral ossification
+    term:
+      id: GO:0001958
+      label: endochondral ossification
+  evidence:
+  - reference: PMID:18923003
+    reference_title: &#34;FGFR3 promotes synchondrosis closure and fusion of ossification centers through the MAPK pathway.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;We observed premature synchondrosis closure in the spine and cranial base in human cases of homozygous achondroplasia and thanatophoric dysplasia as well as in mouse models of achondroplasia.&#34;
+    explanation: Direct evidence that FGFR3 activation causes premature synchondrosis closure in cranial base, demonstrated in both human skeletal dysplasia cases and mouse models.
+  - reference: PMID:18923003
+    reference_title: &#34;FGFR3 promotes synchondrosis closure and fusion of ossification centers through the MAPK pathway.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;Chondrocyte-specific activation of Fgfr3 in mice induced premature synchondrosis closure and enhanced osteoblast differentiation around synchondroses.&#34;
+    explanation: Shows that FGFR3 activation specifically in chondrocytes is sufficient to drive premature synchondrosis closure through a MAPK-dependent mechanism involving enhanced bone formation.
+  - reference: PMID:14871928
+    reference_title: &#34;Constitutive activation of MEK1 in chondrocytes causes Stat1-independent achondroplasia-like dwarfism and rescues the Fgfr3-deficient mouse phenotype.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;Immunohistochemical analysis of the cranial base in transgenic embryos showed reduced staining for collagen type X and persistent expression of Sox9 in chondrocytes.&#34;
+    explanation: Shows molecular disruption of cranial base chondrocyte maturation upon MAPK activation, consistent with premature closure mechanism.
+- name: CNP-NPR2 counter-regulatory pathway
+  description: &gt;
+    C-type natriuretic peptide (CNP) signaling through NPR-B (NPR2) physiologically
+    antagonizes FGFR3-MAPK activity in growth plate chondrocytes. CNP inhibits the
+    MAPK pathway downstream of FGFR3, correcting decreased extracellular matrix synthesis
+    but not affecting the STAT1-mediated proliferation defect. This counter-regulatory
+    pathway provides the mechanistic rationale for CNP analog therapy (vosoritide).
+  cell_types:
+  - preferred_term: Growth plate chondrocyte
+    term:
+      id: CL:1000217
+      label: growth plate cartilage chondrocyte
+  biological_processes:
+  - preferred_term: Receptor guanylyl cyclase signaling pathway
+    term:
+      id: GO:0007168
+      label: receptor guanylyl cyclase signaling pathway
+  - preferred_term: MAPK cascade
+    term:
+      id: GO:0000165
+      label: MAPK cascade
+    modifier: DECREASED
+  evidence:
+  - reference: PMID:14702637
+    reference_title: &#34;Overexpression of CNP in chondrocytes rescues achondroplasia through a MAPK-dependent pathway.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;CNP prevented the shortening of achondroplastic bones by correcting the decreased extracellular matrix synthesis in the growth plate through inhibition of the MAPK pathway of FGF signaling.&#34;
+    explanation: Demonstrates the mechanism by which CNP counteracts FGFR3 overactivation specifically through MAPK pathway inhibition, establishing the basis for vosoritide therapy.
+  - reference: PMID:14702637
+    reference_title: &#34;Overexpression of CNP in chondrocytes rescues achondroplasia through a MAPK-dependent pathway.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;CNP had no effect on the STAT-1 pathway of FGF signaling that mediates the decreased proliferation and the delayed differentiation of achondroplastic chondrocytes.&#34;
+    explanation: Shows that CNP selectively inhibits MAPK but not STAT1, explaining why CNP therapy partially but not completely rescues the achondroplasia phenotype.
 phenotypes:
 - name: Disproportionate short stature
   description: &gt;
@@ -3111,9 +4399,7 @@ phenotypes:
       id: HP:0008873
       label: Disproportionate short-limb short stature
 - name: Rhizomelic limb shortening
-  description: &gt;
-    Proximal segments of the limbs (humerus and femur) are disproportionately shortened
-    compared to middle and distal segments.
+  description: Proximal segments of the limbs (humerus and femur) are disproportionately shortened compared to middle and distal segments.
   frequency: HP_0040281
   phenotype_term:
     preferred_term: Rhizomelic arm shortening
@@ -3122,10 +4408,9 @@ phenotypes:
       label: Rhizomelic arm shortening
 - name: Macrocephaly
   description: &gt;
-    Enlarged head circumference with frontal bossing is characteristic. The skull
-    base
-    (chondrocranium) is affected by impaired endochondral ossification while the
-    cranial vault (membranous bone) grows normally.
+    Enlarged head circumference with frontal bossing is characteristic. The skull base
+    (chondrocranium) is affected by impaired endochondral ossification while the cranial
+    vault (membranous bone) grows normally.
   frequency: HP_0040281
   phenotype_term:
     preferred_term: Macrocephaly
@@ -3133,8 +4418,7 @@ phenotypes:
       id: HP:0000256
       label: Macrocephaly
 - name: Frontal bossing
-  description: Prominent forehead due to relative overgrowth of the frontal
-    bones.
+  description: Prominent forehead due to relative overgrowth of the frontal bones.
   frequency: HP_0040281
   phenotype_term:
     preferred_term: Frontal bossing
@@ -3142,9 +4426,7 @@ phenotypes:
       id: HP:0002007
       label: Frontal bossing
 - name: Midface retrusion
-  description: &gt;
-    Hypoplasia of the midface structures due to impaired growth of the skull base,
-    contributing to the characteristic facial appearance.
+  description: Hypoplasia of the midface structures due to impaired growth of the skull base, contributing to the characteristic facial appearance.
   frequency: HP_0040281
   phenotype_term:
     preferred_term: Midface retrusion
@@ -3152,19 +4434,23 @@ phenotypes:
       id: HP:0011800
       label: Midface retrusion
 - name: Trident hand
-  description: &gt;
-    Characteristic hand configuration with short fingers and increased space between
-    the middle and ring fingers, creating a trident appearance.
+  description: Characteristic hand configuration with short fingers and increased space between the middle and ring fingers, creating a trident appearance.
   frequency: HP_0040281
   phenotype_term:
     preferred_term: Trident hand
     term:
       id: HP:0004060
       label: Trident hand
+- name: Brachydactyly
+  description: Shortening of the fingers and toes due to impaired growth of the phalangeal bones.
+  frequency: HP_0040281
+  phenotype_term:
+    preferred_term: Brachydactyly
+    term:
+      id: HP:0001156
+      label: Brachydactyly
 - name: Genu varum
-  description: &gt;
-    Bowing of the legs (bowlegs) is common and may worsen with weight-bearing,
-    sometimes requiring surgical correction.
+  description: Bowing of the legs (bowlegs) is common and may worsen with weight-bearing, sometimes requiring surgical correction.
   frequency: HP_0040282
   phenotype_term:
     preferred_term: Genu varum
@@ -3172,15 +4458,126 @@ phenotypes:
       id: HP:0002970
       label: Genu varum
 - name: Lumbar hyperlordosis
-  description: &gt;
-    Exaggerated lumbar lordosis develops as children begin to walk, contributing to
-    the characteristic posture.
+  description: Exaggerated lumbar lordosis develops as children begin to walk, contributing to the characteristic posture.
   frequency: HP_0040282
   phenotype_term:
     preferred_term: Lumbar hyperlordosis
     term:
       id: HP:0002938
       label: Lumbar hyperlordosis
+- name: Thoracolumbar kyphosis
+  description: Thoracolumbar kyphosis is present in infancy and typically resolves or transitions to lumbar hyperlordosis as the child begins walking.
+  frequency: HP_0040282
+  phenotype_term:
+    preferred_term: Thoracolumbar kyphosis
+    term:
+      id: HP:0005619
+      label: Thoracolumbar kyphosis
+- name: Foramen magnum stenosis
+  description: &gt;
+    Narrowing of the foramen magnum due to premature closure of cranial base
+    synchondroses, leading to risk of cervicomedullary compression, central apnea,
+    and sudden death in infancy. Requires monitoring with neuroimaging and polysomnography.
+  frequency: HP_0040282
+  phenotype_term:
+    preferred_term: Small foramen magnum
+    term:
+      id: HP:0002677
+      label: Small foramen magnum
+  evidence:
+  - reference: PMID:29959505
+    reference_title: &#34;Polysomnography as an indicator for cervicomedullary decompression to treat foramen magnum stenosis in achondroplasia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;MRI revealed four severe, four moderate, and one mild case of cervicomedullary compression, and PSG demonstrated severe sleep apnea in four cases and moderate sleep apnea in five cases.&#34;
+    explanation: Clinical study showing high prevalence of cervicomedullary compression and sleep apnea secondary to foramen magnum stenosis in achondroplasia, even in patients asymptomatic during daytime.
+- name: Spinal canal stenosis
+  description: &gt;
+    Progressive narrowing of the spinal canal due to shortened pedicles and vertebral
+    body abnormalities. Symptomatic lumbar spinal stenosis with neurogenic claudication
+    is a major complication in adults.
+  frequency: HP_0040282
+  phenotype_term:
+    preferred_term: Spinal canal stenosis
+    term:
+      id: HP:0003416
+      label: Spinal canal stenosis
+  evidence:
+  - reference: PMID:35698202
+    reference_title: &#34;Literature review and expert opinion on the impact of achondroplasia on medical complications and health-related quality of life and expectations for long-term impact of vosoritide: a modified Delphi study.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;the greater the probability of a positive effect on the lifetime incidence of symptomatic spinal stenosis, kyphosis, obstructive sleep apnea, and foramen magnum stenosis. These are among the most clinically important complications of achondroplasia because of their high impact on comorbidity, mortality, and/or HRQoL.&#34;
+    explanation: Expert consensus identifies spinal stenosis as one of the most clinically significant complications of achondroplasia due to high impact on morbidity and quality of life.
+- name: Obstructive sleep apnea
+  description: &gt;
+    Obstructive sleep apnea results from midface hypoplasia with upper airway narrowing
+    and may also be compounded by foramen magnum stenosis causing central apnea.
+    Requires polysomnography for evaluation.
+  frequency: HP_0040282
+  phenotype_term:
+    preferred_term: Obstructive sleep apnea
+    term:
+      id: HP:0002870
+      label: Obstructive sleep apnea
+  evidence:
+  - reference: PMID:35028714
+    reference_title: &#34;Disease-specific complications and multidisciplinary interventions in achondroplasia.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;patients with ACH have a high prevalence of medical complications, including upper airway obstructive apnea, increased mortality, foramen magnum stenosis, hydrocephalus, developmental delay, recurrent ear infections, genu varum, obesity, and spinal canal stenosis, throughout their whole life.&#34;
+    explanation: Comprehensive review establishing obstructive sleep apnea as a high-prevalence complication in achondroplasia.
+- name: Recurrent otitis media
+  description: &gt;
+    Recurrent middle ear infections due to Eustachian tube dysfunction secondary to
+    midface hypoplasia and skull base abnormalities, which can lead to conductive
+    hearing loss if inadequately managed.
+  frequency: HP_0040282
+  phenotype_term:
+    preferred_term: Recurrent otitis media
+    term:
+      id: HP:0000403
+      label: Recurrent otitis media
+  evidence:
+  - reference: PMID:35028714
+    reference_title: &#34;Disease-specific complications and multidisciplinary interventions in achondroplasia.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;patients with ACH have a high prevalence of medical complications, including upper airway obstructive apnea, increased mortality, foramen magnum stenosis, hydrocephalus, developmental delay, recurrent ear infections, genu varum, obesity, and spinal canal stenosis, throughout their whole life.&#34;
+    explanation: Recurrent ear infections are listed among the high-prevalence complications of achondroplasia.
+- name: Obesity
+  description: Obesity is a common complication in both children and adults with achondroplasia, worsening orthopedic and cardiovascular outcomes.
+  frequency: HP_0040282
+  phenotype_term:
+    preferred_term: Obesity
+    term:
+      id: HP:0001513
+      label: Obesity
+  evidence:
+  - reference: PMID:35028714
+    reference_title: &#34;Disease-specific complications and multidisciplinary interventions in achondroplasia.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;patients with ACH have a high prevalence of medical complications, including upper airway obstructive apnea, increased mortality, foramen magnum stenosis, hydrocephalus, developmental delay, recurrent ear infections, genu varum, obesity, and spinal canal stenosis, throughout their whole life.&#34;
+    explanation: Obesity is documented as a prevalent complication in achondroplasia across the lifespan.
+- name: Hydrocephalus
+  description: &gt;
+    Communicating hydrocephalus can develop due to impaired venous drainage at the
+    narrowed foramen magnum and jugular foramina. Most cases stabilize without shunting,
+    but monitoring of head circumference and fontanelle is required.
+  frequency: HP_0040283
+  phenotype_term:
+    preferred_term: Hydrocephalus
+    term:
+      id: HP:0000238
+      label: Hydrocephalus
+  evidence:
+  - reference: PMID:35028714
+    reference_title: &#34;Disease-specific complications and multidisciplinary interventions in achondroplasia.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;patients with ACH have a high prevalence of medical complications, including upper airway obstructive apnea, increased mortality, foramen magnum stenosis, hydrocephalus, developmental delay, recurrent ear infections, genu varum, obesity, and spinal canal stenosis, throughout their whole life.&#34;
+    explanation: Hydrocephalus is recognized as a complication of achondroplasia, secondary to skull base abnormalities.
 genetic:
 - name: FGFR3 G380R mutation
   association: Causative
@@ -3191,36 +4588,29 @@ genetic:
     domain of the receptor and causes constitutive activation.
   evidence:
   - reference: PMID:7847369
+    reference_title: &#34;Achondroplasia is defined by recurrent G380R mutations of FGFR3.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;The homogeneity of mutations in achondroplasia is unprecedented for
-      an autosomal dominant disorder and may explain the relative lack of heterogeneity
-      in the achondroplasia phenotype.&#34;
-    explanation: Study of 154 patients showed that 153 had the same G380R
-      mutation, demonstrating the remarkable genetic homogeneity of
-      achondroplasia.
+    snippet: &#34;The homogeneity of mutations in achondroplasia is unprecedented for an autosomal dominant disorder and may explain the relative lack of heterogeneity in the achondroplasia phenotype.&#34;
+    explanation: Study of 154 patients showed that 153 had the same G380R mutation, demonstrating the remarkable genetic homogeneity of achondroplasia.
   variants:
   - name: c.1138G&gt;A (p.Gly380Arg)
-    description: The most common causative mutation, accounting for over 95% of
-      cases.
+    description: The most common causative mutation, accounting for over 95% of cases.
     evidence:
     - reference: PMID:7913883
+      reference_title: &#34;Mutations in the transmembrane domain of FGFR3 cause the most common genetic form of dwarfism, achondroplasia.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#34;Both mutations result in the substitution of an arginine residue for
-        a glycine at position 380 of the mature protein, which is in the transmembrane
-        domain of FGFR3.&#34;
-      explanation: Original discovery paper identifying the specific G380R
-        substitution in the FGFR3 transmembrane domain as the cause of
-        achondroplasia.
+      snippet: &#34;Both mutations result in the substitution of an arginine residue for a glycine at position 380 of the mature protein, which is in the transmembrane domain of FGFR3.&#34;
+      explanation: Original discovery paper identifying the specific G380R substitution in the FGFR3 transmembrane domain as the cause of achondroplasia.
 treatments:
 - name: Vosoritide (Voxzogo)
   description: &gt;
     C-type natriuretic peptide (CNP) analog that counteracts FGFR3 overactivation
-    by
-    stimulating the NPR-B receptor, promoting endochondral bone growth. FDA approved
-    in 2021 for children aged 5 years and older with open growth plates. Clinical
-    trials demonstrated increased annualized growth velocity.
+    by stimulating the NPR-B receptor, promoting endochondral bone growth. FDA approved
+    in 2021 for children aged 5 years and older with open growth plates. Phase 3
+    extension data demonstrated sustained growth-promoting effects for up to 6 years,
+    with a mean additional height gain of 5.75 cm over 3 years compared to untreated controls.
   treatment_term:
     preferred_term: Vosoritide therapy
     term:
@@ -3233,18 +4623,25 @@ treatments:
         label: Vosoritide
   evidence:
   - reference: PMID:31269546
+    reference_title: &#34;C-Type Natriuretic Peptide Analogue Therapy in Children with Achondroplasia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Treatment resulted in a sustained increase in the annualized growth
-      velocity for up to 42 months.&#34;
-    explanation: This NEJM phase 2 trial demonstrated that vosoritide treatment
-      in children with achondroplasia resulted in sustained increases in growth
-      velocity over 42 months of follow-up.
+    snippet: &#34;Treatment resulted in a sustained increase in the annualized growth velocity for up to 42 months.&#34;
+    explanation: This NEJM phase 2 trial demonstrated that vosoritide treatment in children with achondroplasia resulted in sustained increases in growth velocity over 42 months of follow-up.
+  - reference: PMID:39740666
+    reference_title: &#34;Sustained growth-promoting effects of vosoritide in children with achondroplasia from an ongoing phase 3 extension study.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The mean (SD) differences in annualized growth velocity across each integer age (6-16 years) between treated and untreated children were 1.84 (0.38) cm/year in boys and 1.44 (0.63) cm/year in girls.&#34;
+    explanation: Phase 3 extension study with 119 participants demonstrates that vosoritide provides clinically meaningful growth velocity improvements compared to untreated children across ages 6-16 years.
+  - reference: PMID:39740666
+    reference_title: &#34;Sustained growth-promoting effects of vosoritide in children with achondroplasia from an ongoing phase 3 extension study.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Vosoritide treatment was well tolerated and had sustained growth-promoting effects in children with achondroplasia treated for up to 6 years.&#34;
+    explanation: Demonstrates long-term safety and sustained efficacy over 6 years of continuous treatment with a favorable safety profile.
 - name: Surgical limb lengthening
-  description: &gt;
-    Distraction osteogenesis techniques (Ilizarov, PRECICE) can increase limb length
-    but are controversial due to complications, prolonged treatment duration, and
-    quality of life considerations.
+  description: Distraction osteogenesis techniques (Ilizarov, PRECICE) can increase limb length but are controversial due to complications, prolonged treatment duration, and quality of life considerations.
   treatment_term:
     preferred_term: Limb lengthening surgery
     term:
@@ -3254,21 +4651,90 @@ treatments:
   description: &gt;
     Surgical decompression may be required for symptomatic foramen magnum stenosis
     with cervicomedullary compression, which can cause central apnea, hypotonia,
-    or sudden death in infants.
+    or sudden death in infants. Polysomnography is a useful indicator for surgical decision-making.
   treatment_term:
     preferred_term: Foramen magnum decompression
     term:
       id: MAXO:0000004
       label: surgical procedure
+  evidence:
+  - reference: PMID:29959505
+    reference_title: &#34;Polysomnography as an indicator for cervicomedullary decompression to treat foramen magnum stenosis in achondroplasia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Three of these patients demonstrated improved sleep respiration soon after surgery, while one required temporary tracheostomy due to bilateral vocal cord paralysis caused by compression during intratracheal intubation.&#34;
+    explanation: Clinical evidence showing that cervicomedullary decompression improves sleep-related respiratory disturbance in achondroplasia patients with foramen magnum stenosis.
 - name: Management of spinal stenosis
-  description: &gt;
-    Progressive lumbar spinal stenosis is common in adults and may require laminectomy
-    for symptomatic relief of neurogenic claudication.
+  description: Progressive lumbar spinal stenosis is common in adults and may require laminectomy for symptomatic relief of neurogenic claudication.
   treatment_term:
     preferred_term: Spinal surgery
     term:
       id: MAXO:0000004
       label: surgical procedure
+animal_models:
+- species: Mouse
+  genotype: Fgfr3 G380R knock-in
+  description: &gt;
+    Mouse models carrying the equivalent FGFR3 gain-of-function mutation recapitulate
+    the skeletal phenotype of achondroplasia, including dwarfism, narrowed growth plates,
+    impaired cranial base synchondroses, foramen magnum formation defects, and altered
+    trabecular and cortical bone mineral density.
+  associated_phenotypes:
+  - Rhizomelic dwarfism
+  - Narrowed growth plates
+  - Premature cranial base synchondrosis closure
+  - Foramen magnum stenosis
+  - Altered bone mineralization
+  evidence:
+  - reference: PMID:32795681
+    reference_title: &#34;Novel therapeutic approaches for the treatment of achondroplasia.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;This review provides a brief overview of the preclinical mouse models of achondroplasia that have led to new, non-surgical therapeutic strategies being assessed and applied to children with achondroplasia through pioneering clinical trials.&#34;
+    explanation: Review summarizing how FGFR3 mouse models recapitulate the achondroplasia phenotype and have served as the foundation for developing targeted therapies.
+- species: Mouse
+  genotype: Fgfr3 G380R with CNP transgene overexpression in chondrocytes
+  description: &gt;
+    Targeted overexpression of C-type natriuretic peptide in chondrocytes of FGFR3
+    mutant mice counteracted dwarfism by correcting decreased extracellular matrix
+    synthesis through inhibition of the MAPK pathway. This model provided the critical
+    proof-of-concept for vosoritide therapy.
+  associated_phenotypes:
+  - Rescue of bone shortening
+  - Restored extracellular matrix synthesis
+  evidence:
+  - reference: PMID:14702637
+    reference_title: &#34;Overexpression of CNP in chondrocytes rescues achondroplasia through a MAPK-dependent pathway.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;targeted overexpression of CNP in chondrocytes counteracts dwarfism in a mouse model of achondroplasia with activated fibroblast growth factor receptor 3 (FGFR-3) in the cartilage.&#34;
+    explanation: Landmark Nature Medicine study demonstrating that CNP overexpression rescues the achondroplasia phenotype in mice, providing proof-of-concept for CNP analog therapy.
+- species: Mouse
+  genotype: Constitutively active MEK1 driven by Col2a1 promoter in chondrocytes
+  description: &gt;
+    Transgenic mice expressing constitutively active MEK1 in chondrocytes exhibit
+    achondroplasia-like dwarfism with incomplete chondrocyte hypertrophy and delayed
+    endochondral ossification, establishing that the MAPK pathway is the key effector
+    of FGFR3-mediated growth inhibition. MEK1 activation rescues the skeletal overgrowth
+    of Fgfr3-deficient mice.
+  associated_phenotypes:
+  - Achondroplasia-like dwarfism
+  - Incomplete chondrocyte hypertrophy
+  - Delayed endochondral ossification
+  - Reduced collagen X in cranial base
+  evidence:
+  - reference: PMID:14871928
+    reference_title: &#34;Constitutive activation of MEK1 in chondrocytes causes Stat1-independent achondroplasia-like dwarfism and rescues the Fgfr3-deficient mouse phenotype.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;We generated transgenic mice that express a constitutively active mutant of MEK1 in chondrocytes. These mice showed a dwarf phenotype similar to achondroplasia, the most common human dwarfism, caused by activating mutations in FGFR3.&#34;
+    explanation: Direct evidence that constitutive MAPK activation in chondrocytes is sufficient to produce achondroplasia-like skeletal abnormalities, demonstrating the centrality of this pathway.
+  - reference: PMID:14871928
+    reference_title: &#34;Constitutive activation of MEK1 in chondrocytes causes Stat1-independent achondroplasia-like dwarfism and rescues the Fgfr3-deficient mouse phenotype.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;Expression of a constitutively active mutant of MEK1 in chondrocytes of Fgfr3-deficient mice inhibited skeletal overgrowth, strongly suggesting that regulation of bone growth by FGFR3 is mediated at least in part by the MAPK pathway.&#34;
+    explanation: Epistasis experiment showing that MEK1 activation rescues the Fgfr3-null phenotype, providing strong genetic evidence that MAPK mediates FGFR3 effects on bone growth.
 computational_models:
 - name: In Silico Characterization of FGFR3 p.G380R Mutation
   description: &gt;-
@@ -3276,8 +4742,6 @@ computational_models:
     in the FGFR3 transmembrane domain using multiple bioinformatics tools. The mutation
     adversely affects dimerization efficiency and overall stability of FGFR3, leading
     to constitutive receptor activation and uncontrolled negative bone growth regulation.
-    Structural modeling predicts that the G380R substitution disrupts normal transmembrane
-    helix packing, promoting ligand-independent receptor dimerization.
   model_type: STRUCTURAL_PREDICTION
   publication: PMID:28679403
   findings:
@@ -3285,11 +4749,13 @@ computational_models:
   - statement: Constitutive FGFR3 activation from transmembrane domain mutation leads to negative bone growth regulation
   evidence:
   - reference: PMID:28679403
+    reference_title: &#34;Identification and in silico characterization of p.G380R substitution in FGFR3, associated with achondroplasia in a non-consanguineous Pakistani family.&#34;
     supports: SUPPORT
     evidence_source: COMPUTATIONAL
     snippet: &#34;In silico studies of the mutant FGFR3 protein predicted to adversely affect the stability of FGFR3 protein.&#34;
     explanation: Computational structural analysis explains how the G380R mutation destabilizes FGFR3, contributing to achondroplasia pathogenesis.
   - reference: PMID:28679403
+    reference_title: &#34;Identification and in silico characterization of p.G380R substitution in FGFR3, associated with achondroplasia in a non-consanguineous Pakistani family.&#34;
     supports: SUPPORT
     evidence_source: COMPUTATIONAL
     snippet: &#34;Mutation in the transmembrane domain may adversely affect the dimerization efficiency and overall stability of the FGFR3, leading to a constitutively active protein.&#34;
@@ -3299,29 +4765,25 @@ notes: &gt;
   macrocephaly with frontal bossing and midface hypoplasia, trident hand configuration,
   thoracolumbar kyphosis in infancy transitioning to lumbar hyperlordosis, and genu
   varum. Major complications include foramen magnum stenosis with risk of sudden death
-  in infancy, progressive spinal stenosis, and obstructive sleep apnea. Intelligence
-  is normal. The availability of vosoritide represents a paradigm shift in treatment,
-  demonstrating that targeting the underlying molecular defect can improve growth
-  outcomes.
+  in infancy, progressive spinal stenosis, obstructive sleep apnea, recurrent otitis
+  media, hydrocephalus, and obesity. Intelligence is normal. The availability of
+  vosoritide represents a paradigm shift in treatment, demonstrating that targeting
+  the underlying molecular defect can improve growth outcomes. FGFR3-selective inhibitors
+  (e.g., TYRA-300, infigratinib) are under preclinical and clinical investigation as
+  alternative therapeutic strategies.
 datasets:
 references:
 - reference: DOI:10.1093/hmg/ddn339
-  title: FGFR3 promotes synchondrosis closure and fusion of ossification centers
-    through the MAPK pathway
+  title: FGFR3 promotes synchondrosis closure and fusion of ossification centers through the MAPK pathway
   findings: []
 - reference: DOI:10.1172/jci.insight.168796
-  title: Hypochondroplasia gain-of-function mutation in FGFR3 causes defective
-    bone mineralization in mice
+  title: Hypochondroplasia gain-of-function mutation in FGFR3 causes defective bone mineralization in mice
   findings: []
 - reference: DOI:10.1172/jci.insight.189307
-  title: TYRA-300, an FGFR3-selective inhibitor, promotes bone growth in two
-    FGFR3-driven models of chondrodysplasia
+  title: TYRA-300, an FGFR3-selective inhibitor, promotes bone growth in two FGFR3-driven models of chondrodysplasia
   findings: []
 - reference: DOI:10.1177/00368504211003782
-  title: Rationale, design, and methods of a randomized, controlled, open-label
-    clinical trial with open-label extension to investigate the safety of
-    vosoritide in infants, and young children with achondroplasia at risk of
-    requiring cervicomedullary decompression surgery
+  title: Rationale, design, and methods of a randomized, controlled, open-label clinical trial with open-label extension to investigate the safety of vosoritide in infants, and young children with achondroplasia at risk of requiring cervicomedullary decompression surgery
   findings: []
 </pre>
             </div>

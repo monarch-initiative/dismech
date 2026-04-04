@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1037,6 +1101,52 @@
             text-decoration: underline;
         }
 
+        /* Experimental Models */
+        .exp-model-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .exp-model-box .item-name { color: #92400e; }
+        .exp-model-box .item-desc { color: #b45309; }
+
+        .tag-exp-model-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .tag-namo-type {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+        .tag-condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .model-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .model-detail-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .model-detail-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 110px;
+        }
+        .model-detail-value {
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+        }
+        .model-detail-value a {
+            color: inherit;
+        }
+
         /* Computational Models */
         .comp-model-box {
             background: #f0fdf4;
@@ -1382,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1470,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1477,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1489,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1637,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1723,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1737,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1792,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1875,11 +2091,19 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 11</a>
+                
+                
             </div>
             
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
+        
+        
         
         
         
@@ -1933,6 +2157,14 @@
             <div class="stat-item">
                 <div class="stat-value">6</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">11</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2128,7 +2360,7 @@
                 <span class="card-count">6</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-cd4-t-cell-depletion">
                 <div class="item-name">CD4 T-cell Depletion</div>
                 
                 <div class="item-desc">HIV infects and destroys CD4 T-cells, critical for immune system function.</div>
@@ -2232,6 +2464,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2302,7 +2535,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-system-collapse">
                 <div class="item-name">Immune System Collapse</div>
                 
                 <div class="item-desc">Progressive loss of CD4 T-cells leads to severe immunodeficiency.</div>
@@ -2321,6 +2554,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2379,7 +2613,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-opportunistic-infections">
                 <div class="item-name">Opportunistic Infections</div>
                 
                 <div class="item-desc">Impaired immunity allows opportunistic pathogens to cause infections.</div>
@@ -2401,6 +2635,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2476,7 +2711,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-cns-reservoir-and-neuroinflammation">
                 <div class="item-name">CNS Reservoir and Neuroinflammation</div>
                 
                 <div class="item-desc">HIV invades the CNS early, establishing persistent reservoirs in microglia and macrophages that contribute to neuroinflammation and neurocognitive impairment.</div>
@@ -2535,6 +2770,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2585,7 +2821,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-host-restriction-factor-defense">
                 <div class="item-name">Host Restriction Factor Defense</div>
                 
                 <div class="item-desc">Multiple host restriction factors inhibit HIV replication through distinct molecular mechanisms, but are counteracted by viral accessory proteins (Vif, Vpu, Nef).</div>
@@ -2644,11 +2880,12 @@
                 
                 
                 
+                
     
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-aids-related-cancers">
                 <div class="item-name">AIDS-related Cancers</div>
                 
                 <div class="item-desc">Weakened immune surveillance increases risk of certain cancers.</div>
@@ -2674,6 +2911,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2754,6 +2992,29 @@
         
 
         <!-- Causal Graph (Pathograph) -->
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
+                <h2 class="card-title">Pathograph</h2>
+            </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
+            
+            <div class="pathograph-container" id="pathograph">
+                <div class="pathograph-legend" id="pathograph-legend"></div>
+                <svg id="pathograph-svg" role="img">
+                    <title>Pathograph: causal mechanism network for Acquired Immunodeficiency Syndrome</title>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
+                </svg>
+                <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
+            </div>
+            <script>
+            (function() {
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"APOBEC3G\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Host antiviral restriction factor\"}}, {\"id\": \"BST2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Host antiviral restriction factor (tetherin)\"}}, {\"id\": \"CCR5\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Host co-receptor for HIV entry\"}}, {\"id\": \"CD4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Host receptor for HIV entry\"}}, {\"id\": \"CD4 T-cell Depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HIV infects and destroys CD4 T-cells, critical for immune system function.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"CD4 T-lymphocyte\"], \"biological_processes\": [\"reverse transcription\", \"DNA integration\", \"T cell activation\"], \"genes\": [\"CD4\", \"CCR5\", \"CXCR4\"], \"locations\": [\"lymph node\", \"small intestine\"]}}, {\"id\": \"CNS Reservoir and Neuroinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HIV invades the CNS early, establishing persistent reservoirs in microglia and macrophages that contribute to neuroinflammation and neurocognitive impairment.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"microglia\", \"macrophage\"], \"genes\": [\"SAMHD1\"], \"locations\": [\"brain\"]}}, {\"id\": \"CXCR4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Host co-receptor for HIV entry\"}}, {\"id\": \"Host Restriction Factor Defense\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Multiple host restriction factors inhibit HIV replication through distinct molecular mechanisms, but are counteracted by viral accessory proteins (Vif, Vpu, Nef).\", \"meta\": {\"biological_processes\": [\"defense response to virus\"], \"genes\": [\"APOBEC3G\", \"TRIM5\", \"BST2\", \"SERINC5\"]}}, {\"id\": \"SAMHD1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Host antiviral restriction factor\"}}, {\"id\": \"SERINC5\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Host antiviral restriction factor\"}}, {\"id\": \"TRIM5\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Host antiviral restriction factor\"}}], \"edges\": [{\"source\": \"CD4\", \"target\": \"CD4 T-cell Depletion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CCR5\", \"target\": \"CD4 T-cell Depletion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CXCR4\", \"target\": \"CD4 T-cell Depletion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"APOBEC3G\", \"target\": \"Host Restriction Factor Defense\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SAMHD1\", \"target\": \"CNS Reservoir and Neuroinflammation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TRIM5\", \"target\": \"Host Restriction Factor Defense\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BST2\", \"target\": \"Host Restriction Factor Defense\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SERINC5\", \"target\": \"Host Restriction Factor Defense\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                renderPathograph("pathograph", graphData);
+            })();
+            </script>
+        </div>
         
 
         <!-- Phenotypes -->
@@ -3978,6 +4239,9 @@
         <!-- Clinical Trials -->
         
 
+        <!-- Experimental Models -->
+        
+
         <!-- Computational Models -->
         
         <div class="card" id="models">
@@ -4172,14 +4436,17 @@ has_subtypes:
   description: Presence of specific opportunistic infections or cancers signaling progression to AIDS.
   evidence:
   - reference: PMID:3608570
+    reference_title: &#34;Malignancies in the acquired immunodeficiency syndrome.&#34;
     supports: SUPPORT
     snippet: Aside from opportunistic infections, several neoplasms have been identified as part of the spectrum of acquired immunodeficiency syndrome (AIDS) as defined by the Centers for Disease Control.
     explanation: The reference explicitly mentions that opportunistic infections and certain cancers (neoplasms) are part of the spectrum of AIDS, fitting the definition of AIDS-defining conditions provided in the statement.
   - reference: PMID:18366449
+    reference_title: &#34;Causes of the first AIDS-defining illness and subsequent survival before and after the advent of combined antiretroviral therapy.&#34;
     supports: SUPPORT
     snippet: The three most frequent initial ADIs were Pneumocystis carinii (jirovecii) pneumonia (PCP) (15.6%), oesophageal candidiasis (14.3%) and Kaposi&#39;s sarcoma (13.9%) in the pre-cART period.
     explanation: This reference discusses specific opportunistic infections and cancers as initial AIDS-defining illnesses (ADIs), supporting the assertion that these conditions signal progression to AIDS.
   - reference: PMID:19584497
+    reference_title: &#34;AIDS-associated parasitic diarrhoea.&#34;
     supports: PARTIAL
     snippet: Opportunistic parasitic infection can cause severe morbidity and mortality.
     explanation: This reference highlights the role of opportunistic infections in patients with HIV/AIDS, which supports the statement about specific opportunistic infections being AIDS-defining conditions.
@@ -4192,12 +4459,15 @@ infectious_agent:
       label: Human immunodeficiency virus 1
   evidence:
   - reference: PMID:1396037
+    reference_title: &#34;AIDS: Part I.&#34;
     supports: SUPPORT
     snippet: Acquired immunodeficiency syndrome (AIDS) is caused by infection with a pathogenic human retrovirus known as human immunodeficiency virus (HIV).
   - reference: PMID:28365729
+    reference_title: &#34;The HIV oligonucleotide database (HIVoligoDB).&#34;
     supports: SUPPORT
     snippet: The human immunodeficiency virus (HIV) is associated with one of the most widespread infectious disease, the acquired immunodeficiency syndrome (AIDS).
   - reference: PMID:29402983
+    reference_title: &#34;Prediction of HIV-1 and HIV-2 proteins by using Chou&#39;s pseudo amino acid compositions and different classifiers.&#34;
     supports: SUPPORT
     snippet: Human immunodeficiency virus (HIV) is the retroviral agent that causes acquired immune deficiency syndrome (AIDS).
 genetic:
@@ -4230,18 +4500,22 @@ transmission:
   description: Spread through sexual contact with an HIV-infected person.
   evidence:
   - reference: PMID:1396037
+    reference_title: &#34;AIDS: Part I.&#34;
     supports: SUPPORT
     snippet: The virus is transmitted predominantly through genital sexual contact, although orogenital spread has been rarely reported.
     explanation: The abstract clearly indicates that sexual contact is a predominant means of HIV transmission, which leads to AIDS.
   - reference: PMID:2659680
+    reference_title: &#34;Biologic factors in the sexual transmission of human immunodeficiency virus.&#34;
     supports: SUPPORT
     snippet: The probability that any single episode of genital-genital or anogenital sexual intercourse will result in transmission of HIV may be determined by multiple biologic factors of the infectious person, the virus itself, and the exposed susceptible person.
     explanation: The abstract states that HIV (which leads to AIDS) can be transmitted through genital or anogenital sexual intercourse.
   - reference: PMID:3539811
+    reference_title: &#34;Transmission of human immunodeficiency virus (HIV/HTLV-III/LAV): a review.&#34;
     supports: SUPPORT
     snippet: HIV spreads... by infected needles among i.v. drug users and, more rarely, among health care workers, but mainly by sexual contact.
     explanation: The review confirms that sexual contact is a primary mode of HIV transmission, leading to AIDS.
   - reference: PMID:2004869
+    reference_title: &#34;Human immunodeficiency virus and migrant labor in South Africa.&#34;
     supports: SUPPORT
     snippet: The migrant labor system has created a market for prostitution in mining towns and geographic networks of relationships within and between urban and rural communities... appear especially vulnerable to contracting HIV infection since they are involved in multiple sexual encounters with different, changing partners, usually without condom protection.
     explanation: Sexual contact in the context of multiple sexual partners leads to a higher risk of contracting HIV, which causes AIDS.
@@ -4253,26 +4527,32 @@ transmission:
     snippet: &#39;&#39;
     explanation: The reference title suggests it is about sharing of needles among users of intravenous drugs, but no abstract is provided.
   - reference: PMID:2720234
+    reference_title: &#34;Prevention of HIV transmission through blood and blood products: experiences in Mexico.&#34;
     supports: SUPPORT
     snippet: As of August 1988, 1,628 cases of AIDS had been reported in Mexico, of which 12% were ascribed to transmission through blood.
     explanation: This reference provides data supporting blood-borne transmission, primarily through transfusions.
   - reference: PMID:3539811
+    reference_title: &#34;Transmission of human immunodeficiency virus (HIV/HTLV-III/LAV): a review.&#34;
     supports: SUPPORT
     snippet: HIV spreads by vertical transmission and by iatrogenic transmission (transfer of blood or blood-containing products), by infected needles among i.v. drug users and, more rarely, among health care workers, but mainly by sexual contact.
     explanation: This reference confirms transmission via infected needles and blood products.
   - reference: PMID:3650679
+    reference_title: &#34;Antibodies to the human immunodeficiency virus in needles and syringes used by intravenous drug abusers.&#34;
     supports: SUPPORT
     snippet: The sharing of needles and syringes by intravenous drug abusers has been recognized as a critical factor in the transmission of the human immunodeficiency virus (HIV).
     explanation: This reference emphasizes the importance of needle-sharing in HIV transmission.
   - reference: PMID:1283669
+    reference_title: &#34;Acquired immunodeficiency syndrome: education exposure, knowledge and attitude of Nigerian adolescents in Calabar.&#34;
     supports: SUPPORT
     snippet: Most of them knew that promiscuity, blood transfusion and sharing injection needles and syringes are the major modes of transmission.
     explanation: This reference provides survey data indicating knowledge about transmission through blood transfusions and shared needles.
   - reference: PMID:3329446
+    reference_title: &#34;The response of state agencies to AIDS, addiction, and alcoholism.&#34;
     supports: SUPPORT
     snippet: In the absence of a vaccine that would prevent AIDS or of medicines that would cure it, the primary strategies of such agencies have focused on reducing the spread of AIDS by promoting cessation of high risk behaviors... promoting the use of new or sterilized syringes and needles among those who will not abstain from drug use.
     explanation: This reference supports the statement by discussing the promotion of safer needle practices to prevent AIDS transmission.
   - reference: PMID:6132270
+    reference_title: &#34;Acquired immunodeficiency in an infant: possible transmission by means of blood products.&#34;
     supports: SUPPORT
     snippet: An infant who received multiple transfusions during the first few days of life for rhesus disease became ill with recurrent infections when 6 months old... It was determined that one of the blood donors, who was well at the time of blood donation, had died 17 months after with multiple opportunistic infections and acquired immunodeficiency.
     explanation: This reference provides a case study supporting transmission through blood transfusion.
@@ -4280,18 +4560,22 @@ transmission:
   description: Spread from an HIV-infected mother to her infant during pregnancy, childbirth or breastfeeding.
   evidence:
   - reference: PMID:9067788
+    reference_title: &#34;Obstetric factors and mother-to-infant transmission of HIV-1.&#34;
     supports: SUPPORT
     snippet: Mother-to-infant HIV transmission has been reported to occur during pregnancy (in utero), at delivery, or postpartum (breast feeding).
     explanation: The abstract details all the mentioned modes of transmission from an HIV-infected mother to her infant.
   - reference: PMID:9211414
+    reference_title: &#34;Prevention of mother-to-infant transmission of HIV-1.&#34;
     supports: SUPPORT
     snippet: Children who become infected with HIV-1 acquire the infection almost exclusively from their mothers during pregnancy or delivery, or via breast feeding.
     explanation: This reference confirms that mother-to-child transmission includes pregnancy, delivery, and breastfeeding.
   - reference: PMID:36355599
+    reference_title: &#34;Experiences of Mothers Living With HIV in a South African Prevention of Mother-to-Child Transmission of HIV Programme: A Qualitative Descriptive Study.&#34;
     supports: SUPPORT
     snippet: More than 90% of all HIV infections in children result from mother to child transmission.
     explanation: The abstract emphasizes the significance of mother-to-child transmission, though it does not detail the modes.
   - reference: PMID:9764363
+    reference_title: &#34;Sexual and mother-to-child transmission of the human immunodeficiency virus type 1: a review.&#34;
     supports: SUPPORT
     snippet: Sexual and mother-to-child transmission of the human immunodeficiency virus (HIV) type 1 occurs only with a low percentage of infection. ... We have studied the mechanism of transmission from mother to child, by analyzing the cell-to-cell transmission in the trophoblast. ... confirming the cell-to-cell transmission between the mother and child and not a true vertical transmission through the germinal lines.
     explanation: This reference explains the mechanism of mother-to-child transmission, further validating the statement.
@@ -4300,6 +4584,7 @@ prevalence:
   percentage: 0.7
   evidence:
   - reference: PMID:7851311
+    reference_title: &#34;The epidemiology of the acquired immunodeficiency syndrome in the 1990s.&#34;
     supports: REFUTE
     snippet: Since the recognition of AIDS in 1981, it has become a global pandemic afflicting more than 6 million people worldwide. To date, more than 22 million people are infected with HIV-1, the cause of AIDS, and more than 40 million people may be infected with HIV by the year 2000.
     explanation: The statement claims a global prevalence of AIDS at 0.7%, whereas the literature indicates a much higher number of people affected, inconsistent with the 0.7% prevalence.
@@ -4308,14 +4593,17 @@ progression:
   incubation_years: 2-15
   evidence:
   - reference: PMID:2922052
+    reference_title: &#34;Incubation period of AIDS in San Francisco.&#34;
     supports: PARTIAL
     snippet: A non-parametric implementation of this strategy produced an estimate with a median at 9.8 years...
     explanation: The literature mentions a median incubation period of 9.8 years, which is within the range provided in the statement, but does not explicitly confirm the full range of 2-15 years.
   - reference: PMID:3146367
+    reference_title: &#34;Clinical picture of primary HIV infection presenting as a glandular-fever-like illness.&#34;
     supports: PARTIAL
     snippet: In the 10 patients for whom date of exposure to the virus could be established the incubation period was 11-28 days (median 14).
     explanation: This reference provides a shorter incubation period (11-28 days) than the 2-15 years stated, suggesting the incubation period can vary widely depending on the study population, but does not directly support the 2-15 years range.
   - reference: PMID:2996395
+    reference_title: &#34;The epidemiology and prevention of the acquired immunodeficiency syndrome.&#34;
     supports: SUPPORT
     snippet: The incubation period is long and few persons infected with human T-lymphotropic virus type III/lymphadenopathy-associated virus (HTLV-III/LAV) have AIDS diagnosed within 2 to 5 years of infection.
     explanation: This reference supports part of the statement (2-5 years), indicating an extended incubation period that falls within the provided range of 2-15 years.
@@ -4364,22 +4652,27 @@ pathophysiology:
       label: small intestine
   evidence:
   - reference: PMID:23772614
+    reference_title: &#34;CD4(+) T-cell depletion in HIV infection: mechanisms of immunological failure.&#34;
     supports: SUPPORT
     snippet: The hallmark of acquired immunodeficiency syndrome (AIDS) pathogenesis is a progressive depletion of CD4(+) T-cell populations in close association with progressive impairment of cellular immunity and increasing susceptibility to opportunistic infections (OI).
     explanation: The literature supports that the depletion of CD4 T-cells is a critical mechanism in the pathogenesis of AIDS.
   - reference: PMID:9730930
+    reference_title: &#34;Overview of HIV and AIDS: biology and epidemiology of the virus.&#34;
     supports: SUPPORT
     snippet: HIV-1 infects mononuclear cells using the CD4+ molecule... ongoing cellular destruction, leading to the characteristic immunodeficiency of AIDS and its opportunistic infections and neoplasms.
     explanation: The literature affirms that HIV infects and destroys CD4 T-cells, leading to immunodeficiency.
   - reference: PMID:9735117
+    reference_title: &#34;HIV infection and AIDS.&#34;
     supports: SUPPORT
     snippet: The entry of one HIV virion into a human being has the potential to cause death by the inexorable replication of the virus within the principal T lymphocyte, the CD4+ T cell.
     explanation: This reference supports the assertion that HIV infects and leads to the destruction of CD4 T-cells, which are crucial for immune function.
   - reference: PMID:17691934
+    reference_title: &#34;New insights on the perturbations of T cell cycle during HIV infection.&#34;
     supports: SUPPORT
     snippet: The role of the Human Immunodeficiency Virus (HIV) in the pathogenesis of the Acquired Immune-Deficiency Syndrome (AIDS) is changed. Direct HIV-mediated killing of CD4(+) T cells is not the only mechanism leading to lymphocyte depletion.
     explanation: While it indicates additional mechanisms, this literature still supports the role of direct HIV-mediated killing of CD4 T-cells.
   - reference: PMID:38474196
+    reference_title: &#34;The Role of Glutathione in the Management of Cell-Mediated Immune Responses in Individuals with HIV.&#34;
     supports: PARTIAL
     snippet: HIV is a major cause of death worldwide... HIV-positive individuals also demonstrate diminished glutathione (GSH) levels which allows for increased viral replication and...slowed the decline of CD4+ T cell counts in HIV-positive individuals.
     explanation: This reference supports the statement by noting the decline of CD4 T-cell counts due to HIV infection but adds information on glutathione&#39;s role in such processes.
@@ -4392,10 +4685,12 @@ pathophysiology:
       label: CD4-positive, alpha-beta T cell
   evidence:
   - reference: PMID:23772614
+    reference_title: &#34;CD4(+) T-cell depletion in HIV infection: mechanisms of immunological failure.&#34;
     supports: SUPPORT
     snippet: The hallmark of acquired immunodeficiency syndrome (AIDS) pathogenesis is a progressive depletion of CD4(+) T-cell populations in close association with progressive impairment of cellular immunity and increasing susceptibility to opportunistic infections (OI).
     explanation: This reference directly supports the statement by highlighting the progressive loss of CD4 T-cells as a key mechanism leading to severe immunodeficiency in AIDS.
   - reference: PMID:34481993
+    reference_title: &#34;Secondary immunodeficiencies: An overview.&#34;
     supports: SUPPORT
     snippet: The acquired immunodeficiency syndrome results from infections by the human immunodeficiency virus, which targets CD4 T cells leading to defective immune responses.
     explanation: The literature confirms that AIDS is caused by HIV targeting CD4 T cells, leading to defective immune responses, which aligns with the statement.
@@ -4408,26 +4703,32 @@ pathophysiology:
       label: pyroptotic inflammatory response
   evidence:
   - reference: PMID:1981824
+    reference_title: &#34;Impaired immunity in AIDS. The mechanisms responsible and their potential reversal by antiviral therapy.&#34;
     supports: SUPPORT
     snippet: The inability of CD4+ T cells of HIV-1-infected patients to mount an effective immune response is widely believed to explain the increased susceptibility of these patients to opportunistic infections.
     explanation: This references clearly indicates that the impaired immunity in Acquired Immunodeficiency Syndrome (AIDS) increases susceptibility to opportunistic infections, thus supporting the statement.
   - reference: PMID:19584497
+    reference_title: &#34;AIDS-associated parasitic diarrhoea.&#34;
     supports: SUPPORT
     snippet: Opportunistic parasitic infection can cause severe morbidity and mortality. Because many of these infections are treatable, an early and accurate diagnosis is important.
     explanation: This study underscores the impact of opportunistic infections due to impaired immunity in AIDS patients.
   - reference: PMID:11868686
+    reference_title: &#34;Update on the pathology of AIDS.&#34;
     supports: SUPPORT
     snippet: The acquired immune deficiency syndrome (AIDS) is the result of a human immunodeficiency virus (HIV) infection damaging the cell-mediated immune system. ... A wide range of opportunistic infections (Ols) and tumours develop; additionally, HIV directly damages some organs.
     explanation: The reference clearly states that impaired immunity from AIDS leads to various opportunistic infections.
   - reference: PMID:25093312
+    reference_title: &#34;[Treatment and prevention of opportunistic infections].&#34;
     supports: SUPPORT
     snippet: Incidence as well as morbidity and mortality of opportunistic infections (OI) have declined remarkably since the availability of antiretroviral treatment (ART).
     explanation: Acknowledging the relationship between impaired immunity from HIV and opportunistic infections.
   - reference: PMID:34481993
+    reference_title: &#34;Secondary immunodeficiencies: An overview.&#34;
     supports: SUPPORT
     snippet: The acquired immunodeficiency syndrome results from infections by the human immunodeficiency virus, which targets CD4 T cells leading to defective immune responses.
     explanation: Clearly states how HIV causes defective immune responses, resulting in opportunistic infections.
   - reference: PMID:2680057
+    reference_title: &#34;Mycobacterial disease, immunosuppression, and acquired immunodeficiency syndrome.&#34;
     supports: SUPPORT
     snippet: The number and severity of such infections have increased markedly with the emergence of the acquired immunodeficiency syndrome (AIDS) epidemic.
     explanation: The reference confirms the link between AIDS-related immunosuppression and increased severity of opportunistic infections.
@@ -4454,10 +4755,12 @@ pathophysiology:
       label: brain
   evidence:
   - reference: PMID:37317962
+    reference_title: &#34;Brain microglia serve as a persistent HIV reservoir despite durable antiretroviral therapy.&#34;
     supports: SUPPORT
     snippet: These data demonstrate that MG harbor replication-competent HIV and serve as a persistent reservoir in the brain.
     explanation: This study directly demonstrates that brain microglia harbor replication-competent HIV and serve as a persistent CNS reservoir.
   - reference: PMID:25604237
+    reference_title: &#34;Neuropathogenesis of HIV: from initial neuroinvasion to HIV-associated neurocognitive disorder (HAND).&#34;
     supports: SUPPORT
     snippet: Recent work suggests that the stage for HIV neuropathogenesis may be set with initial viral entry into the CNS, followed by initiation of pathogenetic processes including neuroinflammation and neurotoxicity, and establishment of local, compartmentalized HIV replication that may reflect a tissue reservoir for HIV.
     explanation: This review describes early CNS invasion by HIV and the establishment of compartmentalized CNS reservoirs with associated neuroinflammation.
@@ -4497,14 +4800,17 @@ pathophysiology:
   - Kaposi Sarcoma
   evidence:
   - reference: PMID:12525676
+    reference_title: &#34;AIDS-related malignancies.&#34;
     supports: SUPPORT
     snippet: In acquired immunodeficiency due to the human immunodeficiency virus (HIV), HIV itself rarely directly causes cancer; rather, it provides the immunologic background against which other viruses can escape immune control and induce tumors.
     explanation: The statement is supported by the literature indicating that weakened immune surveillance in the context of HIV infection increases the risk of certain cancers, such as Kaposi&#39;s sarcoma and non-Hodgkin&#39;s lymphoma.
   - reference: PMID:33843468
+    reference_title: &#34;Effect of innate and adaptive immune mechanisms on treatment regimens in an AIDS-related Kaposi&#39;s Sarcoma model.&#34;
     supports: SUPPORT
     snippet: Kaposi Sarcoma (KS) is the most common AIDS-defining cancer, even as HIV-positive people live longer. Like other herpesviruses, human herpesvirus-8 (HHV-8) establishes a lifelong infection of the host that in association with HIV infection may develop at any time during the illness.
     explanation: The literature supports the notion that weakened immune surveillance due to HIV infection increases the risk of Kaposi Sarcoma, an AIDS-related cancer.
   - reference: PMID:23259425
+    reference_title: &#34;Immunosuppression and risk of cervical cancer.&#34;
     supports: SUPPORT
     snippet: A markedly increased risk of cervical cancer is known in women immunosuppressed due to AIDS or therapy following organ transplantation.
     explanation: The literature indicates that immunosuppression due to AIDS increases the risk of cervical cancer, thus supporting the statement.
@@ -4520,22 +4826,27 @@ phenotypes:
       label: Pneumocystis jirovecii pneumonia
   evidence:
   - reference: PMID:1979021
+    reference_title: &#34;Acquired immunodeficiency syndrome.&#34;
     supports: SUPPORT
     snippet: The occurrence of unusual infections, in particular Pneumocystis carinii pneumonia...
     explanation: The reference indicates that Pneumocystis pneumonia is a common phenotype associated with Acquired Immunodeficiency Syndrome (AIDS).
   - reference: PMID:33612763
+    reference_title: &#34;Laboratory findings and clinical characteristics of Pneumocystis pneumonia and tuberculosis infection among HIV-infected patients with pulmonary infiltrates in Jakarta, Indonesia.&#34;
     supports: SUPPORT
     snippet: Pneumocystis pneumonia (PCP) and pulmonary tuberculosis infection (PTB) are important opportunistic infections in HIV-infected patients.
     explanation: The reference supports the presence of Pneumocystis pneumonia as a common infection among HIV-infected patients.
   - reference: PMID:16182595
+    reference_title: &#34;Pneumocystis: immune recognition and evasion.&#34;
     supports: SUPPORT
     snippet: Pulmonary infection caused by the opportunistic fungal organism Pneumocystis continues to be a leading AIDS defining illness.
     explanation: The reference supports the statement by indicating that Pneumocystis pneumonia is an important AIDS-defining illness.
   - reference: PMID:38110260
+    reference_title: &#34;The &#39;pulmonary diseases spectrum&#39; in HIV infected children.&#34;
     supports: SUPPORT
     snippet: &#39;...consistent use of Pneumocystis prophylaxis in all HIV exposed/infected children under 5 years of age has considerably reduced associated infections overall and respiratory infections in particular.&#39;
     explanation: The reference suggests that Pneumocystis pneumonia is a common respiratory infection in HIV-infected individuals.
   - reference: PMID:7915731
+    reference_title: &#34;The AIDS epidemic.&#34;
     supports: SUPPORT
     snippet: The nature of the clinical presentation of HIV infection continues to evolve over time....Pneumocystis carinii pneumonia...can now be added to the classic clinical markers for progressive HIV infection.
     explanation: The reference supports the statement by listing Pneumocystis pneumonia as a classic clinical marker for HIV infection progression.
@@ -4549,22 +4860,27 @@ phenotypes:
       label: Recurrent candida infections
   evidence:
   - reference: PMID:6496525
+    reference_title: &#34;Oral candidiasis.&#34;
     supports: PARTIAL
     snippet: Candidiasis is, by far, the most common mycotic infection of the human oral cavity... Extensive use of antibiotics and immunosuppressive drugs have greatly increased the number of Candida-induced oral infections.
     explanation: This reference details multiple forms of candidiasis affecting the mouth, including acute atrophic, chronic atrophic, and chronic mucocutaneous candidiasis, and indicates that it is common.
   - reference: PMID:17944709
+    reference_title: &#34;Invasive fungal infections among inpatients with acquired immune deficiency syndrome at a Chinese university hospital.&#34;
     supports: SUPPORT
     snippet: Invasive fungal infections (IFIs) have become a major cause of morbidity and mortality among people with acquired immune deficiency syndrome (AIDS)... Candida albicans accounted for 57.4% of fungal pathogens isolated.
     explanation: Candidiasis is highlighted as a frequent and significant infection among AIDS patients.
   - reference: PMID:2135639
+    reference_title: &#34;Trends and patterns of opportunistic diseases in Danish AIDS patients 1980-1990.&#34;
     supports: SUPPORT
     snippet: Esophageal candidiasis was reported in one fifth of the patients and were reported twice as often in women as in homosexual men.
     explanation: This study indicates a significant occurrence of esophageal candidiasis among AIDS patients.
   - reference: PMID:11363911
+    reference_title: &#34;Candidiasis.&#34;
     supports: SUPPORT
     snippet: Candidiasis.
     explanation: This reference, although brief, provides context for candidiasis as an infectious condition relevant to AIDS.
   - reference: PMID:15627906
+    reference_title: &#34;Predictive value of oral candidiasis as a marker of progression to AIDS.&#34;
     supports: SUPPORT
     snippet: an oral examination was carried out on a group of 200 HIV-infected patients...  ...Of the 86 (54.8%) patients with OC, 48.2% progressed to AIDS...
     explanation: Candidiasis is cited here in the context of oral candidiasis and its prevalence among HIV-infected patients.
@@ -4579,22 +4895,27 @@ phenotypes:
       label: Kaposi&#39;s sarcoma
   evidence:
   - reference: PMID:2661499
+    reference_title: &#34;Presentation of Kaposi&#39;s sarcoma in the acquired immune deficiency syndrome.&#34;
     supports: SUPPORT
     snippet: One manifestation of this disease is Kaposi&#39;s Sarcoma. Usually a rare tumor, it occurs with a high incidence in patients with AIDS.
     explanation: The abstract confirms that Kaposi&#39;s Sarcoma is commonly associated with AIDS, supporting the statement.
   - reference: PMID:29660143
+    reference_title: &#34;Disseminated Kaposi sarcoma with epithelioid morphology in an HIV/AIDS patient: A previously unreported variant.&#34;
     supports: SUPPORT
     snippet: Kaposi sarcoma is an oligoclonal HHV-8-driven vascular proliferation... We report a 52-year-old Caucasian man with HIV/AIDS and Kaposi sarcoma.
     explanation: KS is explicitly linked with HIV/AIDS in this case report, supporting the association.
   - reference: PMID:7915731
+    reference_title: &#34;The AIDS epidemic.&#34;
     supports: SUPPORT
     snippet: New cutaneous (e.g., seborrheic dermatitis, onychomycosis, and tinea pedis) and systemic... markers for progressive HIV infection, such as Kaposi&#39;s sarcoma...
     explanation: Kaposi&#39;s sarcoma cited as a marker for AIDS progression supports the statement.
   - reference: PMID:35227156
+    reference_title: &#34;A human immunodeficiency virus-seronegative acquired immunodeficiency syndrome patient with opportunistic infections: A case report.&#34;
     supports: PARTIAL
     snippet: Delayed or missed diagnosis of HIV infection leads to a lack of timely therapy, resulting in rapid disease progression with opportunistic infections or malignancies.
     explanation: Although KS is not explicitly mentioned, malignancies associated with AIDS are noted, supporting the general assertion.
   - reference: PMID:9023448
+    reference_title: &#34;Pathology of acquired immunodeficiency syndrome (AIDS) in children.&#34;
     supports: SUPPORT
     snippet: These disorders include nodal and extranodal lymphoproliferative lesions... smooth muscle tumors (SMTs), Kaposi&#39;s sarcoma...
     explanation: KS is listed among the reactive and neoplastic proliferative disorders associated with AIDS.
@@ -4608,14 +4929,17 @@ phenotypes:
       label: Cognitive impairment
   evidence:
   - reference: PMID:9144008
+    reference_title: &#34;Nationwide survey of neurologic manifestations of acquired immunodeficiency syndrome in Japan.&#34;
     supports: SUPPORT
     snippet: Of 1854 HIV-1 carriers, 578 had acquired immunodeficiency syndrome (AIDS) and 166 (28.7% of AIDS patients) had neurologic manifestations including HIV dementia (11.8%).
     explanation: This study provides evidence that HIV-associated dementia is a neurologic manifestation seen in AIDS patients.
   - reference: PMID:1493145
+    reference_title: &#34;AIDS dementia-related psychosis: is there a window of vulnerability?&#34;
     supports: SUPPORT
     snippet: Psychiatric manifestations that are the direct result of HIV infection are usually seen in the setting of HIV-associated dementia.
     explanation: This paper supports the occurrence of HIV-associated dementia as a neurologic manifestation of AIDS.
   - reference: PMID:2548429
+    reference_title: &#34;The acquired immunodeficiency syndrome (AIDS) dementia complex.&#34;
     supports: SUPPORT
     snippet: The acquired immunodeficiency syndrome (AIDS) dementia complex is a frequent and devastating complication of infection with human immunodeficiency virus-type 1 (HIV-1).
     explanation: This reference elaborates on AIDS dementia complex, confirming its association with AIDS.
@@ -4633,18 +4957,22 @@ phenotypes:
   frequency: FREQUENT
   evidence:
   - reference: PMID:33475545
+    reference_title: &#34;Is anaemia frequent in HIV/AIDS patients presenting to a tertiary care hospital?&#34;
     supports: SUPPORT
     snippet: Anaemia was a common finding among human immune deficiency virus / acquired immunodeficiency syndrome patients.
     explanation: The study found that 66.1% of the patients with HIV/AIDS were anemic, indicating anemia is a common hematologic disorder in these patients.
   - reference: PMID:9671334
+    reference_title: &#34;Experience with epoetin alfa and acquired immunodeficiency syndrome anemia.&#34;
     supports: SUPPORT
     snippet: Anemia is common in patients infected with the human immunodeficiency virus (HIV).
     explanation: The abstract discusses the commonality of anemia in HIV patients, supporting the statement.
   - reference: PMID:6465173
+    reference_title: &#34;Hematologic abnormalities in the acquired immune deficiency syndrome.&#34;
     supports: SUPPORT
     snippet: Ten patients were anemic, eight leukopenic, and three thrombocytopenic.
     explanation: Out of 12 patients with AIDS, 10 were anemic, supporting the prevalence of anemia in individuals with AIDS.
   - reference: PMID:2252248
+    reference_title: &#34;Severe anemia is an important negative predictor for survival with disseminated Mycobacterium avium-intracellulare in acquired immunodeficiency syndrome.&#34;
     supports: SUPPORT
     snippet: Anemia was significantly more profound in patients with AIDS and MAI than in the other patients.
     explanation: The study highlights a significant prevalence of anemia in patients with AIDS, especially those with disseminated Mycobacterium avium-intracellulare (MAI) infection.
@@ -4658,18 +4986,22 @@ biochemical:
   presence: Decreased
   evidence:
   - reference: PMID:1346152
+    reference_title: &#34;CD4+ lymphocyte cell enumeration for prediction of clinical course of human immunodeficiency virus disease: a review.&#34;
     supports: SUPPORT
     snippet: The surrogate marker that most closely correlates with the stage of HIV infection is the CD4+, or T helper, cell count.
     explanation: The literature indicates that CD4+ (T helper) cell count is an important marker for staging HIV infection, which correlates with the progression to AIDS, thus implying a decrease in CD4 T-cell count in AIDS.
   - reference: PMID:26676359
+    reference_title: &#34;Autoimmunity and dysmetabolism of human acquired immunodeficiency syndrome.&#34;
     supports: SUPPORT
     snippet: Low CD4 cell count, severe loss of body weight, pneumocystis pneumonia, and Kaposi&#39;s sarcoma are the major disease indicators.
     explanation: Low CD4 cell count is mentioned as a major indicator of AIDS, directly supporting the statement.
   - reference: PMID:1384311
+    reference_title: &#34;Immunologic markers of progression to acquired immunodeficiency syndrome are time-dependent and illness-specific.&#34;
     supports: SUPPORT
     snippet: The prognostic significance of immunologic markers (proportion of CD4+ T-lymphocytes...)
     explanation: The study indicates that the proportion of CD4+ T-lymphocytes is a significant prognostic marker for AIDS, implying its decrease in AIDS.
   - reference: PMID:19273357
+    reference_title: &#34;Death of effector memory T cells characterizes AIDS.&#34;
     supports: SUPPORT
     snippet: Thus, the death of effector/memory CD4+ T cells during both the acute and chronic phase represents one the main characteristic of such viral infection that predicts disease outcome.
     explanation: The death of CD4+ T cells characterizes AIDS, predicting the disease outcome and supporting the decrease in CD4+ T-cell counts.
@@ -4677,10 +5009,12 @@ biochemical:
   presence: Increased
   evidence:
   - reference: PMID:37661622
+    reference_title: &#34;[Differences in biochemical indexes and AIDS-related complications at baseline in HIV- infected patients with different levels of immune reconstitution after antiretroviral therapy].&#34;
     supports: NO_EVIDENCE
     snippet: The baseline biochemical indexes of leukocyte, platelet, hemoglobin, TG, TC, FPG, AST, ALT and total bilirubin in the poor immune reconstitution group were significantly different from those in the good immune reconstitution group (all P&lt;0.05).
     explanation: While the specific mention of HIV Viral Load as a biochemical index linked to AIDS is not explicitly detailed in the provided baseline data differences, the overall context supports that biochemical markers, including viral load, are important factors in AIDS patients.
   - reference: PMID:22258501
+    reference_title: &#34;Using HIV viral load to guide treatment-for-prevention interventions.&#34;
     supports: SUPPORT
     snippet: HIV-infected individuals who maintain increased levels of HIV-1 RNA load, extended high viremics, can transmit virus at higher rates. Combinatorial ART decreases HIV replication, thus reducing rates of virus transmission.
     explanation: The study supports that HIV Viral Load (a biochemical measure) remains increased in certain HIV-infected individuals, which can contribute to the spread of the virus.
@@ -4694,18 +5028,22 @@ diagnosis:
       label: serology testing
   evidence:
   - reference: PMID:2672903
+    reference_title: &#34;Anti-HIV antibody testing: procedures and precautions.&#34;
     supports: PARTIAL
     snippet: Prudent use of screening tests for infection with human immunodeficiency virus (HIV) and interpretation of test results require an understanding of the body&#39;s immune response to HIV infection, the serologic assays currently available, and the problems associated with false-positive and false-negative test results.
     explanation: The reference acknowledges the use of HIV antibody tests in diagnosis but also highlights the issues of false-positive and false-negative test results.
   - reference: PMID:2999090
+    reference_title: &#34;The acquired immunodeficiency syndrome.&#34;
     supports: NO_EVIDENCE
     snippet: &#39;&#39;
     explanation: The specific content of the abstract is not provided, so it&#39;s impossible to determine whether it supports or refutes the statement.
   - reference: PMID:26861193
+    reference_title: &#34;Fatal pulmonary Kaposi sarcoma in an HIV seronegative AIDS patient.&#34;
     supports: REFUTE
     snippet: Although HIV antibody tests have been widely accepted in clinical diagnosis of HIV infection, they may not be sufficient to diagnose all subjects with HIV infection.
     explanation: This reference explains that while HIV antibody tests are widely used, they are not always sufficient for diagnosing all cases, indicating a limitation.
   - reference: PMID:7910884
+    reference_title: &#34;HIV-1/HIV-2 seronegativity in HIV-1 subtype O infected patients.&#34;
     supports: REFUTE
     snippet: HIV-1/HIV-2 enzyme-linked immunosorbent assays, especially those based on env peptides or on the sandwich format, can be negative in HIV-1 subtype O infection.
     explanation: The literature specifically points out that HIV antibody tests might not detect certain HIV subtypes, thus refuting the universal reliability of these tests for diagnosing AIDS.
@@ -4718,14 +5056,17 @@ diagnosis:
       label: clinical quantitative reverse transcription PCR testing
   evidence:
   - reference: PMID:29641941
+    reference_title: &#34;Implementation and new insights in molecular diagnostics for HIV infection.&#34;
     supports: SUPPORT
     snippet: A simple and rapid detection of viral load is important for patients and doctors to monitor HIV progression and antiretroviral treatment efficiency.
     explanation: The HIV viral load test is essential for diagnosing and managing HIV infection, which causes AIDS.
   - reference: PMID:36577167
+    reference_title: &#34;A SERS based clinical study on HIV-1 viral load quantification and determination of disease prognosis.&#34;
     supports: SUPPORT
     snippet: The present work describes a novel, rapid and field-deployable method using surface enhanced Raman spectroscopy (SERS) for detection and prognosis of HIV positive clinical samples.
     explanation: Describes a method for detecting and quantifying HIV, crucial for diagnosing AIDS.
   - reference: PMID:15543571
+    reference_title: &#34;Epstein-Barr viral load as a marker of lymphoma in AIDS patients.&#34;
     supports: NO_EVIDENCE
     snippet: EBV was detected in plasma... There was no association between EBV viral load and human immunodeficiency virus (HIV) load or CD4 count.
     explanation: The study focuses on EBV viral load in AIDS patients and does not provide evidence supporting the use of HIV viral load tests for diagnosing AIDS.
@@ -4755,22 +5096,27 @@ treatments:
     target_protein: HIV-1 integrase
   evidence:
   - reference: PMID:11218297
+    reference_title: &#34;[Current antiretroviral therapy].&#34;
     supports: SUPPORT
     snippet: HIV patients who have detectable viral loads and/or evidence of immunologic dysfunction should be treated with a potent combination antiretroviral regimen.
     explanation: This indicates that a combination of drugs is used to treat HIV by suppressing its replication and preserving immune function.
   - reference: PMID:11424971
+    reference_title: &#34;Immune restoration and CD4+ T-cell function with antiretroviral therapies.&#34;
     supports: SUPPORT
     snippet: Suppression of HIV-1 replication results in both laboratory and clinical evidence of immune restoration.
     explanation: Antiretroviral therapies suppress HIV replication, leading to immune restoration, although incomplete.
   - reference: PMID:21722892
+    reference_title: &#34;Human immunodeficiency virus/acquired immunodeficiency syndrome and infertility: emerging problems in the era of highly active antiretrovirals.&#34;
     supports: SUPPORT
     snippet: Antiretroviral medications may have direct toxicity on gametes and embryos.
     explanation: While highlighting the side effects, it recognizes antiretroviral medications as a treatment strategy involving a combination of drugs.
   - reference: PMID:2550525
+    reference_title: &#34;Antiretroviral therapy.&#34;
     supports: SUPPORT
     snippet: Although many drugs have been developed, none appears singularly effective against all stages of HIV-1 infection.
     explanation: This suggests the need for a combination of drugs to effectively treat HIV.
   - reference: PMID:31237209
+    reference_title: &#34;Protease Inhibitors for the Treatment of HIV/AIDS: Recent Advances and Future Challenges.&#34;
     supports: SUPPORT
     snippet: One of the key therapeutic strategies is Highly Active Antiretroviral Therapy (HAART) or &#39;AIDS cocktail&#39; in a general sense, which is a customized combination of anti-retroviral drugs designed to combat the HIV infection.
     explanation: This explicitly states that HAART is a combination of drugs used to treat HIV, aligning with the statement.
@@ -4783,14 +5129,17 @@ treatments:
   description: Preventive treatments to reduce risk of common opportunistic infections.
   evidence:
   - reference: PMID:9389311
+    reference_title: &#34;Prevention of opportunistic infections in the era of improved antiretroviral therapy.&#34;
     supports: SUPPORT
     snippet: The United States Public Health Service and the Infectious Diseases Society of America (USPHS/IDSA) have established disease-specific recommendations for use of prophylaxis for opportunistic infections in HIV-infected patients.
     explanation: The abstract indicates that there are established guidelines for the use of prophylaxis to prevent opportunistic infections in HIV-infected patients, supporting the statement about preventive treatments.
   - reference: PMID:2996829
+    reference_title: &#34;Treatment of infectious complications of acquired immunodeficiency syndrome.&#34;
     supports: PARTIAL
     snippet: The infections most commonly encountered in patients with AIDS are Pneumocystis carinii pneumonia (58%), Candida esophagitis (31%), toxoplasmosis (21%), cytomegalovirus infections (15%), and herpes-simplex virus infections (12%).
     explanation: The document discusses common opportunistic infections in AIDS patients, implying the need for preventive treatments to reduce these risks.
   - reference: PMID:2729337
+    reference_title: &#34;Natural history of acquired immunodeficiency syndrome in women in Rhode Island.&#34;
     supports: PARTIAL
     snippet: The subjects in this study are 24 women with AIDS who were treated by members of the Brown University medical faculty from June 1982 through June 1988... When zidovudine became available, it was administered to all remaining patients in the study. All subjects were counseled about HIV infection, its modes of transmission, and the early symptoms of opportunistic infections.
     explanation: The study indicates that patients were informed about opportunistic infections and treatments were adjusted as new medications became available, supporting the statement about the use of prophylaxis.
@@ -4803,26 +5152,32 @@ treatments:
   description: Specific therapies targeting diagnosed opportunistic infections.
   evidence:
   - reference: PMID:9336601
+    reference_title: &#34;Preventing and treating major opportunistic infections in AIDS. What&#39;s new and what&#39;s still true.&#34;
     supports: SUPPORT
     snippet: Nevertheless, the prevention, diagnosis, and treatment of opportunistic infections remain important features of management of HIV infection.
     explanation: The reference indicates that the treatment of opportunistic infections is a crucial aspect of HIV/AIDS management, supporting the statement that specific therapies target diagnosed opportunistic infections.
   - reference: PMID:2435201
+    reference_title: &#34;Developmental therapeutics and the acquired immunodeficiency syndrome.&#34;
     supports: SUPPORT
     snippet: Approaches to the treatment of AIDS have involved attempts to reestablish immune competence as well as treat opportunistic infections.
     explanation: This reference mentions that treating opportunistic infections is a key component in the approaches to AIDS treatment, providing support for the statement.
   - reference: PMID:15119284
+    reference_title: &#34;Opportunistic infection strategy.&#34;
     supports: SUPPORT
     snippet: While HIV is the culprit, most people who die of AIDS do not die of HIV, per se, but from the numerous infections that the body can no longer control due to the collapse of the immune system.
     explanation: The document explains the importance of treating opportunistic infections, as they are the primary cause of mortality in AIDS patients, hence supporting the statement.
   - reference: PMID:9218066
+    reference_title: &#34;Review article: the therapy of gastrointestinal infections associated with the acquired immunodeficiency syndrome.&#34;
     supports: PARTIAL
     snippet: Complications which involve the gastrointestinal tract are common in these patients, because the gut is a major site for involvement by opportunistic infections and neoplasms in patients with the acquired immunodeficiency syndrome.
     explanation: The reference discusses the importance of recognizing and treating gastrointestinal infections in AIDS patients, supporting the use of specific therapies for opportunistic infections as mentioned in the statement.
   - reference: PMID:32216642
+    reference_title: &#34;Care of Critically Ill Patients with Human Immunodeficiency Virus.&#34;
     supports: SUPPORT
     snippet: The epidemiology and initial approach to diagnosis and treatment of HIV (including the newest antiretroviral guidelines), common syndromes and their management in the ICU, and typical comorbidities and opportunistic infections of patients with HIV infection are discussed.
     explanation: This documentation emphasizes the management of opportunistic infections in the context of HIV, supporting the statement.
   - reference: PMID:2729337
+    reference_title: &#34;Natural history of acquired immunodeficiency syndrome in women in Rhode Island.&#34;
     supports: SUPPORT
     snippet: All opportunistic infections were treated by appropriate, specific antimicrobial therapy.
     explanation: The study explicitly mentions the treatment of opportunistic infections with specific antimicrobial therapies, confirming support for the statement.

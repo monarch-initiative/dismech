@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1037,6 +1101,52 @@
             text-decoration: underline;
         }
 
+        /* Experimental Models */
+        .exp-model-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .exp-model-box .item-name { color: #92400e; }
+        .exp-model-box .item-desc { color: #b45309; }
+
+        .tag-exp-model-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .tag-namo-type {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+        .tag-condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .model-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .model-detail-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .model-detail-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 110px;
+        }
+        .model-detail-value {
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+        }
+        .model-detail-value a {
+            color: inherit;
+        }
+
         /* Computational Models */
         .comp-model-box {
             background: #f0fdf4;
@@ -1382,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1470,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1477,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1489,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1637,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1723,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1737,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1792,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1877,6 +2093,7 @@
                 </span>
                 
                 
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Neurological Disease</span>
                 
             </div>
@@ -1884,6 +2101,11 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
+        
+        
         
         
         
@@ -1939,6 +2161,12 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
+            
+            
+            <div class="stat-item">
+                <div class="stat-value">0</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
             
             
             <a class="stat-link" href="#genetic">
@@ -2331,7 +2559,7 @@
                 <span class="card-count">4</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-spreading-depression">
                 <div class="item-name">Cortical Spreading Depression</div>
                 
                 <div class="item-desc">Wave of neuronal depolarization spreading across cortex underlies aura. Triggers activation of trigeminal pathways and may initiate headache phase.
@@ -2354,6 +2582,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2429,7 +2658,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-trigeminovascular-activation">
                 <div class="item-name">Trigeminovascular Activation</div>
                 
                 <div class="item-desc">Activation of trigeminal nerve fibers innervating meningeal blood vessels releases CGRP and other neuropeptides, causing neurogenic inflammation and pain.
@@ -2452,6 +2681,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2525,11 +2755,12 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-central-sensitization">
                 <div class="item-name">Central Sensitization</div>
                 
                 <div class="item-desc">Repeated activation leads to sensitization of trigeminal nucleus and thalamic neurons, producing allodynia and enhanced pain perception.
 </div>
+                
                 
                 
                 
@@ -2589,11 +2820,12 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-cgrp-pathway">
                 <div class="item-name">CGRP Pathway</div>
                 
                 <div class="item-desc">Calcitonin gene-related peptide (CGRP) release from trigeminal neurons causes vasodilation and neurogenic inflammation. CGRP blockers are effective treatments.
 </div>
+                
                 
                 
                 
@@ -4400,6 +4632,9 @@
         </div>
         
 
+        <!-- Experimental Models -->
+        
+
         <!-- Computational Models -->
         
 
@@ -4431,11 +4666,13 @@ has_subtypes:
     speech).
   evidence:
   - reference: PMID:1525797
+    reference_title: &#34;Migraine with aura and migraine without aura: an epidemiological study.&#34;
     supports: SUPPORT
     snippet: &#34;Lifetime prevalence of MA was 5%, male:female ratio 1:2.&#34;
     explanation: Population study establishes migraine with aura as a distinct
       subtype with 5% lifetime prevalence.
   - reference: PMID:1525797
+    reference_title: &#34;Migraine with aura and migraine without aura: an epidemiological study.&#34;
     supports: SUPPORT
     snippet: &#34;Visual disturbances were the most common aura phenomenon occurring in
       90% of subjects with MA.&#34;
@@ -4445,11 +4682,13 @@ has_subtypes:
   description: Most common form, no preceding aura.
   evidence:
   - reference: PMID:1525797
+    reference_title: &#34;Migraine with aura and migraine without aura: an epidemiological study.&#34;
     supports: SUPPORT
     snippet: &#34;Lifetime prevalence of MO was 8%, M:F ratio 1:7.&#34;
     explanation: Migraine without aura is the most common form with 8% lifetime
       prevalence and strong female predominance.
   - reference: PMID:1525797
+    reference_title: &#34;Migraine with aura and migraine without aura: an epidemiological study.&#34;
     supports: SUPPORT
     snippet: &#34;Women, but not men, were significantly more likely to have MO than MA.&#34;
     explanation: Migraine without aura shows stronger female predominance than
@@ -4458,6 +4697,7 @@ has_subtypes:
   description: 15 or more headache days per month for &gt;3 months.
   evidence:
   - reference: PMID:30893319
+    reference_title: &#34;Beta-blockers for the prevention of headache in adults, a systematic review and meta-analysis.&#34;
     supports: SUPPORT
     snippet: &#34;For chronic migraine, propranolol was more likely to reduce headaches
       by at least 50% (RR: 2.0, 95% CI: 1.0-4.3).&#34;
@@ -4467,6 +4707,7 @@ has_subtypes:
   description: Migraine with prominent vestibular symptoms (vertigo).
   evidence:
   - reference: PMID:38619053
+    reference_title: &#34;Vestibular migraine: an update.&#34;
     supports: SUPPORT
     snippet: &#34;Vestibular migraine is an underdiagnosed migraine phenotype that shares
       the pathophysiological mechanisms of migraine, with growing interest in recent
@@ -4486,6 +4727,7 @@ pathophysiology:
       label: chemical synaptic transmission
   evidence:
   - reference: PMID:37495957
+    reference_title: &#34;Optogenetic cortical spreading depolarization induces headache-related behaviour and neuroinflammatory responses some prolonged in familial hemiplegic migraine type 1 mice.&#34;
     supports: SUPPORT
     snippet: &#34;Cortical spreading depolarization (CSD), the neurophysiological correlate
       of the migraine aura, can activate trigeminal pain pathways, but the neurobiological
@@ -4493,6 +4735,7 @@ pathophysiology:
     explanation: Establishes CSD as the neurophysiological basis of migraine
       aura and its role in activating trigeminal pain pathways.
   - reference: PMID:37495957
+    reference_title: &#34;Optogenetic cortical spreading depolarization induces headache-related behaviour and neuroinflammatory responses some prolonged in familial hemiplegic migraine type 1 mice.&#34;
     supports: SUPPORT
     snippet: &#34;In both WT and FHM1 mutant mice, CSDs induced headache-related behaviour,
       as evidenced by increased MGS scores and the occurrence of oculotemporal strokes,
@@ -4500,6 +4743,7 @@ pathophysiology:
     explanation: Demonstrates that CSDs directly induce headache-related
       behaviors in animal models, supporting CSD&#39;s role in headache initiation.
   - reference: PMID:37495957
+    reference_title: &#34;Optogenetic cortical spreading depolarization induces headache-related behaviour and neuroinflammatory responses some prolonged in familial hemiplegic migraine type 1 mice.&#34;
     supports: SUPPORT
     snippet: &#34;Blocking Panx1 channels by TAT-Panx308 inhibited CSD-induced headache
       related behaviour and HMGB1 release.&#34;
@@ -4507,6 +4751,7 @@ pathophysiology:
       neuroinflammatory signaling and headache behaviors, identifying a key
       mechanism linking CSD to pain.
   - reference: PMID:39080518
+    reference_title: &#34;Unraveling the interplay of neuroinflammatory signaling between parenchymal and meningeal cells in migraine headache.&#34;
     supports: SUPPORT
     snippet: &#34;Neuronal pannexin-1 channels act as stress sensors, initiating the inflammatory
       signaling by inflammasome formation and high-mobility group box-1 release in
@@ -4526,6 +4771,7 @@ pathophysiology:
       label: response to pain
   evidence:
   - reference: PMID:37487740
+    reference_title: &#34;Meningeal P2X7 Signaling Mediates Migraine-Related Intracranial Mechanical Hypersensitivity.&#34;
     supports: SUPPORT
     snippet: &#34;CSD is also thought to drive the headache phase in migraine by promoting
       the activation and mechanical sensitization of trigeminal primary afferent nociceptive
@@ -4533,12 +4779,14 @@ pathophysiology:
     explanation: Confirms that CSD drives trigeminovascular activation leading
       to headache phase in migraine.
   - reference: PMID:39080518
+    reference_title: &#34;Unraveling the interplay of neuroinflammatory signaling between parenchymal and meningeal cells in migraine headache.&#34;
     supports: SUPPORT
     snippet: &#34;Studies in rodents have demonstrated that sterile meningeal inflammation
       can stimulate and sensitize meningeal nociceptors, culminating in headaches.&#34;
     explanation: Shows that meningeal inflammation activates and sensitizes
       trigeminal nociceptors, producing headache.
   - reference: PMID:39080518
+    reference_title: &#34;Unraveling the interplay of neuroinflammatory signaling between parenchymal and meningeal cells in migraine headache.&#34;
     supports: SUPPORT
     snippet: &#34;The parenchymal neuroinflammatory signaling involving neurons, astrocytes,
       and microglia, which eventually extends to the meninges, can link non-homeostatic
@@ -4553,6 +4801,7 @@ pathophysiology:
     perception.
   evidence:
   - reference: PMID:37487740
+    reference_title: &#34;Meningeal P2X7 Signaling Mediates Migraine-Related Intracranial Mechanical Hypersensitivity.&#34;
     supports: SUPPORT
     snippet: &#34;Broad-spectrum P2X receptor inhibition, selective blockade of the P2X7
       receptor, and its related Pannexin 1 channel suppressed CSD-evoked afferent
@@ -4562,6 +4811,7 @@ pathophysiology:
       mediate mechanical sensitization (allodynia) of meningeal afferents, a key
       component of central sensitization.
   - reference: PMID:37487740
+    reference_title: &#34;Meningeal P2X7 Signaling Mediates Migraine-Related Intracranial Mechanical Hypersensitivity.&#34;
     supports: SUPPORT
     snippet: &#34;We propose that meningeal P2X7 and Pannexin 1 signaling, potentially
       in meningeal macrophages or neutrophils, mediates the mechanical sensitization
@@ -4576,6 +4826,7 @@ pathophysiology:
     blockers are effective treatments.
   evidence:
   - reference: PMID:39080518
+    reference_title: &#34;Unraveling the interplay of neuroinflammatory signaling between parenchymal and meningeal cells in migraine headache.&#34;
     supports: SUPPORT
     snippet: &#34;The efficacy of relatively blood-brain barrier-impermeable anti-calcitonin
       gene-related peptide antibodies and triptans in treating migraine attacks, both
@@ -4584,6 +4835,7 @@ pathophysiology:
     explanation: Clinical efficacy of CGRP-targeting therapies validates the
       central role of the CGRP pathway in migraine pathophysiology.
   - reference: PMID:37569648
+    reference_title: &#34;Migraine Treatment: Towards New Pharmacological Targets.&#34;
     supports: SUPPORT
     snippet: &#34;However, the progresses in unravelling the migraine pathophysiology
       allowed identifying novel putative targets as calcitonin gene-related peptide
@@ -4591,6 +4843,7 @@ pathophysiology:
     explanation: Identifies CGRP as a key validated target in migraine treatment
       based on understanding of disease pathophysiology.
   - reference: PMID:37569648
+    reference_title: &#34;Migraine Treatment: Towards New Pharmacological Targets.&#34;
     supports: SUPPORT
     snippet: &#34;Nevertheless, despite the revolution brought by CGRP monoclonal antibodies
       and gepants, a significant percentage of patients still remains burdened by
@@ -4612,6 +4865,7 @@ phenotypes:
       label: Headache
   evidence:
   - reference: PMID:37495957
+    reference_title: &#34;Optogenetic cortical spreading depolarization induces headache-related behaviour and neuroinflammatory responses some prolonged in familial hemiplegic migraine type 1 mice.&#34;
     supports: SUPPORT
     snippet: &#34;In both WT and FHM1 mutant mice, CSDs induced headache-related behaviour,
       as evidenced by increased MGS scores and the occurrence of oculotemporal strokes,
@@ -4619,6 +4873,7 @@ phenotypes:
     explanation: Demonstrates that cortical spreading depression directly
       induces headache-related behaviors in animal models.
   - reference: PMID:39080518
+    reference_title: &#34;Unraveling the interplay of neuroinflammatory signaling between parenchymal and meningeal cells in migraine headache.&#34;
     supports: SUPPORT
     snippet: &#34;We propose that neuronal stress induced by CSD or synaptic activity-energy
       mismatch may initiate a parenchymal inflammatory signaling cascade, transmitted
@@ -4636,6 +4891,7 @@ phenotypes:
       label: Photophobia
   evidence:
   - reference: PMID:35322292
+    reference_title: &#34;Photophobia in headache disorders: characteristics and potential mechanisms.&#34;
     supports: SUPPORT
     snippet: &#34;The coexistence of photophobia and headache is associated with the interactions
       between visual and pain pathway at retina, midbrain, thalamus, hypothalamus
@@ -4652,6 +4908,7 @@ phenotypes:
       label: Phonophobia
   evidence:
   - reference: PMID:33305448
+    reference_title: &#34;Phonophobia and brainstem excitability in migraine.&#34;
     supports: SUPPORT
     snippet: &#34;Higher amplitudes of BAEP waves in migraineurs and their relationship
       with the frequency of headache and HT suggest the sensitization of brainstem
@@ -4669,6 +4926,7 @@ phenotypes:
       label: Nausea
   evidence:
   - reference: PMID:39080518
+    reference_title: &#34;Unraveling the interplay of neuroinflammatory signaling between parenchymal and meningeal cells in migraine headache.&#34;
     supports: SUPPORT
     snippet: &#34;After a single CSD, astrocytes respond by upregulating the transcription
       of proinflammatory enzymes and mediators, while microglia are involved in restoring
@@ -4688,6 +4946,7 @@ phenotypes:
       label: Visual impairment
   evidence:
   - reference: PMID:39080518
+    reference_title: &#34;Unraveling the interplay of neuroinflammatory signaling between parenchymal and meningeal cells in migraine headache.&#34;
     supports: SUPPORT
     snippet: &#34;PET studies utilizing inflammation markers have revealed meningeal inflammatory
       activity in patients experiencing migraine with aura, particularly over the
@@ -4706,6 +4965,7 @@ phenotypes:
       label: Vertigo
   evidence:
   - reference: PMID:38619053
+    reference_title: &#34;Vestibular migraine: an update.&#34;
     supports: SUPPORT
     snippet: &#34;Vestibular migraine is an underdiagnosed migraine phenotype that shares
       the pathophysiological mechanisms of migraine, with growing interest in recent
@@ -4713,6 +4973,7 @@ phenotypes:
     explanation: Establishes vestibular migraine as a recognized migraine
       phenotype where vertigo is a prominent symptom.
   - reference: PMID:37889468
+    reference_title: &#34;Vestibular Migraine Pathophysiology and Treatment: a Narrative Review.&#34;
     supports: SUPPORT
     snippet: &#34;There is evidence of abnormal sensory processing and integration in
       VM patients. Calcitonin gene-related peptide (CGRP) has also been found to play
@@ -4725,6 +4986,7 @@ biochemical:
   context: During attacks
   evidence:
   - reference: PMID:37755358
+    reference_title: &#34;Migraine: Advances in the Pathogenesis and Treatment.&#34;
     supports: SUPPORT
     snippet: &#34;Special emphasis is given to the role of calcitonin gene-related peptide
       (CGRP) in migraine development. CGRP not only contributes to symptoms but also
@@ -4737,6 +4999,7 @@ biochemical:
   context: May contribute to attacks
   evidence:
   - reference: PMID:17970989
+    reference_title: &#34;Serotonin and migraine: biology and clinical implications.&#34;
     supports: SUPPORT
     snippet: &#34;Amongst the many neurotransmitters in the brain, the serotonergic (serotonin,
       5-HT) system from the brainstem raphe nucleus has been most convincingly implicated
@@ -4744,6 +5007,7 @@ biochemical:
     explanation: Serotonergic system is the most convincingly implicated
       neurotransmitter system in migraine.
   - reference: PMID:17970989
+    reference_title: &#34;Serotonin and migraine: biology and clinical implications.&#34;
     supports: SUPPORT
     snippet: &#34;The documented changes in 5-HT metabolism and in the processing of central
       5-HT-mediated responses during and in between migraine attacks have led to the
@@ -4757,6 +5021,7 @@ genetic:
   notes: Familial hemiplegic migraine
   evidence:
   - reference: PMID:38508838
+    reference_title: &#34;Genetics of migraine: complexity, implications, and potential clinical applications.&#34;
     supports: SUPPORT
     snippet: &#34;Some distinct, rare, familial migraine subtypes are caused by pathogenic
       variants in genes involved in ion transport and neurotransmitter release, suggesting
@@ -4769,6 +5034,7 @@ genetic:
   notes: Familial hemiplegic migraine
   evidence:
   - reference: PMID:38508838
+    reference_title: &#34;Genetics of migraine: complexity, implications, and potential clinical applications.&#34;
     supports: SUPPORT
     snippet: &#34;Some distinct, rare, familial migraine subtypes are caused by pathogenic
       variants in genes involved in ion transport and neurotransmitter release, suggesting
@@ -4781,6 +5047,7 @@ genetic:
   notes: Familial hemiplegic migraine
   evidence:
   - reference: PMID:38508838
+    reference_title: &#34;Genetics of migraine: complexity, implications, and potential clinical applications.&#34;
     supports: SUPPORT
     snippet: &#34;Some distinct, rare, familial migraine subtypes are caused by pathogenic
       variants in genes involved in ion transport and neurotransmitter release, suggesting
@@ -4792,6 +5059,7 @@ genetic:
   association: Risk Factor
   evidence:
   - reference: PMID:31873179
+    reference_title: &#34;Reduced TRPM8 expression underpins reduced migraine risk and attenuated cold pain sensation in humans.&#34;
     supports: SUPPORT
     snippet: &#34;TRPM8 is highly expressed in migraine and pain neuronal circuitry, such
       as trigeminal and dorsal root ganglia&#34;
@@ -4801,6 +5069,7 @@ genetic:
   association: Risk Factor
   evidence:
   - reference: PMID:21666692
+    reference_title: &#34;Genome-wide association study reveals three susceptibility loci for common migraine in the general population.&#34;
     supports: SUPPORT
     snippet: &#34;rs2651899 (1p36.32, PRDM16), rs10166942 (2q37.1, TRPM8) and rs11172113
       (12q13.3, LRP1) were among the top seven associations (P &lt; 5 × 10(-6)) with
@@ -4808,6 +5077,7 @@ genetic:
     explanation: GWAS of 5,122 migraineurs identified LRP1 SNP rs11172113 as
       genome-wide significant for migraine susceptibility.
   - reference: PMID:21666692
+    reference_title: &#34;Genome-wide association study reveals three susceptibility loci for common migraine in the general population.&#34;
     supports: SUPPORT
     snippet: &#34;LRP1 modulates neuronal glutamate signaling, plausibly linking both
       genes to migraine pathophysiology.&#34;
@@ -4818,6 +5088,7 @@ environmental:
   notes: Common trigger
   evidence:
   - reference: PMID:35143379
+    reference_title: &#34;Cognitive or daily stress association with headache and pain induction in migraine and tension-type headache patients: a systematic review.&#34;
     supports: SUPPORT
     snippet: &#34;Both mental/cognitive stress and daily stress (perceived) were related
       to an increase in pain perception and related to the development of headache
@@ -4825,6 +5096,7 @@ environmental:
     explanation: Systematic review confirms stress as a trigger for migraine
       headaches.
   - reference: PMID:1525797
+    reference_title: &#34;Migraine with aura and migraine without aura: an epidemiological study.&#34;
     supports: SUPPORT
     snippet: &#34;In both MA and MO the most conspicuous precipitating factor was stress
       and mental tension.&#34;
@@ -4834,6 +5106,7 @@ environmental:
   notes: Both too little and too much
   evidence:
   - reference: PMID:1525797
+    reference_title: &#34;Migraine with aura and migraine without aura: an epidemiological study.&#34;
     supports: SUPPORT
     snippet: &#34;One or more precipitating factor was present in 61% with MA and in 90%
       with MO.&#34;
@@ -4843,6 +5116,7 @@ environmental:
   notes: Menstruation, oral contraceptives
   evidence:
   - reference: PMID:19076658
+    reference_title: &#34;Epidemiology and biology of menstrual migraine.&#34;
     supports: SUPPORT
     snippet: &#34;The trigger thought to be partially responsible for menstrually associated
       migraine is a significant drop in circulating estrogen that is noted during
@@ -4850,6 +5124,7 @@ environmental:
     explanation: Estrogen withdrawal is established as the hormonal trigger for
       menstrual migraine.
   - reference: PMID:19076658
+    reference_title: &#34;Epidemiology and biology of menstrual migraine.&#34;
     supports: SUPPORT
     snippet: &#34;It is estimated that approximately 50% of women have an increased risk
       of experiencing migraine during the premenstrual phase of decreasing estrogen
@@ -4857,6 +5132,7 @@ environmental:
     explanation: Half of female migraineurs have increased risk during
       premenstrual estrogen decline.
   - reference: PMID:1525797
+    reference_title: &#34;Migraine with aura and migraine without aura: an epidemiological study.&#34;
     supports: SUPPORT
     snippet: &#34;Onset at menarche, menstrual precipitation, menstrual problems, influence
       of pregnancy and use of oral contraceptives all showed some relationship with
@@ -4874,6 +5150,7 @@ treatments:
   description: First-line acute treatment (sumatriptan, rizatriptan).
   evidence:
   - reference: PMID:39080518
+    reference_title: &#34;Unraveling the interplay of neuroinflammatory signaling between parenchymal and meningeal cells in migraine headache.&#34;
     supports: SUPPORT
     snippet: &#34;The efficacy of relatively blood-brain barrier-impermeable anti-calcitonin
       gene-related peptide antibodies and triptans in treating migraine attacks, both
@@ -4885,6 +5162,7 @@ treatments:
   description: Effective for mild-moderate attacks.
   evidence:
   - reference: PMID:27713337
+    reference_title: &#34;NSAIDs in the Acute Treatment of Migraine: A Review of Clinical and Experimental Data.&#34;
     supports: SUPPORT
     snippet: &#34;NSAIDs remain the most commonly used therapies for the migraine attack.
       This is in part due to their wide availability as over-the-counter drugs and
@@ -4897,6 +5175,7 @@ treatments:
   description: Acute treatment option (ubrogepant, rimegepant).
   evidence:
   - reference: PMID:37755358
+    reference_title: &#34;Migraine: Advances in the Pathogenesis and Treatment.&#34;
     supports: SUPPORT
     snippet: &#34;CGRP not only contributes to symptoms but also represents a promising
       therapeutic target, with inhibitors showing effectiveness in migraine management.&#34;
@@ -4906,6 +5185,7 @@ treatments:
   description: Preventive therapy (propranolol, metoprolol).
   evidence:
   - reference: PMID:30893319
+    reference_title: &#34;Beta-blockers for the prevention of headache in adults, a systematic review and meta-analysis.&#34;
     supports: SUPPORT
     snippet: &#34;Compared to placebo, propranolol reduced episodic migraine headaches
       by 1.5 headaches/month at 8 weeks (95% CI: -2.3 to -0.65) and was more likely
@@ -4913,6 +5193,7 @@ treatments:
     explanation: Meta-analysis of 108 RCTs confirms propranolol efficacy for
       migraine prevention with high-quality evidence.
   - reference: PMID:30893319
+    reference_title: &#34;Beta-blockers for the prevention of headache in adults, a systematic review and meta-analysis.&#34;
     supports: SUPPORT
     snippet: &#34;There is high quality evidence that propranolol is better than placebo
       for episodic migraine headache.&#34;
@@ -4922,12 +5203,14 @@ treatments:
   description: Preventive therapy.
   evidence:
   - reference: PMID:24494792
+    reference_title: &#34;Efficacy and mechanism of anticonvulsant drugs in migraine.&#34;
     supports: SUPPORT
     snippet: &#34;Efficacy has been demonstrated in randomized placebo-controlled trials
       for topiramate and valproic acid including divalproex sodium.&#34;
     explanation: Clinical trials have established the efficacy of topiramate for
       migraine prevention.
   - reference: PMID:24494792
+    reference_title: &#34;Efficacy and mechanism of anticonvulsant drugs in migraine.&#34;
     supports: SUPPORT
     snippet: &#34;Effective anticonvulsants, such as topiramate and valproate, target
       nociceptive trigeminovascular and trigeminothalamic dural pathways or mechanisms
@@ -4939,12 +5222,14 @@ treatments:
   description: Preventive therapy.
   evidence:
   - reference: PMID:24494792
+    reference_title: &#34;Efficacy and mechanism of anticonvulsant drugs in migraine.&#34;
     supports: SUPPORT
     snippet: &#34;Efficacy has been demonstrated in randomized placebo-controlled trials
       for topiramate and valproic acid including divalproex sodium.&#34;
     explanation: Clinical trials have established the efficacy of
       valproate/valproic acid for migraine prevention.
   - reference: PMID:24494792
+    reference_title: &#34;Efficacy and mechanism of anticonvulsant drugs in migraine.&#34;
     supports: SUPPORT
     snippet: &#34;Effective anticonvulsants, such as topiramate and valproate, target
       nociceptive trigeminovascular and trigeminothalamic dural pathways or mechanisms
@@ -4956,6 +5241,7 @@ treatments:
   description: Preventive therapy (erenumab, fremanezumab, galcanezumab).
   evidence:
   - reference: PMID:39080518
+    reference_title: &#34;Unraveling the interplay of neuroinflammatory signaling between parenchymal and meningeal cells in migraine headache.&#34;
     supports: SUPPORT
     snippet: &#34;The efficacy of relatively blood-brain barrier-impermeable anti-calcitonin
       gene-related peptide antibodies and triptans in treating migraine attacks, both
@@ -4964,6 +5250,7 @@ treatments:
     explanation: Anti-CGRP monoclonal antibodies have demonstrated clinical
       efficacy in treating migraine, supporting their use as preventive therapy.
   - reference: PMID:37755358
+    reference_title: &#34;Migraine: Advances in the Pathogenesis and Treatment.&#34;
     supports: SUPPORT
     snippet: &#34;CGRP not only contributes to symptoms but also represents a promising
       therapeutic target, with inhibitors showing effectiveness in migraine management.&#34;
@@ -4973,6 +5260,7 @@ treatments:
   description: For chronic migraine prevention.
   evidence:
   - reference: PMID:38910144
+    reference_title: &#34;Effectiveness and safety of pharmacological prophylaxis for chronic migraine: a systematic review and network meta-analysis.&#34;
     supports: SUPPORT
     snippet: &#34;Among all the drugs for the preventive drugs for CM, Botulinum toxin
       A has the best efficacy and safety profile, closely followed by calcitonin gene-related
@@ -4984,6 +5272,7 @@ treatments:
   description: Non-invasive devices for prevention and acute treatment.
   evidence:
   - reference: PMID:37755358
+    reference_title: &#34;Migraine: Advances in the Pathogenesis and Treatment.&#34;
     supports: SUPPORT
     snippet: &#34;Finally, the paper delves into neuromodulation as an innovative treatment
       modality. Clinical studies indicating its effectiveness in migraine management

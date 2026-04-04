@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1037,6 +1101,52 @@
             text-decoration: underline;
         }
 
+        /* Experimental Models */
+        .exp-model-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .exp-model-box .item-name { color: #92400e; }
+        .exp-model-box .item-desc { color: #b45309; }
+
+        .tag-exp-model-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .tag-namo-type {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+        .tag-condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .model-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .model-detail-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .model-detail-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 110px;
+        }
+        .model-detail-value {
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+        }
+        .model-detail-value a {
+            color: inherit;
+        }
+
         /* Computational Models */
         .comp-model-box {
             background: #f0fdf4;
@@ -1382,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1470,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1477,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1489,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1637,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1723,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1737,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1792,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1877,6 +2093,7 @@
                 </span>
                 
                 
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Psychiatric Disease</span>
                 
             </div>
@@ -1884,6 +2101,11 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
+        
+        
         
         
         
@@ -1939,6 +2161,12 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
+            
+            
+            <div class="stat-item">
+                <div class="stat-value">0</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
             
             
             <a class="stat-link" href="#genetic">
@@ -2038,7 +2266,7 @@
                 <span class="card-count">7</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-amygdala-hyperactivity">
                 <div class="item-name">Amygdala Hyperactivity</div>
                 
                 <div class="item-desc">Exaggerated amygdala response to perceived threats leads to excessive fear and anxiety. Reduced prefrontal cortex regulation of amygdala activity.
@@ -2080,6 +2308,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2112,7 +2341,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-gaba-system-dysfunction">
                 <div class="item-name">GABA System Dysfunction</div>
                 
                 <div class="item-desc">Reduced GABAergic inhibition contributes to neuronal hyperexcitability and anxiety. Benzodiazepines enhance GABA function.
@@ -2149,6 +2378,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2222,7 +2452,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-serotonin-dysregulation">
                 <div class="item-name">Serotonin Dysregulation</div>
                 
                 <div class="item-desc">Altered serotonin signaling, particularly in raphe-prefrontal circuits, contributes to anxiety. SSRIs are first-line treatment.
@@ -2259,6 +2489,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2314,7 +2545,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-hpa-axis-dysregulation">
                 <div class="item-name">HPA Axis Dysregulation</div>
                 
                 <div class="item-desc">Chronic activation of the stress response system with elevated cortisol contributes to sustained anxiety and physical symptoms.
@@ -2337,6 +2568,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2392,7 +2624,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-noradrenergic-hyperactivity">
                 <div class="item-name">Noradrenergic Hyperactivity</div>
                 
                 <div class="item-desc">Elevated norepinephrine activity in locus coeruleus contributes to hyperarousal and somatic symptoms of anxiety.
@@ -2420,15 +2652,17 @@
                 
                 
                 
+                
     
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-oxidative-stress">
                 <div class="item-name">Oxidative Stress</div>
                 
                 <div class="item-desc">Increased oxidative stress markers and reduced antioxidant enzyme activity in GAD patients. Elevated malondialdehyde and reduced superoxide dismutase correlate with symptom severity.
 </div>
+                
                 
                 
                 
@@ -2488,7 +2722,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-epigenetic-alterations">
                 <div class="item-name">Epigenetic Alterations</div>
                 
                 <div class="item-desc">DNA methylation changes in anxiety-related genes, particularly in monocytes and granulocytes. Methylation sites identified in genes involved in neurogenesis and fear memory.
@@ -2518,6 +2752,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3188,6 +3423,9 @@
         <!-- Clinical Trials -->
         
 
+        <!-- Experimental Models -->
+        
+
         <!-- Computational Models -->
         
 
@@ -3231,6 +3469,7 @@ pathophysiology:
       label: fear response
   evidence:
   - reference: PMID:38865810
+    reference_title: &#34;GABAergic implications in anxiety and related disorders.&#34;
     supports: PARTIAL
     snippet: &#34;Evidence indicates that anxiety disorders arise from an imbalance in
       the functioning of brain circuits that govern the modulation of emotional responses
@@ -3258,6 +3497,7 @@ pathophysiology:
       label: synaptic transmission, GABAergic
   evidence:
   - reference: PMID:38865810
+    reference_title: &#34;GABAergic implications in anxiety and related disorders.&#34;
     supports: PARTIAL
     snippet: &#34;A decrease in GABAergic activity is present in both anxiety disorders
       and severe depression. Research on cerebral functional imaging in depressive
@@ -3268,6 +3508,7 @@ pathophysiology:
       anxiety disorders through both imaging studies and animal models showing
       that decreased GABA receptor expression leads to anxiety-like behavior.
   - reference: PMID:38865810
+    reference_title: &#34;GABAergic implications in anxiety and related disorders.&#34;
     supports: PARTIAL
     snippet: &#34;The amygdala consists of inhibitory networks composed of GABAergic interneurons,
       responsible for modulating anxiety responses in both normal and pathological
@@ -3279,6 +3520,7 @@ pathophysiology:
       amygdala and explains how benzodiazepines work by targeting GABAA receptor
       allosteric sites to enhance inhibition.
   - reference: PMID:39294497
+    reference_title: &#34;Gene discovery and biological insights into anxiety disorders from a large-scale multi-ancestry genome-wide association study.&#34;
     supports: NO_EVIDENCE
     snippet: &#34;We leveraged information from more than 1.2 million participants, including
       97,383 cases, to investigate the genetics of anxiety disorders across five continental
@@ -3303,6 +3545,7 @@ pathophysiology:
       label: chemical synaptic transmission
   evidence:
   - reference: PMID:24936175
+    reference_title: &#34;Serotonin-prefrontal cortical circuitry in anxiety and depression phenotypes: pivotal role of pre- and post-synaptic 5-HT1A receptor expression.&#34;
     supports: PARTIAL
     snippet: &#34;Decreased serotonergic activity has been implicated in anxiety and major
       depression, and antidepressants directly or indirectly increase the long-term
@@ -3313,6 +3556,7 @@ pathophysiology:
       activity in anxiety and explains how antidepressants work by increasing
       serotonin system activity.
   - reference: PMID:24936175
+    reference_title: &#34;Serotonin-prefrontal cortical circuitry in anxiety and depression phenotypes: pivotal role of pre- and post-synaptic 5-HT1A receptor expression.&#34;
     supports: PARTIAL
     snippet: &#34;In addition, 5-HT1A heteroreceptors are abundantly expressed post-synaptically
       in the prefrontal cortex (PFC), amygdala, and hippocampus to mediate serotonin
@@ -3330,6 +3574,7 @@ pathophysiology:
       label: response to stress
   evidence:
   - reference: PMID:20808146
+    reference_title: &#34;Elevated cortisol in older adults with generalized anxiety disorder is reduced by treatment: a placebo-controlled evaluation of escitalopram.&#34;
     supports: SUPPORT
     snippet: &#34;Generalized anxiety disorder (GAD) is a common disorder in older adults,
       which has been linked to hyperactivity of the hypothalamic-pituitary-adrenal
@@ -3337,6 +3582,7 @@ pathophysiology:
     explanation: This evidence directly links GAD to HPA axis hyperactivity,
       particularly in older adults.
   - reference: PMID:20808146
+    reference_title: &#34;Elevated cortisol in older adults with generalized anxiety disorder is reduced by treatment: a placebo-controlled evaluation of escitalopram.&#34;
     supports: SUPPORT
     snippet: &#34;Compared with placebo-treated patients, SSRI-treated patients had a
       significantly greater reduction in both peak and total cortisol. This reduction
@@ -3363,6 +3609,7 @@ pathophysiology:
     superoxide dismutase correlate with symptom severity.
   evidence:
   - reference: PMID:38204917
+    reference_title: &#34;Biological Markers in Newly Diagnosed Generalized Anxiety Disorder Patients: 8-OHdG, S100B and Oxidative Stress.&#34;
     supports: SUPPORT
     snippet: &#34;The 8-OHdG values of the GAD group were determined to be statistically
       significantly higher than those of the control group (p=0.028).&#34;
@@ -3370,6 +3617,7 @@ pathophysiology:
       as measured by 8-hydroxy-2-deoxyguanosine (8-OHdG), a marker of oxidative
       stress.
   - reference: PMID:38204917
+    reference_title: &#34;Biological Markers in Newly Diagnosed Generalized Anxiety Disorder Patients: 8-OHdG, S100B and Oxidative Stress.&#34;
     supports: SUPPORT
     snippet: &#34;The results of this study showed that there could be DNA damage because
       of oxidative stress in GAD patients.&#34;
@@ -3391,6 +3639,7 @@ pathophysiology:
       label: granulocyte
   evidence:
   - reference: PMID:37542162
+    reference_title: &#34;Methylome-wide association study of anxiety disorders.&#34;
     supports: PARTIAL
     snippet: &#34;Applying an enrichment-based sequencing approach covering nearly 28
       million autosomal CpG sites, we conducted a methylome-wide association study
@@ -3403,6 +3652,7 @@ pathophysiology:
       significant DNA methylation sites associated with anxiety disorders,
       supporting the role of epigenetic mechanisms in GAD pathophysiology.
   - reference: PMID:37542162
+    reference_title: &#34;Methylome-wide association study of anxiety disorders.&#34;
     supports: PARTIAL
     snippet: &#34;In monocytes, two specific sites in the FZR1 gene showed significant
       replication after Bonferroni correction with an additional 15 nominally replicated
@@ -3425,6 +3675,7 @@ phenotypes:
       label: Anxiety
   evidence:
   - reference: PMID:39294497
+    reference_title: &#34;Gene discovery and biological insights into anxiety disorders from a large-scale multi-ancestry genome-wide association study.&#34;
     supports: NO_EVIDENCE
     snippet: &#34;The heritability of anxiety was enriched for genes expressed in the
       limbic system, cerebral cortex, cerebellum, metencephalon, entorhinal cortex

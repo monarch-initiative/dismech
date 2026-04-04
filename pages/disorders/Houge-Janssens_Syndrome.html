@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1037,6 +1101,52 @@
             text-decoration: underline;
         }
 
+        /* Experimental Models */
+        .exp-model-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .exp-model-box .item-name { color: #92400e; }
+        .exp-model-box .item-desc { color: #b45309; }
+
+        .tag-exp-model-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .tag-namo-type {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+        .tag-condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .model-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .model-detail-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .model-detail-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 110px;
+        }
+        .model-detail-value {
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+        }
+        .model-detail-value a {
+            color: inherit;
+        }
+
         /* Computational Models */
         .comp-model-box {
             background: #f0fdf4;
@@ -1382,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1470,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1477,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1489,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1637,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1723,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1737,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1792,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1877,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Neurodevelopmental disorder</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">PP2A-related disorder</span>
@@ -1891,6 +2110,11 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
+        
+        
         
         
         
@@ -1946,6 +2170,14 @@
             <div class="stat-item">
                 <div class="stat-value">14</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">9</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2454,7 +2686,7 @@
                 <span class="card-count">4</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-pp2a-subunit-mutations">
                 <div class="item-name">PP2A subunit mutations</div>
                 
                 <div class="item-desc">De novo dominant missense variants in PP2A subunit genes (PPP2R5D, PPP2R1A, PPP2CA, PPP2R5C) disrupt the structure or function of the affected subunit. In PPP2R5D, variants such as E198K and E420K cause dominant-negative effects rather than loss of function.
@@ -2493,6 +2725,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
                 
@@ -2554,7 +2787,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-pp2a-holoenzyme-assembly-and-function">
                 <div class="item-name">Disrupted PP2A holoenzyme assembly and function</div>
                 
                 <div class="item-desc">Pathogenic variants impair the assembly of the PP2A heterotrimer (A-B-C complex) or disrupt substrate binding by the regulatory B subunit. In PPP2R5D, most pathogenic missense variants cluster in conserved regions and impair holoenzyme assembly. In PPP2R5C, variants affect substrate binding, C-subunit binding, or both. Catalytic activity of the phosphatase is variably affected.
@@ -2581,6 +2814,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2640,7 +2874,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-overactivation-of-growth-promoting-kinase-pathways">
                 <div class="item-name">Overactivation of growth-promoting kinase pathways</div>
                 
                 <div class="item-desc">PP2A normally opposes the activity of serine/threonine protein kinases of the PIK3CA/AKT/mTOR and RAS/MAPK pathways. Decreased PP2A activity leads to sustained activation of these growth-promoting pathways, converging on mTORC1/p70S6K/RPS6 signaling. Phosphoproteomic analysis of PPP2R5D variant cells shows RPS6 hyperphosphorylation as a shared signaling alteration, with ERK-dependent mTORC1 activation in both E198K and E420K variants, and additional AKT-mediated mTORC1 activation in the E420K variant.
@@ -2695,6 +2929,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2776,7 +3011,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-neuronal-development">
                 <div class="item-name">Disrupted neuronal development</div>
                 
                 <div class="item-desc">Patient-derived iPSC neural progenitors are hyper-proliferative, and cortical glutamatergic neurons show increased neurite outgrowth. RNA-seq reveals disruptions in pathways critical for neuronal development, synaptic signaling, and axon guidance. Importantly, these overgrowth phenotypes are not seen in PPP2R5D-null neurons, confirming dominant-negative rather than loss-of-function effects.
@@ -2817,6 +3052,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2909,18 +3145,19 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Houge-Janssens Syndrome</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Disrupted PP2A holoenzyme assembly and function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants impair the assembly of the PP2A heterotrimer (A-B-C complex) or disrupt substrate binding by the regulatory B subunit. In PPP2R5D, most pathogenic missense variants cluster in conserved regions and impair holoenzyme assembly. In PPP2R5C, variants affect substrate binding, C-subunit binding, or both. Catalytic activity of the phosphatase is variably affected.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Protein dephosphorylation\"]}}, {\"id\": \"Disrupted neuronal development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient-derived iPSC neural progenitors are hyper-proliferative, and cortical glutamatergic neurons show increased neurite outgrowth. RNA-seq reveals disruptions in pathways critical for neuronal development, synaptic signaling, and axon guidance. Importantly, these overgrowth phenotypes are not seen in PPP2R5D-null neurons, confirming dominant-negative rather than loss-of-function effects.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Neural progenitor cell\"], \"biological_processes\": [\"Nervous system development\"]}}, {\"id\": \"Overactivation of growth-promoting kinase pathways\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PP2A normally opposes the activity of serine/threonine protein kinases of the PIK3CA/AKT/mTOR and RAS/MAPK pathways. Decreased PP2A activity leads to sustained activation of these growth-promoting pathways, converging on mTORC1/p70S6K/RPS6 signaling. Phosphoproteomic analysis of PPP2R5D variant cells shows RPS6 hyperphosphorylation as a shared signaling alteration, with ERK-dependent mTORC1 activation in both E198K and E420K variants, and additional AKT-mediated mTORC1 activation in the E420K variant.\\n\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"TOR signaling\", \"MAPK cascade\", \"Ras protein signal transduction\"]}}, {\"id\": \"PP2A subunit mutations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"De novo dominant missense variants in PP2A subunit genes (PPP2R5D, PPP2R1A, PPP2CA, PPP2R5C) disrupt the structure or function of the affected subunit. In PPP2R5D, variants such as E198K and E420K cause dominant-negative effects rather than loss of function.\\n\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"PPP2R5D\", \"PPP2R1A\", \"PPP2CA\", \"PPP2R5C\"]}}], \"edges\": [{\"source\": \"PP2A subunit mutations\", \"target\": \"Disrupted PP2A holoenzyme assembly and function\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted PP2A holoenzyme assembly and function\", \"target\": \"Overactivation of growth-promoting kinase pathways\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Overactivation of growth-promoting kinase pathways\", \"target\": \"Disrupted neuronal development\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Disrupted PP2A holoenzyme assembly and function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants impair the assembly of the PP2A heterotrimer (A-B-C complex) or disrupt substrate binding by the regulatory B subunit. In PPP2R5D, most pathogenic missense variants cluster in conserved regions and impair holoenzyme assembly. In PPP2R5C, variants affect substrate binding, C-subunit binding, or both. Catalytic activity of the phosphatase is variably affected.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Protein dephosphorylation\"]}}, {\"id\": \"Disrupted neuronal development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient-derived iPSC neural progenitors are hyper-proliferative, and cortical glutamatergic neurons show increased neurite outgrowth. RNA-seq reveals disruptions in pathways critical for neuronal development, synaptic signaling, and axon guidance. Importantly, these overgrowth phenotypes are not seen in PPP2R5D-null neurons, confirming dominant-negative rather than loss-of-function effects.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Neural progenitor cell\"], \"biological_processes\": [\"Nervous system development\"]}}, {\"id\": \"E198K\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Most common disease-causing missense variant in PPP2R5D. Allele-specific antisense oligonucleotides targeting this variant can reverse neuronal overgrowth phenotypes in patient-derived neurons.\\n\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Overactivation of growth-promoting kinase pathways\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PP2A normally opposes the activity of serine/threonine protein kinases of the PIK3CA/AKT/mTOR and RAS/MAPK pathways. Decreased PP2A activity leads to sustained activation of these growth-promoting pathways, converging on mTORC1/p70S6K/RPS6 signaling. Phosphoproteomic analysis of PPP2R5D variant cells shows RPS6 hyperphosphorylation as a shared signaling alteration, with ERK-dependent mTORC1 activation in both E198K and E420K variants, and additional AKT-mediated mTORC1 activation in the E420K variant.\\n\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"TOR signaling\", \"MAPK cascade\", \"Ras protein signal transduction\"]}}, {\"id\": \"PP2A subunit mutations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"De novo dominant missense variants in PP2A subunit genes (PPP2R5D, PPP2R1A, PPP2CA, PPP2R5C) disrupt the structure or function of the affected subunit. In PPP2R5D, variants such as E198K and E420K cause dominant-negative effects rather than loss of function.\\n\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"PPP2R5D\", \"PPP2R1A\", \"PPP2CA\", \"PPP2R5C\"]}}, {\"id\": \"PPP2CA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PPP2CA\"], \"association\": \"Causative\"}}, {\"id\": \"PPP2R1A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PPP2R1A\"], \"association\": \"Causative\"}}, {\"id\": \"PPP2R5C\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PPP2R5C\"], \"association\": \"Causative\"}}, {\"id\": \"PPP2R5D\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PPP2R5D\"], \"association\": \"Causative\", \"variant_count\": 1}}], \"edges\": [{\"source\": \"PP2A subunit mutations\", \"target\": \"Disrupted PP2A holoenzyme assembly and function\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted PP2A holoenzyme assembly and function\", \"target\": \"Overactivation of growth-promoting kinase pathways\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Overactivation of growth-promoting kinase pathways\", \"target\": \"Disrupted neuronal development\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PPP2R5D\", \"target\": \"PP2A subunit mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PPP2R1A\", \"target\": \"PP2A subunit mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PPP2CA\", \"target\": \"PP2A subunit mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PPP2R5C\", \"target\": \"PP2A subunit mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"E198K\", \"target\": \"PPP2R5D\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5006,6 +5243,9 @@
         <!-- Clinical Trials -->
         
 
+        <!-- Experimental Models -->
+        
+
         <!-- Computational Models -->
         
 
@@ -5061,6 +5301,7 @@ prevalence:
     over 50 patients.
   evidence:
   - reference: PMID:41465181
+    reference_title: &#34;Clinical and Molecular Spectrum of PPP2R1A-Related Neurodevelopmental Disorders: A Systematic Review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We identified 16 studies representing 60 patients with PPP2R1A-related
@@ -5068,6 +5309,7 @@ prevalence:
     explanation: Systematic review identified 60 PPP2R1A patients across 16
       studies, indicating rarity.
   - reference: PMID:39978342
+    reference_title: &#34;Pathogenic de novo variants in PPP2R5C cause a neurodevelopmental disorder within the Houge-Janssens syndrome spectrum.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;we describe an additional condition in the HJS spectrum in 26 individuals
@@ -5082,6 +5324,7 @@ has_subtypes:
     parkinsonism. Recurrent variants include E198K and E420K.
   evidence:
   - reference: PMID:40555839
+    reference_title: &#34;Houge-Janssens syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;dominant pathogenic variants in at least two B subunits (PPP2R5D in
@@ -5090,6 +5333,7 @@ has_subtypes:
       Houge-Janssens syndrome.&#34;
     explanation: Overview paper defining HJS type 1 as PPP2R5D-related.
   - reference: PMID:39201832
+    reference_title: &#34;Thirteen New Patients of PPP2R5D Gene Mutation and the Fine Profile of Genotype-Phenotype Correlation Unraveling the Pathogenic Mechanism Underlying Macrocephaly Phenotype.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;NDDs related to the PPP2R5D gene have recently been defined as Houge-Janssens
@@ -5112,6 +5356,7 @@ has_subtypes:
     ventriculomegaly most frequent.
   evidence:
   - reference: PMID:41465181
+    reference_title: &#34;Clinical and Molecular Spectrum of PPP2R1A-Related Neurodevelopmental Disorders: A Systematic Review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We identified 16 studies representing 60 patients with PPP2R1A-related
@@ -5121,6 +5366,7 @@ has_subtypes:
     explanation: Systematic review of 60 PPP2R1A patients defining the clinical
       spectrum of HJS type 2.
   - reference: PMID:40781915
+    reference_title: &#34;Prenatal Characterization of Houge-Janssens Syndrome Type 2: A Case Report and Systematic Review of Fetal Phenotypes Associated With PPP2R1A Mutations.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Houge-Janssens syndrome type 2 (HJS2, OMIM 616362) is a rare neurodevelopmental
@@ -5140,6 +5386,7 @@ has_subtypes:
     Calpha catalytic subunit.
   evidence:
   - reference: PMID:40555839
+    reference_title: &#34;Houge-Janssens syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;dominant pathogenic variants in at least two B subunits (PPP2R5D in
@@ -5161,6 +5408,7 @@ has_subtypes:
     dominant-negative on substrate dephosphorylation.
   evidence:
   - reference: PMID:39978342
+    reference_title: &#34;Pathogenic de novo variants in PPP2R5C cause a neurodevelopmental disorder within the Houge-Janssens syndrome spectrum.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The clinical features were well within the HJS spectrum with strongest
@@ -5182,6 +5430,7 @@ inheritance:
     pathogenic variants arise de novo as heterozygous missense changes.
   evidence:
   - reference: PMID:40555839
+    reference_title: &#34;Houge-Janssens syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;recurrent pathogenic de novo missense variants in several PP2A subunits,
@@ -5218,6 +5467,7 @@ pathophysiology:
       activity through dominant-negative mechanisms.
     evidence:
     - reference: PMID:39201832
+      reference_title: &#34;Thirteen New Patients of PPP2R5D Gene Mutation and the Fine Profile of Genotype-Phenotype Correlation Unraveling the Pathogenic Mechanism Underlying Macrocephaly Phenotype.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Except for E420K and T536R, other missense variants impaired holoenzyme
@@ -5226,6 +5476,7 @@ pathophysiology:
         holoenzyme assembly.
   evidence:
   - reference: PMID:40555839
+    reference_title: &#34;Houge-Janssens syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Houge-Janssens syndrome (HJS) is caused by protein phosphatase type
@@ -5233,6 +5484,7 @@ pathophysiology:
     explanation: Overview paper establishing PP2A dysfunction as the unifying
       cause of HJS.
   - reference: PMID:39978342
+    reference_title: &#34;Pathogenic de novo variants in PPP2R5C cause a neurodevelopmental disorder within the Houge-Janssens syndrome spectrum.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;a dominant-negative mechanism on substrate dephosphorylation or general
@@ -5262,6 +5514,7 @@ pathophysiology:
       kinase signaling.
     evidence:
     - reference: PMID:40555839
+      reference_title: &#34;Houge-Janssens syndrome.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;PP2A oppose the activity of serine/threonine protein kinases, including
@@ -5273,6 +5526,7 @@ pathophysiology:
         kinase pathways.
   evidence:
   - reference: PMID:39201832
+    reference_title: &#34;Thirteen New Patients of PPP2R5D Gene Mutation and the Fine Profile of Genotype-Phenotype Correlation Unraveling the Pathogenic Mechanism Underlying Macrocephaly Phenotype.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Except for E420K and T536R, other missense variants impaired holoenzyme
@@ -5280,6 +5534,7 @@ pathophysiology:
     explanation: In vitro experiments demonstrate that most PPP2R5D missense
       variants disrupt PP2A holoenzyme assembly.
   - reference: PMID:39978342
+    reference_title: &#34;Pathogenic de novo variants in PPP2R5C cause a neurodevelopmental disorder within the Houge-Janssens syndrome spectrum.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;All variants affected either substrate binding (2/19), C-subunit binding
@@ -5317,6 +5572,7 @@ pathophysiology:
       proliferation and differentiation.
     evidence:
     - reference: PMID:40340253
+      reference_title: &#34;Pathogenic PPP2R5D variants disrupt neuronal development and neurite outgrowth in patient-derived neurons that are reversed by allele-specific knockdown.&#34;
       supports: SUPPORT
       evidence_source: IN_VITRO
       snippet: &#34;Patient-derived neural progenitors were hyper-proliferative, and glutamatergic
@@ -5325,6 +5581,7 @@ pathophysiology:
         dysfunction leads to neuronal overgrowth.
   evidence:
   - reference: PMID:40555839
+    reference_title: &#34;Houge-Janssens syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;PP2A oppose the activity of serine/threonine protein kinases, including
@@ -5335,6 +5592,7 @@ pathophysiology:
     explanation: Directly links PP2A dysfunction to overactivation of both
       PI3K/AKT/mTOR and RAS/MAPK growth kinase pathways.
   - reference: PMID:37572851
+    reference_title: &#34;Quantitative proteomics and phosphoproteomics of PP2A-PPP2R5D variants reveal deregulation of RPS6 phosphorylation via converging signaling cascades.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;We observed ribosomal protein S6 (RPS6) hyperphosphorylation as a shared
@@ -5342,6 +5600,7 @@ pathophysiology:
     explanation: Phosphoproteomics of PPP2R5D E198K and E420K cells shows RPS6
       hyperphosphorylation as shared convergent signaling alteration.
   - reference: PMID:37572851
+    reference_title: &#34;Quantitative proteomics and phosphoproteomics of PP2A-PPP2R5D variants reveal deregulation of RPS6 phosphorylation via converging signaling cascades.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;our data suggests ERK-dependent activation of mTORC1 in both E198K and
@@ -5351,6 +5610,7 @@ pathophysiology:
       mTORC1 in PPP2R5D variant cells, explaining why multiple growth pathways
       are co-activated.
   - reference: PMID:39728742
+    reference_title: &#34;PPP2R5D-Related Neurodevelopmental Disorder and Multiple Haemangiomas: A Novel Phenotypic Trait?&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;There is evidence that the PP2A-PPP2R5D complex is involved in regulating
@@ -5379,6 +5639,7 @@ pathophysiology:
       label: nervous system development
   evidence:
   - reference: PMID:40340253
+    reference_title: &#34;Pathogenic PPP2R5D variants disrupt neuronal development and neurite outgrowth in patient-derived neurons that are reversed by allele-specific knockdown.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;Patient-derived neural progenitors were hyper-proliferative, and glutamatergic
@@ -5386,6 +5647,7 @@ pathophysiology:
     explanation: iPSC study demonstrating neural progenitor hyperproliferation
       and neuronal overgrowth in PPP2R5D patients.
   - reference: PMID:40340253
+    reference_title: &#34;Pathogenic PPP2R5D variants disrupt neuronal development and neurite outgrowth in patient-derived neurons that are reversed by allele-specific knockdown.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;RNA sequencing (RNA-seq) of glutamatergic neurons derived from patient
@@ -5394,6 +5656,7 @@ pathophysiology:
     explanation: Transcriptomic evidence of disrupted neurodevelopmental
       pathways.
   - reference: PMID:40340253
+    reference_title: &#34;Pathogenic PPP2R5D variants disrupt neuronal development and neurite outgrowth in patient-derived neurons that are reversed by allele-specific knockdown.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;neuronal overgrowth phenotypes were not observed in neurons lacking
@@ -5413,6 +5676,7 @@ phenotypes:
       label: Global developmental delay
   evidence:
   - reference: PMID:40555839
+    reference_title: &#34;Houge-Janssens syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The core features are neurodevelopmental delay, especially concerning
@@ -5420,6 +5684,7 @@ phenotypes:
     explanation: Overview defines neurodevelopmental delay as a core feature of
       HJS.
   - reference: PMID:41465181
+    reference_title: &#34;Clinical and Molecular Spectrum of PPP2R1A-Related Neurodevelopmental Disorders: A Systematic Review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Developmental delay and intellectual disability were universally present
@@ -5438,6 +5703,7 @@ phenotypes:
       label: Delayed speech and language development
   evidence:
   - reference: PMID:40555839
+    reference_title: &#34;Houge-Janssens syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The core features are neurodevelopmental delay, especially concerning
@@ -5454,12 +5720,14 @@ phenotypes:
       label: Intellectual disability
   evidence:
   - reference: PMID:41465181
+    reference_title: &#34;Clinical and Molecular Spectrum of PPP2R1A-Related Neurodevelopmental Disorders: A Systematic Review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Developmental delay and intellectual disability were universally present
       in all patients for whom data were available (100%, 58/58).&#34;
     explanation: Universal in HJS type 2 patients.
   - reference: PMID:39978342
+    reference_title: &#34;Pathogenic de novo variants in PPP2R5C cause a neurodevelopmental disorder within the Houge-Janssens syndrome spectrum.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The degree of intellectual disability was, on average, milder than in
@@ -5476,12 +5744,14 @@ phenotypes:
       label: Hypotonia
   evidence:
   - reference: PMID:40555839
+    reference_title: &#34;Houge-Janssens syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The core features are neurodevelopmental delay, especially concerning
       language, prolonged hypotonia, high risk of seizures, and behavior problems.&#34;
     explanation: Prolonged hypotonia listed as a core feature.
   - reference: PMID:39978342
+    reference_title: &#34;Pathogenic de novo variants in PPP2R5C cause a neurodevelopmental disorder within the Houge-Janssens syndrome spectrum.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Common features were neurodevelopmental delay and hypotonia, with a
@@ -5499,12 +5769,14 @@ phenotypes:
       label: Seizure
   evidence:
   - reference: PMID:40555839
+    reference_title: &#34;Houge-Janssens syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The core features are neurodevelopmental delay, especially concerning
       language, prolonged hypotonia, high risk of seizures, and behavior problems.&#34;
     explanation: Seizures listed as a core feature with high risk.
   - reference: PMID:41465181
+    reference_title: &#34;Clinical and Molecular Spectrum of PPP2R1A-Related Neurodevelopmental Disorders: A Systematic Review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Epilepsy occurred in 50.9% (29/57)&#34;
@@ -5522,6 +5794,7 @@ phenotypes:
       label: Macrocephaly
   evidence:
   - reference: PMID:40555839
+    reference_title: &#34;Houge-Janssens syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Decreased PP2A activity can thus be growth promoting, as evidenced by
@@ -5530,11 +5803,13 @@ phenotypes:
     explanation: Links macrocephaly to decreased PP2A activity and
       growth-promoting signaling.
   - reference: PMID:41465181
+    reference_title: &#34;Clinical and Molecular Spectrum of PPP2R1A-Related Neurodevelopmental Disorders: A Systematic Review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;macrocephaly in 25.9% (15/58)&#34;
     explanation: Quantifies macrocephaly at ~26% in HJS type 2.
   - reference: PMID:39201832
+    reference_title: &#34;Thirteen New Patients of PPP2R5D Gene Mutation and the Fine Profile of Genotype-Phenotype Correlation Unraveling the Pathogenic Mechanism Underlying Macrocephaly Phenotype.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;the macrocephaly phenotype was related to negatively charged residues
@@ -5555,6 +5830,7 @@ phenotypes:
       label: Microcephaly
   evidence:
   - reference: PMID:41465181
+    reference_title: &#34;Clinical and Molecular Spectrum of PPP2R1A-Related Neurodevelopmental Disorders: A Systematic Review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Microcephaly was reported in 17.2% (10/58)&#34;
@@ -5569,6 +5845,7 @@ phenotypes:
       label: Autistic behavior
   evidence:
   - reference: PMID:40340253
+    reference_title: &#34;Pathogenic PPP2R5D variants disrupt neuronal development and neurite outgrowth in patient-derived neurons that are reversed by allele-specific knockdown.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Heterozygous missense variants in PPP2R5D cause Houge-Janssens syndrome
@@ -5587,6 +5864,7 @@ phenotypes:
       label: Abnormal corpus callosum morphology
   evidence:
   - reference: PMID:41465181
+    reference_title: &#34;Clinical and Molecular Spectrum of PPP2R1A-Related Neurodevelopmental Disorders: A Systematic Review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;structural brain abnormalities in 83.1% (49/59), with corpus callosum
@@ -5595,6 +5873,7 @@ phenotypes:
     explanation: Corpus callosum abnormalities in 41% and ventriculomegaly in
       32% of HJS type 2 patients.
   - reference: PMID:40781915
+    reference_title: &#34;Prenatal Characterization of Houge-Janssens Syndrome Type 2: A Case Report and Systematic Review of Fetal Phenotypes Associated With PPP2R1A Mutations.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The most common features were ventriculomegaly (92%), agenesis or dysgenesis
@@ -5612,6 +5891,7 @@ phenotypes:
       label: Ventriculomegaly
   evidence:
   - reference: PMID:41465181
+    reference_title: &#34;Clinical and Molecular Spectrum of PPP2R1A-Related Neurodevelopmental Disorders: A Systematic Review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;structural brain abnormalities in 83.1% (49/59), with corpus callosum
@@ -5619,6 +5899,7 @@ phenotypes:
       frequent.&#34;
     explanation: Ventriculomegaly in ~32% of HJS type 2 patients.
   - reference: PMID:40781915
+    reference_title: &#34;Prenatal Characterization of Houge-Janssens Syndrome Type 2: A Case Report and Systematic Review of Fetal Phenotypes Associated With PPP2R1A Mutations.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The most common features were ventriculomegaly (92%), agenesis or dysgenesis
@@ -5636,6 +5917,7 @@ phenotypes:
       label: Parkinsonism
   evidence:
   - reference: PMID:40340253
+    reference_title: &#34;Pathogenic PPP2R5D variants disrupt neuronal development and neurite outgrowth in patient-derived neurons that are reversed by allele-specific knockdown.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Heterozygous missense variants in PPP2R5D cause Houge-Janssens syndrome
@@ -5656,12 +5938,14 @@ phenotypes:
       label: Abnormal facial shape
   evidence:
   - reference: PMID:41465181
+    reference_title: &#34;Clinical and Molecular Spectrum of PPP2R1A-Related Neurodevelopmental Disorders: A Systematic Review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;dysmorphic features were present in 53.4% (31/58)&#34;
     explanation: Systematic review quantifies dysmorphic features at ~53% in
       HJS type 2 patients.
   - reference: PMID:39978342
+    reference_title: &#34;Pathogenic de novo variants in PPP2R5C cause a neurodevelopmental disorder within the Houge-Janssens syndrome spectrum.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Common features were neurodevelopmental delay and hypotonia, with a
@@ -5681,6 +5965,7 @@ phenotypes:
       label: Hemangioma
   evidence:
   - reference: PMID:39728742
+    reference_title: &#34;PPP2R5D-Related Neurodevelopmental Disorder and Multiple Haemangiomas: A Novel Phenotypic Trait?&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Haemangiomas have never been linked to the syndromic phenotype of
@@ -5702,6 +5987,7 @@ phenotypes:
       label: Abnormal heart morphology
   evidence:
   - reference: PMID:40781915
+    reference_title: &#34;Prenatal Characterization of Houge-Janssens Syndrome Type 2: A Case Report and Systematic Review of Fetal Phenotypes Associated With PPP2R1A Mutations.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The most common features were ventriculomegaly (92%), agenesis or dysgenesis
@@ -5722,6 +6008,7 @@ genetic:
     regions. Dominant-negative mechanism, not loss of function.
   evidence:
   - reference: PMID:40340253
+    reference_title: &#34;Pathogenic PPP2R5D variants disrupt neuronal development and neurite outgrowth in patient-derived neurons that are reversed by allele-specific knockdown.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;neuronal overgrowth phenotypes were not observed in neurons lacking
@@ -5729,6 +6016,7 @@ genetic:
     explanation: Confirms dominant-negative rather than loss-of-function
       mechanism.
   - reference: PMID:39201832
+    reference_title: &#34;Thirteen New Patients of PPP2R5D Gene Mutation and the Fine Profile of Genotype-Phenotype Correlation Unraveling the Pathogenic Mechanism Underlying Macrocephaly Phenotype.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Thirteen new patients carrying twelve PPP2R5D gene variants were detected,
@@ -5743,6 +6031,7 @@ genetic:
     clinical_significance: PATHOGENIC
     evidence:
     - reference: PMID:40340253
+      reference_title: &#34;Pathogenic PPP2R5D variants disrupt neuronal development and neurite outgrowth in patient-derived neurons that are reversed by allele-specific knockdown.&#34;
       supports: SUPPORT
       evidence_source: IN_VITRO
       snippet: &#34;antisense oligonucleotides (ASOs) were designed to selectively knock
@@ -5764,6 +6053,7 @@ genetic:
     in HEAT repeats 5-7.
   evidence:
   - reference: PMID:41465181
+    reference_title: &#34;Clinical and Molecular Spectrum of PPP2R1A-Related Neurodevelopmental Disorders: A Systematic Review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Recurrent hotspots included p.Arg182Trp (n = 12) and p.Arg183Gln (n
@@ -5781,6 +6071,7 @@ genetic:
     loss-of-function variants cause HJS type 3.
   evidence:
   - reference: PMID:40555839
+    reference_title: &#34;Houge-Janssens syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;dominant pathogenic variants in at least two B subunits (PPP2R5D in
@@ -5801,6 +6092,7 @@ genetic:
     non-symptomatic parents, implying a dominant-negative mechanism.
   evidence:
   - reference: PMID:39978342
+    reference_title: &#34;Pathogenic de novo variants in PPP2R5C cause a neurodevelopmental disorder within the Houge-Janssens syndrome spectrum.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;PPP2R5C total loss-of-function variants could be inherited from a non-symptomatic
@@ -5821,6 +6113,7 @@ biochemical:
     dysfunction and a readout for therapeutic intervention.
   evidence:
   - reference: PMID:37572851
+    reference_title: &#34;Quantitative proteomics and phosphoproteomics of PP2A-PPP2R5D variants reveal deregulation of RPS6 phosphorylation via converging signaling cascades.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;We observed ribosomal protein S6 (RPS6) hyperphosphorylation as a shared
@@ -5835,6 +6128,7 @@ biochemical:
     both cell size and RPS6 phosphorylation.
   evidence:
   - reference: PMID:33482199
+    reference_title: &#34;A disorder-related variant (E420K) of a PP2A-regulatory subunit (PPP2R5D) causes constitutively active AKT-mTOR signaling and uncoordinated cell growth.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;Rapamycin reduced cell size and dose-dependently reduced RPS6
@@ -5875,6 +6169,7 @@ treatments:
       label: supportive care
   evidence:
   - reference: PMID:40555839
+    reference_title: &#34;Houge-Janssens syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Hypothetically, small molecules that alleviate substrate blockade by
@@ -5892,6 +6187,7 @@ treatments:
       label: speech therapy
   evidence:
   - reference: PMID:40555839
+    reference_title: &#34;Houge-Janssens syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The core features are neurodevelopmental delay, especially concerning
@@ -5909,6 +6205,7 @@ treatments:
       label: genetic counseling
   evidence:
   - reference: PMID:41465181
+    reference_title: &#34;Clinical and Molecular Spectrum of PPP2R1A-Related Neurodevelopmental Disorders: A Systematic Review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Recognition of recurrent hotspot variants and their phenotype associations
@@ -5933,6 +6230,7 @@ treatments:
     constitutively active AKT-mTOR signaling caused by PP2A dysfunction.
   evidence:
   - reference: PMID:33482199
+    reference_title: &#34;A disorder-related variant (E420K) of a PP2A-regulatory subunit (PPP2R5D) causes constitutively active AKT-mTOR signaling and uncoordinated cell growth.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;Rapamycin reduced cell size and dose-dependently reduced RPS6
@@ -5941,6 +6239,7 @@ treatments:
     explanation: In vitro evidence that rapamycin reverses molecular phenotypes
       in PPP2R5D E420K variant cells.
   - reference: PMID:37572851
+    reference_title: &#34;Quantitative proteomics and phosphoproteomics of PP2A-PPP2R5D variants reveal deregulation of RPS6 phosphorylation via converging signaling cascades.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;We observed ribosomal protein S6 (RPS6) hyperphosphorylation as a shared
@@ -5964,6 +6263,7 @@ treatments:
     wild-type PPP2R5D expression.
   evidence:
   - reference: PMID:40340253
+    reference_title: &#34;Pathogenic PPP2R5D variants disrupt neuronal development and neurite outgrowth in patient-derived neurons that are reversed by allele-specific knockdown.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;antisense oligonucleotides (ASOs) were designed to selectively knock
@@ -5994,6 +6294,7 @@ differential_diagnoses:
     cognitive level
   evidence:
   - reference: PMID:31250618
+    reference_title: &#34;Neurodevelopmental Aspects of RASopathies.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The frequently seen neurological defects are developmental delay, macrocephaly,
@@ -6002,6 +6303,7 @@ differential_diagnoses:
       including DD, macrocephaly, and seizures, because both involve
       dysregulation of the same downstream kinase pathways.
   - reference: PMID:40555839
+    reference_title: &#34;Houge-Janssens syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;PP2A oppose the activity of serine/threonine protein kinases, including
@@ -6029,6 +6331,7 @@ differential_diagnoses:
   - Somatic overgrowth with body asymmetry occurs in MCAP but not HJS
   evidence:
   - reference: PMID:39806603
+    reference_title: &#34;A phase II double-blind multicentre, placebo-controlled trial to assess the efficacy and safety of alpelisib (BYL719) in paediatric and adult patients with Megalencephaly-CApillary malformation Polymicrogyria syndrome (MCAP): the SESAM study protocol.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The megalencephaly capillary malformation polymicrogyria (MCAP syndrome)
@@ -6057,6 +6360,7 @@ differential_diagnoses:
     dominant-negative mechanisms on PP2A
   evidence:
   - reference: PMID:34625286
+    reference_title: &#34;PTEN mutations in autism spectrum disorder and congenital hydrocephalus: developmental pleiotropy and therapeutic targets.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;we review and discuss phenotypic, genomic, and molecular similarities
@@ -6087,6 +6391,7 @@ differential_diagnoses:
   - Small thorax may be present in SKS but is not seen in HJS
   evidence:
   - reference: PMID:39030910
+    reference_title: &#34;Clinical and functional studies of MTOR variants in Smith-Kingsmore syndrome reveal deficits of circadian rhythm and sleep-wake behavior.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Heterozygous de novo or inherited gain-of-function mutations in the
@@ -6116,6 +6421,7 @@ differential_diagnoses:
   - Characteristic EEG pattern in Angelman syndrome
   evidence:
   - reference: PMID:40555839
+    reference_title: &#34;Houge-Janssens syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The core features are neurodevelopmental delay, especially concerning
@@ -6136,6 +6442,7 @@ classifications:
   - classification_value: nervous system disorder
     evidence:
     - reference: PMID:40555839
+      reference_title: &#34;Houge-Janssens syndrome.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;The core features are neurodevelopmental delay, especially concerning
@@ -6145,6 +6452,7 @@ classifications:
   - classification_value: hereditary disease
     evidence:
     - reference: PMID:40555839
+      reference_title: &#34;Houge-Janssens syndrome.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;recurrent pathogenic de novo missense variants in several PP2A subunits,
@@ -6162,6 +6470,7 @@ classifications:
       exists in the current mechanistic nosology.
     evidence:
     - reference: PMID:37572851
+      reference_title: &#34;Quantitative proteomics and phosphoproteomics of PP2A-PPP2R5D variants reveal deregulation of RPS6 phosphorylation via converging signaling cascades.&#34;
       supports: PARTIAL
       evidence_source: IN_VITRO
       snippet: &#34;our data suggests ERK-dependent activation of mTORC1 in both E198K

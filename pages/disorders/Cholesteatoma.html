@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1037,6 +1101,52 @@
             text-decoration: underline;
         }
 
+        /* Experimental Models */
+        .exp-model-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .exp-model-box .item-name { color: #92400e; }
+        .exp-model-box .item-desc { color: #b45309; }
+
+        .tag-exp-model-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .tag-namo-type {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+        .tag-condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .model-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .model-detail-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .model-detail-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 110px;
+        }
+        .model-detail-value {
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+        }
+        .model-detail-value a {
+            color: inherit;
+        }
+
         /* Computational Models */
         .comp-model-box {
             background: #f0fdf4;
@@ -1382,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1470,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1477,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1489,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1637,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1723,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1737,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1792,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1877,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 23</a>
+                
+                
             </div>
             
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; opacity: 0.95; position: relative;">
@@ -1887,6 +2106,11 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
+        
+        
         
         
         
@@ -1942,6 +2166,14 @@
             <div class="stat-item">
                 <div class="stat-value">8</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">23</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2190,7 +2422,7 @@
                 <span class="card-count">12</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-wnt-beta-catenin-pathway-activation-in-cholesteatoma-epithelium">
                 <div class="item-name">Wnt/beta-catenin pathway activation in cholesteatoma epithelium</div>
                 
                 <div class="item-desc">Cholesteatoma epithelial cells show increased beta-catenin signaling, which promotes proliferative gene-expression programs and lesion growth.
@@ -2229,6 +2461,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2263,7 +2496,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-osteopontin-akt-zeb2-driven-partial-epithelial-mesenchymal-transition">
                 <div class="item-name">Osteopontin/AKT/ZEB2-driven partial epithelial-mesenchymal transition</div>
                 
                 <div class="item-desc">Elevated osteopontin signaling promotes a partial epithelial-mesenchymal transition state in cholesteatoma keratinocytes, increasing proliferation, survival, and migratory behavior without a full mesenchymal conversion.
@@ -2314,6 +2547,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -2370,7 +2604,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-keratinizing-squamous-epithelium-overgrowth-in-the-middle-ear">
                 <div class="item-name">Keratinizing squamous epithelium overgrowth in the middle ear</div>
                 
                 <div class="item-desc">The lesion consists of expanding keratinizing squamous epithelium within the middle ear space, producing a persistent mass with destructive local behavior.
@@ -2430,6 +2664,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2464,7 +2699,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-perimatrix-inflammatory-cytokine-and-stat3-signaling-amplification">
                 <div class="item-name">Perimatrix inflammatory cytokine and STAT3 signaling amplification</div>
                 
                 <div class="item-desc">The perimatrix behaves as a chronically inflamed stromal compartment with increased IL-1beta, STAT3, TGF-beta, and related signaling, especially in more aggressive acquired disease.
@@ -2537,6 +2772,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2591,7 +2827,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-polymicrobial-bacterial-persistence-in-cholesteatoma-tissue">
                 <div class="item-name">Polymicrobial bacterial persistence in cholesteatoma tissue</div>
                 
                 <div class="item-desc">Cholesteatoma frequently contains persistent polymicrobial communities, commonly dominated by Proteobacteria or Firmicutes, which can reinforce chronicity in the diseased middle-ear environment.
@@ -2614,6 +2850,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -2670,7 +2907,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-extracellular-matrix-remodeling-in-the-perimatrix">
                 <div class="item-name">Extracellular matrix remodeling in the perimatrix</div>
                 
                 <div class="item-desc">Remodeling enzymes in the perimatrix promote extracellular matrix turnover and structural reorganization of the cholesteatoma stromal compartment.
@@ -2721,6 +2958,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -2777,7 +3015,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-neoangiogenesis-in-the-perimatrix">
                 <div class="item-name">Neoangiogenesis in the perimatrix</div>
                 
                 <div class="item-desc">Angiogenic signaling in the perimatrix promotes new vessel formation and a vascularized stromal niche that supports lesion persistence.
@@ -2840,6 +3078,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2894,7 +3133,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-activin-a-mediated-local-osteoclastogenesis">
                 <div class="item-name">Activin A-mediated local osteoclastogenesis</div>
                 
                 <div class="item-desc">A pathogenic fibroblast subset within cholesteatoma tissue produces inhibin beta A/activin A, which promotes local osteoclast differentiation and creates a pro-osteolytic microenvironment.
@@ -2957,6 +3196,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3011,7 +3251,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-local-temporal-bone-erosion">
                 <div class="item-name">Local temporal bone erosion</div>
                 
                 <div class="item-desc">Cholesteatoma progressively erodes surrounding temporal-bone structures, creating the substrate for more specific destructive complications.
@@ -3041,6 +3281,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -3077,7 +3318,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-ossicular-chain-erosion">
                 <div class="item-name">Ossicular chain erosion</div>
                 
                 <div class="item-desc">Cholesteatoma commonly erodes the malleus, incus, and stapes, disrupting the ossicular transmission pathway.
@@ -3100,6 +3341,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -3136,7 +3378,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-tympanic-facial-canal-dehiscence">
                 <div class="item-name">Tympanic facial canal dehiscence</div>
                 
                 <div class="item-desc">Destructive cholesteatoma can extend into the tympanic facial canal, exposing the facial nerve to local erosive and inflammatory injury.
@@ -3159,6 +3401,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -3195,11 +3438,12 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-semicircular-canal-dehiscence">
                 <div class="item-name">Semicircular canal dehiscence</div>
                 
                 <div class="item-desc">Advanced cholesteatoma can erode into the semicircular canal, creating a bony dehiscence that predisposes to labyrinthine fistula and vestibular symptoms.
 </div>
+                
                 
                 
                 
@@ -3309,18 +3553,29 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
+            
+            <div class="graph-warning">
+                <strong>Referential integrity issues (1):</strong>
+                <ul>
+                    
+                    <li>Target &#39;Local bone erosion and ossicular destruction&#39; (from &#39;Tympanomastoidectomy-based surgical excision&#39;) not found in named elements</li>
+                    
+                    
+                </ul>
+            </div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Cholesteatoma</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Activin A-mediated local osteoclastogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A pathogenic fibroblast subset within cholesteatoma tissue produces inhibin beta A/activin A, which promotes local osteoclast differentiation and creates a pro-osteolytic microenvironment.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\", \"osteoclast\"], \"biological_processes\": [\"bone remodeling\"], \"locations\": [\"middle ear\"]}}, {\"id\": \"Chronic Otorrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent or recurrent ear discharge is a typical presenting manifestation of acquired middle-ear cholesteatoma.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\"}}, {\"id\": \"Conductive Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Conductive hearing impairment is common because cholesteatoma disrupts normal sound transmission across the middle ear and ossicular chain.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000405\"}}, {\"id\": \"Ear pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Otalgia is a common presenting symptom in cholesteatoma and reflects local inflammatory irritation within the middle ear and adjacent structures.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030766\"}}, {\"id\": \"Extracellular matrix remodeling in the perimatrix\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Remodeling enzymes in the perimatrix promote extracellular matrix turnover and structural reorganization of the cholesteatoma stromal compartment.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"extracellular matrix disassembly\"], \"locations\": [\"middle ear\"]}}, {\"id\": \"Facial palsy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Facial nerve palsy is an uncommon but clinically important complication of advanced erosive cholesteatoma.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"RARE\", \"term_id\": \"HP:0010628\"}}, {\"id\": \"Keratinizing squamous epithelium overgrowth in the middle ear\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The lesion consists of expanding keratinizing squamous epithelium within the middle ear space, producing a persistent mass with destructive local behavior.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"keratinization\"], \"locations\": [\"middle ear\", \"tympanic membrane\"]}}, {\"id\": \"Labyrinthine fistula\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Advanced cholesteatoma can erode the labyrinth, producing a labyrinthine fistula that is usually identified radiologically or intraoperatively.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\"}}, {\"id\": \"Local temporal bone erosion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cholesteatoma progressively erodes surrounding temporal-bone structures, creating the substrate for more specific destructive complications.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"middle ear\", \"mastoid process of temporal bone\"]}}, {\"id\": \"Neoangiogenesis in the perimatrix\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Angiogenic signaling in the perimatrix promotes new vessel formation and a vascularized stromal niche that supports lesion persistence.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"endothelial cell\", \"fibroblast\"], \"biological_processes\": [\"angiogenesis\"], \"locations\": [\"middle ear\"]}}, {\"id\": \"Ossicular chain erosion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cholesteatoma commonly erodes the malleus, incus, and stapes, disrupting the ossicular transmission pathway.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"middle ear\"]}}, {\"id\": \"Osteopontin/AKT/ZEB2-driven partial epithelial-mesenchymal transition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated osteopontin signaling promotes a partial epithelial-mesenchymal transition state in cholesteatoma keratinocytes, increasing proliferation, survival, and migratory behavior without a full mesenchymal conversion.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"epithelial to mesenchymal transition\"], \"locations\": [\"middle ear\"]}}, {\"id\": \"Perimatrix inflammatory cytokine and STAT3 signaling amplification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The perimatrix behaves as a chronically inflamed stromal compartment with increased IL-1beta, STAT3, TGF-beta, and related signaling, especially in more aggressive acquired disease.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\", \"T cell\"], \"biological_processes\": [\"cytokine-mediated signaling pathway\", \"inflammatory response\"], \"locations\": [\"middle ear\"]}}, {\"id\": \"Polymicrobial bacterial persistence in cholesteatoma tissue\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cholesteatoma frequently contains persistent polymicrobial communities, commonly dominated by Proteobacteria or Firmicutes, which can reinforce chronicity in the diseased middle-ear environment.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"middle ear\"]}}, {\"id\": \"Semicircular canal dehiscence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Advanced cholesteatoma can erode into the semicircular canal, creating a bony dehiscence that predisposes to labyrinthine fistula and vestibular symptoms.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Tympanic facial canal dehiscence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Destructive cholesteatoma can extend into the tympanic facial canal, exposing the facial nerve to local erosive and inflammatory injury.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"middle ear\"]}}, {\"id\": \"Vertigo\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vertigo can occur when cholesteatoma erodes the labyrinth, most often the lateral semicircular canal, producing vestibular symptoms.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002321\"}}, {\"id\": \"Wnt/beta-catenin pathway activation in cholesteatoma epithelium\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cholesteatoma epithelial cells show increased beta-catenin signaling, which promotes proliferative gene-expression programs and lesion growth.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"locations\": [\"middle ear\"]}}], \"edges\": [{\"source\": \"Wnt/beta-catenin pathway activation in cholesteatoma epithelium\", \"target\": \"Keratinizing squamous epithelium overgrowth in the middle ear\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Osteopontin/AKT/ZEB2-driven partial epithelial-mesenchymal transition\", \"target\": \"Keratinizing squamous epithelium overgrowth in the middle ear\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Keratinizing squamous epithelium overgrowth in the middle ear\", \"target\": \"Perimatrix inflammatory cytokine and STAT3 signaling amplification\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Keratinizing squamous epithelium overgrowth in the middle ear\", \"target\": \"Activin A-mediated local osteoclastogenesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Perimatrix inflammatory cytokine and STAT3 signaling amplification\", \"target\": \"Extracellular matrix remodeling in the perimatrix\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Perimatrix inflammatory cytokine and STAT3 signaling amplification\", \"target\": \"Ear pain\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Polymicrobial bacterial persistence in cholesteatoma tissue\", \"target\": \"Perimatrix inflammatory cytokine and STAT3 signaling amplification\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Polymicrobial bacterial persistence in cholesteatoma tissue\", \"target\": \"Chronic Otorrhea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular matrix remodeling in the perimatrix\", \"target\": \"Neoangiogenesis in the perimatrix\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neoangiogenesis in the perimatrix\", \"target\": \"Local temporal bone erosion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Activin A-mediated local osteoclastogenesis\", \"target\": \"Local temporal bone erosion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Local temporal bone erosion\", \"target\": \"Ossicular chain erosion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Local temporal bone erosion\", \"target\": \"Semicircular canal dehiscence\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Local temporal bone erosion\", \"target\": \"Tympanic facial canal dehiscence\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ossicular chain erosion\", \"target\": \"Conductive Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tympanic facial canal dehiscence\", \"target\": \"Facial palsy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Semicircular canal dehiscence\", \"target\": \"Labyrinthine fistula\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Semicircular canal dehiscence\", \"target\": \"Vertigo\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Activin A-mediated local osteoclastogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A pathogenic fibroblast subset within cholesteatoma tissue produces inhibin beta A/activin A, which promotes local osteoclast differentiation and creates a pro-osteolytic microenvironment.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\", \"osteoclast\"], \"biological_processes\": [\"bone remodeling\"], \"locations\": [\"middle ear\"]}}, {\"id\": \"Chronic Otorrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent or recurrent ear discharge is a typical presenting manifestation of acquired middle-ear cholesteatoma.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\"}}, {\"id\": \"Conductive Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Conductive hearing impairment is common because cholesteatoma disrupts normal sound transmission across the middle ear and ossicular chain.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000405\"}}, {\"id\": \"Ear pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Otalgia is a common presenting symptom in cholesteatoma and reflects local inflammatory irritation within the middle ear and adjacent structures.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030766\"}}, {\"id\": \"Exclusive endoscopic tympanoplasty for selected non-mastoid disease\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In carefully selected patients without mastoid involvement, exclusive endoscopic tympanoplasty can remove cholesteatoma with recurrence rates comparable to more traditional microscopic approaches.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Extracellular matrix remodeling in the perimatrix\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Remodeling enzymes in the perimatrix promote extracellular matrix turnover and structural reorganization of the cholesteatoma stromal compartment.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"extracellular matrix disassembly\"], \"locations\": [\"middle ear\"]}}, {\"id\": \"Facial palsy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Facial nerve palsy is an uncommon but clinically important complication of advanced erosive cholesteatoma.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"RARE\", \"term_id\": \"HP:0010628\"}}, {\"id\": \"Keratinizing squamous epithelium overgrowth in the middle ear\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The lesion consists of expanding keratinizing squamous epithelium within the middle ear space, producing a persistent mass with destructive local behavior.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"keratinization\"], \"locations\": [\"middle ear\", \"tympanic membrane\"]}}, {\"id\": \"Labyrinthine fistula\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Advanced cholesteatoma can erode the labyrinth, producing a labyrinthine fistula that is usually identified radiologically or intraoperatively.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\"}}, {\"id\": \"Local bone erosion and ossicular destruction\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Local temporal bone erosion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cholesteatoma progressively erodes surrounding temporal-bone structures, creating the substrate for more specific destructive complications.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"middle ear\", \"mastoid process of temporal bone\"]}}, {\"id\": \"Longitudinal postoperative audiologic surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ongoing hearing follow-up is warranted because some patients, especially children, develop progressive sensorineural hearing loss over time even after initial evaluation or surgery.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Neoangiogenesis in the perimatrix\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Angiogenic signaling in the perimatrix promotes new vessel formation and a vascularized stromal niche that supports lesion persistence.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"endothelial cell\", \"fibroblast\"], \"biological_processes\": [\"angiogenesis\"], \"locations\": [\"middle ear\"]}}, {\"id\": \"Ossicular chain erosion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cholesteatoma commonly erodes the malleus, incus, and stapes, disrupting the ossicular transmission pathway.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"middle ear\"]}}, {\"id\": \"Osteopontin/AKT/ZEB2-driven partial epithelial-mesenchymal transition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated osteopontin signaling promotes a partial epithelial-mesenchymal transition state in cholesteatoma keratinocytes, increasing proliferation, survival, and migratory behavior without a full mesenchymal conversion.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"epithelial to mesenchymal transition\"], \"locations\": [\"middle ear\"]}}, {\"id\": \"Perimatrix inflammatory cytokine and STAT3 signaling amplification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The perimatrix behaves as a chronically inflamed stromal compartment with increased IL-1beta, STAT3, TGF-beta, and related signaling, especially in more aggressive acquired disease.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\", \"T cell\"], \"biological_processes\": [\"cytokine-mediated signaling pathway\", \"inflammatory response\"], \"locations\": [\"middle ear\"]}}, {\"id\": \"Polymicrobial bacterial persistence in cholesteatoma tissue\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cholesteatoma frequently contains persistent polymicrobial communities, commonly dominated by Proteobacteria or Firmicutes, which can reinforce chronicity in the diseased middle-ear environment.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"middle ear\"]}}, {\"id\": \"Progressive Sensorineural Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Some children with cholesteatoma develop progressive sensorineural hearing loss over time and require ongoing audiologic monitoring even after an initially normal bone-conduction baseline.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000407\"}}, {\"id\": \"Semicircular canal dehiscence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Advanced cholesteatoma can erode into the semicircular canal, creating a bony dehiscence that predisposes to labyrinthine fistula and vestibular symptoms.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Tympanic facial canal dehiscence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Destructive cholesteatoma can extend into the tympanic facial canal, exposing the facial nerve to local erosive and inflammatory injury.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"middle ear\"]}}, {\"id\": \"Tympanomastoidectomy-based surgical excision\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Definitive management usually requires operative removal of cholesteatoma with tympanoplasty- and/or mastoidectomy-based approaches chosen according to disease extent and surgeon goals.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Vertigo\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vertigo can occur when cholesteatoma erodes the labyrinth, most often the lateral semicircular canal, producing vestibular symptoms.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002321\"}}, {\"id\": \"Wnt/beta-catenin pathway activation in cholesteatoma epithelium\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cholesteatoma epithelial cells show increased beta-catenin signaling, which promotes proliferative gene-expression programs and lesion growth.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"locations\": [\"middle ear\"]}}], \"edges\": [{\"source\": \"Wnt/beta-catenin pathway activation in cholesteatoma epithelium\", \"target\": \"Keratinizing squamous epithelium overgrowth in the middle ear\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Osteopontin/AKT/ZEB2-driven partial epithelial-mesenchymal transition\", \"target\": \"Keratinizing squamous epithelium overgrowth in the middle ear\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Keratinizing squamous epithelium overgrowth in the middle ear\", \"target\": \"Perimatrix inflammatory cytokine and STAT3 signaling amplification\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Keratinizing squamous epithelium overgrowth in the middle ear\", \"target\": \"Activin A-mediated local osteoclastogenesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Perimatrix inflammatory cytokine and STAT3 signaling amplification\", \"target\": \"Extracellular matrix remodeling in the perimatrix\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Perimatrix inflammatory cytokine and STAT3 signaling amplification\", \"target\": \"Ear pain\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Polymicrobial bacterial persistence in cholesteatoma tissue\", \"target\": \"Perimatrix inflammatory cytokine and STAT3 signaling amplification\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Polymicrobial bacterial persistence in cholesteatoma tissue\", \"target\": \"Chronic Otorrhea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular matrix remodeling in the perimatrix\", \"target\": \"Neoangiogenesis in the perimatrix\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neoangiogenesis in the perimatrix\", \"target\": \"Local temporal bone erosion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Activin A-mediated local osteoclastogenesis\", \"target\": \"Local temporal bone erosion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Local temporal bone erosion\", \"target\": \"Ossicular chain erosion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Local temporal bone erosion\", \"target\": \"Semicircular canal dehiscence\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Local temporal bone erosion\", \"target\": \"Tympanic facial canal dehiscence\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ossicular chain erosion\", \"target\": \"Conductive Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tympanic facial canal dehiscence\", \"target\": \"Facial palsy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Semicircular canal dehiscence\", \"target\": \"Labyrinthine fistula\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Semicircular canal dehiscence\", \"target\": \"Vertigo\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tympanomastoidectomy-based surgical excision\", \"target\": \"Keratinizing squamous epithelium overgrowth in the middle ear\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Tympanomastoidectomy-based surgical excision\", \"target\": \"Local bone erosion and ossicular destruction\", \"predicate\": \"targets\", \"is_orphan\": true}, {\"source\": \"Tympanomastoidectomy-based surgical excision\", \"target\": \"Conductive Hearing Loss\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Exclusive endoscopic tympanoplasty for selected non-mastoid disease\", \"target\": \"Keratinizing squamous epithelium overgrowth in the middle ear\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Exclusive endoscopic tympanoplasty for selected non-mastoid disease\", \"target\": \"Conductive Hearing Loss\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Longitudinal postoperative audiologic surveillance\", \"target\": \"Progressive Sensorineural Hearing Loss\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": [\"Local bone erosion and ossicular destruction\"]}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5053,6 +5308,9 @@
         </div>
         
 
+        <!-- Experimental Models -->
+        
+
         <!-- Computational Models -->
         
 
@@ -5088,6 +5346,7 @@ classifications:
   - classification_value: disorder of ear
     evidence:
     - reference: PMID:41767763
+      reference_title: &#34;Benign, persistent, and invasive: mechanistic and translational approaches to middle-ear cholesteatoma.&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;Acquired middle-ear cholesteatoma is a histologically benign keratinizing squamous epithelial lesion that paradoxically exhibits locally destructive, recurrent, and invasive behavior, often resulting in ossicular erosion, hearing loss, labyrinthine fistula, and, rarely, intracranial complications.&#34;
@@ -5099,6 +5358,7 @@ has_subtypes:
     and retraction-pocket biology.
   evidence:
   - reference: PMID:38337530
+    reference_title: &#34;Cholesteatoma Severity Determines the Risk of Recurrent Paediatric Cholesteatoma More Than the Surgical Approach.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Review of children with primary acquired or congenital cholesteatoma.&#34;
@@ -5109,6 +5369,7 @@ has_subtypes:
     separately from acquired disease in clinical recurrence studies.
   evidence:
   - reference: PMID:38337530
+    reference_title: &#34;Cholesteatoma Severity Determines the Risk of Recurrent Paediatric Cholesteatoma More Than the Surgical Approach.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Review of children with primary acquired or congenital cholesteatoma.&#34;
@@ -5121,6 +5382,7 @@ prevalence:
     cholesteatoma.
   evidence:
   - reference: PMID:27236633
+    reference_title: &#34;Characteristics of 419 patients with acquired middle ear cholesteatoma.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Of the patients with chronic otitis media, 419 (24.5%) had cholesteatoma&#34;
@@ -5133,6 +5395,7 @@ epidemiology:
   unit: cases per 100000 person-years
   evidence:
   - reference: PMID:28244845
+    reference_title: &#34;Incidence, 10-year recidivism rate and prognostic factors for cholesteatoma.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Incidence rate was 6.8 per 100 000 per year.&#34;
@@ -5144,6 +5407,7 @@ epidemiology:
   unit: cumulative recidivism proportion at 10 years
   evidence:
   - reference: PMID:28244845
+    reference_title: &#34;Incidence, 10-year recidivism rate and prognostic factors for cholesteatoma.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The 10-year cumulative recidivism rate was 0.44 (95 per cent confidence interval, 0.37-0.53).&#34;
@@ -5156,6 +5420,7 @@ epidemiology:
   notes: Family history was uncommon overall, so it likely explains only a minority of all cases.
   evidence:
   - reference: PMID:36929420
+    reference_title: &#34;The Risk of Cholesteatoma in Individuals With First-degree Relatives Surgically Treated for the Disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The risk of having a cholesteatoma surgery was almost 4 times higher in individuals having a first-degree relative surgically treated for the disease (OR, 3.9; 95% CI, 3.1-4.8)&#34;
@@ -5169,6 +5434,7 @@ histopathology:
   diagnostic: true
   evidence:
   - reference: PMID:41767763
+    reference_title: &#34;Benign, persistent, and invasive: mechanistic and translational approaches to middle-ear cholesteatoma.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Acquired middle-ear cholesteatoma is a histologically benign keratinizing squamous epithelial lesion&#34;
@@ -5190,6 +5456,7 @@ pathophysiology:
       label: middle ear
   evidence:
   - reference: PMID:31933930
+    reference_title: &#34;Wnt/β-catenin signaling regulates pathogenesis of human middle ear cholesteatoma.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;β-Catenin expression evidently increased in middle ear cholesteatoma cells when compared with normal epithelial cells.&#34;
@@ -5200,6 +5467,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: PMID:31933930
+      reference_title: &#34;Wnt/β-catenin signaling regulates pathogenesis of human middle ear cholesteatoma.&#34;
       supports: SUPPORT
       evidence_source: IN_VITRO
       snippet: &#34;Wnt/β-catenin signaling induced cell proliferation and up-regulated expressions of targeted genes in human middle ear cholesteatoma.&#34;
@@ -5226,11 +5494,13 @@ pathophysiology:
       label: middle ear
   evidence:
   - reference: PMID:38662954
+    reference_title: &#34;Osteopontin-driven partial epithelial-mesenchymal transition governs the development of middle ear cholesteatoma.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Besides, the expression of OPN was significantly elevated in human cholesteatoma tissues.&#34;
     explanation: Supports osteopontin upregulation in human cholesteatoma tissue.
   - reference: PMID:38662954
+    reference_title: &#34;Osteopontin-driven partial epithelial-mesenchymal transition governs the development of middle ear cholesteatoma.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;Treatment with OPN promoted cell proliferation, survival and migration and led to a partial EMT in immortalized human keratinocyte cells.&#34;
@@ -5241,6 +5511,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: PMID:38662954
+      reference_title: &#34;Osteopontin-driven partial epithelial-mesenchymal transition governs the development of middle ear cholesteatoma.&#34;
       supports: SUPPORT
       evidence_source: IN_VITRO
       snippet: &#34;Treatment with OPN promoted cell proliferation, survival and migration and led to a partial EMT in immortalized human keratinocyte cells.&#34;
@@ -5270,6 +5541,7 @@ pathophysiology:
       label: tympanic membrane
   evidence:
   - reference: PMID:41767763
+    reference_title: &#34;Benign, persistent, and invasive: mechanistic and translational approaches to middle-ear cholesteatoma.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Acquired middle-ear cholesteatoma is a histologically benign keratinizing squamous epithelial lesion that paradoxically exhibits locally destructive, recurrent, and invasive behavior&#34;
@@ -5283,6 +5555,7 @@ pathophysiology:
     - fibroblast and immune-cell activation
     evidence:
     - reference: PMID:33627146
+      reference_title: &#34;Chronic inflammation of middle ear cholesteatoma promotes its recurrence via a paracrine mechanism.&#34;
       supports: SUPPORT
       evidence_source: IN_VITRO
       snippet: &#34;We propose that cholesteatoma recurrence is based on TLR4 signalling imprinted in the cholesteatoma cells. It induces excessive inflammation of stem cells and fibroblasts, proliferation of perimatrix fibroblasts and the generation of epidermal cells from stem cells thru paracrine signalling by fibroblasts.&#34;
@@ -5295,11 +5568,13 @@ pathophysiology:
     - chronic local inflammatory signaling
     evidence:
     - reference: PMID:36883320
+      reference_title: &#34;Higher degree of keratinization correlated with severe bone destruction in acquired Cholesteatoma.&#34;
       supports: SUPPORT
       evidence_source: IN_VITRO
       snippet: &#34;In vitro studies showed that keratinocytes directly promoted monocytes differentiating into osteoclasts.&#34;
       explanation: Directly supports a mechanistic link from the keratinizing lesion epithelium to local osteoclastogenic signaling.
     - reference: PMID:37537159
+      reference_title: &#34;Single-cell transcriptomics of human cholesteatoma identifies an activin A-producing osteoclastogenic fibroblast subset inducing bone destruction.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Collectively, these findings indicate that unique activin A-producing fibroblasts present in human cholesteatoma tissues are accountable for bone destruction via the induction of local osteoclastogenesis&#34;
@@ -5334,11 +5609,13 @@ pathophysiology:
       label: middle ear
   evidence:
   - reference: PMID:37623440
+    reference_title: &#34;Study of Angiogenic, Pro-Apoptotic, and Pro-Inflammatory Factors in Congenital and Acquired Cholesteatomas.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Expression of angiogenic, inflammatory, and proliferative biomarkers is significantly increased in acquired cholesteatomas in children as compared to congenital and acquired forms in adults&#34;
     explanation: Human tissue study supports intensified inflammatory and proliferative signaling in more aggressive acquired cholesteatoma.
   - reference: PMID:36837507
+    reference_title: &#34;Morphopathogenesis of Adult Acquired Cholesteatoma.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The similarity in the expression of IL-1 and IL-10 suggests the dysregulation of the local immune status in cholesteatoma.&#34;
@@ -5352,6 +5629,7 @@ pathophysiology:
     - protease induction
     evidence:
     - reference: PMID:41767763
+      reference_title: &#34;Benign, persistent, and invasive: mechanistic and translational approaches to middle-ear cholesteatoma.&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;Recent mechanistic studies, including single-cell transcriptomics, spatial proteomics, and epigenetic profiling, reveal a multifactorial pathogenesis orchestrated by chronic inflammation, proteolytic extracellular-matrix remodeling, osteoclast activation&#34;
@@ -5364,11 +5642,13 @@ pathophysiology:
     - local tissue irritation
     evidence:
     - reference: PMID:33627146
+      reference_title: &#34;Chronic inflammation of middle ear cholesteatoma promotes its recurrence via a paracrine mechanism.&#34;
       supports: SUPPORT
       evidence_source: IN_VITRO
       snippet: &#34;It induces excessive inflammation of stem cells and fibroblasts, proliferation of perimatrix fibroblasts and the generation of epidermal cells from stem cells thru paracrine signalling by fibroblasts.&#34;
       explanation: Supports a strongly inflammatory lesion microenvironment capable of producing local painful irritation.
     - reference: PMID:41552209
+      reference_title: &#34;Impact of Surgical Treatment on the Quality of Life in Patients With Chronic Otitis Media With Cholesteatoma: A Prospective Study.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Main symptoms included tinnitus (68%), otalgia (64%), and otorrhea (64%).&#34;
@@ -5385,11 +5665,13 @@ pathophysiology:
       label: middle ear
   evidence:
   - reference: PMID:39130256
+    reference_title: &#34;Metagenome Analysis of Cholesteatoma-associated Bacteria: A Pilot Study.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Cholesteatoma usually harbors a poly-microbial infection.&#34;
     explanation: Metagenomic profiling supports persistent polymicrobial colonization in cholesteatoma tissue.
   - reference: PMID:39130256
+    reference_title: &#34;Metagenome Analysis of Cholesteatoma-associated Bacteria: A Pilot Study.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Cholesteatoma is primarily associated with Proteobacteria and Firmicutes phyla, even in complicated disease.&#34;
@@ -5403,6 +5685,7 @@ pathophysiology:
     - chronic epithelial and stromal cytokine signaling
     evidence:
     - reference: PMID:41767763
+      reference_title: &#34;Benign, persistent, and invasive: mechanistic and translational approaches to middle-ear cholesteatoma.&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;Emerging evidence further implicates oxidative stress, RNA and epigenetic modifications, miRNA dysregulation, and immune cell infiltration as central modulators of lesion chronicity and bone resorption.&#34;
@@ -5415,11 +5698,13 @@ pathophysiology:
     - infected keratin debris accumulation
     evidence:
     - reference: PMID:39130256
+      reference_title: &#34;Metagenome Analysis of Cholesteatoma-associated Bacteria: A Pilot Study.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Cholesteatoma usually harbors a poly-microbial infection.&#34;
       explanation: Supports persistent infection within cholesteatoma tissue as an upstream driver of suppurative symptoms.
     - reference: PMID:27236633
+      reference_title: &#34;Characteristics of 419 patients with acquired middle ear cholesteatoma.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Typically, it presents with hypoacusis and continuous otorrhea as symptoms.&#34;
@@ -5445,11 +5730,13 @@ pathophysiology:
       label: middle ear
   evidence:
   - reference: PMID:41767763
+    reference_title: &#34;Benign, persistent, and invasive: mechanistic and translational approaches to middle-ear cholesteatoma.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Recent mechanistic studies, including single-cell transcriptomics, spatial proteomics, and epigenetic profiling, reveal a multifactorial pathogenesis orchestrated by chronic inflammation, proteolytic extracellular-matrix remodeling, osteoclast activation&#34;
     explanation: Review-level evidence supports proteolytic extracellular-matrix remodeling as a distinct pathophysiologic event.
   - reference: PMID:36837507
+    reference_title: &#34;Morphopathogenesis of Adult Acquired Cholesteatoma.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;the MMP-9 in the matrix and the MMP-9 in the epithelium (p = 0.008)&#34;
@@ -5463,6 +5750,7 @@ pathophysiology:
     - TIMP-2-associated stromal crosstalk
     evidence:
     - reference: PMID:36837507
+      reference_title: &#34;Morphopathogenesis of Adult Acquired Cholesteatoma.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Intercorrelations between VEGF, NF-κβ and TIMP-2 induce neo-angiogenesis in adult cholesteatoma.&#34;
@@ -5492,11 +5780,13 @@ pathophysiology:
       label: middle ear
   evidence:
   - reference: PMID:36837507
+    reference_title: &#34;Morphopathogenesis of Adult Acquired Cholesteatoma.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Intercorrelations between VEGF, NF-κβ and TIMP-2 induce neo-angiogenesis in adult cholesteatoma.&#34;
     explanation: Human cholesteatoma tissue study directly supports neoangiogenesis as a distinct perimatrix event.
   - reference: PMID:37623440
+    reference_title: &#34;Study of Angiogenic, Pro-Apoptotic, and Pro-Inflammatory Factors in Congenital and Acquired Cholesteatomas.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Expression of angiogenic, inflammatory, and proliferative biomarkers is significantly increased in acquired cholesteatomas in children as compared to congenital and acquired forms in adults&#34;
@@ -5510,6 +5800,7 @@ pathophysiology:
     - osteoclast activation
     evidence:
     - reference: PMID:41767763
+      reference_title: &#34;Benign, persistent, and invasive: mechanistic and translational approaches to middle-ear cholesteatoma.&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;Collectively, these processes establish a self-sustaining pro-osteolytic microenvironment that drives bone erosion and postoperative recurrence.&#34;
@@ -5540,11 +5831,13 @@ pathophysiology:
       label: middle ear
   evidence:
   - reference: PMID:37537159
+    reference_title: &#34;Single-cell transcriptomics of human cholesteatoma identifies an activin A-producing osteoclastogenic fibroblast subset inducing bone destruction.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Here, we performed a single-cell RNA sequencing analysis on human cholesteatoma samples and identify a pathogenic fibroblast subset characterized by abundant expression of inhibin βA.&#34;
     explanation: Human single-cell data identify the fibroblast program linked to osteoclastogenic signaling.
   - reference: PMID:37537159
+    reference_title: &#34;Single-cell transcriptomics of human cholesteatoma identifies an activin A-producing osteoclastogenic fibroblast subset inducing bone destruction.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We demonstrate that activin A, a homodimer of inhibin βA, promotes osteoclast differentiation.&#34;
@@ -5555,6 +5848,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: PMID:37537159
+      reference_title: &#34;Single-cell transcriptomics of human cholesteatoma identifies an activin A-producing osteoclastogenic fibroblast subset inducing bone destruction.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Collectively, these findings indicate that unique activin A-producing fibroblasts present in human cholesteatoma tissues are accountable for bone destruction via the induction of local osteoclastogenesis&#34;
@@ -5574,6 +5868,7 @@ pathophysiology:
       label: mastoid process of temporal bone
   evidence:
   - reference: PMID:37537159
+    reference_title: &#34;Single-cell transcriptomics of human cholesteatoma identifies an activin A-producing osteoclastogenic fibroblast subset inducing bone destruction.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Cholesteatoma, which potentially results from tympanic membrane retraction, is characterized by intractable local bone erosion and subsequent hearing loss and brain abscess formation.&#34;
@@ -5584,6 +5879,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: PMID:37675676
+      reference_title: &#34;Managing cholesteatomas with labyrinthine fistula.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Intraoperative findings of LFs include stapes erosion (78.6%), malleus erosion (78.6%), incus erosion (92.9%)&#34;
@@ -5593,6 +5889,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: PMID:37675676
+      reference_title: &#34;Managing cholesteatomas with labyrinthine fistula.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Compared to the non-LF group, the LF group showed significantly higher incidence of stapes erosion ( P &lt; 0.001), tegmen tympani dehiscence ( P = 0.016) and semicircular canal dehiscence ( P &lt; 0.001).&#34;
@@ -5602,6 +5899,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: PMID:37675676
+      reference_title: &#34;Managing cholesteatomas with labyrinthine fistula.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Intraoperative findings of LFs include stapes erosion (78.6%), malleus erosion (78.6%), incus erosion (92.9%), dehiscence of tegmen tympani (28.6%) and tympanic facial canal (64.3%).&#34;
@@ -5617,6 +5915,7 @@ pathophysiology:
       label: middle ear
   evidence:
   - reference: PMID:37675676
+    reference_title: &#34;Managing cholesteatomas with labyrinthine fistula.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Intraoperative findings of LFs include stapes erosion (78.6%), malleus erosion (78.6%), incus erosion (92.9%)&#34;
@@ -5627,6 +5926,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: PMID:27236633
+      reference_title: &#34;Characteristics of 419 patients with acquired middle ear cholesteatoma.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;The mean air-bone gap was 29.84dB&#34;
@@ -5642,6 +5942,7 @@ pathophysiology:
       label: middle ear
   evidence:
   - reference: PMID:37675676
+    reference_title: &#34;Managing cholesteatomas with labyrinthine fistula.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Intraoperative findings of LFs include stapes erosion (78.6%), malleus erosion (78.6%), incus erosion (92.9%), dehiscence of tegmen tympani (28.6%) and tympanic facial canal (64.3%).&#34;
@@ -5655,6 +5956,7 @@ pathophysiology:
     - direct erosive compromise of the facial nerve canal
     evidence:
     - reference: PMID:40096720
+      reference_title: &#34;Labyrinthine Fistulas in cholesteatoma : Surgical outcome on auditory function.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Facial nerve paralysis was observed in 5 patients (10.9%).&#34;
@@ -5665,6 +5967,7 @@ pathophysiology:
     bony dehiscence that predisposes to labyrinthine fistula and vestibular symptoms.
   evidence:
   - reference: PMID:37675676
+    reference_title: &#34;Managing cholesteatomas with labyrinthine fistula.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Compared to the non-LF group, the LF group showed significantly higher incidence of stapes erosion ( P &lt; 0.001), tegmen tympani dehiscence ( P = 0.016) and semicircular canal dehiscence ( P &lt; 0.001).&#34;
@@ -5675,6 +5978,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: PMID:37675676
+      reference_title: &#34;Managing cholesteatomas with labyrinthine fistula.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Of the middle ear cholesteatomas, 15.6% ( n = 14) of ears were complicated by LF.&#34;
@@ -5687,6 +5991,7 @@ pathophysiology:
     - abnormal vestibular stimulation
     evidence:
     - reference: PMID:40096720
+      reference_title: &#34;Labyrinthine Fistulas in cholesteatoma : Surgical outcome on auditory function.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Vertigo was present in 43.5% of patients.&#34;
@@ -5705,6 +6010,7 @@ phenotypes:
       label: Conductive hearing impairment
   evidence:
   - reference: PMID:27236633
+    reference_title: &#34;Characteristics of 419 patients with acquired middle ear cholesteatoma.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The mean air-bone gap was 29.84dB&#34;
@@ -5718,6 +6024,7 @@ phenotypes:
   notes: No precise HPO term for otorrhea was verified locally in this pass, so this phenotype remains intentionally unannotated.
   evidence:
   - reference: PMID:27236633
+    reference_title: &#34;Characteristics of 419 patients with acquired middle ear cholesteatoma.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Typically, it presents with hypoacusis and continuous otorrhea as symptoms.&#34;
@@ -5735,6 +6042,7 @@ phenotypes:
       label: Ear pain
   evidence:
   - reference: PMID:41552209
+    reference_title: &#34;Impact of Surgical Treatment on the Quality of Life in Patients With Chronic Otitis Media With Cholesteatoma: A Prospective Study.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Main symptoms included tinnitus (68%), otalgia (64%), and otorrhea (64%).&#34;
@@ -5754,6 +6062,7 @@ phenotypes:
       label: Sensorineural hearing impairment
   evidence:
   - reference: PMID:34860720
+    reference_title: &#34;Cholesteatoma Is Associated With Pediatric Progressive Sensorineural Hearing Loss.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The statistical analyses demonstrated an association between cholesteatoma and pediatric progressive sensorineural hearing loss.&#34;
@@ -5770,6 +6079,7 @@ phenotypes:
       label: Tinnitus
   evidence:
   - reference: PMID:41552209
+    reference_title: &#34;Impact of Surgical Treatment on the Quality of Life in Patients With Chronic Otitis Media With Cholesteatoma: A Prospective Study.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Main symptoms included tinnitus (68%), otalgia (64%), and otorrhea (64%).&#34;
@@ -5788,6 +6098,7 @@ phenotypes:
       label: Vertigo
   evidence:
   - reference: PMID:40096720
+    reference_title: &#34;Labyrinthine Fistulas in cholesteatoma : Surgical outcome on auditory function.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Vertigo was present in 43.5% of patients.&#34;
@@ -5806,6 +6117,7 @@ phenotypes:
       label: Facial palsy
   evidence:
   - reference: PMID:40096720
+    reference_title: &#34;Labyrinthine Fistulas in cholesteatoma : Surgical outcome on auditory function.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Facial nerve paralysis was observed in 5 patients (10.9%).&#34;
@@ -5820,6 +6132,7 @@ phenotypes:
   notes: No precise HPO term for labyrinthine fistula was verified locally in this pass, so this complication remains intentionally unannotated.
   evidence:
   - reference: PMID:37675676
+    reference_title: &#34;Managing cholesteatomas with labyrinthine fistula.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Of the middle ear cholesteatomas, 15.6% ( n = 14) of ears were complicated by LF.&#34;
@@ -5833,6 +6146,7 @@ environmental:
   effect: Can predispose to middle-ear atelectatic change and cholesteatoma formation.
   evidence:
   - reference: PMID:40805865
+    reference_title: &#34;Balloon Eustachian Tuboplasty: A Systematic Review of Technique, Safety, and Clinical Outcomes in Chronic Obstructive Eustachian Tube Dysfunction.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Obstructive Eustachian tube dysfunction (OETD) is common in adults and may lead to middle-ear conditions such as atelectasis and cholesteatoma.&#34;
@@ -5846,6 +6160,7 @@ environmental:
   effect: Associated upper-airway mucosal disease may increase cholesteatoma risk.
   evidence:
   - reference: PMID:38517544
+    reference_title: &#34;Occurrence of mucosa-affecting diseases of the upper airways in middle ear cholesteatoma patients: a nationwide case-control study.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Chronic rhinitis, chronic sinusitis and nasal polyposis were more common in cholesteatoma patients than in controls (OR 1.5 to 2.5) as were both adenoid and tonsil surgery (OR &gt; 4)&#34;
@@ -5862,6 +6177,7 @@ diagnosis:
       label: otoscopy
   evidence:
   - reference: PMID:40411260
+    reference_title: &#34;Clinicoradiological Evaluation of Cholesteatoma: Integrating Clinical, CT, and MRI Diagnostics.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;All patients underwent clinical evaluation (history, otoscopy, and audiometry) followed by HRCT and EPI-DWI imaging.&#34;
@@ -5878,11 +6194,13 @@ diagnosis:
   results: Often shows a conductive deficit with measurable air-bone gap.
   evidence:
   - reference: PMID:40411260
+    reference_title: &#34;Clinicoradiological Evaluation of Cholesteatoma: Integrating Clinical, CT, and MRI Diagnostics.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;All patients underwent clinical evaluation (history, otoscopy, and audiometry) followed by HRCT and EPI-DWI imaging.&#34;
     explanation: Confirms audiometry as part of the standard diagnostic workup.
   - reference: PMID:27236633
+    reference_title: &#34;Characteristics of 419 patients with acquired middle ear cholesteatoma.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The mean air-bone gap was 29.84dB&#34;
@@ -5910,6 +6228,7 @@ diagnosis:
           label: middle ear
   evidence:
   - reference: PMID:40411260
+    reference_title: &#34;Clinicoradiological Evaluation of Cholesteatoma: Integrating Clinical, CT, and MRI Diagnostics.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;EPI-DWI remains the preferred imaging modality for cholesteatoma diagnosis, while HRCT provides complementary information on middle ear anatomy and bone erosion.&#34;
@@ -5936,6 +6255,7 @@ diagnosis:
           label: middle ear
   evidence:
   - reference: PMID:40411260
+    reference_title: &#34;Clinicoradiological Evaluation of Cholesteatoma: Integrating Clinical, CT, and MRI Diagnostics.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Diffusion-weighted magnetic resonance imaging (DW-MRI) demonstrated superior sensitivity (92.7%) and specificity (89.4%) compared with HRCT (sensitivity: 75.5%; specificity: 70.2%).&#34;
@@ -5983,6 +6303,7 @@ treatments:
     description: Surgical excision removes the expanding keratinizing lesion bulk.
     evidence:
     - reference: PMID:39327289
+      reference_title: &#34;Exclusive endoscopic tympanoplasty efficacy in the treatment of cholesteatoma without mastoid involvement.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Exclusive endoscopic tympanoplasty has been shown to be effective in removing cholesteatoma in patients without evidence of mastoid involvement&#34;
@@ -5992,17 +6313,20 @@ treatments:
     description: Removal of disease aims to stop ongoing local erosive damage.
     evidence:
     - reference: PMID:36774407
+      reference_title: &#34;Radiological and audiological predictors of stapes destruction in adherent pars tensa.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;High preoperative awareness of the possibility of destruction of the stapes superstructure would enable the surgeon to make a timely decision to provide surgical intervention before progression to severe stapes destruction&#34;
       explanation: Clinical cohort data directly support surgery as an intervention used to prevent progression of ossicular destruction.
   evidence:
   - reference: PMID:38337530
+    reference_title: &#34;Cholesteatoma Severity Determines the Risk of Recurrent Paediatric Cholesteatoma More Than the Surgical Approach.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Surgery without mastoidectomy, including totally endoscopic ear surgery, had 11% 5-year recurrence. Canal wall-up tympanomastoidectomy (CWU) and canal wall-down/mastoid obliteration both had 23% 5-year recurrence.&#34;
     explanation: Supports the use of multiple operative strategies in contemporary cholesteatoma care and quantifies recurrence context.
   - reference: PMID:27236633
+    reference_title: &#34;Characteristics of 419 patients with acquired middle ear cholesteatoma.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Of the surgical cases, 16.8% underwent closed tympanomastoidectomy and 75.2% open tympanomastoidectomy.&#34;
@@ -6039,12 +6363,14 @@ treatments:
     description: Endoscopic excision removes localized cholesteatoma when mastoid extension is absent.
     evidence:
     - reference: PMID:39327289
+      reference_title: &#34;Exclusive endoscopic tympanoplasty efficacy in the treatment of cholesteatoma without mastoid involvement.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Exclusive endoscopic tympanoplasty has been shown to be effective in removing cholesteatoma in patients without evidence of mastoid involvement&#34;
       explanation: Directly supports endoscopic removal of localized cholesteatoma burden.
   evidence:
   - reference: PMID:39327289
+    reference_title: &#34;Exclusive endoscopic tympanoplasty efficacy in the treatment of cholesteatoma without mastoid involvement.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Exclusive endoscopic tympanoplasty has been shown to be effective in removing cholesteatoma in patients without evidence of mastoid involvement&#34;
@@ -6066,6 +6392,7 @@ treatments:
       label: Sensorineural hearing impairment
   evidence:
   - reference: PMID:34860720
+    reference_title: &#34;Cholesteatoma Is Associated With Pediatric Progressive Sensorineural Hearing Loss.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;These findings inform clinical management by suggesting that children with cholesteatoma diagnoses may be at increased risk for progressive sensorineural hearing loss and should receive continued monitoring even after a normal masked BC baseline has been established.&#34;
@@ -6081,6 +6408,7 @@ differential_diagnoses:
   - HRCT is complementary for bone erosion, while histopathology remains the diagnostic gold standard.
   evidence:
   - reference: PMID:40411260
+    reference_title: &#34;Clinicoradiological Evaluation of Cholesteatoma: Integrating Clinical, CT, and MRI Diagnostics.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The integration of clinical findings with EPI-DWI and HRCT significantly enhances the diagnostic accuracy for cholesteatoma&#34;
@@ -6099,11 +6427,13 @@ differential_diagnoses:
   - Cholesteatoma is more strongly associated with focal bone erosion and destructive middle-ear disease.
   evidence:
   - reference: PMID:38334859
+    reference_title: &#34;Fungal Otitis Externa (Otomycosis) Associated with Aspergillus Flavus: A Case Image.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;A head/neck CT showed completely normal mastoid, middle ear and external auditory canal regions without any evidence of opacification or bone erosion.&#34;
     explanation: Case-level human evidence shows otomycosis can present with otorrhea and canal debris but lacks the middle-ear opacification and bony erosion expected in cholesteatoma.
   - reference: PMID:38334859
+    reference_title: &#34;Fungal Otitis Externa (Otomycosis) Associated with Aspergillus Flavus: A Case Image.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Otoscopic examination of the right ear disclosed aggregates of dried, brown, fibrillar material and debris occluding the external auditory canal and obstructing the otherwise intact tympanic membrane.&#34;
@@ -6123,6 +6453,7 @@ differential_diagnoses:
   - Temporal bone CT in SCDS shows superior semicircular canal dehiscence, whereas cholesteatoma is defined by destructive middle-ear disease and keratin debris.
   evidence:
   - reference: PMID:22312921
+    reference_title: &#34;Histopathology of the temporal bone in a case of superior canal dehiscence syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The patient developed bilateral aural fullness, pulsatile tinnitus, and difficulty tolerating loud noises after minor head trauma at 53 years of age.&#34;
@@ -6155,6 +6486,7 @@ datasets:
   publication: PMID:37537159
   evidence:
   - reference: PMID:37537159
+    reference_title: &#34;Single-cell transcriptomics of human cholesteatoma identifies an activin A-producing osteoclastogenic fibroblast subset inducing bone destruction.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Here, we performed a single-cell RNA sequencing analysis on human cholesteatoma samples&#34;
@@ -6163,11 +6495,13 @@ datasets:
   - statement: Human cholesteatoma single-cell profiling identified an inhibin beta A-positive fibroblast population linked to osteoclast differentiation and bone destruction.
     evidence:
     - reference: PMID:37537159
+      reference_title: &#34;Single-cell transcriptomics of human cholesteatoma identifies an activin A-producing osteoclastogenic fibroblast subset inducing bone destruction.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Here, we performed a single-cell RNA sequencing analysis on human cholesteatoma samples and identify a pathogenic fibroblast subset characterized by abundant expression of inhibin βA.&#34;
       explanation: Identifies the key fibroblast subset discovered by the dataset.
     - reference: PMID:37537159
+      reference_title: &#34;Single-cell transcriptomics of human cholesteatoma identifies an activin A-producing osteoclastogenic fibroblast subset inducing bone destruction.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;We demonstrate that activin A, a homodimer of inhibin βA, promotes osteoclast differentiation.&#34;
@@ -6210,6 +6544,7 @@ datasets:
   publication: PMID:38890701
   evidence:
   - reference: PMID:38890701
+    reference_title: &#34;Identification of miRNA expression profile in middle ear cholesteatoma using small RNA-sequencing.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The miRNA expression profiling was performed using small RNA sequencing&#34;
@@ -6218,11 +6553,13 @@ datasets:
   - statement: Cholesteatoma tissue showed 121 differentially expressed miRNAs compared with matched skin, implicating TGFBR2, MBNL1, and NFAT5 as potential regulatory targets.
     evidence:
     - reference: PMID:38890701
+      reference_title: &#34;Identification of miRNA expression profile in middle ear cholesteatoma using small RNA-sequencing.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;The miRNA expression profile revealed 121 significantly differentially expressed miRNAs in cholesteatoma compared to normal skin tissues, with 56 upregulated and 65 downregulated.&#34;
       explanation: Summarizes the primary differential-expression signal from the small RNA-seq dataset.
     - reference: PMID:38890701
+      reference_title: &#34;Identification of miRNA expression profile in middle ear cholesteatoma using small RNA-sequencing.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;The interaction network of the the 2 most upregulated (hsa-miR-21-5p and hsa-miR-142-5p) and 3 most downregulated (hsa-miR-508-3p, hsa-miR-509-3p and hsa-miR-211-5p) miRNAs identified TGFBR2, MBNL1, and NFAT5 as potential key target genes in middle ear cholesteatoma.&#34;

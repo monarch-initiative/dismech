@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1037,6 +1101,52 @@
             text-decoration: underline;
         }
 
+        /* Experimental Models */
+        .exp-model-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .exp-model-box .item-name { color: #92400e; }
+        .exp-model-box .item-desc { color: #b45309; }
+
+        .tag-exp-model-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .tag-namo-type {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+        .tag-condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .model-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .model-detail-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .model-detail-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 110px;
+        }
+        .model-detail-value {
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+        }
+        .model-detail-value a {
+            color: inherit;
+        }
+
         /* Computational Models */
         .comp-model-box {
             background: #f0fdf4;
@@ -1382,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1470,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1477,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1489,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1637,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1723,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1737,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1792,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1877,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 17</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Neurodegenerative Disease</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Movement Disorder</span>
@@ -1886,6 +2105,11 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
+        
+        
         
         
         
@@ -1939,6 +2163,14 @@
             <div class="stat-item">
                 <div class="stat-value">7</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">17</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2022,7 +2254,7 @@
                 <span class="card-count">12</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-dopaminergic-neuron-loss">
                 <div class="item-name">Dopaminergic Neuron Loss</div>
                 
                 <div class="item-desc">Progressive degeneration of dopaminergic neurons in the substantia nigra pars compacta leads to dopamine deficiency in the striatum, causing motor symptoms. Symptoms appear after 60-80% neuron loss.
@@ -2064,6 +2296,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2096,7 +2329,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-alpha-synuclein-aggregation">
                 <div class="item-name">Alpha-Synuclein Aggregation</div>
                 
                 <div class="item-desc">Misfolded alpha-synuclein protein accumulates to form Lewy bodies and Lewy neurites. These aggregates spread through the nervous system in a prion-like manner, contributing to neurodegeneration.
@@ -2119,6 +2352,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2192,7 +2426,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-dysfunction">
                 <div class="item-name">Mitochondrial Dysfunction</div>
                 
                 <div class="item-desc">Impaired mitochondrial function, particularly complex I deficiency, leads to oxidative stress and neuronal death. Multiple PD genes (PINK1, Parkin, DJ-1) regulate mitochondrial quality control.
@@ -2215,6 +2449,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2288,7 +2523,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuroinflammation">
                 <div class="item-name">Neuroinflammation</div>
                 
                 <div class="item-desc">Activated microglia and astrocytes contribute to neurodegeneration through release of pro-inflammatory cytokines and oxidative stress.
@@ -2318,6 +2553,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2394,7 +2630,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-autophagy-lysosome-pathway-dysfunction">
                 <div class="item-name">Autophagy-Lysosome Pathway Dysfunction</div>
                 
                 <div class="item-desc">Impairment of the autophagy-lysosome pathway disrupts clearance of misfolded proteins including alpha-synuclein. Multiple PD genes (GBA, LRRK2, VPS35, ATP13A2) regulate lysosomal function, and their mutations impair protein degradation capacity leading to toxic protein accumulation.
@@ -2446,6 +2682,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2478,7 +2715,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-gut-brain-axis-dysfunction">
                 <div class="item-name">Gut-Brain Axis Dysfunction</div>
                 
                 <div class="item-desc">Alterations in gut microbiota composition trigger intestinal inflammation and may initiate alpha-synuclein misfolding in enteric neurons. Pathological alpha-synuclein spreads from gut to brain via the vagus nerve, supporting the gut-first hypothesis of PD pathogenesis.
@@ -2525,6 +2762,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2580,7 +2818,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-oxidative-stress">
                 <div class="item-name">Oxidative Stress</div>
                 
                 <div class="item-desc">Excessive reactive oxygen species from dopamine metabolism and mitochondrial dysfunction causes lipid peroxidation, protein carbonylation, and DNA damage. Dopamine auto-oxidation generates toxic quinones that preferentially damage substantia nigra neurons.
@@ -2632,6 +2870,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2664,7 +2903,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-calcium-dysregulation">
                 <div class="item-name">Calcium Dysregulation</div>
                 
                 <div class="item-desc">Substantia nigra dopaminergic neurons rely on L-type calcium channels (CaV1.3) for autonomous pacemaking, making them uniquely vulnerable to calcium-mediated toxicity. Disrupted calcium homeostasis in mitochondria, ER, and lysosomes contributes to oxidative stress and cell death.
@@ -2716,6 +2955,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2748,7 +2988,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-endoplasmic-reticulum-stress">
                 <div class="item-name">Endoplasmic Reticulum Stress</div>
                 
                 <div class="item-desc">Accumulation of misfolded proteins in the ER activates the unfolded protein response (UPR). Chronic ER stress overwhelms protective mechanisms, triggering apoptotic pathways. Alpha-synuclein aggregates and GBA mutations directly impair ER function.
@@ -2800,6 +3040,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2832,7 +3073,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-synaptic-dysfunction">
                 <div class="item-name">Synaptic Dysfunction</div>
                 
                 <div class="item-desc">Impaired synaptic vesicle recycling, particularly defects in clathrin-mediated endocytosis, represents an early feature of PD. Multiple PD genes (DNAJC6, SYNJ1, LRRK2) regulate synaptic vesicle trafficking, and their dysfunction leads to synaptic failure before overt neurodegeneration.
@@ -2884,6 +3125,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2916,7 +3158,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-iron-accumulation-and-ferroptosis">
                 <div class="item-name">Iron Accumulation and Ferroptosis</div>
                 
                 <div class="item-desc">Abnormal iron deposition in the substantia nigra promotes ferroptosis, an iron-dependent form of cell death characterized by lipid peroxidation. Iron catalyzes Fenton reactions generating hydroxyl radicals, and dysregulated iron metabolism contributes to oxidative damage.
@@ -2968,6 +3210,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3000,7 +3243,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-blood-brain-barrier-dysfunction">
                 <div class="item-name">Blood-Brain Barrier Dysfunction</div>
                 
                 <div class="item-desc">Altered tight junction proteins, transporter dysfunction, and alpha-synuclein accumulation compromise BBB integrity. BBB breakdown allows infiltration of peripheral immune cells and blood-borne molecules, amplifying neuroinflammation.
@@ -3072,6 +3315,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3117,12 +3361,13 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Parkinson&#39;s Disease</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
@@ -5025,6 +5270,9 @@
         <!-- Clinical Trials -->
         
 
+        <!-- Experimental Models -->
+        
+
         <!-- Computational Models -->
         
         <div class="card" id="models">
@@ -5212,6 +5460,7 @@ pathophysiology:
   - target: Resting Tremor
     evidence:
     - reference: PMID:37048085
+      reference_title: &#34;Microglia Mediated Neuroinflammation in Parkinson&#39;s Disease.&#34;
       supports: SUPPORT
       snippet: &#34;Tremor, shaking, movement problems, and difficulty with balance and
         coordination are among the hallmarks, and dopaminergic neuronal loss in substantia
@@ -5222,6 +5471,7 @@ pathophysiology:
   - target: Bradykinesia
     evidence:
     - reference: PMID:17955331
+      reference_title: &#34;The Rotterdam Study: objectives and design update.&#34;
       supports: SUPPORT
       snippet: &#34;Participants are screened in the baseline and follow-up examinations
         for cardinal signs of parkinsonism (resting tremor, rigidity, bradykinesia
@@ -5231,6 +5481,7 @@ pathophysiology:
   - target: Rigidity
     evidence:
     - reference: PMID:17955331
+      reference_title: &#34;The Rotterdam Study: objectives and design update.&#34;
       supports: SUPPORT
       snippet: &#34;Participants are screened in the baseline and follow-up examinations
         for cardinal signs of parkinsonism (resting tremor, rigidity, bradykinesia
@@ -5240,6 +5491,7 @@ pathophysiology:
   - target: Postural Instability
     evidence:
     - reference: PMID:17955331
+      reference_title: &#34;The Rotterdam Study: objectives and design update.&#34;
       supports: SUPPORT
       snippet: &#34;Participants are screened in the baseline and follow-up examinations
         for cardinal signs of parkinsonism (resting tremor, rigidity, bradykinesia
@@ -5248,6 +5500,7 @@ pathophysiology:
         parkinsonian sign downstream of dopaminergic dysfunction.
   evidence:
   - reference: PMID:37048085
+    reference_title: &#34;Microglia Mediated Neuroinflammation in Parkinson&#39;s Disease.&#34;
     supports: SUPPORT
     snippet: &#34;Tremor, shaking, movement problems, and difficulty with balance and
       coordination are among the hallmarks, and dopaminergic neuronal loss in substantia
@@ -5271,6 +5524,7 @@ pathophysiology:
   - target: Dopaminergic Neuron Loss
     evidence:
     - reference: PMID:38245249
+      reference_title: &#34;The pathogenesis of Parkinson&#39;s disease.&#34;
       supports: SUPPORT
       snippet: &#34;Biochemical studies, investigation of transplanted neurons in patients
         with Parkinson&#39;s disease, and cell and animal model studies suggest that abnormal
@@ -5283,6 +5537,7 @@ pathophysiology:
   - target: Neuroinflammation
     evidence:
     - reference: PMID:36598534
+      reference_title: &#34;Role of α-synuclein in microglia: autophagy and phagocytosis balance neuroinflammation in Parkinson&#39;s disease.&#34;
       supports: SUPPORT
       snippet: &#34;α-Syn is a crucial marker of PD, and its accumulation leads to microglia
         M1-like phenotype polarization, activation of NLRP3 inflammasomes, and impaired
@@ -5291,6 +5546,7 @@ pathophysiology:
         supporting neuroinflammation as a downstream effect.
   evidence:
   - reference: PMID:38245249
+    reference_title: &#34;The pathogenesis of Parkinson&#39;s disease.&#34;
     supports: SUPPORT
     snippet: &#34;Parkinson&#39;s disease is a progressive neurodegenerative condition associated
       with the deposition of aggregated α-synuclein.&#34;
@@ -5298,6 +5554,7 @@ pathophysiology:
       α-synuclein deposition is a defining feature of Parkinson&#39;s disease
       pathogenesis.
   - reference: PMID:38245249
+    reference_title: &#34;The pathogenesis of Parkinson&#39;s disease.&#34;
     supports: SUPPORT
     snippet: &#34;Biochemical studies, investigation of transplanted neurons in patients
       with Parkinson&#39;s disease, and cell and animal model studies suggest that abnormal
@@ -5308,6 +5565,7 @@ pathophysiology:
       mechanism of α-synuclein pathology across neural networks, supporting the
       mechanism of trans-neuronal propagation.
   - reference: PMID:36598534
+    reference_title: &#34;Role of α-synuclein in microglia: autophagy and phagocytosis balance neuroinflammation in Parkinson&#39;s disease.&#34;
     supports: SUPPORT
     snippet: &#34;Parkinson&#39;s disease (PD) is the second most common neurodegenerative
       disease, and is characterized by accumulation of α-synuclein (α-syn).&#34;
@@ -5328,6 +5586,7 @@ pathophysiology:
   - target: Dopaminergic Neuron Loss
     evidence:
     - reference: PMID:27911343
+      reference_title: &#34;PINK1, Parkin, and Mitochondrial Quality Control: What can we Learn about Parkinson&#39;s Disease Pathobiology?&#34;
       supports: SUPPORT
       snippet: &#34;For the past 30 years, mitochondrial dysfunction has been hypothesized
         to play a central role in the pathobiology of this devastating neurodegenerative
@@ -5336,6 +5595,7 @@ pathophysiology:
         of neurodegeneration in PD, consistent with dopaminergic neuron loss.
   evidence:
   - reference: PMID:38245249
+    reference_title: &#34;The pathogenesis of Parkinson&#39;s disease.&#34;
     supports: SUPPORT
     snippet: &#34;At a cellular level, abnormal mitochondrial, lysosomal, and endosomal
       function can be identified in both monogenic and sporadic Parkinson&#39;s disease,
@@ -5344,6 +5604,7 @@ pathophysiology:
       cellular feature across both genetic and sporadic forms of PD, supporting
       its central role in disease pathogenesis.
   - reference: PMID:25611507
+    reference_title: &#34;The roles of PINK1, parkin, and mitochondrial fidelity in Parkinson&#39;s disease.&#34;
     supports: SUPPORT
     snippet: &#34;Biochemical and genetic studies reveal that the products of two genes
       that are mutated in autosomal recessive parkinsonism, PINK1 and Parkin, normally
@@ -5353,6 +5614,7 @@ pathophysiology:
       mitochondrial quality control and confirms that mitochondrial damage is
       involved in PD pathogenesis.
   - reference: PMID:27911343
+    reference_title: &#34;PINK1, Parkin, and Mitochondrial Quality Control: What can we Learn about Parkinson&#39;s Disease Pathobiology?&#34;
     supports: SUPPORT
     snippet: &#34;For the past 30 years, mitochondrial dysfunction has been hypothesized
       to play a central role in the pathobiology of this devastating neurodegenerative
@@ -5380,6 +5642,7 @@ pathophysiology:
   - target: Dopaminergic Neuron Loss
     evidence:
     - reference: PMID:37048085
+      reference_title: &#34;Microglia Mediated Neuroinflammation in Parkinson&#39;s Disease.&#34;
       supports: SUPPORT
       snippet: &#34;Neuroinflammation has emerged as an involving mechanism at the initiation
         and development of PD.&#34;
@@ -5387,6 +5650,7 @@ pathophysiology:
         progression, supporting dopaminergic neuron loss downstream.
   evidence:
   - reference: PMID:38245249
+    reference_title: &#34;The pathogenesis of Parkinson&#39;s disease.&#34;
     supports: SUPPORT
     snippet: &#34;Recent work has also highlighted maladaptive immune and inflammatory
       responses, possibly triggered in the gut, that accelerate the pathogenesis of
@@ -5395,6 +5659,7 @@ pathophysiology:
       responses play an active role in accelerating PD pathogenesis, supporting
       the neuroinflammation mechanism.
   - reference: PMID:37048085
+    reference_title: &#34;Microglia Mediated Neuroinflammation in Parkinson&#39;s Disease.&#34;
     supports: SUPPORT
     snippet: &#34;Neuroinflammation has emerged as an involving mechanism at the initiation
       and development of PD. It is a complex network of interactions comprising immune
@@ -5405,6 +5670,7 @@ pathophysiology:
       neuroinflammation in PD initiation and progression, confirming the
       importance of microglial activation in disease pathology.
   - reference: PMID:36598534
+    reference_title: &#34;Role of α-synuclein in microglia: autophagy and phagocytosis balance neuroinflammation in Parkinson&#39;s disease.&#34;
     supports: SUPPORT
     snippet: &#34;Neuroinflammation driven by microglia is an important pathological manifestation
       of PD. α-Syn is a crucial marker of PD, and its accumulation leads to microglia
@@ -5437,6 +5703,7 @@ pathophysiology:
   - target: Alpha-Synuclein Aggregation
     evidence:
     - reference: PMID:31761667
+      reference_title: &#34;Autophagy lysosomal pathway dysfunction in Parkinson&#39;s disease; evidence from human genetics.&#34;
       supports: SUPPORT
       snippet: &#34;α-synuclein, encoded by the SNCA gene, is degraded mainly by the ALP,
         and mutations/multiplications in SNCA may lead to impairment of chaperone
@@ -5446,6 +5713,7 @@ pathophysiology:
   - target: Dopaminergic Neuron Loss
     evidence:
     - reference: PMID:31761667
+      reference_title: &#34;Autophagy lysosomal pathway dysfunction in Parkinson&#39;s disease; evidence from human genetics.&#34;
       supports: SUPPORT
       snippet: &#34;In recent years, multiple lines of evidence from human genetic and
         molecular studies have highlighted the importance of the autophagy lysosomal
@@ -5454,6 +5722,7 @@ pathophysiology:
         contributing to neuronal degeneration.
   evidence:
   - reference: PMID:31761667
+    reference_title: &#34;Autophagy lysosomal pathway dysfunction in Parkinson&#39;s disease; evidence from human genetics.&#34;
     supports: SUPPORT
     snippet: &#34;In recent years, multiple lines of evidence from human genetic and molecular
       studies have highlighted the importance of the autophagy lysosomal pathway (ALP)
@@ -5487,6 +5756,7 @@ pathophysiology:
   - target: Alpha-Synuclein Aggregation
     evidence:
     - reference: PMID:38245249
+      reference_title: &#34;The pathogenesis of Parkinson&#39;s disease.&#34;
       supports: SUPPORT
       snippet: &#34;Biochemical studies, investigation of transplanted neurons in patients
         with Parkinson&#39;s disease, and cell and animal model studies suggest that abnormal
@@ -5498,6 +5768,7 @@ pathophysiology:
   - target: Neuroinflammation
     evidence:
     - reference: PMID:38245249
+      reference_title: &#34;The pathogenesis of Parkinson&#39;s disease.&#34;
       supports: SUPPORT
       snippet: &#34;Recent work has also highlighted maladaptive immune and inflammatory
         responses, possibly triggered in the gut, that accelerate the pathogenesis
@@ -5507,6 +5778,7 @@ pathophysiology:
   - target: Constipation
     evidence:
     - reference: PMID:38098067
+      reference_title: &#34;Parkinson&#39;s disease and gut microbiota: from clinical to mechanistic and therapeutic studies.&#34;
       supports: SUPPORT
       snippet: &#34;The typical symptomatology of PD includes motor symptoms; however,
         a range of nonmotor symptoms, such as intestinal issues, usually occur before
@@ -5515,6 +5787,7 @@ pathophysiology:
         early gut-related manifestations in PD.
   evidence:
   - reference: PMID:38098067
+    reference_title: &#34;Parkinson&#39;s disease and gut microbiota: from clinical to mechanistic and therapeutic studies.&#34;
     supports: SUPPORT
     snippet: &#34;Various microorganisms inhabiting the gastrointestinal tract can profoundly
       influence the physiopathology of the central nervous system through neurological,
@@ -5522,6 +5795,7 @@ pathophysiology:
     explanation: This review establishes the gut microbiota-brain connection in
       PD pathophysiology.
   - reference: PMID:37449597
+    reference_title: &#34;Gut-microbiome-brain axis: the crosstalk between the vagus nerve, alpha-synuclein and the brain in Parkinson&#39;s disease.&#34;
     supports: SUPPORT
     snippet: &#34;The vagus nerve, the main component of the parasympathetic nervous system,
       is involved in the regulation of immune response, digestion, heart rate, and
@@ -5554,6 +5828,7 @@ pathophysiology:
   - target: Alpha-Synuclein Aggregation
   evidence:
   - reference: PMID:37303175
+    reference_title: &#34;Oxidative Stress and Dopaminergic Metabolism: A Major PD Pathogenic Mechanism and Basis of Potential Antioxidant Therapies.&#34;
     supports: SUPPORT
     snippet: &#34;Reactive oxygen species (ROS)-induced oxidative stress triggers the
       vicious cycle leading to the degeneration of dopaminergic neurons in the nigra
@@ -5586,6 +5861,7 @@ pathophysiology:
   - target: Dopaminergic Neuron Loss
   evidence:
   - reference: PMID:35339179
+    reference_title: &#34;The Role of Voltage-Gated Calcium Channels in Basal Ganglia Neurodegenerative Disorders.&#34;
     supports: SUPPORT
     snippet: &#34;Calcium (Ca2+) plays a central role in regulating many cellular processes
       and influences cell survival.&#34;
@@ -5616,6 +5892,7 @@ pathophysiology:
   - target: Dopaminergic Neuron Loss
   evidence:
   - reference: PMID:38026955
+    reference_title: &#34;Strategies targeting endoplasmic reticulum stress to improve Parkinson&#39;s disease.&#34;
     supports: SUPPORT
     snippet: &#34;Accumulating evidence shows that endoplasmic reticulum (ER) stress occurring
       in the SNpc DA neurons is an early event in the development of PD.&#34;
@@ -5646,6 +5923,7 @@ pathophysiology:
   - target: Alpha-Synuclein Aggregation
   evidence:
   - reference: PMID:38595283
+    reference_title: &#34;Dysfunction of synaptic endocytic trafficking in Parkinson&#39;s disease.&#34;
     supports: SUPPORT
     snippet: &#34;Notably, several of these genes are linked to the synaptic vesicle recycling
       process, particularly the clathrin-mediated endocytosis pathway. This suggests
@@ -5678,6 +5956,7 @@ pathophysiology:
   - target: Dopaminergic Neuron Loss
   evidence:
   - reference: PMID:39218077
+    reference_title: &#34;Ferroptosis in Parkinson&#39;s disease -- The iron-related degenerative disease.&#34;
     supports: SUPPORT
     snippet: &#34;Parkinson&#39;s disease (PD) is a prevalent and advancing age-related neurodegenerative
       disorder, distinguished by the degeneration of dopaminergic neurons in the substantia
@@ -5717,6 +5996,7 @@ pathophysiology:
   - target: Dopaminergic Neuron Loss
   evidence:
   - reference: PMID:39075566
+    reference_title: &#34;Blood-brain barrier alterations and their impact on Parkinson&#39;s disease pathogenesis and therapy.&#34;
     supports: SUPPORT
     snippet: &#34;There is increasing evidence for blood-brain barrier (BBB) alterations
       in Parkinson&#39;s disease (PD), the second most common neurodegenerative disorder
@@ -5736,6 +6016,7 @@ phenotypes:
       label: Resting tremor
   evidence:
   - reference: PMID:17955331
+    reference_title: &#34;The Rotterdam Study: objectives and design update.&#34;
     supports: SUPPORT
     snippet: &#34;Participants are screened in the baseline and follow-up examinations
       for cardinal signs of parkinsonism (resting tremor, rigidity, bradykinesia or
@@ -5754,6 +6035,7 @@ phenotypes:
       label: Bradykinesia
   evidence:
   - reference: PMID:17955331
+    reference_title: &#34;The Rotterdam Study: objectives and design update.&#34;
     supports: SUPPORT
     snippet: &#34;Participants are screened in the baseline and follow-up examinations
       for cardinal signs of parkinsonism (resting tremor, rigidity, bradykinesia or
@@ -5771,6 +6053,7 @@ phenotypes:
       label: Rigidity
   evidence:
   - reference: PMID:17955331
+    reference_title: &#34;The Rotterdam Study: objectives and design update.&#34;
     supports: SUPPORT
     snippet: &#34;Participants are screened in the baseline and follow-up examinations
       for cardinal signs of parkinsonism (resting tremor, rigidity, bradykinesia or
@@ -5788,6 +6071,7 @@ phenotypes:
       label: Postural instability
   evidence:
   - reference: PMID:17955331
+    reference_title: &#34;The Rotterdam Study: objectives and design update.&#34;
     supports: SUPPORT
     snippet: &#34;Participants are screened in the baseline and follow-up examinations
       for cardinal signs of parkinsonism (resting tremor, rigidity, bradykinesia or
@@ -5805,6 +6089,7 @@ phenotypes:
       label: Hyposmia
   evidence:
   - reference: PMID:24136244
+    reference_title: &#34;Hyposmia: a possible biomarker of Parkinson&#39;s disease.&#34;
     supports: SUPPORT
     snippet: &#34;Hyposmia, identified as reduced sensitivity to odor, is a common non-motor
       symptom of Parkinson&#39;s disease (PD) that antedates the typical motor symptoms
@@ -5823,6 +6108,7 @@ phenotypes:
       label: Constipation
   evidence:
   - reference: PMID:7845407
+    reference_title: &#34;Anorectal manometry in the assessment of anorectal function in Parkinson&#39;s disease: a comparison with chronic idiopathic constipation.&#34;
     supports: SUPPORT
     snippet: &#34;We investigated the role of anorectal manometry in evaluating constipation
       and anorectal function in 15 patients with Parkinson&#39;s disease (PD) and compared
@@ -5840,6 +6126,7 @@ phenotypes:
       label: Depression
   evidence:
   - reference: PMID:41301797
+    reference_title: &#34;Non-Motor Symptoms as Markers of Disease Severity in Parkinson&#39;s Disease: Associations Between Constipation, Depression, REM Sleep Behavior Disorder, and Motor Impairment.&#34;
     supports: SUPPORT
     snippet: &#34;Depressive symptoms were similar across groups, but in prodromal PD,
       higher GDS scores were associated with worse UPDRS III scores (p = 0.02), as
@@ -5952,6 +6239,7 @@ genetic:
   notes: Alpha-synuclein gene, autosomal dominant forms
   evidence:
   - reference: PMID:9197268
+    reference_title: &#34;Mutation in the alpha-synuclein gene identified in families with Parkinson&#39;s disease.&#34;
     supports: SUPPORT
     snippet: &#34;A mutation was identified in the alpha-synuclein gene, which codes for
       a presynaptic protein thought to be involved in neuronal plasticity, in the
@@ -5965,6 +6253,7 @@ genetic:
   notes: Most common genetic cause of late-onset PD
   evidence:
   - reference: PMID:19945904
+    reference_title: &#34;Worldwide frequency of G2019S LRRK2 mutation in Parkinson&#39;s disease: a systematic review.&#34;
     supports: SUPPORT
     snippet: &#34;The LRRK2 G2019S mutation is the most frequent known cause of familial
       and sporadic Parkinson&#39;s disease.&#34;
@@ -5976,6 +6265,7 @@ genetic:
   notes: Glucocerebrosidase, major genetic risk factor
   evidence:
   - reference: PMID:30097731
+    reference_title: &#34;The Genetics of Dementia with Lewy Bodies: Current Understanding and Future Directions.&#34;
     supports: SUPPORT
     snippet: &#34;DLB shares risk loci with AD, in the APOE E4 allele, and with PD, in
       variation at GBA and SNCA.&#34;
@@ -5986,6 +6276,7 @@ genetic:
   notes: Parkin gene, early-onset autosomal recessive
   evidence:
   - reference: PMID:25611507
+    reference_title: &#34;The roles of PINK1, parkin, and mitochondrial fidelity in Parkinson&#39;s disease.&#34;
     supports: SUPPORT
     snippet: &#34;Biochemical and genetic studies reveal that the products of two genes
       that are mutated in autosomal recessive parkinsonism, PINK1 and Parkin, normally
@@ -5998,6 +6289,7 @@ genetic:
   notes: Mitochondrial kinase, autosomal recessive
   evidence:
   - reference: PMID:25611507
+    reference_title: &#34;The roles of PINK1, parkin, and mitochondrial fidelity in Parkinson&#39;s disease.&#34;
     supports: SUPPORT
     snippet: &#34;Biochemical and genetic studies reveal that the products of two genes
       that are mutated in autosomal recessive parkinsonism, PINK1 and Parkin, normally
@@ -6010,6 +6302,7 @@ environmental:
   notes: Rotenone and paraquat linked to increased risk
   evidence:
   - reference: PMID:15177059
+    reference_title: &#34;Occupational and environmental risk factors for Parkinson&#39;s disease.&#34;
     supports: SUPPORT
     snippet: &#34;there is general agreement that smoking and exposure to pesticides affect
       the probability of developing PD.&#34;
@@ -6019,6 +6312,7 @@ environmental:
   notes: Associated with pesticide/herbicide exposure
   evidence:
   - reference: PMID:15177059
+    reference_title: &#34;Occupational and environmental risk factors for Parkinson&#39;s disease.&#34;
     supports: PARTIAL
     snippet: &#34;While clear links to rural living, dietary factors, exposure to metals,
       head injury, and exposure to infectious diseases during childhood have not been
@@ -6030,6 +6324,7 @@ environmental:
   notes: Possible risk factor
   evidence:
   - reference: PMID:36781627
+    reference_title: &#34;Traumatic brain injury and risk of Parkinson&#39;s disease: a meta-analysis.&#34;
     supports: SUPPORT
     snippet: &#34;The risk ratio of TBI among PD and controls by a combination of 15 studies
       using a random-effect model was 1.48 (95% CI 1.22-1.74).&#34;
@@ -6040,6 +6335,7 @@ treatments:
   description: Gold standard treatment, replaces dopamine precursor.
   evidence:
   - reference: PMID:27577098
+    reference_title: &#34;Current and experimental treatments of Parkinson disease: A guide for neuroscientists.&#34;
     supports: SUPPORT
     snippet: &#34;The symptomatic treatment of the motor symptoms of Parkinson disease
       (PD) has been constantly optimized using pharmacotherapy (L-Dopa, several dopamine
@@ -6065,6 +6361,7 @@ treatments:
   description: Directly stimulate dopamine receptors.
   evidence:
   - reference: PMID:27577098
+    reference_title: &#34;Current and experimental treatments of Parkinson disease: A guide for neuroscientists.&#34;
     supports: SUPPORT
     snippet: &#34;The symptomatic treatment of the motor symptoms of Parkinson disease
       (PD) has been constantly optimized using pharmacotherapy (L-Dopa, several dopamine
@@ -6081,6 +6378,7 @@ treatments:
   description: Prevent dopamine breakdown (selegiline, rasagiline).
   evidence:
   - reference: PMID:27577098
+    reference_title: &#34;Current and experimental treatments of Parkinson disease: A guide for neuroscientists.&#34;
     supports: SUPPORT
     snippet: &#34;The symptomatic treatment of the motor symptoms of Parkinson disease
       (PD) has been constantly optimized using pharmacotherapy (L-Dopa, several dopamine
@@ -6097,6 +6395,7 @@ treatments:
   description: Extend levodopa duration (entacapone).
   evidence:
   - reference: PMID:27577098
+    reference_title: &#34;Current and experimental treatments of Parkinson disease: A guide for neuroscientists.&#34;
     supports: SUPPORT
     snippet: &#34;The symptomatic treatment of the motor symptoms of Parkinson disease
       (PD) has been constantly optimized using pharmacotherapy (L-Dopa, several dopamine
@@ -6113,6 +6412,7 @@ treatments:
   description: Surgical therapy for advanced motor fluctuations.
   evidence:
   - reference: PMID:27577098
+    reference_title: &#34;Current and experimental treatments of Parkinson disease: A guide for neuroscientists.&#34;
     supports: SUPPORT
     snippet: &#34;The symptomatic treatment of the motor symptoms of Parkinson disease
       (PD) has been constantly optimized using pharmacotherapy (L-Dopa, several dopamine
@@ -6129,6 +6429,7 @@ treatments:
   description: Maintains mobility and reduces fall risk.
   evidence:
   - reference: PMID:27577098
+    reference_title: &#34;Current and experimental treatments of Parkinson disease: A guide for neuroscientists.&#34;
     supports: SUPPORT
     snippet: &#34;The symptomatic treatment of the motor symptoms of Parkinson disease
       (PD) has been constantly optimized using pharmacotherapy (L-Dopa, several dopamine
@@ -6172,6 +6473,7 @@ datasets:
   notes: Nature Communications 2022 - largest PD metagenomics to date
   evidence:
   - reference: PMID:37449597
+    reference_title: &#34;Gut-microbiome-brain axis: the crosstalk between the vagus nerve, alpha-synuclein and the brain in Parkinson&#39;s disease.&#34;
     supports: SUPPORT
     snippet: &#34;This critical review of the literature shows that there is a close link
       between the microbiome, the gut, and the brain in Parkinson&#39;s disease.&#34;
@@ -6206,6 +6508,7 @@ datasets:
   notes: npj Biofilms and Microbiomes 2025 - multi-omics approach
   evidence:
   - reference: PMID:37449597
+    reference_title: &#34;Gut-microbiome-brain axis: the crosstalk between the vagus nerve, alpha-synuclein and the brain in Parkinson&#39;s disease.&#34;
     supports: SUPPORT
     snippet: &#34;This critical review of the literature shows that there is a close link
       between the microbiome, the gut, and the brain in Parkinson&#39;s disease.&#34;
@@ -6239,6 +6542,7 @@ datasets:
   notes: Frontiers Aging Neuroscience 2022 - longitudinal design
   evidence:
   - reference: PMID:37449597
+    reference_title: &#34;Gut-microbiome-brain axis: the crosstalk between the vagus nerve, alpha-synuclein and the brain in Parkinson&#39;s disease.&#34;
     supports: SUPPORT
     snippet: &#34;This critical review of the literature shows that there is a close link
       between the microbiome, the gut, and the brain in Parkinson&#39;s disease.&#34;
@@ -6273,6 +6577,7 @@ datasets:
   notes: npj Parkinson&#39;s Disease 2021 - meta-analysis contributing cohort
   evidence:
   - reference: PMID:37449597
+    reference_title: &#34;Gut-microbiome-brain axis: the crosstalk between the vagus nerve, alpha-synuclein and the brain in Parkinson&#39;s disease.&#34;
     supports: SUPPORT
     snippet: &#34;This critical review of the literature shows that there is a close link
       between the microbiome, the gut, and the brain in Parkinson&#39;s disease.&#34;

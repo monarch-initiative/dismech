@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1037,6 +1101,52 @@
             text-decoration: underline;
         }
 
+        /* Experimental Models */
+        .exp-model-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .exp-model-box .item-name { color: #92400e; }
+        .exp-model-box .item-desc { color: #b45309; }
+
+        .tag-exp-model-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .tag-namo-type {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+        .tag-condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .model-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .model-detail-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .model-detail-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 110px;
+        }
+        .model-detail-value {
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+        }
+        .model-detail-value a {
+            color: inherit;
+        }
+
         /* Computational Models */
         .comp-model-box {
             background: #f0fdf4;
@@ -1382,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1470,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1477,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1489,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1637,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1723,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1737,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1792,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1877,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 4</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Autoinflammatory Disease</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Inherited Disorder</span>
@@ -1886,6 +2105,11 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
+        
+        
         
         
         
@@ -1939,6 +2163,14 @@
             <div class="stat-item">
                 <div class="stat-value">8</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">4</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2253,10 +2485,11 @@
                 <span class="card-count">4</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-mefv-gene-mutation">
                 <div class="item-name">MEFV Gene Mutation</div>
                 
                 <div class="item-desc">Mutations in the MEFV gene lead to dysfunctional pyrin, causing excessive inflammation.</div>
+                
                 
                 
                 
@@ -2334,7 +2567,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-rhoa-pkn-regulatory-pathway-dysregulation">
                 <div class="item-name">RhoA-PKN Regulatory Pathway Dysregulation</div>
                 
                 <div class="item-desc">Disruption of the RhoA-PKN1/2-14-3-3 checkpoint that normally restrains pyrin inflammasome activation, leading to lowered activation threshold.</div>
@@ -2385,11 +2618,12 @@
                 
                 
                 
+                
     
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-autoinflammatory-pathway-activation">
                 <div class="item-name">Autoinflammatory Pathway Activation</div>
                 
                 <div class="item-desc">Dysregulated inflammatory response due to pyrin dysfunction, leading to recurrent inflammatory episodes.</div>
@@ -2485,6 +2719,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2555,7 +2790,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-gasdermin-d-mediated-pyroptosis">
                 <div class="item-name">Gasdermin D-Mediated Pyroptosis</div>
                 
                 <div class="item-desc">Caspase-1 cleaves gasdermin D to form membrane pores, enabling cytokine release and pyroptotic cell death, amplifying inflammation.</div>
@@ -2606,6 +2841,7 @@
                 
                 
                 
+                
     
     
             </div>
@@ -2623,6 +2859,7 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="graph-warning">
                 <strong>Referential integrity issues (1):</strong>
@@ -2638,13 +2875,13 @@
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Familial Mediterranean Fever</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Autoinflammatory Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysregulated inflammatory response due to pyrin dysfunction, leading to recurrent inflammatory episodes.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"monocyte\", \"macrophage\", \"neutrophil\"], \"biological_processes\": [\"pyroptotic inflammatory response\", \"interleukin-1 beta production\"], \"locations\": [\"peritoneum\", \"pleura\", \"synovial membrane of synovial joint\"]}}, {\"id\": \"Recurrent Fever and Serositis\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}], \"edges\": [{\"source\": \"Autoinflammatory Pathway Activation\", \"target\": \"Recurrent Fever and Serositis\", \"predicate\": \"causes\", \"is_orphan\": true}], \"orphan_targets\": [\"Recurrent Fever and Serositis\"]}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Autoinflammatory Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysregulated inflammatory response due to pyrin dysfunction, leading to recurrent inflammatory episodes.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"monocyte\", \"macrophage\", \"neutrophil\"], \"biological_processes\": [\"pyroptotic inflammatory response\", \"interleukin-1 beta production\"], \"locations\": [\"peritoneum\", \"pleura\", \"synovial membrane of synovial joint\"]}}, {\"id\": \"MEFV\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"association\": \"Primary causal gene\"}}, {\"id\": \"MEFV Gene Mutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in the MEFV gene lead to dysfunctional pyrin, causing excessive inflammation.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"MEFV\"]}}, {\"id\": \"Recurrent Fever and Serositis\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}], \"edges\": [{\"source\": \"Autoinflammatory Pathway Activation\", \"target\": \"Recurrent Fever and Serositis\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"MEFV\", \"target\": \"MEFV Gene Mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": [\"Recurrent Fever and Serositis\"]}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3965,6 +4202,9 @@
         <!-- Clinical Trials -->
         
 
+        <!-- Experimental Models -->
+        
+
         <!-- Computational Models -->
         
 
@@ -3991,14 +4231,17 @@ has_subtypes:
   description: Classic form presenting with recurrent episodes of fever and serositis.
   evidence:
   - reference: PMID:25649364
+    reference_title: &#34;Familial Mediterranean Fever.&#34;
     supports: NO_EVIDENCE
     snippet: Familial Mediterranean Fever is an autosomal recessive inherited disease with a course of autoinflammation, which is characterized by the episodes of fever and serositis.
     explanation: Although the literature describes Familial Mediterranean Fever having episodic fever and serositis, it does not define subtypes or a &#39;Type 1&#39; specifically.
   - reference: PMID:23823268
+    reference_title: &#34;A taste of periodic fever syndromes.&#34;
     supports: NO_EVIDENCE
     snippet: Periodic fevers are acquired or inherited disorders of innate immunity, which were first described in the 1940s. ... This clinical review focuses on a sample of autoinflammatory disorders including familial Mediterranean fever...
     explanation: There is a general discussion of Familial Mediterranean Fever but no mention of subtypes or a classification system involving the term &#39;Type 1&#39;.
   - reference: PMID:36889987
+    reference_title: &#34;MEFV gene mutation spectrum in patients with familial mediterranean fever.&#34;
     supports: NO_EVIDENCE
     snippet: MEFV gene mutation spectrum in patients with familial mediterranean fever.
     explanation: This study discusses the gene mutations associated with FMF but does not describe subtypes of the disease.
@@ -4006,18 +4249,22 @@ has_subtypes:
   description: A variant characterized by continuous subclinical inflammation, leading to amyloidosis without overt episodes.
   evidence:
   - reference: PMID:21358337
+    reference_title: &#34;Familial Mediterranean fever--a review.&#34;
     supports: SUPPORT
     snippet: Familial Mediterranean fever type 2 is characterized by amyloidosis as the first clinical manifestation of familial Mediterranean fever in an otherwise asymptomatic individual.
     explanation: The literature directly states that FMF type 2 is characterized by amyloidosis without prior overt inflammatory episodes, aligning with the given statement.
   - reference: PMID:11053071
+    reference_title: &#34;A survey of phenotype II in familial Mediterranean fever.&#34;
     supports: PARTIAL
     snippet: Phenotype II in familial Mediterranean fever (FMF) is the onset of amyloidosis before the onset of FMF with its typical attacks, or as an isolated finding in a member of an FMF family.
     explanation: While this states Type 2 can involve amyloidosis without typical attacks, it does not directly mention continuous subclinical inflammation.
   - reference: PMID:36161616
+    reference_title: &#34;The effectiveness of anti-interleukin-1 therapy on subclinical inflammation parameters during the attack-free period in familial Mediterranean fever patients: A case-control study.&#34;
     supports: PARTIAL
     snippet: Anti IL-1 therapy is useful in suppressing attacks in FMF patients with colchicine resistance, however, it is not certain whether subclinical inflammation can sufficiently be inhibited with anti-IL-1 therapy in FMF patients with amyloidosis.
     explanation: Reference to subclinical inflammation in amyloidosis supports part of the statement, but does not specifically mention Type 2 FMF.
   - reference: PMID:37496356
+    reference_title: &#34;Familial Mediterranean Fever-Related Amyloidosis in Turkey: A Need for a Familial Mediterranean Fever Registry.&#34;
     supports: PARTIAL
     snippet: Recent studies have shown that cases of amyloidosis in patients with familial Mediterranean fever are decreasing
     explanation: Though it implies a relationship between FMF and amyloidosis, it does not clearly distinguish between subtypes or mention continuous subclinical inflammation.
@@ -4026,18 +4273,22 @@ prevalence:
   percentage: 0.1-0.2
   evidence:
   - reference: PMID:32608308
+    reference_title: &#34;Characteristics of patients with familial Mediterranean fever in Denmark: a retrospective nationwide register-based cohort study.&#34;
     supports: REFUTE
     snippet: The predominant ethnicities were Turkish (41.8%), Lebanese (15.8%), Syrian (6.5%), South-West Asian (7.9%), and South-East Asian (3.0%).
     explanation: The prevalence in Mediterranean populations, such as Turkish (41.8%) and Lebanese (15.8%), is much higher than 0.1-0.2%.
   - reference: PMID:11053071
+    reference_title: &#34;A survey of phenotype II in familial Mediterranean fever.&#34;
     supports: NO_EVIDENCE
     snippet: Phenotype II is uncommon among the relatives of patients with FMF and amyloidosis.
     explanation: This study does not provide direct evidence on the overall prevalence of FMF in the Mediterranean populations.
   - reference: PMID:3306755
+    reference_title: &#34;Familial Mediterranean fever (recurrent hereditary polyserositis) in Arabs--a study of 175 patients and review of the literature.&#34;
     supports: REFUTE
     snippet: Recurrent hereditary polyserositis (RHP) or familial Mediterranean fever (FMF) is a chronic inherited illness of obscure aetiology... and predominantly affects Sephardic Jews, Arabs, Turks and Armenians.
     explanation: The article suggests that FMF predominantly affects specific Mediterranean populations, implying a higher prevalence than 0.1-0.2% among these groups.
   - reference: PMID:34363075
+    reference_title: &#34;Prevalence of Familial Mediterranean Fever in Children with Cryptogenic Cirrhosis.&#34;
     supports: NO_EVIDENCE
     snippet: The aim of this study was to determine the prevalence of FMF in children with cryptogenic cirrhosis and it was found to be high, to add FMF among the etiological causes of cirrhosis
     explanation: The study focused on children with cryptogenic cirrhosis and does not provide general prevalence data for Mediterranean populations.
@@ -4046,10 +4297,12 @@ progression:
   age_range: Childhood-Adolescence
   evidence:
   - reference: PMID:31999206
+    reference_title: &#34;Age of onset as an influencing factor for disease severity in children with familial Mediterranean fever.&#34;
     supports: SUPPORT
     snippet: Of 1687 patients, 761 had first FMF attack at &lt;/=3 years of age while 926 patients presented with their first manifestation of FMF at &gt;3 years.
     explanation: The study provides evidence that FMF onset can occur in childhood.
   - reference: PMID:23194659
+    reference_title: &#34;Familial Mediterranean Fever -- an increasingly important childhood disease in Sweden.&#34;
     supports: SUPPORT
     snippet: Median age at first symptoms was 4 years (range 3 month-37 years) and at diagnosis 10 years (range 2-44 years).
     explanation: This reference supports the statement by indicating that the majority of FMF cases have an onset in childhood.
@@ -4059,14 +4312,17 @@ genetic:
   notes: Encodes pyrin protein; gain-of-function mutations lower activation threshold for inflammasome assembly
   evidence:
   - reference: PMID:28154935
+    reference_title: &#34;[Role of genetics in familial Mediterranean fever].&#34;
     supports: SUPPORT
     snippet: Familial Mediterranean fever (FMF) is caused by mutations within the Mediterranean fever (MEFV) gene. These gain of function mutations lead to an increased activation of the inflammasome pyrin with a subsequent disproportional proinflammatory reaction.
     explanation: Mutations in the MEFV gene result in increased activation of pyrin, causing excessive inflammation.
   - reference: PMID:25307949
+    reference_title: &#34;Immunological function of familial Mediterranean fever disease protein Pyrin.&#34;
     supports: SUPPORT
     snippet: Mutations in the MEFV gene are associated with the human autoinflammatory disease familial Mediterranean fever (FMF). Pyrin can interact with the inflammasome adaptor ASC and induce inflammatory caspase-1 activation in monocytic cells.
     explanation: This article discusses the role of pyrin in inducing inflammatory responses, supporting the effect of MEFV gene mutations in causing excessive inflammation.
   - reference: PMID:36889987
+    reference_title: &#34;MEFV gene mutation spectrum in patients with familial mediterranean fever.&#34;
     supports: PARTIAL
     snippet: MEFV gene mutation spectrum in patients with familial mediterranean fever
     explanation: This supports MEFV mutation involvement in FMF, but the quoted text alone does not establish the detailed gain-of-function/pyrin-threshold mechanism.
@@ -4086,14 +4342,17 @@ pathophysiology:
     preferred_term: MEFV
   evidence:
   - reference: PMID:28154935
+    reference_title: &#34;[Role of genetics in familial Mediterranean fever].&#34;
     supports: SUPPORT
     snippet: Familial Mediterranean fever (FMF) is caused by mutations within the Mediterranean fever (MEFV) gene. These gain of function mutations lead to an increased activation of the inflammasome pyrin with a subsequent disproportional proinflammatory reaction.
     explanation: Mutations in the MEFV gene result in increased activation of pyrin, causing excessive inflammation.
   - reference: PMID:25307949
+    reference_title: &#34;Immunological function of familial Mediterranean fever disease protein Pyrin.&#34;
     supports: SUPPORT
     snippet: Mutations in the MEFV gene are associated with the human autoinflammatory disease familial Mediterranean fever (FMF). Pyrin can interact with the inflammasome adaptor ASC and induce inflammatory caspase-1 activation in monocytic cells.
     explanation: This article discusses the role of pyrin in inducing inflammatory responses, supporting the effect of MEFV gene mutations in causing excessive inflammation.
   - reference: PMID:36889987
+    reference_title: &#34;MEFV gene mutation spectrum in patients with familial mediterranean fever.&#34;
     supports: PARTIAL
     snippet: MEFV gene mutation spectrum in patients with familial mediterranean fever
     explanation: Supports MEFV mutation relevance to FMF, but does not directly demonstrate the full mechanistic inflammation claim in this descriptor.
@@ -4156,6 +4415,7 @@ pathophysiology:
     description: MEFV mutations cause inflammasome activation and uncontrolled IL-1β production, resulting in recurrent attacks of fever and polyserositis.
     evidence:
     - reference: PMID:30938266
+      reference_title: &#34;Familial Mediterranean fever: overview of pathogenesis, clinical features and management.&#34;
       supports: SUPPORT
       snippet: mutations in the MEFV gene encoding pyrin, which result in inflammasome activation and the uncontrolled production of IL-1β
       explanation: This 2018 review explains that MEFV gene mutations cause pyrin dysfunction leading to inappropriate inflammasome activation and uncontrolled IL-1β production, which drives the characteristic recurrent fever episodes and inflammatory attacks.
@@ -4167,22 +4427,27 @@ pathophysiology:
   - preferred_term: inflammasome
   evidence:
   - reference: PMID:16344627
+    reference_title: &#34;Familial Mediterranean fever and the other autoinflammatory syndromes: evaluation of the patient with recurrent fever.&#34;
     supports: PARTIAL
     snippet: The spectrum of reported genetic mutations and susceptible ethnicities for the hereditary periodic fever subset of the autoinflammatory diseases has continued to expand. At the same time, the pathogeneses of many of these diseases are now understood to involve different aspects of a common pathway, largely affecting inflammatory cascades related to IL-1 or tumor necrosis factor-alpha.
     explanation: Supports shared IL-1/TNF inflammatory pathways in hereditary periodic fever syndromes, but only indirectly supports FMF-specific pathway details.
   - reference: PMID:29148036
+    reference_title: &#34;Function and mechanism of the pyrin inflammasome.&#34;
     supports: SUPPORT
     snippet: Pyrin, encoded by the MEFV gene, is an intracellular pattern recognition receptor that assembles inflammasome complexes in response to pathogen infections. Mutations in the MEFV gene have been linked to autoinflammatory diseases such as familial Mediterranean fever (FMF) or pyrin-associated autoinflammation with neutrophilic dermatosis (PAAND).
     explanation: This reference describes the role of pyrin in inflammasome activation and its link to FMF, supporting the statement about dysregulated inflammatory responses and recurrent inflammatory episodes.
   - reference: PMID:33026080
+    reference_title: &#34;Familial Mediterranean fever: the molecular pathways from stress exposure to attacks.&#34;
     supports: SUPPORT
     snippet: FMF is an autoinflammatory disease characterized by recurrent attacks and increased IL-1 synthesis owing to activation of the pyrin inflammasome
     explanation: This reference directly mentions recurrent attacks and increased IL-1 synthesis due to pyrin inflammasome activation, supporting the mechanisms described in the statement.
   - reference: PMID:32601469
+    reference_title: &#34;Ancient familial Mediterranean fever mutations in human pyrin and resistance to Yersinia pestis.&#34;
     supports: SUPPORT
     snippet: Familial Mediterranean fever (FMF) is an autoinflammatory disease caused by homozygous or compound heterozygous gain-of-function mutations in MEFV, which encodes pyrin, an inflammasome protein. Heterozygous carrier frequencies for multiple MEFV mutations are high in several Mediterranean populations, suggesting that they confer selective advantage.
     explanation: This reference supports the genetic basis of FMF involving mutations in MEFV, which leads to the dysregulated inflammatory response observed in FMF.
   - reference: PMID:29051974
+    reference_title: &#34;Cardiac disease in familial Mediterranean fever.&#34;
     supports: SUPPORT
     snippet: Familial Mediterranean fever (FMF) is an autoinflammatory disease manifested by inflammatory attacks of peritonitis, pleuritis, pericarditis accompanied by fever and arthritis. Mutations of MEFV gene results in pyrin dysfunction, which causes uncontrolled interleukin-1 beta production and triggers the inflammatory attacks.
     explanation: This reference supports the mechanism described in the statement, emphasizing pyrin dysfunction and the uncontrolled production of interleukin-1 beta.
@@ -4210,18 +4475,22 @@ phenotypes:
   diagnostic: true
   evidence:
   - reference: PMID:21358337
+    reference_title: &#34;Familial Mediterranean fever--a review.&#34;
     supports: PARTIAL
     snippet: Familial Mediterranean fever type 1 is characterized by recurrent short episodes of inflammation and serositis, including fever, peritonitis, synovitis, pleuritis, and, rarely, pericarditis.
     explanation: The literature supports that recurrent fever is a common feature of Familial Mediterranean Fever type 1, but it does not fully support that FMF should be categorized solely under systemic phenotypes.
   - reference: PMID:25832989
+    reference_title: &#34;The myths we believed in familial Mediterranean fever: what have we learned in the past years?&#34;
     supports: PARTIAL
     snippet: Familial Mediterranean fever...presents with recurrent and self-limited inflammatory attacks of fever and polyserositis along with high acute-phase reactants.
     explanation: The literature supports that recurrent fever is a common diagnostic feature of FMF and systemically involves fever and inflammation, but it does not confirm all specified aspects of the statement.
   - reference: PMID:36688581
+    reference_title: &#34;Disease severity and genotype-phenotype correlation in adult patients with familial Mediterranean fever.&#34;
     supports: PARTIAL
     snippet: Higher Pras scores, earlier age of symptoms and diagnosis, more frequent arthritis and erysipelas-like erythema, and higher colchicine dose are closely associated with M694V homozygous familial Mediterranean fever patients. These patients also have mostly moderate and severe disease severity.
     explanation: It supports the systemic nature and severity aspects but does not fully align with the complete statement&#39;s focus.
   - reference: PMID:34606655
+    reference_title: &#34;The analysis of genotype-phenotype correlation in familial Mediterranean fever.&#34;
     supports: PARTIAL
     snippet: Familial Mediterranean fever (FMF) is the most common monogenic autoinflammatory disease manifesting with phenotypic heterogeneity. It is a clinically diagnosed disease supported by Mediterranean fever gene mutation analysis.
     explanation: While fever is a prominent symptom, FMF is known for phenotypic heterogeneity, indicating varied systemic manifestations.
@@ -4236,10 +4505,12 @@ phenotypes:
   notes: Transient, affecting large joints
   evidence:
   - reference: PMID:11411958
+    reference_title: &#34;Arthritis in familial Mediterranean fever.&#34;
     supports: SUPPORT
     snippet: The arthritis was transient, monoarticular, nonerosive, and nondeforming in the majority of cases. Four patients (5.4%) had chronic arthritis, with one requiring total hip replacement. As in previous reports on arthritis of FMF, the majority of FMF patients studied in Lebanon had a transient monoarticular nonerosive and nondeforming type of arthritis affecting predominantly the large joints of the lower extremities.
     explanation: This reference supports the statement that arthritis is a common phenotype in FMF, is transient, and affects large joints.
   - reference: PMID:33124556
+    reference_title: &#34;Erysipelas-like erythema in children with familial Mediterranean fever.&#34;
     supports: SUPPORT
     snippet: More patients had arthritis in the ELE group than in the other group (p=0.011). Arthritis occurred in the ankle (77.4%), knee (19.3%) and hip (3.2%) joints.
     explanation: This reference confirms the presence of arthritis in FMF patients, especially in large joints, supporting the statement.
@@ -4254,22 +4525,27 @@ phenotypes:
   notes: Recurrent abdominal pain due to inflammation of the peritoneum
   evidence:
   - reference: PMID:36082189
+    reference_title: &#34;Familial Mediterranean fever: a differential diagnosis for the surgical abdomen.&#34;
     supports: PARTIAL
     snippet: FMF is characterised by dysregulation of the inflammatory process in the body, presenting as recurrent episodes of serositis. Patients with FMF commonly present with episodes of fever, peritonitis, synovitis, pleuritis, arthritis, and occasionally pericarditis.
     explanation: This reference supports that peritonitis, which involves abdominal pain due to inflammation of the peritoneum, is a phenotype of FMF. However, it does not explicitly indicate a high frequency of gastrointestinal phenotypes.
   - reference: PMID:37723615
+    reference_title: &#34;Evaluation of Gastrointestinal System Complaints and Comorbidities in Pediatric Familial Mediterranean Fever Patients.&#34;
     supports: PARTIAL
     snippet: Familial Mediterranean fever (FMF) is the most prevalent hereditary autoinflammatory disease among children. Abdominal pain and various gastrointestinal system (GIS) manifestations may arise directly from FMF or concomitantly with FMF.
     explanation: This reference supports that gastrointestinal manifestations, including abdominal pain, are phenotypes of FMF. However, it does not specify the high frequency of peritonitis.
   - reference: PMID:9562837
+    reference_title: &#34;Familial Mediterranean fever: the genetics of inflammation.&#34;
     supports: SUPPORT
     snippet: When a patient complains of episodic fever accompanied by unexplained arthritis, peritonitis, pleurisy, or skin rash, this disorder should be considered.
     explanation: This reference supports that peritonitis is a common phenotype of FMF, aligning well with the statement.
   - reference: PMID:35737103
+    reference_title: &#34;Familial Mediterranean fever may mimic acute appendicitis in children.&#34;
     supports: SUPPORT
     snippet: The key feature of familial Mediterranean fever is relapsing episodes of fever and serositis including peritonitis, pleurisy, or arthritis.
     explanation: This reference clearly supports that peritonitis, involving abdominal pain due to inflammation of the peritoneum, is a key feature of FMF and occurs frequently.
   - reference: PMID:31308342
+    reference_title: &#34;Familial Mediterranean Fever with Small Bowel Stenosis.&#34;
     supports: PARTIAL
     snippet: Considering the history of recurrent abdominal pain, Familial Mediterranean Fever (FMF) was considered.
     explanation: Supports recurrent abdominal pain as a clinical clue for FMF, but does not directly establish peritonitis frequency.
@@ -4289,18 +4565,22 @@ phenotypes:
       label: Pleuritis
   evidence:
   - reference: PMID:38204312
+    reference_title: &#34;Chest pain in children with familial Mediterranean fever.&#34;
     supports: PARTIAL
     snippet: The most common signs and symptoms are fever, abdominal pain, chest pain, and arthritis.
     explanation: Supports frequent chest pain in FMF, but does not directly specify pleuritis as the cause.
   - reference: PMID:12092043
+    reference_title: &#34;Thoracic and lung involvement in familial Mediterranean fever (FMF).&#34;
     supports: SUPPORT
     snippet: Lung involvement in FMF is limited mainly to transient pleuritis during acute attacks.
     explanation: The study specifies that pleuritis, which is inflammation of the pleura, is a frequent thoracic phenotype in FMF.
   - reference: PMID:36385047
+    reference_title: &#34;Transient and Recurrent Pulmonary Infiltrations Associated with Familial Mediterranean Fever.&#34;
     supports: PARTIAL
     snippet: Pericarditis, pleurisy and the response to colchicine indicated FMF.
     explanation: This study identifies pleurisy, another term for pleuritis, as a characteristic symptom in FMF patients, supporting the statement.
   - reference: PMID:36725780
+    reference_title: &#34;Apical fibrosis was the most common incidental pulmonary finding in a familial Mediterranean fever cohort.&#34;
     supports: PARTIAL
     snippet: Pleuritis is the only known pulmonary involvement of FMF; however, as far as we know, thoracic involvements in pleural, parenchymal, bronchial, and vascular structures have not been evaluated yet.
     explanation: While the study acknowledges pleuritis as a known pulmonary involvement in FMF, it does not provide evidence on its frequency being &#34;FREQUENT&#34;.
@@ -4319,18 +4599,22 @@ phenotypes:
   notes: Can lead to kidney failure if untreated
   evidence:
   - reference: PMID:12832747
+    reference_title: &#34;Familial Mediterranean fever (FMF) and renal AA amyloidosis--phenotype-genotype correlation, treatment and prognosis.&#34;
     supports: SUPPORT
     snippet: Amyloidosis, causing renal failure, is one of the most severe complications of the disease.
     explanation: The literature confirms that amyloidosis can lead to kidney failure in patients with Familial Mediterranean Fever (FMF), supporting the statement.
   - reference: PMID:23548761
+    reference_title: &#34;Renal involvement in AA amyloidosis: clinical outcomes and survival.&#34;
     supports: SUPPORT
     snippet: Familial Mediterranean Fever and tuberculosis were the most frequent causes of amyloidosis.
     explanation: The statement is supported as FMF is listed as one of the frequent causes of renal amyloidosis.
   - reference: PMID:21360109
+    reference_title: &#34;Renal amyloidosis in children.&#34;
     supports: SUPPORT
     snippet: The most frequent cause [of renal amyloidosis in children] is now autoinflammatory diseases. Among this group of diseases, the most frequent one throughout the world is familial Mediterranean fever (FMF).
     explanation: This confirms that FMF is a frequent cause of renal amyloidosis, thereby supporting the statement.
   - reference: PMID:33052444
+    reference_title: &#34;Menorrhagia due to uterine amyloidosis in familial Mediterranean fever: case-based review.&#34;
     supports: SUPPORT
     snippet: Amyloidosis [...] stands out as a major complication of familial Mediterranean fever (FMF). Splenic and renal involvement is more likely in FMF-associated systemic amyloidosis.
     explanation: The literature confirms the renal involvement in FMF-associated amyloidosis, thus supporting the statement.
@@ -4345,10 +4629,12 @@ phenotypes:
   notes: Recurrent erythematous skin lesions, usually on the lower legs
   evidence:
   - reference: PMID:21352275
+    reference_title: &#34;Erysipelas-like erythema with familial Mediterranean fever.&#34;
     supports: PARTIAL
     snippet: Erysipelas-like erythema with familial Mediterranean fever.
     explanation: Supports association between erysipelas-like erythema and FMF, but title-level text alone is limited evidence for phenotype frequency.
   - reference: PMID:33124556
+    reference_title: &#34;Erysipelas-like erythema in children with familial Mediterranean fever.&#34;
     supports: SUPPORT
     snippet: Erysipelas-like erythema (ELE) is a well-known pathognomonic skin lesion associated with familial Mediterranean fever (FMF).
     explanation: The study describes ELE as a significant feature of FMF, supporting the statement that it is an occasional manifestation in the integumentary system.
@@ -4363,10 +4649,12 @@ phenotypes:
       label: Myalgia
   evidence:
   - reference: PMID:37309906
+    reference_title: &#34;Exertional leg pain represents a severe disease phenotype in childhood familial Mediterranean fever.&#34;
     supports: SUPPORT
     snippet: Recurrent fever, serositis, and arthritis are common findings of the disease. In addition, musculoskeletal complaints such as exertional leg pain can be overlooked, although they are common and affect patients&#39; quality of life.
     explanation: The literature mentions musculoskeletal complaints, including exertional leg pain, as common in FMF, supporting the statement that myalgia is an occasional symptom.
   - reference: PMID:32895731
+    reference_title: &#34;Protracted febrile myalgia syndrome as the first manifestation of familial Mediterranean fever in children: case-based review.&#34;
     supports: SUPPORT
     snippet: Protracted febrile myalgia syndrome (PFMS) is one of the rare conditions characterized by long standing severe myalgia and fever in familial Mediterranean fever (FMF) patients.
     explanation: This reference specifically mentions severe myalgia as a symptom in FMF patients, which supports the statement.
@@ -4375,18 +4663,22 @@ diagnosis:
   results: Identifies MEFV mutations
   evidence:
   - reference: PMID:29314663
+    reference_title: &#34;MEFV gene testing may guide physicians for early diagnosis of familial Mediterranean fever.&#34;
     supports: PARTIAL
     snippet: Even though clinical assessment is accepted to be the most important factor in the diagnosis of FMF... MEFV gene assessment, unlike other diagnostic procedures, might support physicians in the early diagnosis of FMF.
     explanation: The literature acknowledges the importance of genetic testing for MEFV mutations but emphasizes that clinical evaluation remains crucial for diagnosis overall.
   - reference: PMID:25649364
+    reference_title: &#34;Familial Mediterranean Fever.&#34;
     supports: PARTIAL
     snippet: Genetic mutation of the disease is on MEFV gene located on short arm of Chromosome 16. The disease is diagnosed based on clinical evaluation.
     explanation: Supports MEFV genetic basis, but also states diagnosis is primarily clinical, so this is only partial support for the testing claim.
   - reference: PMID:12168253
+    reference_title: &#34;[Genetic diagnosis of periodic diseases (familial mediterranean fever or FMF)].&#34;
     supports: SUPPORT
     snippet: This strategy allows definitive confirmation of periodic disease if one mutation is detected on each of the two chromosomes...
     explanation: This reference directly supports the use of genetic testing to identify MEFV mutations for diagnosing familial Mediterranean fever.
   - reference: PMID:33037005
+    reference_title: &#34;Fast diagnostic test for familial Mediterranean fever based on a kinase inhibitor.&#34;
     supports: SUPPORT
     snippet: Its diagnosis relies on a set of clinical criteria and a genetic confirmation on identification of biallelic pathogenic MEFV variants.
     explanation: The reference confirms that genetic testing for MEFV mutations is a key part of diagnosing familial Mediterranean fever.
@@ -4395,10 +4687,12 @@ diagnosis:
   markers: CRP, ESR, SAA
   evidence:
   - reference: PMID:31524848
+    reference_title: &#34;The Value of Serum Amyloid A Levels in Familial Mediterranean Fever to Identify Occult Inflammation During Asymptomatic Periods.&#34;
     supports: SUPPORT
     snippet: Median values of acute phase reactants during FMF attacks were 433.5 mg/L ... for serum amyloid A (SAA), 56.7 mg/L ... for C-reactive protein (CRP), and 37.5 mm/h ... for erythrocyte sedimentation rate (ESR).
     explanation: The study shows that SAA, CRP, and ESR are elevated during FMF attacks.
   - reference: PMID:23794006
+    reference_title: &#34;As a new inflammatory marker for familial Mediterranean fever: neutrophil-to-lymphocyte ratio.&#34;
     supports: SUPPORT
     snippet: We found that the NLR values of the patients were significantly higher than those of the control group, and C-reactive protein values were correlated with NLR.
     explanation: CRP is confirmed as an elevated marker in FMF patients in this study as well.
@@ -4407,6 +4701,7 @@ environmental:
   effect: May trigger episodes
   evidence:
   - reference: PMID:22234484
+    reference_title: &#34;Triggers for attacks in familial Mediterranean fever: application of the case-crossover design.&#34;
     supports: PARTIAL
     snippet: Multiple stressful life events predicted FMF attacks 2 days following the event. ... Physical exertion and high-fat diet did not increase the likelihood of FMF attacks.
     explanation: The study found that emotional stress could trigger FMF attacks, but physical stress did not show a significant effect. Therefore, while stress in general may trigger episodes, physical stress specifically does not.
@@ -4414,10 +4709,12 @@ environmental:
   effect: Potential trigger for flare-ups
   evidence:
   - reference: PMID:22234484
+    reference_title: &#34;Triggers for attacks in familial Mediterranean fever: application of the case-crossover design.&#34;
     supports: SUPPORT
     snippet: Multiple stressful life events predicted FMF attacks 2 days following the event. After adjustment for treatment, an additional stressful event was associated with an estimated 70% increase in the odds of having an FMF attack on the second day.
     explanation: The study indicates a clear association between emotional stress and the triggering of FMF attacks, supporting the statement.
   - reference: PMID:33026080
+    reference_title: &#34;Familial Mediterranean fever: the molecular pathways from stress exposure to attacks.&#34;
     supports: SUPPORT
     snippet: The emergence of FMF attacks after emotional stress and the induction of attacks with metaraminol in previous decades suggested that stress-induced sympathoadrenal system activation might play a role in inflammasome activation and triggering attacks.
     explanation: The literature provides evidence that emotional stress can trigger FMF attacks through the activation of the inflammasome pathway.
@@ -4428,22 +4725,27 @@ treatments:
   description: First-line treatment to prevent and reduce the frequency of attacks and the risk of amyloidosis.
   evidence:
   - reference: PMID:19797919
+    reference_title: &#34;Prevention of amyloidosis in familial Mediterranean fever with colchicine: a case-control study in Armenia.&#34;
     supports: SUPPORT
     snippet: The study demonstrated that colchicine treatment is effective in preventing amyloidosis among Armenian patients with FMF and that earlier initiation and continuous therapy at an adequate dose of 1.2-1.8 mg/day may be associated with a decreased amyloidosis risk among Armenian patients with FMF.
     explanation: The study directly supports the statement that colchicine is a first-line treatment for preventing amyloidosis, a common complication of FMF.
   - reference: PMID:25649364
+    reference_title: &#34;Familial Mediterranean Fever.&#34;
     supports: SUPPORT
     snippet: The only agent that decreases the development of amyloidosis and the frequency and severity of the episodes is colchicine, which has been used for about 40 years.
     explanation: This reference clearly supports the claim that colchicine reduces the frequency of attacks and prevents amyloidosis, affirming its role as a first-line treatment.
   - reference: PMID:25791871
+    reference_title: &#34;Interventions for reducing inflammation in familial Mediterranean fever.&#34;
     supports: SUPPORT
     snippet: Early studies reported colchicine as a potential drug for preventing attacks of familial Mediterranean fever.
     explanation: This indicates that colchicine is considered effective for preventing FMF attacks, supporting its position as a first-line treatment.
   - reference: PMID:17242135
+    reference_title: &#34;Colchicine use in children and adolescents with familial Mediterranean fever: literature review and consensus statement.&#34;
     supports: SUPPORT
     snippet: The daily application of colchicine is the standard therapy for prophylaxis of attacks and amyloid deposition in familial Mediterranean fever.
     explanation: This statement corroborates that colchicine is the standard, or first-line, therapy for preventing FMF attacks and amyloidosis.
   - reference: PMID:15720245
+    reference_title: &#34;Pharmacological and clinical basis of treatment of Familial Mediterranean Fever (FMF) with colchicine or analogues: an update.&#34;
     supports: SUPPORT
     snippet: Since 1972 colchicine has become the drug of choice for prophylaxis against FMF attacks and amyloidosis FMF-associated.
     explanation: This reference supports the idea that colchicine is the primary treatment for preventing FMF attacks and associated amyloidosis.
@@ -4461,18 +4763,22 @@ treatments:
   description: Used in colchicine-resistant cases to control inflammation (e.g., anakinra, canakinumab).
   evidence:
   - reference: PMID:28362189
+    reference_title: &#34;Canakinumab for the treatment of familial Mediterranean fever.&#34;
     supports: SUPPORT
     snippet: The accumulating data indicates that anti IL-1 drugs are effective in treating colchicine resistant FMF cases and improving their quality of life.
     explanation: The reference supports the use of anti-IL-1 therapy for treating colchicine-resistant FMF cases.
   - reference: PMID:30338514
+    reference_title: &#34;Interventions for reducing inflammation in familial Mediterranean fever.&#34;
     supports: PARTIAL
     snippet: For those people who are colchicine-resistant or intolerant, drugs such as rilonacept, anakinra, canakinumab, etanercept, infliximab, thalidomide and interferon-alpha might be beneficial.
     explanation: Provides mixed, tentative treatment options; this is partial support for anti-IL-1 use in colchicine-resistant FMF.
   - reference: PMID:36161616
+    reference_title: &#34;The effectiveness of anti-interleukin-1 therapy on subclinical inflammation parameters during the attack-free period in familial Mediterranean fever patients: A case-control study.&#34;
     supports: SUPPORT
     snippet: Anti IL-1 therapy is useful in suppressing attacks in FMF patients with colchicine resistance.
     explanation: The study supports the effectiveness of anti-IL-1 therapy in managing inflammation in colchicine-resistant FMF patients.
   - reference: PMID:27860460
+    reference_title: &#34;Anakinra for Colchicine-Resistant Familial Mediterranean Fever: A Randomized, Double-Blind, Placebo-Controlled Trial.&#34;
     supports: SUPPORT
     snippet: In this randomized controlled trial, anakinra appears to be an effective and safe treatment for colchicine-resistant FMF.
     explanation: The reference provides evidence from a randomized controlled trial supporting the effectiveness of anakinra, an anti-IL-1 therapy, in colchicine-resistant FMF patients.
@@ -4485,10 +4791,12 @@ treatments:
   description: Used for symptom relief during acute attacks
   evidence:
   - reference: PMID:37752496
+    reference_title: &#34;Treat-to-target strategies for the management of familial Mediterranean Fever in children.&#34;
     supports: REFUTE
     snippet: &#39;These provide the basis for stratifying patients into the following treatment paths: continue colchicine, persisting attacks / inflammation, colchicine intolerance, persisting arthritis, colchicine reduction and adjustment/reduction of biologics.&#39;
     explanation: The literature does not mention NSAIDs as a treatment path for symptom relief during acute attacks of Familial Mediterranean Fever. The focus is on colchicine and biological therapy.
   - reference: PMID:36945975
+    reference_title: &#34;Factors affecting patient-acceptable symptom states and treatment decision in familial Mediterranean fever.&#34;
     supports: NO_EVIDENCE
     snippet: Mean age of the overall group was 38.2 +/- 11.7 years (62.4% female, 37.6% male). Two hundred and twenty-seven patients were treated with colchicine, 97 patients with colchicine plus Interleukin-1 (IL-1) antagonist, and 22 only with IL-1 antagonist (67.1%, 26.3%, 6.64% in order).
     explanation: There is no mention of NSAIDs being used for symptom relief during acute attacks in FMF patients. The treatments focus on colchicine and IL-1 antagonist.
@@ -4501,10 +4809,12 @@ treatments:
   description: Avoiding known triggers such as stress and infections where possible
   evidence:
   - reference: PMID:38488998
+    reference_title: &#34;Factors triggering familial mediterranean fever attacks, do they really exist?&#34;
     supports: PARTIAL
     snippet: Patients can significantly decrease the number of familial Mediterranean fever attacks they experience by managing psychological stress and avoiding physical factors such as cold exposure and fatigue.
     explanation: The literature supports the management of psychological stress and avoiding physical factors as triggers but does not explicitly mention infections.
   - reference: PMID:26324575
+    reference_title: &#34;Familial Mediterranean Fever: An Unusual Case Presentation.&#34;
     supports: PARTIAL
     snippet: Triggers of this illness include many things, such as cold or stress.
     explanation: The literature mentions stress as a trigger but does not provide exhaustive confirmation about infections as triggers or other preventive lifestyle modifications.

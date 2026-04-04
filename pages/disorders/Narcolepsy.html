@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1037,6 +1101,52 @@
             text-decoration: underline;
         }
 
+        /* Experimental Models */
+        .exp-model-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .exp-model-box .item-name { color: #92400e; }
+        .exp-model-box .item-desc { color: #b45309; }
+
+        .tag-exp-model-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .tag-namo-type {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+        .tag-condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .model-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .model-detail-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .model-detail-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 110px;
+        }
+        .model-detail-value {
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+        }
+        .model-detail-value a {
+            color: inherit;
+        }
+
         /* Computational Models */
         .comp-model-box {
             background: #f0fdf4;
@@ -1382,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1470,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1477,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1489,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1637,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1723,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1737,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1792,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1877,6 +2093,7 @@
                 </span>
                 
                 
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Sleep Disorder</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Neurological Disease</span>
@@ -1886,6 +2103,11 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
+        
+        
         
         
         
@@ -1941,6 +2163,12 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
+            
+            
+            <div class="stat-item">
+                <div class="stat-value">0</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
             
             
             <a class="stat-link" href="#genetic">
@@ -2121,7 +2349,7 @@
                 <span class="card-count">2</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-orexin-hypocretin-deficiency">
                 <div class="item-name">Orexin/Hypocretin Deficiency</div>
                 
                 <div class="item-desc">Loss of orexin-producing neurons in the lateral hypothalamus leads to instability of sleep-wake states. Orexin normally promotes and stabilizes wakefulness. In Type 1 narcolepsy, &gt;90% of orexin neurons are destroyed, likely through autoimmune mechanisms.
@@ -2163,6 +2391,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2195,7 +2424,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-autoimmune-destruction">
                 <div class="item-name">Autoimmune Destruction</div>
                 
                 <div class="item-desc">Strong HLA-DQB1*06:02 association suggests autoimmune etiology. T-cell mediated destruction of hypocretin neurons is the leading hypothesis. Environmental triggers (infections, H1N1 vaccination) may initiate the autoimmune response in genetically susceptible individuals.
@@ -2218,6 +2447,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3221,6 +3451,9 @@
         <!-- Clinical Trials -->
         
 
+        <!-- Experimental Models -->
+        
+
         <!-- Computational Models -->
         
 
@@ -3271,6 +3504,7 @@ pathophysiology:
       label: circadian sleep/wake cycle
   evidence:
   - reference: PMID:25728441
+    reference_title: &#34;Hypocretin (orexin) biology and the pathophysiology of narcolepsy with cataplexy.&#34;
     supports: SUPPORT
     snippet: &#34;Narcolepsy with cataplexy is caused by hypocretin deficiency owing to destruction of most of the hypocretin-producing neurons in the hypothalamus.&#34;
     explanation: Landmark review establishes hypocretin neuron loss as the cause of narcolepsy with cataplexy.
@@ -3287,14 +3521,17 @@ pathophysiology:
       label: adaptive immune response based on somatic recombination of immune receptors built from immunoglobulin superfamily domains
   evidence:
   - reference: PMID:25728441
+    reference_title: &#34;Hypocretin (orexin) biology and the pathophysiology of narcolepsy with cataplexy.&#34;
     supports: SUPPORT
     snippet: &#34;The hypothesis that a targeted immune-mediated or autoimmune attack causes the specific degeneration of hypocretin neurons arose mainly through the discovery of genetic associations, first with the HLA-DQB1*06:02 allele and then with the T-cell receptor α locus.&#34;
     explanation: Genetic associations with HLA and TCR loci strongly support autoimmune etiology.
   - reference: PMID:32227223
+    reference_title: &#34;Narcolepsy type 1: what have we learned from immunology?&#34;
     supports: SUPPORT
     snippet: &#34;Narcolepsy type 1 is hypothesized to be an autoimmune disease targeting the hypocretin/orexin neurons in the hypothalamus. Ample genetic and epidemiological evidence points in the direction of a pathogenesis involving the immune system&#34;
     explanation: Recent review summarizing that genetic and epidemiological evidence supports autoimmune pathogenesis.
   - reference: PMID:38077397
+    reference_title: &#34;The transcriptomics profiling of blood CD4 and CD8 T-cells in narcolepsy type I.&#34;
     supports: SUPPORT
     snippet: &#34;NT1 is a rare, life-long sleep disorder arising as a consequence of the extensive destruction of orexin-producing hypothalamic neurons. The mechanisms involved in the destruction of orexin neurons are not yet elucidated but the association of narcolepsy with environmental triggers and genetic susceptibility (strong association with the HLA, TCRs and other immunologically-relevant loci) implicates an immuno-pathological process.&#34;
     explanation: Transcriptomic study confirms the immunological basis and T-cell involvement in narcolepsy pathogenesis.
@@ -3306,6 +3543,7 @@ phenotypes:
   notes: Cardinal symptom, irresistible sleep attacks
   evidence:
   - reference: PMID:38077397
+    reference_title: &#34;The transcriptomics profiling of blood CD4 and CD8 T-cells in narcolepsy type I.&#34;
     supports: SUPPORT
     snippet: &#34;NT1 is a rare, life-long sleep disorder arising as a consequence of the extensive destruction of orexin-producing hypothalamic neurons.&#34;
     explanation: Excessive daytime sleepiness results from loss of orexin neurons that regulate wakefulness.
@@ -3321,6 +3559,7 @@ phenotypes:
   notes: Sudden muscle weakness triggered by emotions, pathognomonic for Type 1
   evidence:
   - reference: PMID:25728441
+    reference_title: &#34;Hypocretin (orexin) biology and the pathophysiology of narcolepsy with cataplexy.&#34;
     supports: SUPPORT
     snippet: &#34;Narcolepsy with cataplexy is caused by hypocretin deficiency owing to destruction of most of the hypocretin-producing neurons in the hypothalamus.&#34;
     explanation: Cataplexy is the defining feature that distinguishes Type 1 narcolepsy and is caused by hypocretin deficiency.
@@ -3335,6 +3574,7 @@ phenotypes:
   notes: Temporary inability to move upon waking or falling asleep
   evidence:
   - reference: PMID:25728441
+    reference_title: &#34;Hypocretin (orexin) biology and the pathophysiology of narcolepsy with cataplexy.&#34;
     supports: SUPPORT
     snippet: &#34;Narcolepsy with cataplexy is caused by hypocretin deficiency owing to destruction of most of the hypocretin-producing neurons in the hypothalamus.&#34;
     explanation: Sleep paralysis is part of the narcolepsy symptom tetrad resulting from hypocretin deficiency.
@@ -3349,6 +3589,7 @@ phenotypes:
   notes: Vivid dream-like experiences at sleep onset
   evidence:
   - reference: PMID:25728441
+    reference_title: &#34;Hypocretin (orexin) biology and the pathophysiology of narcolepsy with cataplexy.&#34;
     supports: SUPPORT
     snippet: &#34;Narcolepsy with cataplexy is caused by hypocretin deficiency&#34;
     explanation: Hypnagogic hallucinations are part of the classic narcolepsy tetrad resulting from REM sleep intrusion.
@@ -3363,6 +3604,7 @@ phenotypes:
   notes: Fragmented nocturnal sleep despite daytime sleepiness
   evidence:
   - reference: PMID:25728441
+    reference_title: &#34;Hypocretin (orexin) biology and the pathophysiology of narcolepsy with cataplexy.&#34;
     supports: SUPPORT
     snippet: &#34;Narcolepsy with cataplexy is caused by hypocretin deficiency owing to destruction of most of the hypocretin-producing neurons in the hypothalamus.&#34;
     explanation: Fragmented nighttime sleep results from impaired sleep-wake regulation due to orexin neuron loss.
@@ -3381,6 +3623,7 @@ genetic:
   notes: Present in &gt;98% of Type 1 narcolepsy, but also 25% of general population
   evidence:
   - reference: PMID:32227223
+    reference_title: &#34;Narcolepsy type 1: what have we learned from immunology?&#34;
     supports: SUPPORT
     snippet: &#34;Autoreactive T cells and autoantibodies have been detected in blood samples from patients&#34;
     explanation: Detection of autoreactive T cells in narcolepsy patients supports the HLA-mediated autoimmune mechanism.
@@ -3389,6 +3632,7 @@ genetic:
   notes: Rare mutations in hypocretin gene cause familial narcolepsy
   evidence:
   - reference: PMID:25728441
+    reference_title: &#34;Hypocretin (orexin) biology and the pathophysiology of narcolepsy with cataplexy.&#34;
     supports: SUPPORT
     snippet: &#34;Ablation of hypocretin or hypocretin receptors also leads to narcolepsy phenotypes in animal models.&#34;
     explanation: Demonstrates that loss of hypocretin gene function causes narcolepsy.
@@ -3397,6 +3641,7 @@ genetic:
   notes: Hypocretin receptor 2 mutations (canine model)
   evidence:
   - reference: PMID:25728441
+    reference_title: &#34;Hypocretin (orexin) biology and the pathophysiology of narcolepsy with cataplexy.&#34;
     supports: SUPPORT
     snippet: &#34;Ablation of hypocretin or hypocretin receptors also leads to narcolepsy phenotypes in animal models.&#34;
     explanation: Confirms that hypocretin receptor mutations cause narcolepsy in animal models.
@@ -3412,6 +3657,7 @@ treatments:
   description: First-line for cataplexy and daytime sleepiness, improves nighttime sleep.
   evidence:
   - reference: PMID:22893778
+    reference_title: &#34;Sodium oxybate for narcolepsy with cataplexy: systematic review and meta-analysis.&#34;
     supports: SUPPORT
     snippet: &#34;Narcolepsy patients on SXB have significant reductions in cataplexy and daytime sleepiness. SXB is well tolerated in patients with narcolepsy, and most adverse events were mild to moderate in severity.&#34;
     explanation: Systematic review and meta-analysis of 6 RCTs confirms efficacy for both cataplexy and sleepiness with acceptable safety.
@@ -3424,6 +3670,7 @@ treatments:
   description: Wake-promoting agent for excessive daytime sleepiness.
   evidence:
   - reference: PMID:20671626
+    reference_title: &#34;Modafinil for narcolepsy: systematic review and meta-analysis.&#34;
     supports: SUPPORT
     snippet: &#34;In narcoleptic patients, modafinil in comparison with placebo is effective in the treatment of excessive daytime sleepiness, but not cataplexy.&#34;
     explanation: Systematic review and meta-analysis of 9 RCTs confirms modafinil efficacy for excessive daytime sleepiness.
@@ -3441,6 +3688,7 @@ treatments:
   description: Histamine H3 receptor antagonist, promotes wakefulness.
   evidence:
   - reference: PMID:34935103
+    reference_title: &#34;Clinical Impact of Pitolisant on Excessive Daytime Sleepiness and Cataplexy in Adults With Narcolepsy: An Analysis of Randomized Placebo-Controlled Trials.&#34;
     supports: SUPPORT
     snippet: &#34;The results of this analysis demonstrate the robust efficacy of pitolisant for the reduction in both excessive daytime sleepiness and cataplexy.&#34;
     explanation: Analysis of randomized placebo-controlled trials demonstrates large effect sizes for pitolisant.
@@ -3458,6 +3706,7 @@ treatments:
   description: Dopamine/norepinephrine reuptake inhibitor for sleepiness.
   evidence:
   - reference: PMID:30694576
+    reference_title: &#34;A randomized study of solriamfetol for excessive sleepiness in narcolepsy.&#34;
     supports: SUPPORT
     snippet: &#34;Solriamfetol has the potential to be an important therapeutic option for the treatment of impaired wakefulness and excessive sleepiness in patients with narcolepsy.&#34;
     explanation: Phase 3 RCT demonstrated significant improvements in MWT and ESS scores versus placebo.
@@ -3475,6 +3724,7 @@ treatments:
   description: Traditional stimulants (amphetamine, methylphenidate).
   evidence:
   - reference: PMID:18830438
+    reference_title: &#34;Narcolepsy: current treatment options and future approaches.&#34;
     supports: SUPPORT
     snippet: &#34;Modafinil has replaced methylphenidate and amphetamine as the first-line treatment of excessive daytime sleepiness (EDS) and sleep attacks&#34;
     explanation: Confirms amphetamines were traditional first-line treatments for EDS before modafinil.
@@ -3487,6 +3737,7 @@ treatments:
   description: SNRIs/SSRIs for cataplexy (venlafaxine, fluoxetine).
   evidence:
   - reference: PMID:30837110
+    reference_title: &#34;Antidepressants for the treatment of narcolepsy: A prospective study of 148 patients in northern China.&#34;
     supports: SUPPORT
     snippet: &#34;Venlafaxine demonstrated significantly greater improvements in MSL in the MWT (p &lt; 0.01).&#34;
     explanation: Prospective study of 148 patients showed significant improvement in cataplexy and sleepiness with antidepressants.
@@ -3499,6 +3750,7 @@ treatments:
   description: Short planned naps can improve alertness.
   evidence:
   - reference: PMID:18830438
+    reference_title: &#34;Narcolepsy: current treatment options and future approaches.&#34;
     supports: SUPPORT
     snippet: &#34;The management of narcolepsy is presently at a turning point.&#34;
     explanation: Review discusses comprehensive narcolepsy management including behavioral approaches like scheduled naps.

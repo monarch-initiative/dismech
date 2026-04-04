@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1037,6 +1101,52 @@
             text-decoration: underline;
         }
 
+        /* Experimental Models */
+        .exp-model-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .exp-model-box .item-name { color: #92400e; }
+        .exp-model-box .item-desc { color: #b45309; }
+
+        .tag-exp-model-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .tag-namo-type {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+        .tag-condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .model-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .model-detail-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .model-detail-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 110px;
+        }
+        .model-detail-value {
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+        }
+        .model-detail-value a {
+            color: inherit;
+        }
+
         /* Computational Models */
         .comp-model-box {
             background: #f0fdf4;
@@ -1382,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1470,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1477,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1489,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1637,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1723,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1737,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1792,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1877,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 21</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Neurodevelopmental disorder</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Imprinting disorder</span>
@@ -1890,6 +2109,11 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
+        
+        
         
         
         
@@ -1947,6 +2171,14 @@
             <div class="stat-item">
                 <div class="stat-value">12</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">21</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2633,7 +2865,7 @@
                 <span class="card-count">8</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-maternal-ube3a-allele-disruption">
                 <div class="item-name">Maternal UBE3A allele disruption</div>
                 
                 <div class="item-desc">Angelman syndrome is initiated by disruption of the maternally inherited UBE3A allele (deletion, pathogenic variant, UPD context, or imprinting defect).</div>
@@ -2682,6 +2914,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2716,7 +2949,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuron-specific-paternal-ube3a-silencing">
                 <div class="item-name">Neuron-specific paternal UBE3A silencing</div>
                 
                 <div class="item-desc">In neurons, the paternal UBE3A allele is silenced by imprinting, so maternal disruption leads to loss of effective neuronal UBE3A expression.</div>
@@ -2765,6 +2998,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2799,7 +3033,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-neuronal-ube3a-protein-abundance">
                 <div class="item-name">Reduced neuronal UBE3A protein abundance</div>
                 
                 <div class="item-desc">Loss of UBE3A protein in neurons reduces E3-ligase-dependent control of protein turnover signaling.</div>
@@ -2835,6 +3069,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -2891,7 +3126,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-decreased-ube3a-mediated-protein-ubiquitination">
                 <div class="item-name">Decreased UBE3A-mediated protein ubiquitination</div>
                 
                 <div class="item-desc">UBE3A-dependent ubiquitination signaling is reduced, with downstream dysregulation of protein-stability control.</div>
@@ -2961,6 +3196,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3015,7 +3251,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-neuronal-signaling-pathways">
                 <div class="item-name">Dysregulated neuronal signaling pathways</div>
                 
                 <div class="item-desc">Multiple brain signaling pathways become dysregulated rather than a single isolated pathway defect.</div>
@@ -3053,6 +3289,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3087,7 +3324,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-experience-dependent-synaptic-remodeling">
                 <div class="item-name">Impaired experience-dependent synaptic remodeling</div>
                 
                 <div class="item-desc">UBE3A-related network pathology impairs synaptic organization and remodeling in neuronal circuits.</div>
@@ -3141,6 +3378,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -3217,7 +3455,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-neuronal-excitability-homeostasis">
                 <div class="item-name">Disrupted neuronal excitability homeostasis</div>
                 
                 <div class="item-desc">Neuronal excitatory/inhibitory balance and electrophysiologic homeostasis are disrupted in cortical networks.</div>
@@ -3287,6 +3525,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3341,7 +3580,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-network-hyperexcitability-with-abnormal-eeg-background">
                 <div class="item-name">Cortical network hyperexcitability with abnormal EEG background</div>
                 
                 <div class="item-desc">Hyperexcitable cortical networks produce persistent epileptiform liability and abnormal electroencephalographic backgrounds.</div>
@@ -3377,6 +3616,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -3426,18 +3666,19 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Angelman Syndrome</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cortical network hyperexcitability with abnormal EEG background\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyperexcitable cortical networks produce persistent epileptiform liability and abnormal electroencephalographic backgrounds.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"locations\": [\"cerebral cortex\"]}}, {\"id\": \"Decreased UBE3A-mediated protein ubiquitination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"UBE3A-dependent ubiquitination signaling is reduced, with downstream dysregulation of protein-stability control.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"protein ubiquitination\", \"regulation of protein stability\"], \"locations\": [\"brain\"]}}, {\"id\": \"Disrupted neuronal excitability homeostasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neuronal excitatory/inhibitory balance and electrophysiologic homeostasis are disrupted in cortical networks.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"modulation of chemical synaptic transmission\", \"regulation of membrane potential\"], \"locations\": [\"cerebral cortex\"]}}, {\"id\": \"Dysregulated neuronal signaling pathways\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Multiple brain signaling pathways become dysregulated rather than a single isolated pathway defect.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"locations\": [\"brain\"]}}, {\"id\": \"Gait ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002066\"}}, {\"id\": \"Impaired experience-dependent synaptic remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"UBE3A-related network pathology impairs synaptic organization and remodeling in neuronal circuits.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"synapse organization\"], \"locations\": [\"cerebral cortex\"]}}, {\"id\": \"Maternal UBE3A allele disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Angelman syndrome is initiated by disruption of the maternally inherited UBE3A allele (deletion, pathogenic variant, UPD context, or imprinting defect).\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"genes\": [\"UBE3A\"], \"locations\": [\"nervous system\"]}}, {\"id\": \"Neuron-specific paternal UBE3A silencing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In neurons, the paternal UBE3A allele is silenced by imprinting, so maternal disruption leads to loss of effective neuronal UBE3A expression.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"genes\": [\"UBE3A\"], \"locations\": [\"nervous system\"]}}, {\"id\": \"Reduced neuronal UBE3A protein abundance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of UBE3A protein in neurons reduces E3-ligase-dependent control of protein turnover signaling.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"locations\": [\"brain\"]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Severe intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0010864\"}}, {\"id\": \"Severe speech impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002465\"}}, {\"id\": \"Sleep disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002360\"}}], \"edges\": [{\"source\": \"Maternal UBE3A allele disruption\", \"target\": \"Neuron-specific paternal UBE3A silencing\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuron-specific paternal UBE3A silencing\", \"target\": \"Reduced neuronal UBE3A protein abundance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced neuronal UBE3A protein abundance\", \"target\": \"Decreased UBE3A-mediated protein ubiquitination\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Decreased UBE3A-mediated protein ubiquitination\", \"target\": \"Dysregulated neuronal signaling pathways\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dysregulated neuronal signaling pathways\", \"target\": \"Impaired experience-dependent synaptic remodeling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Disrupted neuronal excitability homeostasis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Severe intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Severe speech impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Gait ataxia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted neuronal excitability homeostasis\", \"target\": \"Cortical network hyperexcitability with abnormal EEG background\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cortical network hyperexcitability with abnormal EEG background\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cortical network hyperexcitability with abnormal EEG background\", \"target\": \"Sleep disturbance\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Combination anti-seizure pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Seizure control is frequently achieved with combination anti-seizure medication regimens, with a newer-agent-forward approach for tolerability.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"levetiracetam\", \"lamotrigine\", \"clobazam\", \"valproic acid\"]}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002019\"}}, {\"id\": \"Cortical network hyperexcitability with abnormal EEG background\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyperexcitable cortical networks produce persistent epileptiform liability and abnormal electroencephalographic backgrounds.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"locations\": [\"cerebral cortex\"]}}, {\"id\": \"Decreased UBE3A-mediated protein ubiquitination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"UBE3A-dependent ubiquitination signaling is reduced, with downstream dysregulation of protein-stability control.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"protein ubiquitination\", \"regulation of protein stability\"], \"locations\": [\"brain\"]}}, {\"id\": \"Disrupted neuronal excitability homeostasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neuronal excitatory/inhibitory balance and electrophysiologic homeostasis are disrupted in cortical networks.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"modulation of chemical synaptic transmission\", \"regulation of membrane potential\"], \"locations\": [\"cerebral cortex\"]}}, {\"id\": \"Dysregulated neuronal signaling pathways\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Multiple brain signaling pathways become dysregulated rather than a single isolated pathway defect.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"locations\": [\"brain\"]}}, {\"id\": \"Gait ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002066\"}}, {\"id\": \"Gastroesophageal reflux\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002020\"}}, {\"id\": \"Impaired experience-dependent synaptic remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"UBE3A-related network pathology impairs synaptic organization and remodeling in neuronal circuits.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"synapse organization\"], \"locations\": [\"cerebral cortex\"]}}, {\"id\": \"Low-glycemic-index dietary therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Low-glycemic-index dietary intervention is used as an adjunctive non-pharmacologic seizure-management strategy, with mixed efficacy signals but good tolerability.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Maternal UBE3A allele disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Angelman syndrome is initiated by disruption of the maternally inherited UBE3A allele (deletion, pathogenic variant, UPD context, or imprinting defect).\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"genes\": [\"UBE3A\"], \"locations\": [\"nervous system\"]}}, {\"id\": \"Neuron-specific paternal UBE3A silencing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In neurons, the paternal UBE3A allele is silenced by imprinting, so maternal disruption leads to loss of effective neuronal UBE3A expression.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"genes\": [\"UBE3A\"], \"locations\": [\"nervous system\"]}}, {\"id\": \"Physical therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Physical therapy is used to improve mobility and support motor function.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Reduced neuronal UBE3A protein abundance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of UBE3A protein in neurons reduces E3-ligase-dependent control of protein turnover signaling.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"locations\": [\"brain\"]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Severe intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0010864\"}}, {\"id\": \"Severe speech impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002465\"}}, {\"id\": \"Sleep disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002360\"}}, {\"id\": \"Speech therapy and augmentative communication\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Speech therapy with nonverbal augmentative strategies is recommended due to severe expressive language deficits.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Structured management of gastrointestinal comorbidities\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ongoing management of reflux, feeding, and constipation is recommended.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"UBE3A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"UBE3A\"], \"association\": \"Causative\"}}], \"edges\": [{\"source\": \"Maternal UBE3A allele disruption\", \"target\": \"Neuron-specific paternal UBE3A silencing\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuron-specific paternal UBE3A silencing\", \"target\": \"Reduced neuronal UBE3A protein abundance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced neuronal UBE3A protein abundance\", \"target\": \"Decreased UBE3A-mediated protein ubiquitination\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Decreased UBE3A-mediated protein ubiquitination\", \"target\": \"Dysregulated neuronal signaling pathways\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dysregulated neuronal signaling pathways\", \"target\": \"Impaired experience-dependent synaptic remodeling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Disrupted neuronal excitability homeostasis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Severe intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Severe speech impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired experience-dependent synaptic remodeling\", \"target\": \"Gait ataxia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted neuronal excitability homeostasis\", \"target\": \"Cortical network hyperexcitability with abnormal EEG background\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cortical network hyperexcitability with abnormal EEG background\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cortical network hyperexcitability with abnormal EEG background\", \"target\": \"Sleep disturbance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Combination anti-seizure pharmacotherapy\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Low-glycemic-index dietary therapy\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Low-glycemic-index dietary therapy\", \"target\": \"Sleep disturbance\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical therapy\", \"target\": \"Gait ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Speech therapy and augmentative communication\", \"target\": \"Severe speech impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Structured management of gastrointestinal comorbidities\", \"target\": \"Constipation\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Structured management of gastrointestinal comorbidities\", \"target\": \"Gastroesophageal reflux\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"UBE3A\", \"target\": \"Maternal UBE3A allele disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"UBE3A\", \"target\": \"Neuron-specific paternal UBE3A silencing\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4739,7 +4980,7 @@
                 <div class="evidence-snippet">"Physical therapy, occupational therapy, and speech therapy with an emphasis on nonverbal methods of communication, including augmentative communication aids (e.g., picture cards, communication boards) and signing."</div>
                 
                 
-                <div class="evidence-explanation">Supports OT as part of standard multidisciplinary care.</div>
+                <div class="evidence-explanation">Supports occupational therapy as part of standard multidisciplinary care.</div>
                 
             </div>
             
@@ -5690,6 +5931,9 @@
         </div>
         
 
+        <!-- Experimental Models -->
+        
+
         <!-- Computational Models -->
         
 
@@ -5723,6 +5967,7 @@ classifications:
   - classification_value: hereditary disease
     evidence:
     - reference: PMID:35150089
+      reference_title: &#34;A multidisciplinary approach and consensus statement to establish standards of care for Angelman syndrome.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Angelman syndrome (AS) is a rare neurogenetic disorder present in approximately 1/12,000 individuals and characterized by developmental delay, cognitive impairment, motor dysfunction, seizures, gastrointestinal concerns, and abnormal electroencephalographic background.&#34;
@@ -5730,6 +5975,7 @@ classifications:
   - classification_value: nervous system disorder
     evidence:
     - reference: PMID:24876791
+      reference_title: &#34;Angelman syndrome: review of clinical and molecular aspects.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#39;&#34;Angelman syndrome&#34; (AS) is a neurodevelopmental disorder whose main features are intellectual disability, lack of speech, seizures, and a characteristic behavioral profile.&#39;
@@ -5745,11 +5991,13 @@ definitions:
   scope: Core clinical phenotype in pediatric and adult practice
   evidence:
   - reference: PMID:20301323
+    reference_title: &#34;Angelman Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Angelman syndrome (AS) is characterized by severe developmental delay or intellectual disability, severe speech impairment, gait ataxia and/or tremulousness of the limbs, and unique behavior with an apparent happy demeanor that includes frequent laughing, smiling, and excitability.&#34;
     explanation: Defines the canonical clinical syndrome.
   - reference: PMID:20301323
+    reference_title: &#34;Angelman Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Microcephaly and seizures are also common.&#34;
@@ -5763,11 +6011,13 @@ definitions:
   scope: Molecular confirmation strategy for suspected Angelman syndrome
   evidence:
   - reference: PMID:20301323
+    reference_title: &#34;Angelman Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Analysis of parent-specific DNA methylation imprints in the 15q11.2-q13 chromosome region detects approximately 80% of individuals with AS, including those with a deletion, uniparental disomy, or an imprinting defect; fewer than 1% of individuals have a cytogenetically visible chromosome rearrangement (e.g., translocation or inversion).&#34;
     explanation: Supports methylation analysis as first-line molecular testing.
   - reference: PMID:20301323
+    reference_title: &#34;Angelman Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;UBE3A sequence analysis detects pathogenic variants in an additional approximately 11% of individuals.&#34;
@@ -5788,6 +6038,7 @@ has_subtypes:
     inherited 15q11.2-q13 region including UBE3A.
   evidence:
   - reference: PMID:14510623
+    reference_title: &#34;Angelman syndrome: etiology, clinical features, diagnosis, and management of symptoms.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Approximately 70% of patients show a deletion involving the maternally inherited chromosome 15q11-q13, encompassing a cluster of gamma-aminobutyric acid receptor subunit genes&#34;
@@ -5804,11 +6055,13 @@ has_subtypes:
       label: UBE3A
   evidence:
   - reference: PMID:14510623
+    reference_title: &#34;Angelman syndrome: etiology, clinical features, diagnosis, and management of symptoms.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;6% harbor intragenic mutations of the ubiquitin-protein ligase E3A (UBE3A) gene.&#34;
     explanation: Supports a distinct UBE3A-variant molecular subtype.
   - reference: PMID:20301323
+    reference_title: &#34;Angelman Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;UBE3A sequence analysis detects pathogenic variants in an additional approximately 11% of individuals.&#34;
@@ -5821,6 +6074,7 @@ has_subtypes:
     functional maternal UBE3A contribution in neurons.
   evidence:
   - reference: PMID:14510623
+    reference_title: &#34;Angelman syndrome: etiology, clinical features, diagnosis, and management of symptoms.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;3% show chromosome 15 paternal uniparental disomy (UPD)&#34;
@@ -5833,6 +6087,7 @@ has_subtypes:
     pattern at the 15q11.2-q13 locus.
   evidence:
   - reference: PMID:14510623
+    reference_title: &#34;Angelman syndrome: etiology, clinical features, diagnosis, and management of symptoms.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;1% harbor a mutation in the imprinting center (a transcriptional regulatory element)&#34;
@@ -5850,11 +6105,13 @@ inheritance:
     allele in neurons; most cases are simplex/de novo.
   evidence:
   - reference: PMID:20301323
+    reference_title: &#34;Angelman Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Individuals with AS typically represent simplex cases (i.e., a single affected family member) and have the disorder as the result of a de novo genetic alteration associated with a very low recurrence risk.&#34;
     explanation: Supports predominant de novo occurrence in clinical practice.
   - reference: PMID:20301323
+    reference_title: &#34;Angelman Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Less commonly, an individual with AS has the disorder as the result of a genetic alteration associated with an imprinting pattern of autosomal dominant inheritance or variable recurrence risk.&#34;
@@ -5864,11 +6121,13 @@ prevalence:
   notes: Birth incidence is consistently reported in the rare-disease range.
   evidence:
   - reference: PMID:35150089
+    reference_title: &#34;A multidisciplinary approach and consensus statement to establish standards of care for Angelman syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Angelman syndrome (AS) is a rare neurogenetic disorder present in approximately 1/12,000 individuals&#34;
     explanation: Supports a contemporary prevalence estimate.
   - reference: PMID:25428759
+    reference_title: &#34;Angelman syndrome in adulthood.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;AS has an estimated incidence of approximately 1 in 12,000-20,000 live births, but life expectancy by epidemiologic measures remains unknown&#34;
@@ -5879,11 +6138,13 @@ progression:
   notes: Developmental delay becomes clinically recognizable in late infancy.
   evidence:
   - reference: PMID:20301323
+    reference_title: &#34;Angelman Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Developmental delays are first noted at around age six months; however, the unique clinical features of AS do not become manifest until after age one year.&#34;
     explanation: Defines early timing of symptom emergence.
   - reference: PMID:14510623
+    reference_title: &#34;Angelman syndrome: etiology, clinical features, diagnosis, and management of symptoms.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Clinical findings present in all patients include developmental delay, which becomes apparent by 6-12 months of age&#34;
@@ -5893,6 +6154,7 @@ progression:
   notes: Epilepsy usually appears in early childhood, with lower frequency in the first year.
   evidence:
   - reference: PMID:20398390
+    reference_title: &#34;Epilepsy in patients with Angelman syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Epilepsy, often severe and hard to control, is present in 85% of patients within the first three years of life, although less than 25% develop seizures during the first year.&#34;
@@ -5903,11 +6165,13 @@ progression:
     sleep dysfunction remains prevalent over the life course.
   evidence:
   - reference: PMID:25428759
+    reference_title: &#34;Angelman syndrome in adulthood.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The results of this study indicate that epilepsy severity may assume a bimodal age distribution: seizures are typically most severe in early childhood but may recur in adulthood.&#34;
     explanation: Supports age-dependent progression and recurrence pattern.
   - reference: PMID:25428759
+    reference_title: &#34;Angelman syndrome in adulthood.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;While late-adolescent and adult sleep patterns were improved when compared to the degree of sleep dysfunction present during infancy and childhood, the prevalence of poor sleep in adults remained quite high.&#34;
@@ -5938,12 +6202,14 @@ pathophysiology:
     description: Neuronal imprinting limits compensatory expression from the paternal allele.
     evidence:
     - reference: PMID:24876791
+      reference_title: &#34;Angelman syndrome: review of clinical and molecular aspects.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;AS is due to deficient expression of the ubiquitin protein ligase E3A (UBE3A) gene, which displays paternal imprinting.&#34;
       explanation: Links maternal UBE3A disruption with imprinting-dependent inability to compensate.
   evidence:
   - reference: PMID:33543479
+    reference_title: &#34;UBE3A reinstatement as a disease-modifying therapy for Angelman syndrome.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Angelman syndrome is caused by mutations affecting the maternally inherited UBE3A gene, which encodes an E3-ubiquitin ligase that is critical for typical postnatal brain development.&#34;
@@ -5972,12 +6238,14 @@ pathophysiology:
     description: Effective neuronal UBE3A protein dosage falls below physiologic levels.
     evidence:
     - reference: PMID:33543479
+      reference_title: &#34;UBE3A reinstatement as a disease-modifying therapy for Angelman syndrome.&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;Angelman syndrome is caused by the loss of UBE3A protein.&#34;
       explanation: Supports direct protein-level consequence of imprinting plus maternal disruption.
   evidence:
   - reference: PMID:33543479
+    reference_title: &#34;UBE3A reinstatement as a disease-modifying therapy for Angelman syndrome.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;in neurons only the maternally inherited UBE3A gene is expressed.&#34;
@@ -6001,17 +6269,20 @@ pathophysiology:
     description: Lower UBE3A dosage reduces normal ubiquitination activity in neuronal systems.
     evidence:
     - reference: PMID:33543479
+      reference_title: &#34;UBE3A reinstatement as a disease-modifying therapy for Angelman syndrome.&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;Angelman syndrome is caused by mutations affecting the maternally inherited UBE3A gene, which encodes an E3-ubiquitin ligase that is critical for typical postnatal brain development.&#34;
       explanation: Supports causal transition from reduced UBE3A protein to decreased E3 ligase function.
   evidence:
   - reference: PMID:33543479
+    reference_title: &#34;UBE3A reinstatement as a disease-modifying therapy for Angelman syndrome.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Angelman syndrome is caused by the loss of UBE3A protein.&#34;
     explanation: Supports this discrete protein-abundance event.
   - reference: PMID:40671377
+    reference_title: &#34;The Ubiquitin E3 Ligase UBE3A Regulates GRIPAP1 and PACSIN1 Proteins Linked to the Endocytic Recycling of AMPA Receptors.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;AS arises due to the neuronal loss of UBE3A, an E3 ligase that regulates protein abundance through the addition of lysine 48 (K48)-linked polyubiquitin chains to proteins targeted for degradation by the ubiquitin proteasome system (UPS).&#34;
@@ -6046,22 +6317,26 @@ pathophysiology:
     description: Loss of ubiquitination control contributes to broad pathway-level signaling derangement.
     evidence:
     - reference: PMID:33543479
+      reference_title: &#34;UBE3A reinstatement as a disease-modifying therapy for Angelman syndrome.&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;Loss of UBE3A affects multiple signalling pathways in the brain.&#34;
       explanation: Supports pathway-level consequences of UBE3A-dependent signaling loss.
     - reference: PMID:40310720
+      reference_title: &#34;Activity-dependent degradation of Kv4.2 contributes to synaptic plasticity and behavior in Angelman syndrome model mice.&#34;
       supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &#34;Here, we show the voltage-gated K+ channel Kv4.2 as an activity-dependent substrate for UBE3A.&#34;
       explanation: Mouse-model evidence supports a specific downstream UBE3A signaling substrate contributing to pathway dysregulation.
   evidence:
   - reference: PMID:33543479
+    reference_title: &#34;UBE3A reinstatement as a disease-modifying therapy for Angelman syndrome.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Loss of UBE3A affects multiple signalling pathways in the brain.&#34;
     explanation: Supports broad neuronal signaling dysregulation downstream of reduced ubiquitination control.
   - reference: PMID:40671377
+    reference_title: &#34;The Ubiquitin E3 Ligase UBE3A Regulates GRIPAP1 and PACSIN1 Proteins Linked to the Endocytic Recycling of AMPA Receptors.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;We provide evidence UBE3A polyubiquitinates PACSIN1 and GRIPAP1 to regulate protein turnover, with potential implications for impaired activity-dependent synaptic plasticity observed in AS.&#34;
@@ -6085,12 +6360,14 @@ pathophysiology:
     description: Broad pathway dysregulation contributes to synaptic plasticity and remodeling defects.
     evidence:
     - reference: PMID:24876791
+      reference_title: &#34;Angelman syndrome: review of clinical and molecular aspects.&#34;
       supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &#34;Studies of mouse models of AS have implicated UBE3A in experience-dependent synaptic remodeling.&#34;
       explanation: Supports causal transition from pathway dysregulation to impaired synaptic remodeling.
   evidence:
   - reference: PMID:33543479
+    reference_title: &#34;UBE3A reinstatement as a disease-modifying therapy for Angelman syndrome.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;given the multitude of signalling mechanisms that are derailed, it is unlikely that targeting a single pathway is going to be very effective.&#34;
@@ -6120,6 +6397,7 @@ pathophysiology:
     description: Synaptic remodeling defects alter network excitability and transmission balance.
     evidence:
     - reference: PMID:33543479
+      reference_title: &#34;UBE3A reinstatement as a disease-modifying therapy for Angelman syndrome.&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;It has been consistently shown that mouse models of Angelman syndrome show marked changes in synaptic plasticity and excitatory/inhibitory balance.&#34;
@@ -6128,6 +6406,7 @@ pathophysiology:
     description: Synaptic remodeling dysfunction contributes to severe cognitive impairment.
     evidence:
     - reference: PMID:20301323
+      reference_title: &#34;Angelman Syndrome.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Angelman syndrome (AS) is characterized by severe developmental delay or intellectual disability, severe speech impairment&#34;
@@ -6136,6 +6415,7 @@ pathophysiology:
     description: Synaptic-network disruption contributes to profound expressive language deficits.
     evidence:
     - reference: PMID:20301323
+      reference_title: &#34;Angelman Syndrome.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Angelman syndrome (AS) is characterized by severe developmental delay or intellectual disability, severe speech impairment&#34;
@@ -6144,22 +6424,26 @@ pathophysiology:
     description: Network-level motor-circuit dysfunction contributes to persistent gait ataxia.
     evidence:
     - reference: PMID:20301323
+      reference_title: &#34;Angelman Syndrome.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Angelman syndrome (AS) is characterized by severe developmental delay or intellectual disability, severe speech impairment, gait ataxia and/or tremulousness of the limbs&#34;
       explanation: Supports downstream motor phenotype.
   evidence:
   - reference: PMID:24876791
+    reference_title: &#34;Angelman syndrome: review of clinical and molecular aspects.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Studies of mouse models of AS have implicated UBE3A in experience-dependent synaptic remodeling.&#34;
     explanation: Supports this discrete synaptic-remodeling event.
   - reference: PMID:36237484
+    reference_title: &#34;Lack of UBE3A-Mediated Regulation of Synaptic SK2 Channels Contributes to Learning and Memory Impairment in the Female Mouse Model of Angelman Syndrome.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Like in male AS mice, long-term potentiation (LTP) was significantly reduced while long-term depression (LTD) was enhanced at hippocampal CA3-CA1 synapses of female AS mice, as compared to female WT mice.&#34;
     explanation: Provides synapse-level electrophysiologic evidence for impaired plasticity in Angelman model systems.
   - reference: PMID:40310720
+    reference_title: &#34;Activity-dependent degradation of Kv4.2 contributes to synaptic plasticity and behavior in Angelman syndrome model mice.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Moreover, deficits in mEPSC frequency and spike-timing-dependent long-term potentiation, as well as certain behaviors including cognitive inflexibility found in AS mice, are rescued when bred with Kv4.2 conditional knockout mice.&#34;
@@ -6194,22 +6478,26 @@ pathophysiology:
     description: Physiologic instability at synaptic and membrane levels manifests as hyperexcitable cortical activity.
     evidence:
     - reference: PMID:14510623
+      reference_title: &#34;Angelman syndrome: etiology, clinical features, diagnosis, and management of symptoms.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Seizures, abnormal electroencephalography, microcephaly, and scoliosis are observed in &gt;80% of patients.&#34;
       explanation: Supports transition from excitability dysregulation to abnormal EEG-related network state.
     - reference: PMID:39914145
+      reference_title: &#34;UBE3A controls axon initial segment in the cortical pyramidal neurons.&#34;
       supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &#34;In this study, we compared wild-type mice with three different Ube3a-deficient mice and observed specific elongation of the AIS in the prelimbic cortex of the medial prefrontal cortex but not in the somatosensory cortex or motor cortex, as previously reported.&#34;
       explanation: Region-specific AIS structural changes in Ube3a-deficient cortex support cortical excitability-network disturbance.
   evidence:
   - reference: PMID:33543479
+    reference_title: &#34;UBE3A reinstatement as a disease-modifying therapy for Angelman syndrome.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;It has been consistently shown that mouse models of Angelman syndrome show marked changes in synaptic plasticity and excitatory/inhibitory balance.&#34;
     explanation: Supports disrupted excitability homeostasis event.
   - reference: PMID:39914145
+    reference_title: &#34;UBE3A controls axon initial segment in the cortical pyramidal neurons.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;The axon initial segment (AIS) is a critical regulator of neuronal excitability and the initiation site of action potentials.&#34;
@@ -6233,6 +6521,7 @@ pathophysiology:
     description: Hyperexcitable cortical networks drive recurrent seizure phenotypes.
     evidence:
     - reference: PMID:20398390
+      reference_title: &#34;Epilepsy in patients with Angelman syndrome.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Epilepsy, often severe and hard to control, is present in 85% of patients within the first three years of life, although less than 25% develop seizures during the first year.&#34;
@@ -6241,12 +6530,14 @@ pathophysiology:
     description: Persistent network instability contributes to long-term sleep dysregulation.
     evidence:
     - reference: PMID:25428759
+      reference_title: &#34;Angelman syndrome in adulthood.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;While late-adolescent and adult sleep patterns were improved when compared to the degree of sleep dysfunction present during infancy and childhood, the prevalence of poor sleep in adults remained quite high.&#34;
       explanation: Supports persistent sleep dysregulation as a downstream neurophysiologic phenotype.
   evidence:
   - reference: PMID:14510623
+    reference_title: &#34;Angelman syndrome: etiology, clinical features, diagnosis, and management of symptoms.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Seizures, abnormal electroencephalography, microcephaly, and scoliosis are observed in &gt;80% of patients.&#34;
@@ -6263,6 +6554,7 @@ phenotypes:
       label: Severe intellectual disability
   evidence:
   - reference: PMID:20301323
+    reference_title: &#34;Angelman Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Angelman syndrome (AS) is characterized by severe developmental delay or intellectual disability&#34;
@@ -6278,6 +6570,7 @@ phenotypes:
       label: Global developmental delay
   evidence:
   - reference: PMID:14510623
+    reference_title: &#34;Angelman syndrome: etiology, clinical features, diagnosis, and management of symptoms.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Clinical findings present in all patients include developmental delay, which becomes apparent by 6-12 months of age&#34;
@@ -6293,6 +6586,7 @@ phenotypes:
       label: Poor speech
   evidence:
   - reference: PMID:14510623
+    reference_title: &#34;Angelman syndrome: etiology, clinical features, diagnosis, and management of symptoms.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Clinical findings present in all patients include developmental delay, which becomes apparent by 6-12 months of age, severely impaired expressive language&#34;
@@ -6308,6 +6602,7 @@ phenotypes:
       label: Gait ataxia
   evidence:
   - reference: PMID:20301323
+    reference_title: &#34;Angelman Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Angelman syndrome (AS) is characterized by severe developmental delay or intellectual disability, severe speech impairment, gait ataxia and/or tremulousness of the limbs&#34;
@@ -6323,6 +6618,7 @@ phenotypes:
       label: Seizure
   evidence:
   - reference: PMID:20398390
+    reference_title: &#34;Epilepsy in patients with Angelman syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Epilepsy, often severe and hard to control, is present in 85% of patients within the first three years of life, although less than 25% develop seizures during the first year.&#34;
@@ -6337,6 +6633,7 @@ phenotypes:
       label: Sleep disturbance
   evidence:
   - reference: PMID:24876791
+    reference_title: &#34;Angelman syndrome: review of clinical and molecular aspects.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The behavioral features of AS include a happy demeanor, easily provoked laughter, short attention span, hypermotoric behavior, mouthing of objects, sleep disturbance, and an affinity for water.&#34;
@@ -6351,6 +6648,7 @@ phenotypes:
       label: Microcephaly
   evidence:
   - reference: PMID:14510623
+    reference_title: &#34;Angelman syndrome: etiology, clinical features, diagnosis, and management of symptoms.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Seizures, abnormal electroencephalography, microcephaly, and scoliosis are observed in &gt;80% of patients.&#34;
@@ -6365,6 +6663,7 @@ phenotypes:
       label: Hyperactivity
   evidence:
   - reference: PMID:14510623
+    reference_title: &#34;Angelman syndrome: etiology, clinical features, diagnosis, and management of symptoms.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Clinical findings present in all patients include developmental delay, which becomes apparent by 6-12 months of age, severely impaired expressive language, ataxic gait, tremulousness of limbs, and a typical behavioral profile, including a happy demeanor, hypermotoric behavior, and low attention span.&#34;
@@ -6380,6 +6679,7 @@ phenotypes:
       label: Inappropriate laughter
   evidence:
   - reference: PMID:20398390
+    reference_title: &#34;Epilepsy in patients with Angelman syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Angelman syndrome (AS) is a neuro-behavioural, genetically determined condition, characterized by ataxic jerky movements, happy sociable disposition and unprovoked bouts of laughter in association with seizures, learning disabilities and language impairment.&#34;
@@ -6394,6 +6694,7 @@ phenotypes:
       label: Constipation
   evidence:
   - reference: PMID:28816003
+    reference_title: &#34;Prevalence of gastrointestinal symptoms in Angelman syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The majority of patients&#39; medical records indicated at least one symptom of gastrointestinal dysfunction, with constipation and gastroesophageal reflux disease (GERD) the most common.&#34;
@@ -6408,6 +6709,7 @@ phenotypes:
       label: Gastroesophageal reflux
   evidence:
   - reference: PMID:28816003
+    reference_title: &#34;Prevalence of gastrointestinal symptoms in Angelman syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The majority of patients&#39; medical records indicated at least one symptom of gastrointestinal dysfunction, with constipation and gastroesophageal reflux disease (GERD) the most common.&#34;
@@ -6422,6 +6724,7 @@ phenotypes:
       label: Scoliosis
   evidence:
   - reference: PMID:14510623
+    reference_title: &#34;Angelman syndrome: etiology, clinical features, diagnosis, and management of symptoms.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Seizures, abnormal electroencephalography, microcephaly, and scoliosis are observed in &gt;80% of patients.&#34;
@@ -6439,6 +6742,7 @@ genetic:
     genetic mechanism across molecular classes.
   evidence:
   - reference: PMID:33543479
+    reference_title: &#34;UBE3A reinstatement as a disease-modifying therapy for Angelman syndrome.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Angelman syndrome is caused by mutations affecting the maternally inherited UBE3A gene, which encodes an E3-ubiquitin ligase that is critical for typical postnatal brain development.&#34;
@@ -6450,6 +6754,7 @@ genetic:
     most non-UBE3A-variant cases.
   evidence:
   - reference: PMID:20301323
+    reference_title: &#34;Angelman Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Analysis of parent-specific DNA methylation imprints in the 15q11.2-q13 chromosome region detects approximately 80% of individuals with AS, including those with a deletion, uniparental disomy, or an imprinting defect&#34;
@@ -6465,6 +6770,7 @@ diagnosis:
   results: Detects most cases due to deletion, UPD, or imprinting defect.
   evidence:
   - reference: PMID:20301323
+    reference_title: &#34;Angelman Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Analysis of parent-specific DNA methylation imprints in the 15q11.2-q13 chromosome region detects approximately 80% of individuals with AS, including those with a deletion, uniparental disomy, or an imprinting defect&#34;
@@ -6479,6 +6785,7 @@ diagnosis:
   results: Adds diagnostic yield for UBE3A pathogenic variants.
   evidence:
   - reference: PMID:20301323
+    reference_title: &#34;Angelman Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;UBE3A sequence analysis detects pathogenic variants in an additional approximately 11% of individuals.&#34;
@@ -6492,6 +6799,7 @@ diagnosis:
   description: Clinical phenotype evaluation remains central, particularly in molecularly unresolved cases.
   evidence:
   - reference: PMID:20301323
+    reference_title: &#34;Angelman Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The diagnosis of AS is established in a proband who meets the consensus clinical diagnostic criteria and/or who has findings on molecular genetic testing that suggest deficient expression or function of the maternally inherited UBE3A allele.&#34;
@@ -6505,6 +6813,7 @@ diagnosis:
   description: EEG abnormalities are supportive but not fully specific.
   evidence:
   - reference: PMID:20398390
+    reference_title: &#34;Epilepsy in patients with Angelman syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The EEG abnormalities are not themselves pathognomonic of AS and both background activity and epileptic discharges vary even in the same patient with time.&#34;
@@ -6543,16 +6852,19 @@ treatments:
       label: Seizure
   evidence:
   - reference: PMID:27206232
+    reference_title: &#34;Seizure treatment in Angelman syndrome: A case series from the Angelman Syndrome Clinic at Massachusetts General Hospital.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Newer antiepileptic drugs such as levetiracetam, lamotrigine, and clobazam, and to a lesser extent topiramate, appeared to be as effective - if not more so - as valproic acid and clonazepam while offering more favorable side effect profiles.&#34;
     explanation: Supports use of specific newer ASMs with improved tolerability in Angelman syndrome.
   - reference: PMID:35862628
+    reference_title: &#34;Pharmacotherapeutic management of seizures in patients with Angleman Syndrome.&#34;
     supports: PARTIAL
     evidence_source: OTHER
     snippet: &#34;Evidence for treating seizures in AS mainly derives from low-quality studies. Levetiracetam and clobazam are the most commonly used ASMs.&#34;
     explanation: Adds review-level context on current ASM usage patterns and evidence limitations.
   - reference: PMID:20301323
+    reference_title: &#34;Angelman Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Treatment of manifestations: Anti-seizure medication for seizures.&#34;
@@ -6578,11 +6890,13 @@ treatments:
       label: Sleep disturbance
   evidence:
   - reference: PMID:27206232
+    reference_title: &#34;Seizure treatment in Angelman syndrome: A case series from the Angelman Syndrome Clinic at Massachusetts General Hospital.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The low glycemic index treatment also provided effective seizure control with minimal side effects.&#34;
     explanation: Supports LGIT as an adjunctive dietary option for seizure control.
   - reference: PMID:41121232
+    reference_title: &#34;Efficacy and tolerability of a low-glycemic-index ketogenic diet in Angelman syndrome: findings from the DIANE study.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;INTERPRETATION: While the LGID was well-tolerated and showed trends toward neurocognitive and seizure improvements, results were not statistically significant.&#34;
@@ -6608,11 +6922,13 @@ treatments:
       label: Drooling
   evidence:
   - reference: PMID:40776598
+    reference_title: &#34;Outcomes After Tonsillectomy in Children With Angelman Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Twelve children with Angelman syndrome underwent tonsillectomy: 7 for sleep-disordered breathing, 4 for sialorrhea, and 1 for recurrent tonsillitis.&#34;
     explanation: Supports procedure-level use of tonsillectomy for specific clinical indications in Angelman syndrome.
   - reference: PMID:40776598
+    reference_title: &#34;Outcomes After Tonsillectomy in Children With Angelman Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Nine (75.0%) children experienced postoperative complications, most frequently pooling of secretions and oxygen desaturations.&#34;
@@ -6631,6 +6947,7 @@ treatments:
       label: Gait ataxia
   evidence:
   - reference: PMID:20301323
+    reference_title: &#34;Angelman Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Physical therapy, occupational therapy, and speech therapy with an emphasis on nonverbal methods of communication, including augmentative communication aids (e.g., picture cards, communication boards) and signing.&#34;
@@ -6644,10 +6961,11 @@ treatments:
       label: occupational therapy
   evidence:
   - reference: PMID:20301323
+    reference_title: &#34;Angelman Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Physical therapy, occupational therapy, and speech therapy with an emphasis on nonverbal methods of communication, including augmentative communication aids (e.g., picture cards, communication boards) and signing.&#34;
-    explanation: Supports OT as part of standard multidisciplinary care.
+    explanation: Supports occupational therapy as part of standard multidisciplinary care.
 - name: Speech therapy and augmentative communication
   description: Speech therapy with nonverbal augmentative strategies is recommended due to severe expressive language deficits.
   treatment_term:
@@ -6662,6 +6980,7 @@ treatments:
       label: Poor speech
   evidence:
   - reference: PMID:20301323
+    reference_title: &#34;Angelman Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Physical therapy, occupational therapy, and speech therapy with an emphasis on nonverbal methods of communication, including augmentative communication aids (e.g., picture cards, communication boards) and signing.&#34;
@@ -6684,6 +7003,7 @@ treatments:
       label: Gastroesophageal reflux
   evidence:
   - reference: PMID:20301323
+    reference_title: &#34;Angelman Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Routine management of gastroesophageal reflux, feeding difficulties, constipation, and strabismus.&#34;
@@ -6700,6 +7020,7 @@ differential_diagnoses:
     key laboratory differential during molecular workup.
   evidence:
   - reference: PMID:31235867
+    reference_title: &#34;Update of the EMQN/ACGS best practice guidelines for molecular analysis of Prader-Willi and Angelman syndromes.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;This article is an update of the best practice guidelines for the molecular analysis of Prader-Willi and Angelman syndromes&#34;
@@ -6715,6 +7036,7 @@ differential_diagnoses:
     considered in Angelman-like presentations without canonical molecular causes.
   evidence:
   - reference: PMID:33543479
+    reference_title: &#34;UBE3A reinstatement as a disease-modifying therapy for Angelman syndrome.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;For instance, patients with a HERC2 mutation share many clinical features with those who have Angelman syndrome.&#34;
@@ -6734,6 +7056,7 @@ differential_diagnoses:
   - Angelman syndrome is diagnosed through 15q11.2-q13 methylation/UBE3A testing, whereas Houge-Janssens diagnosis relies on PP2A-gene variant identification.
   evidence:
   - reference: PMID:40555839
+    reference_title: &#34;Houge-Janssens syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The core features are neurodevelopmental delay, especially concerning language, prolonged hypotonia, high risk of seizures, and behavior problems.&#34;

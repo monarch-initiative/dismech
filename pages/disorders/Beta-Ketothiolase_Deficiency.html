@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1037,6 +1101,52 @@
             text-decoration: underline;
         }
 
+        /* Experimental Models */
+        .exp-model-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .exp-model-box .item-name { color: #92400e; }
+        .exp-model-box .item-desc { color: #b45309; }
+
+        .tag-exp-model-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .tag-namo-type {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+        .tag-condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .model-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .model-detail-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .model-detail-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 110px;
+        }
+        .model-detail-value {
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+        }
+        .model-detail-value a {
+            color: inherit;
+        }
+
         /* Computational Models */
         .comp-model-box {
             background: #f0fdf4;
@@ -1382,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1470,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1477,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1489,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1637,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1723,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1737,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1792,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1877,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Organic Acidemia</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Inborn Error of Metabolism</span>
@@ -1891,6 +2110,11 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
+        
+        
         
         
         
@@ -1944,6 +2168,14 @@
             <div class="stat-item">
                 <div class="stat-value">13</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">8</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2045,7 +2277,7 @@
                 <span class="card-count">4</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-acat1-molecular-function-deficiency">
                 <div class="item-name">ACAT1 molecular function deficiency</div>
                 
                 <div class="item-desc">Biallelic ACAT1 pathogenic variants reduce mitochondrial acetoacetyl-CoA thiolase catalytic activity.
@@ -2093,6 +2325,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2127,7 +2360,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-isoleucine-catabolism">
                 <div class="item-name">Impaired isoleucine catabolism</div>
                 
                 <div class="item-desc">ACAT1/T2 catalyzes the thiolytic cleavage of 2-methyl-acetoacetyl-CoA into propionyl-CoA and acetyl-CoA, the terminal step in the isoleucine degradation pathway. Loss of T2 activity blocks this step, leading to accumulation of upstream isoleucine-derived metabolites including 2-methyl-3-hydroxybutyrate, 2-methylacetoacetate, and tiglylglycine.
@@ -2189,6 +2422,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2243,7 +2477,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-ketone-body-metabolism">
                 <div class="item-name">Impaired ketone body metabolism</div>
                 
                 <div class="item-desc">T2 is involved in ketogenesis in the liver (synthesizing acetoacetyl-CoA from acetyl-CoA) and in the terminal step of ketolysis in extrahepatic tissues (cleaving acetoacetyl-CoA to two acetyl-CoAs). Loss of T2 activity impairs extrahepatic ketone body utilization, predisposing to ketosis and ketoacidosis under catabolic stress.
@@ -2326,6 +2560,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2380,7 +2615,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-episodic-metabolic-decompensation">
                 <div class="item-name">Episodic metabolic decompensation</div>
                 
                 <div class="item-desc">Under catabolic triggers such as infection, prolonged fasting, or ketogenic diet, increased reliance on ketone body flux and amino acid catabolism overwhelms the blocked T2 pathway. Accumulated organic acids produce high anion gap metabolic acidosis with ketosis and variable glycemia. Between crises, biochemical profiles may normalize, complicating detection. Episodes decrease in frequency with age, and are rare after age 10 in most patients.
@@ -2413,6 +2648,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2485,18 +2721,19 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Beta-Ketothiolase Deficiency</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ACAT1 molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic ACAT1 pathogenic variants reduce mitochondrial acetoacetyl-CoA thiolase catalytic activity.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"ACAT1\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Episodic metabolic decompensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Under catabolic triggers such as infection, prolonged fasting, or ketogenic diet, increased reliance on ketone body flux and amino acid catabolism overwhelms the blocked T2 pathway. Accumulated organic acids produce high anion gap metabolic acidosis with ketosis and variable glycemia. Between crises, biochemical profiles may normalize, complicating detection. Episodes decrease in frequency with age, and are rare after age 10 in most patients.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"response to starvation\", \"cellular response to acidic pH\"]}}, {\"id\": \"Impaired isoleucine catabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ACAT1/T2 catalyzes the thiolytic cleavage of 2-methyl-acetoacetyl-CoA into propionyl-CoA and acetyl-CoA, the terminal step in the isoleucine degradation pathway. Loss of T2 activity blocks this step, leading to accumulation of upstream isoleucine-derived metabolites including 2-methyl-3-hydroxybutyrate, 2-methylacetoacetate, and tiglylglycine.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\", \"cell of skeletal muscle\"], \"biological_processes\": [\"isoleucine catabolic process\", \"branched-chain amino acid catabolic process\"]}}, {\"id\": \"Impaired ketone body metabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"T2 is involved in ketogenesis in the liver (synthesizing acetoacetyl-CoA from acetyl-CoA) and in the terminal step of ketolysis in extrahepatic tissues (cleaving acetoacetyl-CoA to two acetyl-CoAs). Loss of T2 activity impairs extrahepatic ketone body utilization, predisposing to ketosis and ketoacidosis under catabolic stress.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\", \"neuron\", \"cardiac muscle cell\", \"cell of skeletal muscle\"], \"biological_processes\": [\"ketone body metabolic process\"], \"locations\": [\"liver\"]}}], \"edges\": [{\"source\": \"ACAT1 molecular function deficiency\", \"target\": \"Impaired isoleucine catabolism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ACAT1 molecular function deficiency\", \"target\": \"Impaired ketone body metabolism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired isoleucine catabolism\", \"target\": \"Episodic metabolic decompensation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired ketone body metabolism\", \"target\": \"Episodic metabolic decompensation\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ACAT1 molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic ACAT1 pathogenic variants reduce mitochondrial acetoacetyl-CoA thiolase catalytic activity.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"ACAT1\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"ACAT1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"variant_count\": 3}}, {\"id\": \"Compound heterozygous ACAT1 variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Compound heterozygosity for two different ACAT1 pathogenic variants is a common genotype. For example, ACAT1 c.481T\u003eC, p.(Tyr161His) was identified in compound heterozygosity in an adult patient presenting with diabetic ketoacidosis.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Episodic metabolic decompensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Under catabolic triggers such as infection, prolonged fasting, or ketogenic diet, increased reliance on ketone body flux and amino acid catabolism overwhelms the blocked T2 pathway. Accumulated organic acids produce high anion gap metabolic acidosis with ketosis and variable glycemia. Between crises, biochemical profiles may normalize, complicating detection. Episodes decrease in frequency with age, and are rare after age 10 in most patients.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"response to starvation\", \"cellular response to acidic pH\"]}}, {\"id\": \"Founder mutations in consanguineous populations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Founder mutations have been identified in specific populations. In a Palestinian cohort, a founder mutation was found in six patients from three families. All affected patients were offspring of consanguineous marriages, increasing the likelihood of homozygous pathogenic variants.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Impaired isoleucine catabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ACAT1/T2 catalyzes the thiolytic cleavage of 2-methyl-acetoacetyl-CoA into propionyl-CoA and acetyl-CoA, the terminal step in the isoleucine degradation pathway. Loss of T2 activity blocks this step, leading to accumulation of upstream isoleucine-derived metabolites including 2-methyl-3-hydroxybutyrate, 2-methylacetoacetate, and tiglylglycine.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\", \"cell of skeletal muscle\"], \"biological_processes\": [\"isoleucine catabolic process\", \"branched-chain amino acid catabolic process\"]}}, {\"id\": \"Impaired ketone body metabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"T2 is involved in ketogenesis in the liver (synthesizing acetoacetyl-CoA from acetyl-CoA) and in the terminal step of ketolysis in extrahepatic tissues (cleaving acetoacetyl-CoA to two acetyl-CoAs). Loss of T2 activity impairs extrahepatic ketone body utilization, predisposing to ketosis and ketoacidosis under catabolic stress.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\", \"neuron\", \"cardiac muscle cell\", \"cell of skeletal muscle\"], \"biological_processes\": [\"ketone body metabolic process\"], \"locations\": [\"liver\"]}}, {\"id\": \"Missense variants affecting buried residues\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Almost all of the 56 disease-associated missense ACAT1 variants affect residues that are completely or partially buried in the T2 structure, causing deficiency through lower in vivo T2 activity due to reduced folding efficiency or stability.\\n\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"ACAT1 molecular function deficiency\", \"target\": \"Impaired isoleucine catabolism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ACAT1 molecular function deficiency\", \"target\": \"Impaired ketone body metabolism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired isoleucine catabolism\", \"target\": \"Episodic metabolic decompensation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired ketone body metabolism\", \"target\": \"Episodic metabolic decompensation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Compound heterozygous ACAT1 variants\", \"target\": \"ACAT1 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Founder mutations in consanguineous populations\", \"target\": \"ACAT1 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Missense variants affecting buried residues\", \"target\": \"ACAT1 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4071,6 +4308,9 @@
         <!-- Clinical Trials -->
         
 
+        <!-- Experimental Models -->
+        
+
         <!-- Computational Models -->
         
 
@@ -4130,6 +4370,7 @@ progression:
     &#39;
   evidence:
   - reference: PMID:40598206
+    reference_title: &#34;Molecular characterization, clinical phenotype, and neurological outcome of twelve Palestinian children with beta-ketothiolase deficiency: report of two novel variants in the ACAT1 gene.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: diagnosed between 7 months and 22 months of age at two tertiary care centers in Palestine.
@@ -4141,6 +4382,7 @@ progression:
     &#39;
   evidence:
   - reference: PMID:38853254
+    reference_title: &#34;Diabetic ketoacidosis in an adult with beta-ketothiolase deficiency (BKD) involving a novel ACAT1 variant : first report of established diabetes in BKD and a review of the literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: BKD typically manifests in childhood as recurrent episodes of ketoacidosis, the frequency of which tends to reduce
@@ -4154,6 +4396,7 @@ progression:
     &#39;
   evidence:
   - reference: PMID:40598206
+    reference_title: &#34;Molecular characterization, clinical phenotype, and neurological outcome of twelve Palestinian children with beta-ketothiolase deficiency: report of two novel variants in the ACAT1 gene.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Ten of the twelve patients had favorable outcomes, while two unfortunately passed away at the time of the study.
@@ -4178,6 +4421,7 @@ pathophysiology:
       label: mitochondrion
   evidence:
   - reference: PMID:31268215
+    reference_title: &#34;Mutation update on ACAT1 variants associated with mitochondrial acetoacetyl-CoA thiolase (T2) deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Mitochondrial acetoacetyl-CoA thiolase (T2, encoded by the ACAT1 gene) deficiency is an inherited disorder of ketone body and isoleucine metabolism.
@@ -4213,12 +4457,14 @@ pathophysiology:
       label: cell of skeletal muscle
   evidence:
   - reference: PMID:38853254
+    reference_title: &#34;Diabetic ketoacidosis in an adult with beta-ketothiolase deficiency (BKD) involving a novel ACAT1 variant : first report of established diabetes in BKD and a review of the literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Beta-ketothiolase deficiency (BKD) is a rare autosomal recessive condition affecting isoleucine catabolism and
       ketone body metabolism.
     explanation: Directly supports impaired isoleucine catabolism as a core feature of BKD.
   - reference: PMID:31268215
+    reference_title: &#34;Mutation update on ACAT1 variants associated with mitochondrial acetoacetyl-CoA thiolase (T2) deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Mitochondrial acetoacetyl-CoA thiolase (T2, encoded by the ACAT1 gene) deficiency is an inherited disorder of
@@ -4261,12 +4507,14 @@ pathophysiology:
       label: liver
   evidence:
   - reference: PMID:38853254
+    reference_title: &#34;Diabetic ketoacidosis in an adult with beta-ketothiolase deficiency (BKD) involving a novel ACAT1 variant : first report of established diabetes in BKD and a review of the literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: BKD typically manifests in childhood as recurrent episodes of ketoacidosis, the frequency of which tends to reduce
       with age.
     explanation: Supports recurrent ketoacidosis due to impaired ketone body handling.
   - reference: PMID:31268215
+    reference_title: &#34;Mutation update on ACAT1 variants associated with mitochondrial acetoacetyl-CoA thiolase (T2) deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Mitochondrial acetoacetyl-CoA thiolase (T2, encoded by the ACAT1 gene) deficiency is an inherited disorder of
@@ -4292,12 +4540,14 @@ pathophysiology:
       label: cellular response to acidic pH
   evidence:
   - reference: PMID:38853254
+    reference_title: &#34;Diabetic ketoacidosis in an adult with beta-ketothiolase deficiency (BKD) involving a novel ACAT1 variant : first report of established diabetes in BKD and a review of the literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: BKD typically manifests in childhood as recurrent episodes of ketoacidosis, the frequency of which tends to reduce
       with age.
     explanation: Supports episodic nature and age-dependent reduction of decompensation episodes.
   - reference: PMID:40598206
+    reference_title: &#34;Molecular characterization, clinical phenotype, and neurological outcome of twelve Palestinian children with beta-ketothiolase deficiency: report of two novel variants in the ACAT1 gene.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Ketoacidotic episodes were the predominant manifestations in all patients, and each episode was triggered by
@@ -4318,6 +4568,7 @@ phenotypes:
       label: Ketoacidosis
   evidence:
   - reference: PMID:38853254
+    reference_title: &#34;Diabetic ketoacidosis in an adult with beta-ketothiolase deficiency (BKD) involving a novel ACAT1 variant : first report of established diabetes in BKD and a review of the literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: BKD typically manifests in childhood as recurrent episodes of ketoacidosis, the frequency of which tends to reduce
@@ -4336,6 +4587,7 @@ phenotypes:
       label: Metabolic acidosis
   evidence:
   - reference: PMID:35850931
+    reference_title: &#34;Identification of two novel ACAT1 variant associated with beta-ketothiolase deficiency in a 9-month-old boy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: At the time of admission, the patient had acidosis, drowsiness, and respiratory failure.
@@ -4353,12 +4605,14 @@ phenotypes:
       label: Lethargy
   evidence:
   - reference: PMID:30026775
+    reference_title: &#34;A Novel Mutation of Beta-ketothiolase Deficiency: The First Report from Iran and Review of Literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Clinical features characterized by intermittent keto acidotic episodes are associated with clinical signs and
       symptoms of toxic encephalopathy such as lethargy, hypotonia, vomiting, tachypnea, and coma in some patients
     explanation: Directly lists lethargy as a clinical sign during ketoacidotic episodes.
   - reference: PMID:35850931
+    reference_title: &#34;Identification of two novel ACAT1 variant associated with beta-ketothiolase deficiency in a 9-month-old boy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: At the time of admission, the patient had acidosis, drowsiness, and respiratory failure.
@@ -4373,6 +4627,7 @@ phenotypes:
       label: Vomiting
   evidence:
   - reference: PMID:30026775
+    reference_title: &#34;A Novel Mutation of Beta-ketothiolase Deficiency: The First Report from Iran and Review of Literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: clinical signs and symptoms of toxic encephalopathy such as lethargy, hypotonia, vomiting, tachypnea, and coma
@@ -4391,6 +4646,7 @@ phenotypes:
       label: Hypotonia
   evidence:
   - reference: PMID:40598206
+    reference_title: &#34;Molecular characterization, clinical phenotype, and neurological outcome of twelve Palestinian children with beta-ketothiolase deficiency: report of two novel variants in the ACAT1 gene.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: One patient initially presented with hypotonia and psychomotor delay, later developing a ketoacidotic episode
@@ -4408,6 +4664,7 @@ phenotypes:
       label: Tachypnea
   evidence:
   - reference: PMID:30026775
+    reference_title: &#34;A Novel Mutation of Beta-ketothiolase Deficiency: The First Report from Iran and Review of Literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: clinical signs and symptoms of toxic encephalopathy such as lethargy, hypotonia, vomiting, tachypnea, and coma
@@ -4426,6 +4683,7 @@ phenotypes:
       label: Seizure
   evidence:
   - reference: PMID:30026775
+    reference_title: &#34;A Novel Mutation of Beta-ketothiolase Deficiency: The First Report from Iran and Review of Literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: acute episode of fever and toxic encephalopathy with attack of vomiting, hypotonia, lethargy, tonic-clonic seizures
@@ -4444,6 +4702,7 @@ phenotypes:
       label: Coma
   evidence:
   - reference: PMID:30026775
+    reference_title: &#34;A Novel Mutation of Beta-ketothiolase Deficiency: The First Report from Iran and Review of Literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: clinical signs and symptoms of toxic encephalopathy such as lethargy, hypotonia, vomiting, tachypnea, and coma
@@ -4462,12 +4721,14 @@ phenotypes:
       label: Basal ganglia necrosis
   evidence:
   - reference: PMID:40598206
+    reference_title: &#34;Molecular characterization, clinical phenotype, and neurological outcome of twelve Palestinian children with beta-ketothiolase deficiency: report of two novel variants in the ACAT1 gene.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Neurological complications, particularly extrapyramidal signs may occur as sequelae of the ketoacidosis episodes
       but may also occur without or before any apparent metabolic crisis.
     explanation: Documents neurological complications including extrapyramidal signs in BKD.
   - reference: PMID:23958592
+    reference_title: &#34;Metabolic encephalopathy in beta-ketothiolase deficiency: the first report from India.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Brain CT showed bilateral basal ganglia lesions.
@@ -4485,6 +4746,7 @@ phenotypes:
       label: Global developmental delay
   evidence:
   - reference: PMID:40598206
+    reference_title: &#34;Molecular characterization, clinical phenotype, and neurological outcome of twelve Palestinian children with beta-ketothiolase deficiency: report of two novel variants in the ACAT1 gene.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: One patient initially presented with hypotonia and psychomotor delay, later developing a ketoacidotic episode
@@ -4503,6 +4765,7 @@ phenotypes:
       label: Hyperglycemia
   evidence:
   - reference: PMID:38853254
+    reference_title: &#34;Diabetic ketoacidosis in an adult with beta-ketothiolase deficiency (BKD) involving a novel ACAT1 variant : first report of established diabetes in BKD and a review of the literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Stress hyperglycemia is not uncommon when children with BKD are acutely unwell, with several pediatric case reports
@@ -4522,6 +4785,7 @@ phenotypes:
       label: Hypoglycemia
   evidence:
   - reference: PMID:40598206
+    reference_title: &#34;Molecular characterization, clinical phenotype, and neurological outcome of twelve Palestinian children with beta-ketothiolase deficiency: report of two novel variants in the ACAT1 gene.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: T2 deficiency is characterized by the accumulation of isoleucine metabolites, 2methylacetoacetate, 2-methyl-3-hydroxybutyrate,
@@ -4539,6 +4803,7 @@ phenotypes:
       label: Respiratory failure
   evidence:
   - reference: PMID:35850931
+    reference_title: &#34;Identification of two novel ACAT1 variant associated with beta-ketothiolase deficiency in a 9-month-old boy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: At the time of admission, the patient had acidosis, drowsiness, and respiratory failure.
@@ -4554,12 +4819,14 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:40598206
+    reference_title: &#34;Molecular characterization, clinical phenotype, and neurological outcome of twelve Palestinian children with beta-ketothiolase deficiency: report of two novel variants in the ACAT1 gene.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The characteristic laboratory finding in all patients was the increased urinary excretion of 2-methyl-3-hydroxybutyrate
       and tiglylglycine.
     explanation: Documents 2M3HB as the characteristic laboratory finding in all 12 patients.
   - reference: PMID:31268215
+    reference_title: &#34;Mutation update on ACAT1 variants associated with mitochondrial acetoacetyl-CoA thiolase (T2) deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The presence of isoleucine-derived metabolites is the key marker for biochemical diagnosis.
@@ -4573,6 +4840,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:40598206
+    reference_title: &#34;Molecular characterization, clinical phenotype, and neurological outcome of twelve Palestinian children with beta-ketothiolase deficiency: report of two novel variants in the ACAT1 gene.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The characteristic laboratory finding in all patients was the increased urinary excretion of 2-methyl-3-hydroxybutyrate
@@ -4588,6 +4856,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:23958592
+    reference_title: &#34;Metabolic encephalopathy in beta-ketothiolase deficiency: the first report from India.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: large amounts of 2-methyl-3-hydroxybutyrate, tiglylglycine, and 2-methylacetoacetate were excreted.
@@ -4601,11 +4870,13 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:23958592
+    reference_title: &#34;Metabolic encephalopathy in beta-ketothiolase deficiency: the first report from India.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: During the acute crisis the C5OH (2-methyl-3-hydroxybutyryl) carnitine and C5:1 (tiglyl) carnitine were elevated
     explanation: Documents elevated C5:1 acylcarnitine during acute BKD crisis.
   - reference: PMID:31268215
+    reference_title: &#34;Mutation update on ACAT1 variants associated with mitochondrial acetoacetyl-CoA thiolase (T2) deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The presence of isoleucine-derived metabolites is the key marker for biochemical diagnosis.
@@ -4619,6 +4890,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:23958592
+    reference_title: &#34;Metabolic encephalopathy in beta-ketothiolase deficiency: the first report from India.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: During the acute crisis the C5OH (2-methyl-3-hydroxybutyryl) carnitine and C5:1 (tiglyl) carnitine were elevated
@@ -4640,12 +4912,14 @@ genetic:
       &#39;
     evidence:
     - reference: PMID:38853254
+      reference_title: &#34;Diabetic ketoacidosis in an adult with beta-ketothiolase deficiency (BKD) involving a novel ACAT1 variant : first report of established diabetes in BKD and a review of the literature.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: Beta-ketothiolase deficiency (BKD) is a rare autosomal recessive condition affecting isoleucine catabolism
         and ketone body metabolism.
       explanation: Directly states autosomal recessive inheritance for BKD.
     - reference: PMID:40598206
+      reference_title: &#34;Molecular characterization, clinical phenotype, and neurological outcome of twelve Palestinian children with beta-ketothiolase deficiency: report of two novel variants in the ACAT1 gene.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#39;Beta-ketothiolase deficiency (mitochondrial acetoacetyl-CoA thiolase, T2) deficiency (OMIM #203750, *607809)
@@ -4659,6 +4933,7 @@ genetic:
       &#39;
     evidence:
     - reference: PMID:38853254
+      reference_title: &#34;Diabetic ketoacidosis in an adult with beta-ketothiolase deficiency (BKD) involving a novel ACAT1 variant : first report of established diabetes in BKD and a review of the literature.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: genetically confirmed compound heterozygosity for variants in ACAT1, including a novel ACAT1 c.481T&gt;C, p.(Tyr161His)
@@ -4672,6 +4947,7 @@ genetic:
       &#39;
     evidence:
     - reference: PMID:40598206
+      reference_title: &#34;Molecular characterization, clinical phenotype, and neurological outcome of twelve Palestinian children with beta-ketothiolase deficiency: report of two novel variants in the ACAT1 gene.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: a founder mutation was identified in six patients from three families.
@@ -4684,6 +4960,7 @@ genetic:
       &#39;
     evidence:
     - reference: PMID:31268215
+      reference_title: &#34;Mutation update on ACAT1 variants associated with mitochondrial acetoacetyl-CoA thiolase (T2) deficiency.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: Almost all these missense variants concern residues that are completely or partially buried in the T2 structure.
@@ -4692,6 +4969,7 @@ genetic:
       explanation: Structural analysis of ACAT1 missense variants mapped onto T2 crystal structure.
   evidence:
   - reference: PMID:31268215
+    reference_title: &#34;Mutation update on ACAT1 variants associated with mitochondrial acetoacetyl-CoA thiolase (T2) deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: To date, 105 ACAT1 variants have been reported in 149 T2-deficient patients.
@@ -4709,6 +4987,7 @@ treatments:
       label: supportive care
   evidence:
   - reference: PMID:38853254
+    reference_title: &#34;Diabetic ketoacidosis in an adult with beta-ketothiolase deficiency (BKD) involving a novel ACAT1 variant : first report of established diabetes in BKD and a review of the literature.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: BKD typically manifests in childhood as recurrent episodes of ketoacidosis, the frequency of which tends to reduce
@@ -4741,6 +5020,7 @@ treatments:
       label: supportive care
   evidence:
   - reference: PMID:35850931
+    reference_title: &#34;Identification of two novel ACAT1 variant associated with beta-ketothiolase deficiency in a 9-month-old boy.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: At the time of admission, the patient had acidosis, drowsiness, and respiratory failure.
@@ -4771,6 +5051,7 @@ treatments:
       label: disease screening
   evidence:
   - reference: PMID:38535123
+    reference_title: &#34;Harnessing Next-Generation Sequencing as a Timely and Accurate Second-Tier Screening Test for Newborn Screening of Inborn Errors of Metabolism.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The false positive rate for these six conditions after the NGS second-tier test was only 0.017%, and two cases
@@ -4789,12 +5070,14 @@ treatments:
       label: genetic counseling
   evidence:
   - reference: PMID:40598206
+    reference_title: &#34;Molecular characterization, clinical phenotype, and neurological outcome of twelve Palestinian children with beta-ketothiolase deficiency: report of two novel variants in the ACAT1 gene.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: By identifying haplotype blocks, founder mutations, and novel pathogenic variants, researchers can significantly
       improve diagnostic precision, enhance genetic counseling, and lay the groundwork for developing targeted therapies.
     explanation: Supports the role of genetic counseling in BKD management and family planning.
   - reference: PMID:30026775
+    reference_title: &#34;A Novel Mutation of Beta-ketothiolase Deficiency: The First Report from Iran and Review of Literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: We recommended carrier testing for all informative family members to recognize mutations in asymptomatic family
@@ -4812,6 +5095,7 @@ treatments:
       label: biomarker analysis
   evidence:
   - reference: PMID:38853254
+    reference_title: &#34;Diabetic ketoacidosis in an adult with beta-ketothiolase deficiency (BKD) involving a novel ACAT1 variant : first report of established diabetes in BKD and a review of the literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: This case highlights the importance of checking HbA1c in people with BKD and hyperglycemia in order to uncover

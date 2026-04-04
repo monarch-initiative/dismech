@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1037,6 +1101,52 @@
             text-decoration: underline;
         }
 
+        /* Experimental Models */
+        .exp-model-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .exp-model-box .item-name { color: #92400e; }
+        .exp-model-box .item-desc { color: #b45309; }
+
+        .tag-exp-model-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .tag-namo-type {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+        .tag-condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .model-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .model-detail-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .model-detail-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 110px;
+        }
+        .model-detail-value {
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+        }
+        .model-detail-value a {
+            color: inherit;
+        }
+
         /* Computational Models */
         .comp-model-box {
             background: #f0fdf4;
@@ -1382,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1470,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1477,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1489,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1637,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1723,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1737,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1792,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1877,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 11</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Dermatological Disease</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Genetic Disease</span>
@@ -1890,6 +2109,11 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
+        
+        
         
         
         
@@ -1955,6 +2179,14 @@
             <div class="stat-item">
                 <div class="stat-value">12</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">11</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2373,7 +2605,7 @@
                 <span class="card-count">6</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-laminin-332-deficiency">
                 <div class="item-name">Laminin-332 Deficiency</div>
                 
                 <div class="item-desc">Mutations in LAMB3, LAMA3, or LAMC2 genes abrogate or reduce production of the laminin-332 heterotrimer (alpha-3, beta-3, gamma-2 chains), an essential anchoring filament component of the dermal-epidermal basement membrane zone. Null mutations cause complete absence of laminin-332 (JEB severe/Herlitz), while missense or splice-site mutations may allow residual protein production (JEB intermediate).
@@ -2458,6 +2690,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2512,7 +2745,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-col17a1-bp180-deficiency">
                 <div class="item-name">COL17A1 (BP180) Deficiency</div>
                 
                 <div class="item-desc">Mutations in COL17A1 encoding type XVII collagen (BP180), a transmembrane hemidesmosome component that links the intracellular cytoskeleton to the extracellular basement membrane. Deficiency disrupts hemidesmosome-mediated adhesion at the lamina lucida, causing JEB intermediate or JEB late onset.
@@ -2564,6 +2797,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2623,7 +2857,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-integrin-alpha-6-beta-4-deficiency">
                 <div class="item-name">Integrin Alpha-6-Beta-4 Deficiency</div>
                 
                 <div class="item-desc">Mutations in ITGA6 or ITGB4 encoding the alpha-6-beta-4 integrin heterodimer, a critical hemidesmosome receptor that mediates adhesion between basal keratinocytes and the basement membrane. Loss of function impairs hemidesmosome-ECM adhesion in skin and also affects pyloric smooth muscle, causing pyloric atresia in the JEB-PA subtype.
@@ -2711,6 +2945,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2745,7 +2980,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-lamina-lucida-adhesion">
                 <div class="item-name">Loss of Lamina Lucida Adhesion</div>
                 
                 <div class="item-desc">The common downstream consequence of all JEB-causing mutations. Defective anchoring filaments and hemidesmosome components lead to tissue separation at the lamina lucida of the basement membrane zone, producing characteristic blistering with minimal mechanical trauma.
@@ -2786,6 +3021,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2845,7 +3081,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-exuberant-granulation-tissue-formation">
                 <div class="item-name">Exuberant Granulation Tissue Formation</div>
                 
                 <div class="item-desc">A distinctive pathological feature of JEB, particularly the severe (Herlitz) subtype. Exuberant granulation tissue develops prominently in periorificial areas (perioral, perinasal) and at wound sites. This is NOT simply a chronic wound healing response — it reflects a specific loss of laminin-332&#39;s SIGNALING function in regulating mesenchymal responses during wound healing. The N-terminal domain of the laminin alpha3a chain is a key regulator of the granulation tissue response. Evidence from laryngo-onycho-cutaneous (LOC) syndrome demonstrates this: an N-terminal deletion of laminin alpha3a (specific to basal keratinocytes of stratified epithelia) produces the same exuberant granulation tissue without generalized blistering, indicating that the granulation tissue phenotype results from disrupted keratinocyte-mesenchymal communication rather than chronic wounds per se.
@@ -2886,6 +3122,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2965,7 +3202,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-enamel-hypoplasia-from-ameloblast-bmz-defects">
                 <div class="item-name">Enamel Hypoplasia from Ameloblast-BMZ Defects</div>
                 
                 <div class="item-desc">Laminin-332 and type XVII collagen are expressed in the ameloblast basement membrane zone. Their deficiency disrupts ameloblast function during tooth development, resulting in generalized enamel hypoplasia with pitting and susceptibility to dental caries. This is a consistent feature across JEB subtypes.
@@ -3006,6 +3243,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3058,18 +3296,19 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Junctional Epidermolysis Bullosa</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"COL17A1 (BP180) Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in COL17A1 encoding type XVII collagen (BP180), a transmembrane hemidesmosome component that links the intracellular cytoskeleton to the extracellular basement membrane. Deficiency disrupts hemidesmosome-mediated adhesion at the lamina lucida, causing JEB intermediate or JEB late onset.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"cell-substrate adhesion\"], \"genes\": [\"COL17A1\"]}}, {\"id\": \"Exuberant Granulation Tissue Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A distinctive pathological feature of JEB, particularly the severe (Herlitz) subtype. Exuberant granulation tissue develops prominently in periorificial areas (perioral, perinasal) and at wound sites. This is NOT simply a chronic wound healing response \\u2014 it reflects a specific loss of laminin-332\u0027s SIGNALING function in regulating mesenchymal responses during wound healing. The N-terminal domain of the laminin alpha3a chain is a key regulator of the granulation tissue response. Evidence from laryngo-onycho-cutaneous (LOC) syndrome demonstrates this: an N-terminal deletion of laminin alpha3a (specific to basal keratinocytes of stratified epithelia) produces the same exuberant granulation tissue without generalized blistering, indicating that the granulation tissue phenotype results from disrupted keratinocyte-mesenchymal communication rather than chronic wounds per se.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"wound healing\"]}}, {\"id\": \"Integrin Alpha-6-Beta-4 Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in ITGA6 or ITGB4 encoding the alpha-6-beta-4 integrin heterodimer, a critical hemidesmosome receptor that mediates adhesion between basal keratinocytes and the basement membrane. Loss of function impairs hemidesmosome-ECM adhesion in skin and also affects pyloric smooth muscle, causing pyloric atresia in the JEB-PA subtype.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\", \"smooth muscle cell\"], \"biological_processes\": [\"integrin-mediated signaling pathway\", \"cell-matrix adhesion\"], \"genes\": [\"ITGA6\", \"ITGB4\"]}}, {\"id\": \"Laminin-332 Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in LAMB3, LAMA3, or LAMC2 genes abrogate or reduce production of the laminin-332 heterotrimer (alpha-3, beta-3, gamma-2 chains), an essential anchoring filament component of the dermal-epidermal basement membrane zone. Null mutations cause complete absence of laminin-332 (JEB severe/Herlitz), while missense or splice-site mutations may allow residual protein production (JEB intermediate).\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"cell-substrate adhesion\", \"extracellular matrix organization\"], \"genes\": [\"LAMB3\", \"LAMA3\", \"LAMC2\"]}}, {\"id\": \"Loss of Lamina Lucida Adhesion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The common downstream consequence of all JEB-causing mutations. Defective anchoring filaments and hemidesmosome components lead to tissue separation at the lamina lucida of the basement membrane zone, producing characteristic blistering with minimal mechanical trauma.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epidermal cell\"], \"biological_processes\": [\"cell adhesion\"]}}], \"edges\": [{\"source\": \"Laminin-332 Deficiency\", \"target\": \"Loss of Lamina Lucida Adhesion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"COL17A1 (BP180) Deficiency\", \"target\": \"Loss of Lamina Lucida Adhesion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Integrin Alpha-6-Beta-4 Deficiency\", \"target\": \"Loss of Lamina Lucida Adhesion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of Lamina Lucida Adhesion\", \"target\": \"Exuberant Granulation Tissue Formation\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"COL17A1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"association\": \"Causative\"}}, {\"id\": \"COL17A1 (BP180) Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in COL17A1 encoding type XVII collagen (BP180), a transmembrane hemidesmosome component that links the intracellular cytoskeleton to the extracellular basement membrane. Deficiency disrupts hemidesmosome-mediated adhesion at the lamina lucida, causing JEB intermediate or JEB late onset.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"cell-substrate adhesion\"], \"genes\": [\"COL17A1\"]}}, {\"id\": \"Exuberant Granulation Tissue Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A distinctive pathological feature of JEB, particularly the severe (Herlitz) subtype. Exuberant granulation tissue develops prominently in periorificial areas (perioral, perinasal) and at wound sites. This is NOT simply a chronic wound healing response \\u2014 it reflects a specific loss of laminin-332\u0027s SIGNALING function in regulating mesenchymal responses during wound healing. The N-terminal domain of the laminin alpha3a chain is a key regulator of the granulation tissue response. Evidence from laryngo-onycho-cutaneous (LOC) syndrome demonstrates this: an N-terminal deletion of laminin alpha3a (specific to basal keratinocytes of stratified epithelia) produces the same exuberant granulation tissue without generalized blistering, indicating that the granulation tissue phenotype results from disrupted keratinocyte-mesenchymal communication rather than chronic wounds per se.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"wound healing\"]}}, {\"id\": \"ITGA6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Causative\"}}, {\"id\": \"ITGB4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Causative\"}}, {\"id\": \"Integrin Alpha-6-Beta-4 Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in ITGA6 or ITGB4 encoding the alpha-6-beta-4 integrin heterodimer, a critical hemidesmosome receptor that mediates adhesion between basal keratinocytes and the basement membrane. Loss of function impairs hemidesmosome-ECM adhesion in skin and also affects pyloric smooth muscle, causing pyloric atresia in the JEB-PA subtype.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\", \"smooth muscle cell\"], \"biological_processes\": [\"integrin-mediated signaling pathway\", \"cell-matrix adhesion\"], \"genes\": [\"ITGA6\", \"ITGB4\"]}}, {\"id\": \"LAMA3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Causative\"}}, {\"id\": \"LAMB3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"association\": \"Causative\"}}, {\"id\": \"LAMC2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Causative\"}}, {\"id\": \"Laminin-332 Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in LAMB3, LAMA3, or LAMC2 genes abrogate or reduce production of the laminin-332 heterotrimer (alpha-3, beta-3, gamma-2 chains), an essential anchoring filament component of the dermal-epidermal basement membrane zone. Null mutations cause complete absence of laminin-332 (JEB severe/Herlitz), while missense or splice-site mutations may allow residual protein production (JEB intermediate).\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"cell-substrate adhesion\", \"extracellular matrix organization\"], \"genes\": [\"LAMB3\", \"LAMA3\", \"LAMC2\"]}}, {\"id\": \"Loss of Lamina Lucida Adhesion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The common downstream consequence of all JEB-causing mutations. Defective anchoring filaments and hemidesmosome components lead to tissue separation at the lamina lucida of the basement membrane zone, producing characteristic blistering with minimal mechanical trauma.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epidermal cell\"], \"biological_processes\": [\"cell adhesion\"]}}], \"edges\": [{\"source\": \"Laminin-332 Deficiency\", \"target\": \"Loss of Lamina Lucida Adhesion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"COL17A1 (BP180) Deficiency\", \"target\": \"Loss of Lamina Lucida Adhesion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Integrin Alpha-6-Beta-4 Deficiency\", \"target\": \"Loss of Lamina Lucida Adhesion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of Lamina Lucida Adhesion\", \"target\": \"Exuberant Granulation Tissue Formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"LAMB3\", \"target\": \"Laminin-332 Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LAMA3\", \"target\": \"Laminin-332 Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LAMC2\", \"target\": \"Laminin-332 Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"COL17A1\", \"target\": \"COL17A1 (BP180) Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ITGA6\", \"target\": \"Integrin Alpha-6-Beta-4 Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ITGB4\", \"target\": \"Integrin Alpha-6-Beta-4 Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5021,6 +5260,9 @@
         </div>
         
 
+        <!-- Experimental Models -->
+        
+
         <!-- Computational Models -->
         
 
@@ -5076,6 +5318,7 @@ classifications:
   - classification_value: skin disorder
     evidence:
     - reference: PMID:20301304
+      reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Junctional epidermolysis bullosa (JEB) is characterized by
@@ -5084,6 +5327,7 @@ classifications:
   - classification_value: hereditary disease
     evidence:
     - reference: PMID:20301304
+      reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;JEB is inherited in an autosomal recessive manner&#34;
@@ -5118,6 +5362,7 @@ inheritance:
 - name: Autosomal recessive
   evidence:
   - reference: PMID:20301304
+    reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;JEB is inherited in an autosomal recessive manner&#34;
@@ -5131,6 +5376,7 @@ prevalence:
     million live births.
   evidence:
   - reference: PMID:19945616
+    reference_title: &#34;Herlitz junctional epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;the autosomal recessively inherited, more severe variant of
@@ -5146,17 +5392,20 @@ prevalence:
     respiratory failure, pneumonia, dehydration, anaemia, and sepsis.
   evidence:
   - reference: PMID:17363907
+    reference_title: &#34;Treatment decision-making for patients with the Herlitz subtype of junctional epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Mortality in the first year of life approaches 90%&#34;
     explanation: Confirms near-90% first-year mortality for JEB-Herlitz.
   - reference: PMID:22512697
+    reference_title: &#34;Long-term follow-up of patients with Herlitz-type junctional epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Their average age at death was 5.8 months (range 0.5-32.6 months)&#34;
     explanation: Dutch EB Registry longitudinal data confirming mean age at death
       of 5.8 months in JEB-Herlitz.
   - reference: PMID:22512697
+    reference_title: &#34;Long-term follow-up of patients with Herlitz-type junctional epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The causes of death were, in order of frequency: failure to thrive,
@@ -5208,6 +5457,7 @@ pathophysiology:
       and dermis.
   evidence:
   - reference: PMID:23076207
+    reference_title: &#34;Laminin 332 in junctional epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Mutations in the LAMA3, LAMB3 and LAMC2 genes that encode the three
@@ -5216,6 +5466,7 @@ pathophysiology:
     explanation: Confirms that mutations in laminin-332 genes abrogate or perturb
       protein function.
   - reference: PMID:23076207
+    reference_title: &#34;Laminin 332 in junctional epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Laminin 332 is an essential component of the dermal-epidermal junction,
@@ -5252,6 +5503,7 @@ pathophysiology:
       leading to separation at the lamina lucida.
   evidence:
   - reference: PMID:20301304
+    reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The diagnosis of JEB is established in a proband with characteristic
@@ -5260,6 +5512,7 @@ pathophysiology:
       LAMA3, LAMB3, or LAMC2&#34;
     explanation: Confirms COL17A1 as a causative gene for JEB.
   - reference: PMID:32973163
+    reference_title: &#34;Epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;pathogenetic mutations in 16 distinct genes have been implicated in
@@ -5309,6 +5562,7 @@ pathophysiology:
       and adhesion to the basement membrane.
   evidence:
   - reference: PMID:20301304
+    reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The diagnosis of JEB is established in a proband with characteristic
@@ -5340,6 +5594,7 @@ pathophysiology:
       to exuberant granulation tissue, a distinctive feature of JEB.
   evidence:
   - reference: PMID:32973163
+    reference_title: &#34;Epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Epidermolysis bullosa (EB) is an inherited, heterogeneous group of
@@ -5348,6 +5603,7 @@ pathophysiology:
     explanation: Confirms that blister formation with minimal trauma is the
       defining feature of EB.
   - reference: PMID:23076207
+    reference_title: &#34;Laminin 332 in junctional epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The phenotypic consequences are diminished dermal-epidermal adhesion
@@ -5381,6 +5637,7 @@ pathophysiology:
       label: fibroblast
   evidence:
   - reference: PMID:20301304
+    reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Blistering may be severe and granulation tissue can form on the skin
@@ -5389,6 +5646,7 @@ pathophysiology:
     explanation: Confirms granulation tissue formation in periorificial areas
       as a feature of JEB.
   - reference: PMID:12915477
+    reference_title: &#34;An unusual N-terminal deletion of the laminin alpha3a isoform leads to the chronic granulation tissue disorder laryngo-onycho-cutaneous syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;These studies show that the laminin alpha3a N-terminal domain is a key
@@ -5400,6 +5658,7 @@ pathophysiology:
       proving that granulation tissue in JEB reflects loss of laminin signaling
       rather than simply chronic wounding.
   - reference: PMID:12915477
+    reference_title: &#34;An unusual N-terminal deletion of the laminin alpha3a isoform leads to the chronic granulation tissue disorder laryngo-onycho-cutaneous syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;This protein is secreted only by the basal keratinocytes of stratified
@@ -5427,6 +5686,7 @@ pathophysiology:
       label: ameloblast
   evidence:
   - reference: PMID:23076207
+    reference_title: &#34;Laminin 332 in junctional epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;This article delineates the signs and symptoms of the different forms
@@ -5450,6 +5710,7 @@ phenotypes:
       label: Abnormal blistering of the skin
   evidence:
   - reference: PMID:20301304
+    reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Junctional epidermolysis bullosa (JEB) is characterized by fragility
@@ -5458,6 +5719,7 @@ phenotypes:
     explanation: GeneReviews confirms skin blistering with minimal trauma as the
       defining feature of JEB.
   - reference: PMID:32973163
+    reference_title: &#34;Epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Epidermolysis bullosa (EB) is an inherited, heterogeneous group of
@@ -5480,6 +5742,7 @@ phenotypes:
       label: Exuberant granulation tissue
   evidence:
   - reference: PMID:20301304
+    reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Blistering may be severe and granulation tissue can form on the skin
@@ -5501,6 +5764,7 @@ phenotypes:
       label: Nail dystrophy
   evidence:
   - reference: PMID:20301304
+    reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Additional features shared by JEB and the other major forms of
@@ -5522,12 +5786,14 @@ phenotypes:
       label: Enamel hypoplasia
   evidence:
   - reference: PMID:20301304
+    reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;regular dental care&#34;
     explanation: GeneReviews recommends regular dental care for JEB patients,
       indicating dental complications from enamel involvement.
   - reference: PMID:19700011
+    reference_title: &#34;Extracutaneous manifestations and complications of inherited epidermolysis bullosa: part II. Other organs.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Some epidermolysis bullosa subtypes are at risk for severe injury
@@ -5547,12 +5813,14 @@ phenotypes:
       label: Carious teeth
   evidence:
   - reference: PMID:20301304
+    reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;regular dental care&#34;
     explanation: GeneReviews recommends regular dental care as part of JEB
       management, indicating dental complications including caries.
   - reference: PMID:19700011
+    reference_title: &#34;Extracutaneous manifestations and complications of inherited epidermolysis bullosa: part II. Other organs.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Some epidermolysis bullosa subtypes are at risk for severe injury
@@ -5572,6 +5840,7 @@ phenotypes:
       label: Scarring alopecia of scalp
   evidence:
   - reference: PMID:20301304
+    reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Additional features shared by JEB and the other major forms of
@@ -5593,6 +5862,7 @@ phenotypes:
       label: Hoarse voice
   evidence:
   - reference: PMID:20301304
+    reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;granulation tissue can form on the skin around the oral and nasal
@@ -5614,6 +5884,7 @@ phenotypes:
       label: Failure to thrive
   evidence:
   - reference: PMID:20301304
+    reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;nutritional support including feeding gastrostomy when necessary;
@@ -5635,6 +5906,7 @@ phenotypes:
       label: Congenital pyloric atresia
   evidence:
   - reference: PMID:20301304
+    reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The diagnosis of JEB is established in a proband with characteristic
@@ -5656,6 +5928,7 @@ phenotypes:
       label: Abnormality of the urethra
   evidence:
   - reference: PMID:20301304
+    reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Congenital malformations of the urinary tract and bladder may also
@@ -5675,6 +5948,7 @@ phenotypes:
       label: Respiratory insufficiency
   evidence:
   - reference: PMID:20301304
+    reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;granulation tissue can form on the skin around the oral and nasal
@@ -5683,6 +5957,7 @@ phenotypes:
       granulation tissue formation, which can lead to respiratory compromise
       requiring tracheostomy.
   - reference: PMID:22512697
+    reference_title: &#34;Long-term follow-up of patients with Herlitz-type junctional epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The causes of death were, in order of frequency: failure to thrive,
@@ -5703,6 +5978,7 @@ phenotypes:
       label: Anemia
   evidence:
   - reference: PMID:20301304
+    reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Annual screening for iron-deficiency anemia, zinc deficiency,
@@ -5722,6 +5998,7 @@ treatments:
       label: supportive care
   evidence:
   - reference: PMID:20301304
+    reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Lance and drain new blisters and dress with three layers (primary:
@@ -5729,6 +6006,7 @@ treatments:
       properties to ensure integrity)&#34;
     explanation: GeneReviews describes three-layer wound dressing protocol for JEB.
   - reference: PMID:32973163
+    reference_title: &#34;Epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;multidisciplinary care is targeted towards minimizing the risk of
@@ -5747,6 +6025,7 @@ treatments:
       label: dietary intervention
   evidence:
   - reference: PMID:20301304
+    reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;nutritional support including feeding gastrostomy when necessary;
@@ -5765,6 +6044,7 @@ treatments:
       label: surgical procedure
   evidence:
   - reference: PMID:20301304
+    reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;tracheostomy if appropriate&#34;
@@ -5791,6 +6071,7 @@ treatments:
       label: gene therapy
   evidence:
   - reference: PMID:17115047
+    reference_title: &#34;Correction of junctional epidermolysis bullosa by transplantation of genetically modified epidermal stem cells.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;Epidermal stem cells from an adult patient affected by
@@ -5800,6 +6081,7 @@ treatments:
     explanation: First demonstration of ex vivo gene therapy for JEB using
       LAMB3-corrected autologous epidermal stem cells.
   - reference: PMID:17115047
+    reference_title: &#34;Correction of junctional epidermolysis bullosa by transplantation of genetically modified epidermal stem cells.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;These data show that ex vivo gene therapy of JEB is feasible and
@@ -5807,6 +6089,7 @@ treatments:
     explanation: Confirms feasibility and full functional correction of JEB
       by ex vivo gene therapy.
   - reference: PMID:29144448
+    reference_title: &#34;Regeneration of the entire human epidermis using transgenic stem cells.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;autologous transgenic keratinocyte cultures regenerated an entire,
@@ -5815,6 +6098,7 @@ treatments:
     explanation: Landmark case demonstrating regeneration of entire body surface
       epidermis using transgenic stem cells in a child with JEB.
   - reference: PMID:34881838
+    reference_title: &#34;Transgenic Epidermal Cultures for Junctional Epidermolysis Bullosa - 5-Year Outcomes.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We previously reported that genetically corrected autologous epidermal
@@ -5825,6 +6109,7 @@ treatments:
       transgenic epidermis remained stable and fully functional with no adverse
       events and normal sensory recovery.
   - reference: PMID:24511464
+    reference_title: &#34;Long-term stability and safety of transgenic cultured epidermal stem cells in gene therapy of junctional epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;the regenerated transgenic epidermis was found to be fully functional
@@ -5848,6 +6133,7 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:36689495
+    reference_title: &#34;Efficacy and safety of Oleogel-S10 (birch triterpenes) for epidermolysis bullosa: results from the phase III randomized double-blind phase of the EASE study.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Oleogel-S10 is the first therapy to demonstrate accelerated wound
@@ -5855,6 +6141,7 @@ treatments:
     explanation: Phase III EASE trial confirms Oleogel-S10 (birch triterpenes) as
       the first therapy to demonstrate accelerated wound healing in EB.
   - reference: PMID:36689495
+    reference_title: &#34;Efficacy and safety of Oleogel-S10 (birch triterpenes) for epidermolysis bullosa: results from the phase III randomized double-blind phase of the EASE study.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Oleogel-S10 resulted in 41·3% of patients with first complete target
@@ -5873,6 +6160,7 @@ treatments:
       label: supportive care
   evidence:
   - reference: PMID:20301304
+    reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;regular dental care&#34;
@@ -5891,6 +6179,7 @@ treatments:
       label: genetic counseling
   evidence:
   - reference: PMID:20301304
+    reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;each sib of an affected individual whose parents are both carriers
@@ -5951,6 +6240,7 @@ genetic:
   - name: Autosomal recessive
     evidence:
     - reference: PMID:20301304
+      reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;JEB is inherited in an autosomal recessive manner&#34;
@@ -5962,6 +6252,7 @@ genetic:
     laminin-332 and JEB severe; hypomorphic mutations cause JEB intermediate.
   evidence:
   - reference: PMID:23076207
+    reference_title: &#34;Laminin 332 in junctional epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Mutations in the LAMA3, LAMB3 and LAMC2 genes that encode the three
@@ -5969,6 +6260,7 @@ genetic:
       functions of laminin 332&#34;
     explanation: Confirms LAMB3 mutations abrogate laminin-332 function causing JEB.
   - reference: PMID:19945616
+    reference_title: &#34;Herlitz junctional epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;this devastating condition is most often caused by homozygous null
@@ -5982,6 +6274,7 @@ genetic:
   - name: Autosomal recessive
     evidence:
     - reference: PMID:20301304
+      reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;JEB is inherited in an autosomal recessive manner&#34;
@@ -5991,6 +6284,7 @@ genetic:
     intermediate depending on mutation type.
   evidence:
   - reference: PMID:19945616
+    reference_title: &#34;Herlitz junctional epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;this devastating condition is most often caused by homozygous null
@@ -6003,6 +6297,7 @@ genetic:
   - name: Autosomal recessive
     evidence:
     - reference: PMID:20301304
+      reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;JEB is inherited in an autosomal recessive manner&#34;
@@ -6012,6 +6307,7 @@ genetic:
     intermediate depending on mutation type.
   evidence:
   - reference: PMID:19945616
+    reference_title: &#34;Herlitz junctional epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;this devastating condition is most often caused by homozygous null
@@ -6024,6 +6320,7 @@ genetic:
   - name: Autosomal recessive
     evidence:
     - reference: PMID:20301304
+      reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;JEB is inherited in an autosomal recessive manner&#34;
@@ -6040,6 +6337,7 @@ genetic:
     epidermis; revertant mosaicism represents a form of natural gene therapy.
   evidence:
   - reference: PMID:20301304
+    reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The diagnosis of JEB is established in a proband with characteristic
@@ -6048,6 +6346,7 @@ genetic:
       LAMA3, LAMB3, or LAMC2&#34;
     explanation: Confirms COL17A1 as a causative gene for JEB.
   - reference: PMID:9038345
+    reference_title: &#34;Revertant mosaicism in epidermolysis bullosa caused by mitotic gene conversion.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;the revertant mosaicism of a compound heterozygous proband with an
@@ -6058,6 +6357,7 @@ genetic:
       causes revertant mosaicism in JEB, producing clinically unaffected skin
       patches.
   - reference: PMID:9038345
+    reference_title: &#34;Revertant mosaicism in epidermolysis bullosa caused by mitotic gene conversion.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Revertant mosaicism represents a way of natural gene therapy&#34;
@@ -6069,6 +6369,7 @@ genetic:
   - name: Autosomal recessive
     evidence:
     - reference: PMID:20301304
+      reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;JEB is inherited in an autosomal recessive manner&#34;
@@ -6081,6 +6382,7 @@ genetic:
     heterodimer.
   evidence:
   - reference: PMID:32973163
+    reference_title: &#34;Epidermolysis bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;pathogenetic mutations in 16 distinct genes have been implicated
@@ -6094,6 +6396,7 @@ genetic:
   - name: Autosomal recessive
     evidence:
     - reference: PMID:20301304
+      reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;JEB is inherited in an autosomal recessive manner&#34;
@@ -6103,6 +6406,7 @@ genetic:
     atresia (JEB-PA) or, rarely, JEB without pyloric atresia.
   evidence:
   - reference: PMID:20301304
+    reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The diagnosis of JEB is established in a proband with characteristic

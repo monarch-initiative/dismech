@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1037,6 +1101,52 @@
             text-decoration: underline;
         }
 
+        /* Experimental Models */
+        .exp-model-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .exp-model-box .item-name { color: #92400e; }
+        .exp-model-box .item-desc { color: #b45309; }
+
+        .tag-exp-model-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .tag-namo-type {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+        .tag-condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .model-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .model-detail-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .model-detail-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 110px;
+        }
+        .model-detail-value {
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+        }
+        .model-detail-value a {
+            color: inherit;
+        }
+
         /* Computational Models */
         .comp-model-box {
             background: #f0fdf4;
@@ -1382,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1470,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1477,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1489,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1637,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1723,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1737,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1792,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1877,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">hereditary disease</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">tooth disorder</span>
@@ -1890,6 +2109,11 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
+        
+        
         
         
         
@@ -1945,6 +2169,14 @@
             <div class="stat-item">
                 <div class="stat-value">5</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">8</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2307,7 +2539,7 @@
                 <span class="card-count">5</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-failed-invagination-of-hertwig-epithelial-root-sheath-diaphragm">
                 <div class="item-name">Failed invagination of Hertwig epithelial root sheath diaphragm</div>
                 
                 <div class="item-desc">Taurodont morphology is linked to altered root-sheath invagination, shifting furcation apically and expanding the pulp chamber in multirooted teeth.</div>
@@ -2359,6 +2591,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2393,7 +2626,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-epithelial-wnt10a-dependent-root-furcation-failure">
                 <div class="item-name">Epithelial WNT10A-dependent root furcation failure</div>
                 
                 <div class="item-desc">Loss of epithelial WNT10A signaling disrupts furcation formation and drives taurodont-like root morphology, implicating epithelial-mesenchymal signaling defects in root development.</div>
@@ -2465,6 +2698,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2499,7 +2733,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-wnt10a-associated-molar-crown-and-root-dysmorphology-in-humans">
                 <div class="item-name">WNT10A-associated molar crown and root dysmorphology in humans</div>
                 
                 <div class="item-desc">Human WNT10A variants are associated with taurodont root morphology, supporting a gene-dosage influenced mechanism affecting crown and root development.</div>
@@ -2549,6 +2783,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -2605,7 +2840,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-axin1-akt1-mtorc1-shh-translational-dysregulation-in-hers">
                 <div class="item-name">Axin1-AKT1-mTORC1-Shh translational dysregulation in HERS</div>
                 
                 <div class="item-desc">Axin1-dependent control of AKT1-mTORC1 signaling in Hertwig epithelial root sheath regulates selective Shh translation and root morphogenesis; dysregulation produces defective roots.</div>
@@ -2667,6 +2902,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2721,7 +2957,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-kctd1-associated-wnt-shh-bmp-signaling-perturbation">
                 <div class="item-name">KCTD1-associated WNT-SHH-BMP signaling perturbation</div>
                 
                 <div class="item-desc">Pathogenic KCTD1 variants segregate with taurodontism and related root anomalies, implicating altered WNT-SHH-BMP signaling control in human dental morphogenesis.</div>
@@ -2771,6 +3007,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -2840,12 +3077,13 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Taurodontism</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
@@ -4104,6 +4342,9 @@
         </div>
         
 
+        <!-- Experimental Models -->
+        
+
         <!-- Computational Models -->
         
 
@@ -4145,6 +4386,7 @@ has_subtypes:
   description: Mild taurodont morphology with apically displaced pulpal floor.
   evidence:
   - reference: PMID:37128323
+    reference_title: &#34;Prevalence of taurodontism in individuals in Northwest China determined by cone-beam computed tomography images.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;According to morphology, hypotaurodonts were the most common (60.39%) among taurodontic teeth.&#34;
@@ -4153,6 +4395,7 @@ has_subtypes:
   description: Intermediate taurodont morphology between hypo- and hypertaurodont forms.
   evidence:
   - reference: PMID:278704
+    reference_title: &#34;Prevalence of taurodontism found in radiographic dental examination of 1,200 young adult Israeli patients.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;three types of taurodontism (meso-, hypo- and hypertaudodontism) were defined in biometric terms, using radiographic features of molar morphology.&#34;
@@ -4161,6 +4404,7 @@ has_subtypes:
   description: Severe taurodont morphology with marked apical displacement of furcation.
   evidence:
   - reference: PMID:278704
+    reference_title: &#34;Prevalence of taurodontism found in radiographic dental examination of 1,200 young adult Israeli patients.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Hypertaurodontism was found only in three cases, in the third molars.&#34;
@@ -4170,6 +4414,7 @@ prevalence:
   percentage: 11.8
   evidence:
   - reference: PMID:34897365
+    reference_title: &#34;Prevalence of taurodontism: meta-analysis in recent humans and evolutionary perspectives.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The meta-analyses were performed with a random model, calculating a weighted-mean prevalence of 11.8%.&#34;
@@ -4178,6 +4423,7 @@ prevalence:
   percentage: 29.14
   evidence:
   - reference: PMID:37128323
+    reference_title: &#34;Prevalence of taurodontism in individuals in Northwest China determined by cone-beam computed tomography images.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Taurodontism was detected in 169 patients, with a prevalence of 29.14%, of which 27.24% were males and 30.65% were females.&#34;
@@ -4195,6 +4441,7 @@ progression:
   notes: Developmental anomaly emerges during root furcation formation in multirooted teeth.
   evidence:
   - reference: PMID:31914354
+    reference_title: &#34;Epithelial Wnt10a Is Essential for Tooth Root Furcation Morphogenesis.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Wnt10a knockout in the whole tissue (EIIa-Cre;Wnt10aflox/flox) and in dental epithelium (K14-Cre;Wnt10aflox/flox) led to an absence of or apically located root furcation in molars of mice, a phenotype that resembled taurodontism.&#34;
@@ -4232,12 +4479,14 @@ pathophysiology:
     description: Altered root sheath morphogenesis produces enlarged pulp chambers.
     evidence:
     - reference: PMID:18363703
+      reference_title: &#34;Taurodontism: a review of the condition and endodontic treatment challenges.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;An enlarged pulp chamber, apical displacement of the pulpal floor, and no constriction at the level of the cementoenamel junction are the characteristic features.&#34;
       explanation: Connects failed root-sheath patterning to pulp-chamber enlargement.
   evidence:
   - reference: PMID:18363703
+    reference_title: &#34;Taurodontism: a review of the condition and endodontic treatment challenges.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Taurodontism can be defined as a change in tooth shape caused by the failure of Hertwig&#39;s epithelial sheath diaphragm to invaginate at the proper horizontal level.&#34;
@@ -4275,12 +4524,14 @@ pathophysiology:
     description: Furcation failure yields classic taurodont root-trunk morphology.
     evidence:
     - reference: PMID:31914354
+      reference_title: &#34;Epithelial Wnt10a Is Essential for Tooth Root Furcation Morphogenesis.&#34;
       supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &#34;Wnt10a knockout in the whole tissue (EIIa-Cre;Wnt10aflox/flox) and in dental epithelium (K14-Cre;Wnt10aflox/flox) led to an absence of or apically located root furcation in molars of mice, a phenotype that resembled taurodontism.&#34;
       explanation: Demonstrates causal link between WNT10A perturbation and taurodont-like morphology.
   evidence:
   - reference: PMID:31914354
+    reference_title: &#34;Epithelial Wnt10a Is Essential for Tooth Root Furcation Morphogenesis.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;our study provides the first in vivo evidence that epithelial Wnt10a guides root furcation formation and plays a crucial role in controlling the organized proliferation of adjacent mesenchymal cells by regulating proper Wnt4 expression during root furcation morphogenesis.&#34;
@@ -4307,11 +4558,13 @@ pathophysiology:
       label: calcareous tooth
   evidence:
   - reference: PMID:25629078
+    reference_title: &#34;Taurodontism, variations in tooth number, and misshapened crowns in Wnt10a null mice and human kindreds.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;WNT10A heterozygotes exhibited molar root taurodontism and mild tooth agenesis (with incomplete penetrance) in their permanent dentitions.&#34;
     explanation: Supports human genotype-phenotype association between WNT10A variation and taurodontism.
   - reference: PMID:25629078
+    reference_title: &#34;Taurodontism, variations in tooth number, and misshapened crowns in Wnt10a null mice and human kindreds.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We conclude that molar crown and root dysmorphologies are caused by WNT10A defects and that the severity of the tooth agenesis correlates with the number of defective WNT10A alleles.&#34;
@@ -4414,6 +4667,7 @@ phenotypes:
   diagnostic: true
   evidence:
   - reference: PMID:18363703
+    reference_title: &#34;Taurodontism: a review of the condition and endodontic treatment challenges.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;An enlarged pulp chamber, apical displacement of the pulpal floor, and no constriction at the level of the cementoenamel junction are the characteristic features.&#34;
@@ -4429,6 +4683,7 @@ phenotypes:
   diagnostic: true
   evidence:
   - reference: PMID:34897365
+    reference_title: &#34;Prevalence of taurodontism: meta-analysis in recent humans and evolutionary perspectives.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Taurodontism is a continuous anatomical variation of permanent and primary posterior teeth represented by an enlargement of the pulp cavity.&#34;
@@ -4443,6 +4698,7 @@ phenotypes:
   frequency: VERY_FREQUENT
   evidence:
   - reference: PMID:31914354
+    reference_title: &#34;Epithelial Wnt10a Is Essential for Tooth Root Furcation Morphogenesis.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Wnt10a knockout in the whole tissue (EIIa-Cre;Wnt10aflox/flox) and in dental epithelium (K14-Cre;Wnt10aflox/flox) led to an absence of or apically located root furcation in molars of mice, a phenotype that resembled taurodontism.&#34;
@@ -4486,6 +4742,7 @@ genetic:
   notes: WNT10A variants are associated with taurodont root morphology in human kindreds.
   evidence:
   - reference: PMID:25629078
+    reference_title: &#34;Taurodontism, variations in tooth number, and misshapened crowns in Wnt10a null mice and human kindreds.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;WNT10A heterozygotes exhibited molar root taurodontism and mild tooth agenesis (with incomplete penetrance) in their permanent dentitions.&#34;
@@ -4500,6 +4757,7 @@ genetic:
   notes: DLX3 variants are linked to autosomal dominant AIHHT/TDO conditions that include taurodontism.
   evidence:
   - reference: PMID:15666299
+    reference_title: &#34;DLX3 mutation associated with autosomal dominant amelogenesis imperfecta with taurodontism.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Amelogenesis imperfecta hypoplastic-hypomaturation with taurodontism (AIHHT) is an autosomal dominant (AD) trait associated with enamel defects and enlarged pulp chambers.&#34;
@@ -4547,6 +4805,7 @@ inheritance:
   description: AD inheritance is documented in AIHHT forms that include taurodontism.
   evidence:
   - reference: PMID:15666299
+    reference_title: &#34;DLX3 mutation associated with autosomal dominant amelogenesis imperfecta with taurodontism.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Amelogenesis imperfecta hypoplastic-hypomaturation with taurodontism (AIHHT) is an autosomal dominant (AD) trait associated with enamel defects and enlarged pulp chambers.&#34;
@@ -4563,11 +4822,13 @@ treatments:
       label: surgical procedure
   evidence:
   - reference: PMID:12775010
+    reference_title: &#34;Taurodontism: an endodontic challenge. Report of a case.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Endodontic treatment of a taurodont tooth is challenging, because it requires special care in handling and identifying the number of root canals.&#34;
     explanation: Supports the need for tailored endodontic procedural planning.
   - reference: PMID:18363703
+    reference_title: &#34;Taurodontism: a review of the condition and endodontic treatment challenges.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In performing root canal treatment on such teeth, one should appreciate the complexity of the root canal system, canal obliteration and configuration, and the potential for additional root canal systems.&#34;
@@ -4577,6 +4838,7 @@ epidemiology:
   description: Reported prevalence varies widely across study methods and populations.
   evidence:
   - reference: PMID:34897365
+    reference_title: &#34;Prevalence of taurodontism: meta-analysis in recent humans and evolutionary perspectives.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Prevalence ranges between 0.1% and 48% in the literature.&#34;
@@ -4585,6 +4847,7 @@ epidemiology:
   description: Studies report no clear sex predominance in recent cohorts.
   evidence:
   - reference: PMID:37128323
+    reference_title: &#34;Prevalence of taurodontism in individuals in Northwest China determined by cone-beam computed tomography images.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The chi-square test showed that there was no significant difference between males and females (P &gt; 0.05).&#34;
@@ -4593,6 +4856,7 @@ epidemiology:
   description: Taurodontism tends to be observed more frequently in maxillary molars in several CBCT cohorts.
   evidence:
   - reference: PMID:37128323
+    reference_title: &#34;Prevalence of taurodontism in individuals in Northwest China determined by cone-beam computed tomography images.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Taurodonts were significantly more common in the maxilla (9.06%) than in the mandible (5.15%) (P &lt; 0.001), and the maxillary second molar (25.18%) was the most common tooth affected.&#34;
@@ -4609,6 +4873,7 @@ diagnosis:
     hypertaurodont forms.
   evidence:
   - reference: PMID:278704
+    reference_title: &#34;Prevalence of taurodontism found in radiographic dental examination of 1,200 young adult Israeli patients.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;three types of taurodontism (meso-, hypo- and hypertaudodontism) were defined in biometric terms, using radiographic features of molar morphology.&#34;
@@ -4617,6 +4882,7 @@ diagnosis:
   description: CBCT supports prevalence estimation and tooth-level morphological assessment.
   evidence:
   - reference: PMID:37128323
+    reference_title: &#34;Prevalence of taurodontism in individuals in Northwest China determined by cone-beam computed tomography images.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The aim of this retrospective study was to evaluate the prevalence of taurodontism in a group of adult dental patients in Northwest China with the aid of cone-beam computed tomography (CBCT).&#34;
@@ -4645,6 +4911,7 @@ differential_diagnoses:
   - AIHHT is a defined autosomal dominant syndromic dental phenotype linked to DLX3-associated amelogenesis imperfecta.
   evidence:
   - reference: PMID:15666299
+    reference_title: &#34;DLX3 mutation associated with autosomal dominant amelogenesis imperfecta with taurodontism.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Amelogenesis imperfecta hypoplastic-hypomaturation with taurodontism (AIHHT) is an autosomal dominant (AD) trait associated with enamel defects and enlarged pulp chambers.&#34;
@@ -4663,6 +4930,7 @@ differential_diagnoses:
   - Taurodontism may overlap, but systemic ectodermal/skeletal findings support TDO over isolated taurodontism.
   evidence:
   - reference: PMID:10466415
+    reference_title: &#34;Tricho-dento-osseous syndrome and amelogenesis imperfecta with taurodontism are genetically distinct conditions.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;While enamel hypoplasia and taurodontism appear to be present in all TDO cases, non-dental features may be absent, with approximately half of TDO cases losing the kinky/curly hair phenotype seen in infancy by adolescence, and in almost 20% of cases, osseous changes are not evident.&#34;
@@ -4681,6 +4949,7 @@ differential_diagnoses:
   - Taurodontism is a frequent associated anomaly in Klinefelter syndrome rather than the sole defining diagnosis.
   evidence:
   - reference: PMID:745217
+    reference_title: &#34;Taurodontism and Klinefelter&#39;s syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Taurodont molars were observed in 6 of the 31 cases (19.4%), a significantly higher rate than among the controls.&#34;

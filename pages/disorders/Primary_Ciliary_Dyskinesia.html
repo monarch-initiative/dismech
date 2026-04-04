@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1037,6 +1101,52 @@
             text-decoration: underline;
         }
 
+        /* Experimental Models */
+        .exp-model-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .exp-model-box .item-name { color: #92400e; }
+        .exp-model-box .item-desc { color: #b45309; }
+
+        .tag-exp-model-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .tag-namo-type {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+        .tag-condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .model-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .model-detail-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .model-detail-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 110px;
+        }
+        .model-detail-value {
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+        }
+        .model-detail-value a {
+            color: inherit;
+        }
+
         /* Computational Models */
         .comp-model-box {
             background: #f0fdf4;
@@ -1382,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1470,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1477,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1489,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1637,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1723,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1737,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1792,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1877,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Ciliopathy</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Respiratory Disease</span>
@@ -1886,6 +2105,11 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
+        
+        
         
         
         
@@ -1943,6 +2167,14 @@
             </a>
             
             
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">9</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
+            </a>
+            
+            
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-value">12</div>
@@ -1983,10 +2215,12 @@
             </div>
             
             
+            <a class="stat-link" href="#models">
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Models</div>
             </div>
+            </a>
             
             
         </div>
@@ -2051,7 +2285,7 @@
                 <span class="card-count">3</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-ciliary-dysfunction">
                 <div class="item-name">Ciliary Dysfunction</div>
                 
                 <div class="item-desc">Defects in the structure and function of motile cilia impair mucociliary clearance.</div>
@@ -2197,6 +2431,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2267,7 +2502,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-mucociliary-clearance">
                 <div class="item-name">Impaired Mucociliary Clearance</div>
                 
                 <div class="item-desc">Failure to effectively remove mucus and pathogens from respiratory passages.</div>
@@ -2310,6 +2545,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -2382,7 +2618,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-situs-inversus">
                 <div class="item-name">Situs Inversus</div>
                 
                 <div class="item-desc">Abnormal placement of internal organs due to ciliary dysfunction during embryonic development.</div>
@@ -2428,6 +2664,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -2493,18 +2730,19 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Primary_Ciliary_Dyskinesia</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Chronic Respiratory Infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002205\"}}, {\"id\": \"Ciliary Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defects in the structure and function of motile cilia impair mucociliary clearance.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"respiratory ciliated cell\", \"ependymal cell\"], \"biological_processes\": [\"cilium movement\", \"cilium assembly\", \"axoneme assembly\"], \"genes\": [\"DNAI1\", \"DNAH5\"], \"locations\": [\"respiratory tract epithelium\", \"nasal cavity epithelium\", \"trachea\", \"bronchus\"]}}, {\"id\": \"Impaired Mucociliary Clearance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure to effectively remove mucus and pathogens from respiratory passages.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"mucociliary clearance\"], \"locations\": [\"respiratory system\", \"paranasal sinus\"]}}, {\"id\": \"Otitis Media\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000388\"}}, {\"id\": \"Sinusitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000246\"}}], \"edges\": [{\"source\": \"Ciliary Dysfunction\", \"target\": \"Impaired Mucociliary Clearance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Chronic Respiratory Infections\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Sinusitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Otitis Media\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antibiotic Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Long-term or prophylactic antibiotics to control respiratory infections.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Chronic Respiratory Infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002205\"}}, {\"id\": \"Ciliary Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defects in the structure and function of motile cilia impair mucociliary clearance.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"respiratory ciliated cell\", \"ependymal cell\"], \"biological_processes\": [\"cilium movement\", \"cilium assembly\", \"axoneme assembly\"], \"genes\": [\"DNAI1\", \"DNAH5\"], \"locations\": [\"respiratory tract epithelium\", \"nasal cavity epithelium\", \"trachea\", \"bronchus\"]}}, {\"id\": \"DNAH5\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"DNAI1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Impaired Mucociliary Clearance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure to effectively remove mucus and pathogens from respiratory passages.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"mucociliary clearance\"], \"locations\": [\"respiratory system\", \"paranasal sinus\"]}}, {\"id\": \"Otitis Media\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000388\"}}, {\"id\": \"Recurrent Respiratory Infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002205\"}}, {\"id\": \"Sinusitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000246\"}}], \"edges\": [{\"source\": \"Ciliary Dysfunction\", \"target\": \"Impaired Mucociliary Clearance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Chronic Respiratory Infections\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Sinusitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Otitis Media\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Antibiotic Therapy\", \"target\": \"Recurrent Respiratory Infections\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"DNAI1\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DNAH5\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4353,6 +4591,571 @@
         <!-- Clinical Trials -->
         
 
+        <!-- Experimental Models -->
+        
+        <div id="experimental-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fffbeb; color: #f59e0b;">🧫</div>
+                <h2 class="card-title">Experimental Models</h2>
+                <span class="card-count">3</span>
+            </div>
+            
+            <div class="item-box exp-model-box anchor-target" id="experimental-model-patient-derived-nasal-epithelial-air-liquid-interface-model">
+                <div class="item-name">
+                    Patient-derived nasal epithelial air-liquid interface model
+                    
+                    <span class="tag tag-exp-model-type">PRIMARY_CELL_CULTURE</span>
+                    
+                    
+                    <span class="tag tag-namo-type">
+                        <a href="https://w3id.org/monarch-initiative/namo/TwoDCellCulture" target="_blank" style="color: inherit; text-decoration: none;">namo:TwoDCellCulture ↗</a>
+                    </span>
+                    
+                </div>
+                
+                <div class="item-desc">Expanded basal epithelial cells from nasal brush biopsies re-differentiated in miniaturized air-liquid interface cultures to preserve genotype-linked ciliary ultrastructural and motility defects in primary ciliary dyskinesia.</div>
+                
+                
+                <div class="tag-list" style="margin-top: 10px;">
+                    
+                    <span class="tag tag-condition">primary ciliary dyskinesia</span>
+                    
+                    <span class="tag tag-condition">MCIDAS-associated reduced generation of motile cilia</span>
+                    
+                </div>
+                
+                
+                <div class="tag-list" style="margin-top: 10px;">
+                    
+                    <span class="tag tag-cell">
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0002368" target="_blank" style="color: inherit; text-decoration: none;">respiratory ciliated cell ↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="model-detail-list">
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Organism</div>
+                        <div class="model-detail-value">
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank">human ↗</a>
+                            
+                        </div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Tissue</div>
+                        <div class="model-detail-value">
+                            
+                            <a href="http://purl.obolibrary.org/obo/UBERON_0005384" target="_blank">nasal cavity epithelium ↗</a>
+                            
+                        </div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Cell source</div>
+                        <div class="model-detail-value">Patient-derived nasal basal epithelial cells expanded from nasal brush biopsies</div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Culture</div>
+                        <div class="model-detail-value">Miniaturized 96-well Transwell air-liquid interface culture</div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Publication</div>
+                        <div class="model-detail-value">
+                            <a href="http://www.ncbi.nlm.nih.gov/pubmed/33795320" target="_blank">PMID:33795320 ↗</a>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+                
+                
+    
+    <div class="findings-section">
+        <div class="findings-title">Findings</div>
+        
+        <div class="finding-item">
+            
+            <div class="finding-statement">Patient-derived nasal ALI cultures retain genotype-linked ciliary ultrastructural and motility defects and can be used to test rescue strategies for reduced multiciliogenesis</div>
+            
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33795320" target="_blank">PMID:33795320</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Initial analyses of ciliary ultrastructure, beat pattern and beat frequency in the 96-well transwell format ALI cultures indicate that a range of different PCD defects can be retained in these cultures."</div>
+                
+                
+                <div class="evidence-explanation">Supports use of expanded nasal ALI cultures as a disease-relevant PCD model that preserves mutation-associated ciliary defects.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33795320" target="_blank">PMID:33795320</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"As proof-of-principle, we performed a personalised investigation in a patient with a rare and severe form of PCD (reduced generation of motile cilia), in this case caused by a homozygous nonsense mutation in the MCIDAS gene."</div>
+                
+                
+                <div class="evidence-explanation">Links the ALI model to a mechanistically relevant multiciliogenesis defect within a defined PCD genotype.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33795320" target="_blank">PMID:33795320</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Primary cell culture of basal epithelial cells from nasal brush biopsies followed by ciliated differentiation at the air-liquid interface (ALI) has proven to be a useful tool in PCD diagnostics but the technique&#39;s broader utility, including in pre-clinical PCD research, has been restricted by..."</div>
+                
+                
+                <div class="evidence-explanation">Establishes patient-derived nasal ALI culture as an existing PCD modeling system and motivates the expanded higher-throughput format.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box exp-model-box anchor-target" id="experimental-model-patient-derived-airway-organoid-model">
+                <div class="item-name">
+                    Patient-derived airway organoid model
+                    
+                    <span class="tag tag-exp-model-type">ORGANOID</span>
+                    
+                    
+                    <span class="tag tag-namo-type">
+                        <a href="https://w3id.org/monarch-initiative/namo/Organoid" target="_blank" style="color: inherit; text-decoration: none;">namo:Organoid ↗</a>
+                    </span>
+                    
+                </div>
+                
+                <div class="item-desc">Airway organoids established from nasal inferior turbinate brush samples and differentiated toward ciliated cells to capture patient-specific ciliary beating abnormalities in primary ciliary dyskinesia.</div>
+                
+                
+                <div class="tag-list" style="margin-top: 10px;">
+                    
+                    <span class="tag tag-condition">primary ciliary dyskinesia</span>
+                    
+                </div>
+                
+                
+                <div class="tag-list" style="margin-top: 10px;">
+                    
+                    <span class="tag tag-cell">
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0002368" target="_blank" style="color: inherit; text-decoration: none;">respiratory ciliated cell ↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="model-detail-list">
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Organism</div>
+                        <div class="model-detail-value">
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank">human ↗</a>
+                            
+                        </div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Tissue</div>
+                        <div class="model-detail-value">
+                            
+                            <a href="http://purl.obolibrary.org/obo/UBERON_0005384" target="_blank">nasal cavity epithelium ↗</a>
+                            
+                        </div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Cell source</div>
+                        <div class="model-detail-value">Patient-derived nasal inferior turbinate epithelial cells expanded as airway organoids</div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Culture</div>
+                        <div class="model-detail-value">Long-term expandable airway organoid culture with ciliated differentiation</div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Publication</div>
+                        <div class="model-detail-value">
+                            <a href="http://www.ncbi.nlm.nih.gov/pubmed/34693619" target="_blank">PMID:34693619 ↗</a>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+                
+                
+    
+    <div class="findings-section">
+        <div class="findings-title">Findings</div>
+        
+        <div class="finding-item">
+            
+            <div class="finding-statement">Patient-derived airway organoids reproduce mutation-linked differences in ciliary beating and support genotype-specific functional interrogation</div>
+            
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34693619" target="_blank">PMID:34693619</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Patient-specific differences in ciliary beating are observed and are in agreement with the patients&#39; genetic mutations."</div>
+                
+                
+                <div class="evidence-explanation">Supports the organoid model as a genotype-resolved readout of the ciliary dysfunction central to PCD.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34693619" target="_blank">PMID:34693619</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"More detailed organoid ciliary phenotypes can thus be documented in addition to the standard diagnostic procedure."</div>
+                
+                
+                <div class="evidence-explanation">Supports use of organoids for mechanistically richer ciliary phenotyping in PCD.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34693619" target="_blank">PMID:34693619</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"We apply this condition to AOs established from nasal inferior turbinate brush samples of patients suffering from primary ciliary dyskinesia (PCD), a pulmonary disease caused by dysfunction of the motile cilia in the airways."</div>
+                
+                
+                <div class="evidence-explanation">Establishes patient-derived airway organoids as a directly disease-relevant non-animal model for PCD.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box exp-model-box anchor-target" id="experimental-model-patient-specific-hipsc-derived-airway-epithelium-model">
+                <div class="item-name">
+                    Patient-specific hiPSC-derived airway epithelium model
+                    
+                    <span class="tag tag-exp-model-type">IPSC_DERIVED_MODEL</span>
+                    
+                    
+                    <span class="tag tag-namo-type">
+                        <a href="https://w3id.org/monarch-initiative/namo/TwoDCellCulture" target="_blank" style="color: inherit; text-decoration: none;">namo:TwoDCellCulture ↗</a>
+                    </span>
+                    
+                </div>
+                
+                <div class="item-desc">Human induced pluripotent stem cell-derived airway epithelium differentiated at air-liquid interface to model structural ciliary defects and impaired mucociliary transport in genetically defined primary ciliary dyskinesia.</div>
+                
+                
+                <div class="tag-list" style="margin-top: 10px;">
+                    
+                    <span class="tag tag-condition">primary ciliary dyskinesia</span>
+                    
+                    <span class="tag tag-condition">DNAH5-associated primary ciliary dyskinesia</span>
+                    
+                    <span class="tag tag-condition">NME5-associated primary ciliary dyskinesia</span>
+                    
+                </div>
+                
+                
+                <div class="tag-list" style="margin-top: 10px;">
+                    
+                    <span class="tag tag-cell">
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0002368" target="_blank" style="color: inherit; text-decoration: none;">respiratory ciliated cell ↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="model-detail-list">
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Organism</div>
+                        <div class="model-detail-value">
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank">human ↗</a>
+                            
+                        </div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Tissue</div>
+                        <div class="model-detail-value">
+                            
+                            <a href="http://purl.obolibrary.org/obo/UBERON_0001005" target="_blank">respiratory airway ↗</a>
+                            
+                        </div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Cell source</div>
+                        <div class="model-detail-value">Patient-specific induced pluripotent stem cell lines differentiated into ciliated airway epithelium</div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Culture</div>
+                        <div class="model-detail-value">Air-liquid interface differentiation of hiPSC-derived airway epithelium</div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Publication</div>
+                        <div class="model-detail-value">
+                            <a href="http://www.ncbi.nlm.nih.gov/pubmed/37296588" target="_blank">PMID:37296588 ↗</a>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+                
+                
+    
+    <div class="findings-section">
+        <div class="findings-title">Findings</div>
+        
+        <div class="finding-item">
+            
+            <div class="finding-statement">Patient-specific hiPSC-derived airway epithelium reproduces molecular, ultrastructural, and functional ciliary defects, including impaired mucociliary transport</div>
+            
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37296588" target="_blank">PMID:37296588</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Applying transmission electron microscopy, immunofluorescence staining, ciliary beat frequency, and mucociliary transport measurements, we could demonstrate that ciliated respiratory epithelia cells derived from two PCD patient-specific hiPSC lines carrying mutations in DNAH5 and NME5,..."</div>
+                
+                
+                <div class="evidence-explanation">Shows that hiPSC-derived airway epithelium reproduces the molecular and functional consequences of PCD mutations, including impaired transport.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37296588" target="_blank">PMID:37296588</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Here, we developed an in vitro model for PCD based on human induced pluripotent stem cell (hiPSC)-derived airway epithelium in Air-Liquid-Interface cultures."</div>
+                
+                
+                <div class="evidence-explanation">Establishes hiPSC-derived airway epithelium as a PCD-specific in vitro model.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37296588" target="_blank">PMID:37296588</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Motile cilia dysfunction results in diminished mucociliary clearance (MCC) of pathogens in the respiratory tract and chronic airway inflammation and infections successively causing progressive lung damage."</div>
+                
+                
+                <div class="evidence-explanation">Connects the model&#39;s mucociliary transport readouts to the central airway pathophysiology of PCD.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+        </div>
+        
+
         <!-- Computational Models -->
         
 
@@ -4369,7 +5172,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Primary_Ciliary_Dyskinesia
 creation_date: &#39;2025-12-04T16:57:31Z&#39;
-updated_date: &#39;2026-02-17T21:53:14Z&#39;
+updated_date: &#39;2026-03-31T04:24:13Z&#39;
 category: Genetic
 parents:
 - Ciliopathy
@@ -4379,17 +5182,20 @@ prevalence:
   percentage: 0.025-0.05
   evidence:
   - reference: PMID:34454779
+    reference_title: &#34;Analysis of the clinical features of Japanese patients with primary ciliary dyskinesia.&#34;
     supports: PARTIAL
     snippet: Primary ciliary dyskinesia (PCD) is a rare hereditary disease.
     explanation: The study mentions that PCD is a rare disease but does not
       provide specific global prevalence rates.
   - reference: PMID:31971980
+    reference_title: &#34;Primary ciliary dyskinesia and psychological well-being in adolescence.&#34;
     supports: PARTIAL
     snippet: Primary ciliary dyskinesia (PCD) is a rare autosomal recessive
       disease with low prevalence in pediatrics.
     explanation: The study confirms that PCD is rare but does not provide exact
       global prevalence figures.
   - reference: PMID:32662935
+    reference_title: &#34;Phenotypic features of ciliary dyskinesia among patients with congenital cardiovascular malformations.&#34;
     supports: PARTIAL
     snippet: Cilia are cell membrane-bound organelles responsible for airway
       mucus clearance, establishment of left-right organ asymmetry,
@@ -4397,29 +5203,34 @@ prevalence:
     explanation: The study discusses the functions of cilia and mentions ciliary
       dyskinesia but does not provide prevalence data.
   - reference: PMID:30792130
+    reference_title: &#34;Primary ciliary dyskinesia among Arabs: Where do we go from here?&#34;
     supports: PARTIAL
     snippet: Primary ciliary dyskinesia (PCD), also known as immotile-cilia
       syndrome, is a rare genetic disease.
     explanation: The study acknowledges that PCD is a rare genetic disease but
       does not specify the global prevalence.
   - reference: PMID:26826908
+    reference_title: &#34;Primary Ciliary Dyskinesia.&#34;
     supports: NO_EVIDENCE
     snippet: Primary Ciliary Dyskinesia.
     explanation: This reference does not provide information on the global
       prevalence of PCD.
   - reference: PMID:15917207
+    reference_title: &#34;Cilia and disease.&#34;
     supports: NO_EVIDENCE
     snippet: Cilia are classified according to their microtubule components as
       9+2 (motile) and 9+0 (primary) cilia.
     explanation: This reference discusses cilia and their functions but does not
       provide prevalence data for PCD.
   - reference: PMID:29905515
+    reference_title: &#34;Diagnosis of Primary Ciliary Dyskinesia. An Official American Thoracic Society Clinical Practice Guideline.&#34;
     supports: NO_EVIDENCE
     snippet: This document presents the American Thoracic Society clinical
       practice guidelines for the diagnosis of primary ciliary dyskinesia (PCD).
     explanation: This reference focuses on diagnostic guidelines and does not
       provide prevalence data.
   - reference: PMID:31430425
+    reference_title: &#34;Prevalence of chronic rhinosinusitis in bronchiectasis patients suspected of ciliary dyskinesia.&#34;
     supports: NO_EVIDENCE
     snippet: The objective of this study was to evaluate the prevalence of
       chronic rhinosinusitis (CRS) and its characteristics in bronchiectasis
@@ -4427,6 +5238,7 @@ prevalence:
     explanation: This study evaluates CRS in patients suspected of having
       ciliary dyskinesia but does not provide global prevalence data for PCD.
   - reference: PMID:36588099
+    reference_title: &#34;Primary ciliary dyskinesia: A multicenter survey on clinical practice and patient management in Italy.&#34;
     supports: NO_EVIDENCE
     snippet: There are no recent data on primary ciliary dyskinesia (PCD)
       distribution, diagnosis and treatment in Italy.
@@ -4501,6 +5313,7 @@ pathophysiology:
   - target: Impaired Mucociliary Clearance
   evidence:
   - reference: PMID:19818430
+    reference_title: &#34;[Primary ciliary dyskinesia. Ciliopathies].&#34;
     supports: SUPPORT
     snippet: Primary ciliary dyskinesia is a genetically inherited syndrome
       characterized by cilia immotility or dysmotility. Deficiency in
@@ -4509,6 +5322,7 @@ pathophysiology:
       function of motile cilia impair mucociliary clearance, supporting the
       statement.
   - reference: PMID:20525503
+    reference_title: &#34;Cilia dysfunction.&#34;
     supports: SUPPORT
     snippet: Ciliary dysfunction may be primary, the result of genetic mutations
       resulting in abnormal cilia structure, or secondary, the result of
@@ -4518,6 +5332,7 @@ pathophysiology:
       primary ciliary dyskinesia results from genetic mutations affecting cilia
       structure and function, leading to impaired mucociliary clearance.
   - reference: PMID:17059358
+    reference_title: &#34;Genetic defects in ciliary structure and function.&#34;
     supports: SUPPORT
     snippet: The most prominent genetic abnormality involving motile cilia (and
       the respiratory tract) is primary ciliary dyskinesia (PCD). PCD is a rare,
@@ -4528,6 +5343,7 @@ pathophysiology:
       disorder involving motile cilia defects, which leads to respiratory issues
       due to impaired mucociliary clearance.
   - reference: PMID:15750039
+    reference_title: &#34;Mislocalization of DNAH5 and DNAH9 in respiratory cells from patients with primary ciliary dyskinesia.&#34;
     supports: SUPPORT
     snippet: Primary ciliary dyskinesia (PCD) is a genetically heterogeneous
       disorder characterized by recurrent infections of the airways and situs
@@ -4538,6 +5354,7 @@ pathophysiology:
       DNAI1 as genes involved in PCD, which is characterized by defects in
       motile cilia leading to impaired mucociliary clearance.
   - reference: PMID:32185794
+    reference_title: &#34;A nonsense variant in NME5 causes human primary ciliary dyskinesia with radial spoke defects.&#34;
     supports: SUPPORT
     snippet: Primary ciliary dyskinesia (PCD) is a genetically heterogeneous
       disorder characterized by defects in the function or structure of motitle
@@ -4568,6 +5385,7 @@ pathophysiology:
   - target: Otitis Media
   evidence:
   - reference: PMID:11376511
+    reference_title: &#34;Pathophysiology and treatment of airway mucociliary clearance. A moving tale.&#34;
     supports: SUPPORT
     snippet: Failure to keep the airways sterile by MCC results in a host
       inflammatory response to the persistent microorganisms which, if it
@@ -4578,6 +5396,7 @@ pathophysiology:
       leads to impaired mucociliary clearance, which results in chronic
       respiratory infections, sinusitis, and otitis media.
   - reference: PMID:17142159
+    reference_title: &#34;Primary ciliary dyskinesia and newborn respiratory distress.&#34;
     supports: SUPPORT
     snippet: Primary ciliary dyskinesia is an autosomal recessive genetic
       disease that results in impaired mucociliary clearance causing progressive
@@ -4588,6 +5407,7 @@ pathophysiology:
       to impaired mucociliary clearance and downstream chronic respiratory
       infections, sinusitis, and otitis media.
   - reference: PMID:15917207
+    reference_title: &#34;Cilia and disease.&#34;
     supports: SUPPORT
     snippet: Disruption of 9+2 cilia, which move mucus across respiratory
       epithelia, leads to rhinitis, sinusitis and bronchiectasis.
@@ -4596,6 +5416,7 @@ pathophysiology:
       clearance and resultant respiratory conditions such as sinusitis and
       bronchiectasis.
   - reference: PMID:29490941
+    reference_title: &#34;Olfactory dysfunction is worse in primary ciliary dyskinesia compared with other causes of chronic sinusitis in children.&#34;
     supports: SUPPORT
     snippet: We hypothesised that olfactory function could be impaired in
       primary ciliary dyskinesia (PCD). Olfaction, nasal nitric oxide (nNO) and
@@ -4625,6 +5446,7 @@ pathophysiology:
       label: embryo
   evidence:
   - reference: PMID:16036877
+    reference_title: &#34;Primary ciliary dyskinesia: a review.&#34;
     supports: PARTIAL
     snippet: The normal left-right asymmetry of the body is thought to be due to
       the beating of the cilia in the embryonic (Hensen&#39;s) node. Total
@@ -4638,6 +5460,7 @@ pathophysiology:
       placement of internal organs&#39; is more general and could include other
       forms of laterality defects, not just situs inversus.
   - reference: PMID:36342963
+    reference_title: &#34;Laterality Defects in Primary Ciliary Dyskinesia: Relationship to Ultrastructural Defect or Genotype.&#34;
     supports: PARTIAL
     snippet: &#39;Results: Of 559 participants, 286 (51.2%), 215 (38.5%), and 58 (10.4%)
       were identified as having situs solitus, situs inversustotalis, and situs ambiguus,
@@ -4654,6 +5477,7 @@ phenotypes:
   diagnostic: true
   evidence:
   - reference: PMID:27258773
+    reference_title: &#34;Toward an Earlier Diagnosis of Primary Ciliary Dyskinesia. Which Patients Should Undergo Detailed Diagnostic Testing?&#34;
     supports: SUPPORT
     snippet: Primary ciliary dyskinesia (PCD) is a rare, heterogeneous,
       recessive, genetic disorder of motile cilia, leading to chronic upper and
@@ -4661,6 +5485,7 @@ phenotypes:
     explanation: The statement is supported because PCD leads to chronic
       respiratory symptoms, including chronic cough.
   - reference: PMID:17142159
+    reference_title: &#34;Primary ciliary dyskinesia and newborn respiratory distress.&#34;
     supports: SUPPORT
     snippet: Primary ciliary dyskinesia is an autosomal recessive genetic
       disease that results in impaired mucociliary clearance causing progressive
@@ -4679,6 +5504,7 @@ phenotypes:
   frequency: VERY_FREQUENT
   evidence:
   - reference: PMID:39069333
+    reference_title: &#34;Respiratory Aspects of Primary Ciliary Dyskinesia.&#34;
     supports: SUPPORT
     snippet: This review article explores the respiratory aspects of primary
       ciliary dyskinesia (PCD), a rare, heterogenous, genetic disorder
@@ -4690,6 +5516,7 @@ phenotypes:
       significant aspect of PCD, supporting the statement that recurrent
       respiratory infections are very frequent in PCD.
   - reference: PMID:36214320
+    reference_title: &#34;In vitro measurement of ciliary beat frequency in 92 children with recurrent respiratory tract problems.&#34;
     supports: SUPPORT
     snippet: &#39;Ninety-two children with chronic respiratory symptoms were divided into
       4 groups: 18 children with refractory asthma, 10 with bronchiectasis without
@@ -4698,6 +5525,7 @@ phenotypes:
       children with chronic respiratory symptoms, supporting the statement that
       recurrent respiratory infections are very frequent in PCD.
   - reference: PMID:31430425
+    reference_title: &#34;Prevalence of chronic rhinosinusitis in bronchiectasis patients suspected of ciliary dyskinesia.&#34;
     supports: SUPPORT
     snippet: The objective of this study was to evaluate the prevalence of
       chronic rhinosinusitis (CRS) and its characteristics in bronchiectasis
@@ -4706,6 +5534,7 @@ phenotypes:
       patients suspected of ciliary dyskinesia, indicating frequent respiratory
       issues.
   - reference: PMID:25370419
+    reference_title: &#34;Simultaneous sinus and lung infections in patients with primary ciliary dyskinesia.&#34;
     supports: SUPPORT
     snippet: The sinuses should be considered as a bacterial reservoir and a
       target for surgery and antibiotic treatment in patients with primary
@@ -4722,6 +5551,7 @@ phenotypes:
   frequency: FREQUENT
   evidence:
   - reference: PMID:10894096
+    reference_title: &#34;Ciliary assessment in bronchiectasis.&#34;
     supports: SUPPORT
     snippet: Patients with primary ciliary dyskinesia could potentially develop
       recurrent sinotrachrobronchitis, bronchiectasis, serous otitis media,
@@ -4729,18 +5559,21 @@ phenotypes:
     explanation: The article mentions bronchiectasis as one of the potential
       conditions that patients with PCD could develop.
   - reference: PMID:36344229
+    reference_title: &#34;[Sinusitis, otitis media and diffuse bronchiectasis in both lungs].&#34;
     supports: SUPPORT
     snippet: Typical manifestations include bronchiectasis, secretory otitis
       media, sinusitis, situs inversus, and infertility.
     explanation: The article lists bronchiectasis as a typical manifestation of
       primary ciliary dyskinesia.
   - reference: PMID:25673230
+    reference_title: &#34;Lung structure-function correlation in patients with primary ciliary dyskinesia.&#34;
     supports: SUPPORT
     snippet: Primary ciliary dyskinesia (PCD) is a rare disease, characterised
       by chronic airway infection.
     explanation: The article discusses the relationship between functional and
       structural abnormalities in PCD, including bronchiectasis.
   - reference: PMID:21680564
+    reference_title: &#34;Cystic fibrosis, primary ciliary dyskinesia and non-cystic fibrosis bronchiectasis: update 2008-11.&#34;
     supports: SUPPORT
     snippet: A review is presented of key clinical papers published in Thorax
       and elsewhere between 2008 and April 2011 which have advanced our
@@ -4749,6 +5582,7 @@ phenotypes:
     explanation: The article discusses primary ciliary dyskinesia and non-CF
       bronchiectasis, implying a connection between PCD and bronchiectasis.
   - reference: PMID:31430425
+    reference_title: &#34;Prevalence of chronic rhinosinusitis in bronchiectasis patients suspected of ciliary dyskinesia.&#34;
     supports: SUPPORT
     snippet: The objective of this study was to evaluate the prevalence of
       chronic rhinosinusitis (CRS) and its characteristics in bronchiectasis
@@ -4756,12 +5590,14 @@ phenotypes:
     explanation: The study evaluates bronchiectasis in patients suspected of
       having ciliary dyskinesia, indicating a frequent association.
   - reference: PMID:37278553
+    reference_title: &#34;Primary ciliary dyskinesia as a common cause of bronchiectasis in the Canadian Inuit population.&#34;
     supports: SUPPORT
     snippet: Primary ciliary dyskinesia as a common cause of bronchiectasis in
       the Canadian Inuit population.
     explanation: The article explicitly states that PCD is a common cause of
       bronchiectasis in a specific population.
   - reference: PMID:33895745
+    reference_title: &#34;The Primary Ciliary Dyskinesia Computed Tomography Score in Adults with Bronchiectasis: A Derivation und Validation Study.&#34;
     supports: SUPPORT
     snippet: Primary ciliary dyskinesia (PCD) is a rare genetic disorder which
       requires a complex diagnostic workup. Thus, an easy and widely available
@@ -4770,6 +5606,7 @@ phenotypes:
     explanation: The article discusses the need for diagnostic workup for PCD in
       patients with bronchiectasis, indicating a frequent association.
   - reference: PMID:23181248
+    reference_title: &#34;Congenital problems of mucociliary clearance: primary ciliary dyskinesia.&#34;
     supports: SUPPORT
     snippet: Mucociliary clearance is a primary defence mechanism of the airway
       that can be altered in congenital diseases such as primary ciliary
@@ -4777,6 +5614,7 @@ phenotypes:
     explanation: The article focuses on primary ciliary dyskinesia and its
       impact on mucociliary clearance, which is related to bronchiectasis.
   - reference: PMID:37852905
+    reference_title: &#34;Bardet-Biedl Syndrome: An Uncommon Cause of Bronchiectasis.&#34;
     supports: NO_EVIDENCE
     snippet: &#39;Bardet-Biedl Syndrome: An Uncommon Cause of Bronchiectasis.&#39;
     explanation: The article discusses Bardet-Biedl Syndrome as a cause of
@@ -4791,6 +5629,7 @@ phenotypes:
   frequency: FREQUENT
   evidence:
   - reference: PMID:29135867
+    reference_title: &#34;Analysis of Otologic Features of Patients With Primary Ciliary Dyskinesia.&#34;
     supports: SUPPORT
     snippet: All 15 patients showed ciliary ultrastructural abnormalities on
       electron microscopy and/or biallelic mutations in genes associated with
@@ -4801,6 +5640,7 @@ phenotypes:
       (PCD) frequently exhibited otologic issues, including chronic otitis
       media.
   - reference: PMID:19796826
+    reference_title: &#34;Management of otitis media with effusion in children with primary ciliary dyskinesia: a literature review.&#34;
     supports: SUPPORT
     snippet: Primary ciliary dyskinesia is an autosomal recessively inherited
       group of disorders of ciliary ultrastructure. Otolaryngologists are
@@ -4819,6 +5659,7 @@ phenotypes:
   frequency: OCCASIONAL
   evidence:
   - reference: PMID:29287859
+    reference_title: &#34;Hearing loss in children with primary ciliary dyskinesia.&#34;
     supports: REFUTE
     snippet: Slight to mild CHL and all types of otitis media are prevalent
       among patients with PCD, and some of these children have sensorineural
@@ -4826,6 +5667,7 @@ phenotypes:
     explanation: The study indicates that hearing loss is a prevalent condition
       among patients with primary ciliary dyskinesia (PCD), not occasional.
   - reference: PMID:9222635
+    reference_title: &#34;Otological manifestations of primary ciliary dyskinesia.&#34;
     supports: REFUTE
     snippet: All children (11 patients) had bilateral otitis media with
       effusion. Of the five adults, three had tympanosclerosis; one had
@@ -4835,6 +5677,7 @@ phenotypes:
       loss as a prominent feature in patients with PCD, suggesting it is not
       occasional but rather common.
   - reference: PMID:33844744
+    reference_title: &#34;Observed Frequency and Characteristics of Hearing Loss in Osteogenesis Imperfecta.&#34;
     supports: NO_EVIDENCE
     snippet: In this group of patients with OI, 30% had hearing loss and among
       those ears with normal hearing, 13% did not have an acoustic stapedial
@@ -4851,6 +5694,7 @@ phenotypes:
   frequency: FREQUENT
   evidence:
   - reference: PMID:37997295
+    reference_title: &#34;Histologic characterization of primary ciliary dyskinesia chronic rhinosinusitis.&#34;
     supports: NO_EVIDENCE
     snippet: Despite endoscopic differences, PCD-CRS and cystic fibrosis-related
       chronic rhinosinusitis (CF-CRS) had similar structured histopathology
@@ -4861,6 +5705,7 @@ phenotypes:
       PCD-CRS, but does not provide evidence on the frequency of nasal polyps in
       PCD.
   - reference: PMID:39069333
+    reference_title: &#34;Respiratory Aspects of Primary Ciliary Dyskinesia.&#34;
     supports: NO_EVIDENCE
     snippet: This review article explores the respiratory aspects of primary
       ciliary dyskinesia (PCD), a rare, heterogenous, genetic disorder
@@ -4875,6 +5720,7 @@ phenotypes:
   frequency: OCCASIONAL
   evidence:
   - reference: PMID:16036877
+    reference_title: &#34;Primary ciliary dyskinesia: a review.&#34;
     supports: PARTIAL
     snippet: Total immotility of the cilia should therefore result in random
       asymmetry of the body that is situs inversus in 50% of the cases. It has
@@ -4884,6 +5730,7 @@ phenotypes:
       dyskinesia (PCD) cases. This suggests that it is not merely &#39;occasional&#39;
       but rather relatively common in PCD patients.
   - reference: PMID:36342963
+    reference_title: &#34;Laterality Defects in Primary Ciliary Dyskinesia: Relationship to Ultrastructural Defect or Genotype.&#34;
     supports: PARTIAL
     snippet: &#39;Results: Of 559 participants, 286 (51.2%), 215 (38.5%), and 58 (10.4%)
       were identified as having situs solitus, situs inversustotalis, and situs ambiguus,
@@ -4892,6 +5739,7 @@ phenotypes:
     explanation: The data indicates that situs inversus totalis occurs in 38.5%
       of PCD cases, which is more frequent than &#39;occasional.&#39;
   - reference: PMID:38072392
+    reference_title: &#34;Situs Ambiguus Is Associated With Adverse Clinical Outcomes in Children With Primary Ciliary Dyskinesia.&#34;
     supports: PARTIAL
     snippet: The remaining 355 participants did not have SA, including 152 with
       SIT and 203 with SS.
@@ -4959,6 +5807,7 @@ biochemical:
   context: Lower levels in nasal and exhaled breath
   evidence:
   - reference: PMID:12511725
+    reference_title: &#34;Comparison of exhaled and nasal nitric oxide and exhaled carbon monoxide levels in bronchiectatic patients with and without primary ciliary dyskinesia.&#34;
     supports: SUPPORT
     snippet: Low values in both eNO and nNO readings (&lt;2.4 ppb and &lt;187 ppb,
       respectively) identified PCD patients from other bronchiectatic patients
@@ -4967,12 +5816,14 @@ biochemical:
       nitric oxide (nNO) levels are significantly lower in patients with primary
       ciliary dyskinesia (PCD) compared to other groups.
   - reference: PMID:22408195
+    reference_title: &#34;Nitric oxide in primary ciliary dyskinesia.&#34;
     supports: SUPPORT
     snippet: Despite chronic infections, nasal nitric oxide in such patients is
       markedly reduced and is used as a screening test for this condition.
     explanation: This abstract confirms that nasal nitric oxide levels are
       significantly reduced in PCD patients.
   - reference: PMID:31770003
+    reference_title: &#34;Nasal Nitric Oxide Measurement in Primary Ciliary Dyskinesia. A Technical Paper on Standardized Testing Protocols.&#34;
     supports: SUPPORT
     snippet: Nasal nitric oxide concentrations are extremely low in primary
       ciliary dyskinesia (PCD), and measurement of this nasal gas is recommended
@@ -4980,6 +5831,7 @@ biochemical:
     explanation: This paper supports the statement by indicating that nasal
       nitric oxide levels are extremely low in PCD patients.
   - reference: PMID:35777446
+    reference_title: &#34;Longitudinal Nitric Oxide Levels and Infections by Ultrastructure and Genotype in Primary Ciliary Dyskinesia.&#34;
     supports: SUPPORT
     snippet: We hypothesized that differences in nasal nitric oxide (nNO) and
       fractional exhaled nitric oxide (Feno) relate to prognosis in primary
@@ -4988,6 +5840,7 @@ biochemical:
       fractional exhaled nitric oxide (FeNO) levels are low in PCD patients and
       are used to monitor the condition.
   - reference: PMID:33860637
+    reference_title: &#34;Breath-holding and tidal breathing nasal NO to screen children for Primary Ciliary Dyskinesia.&#34;
     supports: SUPPORT
     snippet: Nasal nitric oxide (nNO) measurement is recommended to screen for
       Primary Ciliary Dyskinesia (PCD) in subjects with suggestive history and
@@ -4996,6 +5849,7 @@ biochemical:
       oxide measurement as a screening tool for PCD due to its low levels in
       such patients.
   - reference: PMID:29490941
+    reference_title: &#34;Olfactory dysfunction is worse in primary ciliary dyskinesia compared with other causes of chronic sinusitis in children.&#34;
     supports: SUPPORT
     snippet: Olfaction, nasal nitric oxide (nNO) and sinus CT were assessed in
       patients with PCD and non-PCD sinus disease, and healthy controls (no CT
@@ -5009,11 +5863,13 @@ genetic:
     docking
   evidence:
   - reference: PMID:11893720
+    reference_title: &#34;Mutations in DNAI1 (IC78) cause primary ciliary dyskinesia.&#34;
     supports: SUPPORT
     snippet: Mutations in DNAI1 (IC78) cause primary ciliary dyskinesia.
     explanation: This study directly links mutations in DNAI1 to the cause of
       primary ciliary dyskinesia.
   - reference: PMID:35869935
+    reference_title: &#34;Pathogenic variants identified using whole-exome sequencing in Chinese patients with primary ciliary dyskinesia.&#34;
     supports: SUPPORT
     snippet: 13 rare variants were identified in patients with PCD, among which
       were three homozygous causative variants (including one splicing variant)
@@ -5021,12 +5877,14 @@ genetic:
     explanation: The study identifies causative variants in DNAI1 associated
       with primary ciliary dyskinesia.
   - reference: PMID:15750039
+    reference_title: &#34;Mislocalization of DNAH5 and DNAH9 in respiratory cells from patients with primary ciliary dyskinesia.&#34;
     supports: SUPPORT
     snippet: The most frequent genetic defects comprise recessive mutations of
       DNAH5 and DNAI1, which encode outer dynein arm (ODA) components.
     explanation: This study mentions DNAI1 mutations as frequent genetic defects
       causing primary ciliary dyskinesia.
   - reference: PMID:11231901
+    reference_title: &#34;Axonemal dynein intermediate-chain gene (DNAI1) mutations result in situs inversus and primary ciliary dyskinesia (Kartagener syndrome).&#34;
     supports: SUPPORT
     snippet: We identified compound heterozygous DNAI1 gene defects in three
       independent patients and in two of their siblings who presented with PCD
@@ -5038,6 +5896,7 @@ genetic:
   notes: Major axonemal outer dynein arm heavy chain generating motile force
   evidence:
   - reference: PMID:31118369
+    reference_title: &#34;A Japanese Case of Primary Ciliary Dyskinesia with DNAH5 Mutations.&#34;
     supports: SUPPORT
     snippet: A genetic examination detected compound heterozygous mutations of
       DNAH5 that encode ODA components.
@@ -5045,6 +5904,7 @@ genetic:
       with DNAH5 mutations, confirming the association between PCD and
       pathogenic variants in DNAH5.
   - reference: PMID:36727596
+    reference_title: &#34;Pathogenic variants in CLXN encoding the outer dynein arm docking-associated calcium-binding protein calaxin cause primary ciliary dyskinesia.&#34;
     supports: SUPPORT
     snippet: Most PCD-causing variants result in abnormal outer dynein arms
       (ODAs), which provide the generative force for respiratory ciliary beating
@@ -5096,6 +5956,7 @@ diagnosis:
   notes: Assess ciliary motion and structure
   evidence:
   - reference: PMID:38607006
+    reference_title: &#34;Advancing Primary Ciliary Dyskinesia Diagnosis through High-Speed Video Microscopy Analysis.&#34;
     supports: SUPPORT
     snippet: Our study implemented HSVA for the first time on the island as a
       tool to better diagnose and characterize the RSPH4A ... founder mutation
@@ -5104,6 +5965,7 @@ diagnosis:
       Analysis (HSVA) to assess ciliary motion and pattern in patients with
       Primary Ciliary Dyskinesia (PCD).
   - reference: PMID:29493257
+    reference_title: &#34;Seeing cilia: imaging modalities for ciliary motion and clinical connections.&#34;
     supports: SUPPORT
     snippet: Application of imaging modalities including transmission electron
       microscopy, high-speed video microscopy, and micron-optical coherence
@@ -5113,6 +5975,7 @@ diagnosis:
       microscopy among other imaging modalities to improve diagnostics in
       ciliopathic diseases, including PCD.
   - reference: PMID:26362507
+    reference_title: &#34;Diagnostic Methods in Primary Ciliary Dyskinesia.&#34;
     supports: SUPPORT
     snippet: We particularly focus on use of high-speed video analysis,
       transmission electron microscopy, nasal nitric oxide and genetic testing.
@@ -5122,6 +5985,7 @@ diagnosis:
   notes: Examines ciliary ultrastructure for diagnostic defects
   evidence:
   - reference: PMID:28915070
+    reference_title: &#34;Value of transmission electron microscopy for primary ciliary dyskinesia diagnosis in the era of molecular medicine: Genetic defects with normal and non-diagnostic ciliary ultrastructure.&#34;
     supports: PARTIAL
     snippet: Transmission electron microscopy (TEM) of respiratory cilia was
       previously considered the gold standard diagnostic test for PCD, but 30%
@@ -5131,6 +5995,7 @@ diagnosis:
       certain defects, it is not definitive for all cases of PCD, as some
       genetic mutations result in normal or non-diagnostic ultrastructure.
   - reference: PMID:10894096
+    reference_title: &#34;Ciliary assessment in bronchiectasis.&#34;
     supports: SUPPORT
     snippet: This brief article discusses application of the saccharine test,
       light microscopy assessment of ciliary beat, and transmission electron
@@ -5138,6 +6003,7 @@ diagnosis:
     explanation: The reference supports that TEM is used to assess ciliary
       ultrastructure for diagnostic purposes.
   - reference: PMID:28891733
+    reference_title: &#34;Application of laboratory and digital techniques for visual enhancement during the ultrastructural assessment of cilia.&#34;
     supports: SUPPORT
     snippet: Routine diagnostic electron microscopy of primary ciliary
       dyskinesia (PCD) is based on the findings of ultrastructural defects of
@@ -5148,6 +6014,7 @@ diagnosis:
   notes: Measures nasal nitric oxide levels, typically decreased in PCD patients
   evidence:
   - reference: PMID:31770003
+    reference_title: &#34;Nasal Nitric Oxide Measurement in Primary Ciliary Dyskinesia. A Technical Paper on Standardized Testing Protocols.&#34;
     supports: SUPPORT
     snippet: Nasal nitric oxide concentrations are extremely low in primary
       ciliary dyskinesia (PCD), and measurement of this nasal gas is recommended
@@ -5156,12 +6023,14 @@ diagnosis:
       concentrations are extremely low in PCD and that measuring this gas is
       recommended as a diagnostic test.
   - reference: PMID:29490941
+    reference_title: &#34;Olfactory dysfunction is worse in primary ciliary dyskinesia compared with other causes of chronic sinusitis in children.&#34;
     supports: SUPPORT
     snippet: Only in classical PCD did olfaction inversely correlate with
       sinusitis and nNO.
     explanation: The study mentions that nasal nitric oxide (nNO) levels are
       involved in the diagnosis of PCD.
   - reference: PMID:36285978
+    reference_title: &#34;Nasal Nitric Oxide Levels: Improving the Diagnosis of Primary Ciliary Dyskinesia in Puerto Rico.&#34;
     supports: SUPPORT
     snippet: The nNO level differentiated homozygous subjects with PCD due to
       the RSPH4A (c.921+3_921+6del (intronic)) founder mutation compared to
@@ -5170,6 +6039,7 @@ diagnosis:
     explanation: The study demonstrates that nNO levels can differentiate PCD
       patients from healthy controls and those with other conditions.
   - reference: PMID:37385806
+    reference_title: &#34;[Diagnostic value of nasal nitric oxide for children with primary ciliary dyskinesia].&#34;
     supports: SUPPORT
     snippet: nNO values were significantly lower in children with PCD than in
       PCD symptom-similar group and nNO normal controls.
@@ -5177,6 +6047,7 @@ diagnosis:
       significantly lower in children with PCD, making it a useful diagnostic
       tool.
   - reference: PMID:22408195
+    reference_title: &#34;Nitric oxide in primary ciliary dyskinesia.&#34;
     supports: SUPPORT
     snippet: Despite chronic infections, nasal nitric oxide in such patients is
       markedly reduced and is used as a screening test for this condition.
@@ -5187,6 +6058,7 @@ environmental:
   effect: Exacerbates Symptoms
   evidence:
   - reference: PMID:34574829
+    reference_title: &#34;Effects of Air Pollutants on Airway Diseases.&#34;
     supports: SUPPORT
     snippet: Air pollution decreases quality of life and life expectancy. It
       exacerbates acute and chronic respiratory symptoms in patients with
@@ -5196,6 +6068,7 @@ environmental:
       respiratory symptoms in patients with chronic airway diseases, which can
       be inferred to include conditions like Primary Ciliary Dyskinesia (PCD).
   - reference: PMID:37147124
+    reference_title: &#34;Short-term air pollution exposure and exacerbation events in mild to moderate COPD: a case-crossover study within the CanCOLD cohort.&#34;
     supports: SUPPORT
     snippet: &#39;CONCLUSIONS: Short-term ambient NO2 and PM2.5 exposure were associated
       with increased odds of exacerbations in Canadians with mild to moderate COPD,
@@ -5214,6 +6087,7 @@ treatments:
     physical therapy.
   evidence:
   - reference: PMID:28408202
+    reference_title: &#34;Airway Clearance Techniques for Primary Ciliary Dyskinesia; is the Cystic Fibrosis literature portable?&#34;
     supports: SUPPORT
     snippet: Airway clearance techniques (ACTs) are commonly recommended for
       patients with PCD to facilitate mucus clearance, despite a lack of
@@ -5222,6 +6096,7 @@ treatments:
       techniques in patients with Primary Ciliary Dyskinesia (PCD) to help clear
       mucus from the lungs.
   - reference: PMID:38861625
+    reference_title: &#34;Postural Drainage and Vibration.&#34;
     supports: SUPPORT
     snippet: Airway clearance techniques (ACTs) are critical in managing
       respiratory conditions characterized by mucus hypersecretion and impaired
@@ -5231,6 +6106,7 @@ treatments:
       conditions with mucus hypersecretion and impaired clearance, which aligns
       with the use of these techniques in PCD.
   - reference: PMID:11376511
+    reference_title: &#34;Pathophysiology and treatment of airway mucociliary clearance. A moving tale.&#34;
     supports: SUPPORT
     snippet: There are three principal disorders of MCC. Firstly, primary
       ciliary dyskinesia (PCD)...
@@ -5252,6 +6128,7 @@ treatments:
       label: Recurrent respiratory infections
   evidence:
   - reference: PMID:28552099
+    reference_title: &#34;Bacteriology and treatment of infections in the upper and lower airways in patients with primary ciliary dyskinesia: adressing the paranasal sinuses.&#34;
     supports: SUPPORT
     snippet: Non-functional airway cilia impair the mucociliary clearance (MCC),
       causing mucostasis, lung infections and destruction, chronic
@@ -5264,6 +6141,7 @@ treatments:
       PCD. This aligns with the use of long-term antibiotic therapy to manage
       such infections.
   - reference: PMID:26586601
+    reference_title: &#34;Treatment recommendations in Primary Ciliary Dyskinesia.&#34;
     supports: SUPPORT
     snippet: &#39;Most of the treatments recommended in PCD have been extrapolated from
       cystic fibrosis (CF) and non-CF bronchiectasis literature. Mainstays of therapy
@@ -5274,6 +6152,7 @@ treatments:
       exacerbation is a mainstay of therapy for PCD, supporting the use of
       long-term or prophylactic antibiotics.
   - reference: PMID:19812481
+    reference_title: &#34;Antimicrobial prophylaxis for primary immunodeficiencies.&#34;
     supports: SUPPORT
     snippet: Antibiotic prophylaxis is one of the mainstays of therapy of
       primary immunodeficiencies.
@@ -5289,12 +6168,14 @@ treatments:
   description: Medications to help open airways and ease breathing.
   evidence:
   - reference: PMID:36639347
+    reference_title: &#34;Primary Ciliary Dyskinesia and Bronchiectasis: New Data and Future Challenges.&#34;
     supports: NO_EVIDENCE
     snippet: &#39;&#39;
     explanation: The reference discusses new data and future challenges related
       to Primary Ciliary Dyskinesia (PCD) and bronchiectasis but does not
       provide specific information about the use of bronchodilators for PCD.
   - reference: PMID:39269762
+    reference_title: &#34;Airway Clearance Techniques in Primary Ciliary Dyskinesia: A Systematic Review.&#34;
     supports: NO_EVIDENCE
     snippet: Primary ciliary dyskinesia (PCD) is a respiratory disorder that
       impairs mucociliary clearance, leading to decreased lung function.
@@ -5319,6 +6200,7 @@ treatments:
   description: Used to treat nasal polyps and chronic sinusitis.
   evidence:
   - reference: PMID:19879441
+    reference_title: &#34;Corticosteroid treatment in chronic rhinosinusitis: the possibilities and the limits.&#34;
     supports: PARTIAL
     snippet: Long-term treatment with corticosteroid nasal spray reduces
       inflammation and nasal polyp size, and improves nasal symptoms such as
@@ -5328,6 +6210,7 @@ treatments:
       symptoms rather than being a description of Primary Ciliary Dyskinesia
       (PCD).
   - reference: PMID:33305974
+    reference_title: &#34;Exhalation Delivery Systems for Application of Intranasal Corticosteroids.&#34;
     supports: PARTIAL
     snippet: Topical nasal steroids play an important role in the treatment of
       CRS.
@@ -5336,6 +6219,7 @@ treatments:
       However, the statement should clarify that nasal steroids are for symptom
       management rather than a direct description of PCD.
   - reference: PMID:35312075
+    reference_title: &#34;Chronic Rhinosinusitis: T2r38 Genotyping and Nasal Cytology in Primary Ciliary Dyskinesia.&#34;
     supports: PARTIAL
     snippet: Our findings indicate for the first time that PCD patients with
       CRSwNP display a more severe disease than those with CRSsNP.
@@ -5344,6 +6228,7 @@ treatments:
       directly state that nasal steroids are used to treat these conditions in
       the context of PCD.
   - reference: PMID:28552099
+    reference_title: &#34;Bacteriology and treatment of infections in the upper and lower airways in patients with primary ciliary dyskinesia: adressing the paranasal sinuses.&#34;
     supports: PARTIAL
     snippet: Implementing ESS with adjuvant therapy to PCD patients (I, IV)
       significantly ameliorated CRS symptoms.
@@ -5359,6 +6244,7 @@ treatments:
   description: Assistive devices for hearing loss management.
   evidence:
   - reference: PMID:29287859
+    reference_title: &#34;Hearing loss in children with primary ciliary dyskinesia.&#34;
     supports: NO_EVIDENCE
     snippet: &#39;CONCLUSIONS: Slight to mild CHL and all types of otitis media are prevalent
       among patients with PCD, and some of these children have sensorineural hearing
@@ -5367,6 +6253,7 @@ treatments:
       children with PCD but does not mention the use of hearing aids or other
       assistive devices for management.
   - reference: PMID:22960754
+    reference_title: &#34;Assistive hearing technologies among students with hearing impairment: factors that promote satisfaction.&#34;
     supports: NO_EVIDENCE
     snippet: This article explores factors pertaining to children&#39;s use of and
       attitudes toward hearing technologies, such as hearing aids, cochlear
@@ -5375,6 +6262,7 @@ treatments:
       students with hearing impairment but does not specifically address
       children with PCD.
   - reference: PMID:28187057
+    reference_title: &#34;Improvements in Gait With Hearing Aids and Cochlear Implants.&#34;
     supports: NO_EVIDENCE
     snippet: &#39;OBJECTIVE: To evaluate whether wearing auditory assistive devices can
       improve gait and dynamic balance.&#39;
@@ -5382,6 +6270,7 @@ treatments:
       gait and balance in adults but does not mention their use in patients with
       PCD.
   - reference: PMID:30827358
+    reference_title: &#34;Medical and Audiological Indications for Implantable Auditory Devices.&#34;
     supports: NO_EVIDENCE
     snippet: Implantable auditory devices (IADs) are a viable hearing
       restoration option for patients with hearing loss.
@@ -5389,6 +6278,7 @@ treatments:
       restoration option but does not specifically mention hearing aids for
       patients with PCD.
   - reference: PMID:2062156
+    reference_title: &#34;Primary ciliary dyskinesia and the middle ear.&#34;
     supports: NO_EVIDENCE
     snippet: In patients with primary ciliary dyskinesia, a discrepancy was
       found between subjective ear complaints and the actual middle ear
@@ -5405,6 +6295,7 @@ treatments:
     families.
   evidence:
   - reference: PMID:29800551
+    reference_title: &#34;Advances in the Genetics of Primary Ciliary Dyskinesia: Clinical Implications.&#34;
     supports: NO_EVIDENCE
     snippet: Our knowledge of cilia genetics and the function of the proteins
       encoded has led to a greater understanding of the clinical manifestations
@@ -5415,6 +6306,7 @@ treatments:
       counseling providing information and support for affected individuals and
       families.
   - reference: PMID:29905515
+    reference_title: &#34;Diagnosis of Primary Ciliary Dyskinesia. An Official American Thoracic Society Clinical Practice Guideline.&#34;
     supports: NO_EVIDENCE
     snippet: This document presents the American Thoracic Society clinical
       practice guidelines for the diagnosis of primary ciliary dyskinesia (PCD).
@@ -5422,6 +6314,7 @@ treatments:
       mention genetic counseling or support for affected individuals and
       families.
   - reference: PMID:19410203
+    reference_title: &#34;Primary ciliary dyskinesia: prospects for new therapies, building on the experience in cystic fibrosis.&#34;
     supports: NO_EVIDENCE
     snippet: Newer genetic modifiers show an exciting potential for personalized
       medication, combining selection of patients with a common genetic mutation
@@ -5430,6 +6323,7 @@ treatments:
     explanation: The reference discusses potential future therapies for PCD but
       does not mention genetic counseling or support services.
   - reference: PMID:35854386
+    reference_title: &#34;Clinical and genetic spectrum of primary ciliary dyskinesia in Chinese patients: a systematic review.&#34;
     supports: NO_EVIDENCE
     snippet: Diagnostic delay and under-recognition of PCD remain a big issue in
       China, which contributes to progressive lung disease and PA infection
@@ -5441,6 +6335,148 @@ treatments:
     term:
       id: MAXO:0000079
       label: genetic counseling
+experimental_models:
+- name: Patient-derived nasal epithelial air-liquid interface model
+  description: &gt;-
+    Expanded basal epithelial cells from nasal brush biopsies re-differentiated
+    in miniaturized air-liquid interface cultures to preserve genotype-linked
+    ciliary ultrastructural and motility defects in primary ciliary dyskinesia.
+  experimental_model_type: PRIMARY_CELL_CULTURE
+  namo_type: namo:TwoDCellCulture
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  tissue_term:
+    preferred_term: nasal cavity epithelium
+    term:
+      id: UBERON:0005384
+      label: nasal cavity epithelium
+  cell_types:
+  - preferred_term: respiratory ciliated cell
+    term:
+      id: CL:0002368
+      label: respiratory tract epithelial cell
+  conditions:
+  - primary ciliary dyskinesia
+  - MCIDAS-associated reduced generation of motile cilia
+  cell_source: Patient-derived nasal basal epithelial cells expanded from nasal brush biopsies
+  culture_system: Miniaturized 96-well Transwell air-liquid interface culture
+  publication: PMID:33795320
+  findings:
+  - statement: Patient-derived nasal ALI cultures retain genotype-linked ciliary ultrastructural and motility defects and can be used to test rescue strategies for reduced multiciliogenesis
+    evidence:
+    - reference: PMID:33795320
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &#34;Initial analyses of ciliary ultrastructure, beat pattern and beat frequency in the 96-well transwell format ALI cultures indicate that a range of different PCD defects can be retained in these cultures.&#34;
+      explanation: Supports use of expanded nasal ALI cultures as a disease-relevant PCD model that preserves mutation-associated ciliary defects.
+    - reference: PMID:33795320
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &#34;As proof-of-principle, we performed a personalised investigation in a patient with a rare and severe form of PCD (reduced generation of motile cilia), in this case caused by a homozygous nonsense mutation in the MCIDAS gene.&#34;
+      explanation: Links the ALI model to a mechanistically relevant multiciliogenesis defect within a defined PCD genotype.
+  evidence:
+  - reference: PMID:33795320
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;Primary cell culture of basal epithelial cells from nasal brush biopsies followed by ciliated differentiation at the air-liquid interface (ALI) has proven to be a useful tool in PCD diagnostics but the technique&#39;s broader utility, including in pre-clinical PCD research, has been restricted by the limited number of basal cells that can be expanded from such biopsies.&#34;
+    explanation: Establishes patient-derived nasal ALI culture as an existing PCD modeling system and motivates the expanded higher-throughput format.
+- name: Patient-derived airway organoid model
+  description: &gt;-
+    Airway organoids established from nasal inferior turbinate brush samples and
+    differentiated toward ciliated cells to capture patient-specific ciliary
+    beating abnormalities in primary ciliary dyskinesia.
+  experimental_model_type: ORGANOID
+  namo_type: namo:Organoid
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  tissue_term:
+    preferred_term: nasal cavity epithelium
+    term:
+      id: UBERON:0005384
+      label: nasal cavity epithelium
+  cell_types:
+  - preferred_term: respiratory ciliated cell
+    term:
+      id: CL:0002368
+      label: respiratory tract epithelial cell
+  conditions:
+  - primary ciliary dyskinesia
+  cell_source: Patient-derived nasal inferior turbinate epithelial cells expanded as airway organoids
+  culture_system: Long-term expandable airway organoid culture with ciliated differentiation
+  publication: PMID:34693619
+  findings:
+  - statement: Patient-derived airway organoids reproduce mutation-linked differences in ciliary beating and support genotype-specific functional interrogation
+    evidence:
+    - reference: PMID:34693619
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &#34;Patient-specific differences in ciliary beating are observed and are in agreement with the patients&#39; genetic mutations.&#34;
+      explanation: Supports the organoid model as a genotype-resolved readout of the ciliary dysfunction central to PCD.
+    - reference: PMID:34693619
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &#34;More detailed organoid ciliary phenotypes can thus be documented in addition to the standard diagnostic procedure.&#34;
+      explanation: Supports use of organoids for mechanistically richer ciliary phenotyping in PCD.
+  evidence:
+  - reference: PMID:34693619
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;We apply this condition to AOs established from nasal inferior turbinate brush samples of patients suffering from primary ciliary dyskinesia (PCD), a pulmonary disease caused by dysfunction of the motile cilia in the airways.&#34;
+    explanation: Establishes patient-derived airway organoids as a directly disease-relevant non-animal model for PCD.
+- name: Patient-specific hiPSC-derived airway epithelium model
+  description: &gt;-
+    Human induced pluripotent stem cell-derived airway epithelium differentiated
+    at air-liquid interface to model structural ciliary defects and impaired
+    mucociliary transport in genetically defined primary ciliary dyskinesia.
+  experimental_model_type: IPSC_DERIVED_MODEL
+  namo_type: namo:TwoDCellCulture
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  tissue_term:
+    preferred_term: respiratory airway
+    term:
+      id: UBERON:0001005
+      label: respiratory airway
+  cell_types:
+  - preferred_term: respiratory ciliated cell
+    term:
+      id: CL:0002368
+      label: respiratory tract epithelial cell
+  conditions:
+  - primary ciliary dyskinesia
+  - DNAH5-associated primary ciliary dyskinesia
+  - NME5-associated primary ciliary dyskinesia
+  cell_source: Patient-specific induced pluripotent stem cell lines differentiated into ciliated airway epithelium
+  culture_system: Air-liquid interface differentiation of hiPSC-derived airway epithelium
+  publication: PMID:37296588
+  findings:
+  - statement: Patient-specific hiPSC-derived airway epithelium reproduces molecular, ultrastructural, and functional ciliary defects, including impaired mucociliary transport
+    evidence:
+    - reference: PMID:37296588
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &#34;Applying transmission electron microscopy, immunofluorescence staining, ciliary beat frequency, and mucociliary transport measurements, we could demonstrate that ciliated respiratory epithelia cells derived from two PCD patient-specific hiPSC lines carrying mutations in DNAH5 and NME5, respectively, recapitulate the respective diseased phenotype on a molecular, structural and functional level.&#34;
+      explanation: Shows that hiPSC-derived airway epithelium reproduces the molecular and functional consequences of PCD mutations, including impaired transport.
+  evidence:
+  - reference: PMID:37296588
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;Here, we developed an in vitro model for PCD based on human induced pluripotent stem cell (hiPSC)-derived airway epithelium in Air-Liquid-Interface cultures.&#34;
+    explanation: Establishes hiPSC-derived airway epithelium as a PCD-specific in vitro model.
+  - reference: PMID:37296588
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;Motile cilia dysfunction results in diminished mucociliary clearance (MCC) of pathogens in the respiratory tract and chronic airway inflammation and infections successively causing progressive lung damage.&#34;
+    explanation: Connects the model&#39;s mucociliary transport readouts to the central airway pathophysiology of PCD.
 disease_term:
   preferred_term: primary ciliary dyskinesia
   term:
