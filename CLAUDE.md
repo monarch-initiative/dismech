@@ -76,6 +76,10 @@ Maps ontology prefixes to OAK adapters for term validation:
 - MAXO (Medical Action Ontology) for treatment terms
 - NCIT (NCI Thesaurus) for cancer/treatment concepts
 
+### CURIE Prefix Casing
+
+HGNC gene CURIEs use **lowercase** `hgnc:` prefix in this repo (e.g., `hgnc:746`, not `HGNC:746`). This is the canonical form that passes term validation. Do not flag lowercase `hgnc:` as an error in reviews.
+
 ### HTML Rendering (`src/dismech/render.py`)
 - Jinja2 templates in `src/dismech/templates/`
 - Generates browsable HTML pages in `pages/disorders/`
