@@ -506,16 +506,22 @@ deploy-browser: gen-browser-data
     @echo "Browser app ready at app/index.html"
     @echo "Data generated with $(find {{kb_dir}} -maxdepth 1 -type f -name '*.yaml' ! -name '*.history.yaml' | wc -l | tr -d ' ') disorders"
 
-# Generate individual HTML pages for all disorders and comorbidities
+# Generate individual HTML pages for all disorders, comorbidities, and modules
 [group('Pages')]
 gen-pages:
     uv run python -m dismech.render --all
-    @echo "Generated $(ls -1 pages/disorders/*.html 2>/dev/null | wc -l | tr -d ' ') disorder pages and $(ls -1 pages/comorbidities/*.html 2>/dev/null | wc -l | tr -d ' ') comorbidity pages"
+    @echo "Generated $(ls -1 pages/disorders/*.html 2>/dev/null | wc -l | tr -d ' ') disorder pages, $(ls -1 pages/comorbidities/*.html 2>/dev/null | wc -l | tr -d ' ') comorbidity pages, and $(ls -1 pages/modules/*.html 2>/dev/null | wc -l | tr -d ' ') module pages"
 
 # Generate a single disorder page
 [group('Pages')]
 gen-page file:
     uv run python -m dismech.render {{file}}
+
+# Generate all shared module pages
+[group('Pages')]
+gen-module-pages:
+    uv run python -m dismech.render --module {{modules_dir}}
+    @echo "Generated $(ls -1 pages/modules/*.html 2>/dev/null | wc -l | tr -d ' ') module pages"
 
 # Generate a single comorbidity page
 [group('Pages')]
@@ -543,6 +549,12 @@ gen-all: gen-browser-data gen-pages gen-schema-docs
     @echo "Generated browser data, disorder/comorbidity pages, and schema docs"
 
 # ============== KGX Export ==============
+
+# Generate derived disease-to-ontology context score tables
+[group('Export')]
+export-context-scores output_dir="output/context_scores":
+    mkdir -p {{output_dir}}
+    uv run dismech-context-scores -i {{kb_dir}} -o {{output_dir}}
 
 # Generate KGX edges from disorder knowledge base
 [group('Export')]
@@ -1007,7 +1019,7 @@ normalize-cache:
     echo "Normalizing enum caches..."
     for f in cache/enums/*.csv; do
         header=$(head -1 "$f")
-        tail -n+2 "$f" | sort > /tmp/_sorted_enum.csv
+        tail -n+2 "$f" | sort -u > /tmp/_sorted_enum.csv
         echo "$header" > "$f"
         cat /tmp/_sorted_enum.csv >> "$f"
     done
