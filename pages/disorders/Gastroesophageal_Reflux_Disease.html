@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,7 @@
                 </span>
                 
                 
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Gastrointestinal Disease</span>
                 
             </div>
@@ -1930,6 +2101,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1987,6 +2161,12 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
+            
+            
+            <div class="stat-item">
+                <div class="stat-value">0</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
             
             
             <a class="stat-link" href="#genetic">
@@ -2088,7 +2268,7 @@
                 <span class="card-count">6</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-lower-esophageal-sphincter-dysfunction">
                 <div class="item-name">Lower Esophageal Sphincter Dysfunction</div>
                 
                 <div class="item-desc">Transient relaxations or chronic hypotension of the LES allow retrograde flow of gastric contents into the esophagus. Hiatal hernia exacerbates sphincter incompetence.
@@ -2125,6 +2305,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -2177,7 +2358,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-esophageal-mucosal-injury">
                 <div class="item-name">Esophageal Mucosal Injury</div>
                 
                 <div class="item-desc">Gastric acid and pepsin damage esophageal epithelium, causing inflammation and erosions. Bile reflux in some patients adds to mucosal damage.
@@ -2214,6 +2395,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -2266,7 +2448,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-esophageal-clearance">
                 <div class="item-name">Impaired Esophageal Clearance</div>
                 
                 <div class="item-desc">Reduced salivary neutralization, impaired peristalsis, and delayed acid clearance prolong mucosal exposure to refluxate.
@@ -2305,6 +2487,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2337,11 +2520,12 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-visceral-hypersensitivity">
                 <div class="item-name">Visceral Hypersensitivity</div>
                 
                 <div class="item-desc">Some patients experience symptoms with minimal acid exposure due to heightened esophageal sensory perception.
 </div>
+                
                 
                 
                 
@@ -2383,7 +2567,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-gut-microbiota-dysbiosis">
                 <div class="item-name">Gut Microbiota Dysbiosis</div>
                 
                 <div class="item-desc">Altered gut microbiota composition contributes to GERD risk through bidirectional causal relationships. Protective taxa include Actinobacteria and Methanobrevibacter, while risk taxa include Mollicutes and Tenericutes.
@@ -2406,6 +2590,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -2458,7 +2643,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-barrett-s-esophagus-metaplastic-adaptation">
                 <div class="item-name">Barrett&#39;s Esophagus Metaplastic Adaptation</div>
                 
                 <div class="item-desc">Chronic reflux-induced inflammation drives metaplastic transformation of esophageal squamous epithelium to specialized columnar epithelium with altered tight junction protein expression, particularly claudin-18, which contributes to acid resistance.
@@ -2481,6 +2666,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -3091,6 +3277,7 @@ pathophysiology:
       label: smooth muscle contraction
   evidence:
   - reference: PMID:38177402
+    reference_title: &#34;Pathophysiology of gastro-oesophageal reflux disease: implications for diagnosis and management.&#34;
     supports: SUPPORT
     snippet: &#34;GERD starts in the stomach, where the refluxate material is produced.
       Following the trajectory of reflux, the failure of the antireflux barrier, primarily
@@ -3101,6 +3288,7 @@ pathophysiology:
       particularly the lower esophageal sphincter, as a core mechanism allowing
       refluxate to enter the esophagus and cause symptoms.
   - reference: PMID:38177402
+    reference_title: &#34;Pathophysiology of gastro-oesophageal reflux disease: implications for diagnosis and management.&#34;
     supports: PARTIAL
     snippet: &#34;Alterations of the oesophageal mucosal integrity, such as macroscopic
       oesophagitis or microscopic changes, determine the perception of symptoms.&#34;
@@ -3123,12 +3311,14 @@ pathophysiology:
       label: epithelial cell of esophagus
   evidence:
   - reference: PMID:38177402
+    reference_title: &#34;Pathophysiology of gastro-oesophageal reflux disease: implications for diagnosis and management.&#34;
     supports: SUPPORT
     snippet: &#34;Reflux clearance mechanisms such as primary and secondary peristalsis
       and the arrival of bicarbonate-rich saliva are critical to prevent mucosal damage.&#34;
     explanation: This highlights the importance of clearance mechanisms in
       preventing mucosal damage from refluxate exposure in GERD.
   - reference: PMID:38177402
+    reference_title: &#34;Pathophysiology of gastro-oesophageal reflux disease: implications for diagnosis and management.&#34;
     supports: SUPPORT
     snippet: &#34;It is now recognized that different GERD phenotypes have different degrees
       of reflux, severity of mucosal integrity damage and type, and severity of symptoms.&#34;
@@ -3150,6 +3340,7 @@ pathophysiology:
       label: digestion
   evidence:
   - reference: PMID:38177402
+    reference_title: &#34;Pathophysiology of gastro-oesophageal reflux disease: implications for diagnosis and management.&#34;
     supports: SUPPORT
     snippet: &#34;Reflux clearance mechanisms such as primary and secondary peristalsis
       and the arrival of bicarbonate-rich saliva are critical to prevent mucosal damage.&#34;
@@ -3162,6 +3353,7 @@ pathophysiology:
     to heightened esophageal sensory perception.
   evidence:
   - reference: PMID:38177402
+    reference_title: &#34;Pathophysiology of gastro-oesophageal reflux disease: implications for diagnosis and management.&#34;
     supports: SUPPORT
     snippet: &#34;The intensity of the symptoms is affected by peripheral and central
       neural and psychological mechanisms.&#34;
@@ -3180,6 +3372,7 @@ pathophysiology:
       label: stomach
   evidence:
   - reference: PMID:38449873
+    reference_title: &#34;Causal relationship between gut microbiota and risk of gastroesophageal reflux disease: a genetic correlation and bidirectional Mendelian randomization study.&#34;
     supports: SUPPORT
     snippet: &#34;The IVW method&#39;s findings suggested protective roles against GERD for
       the Family Clostridiales Vadin BB60 group (P = 0.027), Genus Lachnospiraceae
@@ -3191,6 +3384,7 @@ pathophysiology:
       relationships between specific gut microbiota taxa and GERD risk,
       identifying both protective and risk-associated bacterial groups.
   - reference: PMID:38449873
+    reference_title: &#34;Causal relationship between gut microbiota and risk of gastroesophageal reflux disease: a genetic correlation and bidirectional Mendelian randomization study.&#34;
     supports: SUPPORT
     snippet: &#34;For the first time, the MR analysis indicates a genetic link between
       gut microbiota abundance changes and GERD risk. This not only substantiates
@@ -3213,6 +3407,7 @@ pathophysiology:
       label: epithelium of esophagus
   evidence:
   - reference: PMID:17932229
+    reference_title: &#34;Claudin-18: a dominant tight junction protein in Barrett&#39;s esophagus and likely contributor to its acid resistance.&#34;
     supports: SUPPORT
     snippet: &#34;In SCE, Cldn-18 was the most highly expressed at the mRNA level and
       this finding is paralleled by marked elevation in protein expression on immunoblots.
@@ -3222,6 +3417,7 @@ pathophysiology:
       shift in tight junction protein composition, with claudin-18 becoming the
       dominant protein in metaplastic epithelium.
   - reference: PMID:17932229
+    reference_title: &#34;Claudin-18: a dominant tight junction protein in Barrett&#39;s esophagus and likely contributor to its acid resistance.&#34;
     supports: SUPPORT
     snippet: &#34;We conclude that Cldn-18 is the dominant claudin in the TJ of SCE and
       propose that the change from a Cldn-18-deficient TJ in SqE to a Cldn-18-rich
@@ -3230,6 +3426,7 @@ pathophysiology:
       Barrett&#39;s esophagus provide enhanced acid resistance compared to normal
       squamous epithelium.
   - reference: PMID:17932229
+    reference_title: &#34;Claudin-18: a dominant tight junction protein in Barrett&#39;s esophagus and likely contributor to its acid resistance.&#34;
     supports: SUPPORT
     snippet: &#34;Barrett&#39;s esophagus (BE) is a specialized columnar epithelium (SCE)
       that develops as replacement for damaged squamous epithelium (SqE) in subjects

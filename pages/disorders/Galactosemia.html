@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 16</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Inborn error of carbohydrate metabolism</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Newborn screening disorder</span>
@@ -1937,6 +2110,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1976,7 +2152,7 @@
             
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
-                <div class="stat-value">3</div>
+                <div class="stat-value">9</div>
                 <div class="stat-label">Pathophysiology</div>
             </div>
             </a>
@@ -1992,6 +2168,14 @@
             <div class="stat-item">
                 <div class="stat-value">9</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">16</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2276,14 +2460,64 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">9</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-galt-deficiency-in-the-leloir-pathway">
+                <div class="item-name">GALT Deficiency in the Leloir Pathway</div>
+                
+                <div class="item-desc">In classic galactosemia, deficient galactose-1-phosphate uridylyltransferase activity disrupts the core uridylyltransferase step of galactose metabolism.
+</div>
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33525536" target="_blank">PMID:33525536</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Type I (classic) galactosemia, galactose 1-phosphate uridylyltransferase (GALT)-deficiency is a hereditary disorder of galactose metabolism."</div>
+                
+                
+                <div class="evidence-explanation">This review identifies classic galactosemia as a disorder defined by GALT deficiency in galactose metabolism.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-galactose-1-phosphate-accumulation">
                 <div class="item-name">Galactose-1-phosphate accumulation</div>
                 
-                <div class="item-desc">In classic galactosemia, GALT deficiency prevents conversion of galactose-1-phosphate (Gal-1-P) to UDP-galactose. Accumulated Gal-1-P is directly toxic to liver, brain, kidneys, and ovaries through multiple mechanisms including inhibition of phosphoglucomutase and depletion of inorganic phosphate.
+                <div class="item-desc">Galactose-1-phosphate accumulates to high intracellular levels in classic galactosemia and is an important contributor to downstream metabolic toxicity, but not the sole pathogenic factor.
 </div>
+                
                 
                 
                 
@@ -2309,16 +2543,65 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-OTHER">Other</span>
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
                     
                 </div>
                 
                 <div class="evidence-snippet">"One of the main alterations caused by GALT deficiency is the accumulation of galactose 1-phosphate (Gal-1P) in cells."</div>
                 
                 
-                <div class="evidence-explanation">Cell-based study demonstrating that Gal-1-P accumulation is a central feature of GALT deficiency.</div>
+                <div class="evidence-explanation">This directly supports Gal-1-P accumulation as a core biochemical abnormality in classic galactosemia.</div>
                 
             </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31808946" target="_blank">PMID:31808946</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Results revealed that Gal-1-P is not the sole pathophysiological agent responsible for the phenotype observed in galactosemia."</div>
+                
+                
+                <div class="evidence-explanation">This systematic review clarifies that Gal-1-P accumulation is central but insufficient on its own to explain the full phenotype.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-udp-hexose-depletion">
+                <div class="item-name">UDP-hexose depletion</div>
+                
+                <div class="item-desc">GALT deficiency and Gal-1-P accumulation reduce intracellular UDP-hexose pools, especially UDP-galactose and related sugar donors.
+</div>
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
             
             <div class="evidence-item">
                 <div class="evidence-header">
@@ -2336,7 +2619,7 @@
                 <div class="evidence-snippet">"intracellular concentrations of Gal-1-P found in classic galactosemia inhibit UDP-hexose pyrophosphorylases and reduce the intracellular concentrations of UDP-hexoses"</div>
                 
                 
-                <div class="evidence-explanation">Study demonstrating that accumulated Gal-1-P inhibits key metabolic enzymes in galactosemic cells.</div>
+                <div class="evidence-explanation">This study directly supports depletion of intracellular UDP-hexose pools in galactosemic cells.</div>
                 
             </div>
             
@@ -2347,11 +2630,12 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
-                <div class="item-name">UDP-galactose deficiency</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-glycosylation">
+                <div class="item-name">Impaired Glycosylation</div>
                 
-                <div class="item-desc">Reduced UDP-galactose impairs galactosylation of glycoproteins and glycolipids. Abnormal glycosylation affects brain development, folliculogenesis, and multiple cellular processes. This deficiency persists despite dietary treatment, contributing to long-term complications.
+                <div class="item-desc">Abnormal glycosylation is a downstream consequence of disturbed UDP-hexose homeostasis and is thought to contribute to persistent neurologic and ovarian complications.
 </div>
+                
                 
                 
                 
@@ -2384,27 +2668,27 @@
                 <div class="evidence-snippet">"There is circumstantial evidence that defective galactosylation of complex glycoconjugates exists in tissues from galactosemic patients."</div>
                 
                 
-                <div class="evidence-explanation">Review discussing evidence for defective glycosylation in galactosemia patients.</div>
+                <div class="evidence-explanation">This review supports defective galactosylation in patient tissues.</div>
                 
             </div>
             
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12626383" target="_blank">PMID:12626383</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31808946" target="_blank">PMID:31808946</a>
                     </span>
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    <span class="evidence-source source-OTHER">Other</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"Reduced Sambucus nigra agglutinin binding to glycoproteins isolated from cells with increased Gal-1-P is consistent with the resultant inhibition of glycoprotein glycosylation."</div>
+                <div class="evidence-snippet">"Other currently described contributing factors include accumulation of galactose metabolites, uridine diphosphate (UDP)-hexose alterations and subsequent impaired glycosylation"</div>
                 
                 
-                <div class="evidence-explanation">Direct evidence of impaired glycoprotein glycosylation in GALT-deficient cells.</div>
+                <div class="evidence-explanation">This systematic review explicitly places impaired glycosylation downstream of UDP-hexose alterations.</div>
                 
             </div>
             
@@ -2415,11 +2699,12 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
-                <div class="item-name">Galactitol toxicity</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-galactitol-accumulation">
+                <div class="item-name">Galactitol accumulation</div>
                 
-                <div class="item-desc">Galactose is reduced to galactitol by aldose reductase. Galactitol accumulates in the lens causing osmotic stress and cataracts. In galactokinase deficiency, this is the primary pathogenic mechanism.
+                <div class="item-desc">Excess galactose can be reduced to galactitol, which accumulates in the lens and causes osmotic injury. This is the dominant mechanism in galactokinase deficiency and also contributes to cataract risk in galactosemia more broadly.
 </div>
+                
                 
                 
                 
@@ -2452,7 +2737,203 @@
                 <div class="evidence-snippet">"Any single deficient enzyme can result in cataract through the accumulation of galactitol in the lens."</div>
                 
                 
-                <div class="evidence-explanation">Review confirming the role of galactitol accumulation in cataract formation in galactosemia.</div>
+                <div class="evidence-explanation">This review directly identifies galactitol accumulation as the mechanism of cataract formation.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-endoplasmic-reticulum-stress">
+                <div class="item-name">Endoplasmic Reticulum Stress</div>
+                
+                <div class="item-desc">Endoplasmic reticulum stress is an additional downstream mechanism implicated in galactosemia beyond Gal-1-P accumulation alone.
+</div>
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31808946" target="_blank">PMID:31808946</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Other currently described contributing factors include accumulation of galactose metabolites, uridine diphosphate (UDP)-hexose alterations and subsequent impaired glycosylation, endoplasmic reticulum (ER) stress, altered signalling pathways, and oxidative stress."</div>
+                
+                
+                <div class="evidence-explanation">This systematic review identifies ER stress as a distinct mechanistic contributor in galactosemia.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-signaling-pathways">
+                <div class="item-name">Altered Signaling Pathways</div>
+                
+                <div class="item-desc">Altered signaling pathways are an additional downstream mechanism implicated in galactosemia beyond Gal-1-P accumulation alone.
+</div>
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31808946" target="_blank">PMID:31808946</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Other currently described contributing factors include accumulation of galactose metabolites, uridine diphosphate (UDP)-hexose alterations and subsequent impaired glycosylation, endoplasmic reticulum (ER) stress, altered signalling pathways, and oxidative stress."</div>
+                
+                
+                <div class="evidence-explanation">This systematic review identifies altered signaling pathways as a distinct mechanistic contributor in galactosemia.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-oxidative-stress">
+                <div class="item-name">Oxidative Stress</div>
+                
+                <div class="item-desc">Oxidative stress is an additional downstream mechanism implicated in galactosemia beyond Gal-1-P accumulation alone.
+</div>
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31808946" target="_blank">PMID:31808946</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Other currently described contributing factors include accumulation of galactose metabolites, uridine diphosphate (UDP)-hexose alterations and subsequent impaired glycosylation, endoplasmic reticulum (ER) stress, altered signalling pathways, and oxidative stress."</div>
+                
+                
+                <div class="evidence-explanation">This systematic review identifies oxidative stress as a distinct mechanistic contributor in galactosemia.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-acute-hepatocellular-dysfunction">
+                <div class="item-name">Acute Hepatocellular Dysfunction</div>
+                
+                <div class="item-desc">Untreated neonatal classic galactosemia produces acute hepatocellular injury with liver dysfunction, feeding intolerance, and systemic illness.
+</div>
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301691" target="_blank">PMID:20301691</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Classic galactosemia, which can result in life-threatening complications including feeding problems, failure to thrive, hepatocellular damage, bleeding, and E coli sepsis in untreated infants."</div>
+                
+                
+                <div class="evidence-explanation">This GeneReviews summary directly supports acute hepatocellular damage as a key part of untreated neonatal classic galactosemia.</div>
                 
             </div>
             
@@ -2470,6 +2951,29 @@
         
 
         <!-- Causal Graph (Pathograph) -->
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
+                <h2 class="card-title">Pathograph</h2>
+            </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
+            
+            <div class="pathograph-container" id="pathograph">
+                <div class="pathograph-legend" id="pathograph-legend"></div>
+                <svg id="pathograph-svg" role="img">
+                    <title>Pathograph: causal mechanism network for Galactosemia</title>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
+                </svg>
+                <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
+            </div>
+            <script>
+            (function() {
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute Hepatocellular Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Untreated neonatal classic galactosemia produces acute hepatocellular injury with liver dysfunction, feeding intolerance, and systemic illness.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Altered Signaling Pathways\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Altered signaling pathways are an additional downstream mechanism implicated in galactosemia beyond Gal-1-P accumulation alone.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cataracts\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Oil-droplet cataracts from galactitol accumulation in the lens. May be present at birth or develop in first weeks of life.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000518\"}}, {\"id\": \"Endoplasmic Reticulum Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Endoplasmic reticulum stress is an additional downstream mechanism implicated in galactosemia beyond Gal-1-P accumulation alone.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor weight gain and growth failure in affected neonates.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"GALT Deficiency in the Leloir Pathway\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In classic galactosemia, deficient galactose-1-phosphate uridylyltransferase activity disrupts the core uridylyltransferase step of galactose metabolism.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Galactitol accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess galactose can be reduced to galactitol, which accumulates in the lens and causes osmotic injury. This is the dominant mechanism in galactokinase deficiency and also contributes to cataract risk in galactosemia more broadly.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Galactose-1-phosphate accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Galactose-1-phosphate accumulates to high intracellular levels in classic galactosemia and is an important contributor to downstream metabolic toxicity, but not the sole pathogenic factor.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Enlarged liver from hepatocellular damage and fatty infiltration.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"Impaired Glycosylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Abnormal glycosylation is a downstream consequence of disturbed UDP-hexose homeostasis and is thought to contribute to persistent neurologic and ovarian complications.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive impairment may occur despite early dietary treatment, likely due to endogenous galactose production and UDP-galactose deficiency affecting brain development.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Neonatal jaundice\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Conjugated hyperbilirubinemia appearing in the first week of life due to hepatocellular dysfunction.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0006579\"}}, {\"id\": \"Oxidative Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Oxidative stress is an additional downstream mechanism implicated in galactosemia beyond Gal-1-P accumulation alone.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Premature ovarian insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Over 80% of females with classic galactosemia develop hypergonadotropic hypogonadism with primary or secondary amenorrhea.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0008209\"}}, {\"id\": \"Speech disorders\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Verbal dyspraxia and speech delays are common long-term complications even with early treatment.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002167\"}}, {\"id\": \"UDP-hexose depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GALT deficiency and Gal-1-P accumulation reduce intracellular UDP-hexose pools, especially UDP-galactose and related sugar donors.\\n\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"GALT Deficiency in the Leloir Pathway\", \"target\": \"Galactose-1-phosphate accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"GALT Deficiency in the Leloir Pathway\", \"target\": \"UDP-hexose depletion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Galactose-1-phosphate accumulation\", \"target\": \"Endoplasmic Reticulum Stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Galactose-1-phosphate accumulation\", \"target\": \"Altered Signaling Pathways\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Galactose-1-phosphate accumulation\", \"target\": \"Oxidative Stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"UDP-hexose depletion\", \"target\": \"Impaired Glycosylation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Glycosylation\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Glycosylation\", \"target\": \"Speech disorders\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Glycosylation\", \"target\": \"Premature ovarian insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Galactitol accumulation\", \"target\": \"Cataracts\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Acute Hepatocellular Dysfunction\", \"target\": \"Neonatal jaundice\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Acute Hepatocellular Dysfunction\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Acute Hepatocellular Dysfunction\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                renderPathograph("pathograph", graphData);
+            })();
+            </script>
+        </div>
         
 
         <!-- Phenotypes -->
@@ -2490,11 +2994,11 @@
                 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(1)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(2)</span></button>
                 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Growth<span class="pill-count">(1)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(3)</span></button>
                 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -2696,7 +3200,7 @@
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">2</span>
                 </summary>
                 
                 <div class="item-box phenotype-box">
@@ -2756,31 +3260,6 @@
                 
                 <div class="item-box phenotype-box">
                     <div class="item-name">
-                        Speech disorders
-                        
-                        <span class="phenotype-freq">FREQUENT</span>
-                        
-                        
-                        <span class="phenotype-id">
-                            <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank">
-                                Delayed speech and language development
-                            </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000750)</span>
-                        </span>
-                        
-                    </div>
-                    
-                    
-                    
-    
-    
-                    
-    
-    
-                </div>
-                
-                <div class="item-box phenotype-box">
-                    <div class="item-name">
                         Tremor
                         
                         <span class="phenotype-freq">OCCASIONAL</span>
@@ -2797,6 +3276,36 @@
                     
                     
                     
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23400815" target="_blank">PMID:23400815</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Thirty-one patients showed evidence of motor dysfunction including: tremor (23 patients), dystonia (23 patients), cerebellar signs (6 patients), and pyramidal signs (4 patients)."</div>
+                
+                
+                <div class="evidence-explanation">This adult classical galactosemia cohort directly documents tremor as a frequent component of the motor phenotype.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
                     
@@ -2874,7 +3383,7 @@
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
                 
                 <div class="item-box phenotype-box">
@@ -2974,6 +3483,61 @@
                 
                 
                 <div class="evidence-explanation">Clinical review emphasizing the high risk of E. coli sepsis in infants with galactosemia.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Speech disorders
+                        
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+                        
+                        
+                        <span class="phenotype-id">
+                            <a href="http://purl.obolibrary.org/obo/HP_0002167" target="_blank">
+                                Abnormal speech pattern
+                            </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002167)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21347587" target="_blank">PMID:21347587</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Impairment of speech affects a significant number of patients with galactosemia, appears in early childhood, and persists into adulthood."</div>
+                
+                
+                <div class="evidence-explanation">Cross-sectional human cohort data directly support speech impairment as a common long-term phenotype in classic galactosemia.</div>
                 
             </div>
             
@@ -3248,6 +3812,36 @@
                 
                 
     
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16782422" target="_blank">PMID:16782422</a>
+                    </span>
+                    
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Supplementation of calcium, vitamins K(1) and D(3) given in this dose (750 mg, 1.0 mg and 10.0 mug respectively) is likely to have a role in the treatment of BMC abnormalities in galactosemia."</div>
+                
+                
+                <div class="evidence-explanation">This randomized clinical trial supports calcium and vitamin D supplementation as part of bone-health management in galactosemia, although the studied regimen also included vitamin K1.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
     
             </div>
             
@@ -3265,6 +3859,36 @@
                 
                 
                 
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35118398" target="_blank">PMID:35118398</a>
+                    </span>
+                    
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"This means that in addition to the consequences of the disease, these women also face infertility and the potential need for hormone replacement therapy."</div>
+                
+                
+                <div class="evidence-explanation">This POI management review supports hormone replacement therapy as a recognized part of care for girls and women with classic galactosemia-associated ovarian insufficiency.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
             </div>
@@ -3290,6 +3914,36 @@
                 
                 
     
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34665663" target="_blank">PMID:34665663</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The BBC appears to be a viable intervention to support the speech and expressive language development of children with GC."</div>
+                
+                
+                <div class="evidence-explanation">This intervention study provides direct human evidence that targeted speech-language therapy can support speech and language development in children with classic galactosemia.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
     
             </div>
             
@@ -3300,6 +3954,173 @@
         
 
         <!-- Biochemical Markers -->
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🔬</div>
+                <h2 class="card-title">Biochemical Markers</h2>
+                <span class="card-count">3</span>
+            </div>
+            
+            <div class="item-box biochemical-box">
+                <div class="item-name">
+                    Erythrocyte galactose-1-phosphate
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(INCREASED)</span>
+                    
+                </div>
+                
+                <div class="item-desc">Context: Elevated erythrocyte galactose-1-phosphate is a core biochemical marker of classic galactosemia; in classic disease it is typically above 10 mg/dL.
+</div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301691" target="_blank">PMID:20301691</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"In classic galactosemia, erythrocyte galactose-1-phosphate is usually &gt;10 mg/dL and erythrocyte GALT enzyme activity is absent or barely detectable."</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews identifies elevated erythrocyte Gal-1-P as a defining biochemical abnormality in classic galactosemia.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box biochemical-box">
+                <div class="item-name">
+                    Erythrocyte GALT enzyme activity
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(DECREASED_OR_ABSENT)</span>
+                    
+                </div>
+                
+                <div class="item-desc">Context: Erythrocyte GALT activity is absent or barely detectable in classic galactosemia and remains the key enzyme marker used in diagnosis.
+</div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301691" target="_blank">PMID:20301691</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"In classic galactosemia, erythrocyte galactose-1-phosphate is usually &gt;10 mg/dL and erythrocyte GALT enzyme activity is absent or barely detectable."</div>
+                
+                
+                <div class="evidence-explanation">This directly supports markedly reduced or absent erythrocyte GALT activity as a core biochemical finding.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16838075" target="_blank">PMID:16838075</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The gold standard for diagnosis of classical galactosaemia is measurement of GALT activity in erythrocytes."</div>
+                
+                
+                <div class="evidence-explanation">This review confirms erythrocyte GALT activity as the principal biochemical assay for classical galactosemia.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box biochemical-box">
+                <div class="item-name">
+                    Urinary galactitol
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(INCREASED)</span>
+                    
+                </div>
+                
+                <div class="item-desc">Context: Urinary galactitol reflects diversion of excess galactose into the aldose reductase pathway and can support biochemical diagnosis and monitoring.
+</div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16838075" target="_blank">PMID:16838075</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Gas-chromatographic determination of urinary sugars and sugar alcohols demonstrates elevated concentrations of galactose and galactitol."</div>
+                
+                
+                <div class="evidence-explanation">This directly supports urinary galactitol elevation as a biochemical marker in classical galactosemia.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+        </div>
         
 
         <!-- Differential Diagnoses -->
@@ -3330,7 +4151,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Galactosemia
 creation_date: &#39;2026-02-06T03:39:54Z&#39;
-updated_date: &#39;2026-03-04T23:45:00Z&#39;
+updated_date: &#39;2026-03-31T18:30:00Z&#39;
 category: Genetic
 synonyms:
 - Galactose intolerance
@@ -3424,54 +4245,267 @@ prevalence:
     explanation: &gt;-
       This U.S. newborn-screening survey provides a concrete contemporary
       incidence estimate for classic galactosemia.
+progression:
+- phase: Untreated neonatal metabolic decompensation
+  notes: &gt;
+    In untreated classic galactosemia, symptoms begin in the neonatal period
+    after milk feeding and can rapidly progress to hepatic dysfunction, feeding
+    intolerance, bleeding, sepsis, and death.
+  evidence:
+  - reference: PMID:20301691
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Classic galactosemia, which can result in life-threatening complications including feeding problems, failure to thrive, hepatocellular damage, bleeding, and E coli sepsis in untreated infants.&#34;
+    explanation: GeneReviews describes the acute untreated neonatal phase as a life-threatening metabolic decompensation with hepatic, feeding, and infectious complications.
+- phase: Rapid improvement after lactose restriction
+  notes: &gt;
+    Acute neonatal manifestations usually improve quickly once lactose and
+    galactose exposure are removed early in life.
+  evidence:
+  - reference: PMID:20301691
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;If a lactose-restricted diet is provided during the first ten days of life, the neonatal signs usually quickly resolve and the complications of liver failure, sepsis, and neonatal death are prevented&#34;
+    explanation: This directly supports a treatment-responsive early disease phase when dietary restriction is instituted promptly.
+- phase: Persistent long-term neurologic and gonadal complications
+  notes: &gt;
+    Even with early dietary treatment, many patients later develop chronic
+    neurodevelopmental, speech, motor, and ovarian complications.
+  evidence:
+  - reference: PMID:29409891
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Although implementation of lactose restricted diet is efficient in resolving the acute complications, it is not sufficient to prevent long-term complications affecting the brain and female gonads, the two main target organs of damage.&#34;
+    explanation: This review directly supports the transition from acute neonatal disease to persistent long-term neurologic and reproductive morbidity despite diet.
 pathophysiology:
+- name: GALT Deficiency in the Leloir Pathway
+  description: &gt;
+    In classic galactosemia, deficient galactose-1-phosphate
+    uridylyltransferase activity disrupts the core uridylyltransferase step of
+    galactose metabolism.
+  downstream:
+  - target: Galactose-1-phosphate accumulation
+    description: Loss of GALT activity causes intracellular accumulation of galactose-1-phosphate.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:31774565
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &#34;One of the main alterations caused by GALT deficiency is the accumulation of galactose 1-phosphate (Gal-1P) in cells.&#34;
+      explanation: This directly links GALT deficiency to intracellular Gal-1-P accumulation.
+  - target: UDP-hexose depletion
+    description: GALT deficiency also contributes to depletion of intracellular UDP-hexose pools.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:12626383
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &#34;GALT deficiency causes UDP-hexose deficit in human galactosemic cells.&#34;
+      explanation: This cell study directly ties GALT deficiency to a UDP-hexose deficit.
+  evidence:
+  - reference: PMID:33525536
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Type I (classic) galactosemia, galactose 1-phosphate uridylyltransferase (GALT)-deficiency is a hereditary disorder of galactose metabolism.&#34;
+    explanation: This review identifies classic galactosemia as a disorder defined by GALT deficiency in galactose metabolism.
 - name: Galactose-1-phosphate accumulation
   description: &gt;
-    In classic galactosemia, GALT deficiency prevents conversion of
-    galactose-1-phosphate (Gal-1-P) to UDP-galactose. Accumulated Gal-1-P
-    is directly toxic to liver, brain, kidneys, and ovaries through
-    multiple mechanisms including inhibition of phosphoglucomutase and
-    depletion of inorganic phosphate.
+    Galactose-1-phosphate accumulates to high intracellular levels in classic
+    galactosemia and is an important contributor to downstream metabolic
+    toxicity, but not the sole pathogenic factor.
+  downstream:
+  - target: Endoplasmic Reticulum Stress
+    description: Accumulated galactose metabolites contribute to downstream endoplasmic reticulum stress.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:31808946
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &#34;Other currently described contributing factors include accumulation of galactose metabolites, uridine diphosphate (UDP)-hexose alterations and subsequent impaired glycosylation, endoplasmic reticulum (ER) stress, altered signalling pathways, and oxidative stress.&#34;
+      explanation: This review partially supports galactose metabolite accumulation as an upstream contributor to ER stress in galactosemia.
+  - target: Altered Signaling Pathways
+    description: Accumulated galactose metabolites contribute to downstream signaling abnormalities.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:31808946
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &#34;Other currently described contributing factors include accumulation of galactose metabolites, uridine diphosphate (UDP)-hexose alterations and subsequent impaired glycosylation, endoplasmic reticulum (ER) stress, altered signalling pathways, and oxidative stress.&#34;
+      explanation: This review partially supports galactose metabolite accumulation as an upstream contributor to altered signaling pathways in galactosemia.
+  - target: Oxidative Stress
+    description: Accumulated galactose metabolites contribute to downstream oxidative stress.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:31808946
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &#34;Other currently described contributing factors include accumulation of galactose metabolites, uridine diphosphate (UDP)-hexose alterations and subsequent impaired glycosylation, endoplasmic reticulum (ER) stress, altered signalling pathways, and oxidative stress.&#34;
+      explanation: This review partially supports galactose metabolite accumulation as an upstream contributor to oxidative stress in galactosemia.
   evidence:
   - reference: PMID:31774565
     supports: SUPPORT
-    evidence_source: OTHER
+    evidence_source: IN_VITRO
     snippet: &#34;One of the main alterations caused by GALT deficiency is the accumulation of galactose 1-phosphate (Gal-1P) in cells.&#34;
-    explanation: Cell-based study demonstrating that Gal-1-P accumulation is a central feature of GALT deficiency.
+    explanation: This directly supports Gal-1-P accumulation as a core biochemical abnormality in classic galactosemia.
+  - reference: PMID:31808946
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Results revealed that Gal-1-P is not the sole pathophysiological agent responsible for the phenotype observed in galactosemia.&#34;
+    explanation: This systematic review clarifies that Gal-1-P accumulation is central but insufficient on its own to explain the full phenotype.
+- name: UDP-hexose depletion
+  description: &gt;
+    GALT deficiency and Gal-1-P accumulation reduce intracellular UDP-hexose
+    pools, especially UDP-galactose and related sugar donors.
+  downstream:
+  - target: Impaired Glycosylation
+    description: Depleted UDP-hexose pools impair downstream glycoprotein galactosylation.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:12626383
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &#34;Reduced Sambucus nigra agglutinin binding to glycoproteins isolated from cells with increased Gal-1-P is consistent with the resultant inhibition of glycoprotein glycosylation.&#34;
+      explanation: This directly supports impaired glycosylation downstream of disturbed nucleotide-sugar metabolism.
+  evidence:
   - reference: PMID:12626383
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;intracellular concentrations of Gal-1-P found in classic galactosemia inhibit UDP-hexose pyrophosphorylases and reduce the intracellular concentrations of UDP-hexoses&#34;
-    explanation: Study demonstrating that accumulated Gal-1-P inhibits key metabolic enzymes in galactosemic cells.
-- name: UDP-galactose deficiency
+    explanation: This study directly supports depletion of intracellular UDP-hexose pools in galactosemic cells.
+- name: Impaired Glycosylation
   description: &gt;
-    Reduced UDP-galactose impairs galactosylation of glycoproteins and
-    glycolipids. Abnormal glycosylation affects brain development,
-    folliculogenesis, and multiple cellular processes. This deficiency
-    persists despite dietary treatment, contributing to long-term
-    complications.
+    Abnormal glycosylation is a downstream consequence of disturbed UDP-hexose
+    homeostasis and is thought to contribute to persistent neurologic and
+    ovarian complications.
+  downstream:
+  - target: Intellectual disability
+    description: Abnormal galactosylation is one proposed contributor to chronic cognitive impairment.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:16838075
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;It has been suggested that these complications may result from endogenous galactose synthesis or from abnormal galactosylation.&#34;
+      explanation: This review partially supports abnormal galactosylation as one mechanism underlying long-term cognitive complications.
+  - target: Speech disorders
+    description: Disordered galactosylation is one proposed contributor to persistent speech impairment.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:16838075
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;It has been suggested that these complications may result from endogenous galactose synthesis or from abnormal galactosylation.&#34;
+      explanation: This partially supports abnormal galactosylation as a mechanism contributing to verbal dyspraxia and other speech problems.
+  - target: Premature ovarian insufficiency
+    description: Impaired glycosylation is one proposed contributor to ovarian dysfunction in classic galactosemia.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:16838075
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;It has been suggested that these complications may result from endogenous galactose synthesis or from abnormal galactosylation.&#34;
+      explanation: This partially supports abnormal galactosylation as one mechanism underlying hypergonadotrophic hypogonadism and ovarian insufficiency.
   evidence:
   - reference: PMID:7671968
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;There is circumstantial evidence that defective galactosylation of complex glycoconjugates exists in tissues from galactosemic patients.&#34;
-    explanation: Review discussing evidence for defective glycosylation in galactosemia patients.
-  - reference: PMID:12626383
+    explanation: This review supports defective galactosylation in patient tissues.
+  - reference: PMID:31808946
     supports: SUPPORT
-    evidence_source: IN_VITRO
-    snippet: &#34;Reduced Sambucus nigra agglutinin binding to glycoproteins isolated from cells with increased Gal-1-P is consistent with the resultant inhibition of glycoprotein glycosylation.&#34;
-    explanation: Direct evidence of impaired glycoprotein glycosylation in GALT-deficient cells.
-- name: Galactitol toxicity
+    evidence_source: OTHER
+    snippet: &#34;Other currently described contributing factors include accumulation of galactose metabolites, uridine diphosphate (UDP)-hexose alterations and subsequent impaired glycosylation&#34;
+    explanation: This systematic review explicitly places impaired glycosylation downstream of UDP-hexose alterations.
+- name: Galactitol accumulation
   description: &gt;
-    Galactose is reduced to galactitol by aldose reductase. Galactitol
-    accumulates in the lens causing osmotic stress and cataracts. In
-    galactokinase deficiency, this is the primary pathogenic mechanism.
+    Excess galactose can be reduced to galactitol, which accumulates in the lens
+    and causes osmotic injury. This is the dominant mechanism in galactokinase
+    deficiency and also contributes to cataract risk in galactosemia more
+    broadly.
+  downstream:
+  - target: Cataracts
+    description: Lens galactitol accumulation drives cataract formation.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:3043741
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Any single deficient enzyme can result in cataract through the accumulation of galactitol in the lens.&#34;
+      explanation: This directly links galactitol accumulation in the lens to cataract formation.
   evidence:
   - reference: PMID:3043741
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Any single deficient enzyme can result in cataract through the accumulation of galactitol in the lens.&#34;
-    explanation: Review confirming the role of galactitol accumulation in cataract formation in galactosemia.
+    explanation: This review directly identifies galactitol accumulation as the mechanism of cataract formation.
+- name: Endoplasmic Reticulum Stress
+  description: &gt;
+    Endoplasmic reticulum stress is an additional downstream mechanism
+    implicated in galactosemia beyond Gal-1-P accumulation alone.
+  evidence:
+  - reference: PMID:31808946
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Other currently described contributing factors include accumulation of galactose metabolites, uridine diphosphate (UDP)-hexose alterations and subsequent impaired glycosylation, endoplasmic reticulum (ER) stress, altered signalling pathways, and oxidative stress.&#34;
+    explanation: This systematic review identifies ER stress as a distinct mechanistic contributor in galactosemia.
+- name: Altered Signaling Pathways
+  description: &gt;
+    Altered signaling pathways are an additional downstream mechanism
+    implicated in galactosemia beyond Gal-1-P accumulation alone.
+  evidence:
+  - reference: PMID:31808946
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Other currently described contributing factors include accumulation of galactose metabolites, uridine diphosphate (UDP)-hexose alterations and subsequent impaired glycosylation, endoplasmic reticulum (ER) stress, altered signalling pathways, and oxidative stress.&#34;
+    explanation: This systematic review identifies altered signaling pathways as a distinct mechanistic contributor in galactosemia.
+- name: Oxidative Stress
+  description: &gt;
+    Oxidative stress is an additional downstream mechanism implicated in
+    galactosemia beyond Gal-1-P accumulation alone.
+  evidence:
+  - reference: PMID:31808946
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Other currently described contributing factors include accumulation of galactose metabolites, uridine diphosphate (UDP)-hexose alterations and subsequent impaired glycosylation, endoplasmic reticulum (ER) stress, altered signalling pathways, and oxidative stress.&#34;
+    explanation: This systematic review identifies oxidative stress as a distinct mechanistic contributor in galactosemia.
+- name: Acute Hepatocellular Dysfunction
+  description: &gt;
+    Untreated neonatal classic galactosemia produces acute hepatocellular injury
+    with liver dysfunction, feeding intolerance, and systemic illness.
+  downstream:
+  - target: Neonatal jaundice
+    description: Acute hepatocellular dysfunction contributes to neonatal jaundice.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:16838075
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Most patients present in the neonatal period, after ingestion of galactose, with jaundice, hepatosplenomegaly, hepatocellular insufficiency, food intolerance, hypoglycaemia, renal tubular dysfunction, muscle hypotonia, sepsis and cataract.&#34;
+      explanation: This review directly supports neonatal jaundice as a consequence of acute hepatic dysfunction in classical galactosemia.
+  - target: Hepatomegaly
+    description: Acute liver injury contributes to hepatomegaly in untreated neonates.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:16838075
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Most patients present in the neonatal period, after ingestion of galactose, with jaundice, hepatosplenomegaly, hepatocellular insufficiency, food intolerance, hypoglycaemia, renal tubular dysfunction, muscle hypotonia, sepsis and cataract.&#34;
+      explanation: This supports hepatosplenomegaly, including liver enlargement, as part of acute neonatal hepatic involvement.
+  - target: Failure to thrive
+    description: Acute metabolic and hepatic dysfunction contributes to poor early feeding and growth.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:20301691
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Classic galactosemia, which can result in life-threatening complications including feeding problems, failure to thrive, hepatocellular damage, bleeding, and E coli sepsis in untreated infants.&#34;
+      explanation: This directly supports failure to thrive as a downstream consequence of the acute neonatal metabolic-hepatic syndrome.
+  evidence:
+  - reference: PMID:20301691
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Classic galactosemia, which can result in life-threatening complications including feeding problems, failure to thrive, hepatocellular damage, bleeding, and E coli sepsis in untreated infants.&#34;
+    explanation: This GeneReviews summary directly supports acute hepatocellular damage as a key part of untreated neonatal classic galactosemia.
 phenotypes:
 - name: Neonatal jaundice
   frequency: FREQUENT
@@ -3570,15 +4604,21 @@ phenotypes:
     snippet: &#34;Galactosemia in newborns and infants is associated with the following symptoms: jaundice, hepatomegaly, failure to thrive, feeding difficulties, hypoglycemia, convulsions, lethargy, amino-aciduria, cataracts, hepatic cirrhosis, ascites, and mental retardation.&#34;
     explanation: Clinical review documenting mental retardation (intellectual disability) as a symptom in galactosemia.
 - name: Speech disorders
-  frequency: FREQUENT
+  frequency: VERY_FREQUENT
   phenotype_term:
-    preferred_term: Speech disorder
+    preferred_term: Abnormal speech pattern
     term:
-      id: HP:0000750
-      label: Delayed speech and language development
+      id: HP:0002167
+      label: Abnormal speech pattern
   description: &gt;
     Verbal dyspraxia and speech delays are common long-term complications
     even with early treatment.
+  evidence:
+  - reference: PMID:21347587
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Impairment of speech affects a significant number of patients with galactosemia, appears in early childhood, and persists into adulthood.&#34;
+    explanation: Cross-sectional human cohort data directly support speech impairment as a common long-term phenotype in classic galactosemia.
 - name: Premature ovarian insufficiency
   frequency: FREQUENT
   phenotype_term:
@@ -3605,6 +4645,102 @@ phenotypes:
   description: &gt;
     Movement disorders including tremor and ataxia may develop as
     long-term neurological complications.
+  evidence:
+  - reference: PMID:23400815
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Thirty-one patients showed evidence of motor dysfunction including: tremor (23 patients), dystonia (23 patients), cerebellar signs (6 patients), and pyramidal signs (4 patients).&#34;
+    explanation: This adult classical galactosemia cohort directly documents tremor as a frequent component of the motor phenotype.
+biochemical:
+- name: Erythrocyte galactose-1-phosphate
+  presence: INCREASED
+  frequency: VERY_FREQUENT
+  context: &gt;
+    Elevated erythrocyte galactose-1-phosphate is a core biochemical marker of
+    classic galactosemia; in classic disease it is typically above 10 mg/dL.
+  evidence:
+  - reference: PMID:20301691
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;In classic galactosemia, erythrocyte galactose-1-phosphate is usually &gt;10 mg/dL and erythrocyte GALT enzyme activity is absent or barely detectable.&#34;
+    explanation: GeneReviews identifies elevated erythrocyte Gal-1-P as a defining biochemical abnormality in classic galactosemia.
+- name: Erythrocyte GALT enzyme activity
+  presence: DECREASED_OR_ABSENT
+  frequency: VERY_FREQUENT
+  context: &gt;
+    Erythrocyte GALT activity is absent or barely detectable in classic
+    galactosemia and remains the key enzyme marker used in diagnosis.
+  evidence:
+  - reference: PMID:20301691
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;In classic galactosemia, erythrocyte galactose-1-phosphate is usually &gt;10 mg/dL and erythrocyte GALT enzyme activity is absent or barely detectable.&#34;
+    explanation: This directly supports markedly reduced or absent erythrocyte GALT activity as a core biochemical finding.
+  - reference: PMID:16838075
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The gold standard for diagnosis of classical galactosaemia is measurement of GALT activity in erythrocytes.&#34;
+    explanation: This review confirms erythrocyte GALT activity as the principal biochemical assay for classical galactosemia.
+- name: Urinary galactitol
+  presence: INCREASED
+  frequency: FREQUENT
+  context: &gt;
+    Urinary galactitol reflects diversion of excess galactose into the aldose
+    reductase pathway and can support biochemical diagnosis and monitoring.
+  evidence:
+  - reference: PMID:16838075
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Gas-chromatographic determination of urinary sugars and sugar alcohols demonstrates elevated concentrations of galactose and galactitol.&#34;
+    explanation: This directly supports urinary galactitol elevation as a biochemical marker in classical galactosemia.
+diagnosis:
+- name: Newborn Screening
+  notes: &gt;
+    Newborn screening detects most infants with classic galactosemia and enables
+    early dietary treatment before severe neonatal injury develops.
+  evidence:
+  - reference: PMID:20301691
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Virtually 100% of infants with classic galactosemia or clinical variant galactosemia can be detected in newborn screening programs that include testing for galactosemia in their panel.&#34;
+    explanation: This directly supports newborn screening as a highly effective case-finding approach for classic galactosemia.
+- name: Erythrocyte GALT Enzyme Assay
+  presence: Reduced or absent in classic galactosemia
+  notes: &gt;
+    Erythrocyte GALT activity measurement remains the core enzymatic diagnostic
+    assay and helps distinguish classic from variant forms.
+  evidence:
+  - reference: PMID:16838075
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The gold standard for diagnosis of classical galactosaemia is measurement of GALT activity in erythrocytes.&#34;
+    explanation: This review directly identifies erythrocyte GALT activity measurement as the diagnostic gold standard.
+- name: Erythrocyte Galactose-1-phosphate Measurement
+  presence: Elevated in classic galactosemia
+  notes: &gt;
+    Measurement of erythrocyte galactose-1-phosphate is part of the standard
+    diagnostic confirmation strategy.
+  evidence:
+  - reference: PMID:20301691
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The diagnosis of classic galactosemia and clinical variant galactosemia is established by detection of elevated erythrocyte galactose-1-phosphate concentration, reduced erythrocyte galactose-1-phosphate uridylyltransferase (GALT) enzyme activity, and/or biallelic pathogenic variants in GALT.&#34;
+    explanation: This directly supports elevated erythrocyte Gal-1-P as a standard confirmatory diagnostic finding.
+- name: Molecular Genetic Testing
+  notes: &gt;
+    Sequencing of GALT, and when indicated GALK1 or GALE, supports confirmation
+    of the specific molecular subtype of galactosemia.
+  evidence:
+  - reference: PMID:20301691
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The diagnosis of classic galactosemia and clinical variant galactosemia is established by detection of elevated erythrocyte galactose-1-phosphate concentration, reduced erythrocyte galactose-1-phosphate uridylyltransferase (GALT) enzyme activity, and/or biallelic pathogenic variants in GALT.&#34;
+    explanation: GeneReviews includes biallelic pathogenic variants in GALT among the diagnostic criteria for classic galactosemia.
+  - reference: PMID:38778342
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Applications of whole-exome sequencing to detect the two variants can improve the detection and early diagnosis of classical galactosemia&#34;
+    explanation: This case report and review supports molecular sequencing as a tool that improves early diagnosis of classic galactosemia.
 genetic:
 - name: GALT variants (Classic galactosemia)
   inheritance:
@@ -3614,6 +4750,12 @@ genetic:
       term:
         id: HP:0000007
         label: Autosomal recessive inheritance
+    evidence:
+    - reference: PMID:32748411
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Via genome sequencing followed by Sanger confirmation we showed that all affected individuals were homozygous for a deep intronic GALT variant, c.1059+390A&gt;G, which segregated as an autosomal recessive trait in all families.&#34;
+      explanation: Family-based segregation data directly support autosomal recessive inheritance for GALT-related galactosemia.
   features: &gt;
     Classic galactosemia is caused by biallelic pathogenic variants in
     GALT (9p13.3). The most common variants include Q188R (most common
@@ -3633,6 +4775,12 @@ genetic:
       term:
         id: HP:0000007
         label: Autosomal recessive inheritance
+    evidence:
+    - reference: PMID:10570908
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Galactokinase (GALK) deficiency is an autosomal recessive disorder, which causes cataract formation in children not maintained on a lactose-free diet.&#34;
+      explanation: This patient-based molecular study directly states that GALK deficiency follows autosomal recessive inheritance.
   features: &gt;
     Caused by biallelic pathogenic variants in GALK1 (17q25.1).
   evidence:
@@ -3649,6 +4797,12 @@ genetic:
       term:
         id: HP:0000007
         label: Autosomal recessive inheritance
+    evidence:
+    - reference: PMID:16301867
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;PURPOSE: UDP-galactose-4-epimerase (GALE) deficiency galactosemia is an autosomal recessive disorder and the prevalence of the disease varies among ethnic groups.&#34;
+      explanation: This molecular study directly identifies GALE deficiency galactosemia as an autosomal recessive disorder.
   features: &gt;
     Caused by biallelic pathogenic variants in GALE (1p36.11).
   evidence:
@@ -3678,10 +4832,22 @@ treatments:
   description: &gt;
     Supplementation is necessary due to dairy restriction to prevent
     osteoporosis.
+  evidence:
+  - reference: PMID:16782422
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Supplementation of calcium, vitamins K(1) and D(3) given in this dose (750 mg, 1.0 mg and 10.0 mug respectively) is likely to have a role in the treatment of BMC abnormalities in galactosemia.&#34;
+    explanation: This randomized clinical trial supports calcium and vitamin D supplementation as part of bone-health management in galactosemia, although the studied regimen also included vitamin K1.
 - name: Hormone replacement therapy
   description: &gt;
     Estrogen and progesterone replacement for females with premature
     ovarian insufficiency.
+  evidence:
+  - reference: PMID:35118398
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;This means that in addition to the consequences of the disease, these women also face infertility and the potential need for hormone replacement therapy.&#34;
+    explanation: This POI management review supports hormone replacement therapy as a recognized part of care for girls and women with classic galactosemia-associated ovarian insufficiency.
 - name: Speech therapy
   description: &gt;
     Early intervention for speech and language delays.
@@ -3690,6 +4856,12 @@ treatments:
     term:
       id: MAXO:0000930
       label: speech therapy
+  evidence:
+  - reference: PMID:34665663
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The BBC appears to be a viable intervention to support the speech and expressive language development of children with GC.&#34;
+    explanation: This intervention study provides direct human evidence that targeted speech-language therapy can support speech and language development in children with classic galactosemia.
 references:
 - reference: DOI:10.1002/jcp.20820
   title: &#39;Galactosemia: The good, the bad, and the unknown&#39;

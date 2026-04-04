@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 2</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Infectious Disorder</span>
                 
             </div>
@@ -1930,6 +2103,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1985,6 +2161,14 @@
             <div class="stat-item">
                 <div class="stat-value">6</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">2</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2066,7 +2250,7 @@
                 <span class="card-count">5</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-odontogenic-source-infection-mandibular-molar">
                 <div class="item-name">Odontogenic Source Infection (Mandibular Molar)</div>
                 
                 <div class="item-desc">Dental infection of a mandibular tooth provides the odontogenic nidus that seeds deeper spaces.</div>
@@ -2125,6 +2309,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2157,7 +2342,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-polymicrobial-cellulitis-of-mouth-floor">
                 <div class="item-name">Polymicrobial Cellulitis of Mouth Floor</div>
                 
                 <div class="item-desc">Mixed oral flora invade submandibular and sublingual spaces, producing rapidly spreading cellulitis.</div>
@@ -2216,6 +2401,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2248,7 +2434,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-cervical-fascial-spread-across-submandibular-sublingual-spaces">
                 <div class="item-name">Cervical Fascial Spread Across Submandibular-Sublingual Spaces</div>
                 
                 <div class="item-desc">Infection tracks along cervical fascial planes through submandibular, sublingual, and submental spaces.</div>
@@ -2307,6 +2493,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2339,7 +2526,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-descending-necrotizing-mediastinitis-extension">
                 <div class="item-name">Descending Necrotizing Mediastinitis Extension</div>
                 
                 <div class="item-desc">Continued inferior spread can involve the mediastinum, producing necrotizing mediastinitis.</div>
@@ -2391,6 +2578,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2423,7 +2611,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-tongue-elevation-and-airway-narrowing-from-floor-edema">
                 <div class="item-name">Tongue Elevation and Airway Narrowing from Floor Edema</div>
                 
                 <div class="item-desc">Submandibular and sublingual edema elevate the tongue and floor of mouth, narrowing the oropharyngeal airway and precipitating stridor or dyspnea.</div>
@@ -2482,6 +2670,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2527,6 +2716,7 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="graph-warning">
                 <strong>Referential integrity issues (1):</strong>
@@ -2542,7 +2732,7 @@
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Ludwig&#39;s Angina</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
@@ -3594,6 +3784,7 @@ pathophysiology:
       label: lower jaw molar
   evidence:
   - reference: PMID:33383265
+    reference_title: &#34;Diagnosis and management of Ludwig&#39;s angina: An evidence-based review.&#34;
     supports: NO_EVIDENCE
     snippet: &#34;Ludwig&#39;s angina is a rapidly spreading infection that involves the floor of the mouth.&#34;
     explanation: Establishes the odontogenic dental source leading to floor-of-mouth infection.
@@ -3620,6 +3811,7 @@ pathophysiology:
       label: submandibular region
   evidence:
   - reference: PMID:33383265
+    reference_title: &#34;Diagnosis and management of Ludwig&#39;s angina: An evidence-based review.&#34;
     supports: PARTIAL
     snippet: &#34;Ludwig&#39;s angina is a rapidly spreading infection that involves the floor of the mouth.&#34;
     explanation: Highlights rapid polymicrobial cellulitis centered on the mouth floor and submandibular spaces.
@@ -3646,6 +3838,7 @@ pathophysiology:
       label: sublingual gland
   evidence:
   - reference: PMID:35784784
+    reference_title: &#34;Ludwig&#39;s angina: An alarming radiology challenge.&#34;
     supports: SUPPORT
     snippet: &#34;Ludwig&#39;s angina is a cellulitis that affects the submandibular, sublingual, and submental regions, fast-spreading along the fascial plane.&#34;
     explanation: Describes rapid fascial-plane spread across submandibular and sublingual spaces.
@@ -3668,6 +3861,7 @@ pathophysiology:
       label: mediastinum
   evidence:
   - reference: PMID:35784784
+    reference_title: &#34;Ludwig&#39;s angina: An alarming radiology challenge.&#34;
     supports: PARTIAL
     snippet: &#34;Ludwig&#39;s angina with mediastinitis complication was established by a computed tomography (CT) scan.&#34;
     explanation: CT-documented mediastinitis demonstrates downward extension along fascial planes.
@@ -3697,15 +3891,18 @@ pathophysiology:
     description: Floor-of-mouth edema and tongue elevation precipitate stridor and dyspnea, requiring airway protection.
     evidence:
     - reference: PMID:38445409
+      reference_title: &#34;Ludwig&#39;s Angina.&#34;
       supports: SUPPORT
       snippet: &#34;trismus and elevation of the floor of the mouth that caused an obstruction of the airway and resulted in an inspiratory dyspnea and a stridor.&#34;
       explanation: Links mouth-floor elevation to airway obstruction and stridor.
     - reference: PMID:33904596
+      reference_title: &#34;Fatal airway obstruction due to Ludwig&#39;s angina from severe odontogenic infection during antipsychotic medication: A case report and a literature review.&#34;
       supports: PARTIAL
       snippet: &#34;which suggested that the cause of death was asphyxiation due to airway obstruction.&#34;
       explanation: Fatal case underscores how submandibular edema can fully occlude the airway in Ludwig&#39;s angina.
   evidence:
   - reference: PMID:38445409
+    reference_title: &#34;Ludwig&#39;s Angina.&#34;
     supports: PARTIAL
     snippet: &#34;elevation of the floor of the mouth that caused an obstruction of the airway and resulted in an inspiratory dyspnea and a stridor.&#34;
     explanation: Documents airway compromise from submandibular and sublingual edema.
@@ -3715,6 +3912,7 @@ phenotypes:
   frequency: OCCASIONAL
   evidence:
   - reference: PMID:38445409
+    reference_title: &#34;Ludwig&#39;s Angina.&#34;
     supports: PARTIAL
     snippet: &#34;resulted in an inspiratory dyspnea and a stridor.&#34;
     explanation: Notes inspiratory stridor during airway obstruction.
@@ -3728,6 +3926,7 @@ phenotypes:
   frequency: FREQUENT
   evidence:
   - reference: PMID:38445409
+    reference_title: &#34;Ludwig&#39;s Angina.&#34;
     supports: PARTIAL
     snippet: &#34;obstruction of the airway and resulted in an inspiratory dyspnea&#34;
     explanation: Highlights dyspnea resulting from airway obstruction.
@@ -3741,6 +3940,7 @@ phenotypes:
   frequency: OCCASIONAL
   evidence:
   - reference: PMID:33383265
+    reference_title: &#34;Diagnosis and management of Ludwig&#39;s angina: An evidence-based review.&#34;
     supports: PARTIAL
     snippet: &#34;Trismus is a late finding.&#34;
     explanation: Indicates trismus appears as disease progresses.
@@ -3754,6 +3954,7 @@ phenotypes:
   frequency: FREQUENT
   evidence:
   - reference: PMID:35784784
+    reference_title: &#34;Ludwig&#39;s angina: An alarming radiology challenge.&#34;
     supports: PARTIAL
     snippet: &#34;with fever, headache, nausea&#34;
     explanation: Reports fever among presenting symptoms.
@@ -3767,6 +3968,7 @@ phenotypes:
   frequency: VERY_FREQUENT
   evidence:
   - reference: PMID:33383265
+    reference_title: &#34;Diagnosis and management of Ludwig&#39;s angina: An evidence-based review.&#34;
     supports: PARTIAL
     snippet: &#34;Patients may have a woody or indurated floor of the mouth with submandibular swelling.&#34;
     explanation: Describes characteristic submandibular/neck swelling.
@@ -3780,6 +3982,7 @@ phenotypes:
   frequency: RARE
   evidence:
   - reference: PMID:37178657
+    reference_title: &#34;A rare presentation of Ludwig&#39;s angina with facial nerve palsy, case report.&#34;
     supports: PARTIAL
     snippet: &#34;A diagnosis of Ludwig&#39;s angina with unilateral facial nerve paralysis and treated with immediate incision and drainage.&#34;
     explanation: Documents rare facial nerve palsy complicating Ludwig&#39;s angina.
@@ -3794,6 +3997,7 @@ diagnosis:
   notes: Identifies indurated floor of mouth, submandibular swelling, and late trismus.
   evidence:
   - reference: PMID:33383265
+    reference_title: &#34;Diagnosis and management of Ludwig&#39;s angina: An evidence-based review.&#34;
     supports: SUPPORT
     snippet: &#34;Patients may have a woody or indurated floor of the mouth with submandibular swelling. Trismus is a late finding.&#34;
     explanation: Demonstrates hallmark clinical signs supporting bedside diagnosis.
@@ -3802,10 +4006,12 @@ diagnosis:
   notes: Preferred imaging to define deep space spread and detect complications such as mediastinitis.
   evidence:
   - reference: PMID:33383265
+    reference_title: &#34;Diagnosis and management of Ludwig&#39;s angina: An evidence-based review.&#34;
     supports: SUPPORT
     snippet: &#34;Computed tomography of the neck soft tissue with contrast is preferred if the patient is able to safely leave the ED and can tolerate lying supine.&#34;
     explanation: Establishes contrast CT as preferred imaging modality.
   - reference: PMID:35784784
+    reference_title: &#34;Ludwig&#39;s angina: An alarming radiology challenge.&#34;
     supports: SUPPORT
     snippet: &#34;Ludwig&#39;s angina with mediastinitis complication was established by a computed tomography (CT) scan&#34;
     explanation: Shows CT confirming both diagnosis and mediastinal spread.
@@ -3814,6 +4020,7 @@ treatments:
   description: Early airway control including elective tracheostomy when obstruction risk is high.
   evidence:
   - reference: PMID:38106765
+    reference_title: &#34;Potentially Fatal Ludwig&#39;s Angina: A Case Report.&#34;
     supports: SUPPORT
     snippet: &#34;An elective tracheostomy is recommended for the patient to maintain an open airway&#34;
     explanation: Recommends tracheostomy to secure airway in Ludwig&#39;s angina.
@@ -3837,10 +4044,12 @@ treatments:
   description: Empiric IV antibiotics targeting polymicrobial oral flora.
   evidence:
   - reference: PMID:33383265
+    reference_title: &#34;Diagnosis and management of Ludwig&#39;s angina: An evidence-based review.&#34;
     supports: SUPPORT
     snippet: &#34;Broad spectrum antibiotics and surgical source control are keys in treating the infection.&#34;
     explanation: Identifies broad-spectrum antibiotics as core therapy.
   - reference: PMID:36738888
+    reference_title: &#34;The empirical use of aminoglycosides in Ludwig&#39;s angina based on bacterial analysis of 63 cases.&#34;
     supports: PARTIAL
     snippet: &#34;Ninety-two percent (n=57/62) of the streptococci cultured were sensitive to penicillin. The addition of aminoglycosides to the study sample would not have made a statistically significant difference (p=0.1556).&#34;
     explanation: Culture series shows penicillin-sensitive streptococci predominate and empiric aminoglycosides add little benefit.
@@ -3864,6 +4073,7 @@ treatments:
   description: Drain involved spaces and extract offending tooth to halt infection spread.
   evidence:
   - reference: PMID:39296495
+    reference_title: &#34;Case Report: Ludwig&#39;s angina - &#39;The Dangerous Space&#39;.&#34;
     supports: SUPPORT
     snippet: &#34;immediate surgical decompression leading to pus drainage, removal of the offending tooth... and administration of empirical antibiotics&#34;
     explanation: Shows surgical drainage with tooth extraction as effective source control.
@@ -3909,6 +4119,7 @@ epidemiology:
   maximum_value: 0.04
   evidence:
   - reference: PMID:37944093
+    reference_title: &#34;Ludwig&#39;s Angina: Higher Incidence and Worse Outcomes Associated With the Onset of the Coronavirus Disease 2019 Pandemic.&#34;
     supports: SUPPORT
     snippet: &#34;In the pre-COVID group, we identified 32 of 1,301 patients with LA for an incidence of 0.02 per year... The COVID-onset group consisted of 41 of 641 patients, with an incidence of 0.04 per year.&#34;
     explanation: Washington University single-center data showed incidence doubling during COVID-onset vs pre-COVID periods when dental care was delayed.
@@ -3918,6 +4129,7 @@ epidemiology:
   maximum_value: 19
   evidence:
   - reference: PMID:34187738
+    reference_title: &#34;Ludwig&#39;s angina in Nigeria: The disease of the poor and health inequality!&#34;
     supports: SUPPORT
     snippet: &#34;Mortality ranged from 4% in Benin to 12% in Lagos and it was as high as 19% in Kano.&#34;
     explanation: Multi-center Nigerian series reports mortality spanning 4–19% depending on center.
@@ -3927,6 +4139,7 @@ epidemiology:
   maximum_value: 21
   evidence:
   - reference: PMID:34187738
+    reference_title: &#34;Ludwig&#39;s angina in Nigeria: The disease of the poor and health inequality!&#34;
     supports: SUPPORT
     snippet: &#34;Diabetes was the most prevalent underlying systematic condition, affecting 21% of the Ludwig&#39;s angina patients in Lagos.&#34;
     explanation: Lagos cohort reports 21% of Ludwig&#39;s angina patients had diabetes.
@@ -3935,6 +4148,7 @@ environmental:
   effect: Risk factor
   evidence:
   - reference: PMID:33383265
+    reference_title: &#34;Diagnosis and management of Ludwig&#39;s angina: An evidence-based review.&#34;
     supports: SUPPORT
     snippet: &#34;It occurs more commonly in those with poor dentition or immunosuppression.&#34;
     explanation: Links poor dentition to increased risk of Ludwig&#39;s angina.
@@ -3942,6 +4156,7 @@ environmental:
   effect: Risk factor
   evidence:
   - reference: PMID:35784784
+    reference_title: &#34;Ludwig&#39;s angina: An alarming radiology challenge.&#34;
     supports: PARTIAL
     snippet: &#34;history of toothache, poor oral hygiene, and diabetes mellitus.&#34;
     explanation: Notes diabetes among comorbidities present in a case with severe Ludwig&#39;s angina.
@@ -3949,6 +4164,7 @@ environmental:
   effect: Trigger
   evidence:
   - reference: PMID:37669817
+    reference_title: &#34;Ludwig&#39;s angina, anterior neck abscess and cavernous venous thrombosis following third molar extraction.&#34;
     supports: SUPPORT
     snippet: &#34;presenting with LA following a third molar extraction, complicated by extensive anterior deep neck space abscesses, cavernous venous thrombosis and Lemierre&#39;s Syndrome.&#34;
     explanation: Highlights molar extraction as a precipitating event for Ludwig&#39;s angina and severe complications.
@@ -3956,6 +4172,7 @@ environmental:
   effect: Trigger
   evidence:
   - reference: PMID:39186393
+    reference_title: &#34;A Case of Ludwig&#39;s Angina Following Influenza in a 16-Year-Old Male.&#34;
     supports: PARTIAL
     snippet: &#34;instance of Ludwig&#39;s Angina in a 16-year-old male patient with concurrent Influenza A.&#34;
     explanation: Shows influenza-associated secondary infection preceding Ludwig&#39;s angina.
@@ -3963,6 +4180,7 @@ environmental:
   effect: Risk factor
   evidence:
   - reference: PMID:34187738
+    reference_title: &#34;Ludwig&#39;s angina in Nigeria: The disease of the poor and health inequality!&#34;
     supports: SUPPORT
     snippet: &#34;Poverty was a common denominator, 90% of the patients from Kano were unemployed compared to 23% and 8% from Lagos and Benin respectively.&#34;
     explanation: Nigerian multi-center study links high unemployment and poverty with Ludwig&#39;s angina burden.
@@ -3979,6 +4197,7 @@ differential_diagnoses:
       label: sialolithiasis
   evidence:
   - reference: PMID:38960547
+    reference_title: &#34;Submandibular Sialolithiasis Mimicking Ludwig&#39;s Angina: A Case Report and Brief Clinical Review.&#34;
     supports: PARTIAL
     snippet: &#34;Submandibular sialolithiasis... could present with the double tongue sign without symptoms suggestive of airway involvement.&#34;
     explanation: Shows sialolithiasis can mimic clinical swelling yet lacks airway compromise typical of Ludwig&#39;s angina.
@@ -3989,6 +4208,7 @@ differential_diagnoses:
   - Managed with hematoma evacuation and anticoagulation reversal rather than broad-spectrum antibiotics alone.
   evidence:
   - reference: PMID:35836715
+    reference_title: &#34;Apixaban-Induced Pseudo-Ludwig&#39;s Angina.&#34;
     supports: SUPPORT
     snippet: &#34;we describe a novel case of apixaban-induced pseudo-Ludwig&#39;s angina, which was successfully managed with urgent surgical intervention and supportive care&#34;
     explanation: Documents anticoagulant-induced pseudo-Ludwig presentation mimicking infection.

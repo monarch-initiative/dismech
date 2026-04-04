@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Dermatological Disease</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Chronic Inflammatory Disease</span>
@@ -1934,6 +2107,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1989,6 +2165,14 @@
             <div class="stat-item">
                 <div class="stat-value">5</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">8</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2238,7 +2422,7 @@
                 <span class="card-count">6</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-epidermal-barrier-dysfunction">
                 <div class="item-name">Epidermal Barrier Dysfunction</div>
                 
                 <div class="item-desc">Loss-of-function mutations in filaggrin (FLG) and other barrier proteins lead to impaired skin barrier integrity, increased transepidermal water loss, and enhanced allergen penetration. This is the primary initiating event in many patients.</div>
@@ -2285,6 +2469,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2344,7 +2529,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-type-2-immune-response">
                 <div class="item-name">Type 2 Immune Response</div>
                 
                 <div class="item-desc">Th2-skewed immune response drives the hallmark inflammation. IL-4, IL-13, and IL-31 promote IgE production, eosinophil recruitment, and pruritus. IL-4/IL-13 signaling through JAK1/STAT6 further impairs barrier function by downregulating filaggrin and other barrier proteins.</div>
@@ -2477,6 +2662,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2531,7 +2717,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-th17-th22-inflammation">
                 <div class="item-name">Th17/Th22 Inflammation</div>
                 
                 <div class="item-desc">In addition to the dominant Th2 response, Th17 and Th22 cells contribute to inflammation, particularly in acute lesions and Asian patients. IL-17 and IL-22 further disrupt epidermal differentiation.</div>
@@ -2572,11 +2758,12 @@
                 
                 
                 
+                
     
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-pruritogen-induced-neuronal-activation">
                 <div class="item-name">Pruritogen-Induced Neuronal Activation</div>
                 
                 <div class="item-desc">IL-31 and other pruritogens activate cutaneous sensory neurons, generating persistent itch in atopic dermatitis.</div>
@@ -2607,6 +2794,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
                 
@@ -2648,7 +2836,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-scratching-induced-barrier-injury">
                 <div class="item-name">Scratching-Induced Barrier Injury</div>
                 
                 <div class="item-desc">Repetitive scratching causes mechanical skin injury and worsens epidermal barrier dysfunction.</div>
@@ -2675,11 +2863,12 @@
                 
                 
                 
+                
     
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-secondary-inflammatory-amplification">
                 <div class="item-name">Secondary Inflammatory Amplification</div>
                 
                 <div class="item-desc">Barrier injury from scratching perpetuates inflammatory signaling and contributes to chronic lesion persistence.</div>
@@ -2720,6 +2909,7 @@
                 
                 
                 
+                
     
     
             </div>
@@ -2737,18 +2927,19 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Atopic Dermatitis</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Epidermal Barrier Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss-of-function mutations in filaggrin (FLG) and other barrier proteins lead to impaired skin barrier integrity, increased transepidermal water loss, and enhanced allergen penetration. This is the primary initiating event in many patients.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Keratinocyte\"], \"biological_processes\": [\"Keratinization\"], \"genes\": [\"FLG\"]}}, {\"id\": \"Pruritogen-Induced Neuronal Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IL-31 and other pruritogens activate cutaneous sensory neurons, generating persistent itch in atopic dermatitis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Sensory neuron\"], \"genes\": [\"IL31\"]}}, {\"id\": \"Scratching-Induced Barrier Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Repetitive scratching causes mechanical skin injury and worsens epidermal barrier dysfunction.\", \"meta\": {\"cell_types\": [\"Keratinocyte\"]}}, {\"id\": \"Secondary Inflammatory Amplification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Barrier injury from scratching perpetuates inflammatory signaling and contributes to chronic lesion persistence.\", \"meta\": {\"cell_types\": [\"Keratinocyte\"], \"biological_processes\": [\"Inflammatory response\"]}}, {\"id\": \"Type 2 Immune Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Th2-skewed immune response drives the hallmark inflammation. IL-4, IL-13, and IL-31 promote IgE production, eosinophil recruitment, and pruritus. IL-4/IL-13 signaling through JAK1/STAT6 further impairs barrier function by downregulating filaggrin and other barrier proteins.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"T-helper 2 cell\", \"Group 2 innate lymphoid cell\", \"Eosinophil\", \"Mast cell\"], \"biological_processes\": [\"Type 2 immune response\", \"T-helper 2 cell differentiation\", \"Interleukin-4-mediated signaling pathway\", \"IgE isotype switching\"], \"genes\": [\"IL4\", \"IL13\", \"IL31\", \"STAT6\"]}}], \"edges\": [{\"source\": \"Type 2 Immune Response\", \"target\": \"Epidermal Barrier Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Type 2 Immune Response\", \"target\": \"Pruritogen-Induced Neuronal Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Pruritogen-Induced Neuronal Activation\", \"target\": \"Scratching-Induced Barrier Injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Scratching-Induced Barrier Injury\", \"target\": \"Secondary Inflammatory Amplification\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Epidermal Barrier Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss-of-function mutations in filaggrin (FLG) and other barrier proteins lead to impaired skin barrier integrity, increased transepidermal water loss, and enhanced allergen penetration. This is the primary initiating event in many patients.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Keratinocyte\"], \"biological_processes\": [\"Keratinization\"], \"genes\": [\"FLG\"]}}, {\"id\": \"FLG\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Associated\"}}, {\"id\": \"IL13\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Associated\"}}, {\"id\": \"Pruritogen-Induced Neuronal Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IL-31 and other pruritogens activate cutaneous sensory neurons, generating persistent itch in atopic dermatitis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Sensory neuron\"], \"genes\": [\"IL31\"]}}, {\"id\": \"STAT6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Associated\"}}, {\"id\": \"Scratching-Induced Barrier Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Repetitive scratching causes mechanical skin injury and worsens epidermal barrier dysfunction.\", \"meta\": {\"cell_types\": [\"Keratinocyte\"]}}, {\"id\": \"Secondary Inflammatory Amplification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Barrier injury from scratching perpetuates inflammatory signaling and contributes to chronic lesion persistence.\", \"meta\": {\"cell_types\": [\"Keratinocyte\"], \"biological_processes\": [\"Inflammatory response\"]}}, {\"id\": \"Type 2 Immune Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Th2-skewed immune response drives the hallmark inflammation. IL-4, IL-13, and IL-31 promote IgE production, eosinophil recruitment, and pruritus. IL-4/IL-13 signaling through JAK1/STAT6 further impairs barrier function by downregulating filaggrin and other barrier proteins.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"T-helper 2 cell\", \"Group 2 innate lymphoid cell\", \"Eosinophil\", \"Mast cell\"], \"biological_processes\": [\"Type 2 immune response\", \"T-helper 2 cell differentiation\", \"Interleukin-4-mediated signaling pathway\", \"IgE isotype switching\"], \"genes\": [\"IL4\", \"IL13\", \"IL31\", \"STAT6\"]}}], \"edges\": [{\"source\": \"Type 2 Immune Response\", \"target\": \"Epidermal Barrier Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Type 2 Immune Response\", \"target\": \"Pruritogen-Induced Neuronal Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Pruritogen-Induced Neuronal Activation\", \"target\": \"Scratching-Induced Barrier Injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Scratching-Induced Barrier Injury\", \"target\": \"Secondary Inflammatory Amplification\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FLG\", \"target\": \"Epidermal Barrier Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IL13\", \"target\": \"Type 2 Immune Response\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STAT6\", \"target\": \"Type 2 Immune Response\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3523,22 +3714,22 @@ parents:
 - Allergic Disease
 has_subtypes:
 - name: Early-Onset Atopic Dermatitis
-  description: Onset in infancy or early childhood, often associated with the 
+  description: Onset in infancy or early childhood, often associated with the
     atopic march progressing to asthma and allergic rhinitis.
 - name: Adult-Onset Atopic Dermatitis
-  description: First presentation in adulthood, often with different clinical 
+  description: First presentation in adulthood, often with different clinical
     distribution and associations compared to childhood-onset disease.
 - name: Extrinsic Atopic Dermatitis
-  description: Associated with IgE-mediated sensitization to environmental 
+  description: Associated with IgE-mediated sensitization to environmental
     allergens. Elevated serum IgE and positive skin prick tests.
 - name: Intrinsic Atopic Dermatitis
-  description: Without IgE-mediated sensitization. Normal serum IgE levels. 
+  description: Without IgE-mediated sensitization. Normal serum IgE levels.
     Represents approximately 20% of cases.
 pathophysiology:
 - name: Epidermal Barrier Dysfunction
-  description: Loss-of-function mutations in filaggrin (FLG) and other barrier 
-    proteins lead to impaired skin barrier integrity, increased transepidermal 
-    water loss, and enhanced allergen penetration. This is the primary 
+  description: Loss-of-function mutations in filaggrin (FLG) and other barrier
+    proteins lead to impaired skin barrier integrity, increased transepidermal
+    water loss, and enhanced allergen penetration. This is the primary
     initiating event in many patients.
   genes:
   - preferred_term: FLG
@@ -3557,6 +3748,7 @@ pathophysiology:
       label: keratinocyte
   evidence:
   - reference: PMID:16550169
+    reference_title: &#34;Common loss-of-function variants of the epidermal barrier protein filaggrin are a major predisposing factor for atopic dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Filaggrin is a key protein that facilitates terminal
@@ -3569,6 +3761,7 @@ pathophysiology:
       strongest genetic risk factor for atopic dermatitis, with ~9% carrier
       frequency in Europeans.
   - reference: PMID:21388665
+    reference_title: &#34;Contrasting pathogenesis of atopic dermatitis and psoriasis--part I: clinical and pathologic concepts.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: They are similar in that they are complex inherited diseases
@@ -3580,9 +3773,9 @@ pathophysiology:
       dermatitis including abnormal cornification and keratinocyte
       differentiation.
 - name: Type 2 Immune Response
-  description: Th2-skewed immune response drives the hallmark inflammation. 
-    IL-4, IL-13, and IL-31 promote IgE production, eosinophil recruitment, and 
-    pruritus. IL-4/IL-13 signaling through JAK1/STAT6 further impairs barrier 
+  description: Th2-skewed immune response drives the hallmark inflammation.
+    IL-4, IL-13, and IL-31 promote IgE production, eosinophil recruitment, and
+    pruritus. IL-4/IL-13 signaling through JAK1/STAT6 further impairs barrier
     function by downregulating filaggrin and other barrier proteins.
   genes:
   - preferred_term: IL4
@@ -3603,10 +3796,10 @@ pathophysiology:
       label: STAT6
   downstream:
   - target: Epidermal Barrier Dysfunction
-    description: IL-4 and IL-13 downregulate filaggrin expression, creating a 
+    description: IL-4 and IL-13 downregulate filaggrin expression, creating a
       vicious cycle of barrier disruption and immune activation.
   - target: Pruritogen-Induced Neuronal Activation
-    description: IL-31 signaling contributes to neuronal itch signaling in 
+    description: IL-31 signaling contributes to neuronal itch signaling in
       lesional skin.
   biological_processes:
   - preferred_term: Type 2 immune response
@@ -3644,6 +3837,7 @@ pathophysiology:
       label: mast cell
   evidence:
   - reference: PMID:30819278
+    reference_title: &#34;Pathophysiology of atopic dermatitis: Clinical implications.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Type 2 cytokines as well as interleukin 17 and interleukin 22
@@ -3652,6 +3846,7 @@ pathophysiology:
       their contribution to barrier dysfunction, supporting the Th2/type 2
       immune mechanism.
   - reference: PMID:21388665
+    reference_title: &#34;Contrasting pathogenesis of atopic dermatitis and psoriasis--part I: clinical and pathologic concepts.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: skin lesions contain immune infiltrates of T cells, dendritic
@@ -3660,8 +3855,8 @@ pathophysiology:
     explanation: Describes the immune cell infiltrates in AD lesions including T
       cells and dendritic cells, consistent with type 2 immune response.
 - name: Th17/Th22 Inflammation
-  description: In addition to the dominant Th2 response, Th17 and Th22 cells 
-    contribute to inflammation, particularly in acute lesions and Asian 
+  description: In addition to the dominant Th2 response, Th17 and Th22 cells
+    contribute to inflammation, particularly in acute lesions and Asian
     patients. IL-17 and IL-22 further disrupt epidermal differentiation.
   biological_processes:
   - preferred_term: T-helper 17 type immune response
@@ -3674,7 +3869,7 @@ pathophysiology:
       id: CL:0000899
       label: T-helper 17 cell
 - name: Pruritogen-Induced Neuronal Activation
-  description: IL-31 and other pruritogens activate cutaneous sensory neurons, 
+  description: IL-31 and other pruritogens activate cutaneous sensory neurons,
     generating persistent itch in atopic dermatitis.
   genes:
   - preferred_term: IL31
@@ -3691,6 +3886,7 @@ pathophysiology:
       label: sensory neuron
   evidence:
   - reference: PMID:30819278
+    reference_title: &#34;Pathophysiology of atopic dermatitis: Clinical implications.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: New insights into the pathophysiology of AD have focused on
@@ -3699,11 +3895,11 @@ pathophysiology:
     explanation: Supports neuroimmune signaling as a component of AD
       pathophysiology.
 - name: Scratching-Induced Barrier Injury
-  description: Repetitive scratching causes mechanical skin injury and worsens 
+  description: Repetitive scratching causes mechanical skin injury and worsens
     epidermal barrier dysfunction.
   downstream:
   - target: Secondary Inflammatory Amplification
-    description: Mechanical barrier injury increases local inflammatory 
+    description: Mechanical barrier injury increases local inflammatory
       activation.
   cell_types:
   - preferred_term: Keratinocyte
@@ -3737,6 +3933,7 @@ phenotypes:
       label: Eczematoid dermatitis
   evidence:
   - reference: PMID:28846349
+    reference_title: &#34;Atopic Dermatitis.&#34;
     supports: SUPPORT
     snippet: &#34;This chronic disorder associated with pruritus usually starts in infancy and presents with dry skin, eczematous lesions and lichenification.&#34;
     explanation: Eczematous lesions are a defining feature of atopic dermatitis.
@@ -3752,6 +3949,7 @@ phenotypes:
       label: Pruritus
   evidence:
   - reference: PMID:39659858
+    reference_title: &#34;Atopic Dermatitis: A Review of Diagnosis and Treatment.&#34;
     supports: SUPPORT
     snippet: &#34;Atopic dermatitis, more commonly known as atopic eczema, is a chronic, relapsing inflammatory skin disorder characterized by dry skin, localized erythematous rash, and intense pruritus.&#34;
     explanation: Intense pruritus is a defining clinical characteristic of atopic dermatitis.
@@ -3766,6 +3964,7 @@ phenotypes:
       label: Dry skin
   evidence:
   - reference: PMID:39659858
+    reference_title: &#34;Atopic Dermatitis: A Review of Diagnosis and Treatment.&#34;
     supports: SUPPORT
     snippet: &#34;Atopic dermatitis, more commonly known as atopic eczema, is a chronic, relapsing inflammatory skin disorder characterized by dry skin, localized erythematous rash, and intense pruritus.&#34;
     explanation: Dry skin (xerosis) is a defining clinical characteristic of atopic dermatitis reflecting barrier dysfunction.
@@ -3780,6 +3979,7 @@ phenotypes:
       label: Lichenification
   evidence:
   - reference: PMID:28846349
+    reference_title: &#34;Atopic Dermatitis.&#34;
     supports: SUPPORT
     snippet: &#34;This chronic disorder associated with pruritus usually starts in infancy and presents with dry skin, eczematous lesions and lichenification.&#34;
     explanation: Lichenification develops from chronic scratching in atopic dermatitis patients.
@@ -3794,16 +3994,18 @@ phenotypes:
       label: Increased circulating IgE concentration
   evidence:
   - reference: PMID:20207111
+    reference_title: &#34;Extrinsic and intrinsic types of atopic dermatitis.&#34;
     supports: SUPPORT
     snippet: &#34;Extrinsic or allergic AD shows high total serum IgE levels and the presence of specific IgE for environmental and food allergens... While extrinsic AD is the classical type with high prevalence, the incidence of intrinsic AD is approximately 20%&#34;
     explanation: Approximately 80% of atopic dermatitis patients have the extrinsic subtype characterized by elevated serum IgE levels.
 genetic:
 - name: FLG
   association: Associated
-  notes: Loss-of-function variants are the strongest genetic risk factor. R501X 
+  notes: Loss-of-function variants are the strongest genetic risk factor. R501X
     and 2282del4 are common in European populations.
   evidence:
   - reference: PMID:16550169
+    reference_title: &#34;Common loss-of-function variants of the epidermal barrier protein filaggrin are a major predisposing factor for atopic dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: two independent loss-of-function genetic variants (R510X
@@ -3839,46 +4041,46 @@ genetic:
   notes: Transcription factor involved in T cell anergy and peripheral tolerance
 - name: ETS1
   association: GWAS
-  notes: Transcription factor regulating T and B cell development and immune 
+  notes: Transcription factor regulating T and B cell development and immune
     cell differentiation
 - name: IRF4
   association: GWAS
-  notes: Transcription factor essential for Th17 and Th2 cell differentiation 
+  notes: Transcription factor essential for Th17 and Th2 cell differentiation
     and plasma cell development
 - name: SATB1
   association: GWAS
-  notes: Chromatin organizer regulating T cell development and lineage 
+  notes: Chromatin organizer regulating T cell development and lineage
     commitment
 - name: SMAD3
   association: GWAS
-  notes: TGF-beta signaling mediator regulating T cell differentiation and 
+  notes: TGF-beta signaling mediator regulating T cell differentiation and
     immune tolerance
 - name: REL
   association: GWAS
   notes: NF-kB subunit c-Rel controlling lymphocyte activation and survival
 environmental:
 - name: Allergen Exposure
-  description: House dust mites, pet dander, and pollens can trigger or 
+  description: House dust mites, pet dander, and pollens can trigger or
     exacerbate disease.
   effect: TRIGGERS
 - name: Skin Irritants
-  description: Soaps, detergents, and harsh fabrics disrupt the already 
+  description: Soaps, detergents, and harsh fabrics disrupt the already
     compromised barrier.
   effect: TRIGGERS
 - name: Microbial Dysbiosis
-  description: Staphylococcus aureus colonization is found in &gt;90% of lesional 
+  description: Staphylococcus aureus colonization is found in &gt;90% of lesional
     skin and amplifies inflammation through superantigens and biofilm formation.
   effect: WORSENS
 treatments:
 - name: Emollients and Moisturizers
-  description: First-line treatment to restore skin barrier function and reduce 
+  description: First-line treatment to restore skin barrier function and reduce
     transepidermal water loss.
 - name: Topical Corticosteroids
-  description: First-line anti-inflammatory treatment for flares, applied to 
+  description: First-line anti-inflammatory treatment for flares, applied to
     affected areas.
 - name: Dupilumab
-  description: Monoclonal antibody targeting IL-4 receptor alpha, blocking both 
-    IL-4 and IL-13 signaling. FDA-approved for moderate-to-severe atopic 
+  description: Monoclonal antibody targeting IL-4 receptor alpha, blocking both
+    IL-4 and IL-13 signaling. FDA-approved for moderate-to-severe atopic
     dermatitis.
   treatment_term:
     preferred_term: pharmacotherapy
@@ -3891,8 +4093,8 @@ treatments:
         id: NCIT:C162455
         label: Dupilumab
 - name: JAK Inhibitors
-  description: Oral (baricitinib, upadacitinib, abrocitinib) and topical 
-    (ruxolitinib) JAK inhibitors targeting the JAK-STAT pathway downstream of 
+  description: Oral (baricitinib, upadacitinib, abrocitinib) and topical
+    (ruxolitinib) JAK inhibitors targeting the JAK-STAT pathway downstream of
     type 2 cytokines.
   treatment_term:
     preferred_term: pharmacotherapy
@@ -3911,11 +4113,11 @@ references:
   title: &#39;Interleukin-4 and Atopic Dermatitis: Why Does it Matter? A Narrative Review&#39;
   findings: []
 - reference: DOI:10.1038/s41467-023-41857-8
-  title: Multifaceted analysis of cross-tissue transcriptomes reveals 
+  title: Multifaceted analysis of cross-tissue transcriptomes reveals
     phenotype–endotype associations in atopic dermatitis
   findings: []
 - reference: DOI:10.1126/sciimmunol.abi6887
-  title: IL-31–dependent neurogenic inflammation restrains cutaneous type 2 
+  title: IL-31–dependent neurogenic inflammation restrains cutaneous type 2
     immune response in allergic dermatitis
   findings: []
 - reference: DOI:10.1186/s43556-025-00313-3

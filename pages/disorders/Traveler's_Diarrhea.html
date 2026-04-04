@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,7 @@
                 </span>
                 
                 
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Infectious diarrhea</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Travel-related infections</span>
@@ -1932,6 +2103,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1989,6 +2163,12 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
+            
+            
+            <div class="stat-item">
+                <div class="stat-value">0</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
             
             
             <div class="stat-item">
@@ -2066,7 +2246,7 @@
                 <span class="card-count">3</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-ingestion-of-contaminated-food-or-water-during-travel">
                 <div class="item-name">Ingestion of contaminated food or water during travel</div>
                 
                 <div class="item-desc">Travelers ingest enteric pathogens through unsafe food and water, initiating diarrheal illness.</div>
@@ -2088,6 +2268,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -2122,7 +2303,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-etec-adherence-via-colonization-factors">
                 <div class="item-name">ETEC adherence via colonization factors</div>
                 
                 <div class="item-desc">Enterotoxigenic E. coli use colonization factors to adhere to intestinal epithelium and establish infection.</div>
@@ -2144,6 +2325,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -2178,7 +2360,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-enterotoxin-driven-secretory-diarrhea">
                 <div class="item-name">Enterotoxin-driven secretory diarrhea</div>
                 
                 <div class="item-desc">ETEC heat-labile and heat-stable enterotoxins bind epithelial receptors, driving chloride and water secretion and watery diarrhea.</div>
@@ -2200,6 +2382,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -3233,6 +3416,7 @@ pathophysiology:
       label: alimentary part of gastrointestinal system
   evidence:
   - reference: PMID:35839362
+    reference_title: &#34;Acute Diarrhea in Adults.&#34;
     supports: SUPPORT
     snippet: Infectious noninflammatory diarrhea is often viral in etiology and is the most common presentation; however, bacterial causes are also common and may be related to travel or foodborne illness.
     explanation: Acute diarrhea review links bacterial diarrheal illness to travel and foodborne exposures.
@@ -3245,6 +3429,7 @@ pathophysiology:
       label: small intestine
   evidence:
   - reference: PMID:38052687
+    reference_title: &#34;Colonization factors of human and animal-specific enterotoxigenic Escherichia coli (ETEC).&#34;
     supports: SUPPORT
     snippet: Colonization factors (CFs) are major virulence factors of enterotoxigenic Escherichia coli (ETEC).
     explanation: Review highlights CFs as key adherence determinants enabling ETEC intestinal colonization.
@@ -3257,6 +3442,7 @@ pathophysiology:
       label: small intestine
   evidence:
   - reference: PMID:35358002
+    reference_title: &#34;Enterotoxigenic Escherichia coli: intestinal pathogenesis mechanisms and colonization resistance by gut microbiota.&#34;
     supports: SUPPORT
     snippet: ETEC is characterized by the ability to produce major virulence factors including colonization factors (CFs) and enterotoxins, that bind to specific receptors on epithelial cells and induce diarrhea.
     explanation: Review notes ETEC enterotoxins trigger receptor-mediated fluid secretion leading to diarrhea.
@@ -3270,6 +3456,7 @@ phenotypes:
       label: Diarrhea
   evidence:
   - reference: PMID:35358002
+    reference_title: &#34;Enterotoxigenic Escherichia coli: intestinal pathogenesis mechanisms and colonization resistance by gut microbiota.&#34;
     supports: SUPPORT
     snippet: Enterotoxigenic Escherichia coli (ETEC) is a major cause of diarrhea in children and travelers in developing countries.
     explanation: Establishes diarrhea as the hallmark symptom of ETEC-associated traveler&#39;s diarrhea.
@@ -3282,6 +3469,7 @@ phenotypes:
       label: Abdominal pain
   evidence:
   - reference: PMID:35839362
+    reference_title: &#34;Acute Diarrhea in Adults.&#34;
     supports: PARTIAL
     snippet: History for patients with acute diarrhea should include onset and frequency of symptoms, stool character, a focused review of systems including fever and other symptoms, and evaluation of exposures and risk factors.
     explanation: Guidance for acute diarrhea evaluation highlights associated abdominal symptoms that accompany diarrheal illness.
@@ -3294,6 +3482,7 @@ phenotypes:
       label: Nausea
   evidence:
   - reference: PMID:35839362
+    reference_title: &#34;Acute Diarrhea in Adults.&#34;
     supports: PARTIAL
     snippet: Acute diarrheal disease accounts for 179 million outpatient visits annually in the United States... History for patients with acute diarrhea should include onset and frequency of symptoms, stool character, a focused review of systems including fever and other symptoms.
     explanation: Clinical review notes nausea and systemic symptoms are routinely assessed with acute diarrheal illnesses.
@@ -3307,6 +3496,7 @@ treatments:
       label: fluid replacement therapy
   evidence:
   - reference: PMID:35839362
+    reference_title: &#34;Acute Diarrhea in Adults.&#34;
     supports: SUPPORT
     snippet: In all cases, management begins with replacing water, electrolytes, and nutrients. Oral rehydration is preferred; however, signs of severe dehydration or sepsis warrant intravenous rehydration.
     explanation: Review emphasizes oral rehydration as first-line management for acute diarrheal illness.
@@ -3330,6 +3520,7 @@ treatments:
           label: Loperamide Hydrochloride
   evidence:
   - reference: PMID:39453259
+    reference_title: &#34;What Do Travelers Know about Traveler&#39;s Diarrhea? Impact of a Pre-Travel Consultation in the Lisbon Area, Portugal.&#34;
     supports: PARTIAL
     snippet: |
       Knowledge gaps persisted: over 50% were unaware of TD&#39;s self-limited nature, 30% did not recognize loperamide as a symptom reliever, and 36% believed all travelers should take antibiotics to prevent TD.
@@ -3354,10 +3545,12 @@ treatments:
           label: Ciprofloxacin
   evidence:
   - reference: PMID:35839362
+    reference_title: &#34;Acute Diarrhea in Adults.&#34;
     supports: PARTIAL
     snippet: Empiric antibiotics are rarely warranted, except in sepsis and some cases of travelers&#39; or inflammatory diarrhea. Targeted antibiotic therapy may be appropriate following microbiologic stool assessment.
     explanation: Clinical review notes selective use of antibiotics, including in some traveler&#39;s diarrhea cases.
   - reference: PMID:40024692
+    reference_title: &#34;Recent Antimicrobial Resistance Situation and Mechanisms of Resistance to Key Antimicrobials in Enterotoxigenic Escherichia coli.&#34;
     supports: PARTIAL
     snippet: Resistant strains to representative therapeutic agents such as ciprofloxacin and azithromycin have been reported in recent years, and multidrug-resistant ETEC has also emerged.
     explanation: Resistance trends in ETEC underscore reserving fluoroquinolones for indicated cases and adjusting based on susceptibility.
@@ -3381,10 +3574,12 @@ treatments:
           label: rifaximin
   evidence:
   - reference: PMID:32966000
+    reference_title: &#34;Rifaximin.&#34;
     supports: SUPPORT
     snippet: Rifaximin is an antibiotic used to treat irritable bowel syndrome with diarrhea, reduce the risk of overt hepatic encephalopathy recurrence in adults, and treat travelers’ diarrhea caused by noninvasive strains of Escherichia coli.
     explanation: StatPearls entry lists rifaximin as indicated for traveler&#39;s diarrhea from noninvasive E. coli.
   - reference: PMID:36221413
+    reference_title: &#34;Probiotics and rifaximin for the prevention of travelers&#39; diarrhea: A systematic review and network meta-analysis.&#34;
     supports: PARTIAL
     snippet: Compared with placebo, both probiotics and rifaximin were associated with lower incidence of TD (probiotics, RR 0.85, 95% CI 0.76-0.95; rifaximin, RR 0.47, 95% CI 0.35-0.63).
     explanation: Network meta-analysis shows rifaximin reduces traveler’s diarrhea incidence more than probiotics, supporting its preventive use.
@@ -3408,10 +3603,12 @@ treatments:
           label: Bismuth Subsalicylate
   evidence:
   - reference: PMID:32809532
+    reference_title: &#34;Bismuth Subsalicylate.&#34;
     supports: PARTIAL
     snippet: This educational activity focuses on bismuth subsalicylate&#39;s applications in managing gastrointestinal discomfort and traveler&#39;s diarrhea.
     explanation: StatPearls review describes bismuth subsalicylate use for managing traveler&#39;s diarrhea symptoms.
   - reference: PMID:33064636
+    reference_title: &#34;Is There a Role for Bismuth in Diarrhea Management?&#34;
     supports: PARTIAL
     snippet: The antisecretory, anti-inflammatory, and antibacterial properties of bismuth make it a suitable therapy for symptomatic treatment of diarrhea.
     explanation: Narrative review highlights bismuth’s multimodal activity for diarrheal symptom relief, including traveler’s diarrhea.
@@ -3424,10 +3621,12 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:38458507
+    reference_title: &#34;Investigating the influence of probiotics in preventing Traveler&#39;s diarrhea: Meta-analysis based systematic review.&#34;
     supports: SUPPORT
     snippet: Based on this systematic review and meta-analysis, specific probiotic strains, including L. acidophilus, L. rhamnosus, L. fermentum, S. cerevisiae, and S. boulardii, may prevent TD.
     explanation: Meta-analysis finds several probiotic strains reduce risk of traveler&#39;s diarrhea, supporting prophylactic use.
   - reference: PMID:36221413
+    reference_title: &#34;Probiotics and rifaximin for the prevention of travelers&#39; diarrhea: A systematic review and network meta-analysis.&#34;
     supports: SUPPORT
     snippet: Both probiotics and rifaximin were associated with lower incidence of TD (probiotics, RR 0.85, 95% CI 0.76-0.95).
     explanation: Network meta-analysis quantifies reduced traveler’s diarrhea incidence with probiotic prophylaxis.
@@ -3440,10 +3639,12 @@ treatments:
       label: supportive care
   evidence:
   - reference: PMID:39453259
+    reference_title: &#34;What Do Travelers Know about Traveler&#39;s Diarrhea? Impact of a Pre-Travel Consultation in the Lisbon Area, Portugal.&#34;
     supports: PARTIAL
     snippet: The EG/post-consultation group showed significant improvement in knowledge, with correct answers increasing from 63% to 75%... knowledge gaps persisted... indicating the need for targeted interventions to increase travelers&#39; literacy and optimize pre-travel consultations.
     explanation: Study shows pre-travel counseling improves knowledge about traveler’s diarrhea prevention, underscoring value of education.
   - reference: PMID:40035303
+    reference_title: &#34;Travellers&#39; diarrhoea - what to advise at a pharmacy currently?&#34;
     supports: PARTIAL
     snippet: Traveling abroad carries the risk of traveler&#39;s diarrhea, which affects 20 to 50% of individuals. This article focuses on the definition, classification, epidemiology, etiology, prevention, and treatment management of traveler&#39;s diarrhea. It also describes recommendations for patients traveling to higher-risk areas, which can be used by pharmacists in counceling activities in the pharmacy.
     explanation: Pharmacy guidance resource supports counseling travelers on prevention and treatment choices.
@@ -3467,6 +3668,7 @@ treatments:
           label: rifaximin
   evidence:
   - reference: PMID:36221413
+    reference_title: &#34;Probiotics and rifaximin for the prevention of travelers&#39; diarrhea: A systematic review and network meta-analysis.&#34;
     supports: SUPPORT
     snippet: Compared with placebo, both probiotics and rifaximin were associated with lower incidence of TD (probiotics, RR 0.85, 95% CI 0.76-0.95; rifaximin, RR 0.47, 95% CI 0.35-0.63), and rifaximin was more effective than probiotics (RR 0.56, 95% CI 0.4-0.78).
     explanation: Network meta-analysis shows rifaximin prophylaxis significantly reduces traveler’s diarrhea incidence compared with placebo and probiotics.
@@ -3483,6 +3685,7 @@ differential_diagnoses:
       label: campylobacteriosis
   evidence:
   - reference: PMID:30725718
+    reference_title: &#34;Campylobacter Infection.&#34;
     supports: SUPPORT
     snippet: Campylobacter organisms are also a significant cause of traveler&#39;s diarrhea, particularly in Thailand and other areas of Southeast Asia.
     explanation: StatPearls review identifies Campylobacter as a major cause of traveler&#39;s diarrhea, supporting differential consideration.
@@ -3498,6 +3701,7 @@ differential_diagnoses:
       label: giardiasis
   evidence:
   - reference: PMID:30020611
+    reference_title: &#34;Giardiasis.&#34;
     supports: SUPPORT
     snippet: Giardiasis... is one of the most common treatable causes of gastroenteritis worldwide... risk factors for giardiasis include international travel... The clinical presentation typically involves diarrhea, flatulence, abdominal pain, and bloating.
     explanation: StatPearls entry links giardiasis to travel exposure and diarrheal presentation, supporting its role as a differential.
@@ -3506,6 +3710,7 @@ environmental:
   description: Travel to regions with unsafe food and water increases risk of bacterial TD and acquisition of resistant E. coli.
   evidence:
   - reference: PMID:36180932
+    reference_title: &#34;Colonization with extended-spectrum beta-lactamase-producing Escherichia coli and traveler&#39;s diarrhea attack rates among travelers to India: a systematic review and meta-analysis.&#34;
     supports: PARTIAL
     snippet: The overall pooled attack rate of TD was 39%... There were significant risks to be colonized with ESBL-EC among the travelers who experienced TD.
     explanation: Meta-analysis shows high TD attack rates and resistant E. coli colonization among travelers, highlighting contaminated food and water risks during travel.

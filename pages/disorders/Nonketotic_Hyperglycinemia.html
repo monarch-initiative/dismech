@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Metabolic Disease</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Inborn Error of Metabolism</span>
@@ -1937,6 +2110,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1992,6 +2168,14 @@
             <div class="stat-item">
                 <div class="stat-value">12</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">9</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2247,7 +2431,7 @@
                 <span class="card-count">5</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-glycine-cleavage-system-dysfunction">
                 <div class="item-name">Glycine cleavage system dysfunction</div>
                 
                 <div class="item-desc">Pathogenic variants in glycine cleavage system genes reduce mitochondrial glycine-cleavage enzymatic function.
@@ -2310,6 +2494,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2364,7 +2549,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-and-cns-glycine-accumulation">
                 <div class="item-name">Systemic and CNS glycine accumulation</div>
                 
                 <div class="item-desc">Deficient glycine cleavage system activity leads to systemic and CNS glycine accumulation. In a Chinese cohort of 20 NKH patients, median CSF glycine was 135.2 umol/L and median plasma glycine was 998.2 umol/L, with a median CSF/plasma glycine ratio of 0.16. The diagnostic hallmark is a CSF-to-plasma glycine ratio greater than 0.08 (normal less than 0.04).
@@ -2401,6 +2586,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2460,7 +2646,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-serine-glycine-one-carbon-metabolic-disruption">
                 <div class="item-name">Serine-glycine-one-carbon metabolic disruption</div>
                 
                 <div class="item-desc">The GCS provides one-carbon units for nucleotide synthesis, phospholipid metabolism, and epigenetic remodeling via the SGOC axis. GLDC deficiency causes metabolic rewiring with impaired mitochondrial one-carbon enzymes and compensatory cytosolic pathway upregulation. Patient-derived iPSC models show a nearly 50% decline in nucleotide metabolite levels, reduced glutathione, and altered cell cycle proliferation, suggesting that metabolic disruption extends well beyond glycine excitotoxicity.
@@ -2512,6 +2698,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2546,7 +2733,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-nmda-receptor-dysregulation-and-neurotransmission-imbalance">
                 <div class="item-name">NMDA receptor dysregulation and neurotransmission imbalance</div>
                 
                 <div class="item-desc">Excess glycine acts as an endogenous agonist at the NMDA receptor co-agonist site, potentially leading to receptor overactivation, seizures, and neuronal apoptosis. However, d-serine, an alternative NMDA co-agonist, is markedly decreased in NKH, which may result in underactivation of these receptors. A 2024 expert reassessment highlights that direct experimental evidence for net NMDA over- versus under-activation has not been established, and glycine also acts on inhibitory strychnine-sensitive glycine receptors in brainstem and spinal cord, contributing to respiratory and motor phenotypes.
@@ -2598,6 +2785,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2632,7 +2820,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-glial-differentiation-and-variant-nkh-via-lipoylation-defects">
                 <div class="item-name">Altered glial differentiation and variant NKH via lipoylation defects</div>
                 
                 <div class="item-desc">GLDC-deficient iPSC-derived neural progenitors shift toward a heterogeneous astrocyte lineage with increased radial glial markers and unexpected neuronal marker expression, linking metabolic defects to altered neurodevelopment. Additionally, pathogenic GCSH variants cause combined NKH and lipoate deficiency by disrupting lipoylation of mitochondrial dehydrogenases (PDH, 2-KGDH), expanding disease biology to bioenergetic failure.
@@ -2679,6 +2867,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2751,18 +2940,19 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Nonketotic Hyperglycinemia</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Altered glial differentiation and variant NKH via lipoylation defects\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GLDC-deficient iPSC-derived neural progenitors shift toward a heterogeneous astrocyte lineage with increased radial glial markers and unexpected neuronal marker expression, linking metabolic defects to altered neurodevelopment. Additionally, pathogenic GCSH variants cause combined NKH and lipoate deficiency by disrupting lipoylation of mitochondrial dehydrogenases (PDH, 2-KGDH), expanding disease biology to bioenergetic failure.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"radial glial cell\"], \"biological_processes\": [\"astrocyte differentiation\", \"protein lipoylation\"]}}, {\"id\": \"Glycine cleavage system dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants in glycine cleavage system genes reduce mitochondrial glycine-cleavage enzymatic function.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"glycine catabolic process\", \"amino acid metabolic process\"], \"genes\": [\"GLDC\", \"AMT\", \"GCSH\"]}}, {\"id\": \"NMDA receptor dysregulation and neurotransmission imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess glycine acts as an endogenous agonist at the NMDA receptor co-agonist site, potentially leading to receptor overactivation, seizures, and neuronal apoptosis. However, d-serine, an alternative NMDA co-agonist, is markedly decreased in NKH, which may result in underactivation of these receptors. A 2024 expert reassessment highlights that direct experimental evidence for net NMDA over- versus under-activation has not been established, and glycine also acts on inhibitory strychnine-sensitive glycine receptors in brainstem and spinal cord, contributing to respiratory and motor phenotypes.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"glutamate receptor signaling pathway\", \"synaptic transmission, glycinergic\"]}}, {\"id\": \"Serine-glycine-one-carbon metabolic disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The GCS provides one-carbon units for nucleotide synthesis, phospholipid metabolism, and epigenetic remodeling via the SGOC axis. GLDC deficiency causes metabolic rewiring with impaired mitochondrial one-carbon enzymes and compensatory cytosolic pathway upregulation. Patient-derived iPSC models show a nearly 50% decline in nucleotide metabolite levels, reduced glutathione, and altered cell cycle proliferation, suggesting that metabolic disruption extends well beyond glycine excitotoxicity.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"astrocyte\"], \"biological_processes\": [\"one-carbon metabolic process\", \"folic acid metabolic process\"]}}, {\"id\": \"Systemic and CNS glycine accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficient glycine cleavage system activity leads to systemic and CNS glycine accumulation. In a Chinese cohort of 20 NKH patients, median CSF glycine was 135.2 umol/L and median plasma glycine was 998.2 umol/L, with a median CSF/plasma glycine ratio of 0.16. The diagnostic hallmark is a CSF-to-plasma glycine ratio greater than 0.08 (normal less than 0.04).\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"amino acid metabolic process\"]}}], \"edges\": [{\"source\": \"Glycine cleavage system dysfunction\", \"target\": \"Systemic and CNS glycine accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic and CNS glycine accumulation\", \"target\": \"Serine-glycine-one-carbon metabolic disruption\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Serine-glycine-one-carbon metabolic disruption\", \"target\": \"NMDA receptor dysregulation and neurotransmission imbalance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Serine-glycine-one-carbon metabolic disruption\", \"target\": \"Altered glial differentiation and variant NKH via lipoylation defects\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AMT pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"AMT encodes aminomethyltransferase (T-protein) of the glycine cleavage system. AMT variants account for approximately 20-35% of NKH cases. In a Chinese cohort, AMT variants were found in 35% (7/20) of patients.\\n\"}, {\"id\": \"Altered glial differentiation and variant NKH via lipoylation defects\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GLDC-deficient iPSC-derived neural progenitors shift toward a heterogeneous astrocyte lineage with increased radial glial markers and unexpected neuronal marker expression, linking metabolic defects to altered neurodevelopment. Additionally, pathogenic GCSH variants cause combined NKH and lipoate deficiency by disrupting lipoylation of mitochondrial dehydrogenases (PDH, 2-KGDH), expanding disease biology to bioenergetic failure.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"radial glial cell\"], \"biological_processes\": [\"astrocyte differentiation\", \"protein lipoylation\"]}}, {\"id\": \"GCSH pathogenic variants (variant NKH)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"GCSH encodes the H-protein, a multifunctional lipoyl carrier protein with dual roles in glycine cleavage and mitochondrial lipoylation. Pathogenic GCSH variants cause combined NKH and lipoate deficiency (variant NKH) with a broad clinical spectrum from neonatal fatal glycine encephalopathy to attenuated phenotypes with developmental delay. Most variants produce a hypomorphic effect on both protein lipoylation and glycine metabolism.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"GLDC pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"GLDC encodes glycine decarboxylase (P-protein) of the glycine cleavage system. GLDC variants account for approximately 65-80% of classical NKH cases. In a Chinese cohort, GLDC variants were found in 65% (13/20) of patients. Novel compound heterozygous variants continue to expand the mutational spectrum.\\n\"}, {\"id\": \"Glycine cleavage system dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants in glycine cleavage system genes reduce mitochondrial glycine-cleavage enzymatic function.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"glycine catabolic process\", \"amino acid metabolic process\"], \"genes\": [\"GLDC\", \"AMT\", \"GCSH\"]}}, {\"id\": \"Glycine cleavage system gene variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"variant_count\": 3}}, {\"id\": \"NMDA receptor dysregulation and neurotransmission imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess glycine acts as an endogenous agonist at the NMDA receptor co-agonist site, potentially leading to receptor overactivation, seizures, and neuronal apoptosis. However, d-serine, an alternative NMDA co-agonist, is markedly decreased in NKH, which may result in underactivation of these receptors. A 2024 expert reassessment highlights that direct experimental evidence for net NMDA over- versus under-activation has not been established, and glycine also acts on inhibitory strychnine-sensitive glycine receptors in brainstem and spinal cord, contributing to respiratory and motor phenotypes.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"glutamate receptor signaling pathway\", \"synaptic transmission, glycinergic\"]}}, {\"id\": \"Serine-glycine-one-carbon metabolic disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The GCS provides one-carbon units for nucleotide synthesis, phospholipid metabolism, and epigenetic remodeling via the SGOC axis. GLDC deficiency causes metabolic rewiring with impaired mitochondrial one-carbon enzymes and compensatory cytosolic pathway upregulation. Patient-derived iPSC models show a nearly 50% decline in nucleotide metabolite levels, reduced glutathione, and altered cell cycle proliferation, suggesting that metabolic disruption extends well beyond glycine excitotoxicity.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"astrocyte\"], \"biological_processes\": [\"one-carbon metabolic process\", \"folic acid metabolic process\"]}}, {\"id\": \"Systemic and CNS glycine accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficient glycine cleavage system activity leads to systemic and CNS glycine accumulation. In a Chinese cohort of 20 NKH patients, median CSF glycine was 135.2 umol/L and median plasma glycine was 998.2 umol/L, with a median CSF/plasma glycine ratio of 0.16. The diagnostic hallmark is a CSF-to-plasma glycine ratio greater than 0.08 (normal less than 0.04).\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"amino acid metabolic process\"]}}], \"edges\": [{\"source\": \"Glycine cleavage system dysfunction\", \"target\": \"Systemic and CNS glycine accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic and CNS glycine accumulation\", \"target\": \"Serine-glycine-one-carbon metabolic disruption\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Serine-glycine-one-carbon metabolic disruption\", \"target\": \"NMDA receptor dysregulation and neurotransmission imbalance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Serine-glycine-one-carbon metabolic disruption\", \"target\": \"Altered glial differentiation and variant NKH via lipoylation defects\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"GLDC pathogenic variants\", \"target\": \"Glycine cleavage system gene variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"AMT pathogenic variants\", \"target\": \"Glycine cleavage system gene variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"GCSH pathogenic variants (variant NKH)\", \"target\": \"Glycine cleavage system gene variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4327,6 +4517,7 @@ has_subtypes:
     &#39;
   evidence:
   - reference: PMID:39206282
+    reference_title: &#34;Natural history and outcome of nonketotic hyperglycinemia in China.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Prognosis information was available for 18 cases: nine patients died, eight in the neonatal period.&#34;
@@ -4338,6 +4529,7 @@ has_subtypes:
     &#39;
   evidence:
   - reference: PMID:38589924
+    reference_title: &#34;The behavioral phenotype of children and adolescents with attenuated non-ketotic hyperglycinemia, intermediate to good subtype.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Twelve children, age 6 to 21y, functioned at mild to severe intellectual disability levels.
@@ -4371,11 +4563,13 @@ pathophysiology:
       label: amino acid metabolic process
   evidence:
   - reference: PMID:39206282
+    reference_title: &#34;Natural history and outcome of nonketotic hyperglycinemia in China.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Genetic analyses revealed four new variations and GLDC, AMT gene abnormalities in 13 (65%), 7 (35%) case, respectively.
     explanation: Supports upstream genetic disruption of glycine cleavage system components in NKH.
   - reference: PMID:36190515
+    reference_title: &#34;Pathogenic variants in GCSH encoding the moonlighting H-protein cause combined nonketotic hyperglycinemia and lipoate deficiency.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: The H-protein encoded by GCSH has a dual role in protein lipoylation required for bioenergetic enzymes including
@@ -4403,12 +4597,14 @@ pathophysiology:
       label: hepatocyte
   evidence:
   - reference: PMID:39206282
+    reference_title: &#34;Natural history and outcome of nonketotic hyperglycinemia in China.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Median values of cerebrospinal fluid (CSF) glycine levels, plasma glycine levels and CSF/plasma glycine ratios
       were135.2 (range, 6.3-546.3) μmol/L, 998.2 (range,75-3,084) μmol/L, 0.16 (range, 0.03-0.60) respectively.
     explanation: Provides quantitative biochemical data on glycine accumulation in NKH patients.
   - reference: PMID:38474060
+    reference_title: &#34;Metabolic Rewiring and Altered Glial Differentiation in an iPSC-Derived Astrocyte Model Derived from a Nonketotic Hyperglycinemia Patient.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: The pathophysiology of nonketotic hyperglycinemia (NKH), a rare neuro-metabolic disorder associated with severe
@@ -4441,6 +4637,7 @@ pathophysiology:
       label: astrocyte
   evidence:
   - reference: PMID:38474060
+    reference_title: &#34;Metabolic Rewiring and Altered Glial Differentiation in an iPSC-Derived Astrocyte Model Derived from a Nonketotic Hyperglycinemia Patient.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: it underwent a metabolic switch to an altered serine-glycine-one-carbon metabolism with a coordinated cell growth
@@ -4473,6 +4670,7 @@ pathophysiology:
       label: neuron
   evidence:
   - reference: PMID:39423724
+    reference_title: &#34;The role of NMDA-receptor type glutamatergic antagonists dextromethorphan or ketamine in the treatment of nonketotic hyperglycinemia: A critical reassessment.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The recognition of glycine as an endogenous ligand at the allosteric activation site of the NMDA-type glutamatergic
@@ -4502,12 +4700,14 @@ pathophysiology:
       label: radial glial cell
   evidence:
   - reference: PMID:38474060
+    reference_title: &#34;Metabolic Rewiring and Altered Glial Differentiation in an iPSC-Derived Astrocyte Model Derived from a Nonketotic Hyperglycinemia Patient.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: GLDC-deficient NPCs had shifted towards a more heterogeneous astrocyte lineage with increased expression of the
       radial glial markers
     explanation: Demonstrates altered glial differentiation in NKH cell models.
   - reference: PMID:36190515
+    reference_title: &#34;Pathogenic variants in GCSH encoding the moonlighting H-protein cause combined nonketotic hyperglycinemia and lipoate deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The H-protein encoded by GCSH has a dual role in protein lipoylation required for bioenergetic enzymes including
@@ -4529,6 +4729,7 @@ phenotypes:
       label: Seizure
   evidence:
   - reference: PMID:39206282
+    reference_title: &#34;Natural history and outcome of nonketotic hyperglycinemia in China.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Patients showed up for admission with a history of seizures (15/20), lethargy (14/20), hypotonia (11/20), apnea
@@ -4547,6 +4748,7 @@ phenotypes:
       label: Hypotonia
   evidence:
   - reference: PMID:39206282
+    reference_title: &#34;Natural history and outcome of nonketotic hyperglycinemia in China.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Patients showed up for admission with a history of seizures (15/20), lethargy (14/20), hypotonia (11/20), apnea
@@ -4565,6 +4767,7 @@ phenotypes:
       label: Lethargy
   evidence:
   - reference: PMID:39206282
+    reference_title: &#34;Natural history and outcome of nonketotic hyperglycinemia in China.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Patients showed up for admission with a history of seizures (15/20), lethargy (14/20), hypotonia (11/20), apnea
@@ -4583,6 +4786,7 @@ phenotypes:
       label: Apnea
   evidence:
   - reference: PMID:39206282
+    reference_title: &#34;Natural history and outcome of nonketotic hyperglycinemia in China.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Patients showed up for admission with a history of seizures (15/20), lethargy (14/20), hypotonia (11/20), apnea
@@ -4601,11 +4805,13 @@ phenotypes:
       label: Global developmental delay
   evidence:
   - reference: PMID:39206282
+    reference_title: &#34;Natural history and outcome of nonketotic hyperglycinemia in China.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Among the nine survivors, varying developmental disorders were observed.
     explanation: Developmental delay documented in NKH survivors.
   - reference: PMID:38589924
+    reference_title: &#34;The behavioral phenotype of children and adolescents with attenuated non-ketotic hyperglycinemia, intermediate to good subtype.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Twelve children, age 6 to 21y, functioned at mild to severe intellectual disability levels.
@@ -4623,6 +4829,7 @@ phenotypes:
       label: Intellectual disability
   evidence:
   - reference: PMID:38589924
+    reference_title: &#34;The behavioral phenotype of children and adolescents with attenuated non-ketotic hyperglycinemia, intermediate to good subtype.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Twelve children, age 6 to 21y, functioned at mild to severe intellectual disability levels.
@@ -4640,6 +4847,7 @@ phenotypes:
       label: Agenesis of corpus callosum
   evidence:
   - reference: PMID:39206282
+    reference_title: &#34;Natural history and outcome of nonketotic hyperglycinemia in China.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: dysplasia of the corpus callosum (5/14)
@@ -4657,6 +4865,7 @@ phenotypes:
       label: Abnormal cerebral white matter morphology
   evidence:
   - reference: PMID:39206282
+    reference_title: &#34;Natural history and outcome of nonketotic hyperglycinemia in China.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: white matter abnormalities (3/14)
@@ -4674,6 +4883,7 @@ phenotypes:
       label: EEG with burst suppression
   evidence:
   - reference: PMID:39206282
+    reference_title: &#34;Natural history and outcome of nonketotic hyperglycinemia in China.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: EEG evaluations showed anomalies such as burst suppression (4/8) and hypsarrhythmia and/or epileptic activity
@@ -4693,11 +4903,13 @@ phenotypes:
       label: Attention deficit hyperactivity disorder
   evidence:
   - reference: PMID:38589924
+    reference_title: &#34;The behavioral phenotype of children and adolescents with attenuated non-ketotic hyperglycinemia, intermediate to good subtype.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Maladaptive behaviors with ADHD-like characteristics were present in more than two thirds of children.
     explanation: Documents high ADHD-like behavior frequency in attenuated NKH.
   - reference: PMID:38589924
+    reference_title: &#34;The behavioral phenotype of children and adolescents with attenuated non-ketotic hyperglycinemia, intermediate to good subtype.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Maladaptive behaviors were significantly related to female sex and to taking dextromethorphan, but no significant
@@ -4716,6 +4928,7 @@ phenotypes:
       label: Neonatal respiratory distress
   evidence:
   - reference: PMID:39206282
+    reference_title: &#34;Natural history and outcome of nonketotic hyperglycinemia in China.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Patients showed up for admission with a history of seizures (15/20), lethargy (14/20), hypotonia (11/20), apnea
@@ -4742,6 +4955,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:39206282
+    reference_title: &#34;Natural history and outcome of nonketotic hyperglycinemia in China.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Median values of cerebrospinal fluid (CSF) glycine levels, plasma glycine levels and CSF/plasma glycine ratios
@@ -4756,6 +4970,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:39206282
+    reference_title: &#34;Natural history and outcome of nonketotic hyperglycinemia in China.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Median values of cerebrospinal fluid (CSF) glycine levels, plasma glycine levels and CSF/plasma glycine ratios
@@ -4770,6 +4985,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:39206282
+    reference_title: &#34;Natural history and outcome of nonketotic hyperglycinemia in China.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Median values of cerebrospinal fluid (CSF) glycine levels, plasma glycine levels and CSF/plasma glycine ratios
@@ -4784,6 +5000,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:39423724
+    reference_title: &#34;The role of NMDA-receptor type glutamatergic antagonists dextromethorphan or ketamine in the treatment of nonketotic hyperglycinemia: A critical reassessment.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: it was recognized that these same receptors have an alternative endogenous activator d-serine, which is markedly
@@ -4797,6 +5014,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:38474060
+    reference_title: &#34;Metabolic Rewiring and Altered Glial Differentiation in an iPSC-Derived Astrocyte Model Derived from a Nonketotic Hyperglycinemia Patient.&#34;
     supports: PARTIAL
     evidence_source: IN_VITRO
     snippet: it underwent a metabolic switch to an altered serine-glycine-one-carbon metabolism with a coordinated cell growth
@@ -4811,6 +5029,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:38474060
+    reference_title: &#34;Metabolic Rewiring and Altered Glial Differentiation in an iPSC-Derived Astrocyte Model Derived from a Nonketotic Hyperglycinemia Patient.&#34;
     supports: PARTIAL
     evidence_source: IN_VITRO
     snippet: it underwent a metabolic switch to an altered serine-glycine-one-carbon metabolism with a coordinated cell growth
@@ -4823,11 +5042,13 @@ genetic:
   - name: Autosomal recessive
     evidence:
     - reference: PMID:39206282
+      reference_title: &#34;Natural history and outcome of nonketotic hyperglycinemia in China.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: Nonketotic hyperglycinemia (NKH) is a rare, life-threatening genetic disorder.
       explanation: NKH is established as an autosomal recessive genetic disorder.
     - reference: PMID:40225406
+      reference_title: &#34;The precise molecular diagnosis of novel GLDC compound heterozygous variants highlights the benefits for a Chinese family with nonketotic hyperglycinemia.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: Glycine encephalopathy, also known as nonketotic hyperglycinemia (NHK), is a rare inherited disease caused
@@ -4854,6 +5075,7 @@ genetic:
       &#39;
     evidence:
     - reference: PMID:36190515
+      reference_title: &#34;Pathogenic variants in GCSH encoding the moonlighting H-protein cause combined nonketotic hyperglycinemia and lipoate deficiency.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: we report six patients with biallelic pathogenic variants in GCSH and a broad clinical spectrum ranging from
@@ -4861,6 +5083,7 @@ genetic:
         epilepsy and variable movement problems.
       explanation: Documents pathogenic GCSH variants with broad clinical spectrum.
     - reference: PMID:36190515
+      reference_title: &#34;Pathogenic variants in GCSH encoding the moonlighting H-protein cause combined nonketotic hyperglycinemia and lipoate deficiency.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: most variants identified in our cohort produced a hypomorphic effect on both mitochondrial activities, protein
@@ -4888,12 +5111,14 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:36471344
+    reference_title: &#34;Ketogenic diet as a glycine lowering therapy in nonketotic hyperglycinemia and impact on brain glycine levels.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Nonketotic hyperglycinemia (NKH) is a severe neurometabolic disorder characterized by increased glycine levels.
       Current glycine reduction therapy uses high doses of sodium benzoate.
     explanation: Establishes sodium benzoate as standard glycine reduction therapy.
   - reference: PMID:36471344
+    reference_title: &#34;Ketogenic diet as a glycine lowering therapy in nonketotic hyperglycinemia and impact on brain glycine levels.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Average plasma glycine levels were significantly lower with KD compared to benzoate monotherapy by on average
@@ -4912,12 +5137,14 @@ treatments:
       label: dietary intervention
   evidence:
   - reference: PMID:36471344
+    reference_title: &#34;Ketogenic diet as a glycine lowering therapy in nonketotic hyperglycinemia and impact on brain glycine levels.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Average plasma glycine levels were significantly lower with KD compared to benzoate monotherapy by on average
       28%.
     explanation: Demonstrates KD effectiveness for glycine reduction.
   - reference: PMID:36471344
+    reference_title: &#34;Ketogenic diet as a glycine lowering therapy in nonketotic hyperglycinemia and impact on brain glycine levels.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: KD is an effective glycine reduction method in NKH, and may provide a more consistent reduction in plasma glycine
@@ -4937,18 +5164,21 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:39423724
+    reference_title: &#34;The role of NMDA-receptor type glutamatergic antagonists dextromethorphan or ketamine in the treatment of nonketotic hyperglycinemia: A critical reassessment.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: Clear clinical evidence of an added therapeutic benefit beyond the use of glycine reduction strategies from use
       of either dextromethorphan or ketamine in nonketotic hyperglycinemia has not been documented.
     explanation: Expert reassessment finds no clear evidence of therapeutic benefit.
   - reference: PMID:39423724
+    reference_title: &#34;The role of NMDA-receptor type glutamatergic antagonists dextromethorphan or ketamine in the treatment of nonketotic hyperglycinemia: A critical reassessment.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: The systematic use of these NMDA-type receptor antagonists in nonketotic hyperglycinemia should be reevaluated,
       particularly in light of emerging potential adverse effects.
     explanation: Recommends reevaluation of NMDA antagonist use due to potential adverse effects.
   - reference: PMID:38589924
+    reference_title: &#34;The behavioral phenotype of children and adolescents with attenuated non-ketotic hyperglycinemia, intermediate to good subtype.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: Maladaptive behaviors were significantly related to female sex and to taking dextromethorphan, but no significant
@@ -4967,6 +5197,7 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:39206282
+    reference_title: &#34;Natural history and outcome of nonketotic hyperglycinemia in China.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: Patients showed up for admission with a history of seizures (15/20)
@@ -4996,6 +5227,7 @@ treatments:
       label: genetic counseling
   evidence:
   - reference: PMID:40225406
+    reference_title: &#34;The precise molecular diagnosis of novel GLDC compound heterozygous variants highlights the benefits for a Chinese family with nonketotic hyperglycinemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: These findings highlight the pathogenic nature of a novel synonymous mutation c.1023G &gt; A, expand the genetic
@@ -5011,6 +5243,7 @@ diagnosis:
     &#39;
   evidence:
   - reference: PMID:39206282
+    reference_title: &#34;Natural history and outcome of nonketotic hyperglycinemia in China.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: NKH diagnosis should be considered for neonates presenting specific symptoms. The present survey provides clinical

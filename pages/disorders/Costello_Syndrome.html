@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,18 +2093,24 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 18</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">RASopathies</span>
                 
             </div>
             
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; opacity: 0.95; position: relative;">
-                Costello syndrome is a RASopathy caused by heterozygous germline gain-of-function mutations in HRAS, characterized by failure to thrive in infancy, distinctive coarse facial features, intellectual disability, cardiac abnormalities (hypertrophic cardiomyopathy, arrhythmias), skeletal abnormalities (joint laxity, ulnar deviation), and a predisposition to malignancies (rhabdomyosarcoma, neuroblastoma, bladder carcinoma). The syndrome results from constitutive activation of the RAS-MAPK signaling pathway.
+                Costello syndrome is a RASopathy caused by heterozygous germline gain-of-function mutations in HRAS, characterized by failure to thrive in infancy, distinctive coarse facial features, intellectual disability, cardiac abnormalities (hypertrophic cardiomyopathy, arrhythmias), skeletal abnormalities (joint laxity, ulnar deviation), and a predisposition to malignancies (rhabdomyosarcoma, neuroblastoma, bladder carcinoma). The syndrome results from constitutive activation of the RAS-MAPK signaling pathway, with additional evidence for altered mitochondrial proteostasis, defective oxidative phosphorylation, and broader bioenergetic dysfunction in Costello syndrome model systems.
 
             </p>
             
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1976,7 +2152,7 @@
             
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
-                <div class="stat-value">2</div>
+                <div class="stat-value">9</div>
                 <div class="stat-label">Pathophysiology</div>
             </div>
             </a>
@@ -1992,6 +2168,14 @@
             <div class="stat-item">
                 <div class="stat-value">10</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">18</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2018,28 +2202,36 @@
             </div>
             
             
+            <a class="stat-link" href="#differentials">
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Differentials</div>
             </div>
+            </a>
             
             
+            <a class="stat-link" href="#datasets">
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Datasets</div>
             </div>
+            </a>
             
             
+            <a class="stat-link" href="#trials">
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Trials</div>
             </div>
+            </a>
             
             
+            <a class="stat-link" href="#models">
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Models</div>
             </div>
+            </a>
             
             
         </div>
@@ -2066,17 +2258,105 @@
                 <div class="item-name">
                     Autosomal Dominant
                     
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/HP_0000006" target="_blank">
+                            HP:0000006
+                        </a>
+                    </span>
+                    
                 </div>
                 
-                <div class="item-desc">Autosomal dominant inheritance. Nearly all cases arise de novo due to severe phenotype limiting reproductive fitness. Advanced paternal age is a risk factor as mutations arise predominantly in the paternal germline.
+                <div class="item-desc">Autosomal dominant inheritance. Nearly all cases arise de novo due to severe phenotype limiting reproductive fitness, and the pathogenic variant arises predominantly in the paternal germline.
 </div>
                 
                 
     
     
+    <div class="item-meta">
+        
+        <span class="tag tag-classification">
+            Autosomal dominant inheritance
+        </span>
+        
+        
+        
+        
+        
+    </div>
+    
     
     
                 
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301680" target="_blank">PMID:20301680</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"GENETIC COUNSELING: Costello syndrome is an autosomal dominant disorder typically caused by a de novo pathogenic variant."</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews directly supports autosomal dominant inheritance with predominant de novo occurrence in Costello syndrome.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16443854" target="_blank">PMID:16443854</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Analysis of parental DNA samples was possible in 16 cases for both parents and in three cases for one parent, and confirmed the mutations as de novo in all of these cases."</div>
+                
+                
+                <div class="evidence-explanation">This cohort study provides direct human evidence that Costello syndrome HRAS mutations are usually de novo.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21438134" target="_blank">PMID:21438134</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"De novo origin of the missense mutation was documented in eight families, and occurred in the paternal germline in all five informative trios."</div>
+                
+                
+                <div class="evidence-explanation">This Costello syndrome cohort provides direct evidence for paternal germline bias among informative de novo HRAS cases.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
             </div>
@@ -2096,27 +2376,228 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">9</span>
             </div>
             
-            <div class="item-box pathophys-box">
-                <div class="item-name">Constitutive RAS-MAPK Activation</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-germline-hras-gain-of-function-mutation">
+                <div class="item-name">Germline HRAS gain-of-function mutation</div>
                 
-                <div class="item-desc">HRAS mutations (most commonly G12S, G12A, G13C) cause constitutive activation of the RAS protein, leading to enhanced and prolonged signaling through the MAPK/ERK pathway. This affects cell proliferation, differentiation, and survival in multiple tissues.
+                <div class="item-desc">Heterozygous germline activating variants in HRAS initiate Costello syndrome and create the constitutive signaling state that drives its multisystem phenotype.
+</div>
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16443854" target="_blank">PMID:16443854</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"These results confirm that CS is caused, in most cases, by heterozygous missense mutations in the proto-oncogene HRAS."</div>
+                
+                
+                <div class="evidence-explanation">This cohort study establishes germline HRAS mutation as the initiating lesion in Costello syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-hras-signaling">
+                <div class="item-name">Constitutive HRAS signaling</div>
+                
+                <div class="item-desc">Mutant HRAS remains aberrantly active and persistently engages downstream Ras effector programs, creating a shared upstream driver for cardiac, metabolic, connective tissue, developmental, and oncogenic abnormalities.
+</div>
+                
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        Ras protein signal transduction
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0007265" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+    
+    
+                    
+                    <span class="tag tag-bio">
+                        MAPK cascade
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35230976" target="_blank">PMID:35230976</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Germline mutations that activate genes in the canonical RAS/MAPK signaling pathway are responsible for rare human developmental disorders known as RASopathies."</div>
+                
+                
+                <div class="evidence-explanation">This mixed-model study supports pathway activation as the shared upstream pathogenic framework for Costello syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-mitochondrial-bioenergetic-dysfunction">
+                <div class="item-name">Cardiac mitochondrial bioenergetic dysfunction</div>
+                
+                <div class="item-desc">Costello syndrome models show impaired mitochondrial proteostasis and oxidative phosphorylation in cardiac tissue, indicating that the disease is not solely a surface signaling disorder but also a bioenergetic one.
 </div>
                 
                 
                 <div class="item-meta">
                     
                     <span class="tag tag-cell">
-                        Fibroblast
+                        cardiomyocyte
                         
-                        <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="linkout">link</a>
+                        <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="linkout">link</a>
                         
                     </span>
                     
     
     
+                    
+                </div>
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        oxidative phosphorylation
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35230976" target="_blank">PMID:35230976</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The findings revealed alteration of mitochondrial proteostasis and defective oxidative phosphorylation in the heart and skeletal muscle of CS mice that were also found in the cell models of the disease. The underpinning mechanisms involved the inhibition of the AMPK signaling pathway by mutant..."</div>
+                
+                
+                <div class="evidence-explanation">This Asta-linked study directly supports a discrete cardiac and muscular bioenergetic mechanism downstream of mutant HRAS.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-atrial-cardiomyocyte-pacemaker-nodal-transcriptional-reprogramming">
+                <div class="item-name">Atrial cardiomyocyte pacemaker-nodal transcriptional reprogramming</div>
+                
+                <div class="item-desc">HRAS-mutant atrial-like cardiomyocytes acquire a pacemaker-nodal-like gene expression program, including increased ISL1, TBX3, and TBX18 expression, shifting atrial cells toward an arrhythmogenic identity state.
+</div>
+                
+                
+                <div class="item-meta">
                     
                     <span class="tag tag-cell">
                         Atrial Cardiomyocyte
@@ -2133,39 +2614,6 @@
                 
                 
                 
-                <div class="item-meta">
-                    
-                    <span class="tag tag-bio">
-                        RAS Signaling
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0007265" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-    
-    
-                    
-                    <span class="tag tag-bio">
-                        MAPK Cascade
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-    
-    
-                    
-                    <span class="tag tag-bio">
-                        Cell Proliferation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-    
-    
-                    
-                </div>
                 
                 
                 
@@ -2191,10 +2639,10 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"CS-associated gain-of-function HRASG12 mutations in induced pluripotent stem cells-derived ACMs trigger transcriptional changes associated with enhanced automaticity and arrhythmic activity consistent with multifocal atrial tachycardia."</div>
+                <div class="evidence-snippet">"Mutant ACMs demonstrated elevated gene expression (ie, ISL1, TBX3, TBX18) related to intracellular calcium homeostasis, heart rate, RAS signaling, and induction of pacemaker-nodal-like transcriptional programming."</div>
                 
                 
-                <div class="evidence-explanation">iPSC-derived atrial cardiomyocyte model demonstrates that HRAS mutations cause transcriptional reprogramming toward pacemaker-nodal phenotype with increased automaticity, providing mechanistic basis for arrhythmias.</div>
+                <div class="evidence-explanation">This human iPSC-derived atrial cardiomyocyte model directly supports a discrete transcriptional reprogramming step in Costello syndrome arrhythmogenesis.</div>
                 
             </div>
             
@@ -2205,22 +2653,19 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
-                <div class="item-name">Tumor Predisposition</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-enhanced-automaticity-and-funny-current-in-atrial-cardiomyocytes">
+                <div class="item-name">Enhanced automaticity and funny current in atrial cardiomyocytes</div>
                 
-                <div class="item-desc">The same activating HRAS mutations that cause Costello syndrome are found as somatic mutations in various cancers. Germline activation creates a predisposition to embryonal tumors, particularly rhabdomyosarcoma.
+                <div class="item-desc">Reprogrammed HRAS-mutant atrial cardiomyocytes beat faster, contain more pacemaker-like cells, and show elevated funny current density, providing the proximate electrophysiologic substrate for tachyarrhythmia.
 </div>
-                
-                
-                
                 
                 
                 <div class="item-meta">
                     
-                    <span class="tag tag-bio">
-                        Cell Cycle Regulation
+                    <span class="tag tag-cell">
+                        Atrial Cardiomyocyte
                         
-                        <a href="http://purl.obolibrary.org/obo/GO_0051726" target="_blank" class="linkout">link</a>
+                        <a href="http://purl.obolibrary.org/obo/CL_0002129" target="_blank" class="linkout">link</a>
                         
                     </span>
                     
@@ -2233,97 +2678,10 @@
                 
                 
                 
-    
-    
-            </div>
-            
-        </div>
-        
-
-        <!-- Histopathology -->
-        
-
-        <!-- Causal Graph (Pathograph) -->
-        
-
-        <!-- Phenotypes -->
-        
-        <div class="card" id="phenotypes">
-            <div class="card-header">
-                <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
-                <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">10</span>
-            </div>
-            
-            
-            <div class="pheno-toc">
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(2)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(1)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Integument<span class="pill-count">(1)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Limbs<span class="pill-count">(1)</span></button>
-                
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(1)</span></button>
-                
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(1)</span></button>
-                
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Growth<span class="pill-count">(2)</span></button>
-                
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Neoplasm<span class="pill-count">(1)</span></button>
-                
-                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
-            </div>
-            
-            
-            <details class="phenotype-category-group" id="pheno-cat-1">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Cardiovascular
-                    <span class="cat-count">2</span>
-                </summary>
-                
-                <div class="item-box phenotype-box">
-                    <div class="item-name">
-                        Hypertrophic Cardiomyopathy
-                        
-                        
-                        <span class="phenotype-id">
-                            <a href="http://purl.obolibrary.org/obo/HP_0001639" target="_blank">
-                                Hypertrophic cardiomyopathy
-                            </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001639)</span>
-                        </span>
-                        
-                    </div>
-                    
-                    
-                    
-    
-    
-                    
-    
-    
-                </div>
-                
-                <div class="item-box phenotype-box">
-                    <div class="item-name">
-                        Multifocal Atrial Tachycardia
-                        
-                        
-                        <span class="phenotype-id">
-                            <a href="http://purl.obolibrary.org/obo/HP_0005115" target="_blank">
-                                Supraventricular arrhythmia
-                            </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0005115)</span>
-                        </span>
-                        
-                    </div>
-                    
-                    
-                    
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2340,14 +2698,493 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Electrophysiological assessment revealed an increased number of pacemaker-like cells with elevated funny current densities among mutant ACMs."</div>
+                
+                
+                <div class="evidence-explanation">The iPSC atrial cardiomyocyte study identifies the electrophysiologic substrate immediately upstream of MAT.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-fibroblast-metabolic-rewiring-and-increased-energetic-expenditure">
+                <div class="item-name">Fibroblast metabolic rewiring and increased energetic expenditure</div>
+                
+                <div class="item-desc">Patient fibroblasts show HRAS-driven metabolic dysregulation with abnormal glucose transporter activation, accelerated glycolysis, increased fatty acid synthesis and storage, and accelerated autophagic flux, together consistent with increased resting energetic expenditure.
+</div>
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-cell">
+                        Fibroblast
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        glycolytic process
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0006096" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+    
+    
+                    
+                    <span class="tag tag-bio">
+                        autophagy
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+    
+    
+                    
+                    <span class="tag tag-bio">
+                        fatty acid biosynthetic process
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0006633" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34508588" target="_blank">PMID:34508588</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"In CS, poor weight gain and growth are not caused by low caloric intake. Here, we show that constitutive plasma membrane translocation and activation of the GLUT4 glucose transporter, via reactive oxygen species-dependent AMP-activated protein kinase α and p38 hyperactivation, occurs in primary..."</div>
+                
+                
+                <div class="evidence-explanation">This patient fibroblast study directly supports a distinct metabolic disease mechanism explaining the disproportionate growth failure of Costello syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-fibroblast-elastogenesis">
+                <div class="item-name">Impaired fibroblast elastogenesis</div>
+                
+                <div class="item-desc">Costello syndrome fibroblasts fail to assemble elastic fibers efficiently, consistent with a connective tissue mechanism involving reduced elastin deposition and abnormal extracellular matrix organization.
+</div>
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-cell">
+                        Fibroblast
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10712202" target="_blank">PMID:10712202</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"We found that impaired production of elastic fibers by these fibroblasts is associated with a functional deficiency of the 67-kD elastin-binding protein (EBP), which is normally required to chaperone tropoelastin through the secretory pathways and to its extracellular assembly."</div>
+                
+                
+                <div class="evidence-explanation">This patient skin fibroblast study supports a specific extracellular matrix defect that plausibly underlies connective tissue manifestations in Costello syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-neural-progenitor-development">
+                <div class="item-name">Dysregulated neural progenitor development</div>
+                
+                <div class="item-desc">HRAS activation alters the normal balance of neural progenitor expansion, cortical neuron production, and gliogenesis, providing a mechanistic basis for neurodevelopmental impairment.
+</div>
+                
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        neurogenesis
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0022008" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">
+        ↕ DYSREGULATED
+    </span>
+    
+    
+                    
+                    <span class="tag tag-bio">
+                        glial cell differentiation
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0010001" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">
+        ↕ DYSREGULATED
+    </span>
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31250618" target="_blank">PMID:31250618</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Induced pluripotent stem cells (iPSCs) derived from Costello syndrome showed increased production of cortical neurons associated with extended progenitor phase (Rooney et al., 2016)."</div>
+                
+                
+                <div class="evidence-explanation">This review cites disease-relevant iPSC evidence that Costello syndrome disrupts early cortical developmental programs.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31250618" target="_blank">PMID:31250618</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"During transition from neurogenesis to gliogenesis, Paquin et al. (2009) showed that variants found in Costello syndrome suppress neurogenesis but promote astrogenesis."</div>
+                
+                
+                <div class="evidence-explanation">This supports a second discrete developmental mechanism involving an abnormal neurogenesis-gliogenesis switch in Costello syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-tumor-predisposition">
+                <div class="item-name">Tumor Predisposition</div>
+                
+                <div class="item-desc">The same activating HRAS signaling architecture that causes developmental disease also creates susceptibility to embryonal and later-onset malignant neoplasms.
+</div>
+                
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        regulation of cell cycle
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0051726" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">
+        ↕ DYSREGULATED
+    </span>
+    
+    
+                    
+                    <span class="tag tag-bio">
+                        cell population proliferation
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301680" target="_blank">PMID:20301680</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Individuals with Costello syndrome have an approximately 15% lifetime risk for malignant tumors including rhabdomyosarcoma and neuroblastoma in young children and transitional cell carcinoma of the bladder in adolescents and young adults."</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews supports a dedicated neoplasia-predisposition branch within the Costello syndrome causal graph.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+        </div>
+        
+
+        <!-- Histopathology -->
+        
+
+        <!-- Causal Graph (Pathograph) -->
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
+                <h2 class="card-title">Pathograph</h2>
+            </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
+            
+            <div class="pathograph-container" id="pathograph">
+                <div class="pathograph-legend" id="pathograph-legend"></div>
+                <svg id="pathograph-svg" role="img">
+                    <title>Pathograph: causal mechanism network for Costello Syndrome</title>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
+                </svg>
+                <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
+            </div>
+            <script>
+            (function() {
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Atrial cardiomyocyte pacemaker-nodal transcriptional reprogramming\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HRAS-mutant atrial-like cardiomyocytes acquire a pacemaker-nodal-like gene expression program, including increased ISL1, TBX3, and TBX18 expression, shifting atrial cells toward an arrhythmogenic identity state.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Atrial Cardiomyocyte\"]}}, {\"id\": \"Cardiac mitochondrial bioenergetic dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Costello syndrome models show impaired mitochondrial proteostasis and oxidative phosphorylation in cardiac tissue, indicating that the disease is not solely a surface signaling disorder but also a bioenergetic one.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"oxidative phosphorylation\"]}}, {\"id\": \"Coarse Facial Features\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Distinctive craniofacial appearance with coarse features, full lips, large mouth, and depressed nasal bridge.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000280\"}}, {\"id\": \"Constitutive HRAS signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutant HRAS remains aberrantly active and persistently engages downstream Ras effector programs, creating a shared upstream driver for cardiac, metabolic, connective tissue, developmental, and oncogenic abnormalities.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Ras protein signal transduction\", \"MAPK cascade\"]}}, {\"id\": \"Dysregulated neural progenitor development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HRAS activation alters the normal balance of neural progenitor expansion, cortical neuron production, and gliogenesis, providing a mechanistic basis for neurodevelopmental impairment.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"neurogenesis\", \"glial cell differentiation\"]}}, {\"id\": \"Enhanced automaticity and funny current in atrial cardiomyocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reprogrammed HRAS-mutant atrial cardiomyocytes beat faster, contain more pacemaker-like cells, and show elevated funny current density, providing the proximate electrophysiologic substrate for tachyarrhythmia.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Atrial Cardiomyocyte\"]}}, {\"id\": \"Failure to Thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe feeding difficulties and failure to thrive in infancy, often requiring tube feeding.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Fibroblast metabolic rewiring and increased energetic expenditure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient fibroblasts show HRAS-driven metabolic dysregulation with abnormal glucose transporter activation, accelerated glycolysis, increased fatty acid synthesis and storage, and accelerated autophagic flux, together consistent with increased resting energetic expenditure.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Fibroblast\"], \"biological_processes\": [\"glycolytic process\", \"autophagy\", \"fatty acid biosynthetic process\"]}}, {\"id\": \"Germline HRAS gain-of-function mutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous germline activating variants in HRAS initiate Costello syndrome and create the constitutive signaling state that drives its multisystem phenotype.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"HRAS\"]}}, {\"id\": \"HRAS Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"HRAS\"], \"association\": \"Causative\"}}, {\"id\": \"Hypertrophic Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac involvement is common, and hypertrophic cardiomyopathy is a major cause of morbidity in Costello syndrome.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001639\"}}, {\"id\": \"Impaired fibroblast elastogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Costello syndrome fibroblasts fail to assemble elastic fibers efficiently, consistent with a connective tissue mechanism involving reduced elastin deposition and abnormal extracellular matrix organization.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Fibroblast\"]}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Variable intellectual disability, typically mild to moderate.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Joint Hypermobility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint laxity affecting multiple joints.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001382\"}}, {\"id\": \"Multifocal Atrial Tachycardia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"During early childhood, approximately 50% of patients develop multifocal atrial tachycardia (MAT), a treatment-resistant tachyarrhythmia caused by HRAS-driven pacemaker-nodal transcriptional reprogramming in atrial cardiomyocytes.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011701\"}}, {\"id\": \"Predisposition to Malignancy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased risk of malignancies including rhabdomyosarcoma, neuroblastoma, and bladder carcinoma. Lifetime cancer risk estimated at 15-17%.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002664\"}}, {\"id\": \"Short Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Postnatal growth deficiency leading to short stature.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Tumor Predisposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The same activating HRAS signaling architecture that causes developmental disease also creates susceptibility to embryonal and later-onset malignant neoplasms.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of cell cycle\", \"cell population proliferation\"]}}], \"edges\": [{\"source\": \"Germline HRAS gain-of-function mutation\", \"target\": \"Constitutive HRAS signaling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Constitutive HRAS signaling\", \"target\": \"Cardiac mitochondrial bioenergetic dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Constitutive HRAS signaling\", \"target\": \"Atrial cardiomyocyte pacemaker-nodal transcriptional reprogramming\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Constitutive HRAS signaling\", \"target\": \"Fibroblast metabolic rewiring and increased energetic expenditure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Constitutive HRAS signaling\", \"target\": \"Impaired fibroblast elastogenesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Constitutive HRAS signaling\", \"target\": \"Dysregulated neural progenitor development\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Constitutive HRAS signaling\", \"target\": \"Tumor Predisposition\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiac mitochondrial bioenergetic dysfunction\", \"target\": \"Hypertrophic Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Atrial cardiomyocyte pacemaker-nodal transcriptional reprogramming\", \"target\": \"Enhanced automaticity and funny current in atrial cardiomyocytes\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Enhanced automaticity and funny current in atrial cardiomyocytes\", \"target\": \"Multifocal Atrial Tachycardia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibroblast metabolic rewiring and increased energetic expenditure\", \"target\": \"Failure to Thrive\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibroblast metabolic rewiring and increased energetic expenditure\", \"target\": \"Short Stature\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired fibroblast elastogenesis\", \"target\": \"Coarse Facial Features\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired fibroblast elastogenesis\", \"target\": \"Joint Hypermobility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dysregulated neural progenitor development\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tumor Predisposition\", \"target\": \"Predisposition to Malignancy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"HRAS Mutations\", \"target\": \"Germline HRAS gain-of-function mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                renderPathograph("pathograph", graphData);
+            })();
+            </script>
+        </div>
+        
+
+        <!-- Phenotypes -->
+        
+        <div class="card" id="phenotypes">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
+                <h2 class="card-title">Phenotypes</h2>
+                <span class="card-count">10</span>
+            </div>
+            
+            
+            <div class="pheno-toc">
+                
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
+                
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(1)</span></button>
+                
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Integument<span class="pill-count">(1)</span></button>
+                
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Limbs<span class="pill-count">(1)</span></button>
+                
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(1)</span></button>
+                
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(1)</span></button>
+                
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Growth<span class="pill-count">(2)</span></button>
+                
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Neoplasm<span class="pill-count">(1)</span></button>
+                
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(1)</span></button>
+                
+                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
+            </div>
+            
+            
+            <details class="phenotype-category-group" id="pheno-cat-1">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Cardiovascular
+                    <span class="cat-count">1</span>
+                </summary>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Hypertrophic Cardiomyopathy
+                        
+                        <span class="phenotype-freq">FREQUENT</span>
+                        
+                        
+                        <span class="phenotype-id">
+                            <a href="http://purl.obolibrary.org/obo/HP_0001639" target="_blank">
+                                Hypertrophic cardiomyopathy
+                            </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001639)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12210337" target="_blank">PMID:12210337</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"During early childhood, 50% of patients develop multifocal atrial tachycardia, a treatment-resistant tachyarrhythmia of unknown pathogenesis."</div>
+                <div class="evidence-snippet">"Cardiac hypertrophy was reported in 34%, which involved the left ventricle in 50% and was usually consistent with classic hypertrophic cardiomyopathy (HCM)."</div>
                 
                 
-                <div class="evidence-explanation">Establishes 50% prevalence of MAT in Costello syndrome patients, occurring in early childhood as a treatment-resistant arrhythmia.</div>
+                <div class="evidence-explanation">Pooled clinical cohort data confirm hypertrophic cardiomyopathy as a frequent cardiac manifestation of Costello syndrome.</div>
                 
             </div>
             
@@ -2374,6 +3211,8 @@
                     <div class="item-name">
                         Coarse Facial Features
                         
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+                        
                         
                         <span class="phenotype-id">
                             <a href="http://purl.obolibrary.org/obo/HP_0000280" target="_blank">
@@ -2386,6 +3225,36 @@
                     
                     
                     
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301680" target="_blank">PMID:20301680</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Costello syndrome is typically characterized by failure to thrive in infancy as a result of severe postnatal feeding difficulties; short stature; developmental delay or intellectual disability; coarse facial features (full lips, large mouth, full nasal tip);"</div>
+                
+                
+                <div class="evidence-explanation">Updated GeneReviews description supports coarse facial features as a characteristic and typically present dysmorphic feature of Costello syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
                     
@@ -2406,6 +3275,8 @@
                     <div class="item-name">
                         Papillomata
                         
+                        <span class="phenotype-freq">FREQUENT</span>
+                        
                         
                         <span class="phenotype-id">
                             <a href="http://purl.obolibrary.org/obo/HP_0012740" target="_blank">
@@ -2418,6 +3289,36 @@
                     
                     
                     
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301680" target="_blank">PMID:20301680</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"papillomata of the face and perianal region;"</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews supports papillomata as a typical ectodermal manifestation, especially affecting the face and perianal region.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
                     
@@ -2438,6 +3339,8 @@
                     <div class="item-name">
                         Ulnar Deviation of Hands
                         
+                        <span class="phenotype-freq">FREQUENT</span>
+                        
                         
                         <span class="phenotype-id">
                             <a href="http://purl.obolibrary.org/obo/HP_0001193" target="_blank">
@@ -2450,6 +3353,36 @@
                     
                     
                     
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301680" target="_blank">PMID:20301680</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"diffuse hypotonia and joint laxity with ulnar deviation of the wrists and fingers; tight Achilles tendons;"</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews supports ulnar deviation of the wrists and fingers as a characteristic orthopedic feature of Costello syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
                     
@@ -2470,6 +3403,8 @@
                     <div class="item-name">
                         Joint Hypermobility
                         
+                        <span class="phenotype-freq">FREQUENT</span>
+                        
                         
                         <span class="phenotype-id">
                             <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank">
@@ -2482,6 +3417,36 @@
                     
                     
                     
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301680" target="_blank">PMID:20301680</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"diffuse hypotonia and joint laxity with ulnar deviation of the wrists and fingers; tight Achilles tendons;"</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews identifies diffuse joint laxity as part of the characteristic musculoskeletal phenotype of Costello syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
                     
@@ -2502,6 +3467,8 @@
                     <div class="item-name">
                         Intellectual Disability
                         
+                        <span class="phenotype-freq">FREQUENT</span>
+                        
                         
                         <span class="phenotype-id">
                             <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank">
@@ -2514,6 +3481,36 @@
                     
                     
                     
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22495831" target="_blank">PMID:22495831</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"An evaluation of 15 adult patients 18-32 years of age revealed that 12 had moderate to severe intellectual disability and most live at home without constant medical care."</div>
+                
+                
+                <div class="evidence-explanation">Nationwide survey data support intellectual disability as a frequent long-term neurodevelopmental manifestation of Costello syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
                     
@@ -2534,6 +3531,8 @@
                     <div class="item-name">
                         Failure to Thrive
                         
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+                        
                         
                         <span class="phenotype-id">
                             <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank">
@@ -2547,6 +3546,56 @@
                     
                     
     
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301680" target="_blank">PMID:20301680</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Costello syndrome is typically characterized by failure to thrive in infancy as a result of severe postnatal feeding difficulties;"</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews identifies failure to thrive from severe feeding difficulty as a typical early clinical feature of HRAS-related Costello syndrome.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34508588" target="_blank">PMID:34508588</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"In CS, poor weight gain and growth are not caused by low caloric intake. Here, we show that constitutive plasma membrane translocation and activation of the GLUT4 glucose transporter, via reactive oxygen species-dependent AMP-activated protein kinase α and p38 hyperactivation, occurs in primary..."</div>
+                
+                
+                <div class="evidence-explanation">Patient fibroblast study expands the mechanistic basis of growth failure by showing increased energetic expenditure and dysregulated metabolism in Costello syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
     
                     
     
@@ -2556,6 +3605,8 @@
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Short Stature
+                        
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
                         
                         
                         <span class="phenotype-id">
@@ -2569,6 +3620,36 @@
                     
                     
                     
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301680" target="_blank">PMID:20301680</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Costello syndrome is typically characterized by failure to thrive in infancy as a result of severe postnatal feeding difficulties; short stature;"</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews identifies short stature as a typical component of the core Costello syndrome phenotype.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
                     
@@ -2589,6 +3670,8 @@
                     <div class="item-name">
                         Predisposition to Malignancy
                         
+                        <span class="phenotype-freq">OCCASIONAL</span>
+                        
                         
                         <span class="phenotype-id">
                             <a href="http://purl.obolibrary.org/obo/HP_0002664" target="_blank">
@@ -2604,7 +3687,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -2625,6 +3708,110 @@
                 
                 
                 <div class="evidence-explanation">Establishes the approximately 17% lifetime malignancy risk in Costello syndrome.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301680" target="_blank">PMID:20301680</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Individuals with Costello syndrome have an approximately 15% lifetime risk for malignant tumors including rhabdomyosarcoma and neuroblastoma in young children and transitional cell carcinoma of the bladder in adolescents and young adults."</div>
+                
+                
+                <div class="evidence-explanation">Updated GeneReviews summary independently supports occasional but clinically important malignancy risk in Costello syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+            </details>
+            
+            <details class="phenotype-category-group" id="pheno-cat-9">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">1</span>
+                </summary>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Multifocal Atrial Tachycardia
+                        
+                        <span class="phenotype-freq">FREQUENT</span>
+                        
+                        
+                        <span class="phenotype-id">
+                            <a href="http://purl.obolibrary.org/obo/HP_0011701" target="_blank">
+                                Multifocal atrial tachycardia
+                            </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0011701)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38415356" target="_blank">PMID:38415356</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"During early childhood, 50% of patients develop multifocal atrial tachycardia, a treatment-resistant tachyarrhythmia of unknown pathogenesis."</div>
+                
+                
+                <div class="evidence-explanation">Establishes 50% prevalence of MAT in Costello syndrome patients, occurring in early childhood as a treatment-resistant arrhythmia.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301680" target="_blank">PMID:20301680</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"and arrhythmia (usually supraventricular tachycardia, especially abnormal atrial rhythm / multifocal atrial tachycardia or ectopic atrial tachycardia)."</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews supports multifocal atrial tachycardia as the characteristic Costello syndrome arrhythmia phenotype.</div>
                 
             </div>
             
@@ -2753,6 +3940,36 @@
                 
                 
     
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301680" target="_blank">PMID:20301680</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"echocardiography with electrocardiogram at the time of diagnosis with subsequent follow up by a cardiologist;"</div>
+                
+                
+                <div class="evidence-explanation">GeneReviews recommends serial cardiac surveillance with echocardiography and electrocardiography in HRAS-related Costello syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
     
             </div>
             
@@ -2777,6 +3994,36 @@
                 
                 
     
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301680" target="_blank">PMID:20301680</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"abdominal and pelvic ultrasound examinations to screen for rhabdomyosarcoma and neuroblastoma every three to six months until age eight to ten years may be considered; annual urinalysis for evidence of hematuria to screen for bladder cancer beginning at age ten years."</div>
+                
+                
+                <div class="evidence-explanation">Updated GeneReviews surveillance guidance supports tumor screening in childhood and bladder cancer surveillance later in life.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
     
             </div>
             
@@ -2793,13 +4040,43 @@
                 </div>
                 
                 
-                <div class="item-desc">MEK inhibitors (e.g., trametinib) are being investigated as targeted therapy for RASopathies to reduce pathway hyperactivation.
+                <div class="item-desc">MEK inhibitors such as trametinib are used as pathway-targeted therapy for refractory hypertrophic cardiomyopathy with heart failure and are being investigated more broadly as precision therapy for RASopathies.
 </div>
                 
                 
                 
                 
                 
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301680" target="_blank">PMID:20301680</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Targeted therapy: Trametinib (MEK inhibitor) for treatment of hypertrophic cardiomyopathy with heart failure that is refractory to standard treatment."</div>
+                
+                
+                <div class="evidence-explanation">Updated GeneReviews documents trametinib as a targeted option for severe Costello syndrome cardiomyopathy refractory to standard management.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
             </div>
@@ -2815,14 +4092,875 @@
 
         <!-- Differential Diagnoses -->
         
+        <div class="card" id="differentials">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef2f2; color: #dc2626;">🔀</div>
+                <h2 class="card-title">Differential Diagnoses</h2>
+                <span class="card-count">2</span>
+            </div>
+            <p style="margin-bottom: 16px; font-size: 0.95rem; color: var(--text-muted);">
+                Conditions with similar clinical presentations that must be differentiated from Costello Syndrome:
+            </p>
+            
+            
+            
+            <div class="item-box differential-box">
+                <div class="item-name">
+                    
+                    <a class="item-name-link" href="Noonan_Syndrome.html">Noonan syndrome</a>
+                    
+                    
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0018997" target="_blank">
+                            MONDO:0018997
+                        </a>
+                    </span>
+                    
+                </div>
+                
+                <div class="differential-similarities">
+                    <strong>Overlapping Features</strong>
+                    Noonan syndrome is a closely related RASopathy with overlapping prenatal, craniofacial, growth, developmental, and cardiac findings that can resemble Costello syndrome, especially in attenuated HRAS-associated presentations.
+                </div>
+                
+                
+                <div class="differential-distinctions">
+                    <strong>Distinguishing Features</strong>
+                    
+                    <ul>
+                        
+                        <li>HRAS pathogenic variants, papillomata, deep palmar and plantar creases, and stronger tumor predisposition favor Costello syndrome over Noonan syndrome.</li>
+                        
+                        <li>PTPN11, SOS1, RAF1, RIT1, or other non-HRAS RASopathy genotypes favor Noonan syndrome.</li>
+                        
+                    </ul>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21438134" target="_blank">PMID:21438134</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"the overall impression reported by experienced clinical geneticists is different from Costello syndrome due to p.G12S and may suggest a diagnosis of Noonan syndrome."</div>
+                
+                
+                <div class="evidence-explanation">This genotype-phenotype analysis directly documents that some Costello syndrome presentations can be mistaken clinically for Noonan syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            
+            
+            <div class="item-box differential-box">
+                <div class="item-name">
+                    
+                    <a class="item-name-link" href="Cardiofaciocutaneous_Syndrome.html">Cardiofaciocutaneous syndrome</a>
+                    
+                    
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0015280" target="_blank">
+                            MONDO:0015280
+                        </a>
+                    </span>
+                    
+                </div>
+                
+                <div class="differential-similarities">
+                    <strong>Overlapping Features</strong>
+                    Cardiofaciocutaneous syndrome is another RASopathy with shared facial, neurodevelopmental, and cardiac features that often enters the molecular differential for Costello syndrome.
+                </div>
+                
+                
+                <div class="differential-distinctions">
+                    <strong>Distinguishing Features</strong>
+                    
+                    <ul>
+                        
+                        <li>HRAS variants support Costello syndrome, whereas BRAF, KRAS, and MAP2K1/2 variants support cardiofaciocutaneous syndrome.</li>
+                        
+                        <li>Papillomata and characteristic tumor predisposition are more aligned with Costello syndrome than with classic cardiofaciocutaneous syndrome.</li>
+                        
+                    </ul>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22495831" target="_blank">PMID:22495831</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Costello syndrome and cardio-facio-cutaneous (CFC) syndrome are congenital anomaly syndromes characterized by a distinctive facial appearance, heart defects, and intellectual disability."</div>
+                
+                
+                <div class="evidence-explanation">This nationwide survey directly supports CFC syndrome as a clinically overlapping RASopathy differential for Costello syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+        </div>
+        
 
         <!-- Datasets -->
+        
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">2</span>
+            </div>
+            
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Expression data to investigate Costello syndrome using human iPSCs differentiated into astroglial progenitors and astrocytes
+                    
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE64194" target="_blank">geo:GSE64194</a>
+                    </span>
+                    
+                </div>
+                
+                <div class="item-desc">Human microarray dataset comparing HRAS-mutant and HRAS-wild-type pluripotent stem cell-derived astroglial progenitors and astrocytes to define neuroglial extracellular-matrix and maturation abnormalities in Costello syndrome.</div>
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-organism">human</span>
+                    
+                    
+                    <span class="tag tag-datatype">MICROARRAY</span>
+                    
+                    
+                    <span class="tag tag-dataset">n=9</span>
+                    
+                    
+                </div>
+                
+                <div class="item-meta" style="margin-top: 6px;">
+                    
+                    <span class="tag tag-cell">
+                        iPSC-derived astroglial progenitor
+                        
+                    </span>
+                    
+                    <span class="tag tag-cell">
+                        iPSC-derived astrocyte
+                        
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="item-meta" style="margin-top: 6px;">
+                    <strong style="font-size: 0.8rem; color: #0369a1;">Conditions:</strong>
+                    
+                    <span class="tag" style="background: #f0f9ff; color: #0369a1; font-size: 0.8rem;">Costello syndrome HRAS-mutant astroglial lineage</span>
+                    
+                    <span class="tag" style="background: #f0f9ff; color: #0369a1; font-size: 0.8rem;">HRAS-wild-type control astroglial lineage</span>
+                    
+                </div>
+                
+                
+                
+    
+    
+                
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/25947161" target="_blank" style="color: var(--secondary);">PMID:25947161</a>
+                </div>
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25947161" target="_blank">PMID:25947161</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Human iPSCs derived from patients with Costello syndrome differentiated to astroglia more rapidly in vitro than those derived from wild-type cell lines with normal HRAS, exhibited hyperplasia, and also generated an abundance of extracellular matrix remodeling factors and proteoglycans."</div>
+                
+                
+                <div class="evidence-explanation">This publication-linked GEO series is a direct human-cell transcriptomic resource for Costello syndrome astroglial pathology.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Transcriptome analysis of skeletal muscle tissue from Hras G12V mutant mice
+                    
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE187493" target="_blank">geo:GSE187493</a>
+                    </span>
+                    
+                </div>
+                
+                <div class="item-desc">Mouse bulk RNA-seq dataset profiling skeletal muscle from an activating Hras Costello syndrome model to define transcriptional programs associated with myopathy, hypotonia, and MAPK-driven rescue biology.</div>
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-organism">house mouse</span>
+                    
+                    
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+                    
+                    
+                    <span class="tag tag-dataset">n=6</span>
+                    
+                    
+                </div>
+                
+                <div class="item-meta" style="margin-top: 6px;">
+                    
+                    <span class="tag tag-cell">
+                        skeletal muscle tissue
+                        
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="item-meta" style="margin-top: 6px;">
+                    <strong style="font-size: 0.8rem; color: #0369a1;">Conditions:</strong>
+                    
+                    <span class="tag" style="background: #f0f9ff; color: #0369a1; font-size: 0.8rem;">HrasG12V Costello syndrome mouse model</span>
+                    
+                    <span class="tag" style="background: #f0f9ff; color: #0369a1; font-size: 0.8rem;">wild-type skeletal muscle control</span>
+                    
+                </div>
+                
+                
+                
+    
+    
+                
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/34553752" target="_blank" style="color: var(--secondary);">PMID:34553752</a>
+                </div>
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34553752" target="_blank">PMID:34553752</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"To gain a better understanding of the mechanisms underlying hypotonia in CS, a mouse model with an activating HrasG12V allele was utilized."</div>
+                
+                
+                <div class="evidence-explanation">This study anchors the linked GEO RNA-seq dataset as a mechanistically relevant model-organism resource for Costello syndrome muscle pathology.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+        </div>
         
 
         <!-- Clinical Trials -->
         
+        <div class="card" id="trials">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #a855f7;">🔬</div>
+                <h2 class="card-title">Clinical Trials</h2>
+                <span class="card-count">3</span>
+            </div>
+            
+            <div class="item-box clinical-trial-box">
+                <div class="item-name">
+                    NCT04888936
+                    
+                    <span class="tag tag-phase">NOT_APPLICABLE</span>
+                    
+                    
+                    <span class="tag tag-status">RECRUITING</span>
+                    
+                </div>
+                
+                <div class="item-desc">Ongoing NIH natural-history and biospecimen study of children and adults with RASopathies, including Costello syndrome, designed to quantify cancer incidence and longitudinal non-tumor manifestations.</div>
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://clinicaltrials.gov/study/NCT04888936" target="_blank">clinicaltrials:NCT04888936</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Objective: To learn more about RASopathies, how genes and environmental factors contribute to cancer development in people with RASopathies, and the best way to find these cancers and other conditions early or prevent them."</div>
+                
+                
+                <div class="evidence-explanation">ClinicalTrials.gov directly documents an actively recruiting natural history cohort relevant to Costello syndrome cancer risk and longitudinal phenotyping.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box clinical-trial-box">
+                <div class="item-name">
+                    NCT05761314
+                    
+                    <span class="tag tag-phase">NOT_APPLICABLE</span>
+                    
+                    
+                    <span class="tag tag-status">RECRUITING</span>
+                    
+                </div>
+                
+                <div class="item-desc">Recruiting interventional diagnostic study of solid-tumor prevalence and tumor molecular characterization across RASopathies including Costello syndrome.</div>
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://clinicaltrials.gov/study/NCT05761314" target="_blank">clinicaltrials:NCT05761314</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Based on evidences provided by literature, cancer screening protocols are applied in some individuals affected by RASopathies, even though detailed information about prevalence and molecular pathogenesis of such tumors is still not clearly elucidate."</div>
+                
+                
+                <div class="evidence-explanation">This registry entry supports a currently recruiting study directly tied to Costello syndrome tumor surveillance and tumor biology.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box clinical-trial-box">
+                <div class="item-name">
+                    NCT06355622
+                    
+                    <span class="tag tag-phase">NOT_APPLICABLE</span>
+                    
+                    
+                    <span class="tag tag-status">UNKNOWN</span>
+                    
+                </div>
+                
+                <div class="item-desc">Costello-inclusive RASopathy study assessing the prevalence and characterization of pain using questionnaires, biomarkers, and neurophysiologic testing; ClinicalTrials.gov listed overall status as unknown with last known recruiting status in the March 21, 2025 update.</div>
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://clinicaltrials.gov/study/NCT06355622" target="_blank">clinicaltrials:NCT06355622</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Pain is a neglected topic in RASopathies but it is frequently complained by affected individuals."</div>
+                
+                
+                <div class="evidence-explanation">ClinicalTrials.gov identifies an additional Costello-relevant registry study targeting an undercurated symptom domain across RASopathies.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+        </div>
+        
 
         <!-- Experimental Models -->
+        
+        <div id="experimental-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fffbeb; color: #f59e0b;">🧫</div>
+                <h2 class="card-title">Experimental Models</h2>
+                <span class="card-count">2</span>
+            </div>
+            
+            <div class="item-box exp-model-box anchor-target" id="experimental-model-costello-syndrome-atrial-like-cardiomyocyte-model">
+                <div class="item-name">
+                    Costello syndrome atrial-like cardiomyocyte model
+                    
+                    <span class="tag tag-exp-model-type">IPSC_DERIVED_MODEL</span>
+                    
+                    
+                </div>
+                
+                <div class="item-desc">Human Costello syndrome induced pluripotent stem cell-derived atrial-like cardiomyocytes, including patient-derived and engineered HRAS Gly12 models, used to study disease-specific arrhythmogenesis.</div>
+                
+                
+                <div class="tag-list" style="margin-top: 10px;">
+                    
+                    <span class="tag tag-condition">Costello syndrome</span>
+                    
+                    <span class="tag tag-condition">HRAS Gly12 variants</span>
+                    
+                    <span class="tag tag-condition">tachyarrhythmia</span>
+                    
+                </div>
+                
+                
+                <div class="tag-list" style="margin-top: 10px;">
+                    
+                    <span class="tag tag-cell">
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0002129" target="_blank" style="color: inherit; text-decoration: none;">Atrial Cardiomyocyte ↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="model-detail-list">
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Organism</div>
+                        <div class="model-detail-value">
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank">human ↗</a>
+                            
+                        </div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Tissue</div>
+                        <div class="model-detail-value">
+                            
+                            <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank">heart ↗</a>
+                            
+                        </div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Cell source</div>
+                        <div class="model-detail-value">Patient-derived and engineered induced pluripotent stem cells differentiated into atrial-like cardiomyocytes</div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Culture</div>
+                        <div class="model-detail-value">Two-dimensional iPSC-derived atrial cardiomyocyte culture with electrophysiology and transcriptomic profiling</div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Publication</div>
+                        <div class="model-detail-value">
+                            <a href="http://www.ncbi.nlm.nih.gov/pubmed/38415356" target="_blank">PMID:38415356 ↗</a>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+                
+                
+    
+    <div class="findings-section">
+        <div class="findings-title">Findings</div>
+        
+        <div class="finding-item">
+            
+            <div class="finding-statement">HRAS-mutant atrial-like cardiomyocytes recapitulate pacemaker-like reprogramming and arrhythmogenic automaticity underlying Costello syndrome MAT</div>
+            
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38415356" target="_blank">PMID:38415356</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"This is the first human-induced pluripotent stem cell model establishing the mechanistic basis for multifocal atrial tachycardia in CS."</div>
+                
+                
+                <div class="evidence-explanation">This directly supports the model as a disease-relevant mechanistic platform for Costello syndrome arrhythmia.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38415356" target="_blank">PMID:38415356</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"This study investigated how overactive HRAS activity triggers arrhythmogenesis in atrial-like cardiomyocytes (ACMs) derived from human-induced pluripotent stem cells bearing CS-associated HRAS variants."</div>
+                
+                
+                <div class="evidence-explanation">This publication establishes a first-class human cardiac disease model for Costello syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box exp-model-box anchor-target" id="experimental-model-costello-syndrome-patient-fibroblast-models">
+                <div class="item-name">
+                    Costello syndrome patient fibroblast models
+                    
+                    <span class="tag tag-exp-model-type">PRIMARY_CELL_CULTURE</span>
+                    
+                    
+                </div>
+                
+                <div class="item-desc">Primary fibroblast cultures derived from individuals with Costello syndrome used to study disease-specific metabolic dysregulation and extracellular matrix defects.</div>
+                
+                
+                <div class="tag-list" style="margin-top: 10px;">
+                    
+                    <span class="tag tag-condition">Costello syndrome</span>
+                    
+                </div>
+                
+                
+                <div class="tag-list" style="margin-top: 10px;">
+                    
+                    <span class="tag tag-cell">
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" style="color: inherit; text-decoration: none;">Fibroblast ↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="model-detail-list">
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Organism</div>
+                        <div class="model-detail-value">
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank">human ↗</a>
+                            
+                        </div>
+                    </div>
+                    
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Cell source</div>
+                        <div class="model-detail-value">Primary patient-derived skin fibroblasts</div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Culture</div>
+                        <div class="model-detail-value">Two-dimensional fibroblast culture with metabolic and extracellular matrix assays</div>
+                    </div>
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Publication</div>
+                        <div class="model-detail-value">
+                            <a href="http://www.ncbi.nlm.nih.gov/pubmed/34508588" target="_blank">PMID:34508588 ↗</a>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+                
+                
+    
+    <div class="findings-section">
+        <div class="findings-title">Findings</div>
+        
+        <div class="finding-item">
+            
+            <div class="finding-statement">Costello syndrome fibroblasts show increased energetic expenditure with accelerated glycolysis, lipid storage, and autophagic flux</div>
+            
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34508588" target="_blank">PMID:34508588</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Our findings provide a mechanistic link between upregulated HRAS function, defective growth and increased resting energetic expenditure in CS, and document that targeting p38 and PI3K signaling is able to revert this metabolic dysfunction."</div>
+                
+                
+                <div class="evidence-explanation">This supports fibroblast models as a translational system for Costello syndrome metabolic dysfunction.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+        <div class="finding-item">
+            
+            <div class="finding-statement">Costello syndrome fibroblasts fail to assemble elastic fibers efficiently and reveal a connective tissue disease mechanism</div>
+            
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10712202" target="_blank">PMID:10712202</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"cultured skin fibroblasts obtained from patients with Costello syndrome did not assemble elastic fibers, despite an adequate synthesis of tropoelastin and normal deposition of the microfibrillar scaffold."</div>
+                
+                
+                <div class="evidence-explanation">This supports patient fibroblast culture as a mechanism-bearing model for the connective tissue component of Costello syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34508588" target="_blank">PMID:34508588</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Here, we show that constitutive plasma membrane translocation and activation of the GLUT4 glucose transporter, via reactive oxygen species-dependent AMP-activated protein kinase α and p38 hyperactivation, occurs in primary fibroblasts of CS patients,"</div>
+                
+                
+                <div class="evidence-explanation">This establishes primary patient fibroblasts as a validated Costello syndrome metabolic model system.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+        </div>
         
 
         <!-- Computational Models -->
@@ -2841,7 +4979,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Costello Syndrome
 creation_date: &#39;2026-02-06T03:39:54Z&#39;
-updated_date: &#39;2026-02-17T21:53:14Z&#39;
+updated_date: &#39;2026-03-31T21:13:56Z&#39;
 category: Mendelian
 description: &gt;
   Costello syndrome is a RASopathy caused by heterozygous germline gain-of-function
@@ -2850,7 +4988,9 @@ description: &gt;
   cardiomyopathy, arrhythmias), skeletal abnormalities (joint laxity, ulnar deviation),
   and a predisposition to malignancies (rhabdomyosarcoma, neuroblastoma, bladder
   carcinoma). The syndrome results from constitutive activation of the RAS-MAPK
-  signaling pathway.
+  signaling pathway, with additional evidence for altered mitochondrial proteostasis,
+  defective oxidative phosphorylation, and broader bioenergetic dysfunction in
+  Costello syndrome model systems.
 disease_term:
   preferred_term: Costello syndrome
   term:
@@ -2879,65 +5019,486 @@ prevalence:
     explanation: This contemporary clinical series provides an independent literature-based prevalence estimate showing the broader reported range.
 inheritance:
 - name: Autosomal Dominant
+  inheritance_term:
+    preferred_term: Autosomal dominant inheritance
+    term:
+      id: HP:0000006
+      label: Autosomal dominant inheritance
   description: &gt;
     Autosomal dominant inheritance. Nearly all cases arise de novo due to
-    severe phenotype limiting reproductive fitness. Advanced paternal age
-    is a risk factor as mutations arise predominantly in the paternal germline.
+    severe phenotype limiting reproductive fitness, and the pathogenic variant
+    arises predominantly in the paternal germline.
+  evidence:
+  - reference: PMID:20301680
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      GENETIC COUNSELING: Costello syndrome is an autosomal dominant disorder
+      typically caused by a de novo pathogenic variant.
+    explanation: &gt;-
+      GeneReviews directly supports autosomal dominant inheritance with
+      predominant de novo occurrence in Costello syndrome.
+  - reference: PMID:16443854
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Analysis of parental DNA samples was possible in 16 cases for both
+      parents and in three cases for one parent, and confirmed the mutations as
+      de novo in all of these cases.
+    explanation: &gt;-
+      This cohort study provides direct human evidence that Costello syndrome
+      HRAS mutations are usually de novo.
+  - reference: PMID:21438134
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      De novo origin of the missense mutation was documented in eight families,
+      and occurred in the paternal germline in all five informative trios.
+    explanation: &gt;-
+      This Costello syndrome cohort provides direct evidence for paternal
+      germline bias among informative de novo HRAS cases.
+progression:
+- phase: Prenatal and perinatal presentation
+  age_range: fetal life to neonatal period
+  notes: &gt;-
+    Costello syndrome can begin before birth with polyhydramnios and fetal
+    overgrowth-related complications, followed by early multisystem neonatal
+    manifestations.
+  evidence:
+  - reference: PMID:21438134
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The individuals with p.G13C had many typical findings including
+      polyhydramnios, failure-to-thrive, HCM, macrocephaly with posterior
+      fossa crowding, and developmental delay.
+    explanation: &gt;-
+      Although this cohort focuses on HRAS p.G13C, it explicitly describes
+      polyhydramnios and early multisystem findings as typical Costello
+      syndrome manifestations, supporting a prenatal/perinatal disease phase.
+- phase: Infant feeding and growth failure phase
+  age_range: infancy
+  notes: &gt;-
+    Severe postnatal feeding difficulty dominates early life and commonly
+    requires tube feeding, contributing to failure to thrive and subsequent
+    short stature.
+  evidence:
+  - reference: PMID:20301680
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Failure to thrive is the most common and challenging clinical problem;
+      most infants require nasogastric or gastrostomy feeding, and many
+      require Nissen fundoplication.
+    explanation: &gt;-
+      Updated GeneReviews supports a characteristic infancy phase dominated by
+      feeding failure and growth impairment.
+- phase: Early childhood arrhythmia phase
+  age_range: early childhood
+  notes: &gt;-
+    Treatment-resistant atrial tachyarrhythmia is a distinctive early-childhood
+    complication and reflects disease-specific atrial cardiomyocyte
+    reprogramming.
+  evidence:
+  - reference: PMID:38415356
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      During early childhood, 50% of patients develop multifocal atrial
+      tachycardia, a treatment-resistant tachyarrhythmia of unknown
+      pathogenesis.
+    explanation: &gt;-
+      This directly supports an early-childhood cardiac rhythm phase in the
+      natural history of Costello syndrome.
+- phase: Lifelong tumor-risk surveillance phase
+  age_range: childhood through adulthood
+  notes: &gt;-
+    Embryonal tumor risk is highest in childhood, whereas bladder carcinoma
+    risk extends into adolescence and adulthood, requiring age-specific
+    surveillance.
+  evidence:
+  - reference: PMID:20301680
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Individuals with Costello syndrome have an approximately 15% lifetime
+      risk for malignant tumors including rhabdomyosarcoma and neuroblastoma
+      in young children and transitional cell carcinoma of the bladder in
+      adolescents and young adults.
+    explanation: &gt;-
+      GeneReviews supports a prolonged progression phase in which tumor risk
+      persists but changes in composition with age.
 pathophysiology:
-- name: Constitutive RAS-MAPK Activation
+- name: Germline HRAS gain-of-function mutation
   description: &gt;
-    HRAS mutations (most commonly G12S, G12A, G13C) cause constitutive
-    activation of the RAS protein, leading to enhanced and prolonged
-    signaling through the MAPK/ERK pathway. This affects cell proliferation,
-    differentiation, and survival in multiple tissues.
-  cell_types:
-  - preferred_term: Fibroblast
+    Heterozygous germline activating variants in HRAS initiate Costello
+    syndrome and create the constitutive signaling state that drives its
+    multisystem phenotype.
+  gene:
+    preferred_term: HRAS
     term:
-      id: CL:0000057
-      label: fibroblast
+      id: hgnc:5173
+      label: HRAS
+  downstream:
+  - target: Constitutive HRAS signaling
+    description: Activating HRAS variants establish persistent downstream Ras pathway activity.
+    causal_link_type: DIRECT
+  evidence:
+  - reference: PMID:16443854
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      These results confirm that CS is caused, in most cases, by heterozygous
+      missense mutations in the proto-oncogene HRAS.
+    explanation: &gt;-
+      This cohort study establishes germline HRAS mutation as the initiating
+      lesion in Costello syndrome.
+- name: Constitutive HRAS signaling
+  description: &gt;
+    Mutant HRAS remains aberrantly active and persistently engages downstream
+    Ras effector programs, creating a shared upstream driver for cardiac,
+    metabolic, connective tissue, developmental, and oncogenic abnormalities.
+  biological_processes:
+  - preferred_term: Ras protein signal transduction
+    modifier: INCREASED
+    term:
+      id: GO:0007265
+      label: Ras protein signal transduction
+  - preferred_term: MAPK cascade
+    modifier: INCREASED
+    term:
+      id: GO:0000165
+      label: MAPK cascade
+  downstream:
+  - target: Cardiac mitochondrial bioenergetic dysfunction
+    description: Persistent HRAS activation perturbs AMPK-linked mitochondrial homeostasis in cardiac tissues.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - inhibition of AMPK signaling
+    - altered mitochondrial proteostasis
+  - target: Atrial cardiomyocyte pacemaker-nodal transcriptional reprogramming
+    description: Overactive HRAS redirects atrial cardiomyocyte identity toward a nodal-like program.
+    causal_link_type: DIRECT
+  - target: Fibroblast metabolic rewiring and increased energetic expenditure
+    description: Hyperactive HRAS drives abnormal glucose handling, autophagic flux, and energetic inefficiency in patient fibroblasts.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - reactive oxygen species-dependent signaling
+    - altered GLUT4 trafficking
+    - p38 and PI3K pathway dysregulation
+  - target: Impaired fibroblast elastogenesis
+    description: Disease fibroblasts show defective extracellular matrix assembly compatible with an HRAS-linked connective tissue mechanism.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+  - target: Dysregulated neural progenitor development
+    description: Persistent HRAS pathway activation disrupts the balance of neurogenesis and gliogenesis during brain development.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - altered neural stem cell proliferation
+    - abnormal neurogenesis-to-gliogenesis transition
+  - target: Tumor Predisposition
+    description: Constitutive oncogenic HRAS signaling creates lifelong neoplastic susceptibility.
+    causal_link_type: DIRECT
+  evidence:
+  - reference: PMID:35230976
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Germline mutations that activate genes in the canonical RAS/MAPK
+      signaling pathway are responsible for rare human developmental disorders
+      known as RASopathies.
+    explanation: &gt;-
+      This mixed-model study supports pathway activation as the shared upstream
+      pathogenic framework for Costello syndrome.
+- name: Cardiac mitochondrial bioenergetic dysfunction
+  description: &gt;
+    Costello syndrome models show impaired mitochondrial proteostasis and
+    oxidative phosphorylation in cardiac tissue, indicating that the disease is
+    not solely a surface signaling disorder but also a bioenergetic one.
+  cell_types:
+  - preferred_term: cardiomyocyte
+    term:
+      id: CL:0000746
+      label: cardiac muscle cell
+  biological_processes:
+  - preferred_term: oxidative phosphorylation
+    modifier: DECREASED
+    term:
+      id: GO:0006119
+      label: oxidative phosphorylation
+  downstream:
+  - target: Hypertrophic Cardiomyopathy
+    description: Cardiac bioenergetic stress and impaired mitochondrial homeostasis contribute to ventricular hypertrophic remodeling.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - impaired mitochondrial proteostasis
+    - reduced cardiac energetic efficiency
+    evidence:
+    - reference: PMID:35230976
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &gt;-
+        Pharmacological activation of mitochondrial bioenergetics and quality
+        control restored organelle function in HRAS p.G12A and p.G12S cell
+        models, reduced left ventricle hypertrophy in CS mice, and diminished
+        the occurrence of developmental defects in the CS zebrafish model.
+      explanation: &gt;-
+        Improvement of mitochondrial function reducing ventricular hypertrophy
+        supports a causal link between bioenergetic dysfunction and cardiac
+        hypertrophy in Costello syndrome.
+  evidence:
+  - reference: PMID:35230976
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      The findings revealed alteration of mitochondrial proteostasis and
+      defective oxidative phosphorylation in the heart and skeletal muscle of
+      CS mice that were also found in the cell models of the disease. The
+      underpinning mechanisms involved the inhibition of the AMPK signaling
+      pathway by mutant forms of HRAS, leading to alteration of mitochondrial
+      proteostasis and bioenergetics.
+    explanation: &gt;-
+      This Asta-linked study directly supports a discrete cardiac and muscular
+      bioenergetic mechanism downstream of mutant HRAS.
+- name: Atrial cardiomyocyte pacemaker-nodal transcriptional reprogramming
+  description: &gt;
+    HRAS-mutant atrial-like cardiomyocytes acquire a pacemaker-nodal-like gene
+    expression program, including increased ISL1, TBX3, and TBX18 expression,
+    shifting atrial cells toward an arrhythmogenic identity state.
+  cell_types:
   - preferred_term: Atrial Cardiomyocyte
     term:
       id: CL:0002129
       label: regular atrial cardiac myocyte
-  biological_processes:
-  - preferred_term: RAS Signaling
+  downstream:
+  - target: Enhanced automaticity and funny current in atrial cardiomyocytes
+    description: Nodal-like transcriptional reprogramming increases pacemaker-like electrophysiology in atrial cells.
+    causal_link_type: DIRECT
+  evidence:
+  - reference: PMID:38415356
+    reference_title: &#34;HRAS-Mutant Cardiomyocyte Model of Multifocal Atrial Tachycardia.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Mutant ACMs demonstrated elevated gene expression (ie, ISL1, TBX3,
+      TBX18) related to intracellular calcium homeostasis, heart rate, RAS
+      signaling, and induction of pacemaker-nodal-like transcriptional
+      programming.
+    explanation: &gt;-
+      This human iPSC-derived atrial cardiomyocyte model directly supports a
+      discrete transcriptional reprogramming step in Costello syndrome
+      arrhythmogenesis.
+- name: Enhanced automaticity and funny current in atrial cardiomyocytes
+  description: &gt;
+    Reprogrammed HRAS-mutant atrial cardiomyocytes beat faster, contain more
+    pacemaker-like cells, and show elevated funny current density, providing the
+    proximate electrophysiologic substrate for tachyarrhythmia.
+  cell_types:
+  - preferred_term: Atrial Cardiomyocyte
     term:
-      id: GO:0007265
-      label: Ras protein signal transduction
-  - preferred_term: MAPK Cascade
-    term:
-      id: GO:0000165
-      label: MAPK cascade
-  - preferred_term: Cell Proliferation
-    term:
-      id: GO:0008283
-      label: cell population proliferation
+      id: CL:0002129
+      label: regular atrial cardiac myocyte
+  downstream:
+  - target: Multifocal Atrial Tachycardia
+    description: Increased atrial automaticity and pacemaker-like activity manifest clinically as multifocal atrial tachycardia.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:38415356
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        CS-associated gain-of-function HRASG12 mutations in induced pluripotent
+        stem cells-derived ACMs trigger transcriptional changes associated with
+        enhanced automaticity and arrhythmic activity consistent with
+        multifocal atrial tachycardia.
+      explanation: &gt;-
+        This directly links altered automaticity in HRAS-mutant atrial
+        cardiomyocytes to the Costello syndrome MAT phenotype.
   evidence:
   - reference: PMID:38415356
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &gt;-
-      CS-associated gain-of-function HRASG12 mutations in induced pluripotent
-      stem cells-derived ACMs trigger transcriptional changes associated with
-      enhanced automaticity and arrhythmic activity consistent with multifocal
-      atrial tachycardia.
+      Electrophysiological assessment revealed an increased number of
+      pacemaker-like cells with elevated funny current densities among mutant
+      ACMs.
     explanation: &gt;-
-      iPSC-derived atrial cardiomyocyte model demonstrates that HRAS mutations
-      cause transcriptional reprogramming toward pacemaker-nodal phenotype with
-      increased automaticity, providing mechanistic basis for arrhythmias.
+      The iPSC atrial cardiomyocyte study identifies the electrophysiologic
+      substrate immediately upstream of MAT.
+- name: Fibroblast metabolic rewiring and increased energetic expenditure
+  description: &gt;
+    Patient fibroblasts show HRAS-driven metabolic dysregulation with abnormal
+    glucose transporter activation, accelerated glycolysis, increased fatty acid
+    synthesis and storage, and accelerated autophagic flux, together consistent
+    with increased resting energetic expenditure.
+  cell_types:
+  - preferred_term: Fibroblast
+    term:
+      id: CL:0000057
+      label: fibroblast
+  biological_processes:
+  - preferred_term: glycolytic process
+    modifier: INCREASED
+    term:
+      id: GO:0006096
+      label: glycolytic process
+  - preferred_term: autophagy
+    modifier: INCREASED
+    term:
+      id: GO:0006914
+      label: autophagy
+  - preferred_term: fatty acid biosynthetic process
+    modifier: INCREASED
+    term:
+      id: GO:0006633
+      label: fatty acid biosynthetic process
+  downstream:
+  - target: Failure to Thrive
+    description: Increased energetic expenditure despite adequate intake contributes to poor weight gain.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - increased resting energetic expenditure
+  - target: Short Stature
+    description: Chronic inefficiency of growth-supporting metabolism contributes to postnatal growth deficiency.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - persistent growth-energy mismatch
+  evidence:
+  - reference: PMID:34508588
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      In CS, poor weight gain and growth are not caused by low caloric intake.
+      Here, we show that constitutive plasma membrane translocation and
+      activation of the GLUT4 glucose transporter, via reactive oxygen
+      species-dependent AMP-activated protein kinase α and p38 hyperactivation,
+      occurs in primary fibroblasts of CS patients, resulting in accelerated
+      glycolysis and increased fatty acid synthesis and storage as lipid
+      droplets. An accelerated autophagic flux was also identified as
+      contributing to the increased energetic expenditure in CS.
+    explanation: &gt;-
+      This patient fibroblast study directly supports a distinct metabolic
+      disease mechanism explaining the disproportionate growth failure of
+      Costello syndrome.
+- name: Impaired fibroblast elastogenesis
+  description: &gt;
+    Costello syndrome fibroblasts fail to assemble elastic fibers efficiently,
+    consistent with a connective tissue mechanism involving reduced elastin
+    deposition and abnormal extracellular matrix organization.
+  cell_types:
+  - preferred_term: Fibroblast
+    term:
+      id: CL:0000057
+      label: fibroblast
+  downstream:
+  - target: Coarse Facial Features
+    description: Abnormal extracellular matrix assembly likely contributes to the characteristic connective tissue component of facial dysmorphology.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - reduced elastic fiber assembly
+    - altered connective tissue architecture
+  - target: Joint Hypermobility
+    description: Reduced elastogenesis provides a plausible connective tissue basis for ligamentous laxity.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - reduced elastic fiber assembly
+    - altered connective tissue elasticity
+  evidence:
+  - reference: PMID:10712202
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      We found that impaired production of elastic fibers by these fibroblasts
+      is associated with a functional deficiency of the 67-kD elastin-binding
+      protein (EBP), which is normally required to chaperone tropoelastin
+      through the secretory pathways and to its extracellular assembly.
+    explanation: &gt;-
+      This patient skin fibroblast study supports a specific extracellular
+      matrix defect that plausibly underlies connective tissue manifestations in
+      Costello syndrome.
+- name: Dysregulated neural progenitor development
+  description: &gt;
+    HRAS activation alters the normal balance of neural progenitor expansion,
+    cortical neuron production, and gliogenesis, providing a mechanistic basis
+    for neurodevelopmental impairment.
+  biological_processes:
+  - preferred_term: neurogenesis
+    modifier: DYSREGULATED
+    term:
+      id: GO:0022008
+      label: neurogenesis
+  - preferred_term: glial cell differentiation
+    modifier: DYSREGULATED
+    term:
+      id: GO:0010001
+      label: glial cell differentiation
+  downstream:
+  - target: Intellectual Disability
+    description: Abnormal cortical development and neuroglial imbalance contribute to persistent cognitive impairment.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - altered cortical neuron production
+    - abnormal neurogenesis-to-gliogenesis balance
+  evidence:
+  - reference: PMID:31250618
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Induced pluripotent stem cells (iPSCs) derived from Costello syndrome
+      showed increased production of cortical neurons associated with extended
+      progenitor phase (Rooney et al., 2016).
+    explanation: &gt;-
+      This review cites disease-relevant iPSC evidence that Costello syndrome
+      disrupts early cortical developmental programs.
+  - reference: PMID:31250618
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      During transition from neurogenesis to gliogenesis, Paquin et al. (2009)
+      showed that variants found in Costello syndrome suppress neurogenesis but
+      promote astrogenesis.
+    explanation: &gt;-
+      This supports a second discrete developmental mechanism involving an
+      abnormal neurogenesis-gliogenesis switch in Costello syndrome.
 - name: Tumor Predisposition
   description: &gt;
-    The same activating HRAS mutations that cause Costello syndrome are found
-    as somatic mutations in various cancers. Germline activation creates a
-    predisposition to embryonal tumors, particularly rhabdomyosarcoma.
+    The same activating HRAS signaling architecture that causes developmental
+    disease also creates susceptibility to embryonal and later-onset malignant
+    neoplasms.
   biological_processes:
-  - preferred_term: Cell Cycle Regulation
+  - preferred_term: regulation of cell cycle
+    modifier: DYSREGULATED
     term:
       id: GO:0051726
       label: regulation of cell cycle
+  - preferred_term: cell population proliferation
+    modifier: INCREASED
+    term:
+      id: GO:0008283
+      label: cell population proliferation
+  downstream:
+  - target: Predisposition to Malignancy
+    description: Persistent oncogenic HRAS signaling manifests clinically as increased tumor risk.
+    causal_link_type: DIRECT
+  evidence:
+  - reference: PMID:20301680
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Individuals with Costello syndrome have an approximately 15% lifetime
+      risk for malignant tumors including rhabdomyosarcoma and neuroblastoma
+      in young children and transitional cell carcinoma of the bladder in
+      adolescents and young adults.
+    explanation: &gt;-
+      GeneReviews supports a dedicated neoplasia-predisposition branch within
+      the Costello syndrome causal graph.
 genetic:
 - name: HRAS Mutations
   association: Causative
+  gene_term:
+    preferred_term: HRAS
+    term:
+      id: hgnc:5173
+      label: HRAS
   notes: &gt;
     Heterozygous germline mutations in HRAS cause Costello syndrome. The most
     common mutation is p.Gly12Ser (~80% of cases), followed by p.Gly12Ala and
@@ -2945,6 +5506,7 @@ genetic:
     it in the active GTP-bound state. Somatic mosaicism can cause milder phenotypes.
   evidence:
   - reference: PMID:16443854
+    reference_title: &#34;Genotype-phenotype correlation in Costello syndrome: HRAS mutation analysis in 43 cases.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -2958,42 +5520,96 @@ phenotypes:
   description: &gt;
     Severe feeding difficulties and failure to thrive in infancy, often
     requiring tube feeding.
+  frequency: VERY_FREQUENT
   phenotype_term:
     preferred_term: Failure to thrive
     term:
       id: HP:0001508
       label: Failure to thrive
+  evidence:
+  - reference: PMID:20301680
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Costello syndrome is typically characterized by failure to thrive in
+      infancy as a result of severe postnatal feeding difficulties;
+    explanation: &gt;-
+      GeneReviews identifies failure to thrive from severe feeding difficulty as
+      a typical early clinical feature of HRAS-related Costello syndrome.
+  - reference: PMID:34508588
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      In CS, poor weight gain and growth are not caused by low caloric intake.
+      Here, we show that constitutive plasma membrane translocation and
+      activation of the GLUT4 glucose transporter, via reactive oxygen
+      species-dependent AMP-activated protein kinase α and p38 hyperactivation,
+      occurs in primary fibroblasts of CS patients, resulting in accelerated
+      glycolysis and increased fatty acid synthesis and storage as lipid
+      droplets.
+    explanation: &gt;-
+      Patient fibroblast study expands the mechanistic basis of growth failure
+      by showing increased energetic expenditure and dysregulated metabolism in
+      Costello syndrome.
 - name: Coarse Facial Features
   description: &gt;
     Distinctive craniofacial appearance with coarse features, full lips,
     large mouth, and depressed nasal bridge.
+  frequency: VERY_FREQUENT
   phenotype_term:
     preferred_term: Coarse facial features
     term:
       id: HP:0000280
       label: Coarse facial features
+  evidence:
+  - reference: PMID:20301680
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Costello syndrome is typically characterized by failure to thrive in
+      infancy as a result of severe postnatal feeding difficulties; short
+      stature; developmental delay or intellectual disability; coarse facial
+      features (full lips, large mouth, full nasal tip);
+    explanation: &gt;-
+      Updated GeneReviews description supports coarse facial features as a
+      characteristic and typically present dysmorphic feature of Costello
+      syndrome.
 - name: Hypertrophic Cardiomyopathy
   description: &gt;
-    Cardiac involvement is common, including hypertrophic cardiomyopathy
-    affecting approximately 60-65% of patients.
+    Cardiac involvement is common, and hypertrophic cardiomyopathy is a major
+    cause of morbidity in Costello syndrome.
+  frequency: FREQUENT
   phenotype_term:
     preferred_term: Hypertrophic cardiomyopathy
     term:
       id: HP:0001639
       label: Hypertrophic cardiomyopathy
+  evidence:
+  - reference: PMID:12210337
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Cardiac hypertrophy was reported in 34%, which involved the left ventricle
+      in 50% and was usually consistent with classic hypertrophic cardiomyopathy
+      (HCM).
+    explanation: &gt;-
+      Pooled clinical cohort data confirm hypertrophic cardiomyopathy as a
+      frequent cardiac manifestation of Costello syndrome.
 - name: Multifocal Atrial Tachycardia
   description: &gt;
     During early childhood, approximately 50% of patients develop multifocal
     atrial tachycardia (MAT), a treatment-resistant tachyarrhythmia caused by
     HRAS-driven pacemaker-nodal transcriptional reprogramming in atrial
     cardiomyocytes.
+  frequency: FREQUENT
   phenotype_term:
-    preferred_term: Atrial tachycardia
+    preferred_term: Multifocal atrial tachycardia
     term:
-      id: HP:0005115
-      label: Supraventricular arrhythmia
+      id: HP:0011701
+      label: Multifocal atrial tachycardia
   evidence:
   - reference: PMID:38415356
+    reference_title: &#34;HRAS-Mutant Cardiomyocyte Model of Multifocal Atrial Tachycardia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -3002,50 +5618,117 @@ phenotypes:
     explanation: &gt;-
       Establishes 50% prevalence of MAT in Costello syndrome patients,
       occurring in early childhood as a treatment-resistant arrhythmia.
+  - reference: PMID:20301680
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      and arrhythmia (usually supraventricular tachycardia, especially abnormal
+      atrial rhythm / multifocal atrial tachycardia or ectopic atrial
+      tachycardia).
+    explanation: &gt;-
+      GeneReviews supports multifocal atrial tachycardia as the characteristic
+      Costello syndrome arrhythmia phenotype.
 - name: Short Stature
   description: &gt;
     Postnatal growth deficiency leading to short stature.
+  frequency: VERY_FREQUENT
   phenotype_term:
     preferred_term: Short stature
     term:
       id: HP:0004322
       label: Short stature
+  evidence:
+  - reference: PMID:20301680
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Costello syndrome is typically characterized by failure to thrive in
+      infancy as a result of severe postnatal feeding difficulties; short
+      stature;
+    explanation: &gt;-
+      GeneReviews identifies short stature as a typical component of the core
+      Costello syndrome phenotype.
 - name: Intellectual Disability
   description: &gt;
     Variable intellectual disability, typically mild to moderate.
+  frequency: FREQUENT
   phenotype_term:
     preferred_term: Intellectual disability
     term:
       id: HP:0001249
       label: Intellectual disability
+  evidence:
+  - reference: PMID:22495831
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      An evaluation of 15 adult patients 18-32 years of age revealed that 12
+      had moderate to severe intellectual disability and most live at home
+      without constant medical care.
+    explanation: &gt;-
+      Nationwide survey data support intellectual disability as a frequent
+      long-term neurodevelopmental manifestation of Costello syndrome.
 - name: Joint Hypermobility
   description: &gt;
     Joint laxity affecting multiple joints.
+  frequency: FREQUENT
   phenotype_term:
     preferred_term: Joint hypermobility
     term:
       id: HP:0001382
       label: Joint hypermobility
+  evidence:
+  - reference: PMID:20301680
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      diffuse hypotonia and joint laxity with ulnar deviation of the wrists and
+      fingers; tight Achilles tendons;
+    explanation: &gt;-
+      GeneReviews identifies diffuse joint laxity as part of the characteristic
+      musculoskeletal phenotype of Costello syndrome.
 - name: Ulnar Deviation of Hands
   description: &gt;
     Characteristic ulnar deviation of the hands.
+  frequency: FREQUENT
   phenotype_term:
     preferred_term: Ulnar deviation of the hand
     term:
       id: HP:0001193
       label: Ulnar deviation of the hand or of fingers of the hand
+  evidence:
+  - reference: PMID:20301680
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      diffuse hypotonia and joint laxity with ulnar deviation of the wrists and
+      fingers; tight Achilles tendons;
+    explanation: &gt;-
+      GeneReviews supports ulnar deviation of the wrists and fingers as a
+      characteristic orthopedic feature of Costello syndrome.
 - name: Papillomata
   description: &gt;
     Development of papillomata, particularly around the nose and mouth.
+  frequency: FREQUENT
   phenotype_term:
     preferred_term: Papilloma
     term:
       id: HP:0012740
       label: Papilloma
+  evidence:
+  - reference: PMID:20301680
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      papillomata of the face and perianal region;
+    explanation: &gt;-
+      GeneReviews supports papillomata as a typical ectodermal manifestation,
+      especially affecting the face and perianal region.
 - name: Predisposition to Malignancy
   description: &gt;
     Increased risk of malignancies including rhabdomyosarcoma, neuroblastoma,
     and bladder carcinoma. Lifetime cancer risk estimated at 15-17%.
+  frequency: OCCASIONAL
   phenotype_term:
     preferred_term: Neoplasm
     term:
@@ -3053,6 +5736,7 @@ phenotypes:
       label: Neoplasm
   evidence:
   - reference: PMID:16443854
+    reference_title: &#34;Genotype-phenotype correlation in Costello syndrome: HRAS mutation analysis in 43 cases.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -3060,33 +5744,417 @@ phenotypes:
       be about 17%.
     explanation: &gt;-
       Establishes the approximately 17% lifetime malignancy risk in Costello syndrome.
+  - reference: PMID:20301680
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Individuals with Costello syndrome have an approximately 15% lifetime
+      risk for malignant tumors including rhabdomyosarcoma and neuroblastoma in
+      young children and transitional cell carcinoma of the bladder in
+      adolescents and young adults.
+    explanation: &gt;-
+      Updated GeneReviews summary independently supports occasional but
+      clinically important malignancy risk in Costello syndrome.
 treatments:
 - name: Cardiac Monitoring
   description: &gt;
     Regular cardiac surveillance for hypertrophic cardiomyopathy and arrhythmias.
   treatment_term:
-    preferred_term: Cardiac monitoring
+    preferred_term: serial echocardiographic and electrocardiographic cardiac surveillance
     term:
       id: MAXO:0000003
       label: diagnostic procedure
+  notes: &gt;-
+    MAXO currently maps this entry to the generic parent term diagnostic
+    procedure; the preferred term qualifies the intended surveillance bundle.
+  evidence:
+  - reference: PMID:20301680
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      echocardiography with electrocardiogram at the time of diagnosis with
+      subsequent follow up by a cardiologist;
+    explanation: &gt;-
+      GeneReviews recommends serial cardiac surveillance with echocardiography
+      and electrocardiography in HRAS-related Costello syndrome.
 - name: Tumor Surveillance
   description: &gt;
     Regular screening for embryonal tumors, particularly in childhood.
   treatment_term:
-    preferred_term: Cancer screening
+    preferred_term: age-stratified embryonal tumor and bladder cancer surveillance
     term:
       id: MAXO:0000126
       label: cancer screening
+  evidence:
+  - reference: PMID:20301680
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      abdominal and pelvic ultrasound examinations to screen for
+      rhabdomyosarcoma and neuroblastoma every three to six months until age
+      eight to ten years may be considered; annual urinalysis for evidence of
+      hematuria to screen for bladder cancer beginning at age ten years.
+    explanation: &gt;-
+      Updated GeneReviews surveillance guidance supports tumor screening in
+      childhood and bladder cancer surveillance later in life.
 - name: MEK Inhibitor Therapy
   description: &gt;
-    MEK inhibitors (e.g., trametinib) are being investigated as targeted
-    therapy for RASopathies to reduce pathway hyperactivation.
+    MEK inhibitors such as trametinib are used as pathway-targeted therapy for
+    refractory hypertrophic cardiomyopathy with heart failure and are being
+    investigated more broadly as precision therapy for RASopathies.
   treatment_term:
-    preferred_term: Pharmacotherapy
+    preferred_term: trametinib-class MEK inhibitor pharmacotherapy
     term:
       id: MAXO:0000058
       label: pharmacotherapy
+  notes: &gt;-
+    MAXO provides a generic pharmacotherapy term here; the preferred term
+    clarifies that this entry refers specifically to MEK-pathway inhibition.
+  evidence:
+  - reference: PMID:20301680
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Targeted therapy: Trametinib (MEK inhibitor) for treatment of
+      hypertrophic cardiomyopathy with heart failure that is refractory to
+      standard treatment.
+    explanation: &gt;-
+      Updated GeneReviews documents trametinib as a targeted option for severe
+      Costello syndrome cardiomyopathy refractory to standard management.
+diagnosis:
+- name: Molecular genetic testing
+  description: &gt;-
+    Molecular confirmation of a heterozygous pathogenic HRAS variant is central
+    to establishing the diagnosis and separating Costello syndrome from other
+    clinically overlapping RASopathies.
+  diagnosis_term:
+    preferred_term: HRAS-focused molecular genetic testing
+    term:
+      id: MAXO:0000533
+      label: molecular genetic testing
+  notes: &gt;-
+    The ontology term is generic; the preferred term specifies that diagnostic
+    confirmation is centered on pathogenic HRAS variant detection.
+  evidence:
+  - reference: PMID:20301680
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      The diagnosis of Costello syndrome is established in a proband with
+      suggestive clinical findings and a heterozygous HRAS pathogenic variant
+      identified by molecular genetic testing.
+    explanation: &gt;-
+      Updated GeneReviews directly supports molecular testing as the diagnostic
+      confirmation step for Costello syndrome.
+- name: Echocardiography with electrocardiography
+  description: &gt;-
+    Baseline cardiac evaluation is required to detect structural heart disease,
+    hypertrophic cardiomyopathy, and arrhythmia at the time of diagnosis.
+  diagnosis_term:
+    preferred_term: echocardiography with electrocardiography
+    term:
+      id: MAXO:0010203
+      label: echocardiography
+  notes: &gt;-
+    MAXO supplies echocardiography as the nearest term; the preferred term
+    qualifies that electrocardiography is paired with the imaging assessment.
+  evidence:
+  - reference: PMID:20301680
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      echocardiography with electrocardiogram at the time of diagnosis with
+      subsequent follow up by a cardiologist;
+    explanation: &gt;-
+      GeneReviews supports echocardiography plus ECG as core diagnostic
+      assessment for the cardiac manifestations of Costello syndrome.
+differential_diagnoses:
+- name: Noonan syndrome
+  disease_term:
+    preferred_term: Noonan syndrome
+    term:
+      id: MONDO:0018997
+      label: Noonan syndrome
+  description: &gt;-
+    Noonan syndrome is a closely related RASopathy with overlapping prenatal,
+    craniofacial, growth, developmental, and cardiac findings that can resemble
+    Costello syndrome, especially in attenuated HRAS-associated presentations.
+  distinguishing_features:
+  - HRAS pathogenic variants, papillomata, deep palmar and plantar creases, and stronger tumor predisposition favor Costello syndrome over Noonan syndrome.
+  - PTPN11, SOS1, RAF1, RIT1, or other non-HRAS RASopathy genotypes favor Noonan syndrome.
+  evidence:
+  - reference: PMID:21438134
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      the overall impression reported by experienced clinical geneticists is
+      different from Costello syndrome due to p.G12S and may suggest a
+      diagnosis of Noonan syndrome.
+    explanation: &gt;-
+      This genotype-phenotype analysis directly documents that some Costello
+      syndrome presentations can be mistaken clinically for Noonan syndrome.
+- name: Cardiofaciocutaneous syndrome
+  disease_term:
+    preferred_term: cardiofaciocutaneous syndrome
+    term:
+      id: MONDO:0015280
+      label: cardiofaciocutaneous syndrome
+  description: &gt;-
+    Cardiofaciocutaneous syndrome is another RASopathy with shared facial,
+    neurodevelopmental, and cardiac features that often enters the molecular
+    differential for Costello syndrome.
+  distinguishing_features:
+  - HRAS variants support Costello syndrome, whereas BRAF, KRAS, and MAP2K1/2 variants support cardiofaciocutaneous syndrome.
+  - Papillomata and characteristic tumor predisposition are more aligned with Costello syndrome than with classic cardiofaciocutaneous syndrome.
+  evidence:
+  - reference: PMID:22495831
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Costello syndrome and cardio-facio-cutaneous (CFC) syndrome are
+      congenital anomaly syndromes characterized by a distinctive facial
+      appearance, heart defects, and intellectual disability.
+    explanation: &gt;-
+      This nationwide survey directly supports CFC syndrome as a clinically
+      overlapping RASopathy differential for Costello syndrome.
+experimental_models:
+- name: Costello syndrome atrial-like cardiomyocyte model
+  description: &gt;-
+    Human Costello syndrome induced pluripotent stem cell-derived atrial-like
+    cardiomyocytes, including patient-derived and engineered HRAS Gly12 models,
+    used to study disease-specific arrhythmogenesis.
+  experimental_model_type: IPSC_DERIVED_MODEL
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  tissue_term:
+    preferred_term: heart
+    term:
+      id: UBERON:0000948
+      label: heart
+  cell_types:
+  - preferred_term: Atrial Cardiomyocyte
+    term:
+      id: CL:0002129
+      label: regular atrial cardiac myocyte
+  conditions:
+  - Costello syndrome
+  - HRAS Gly12 variants
+  - tachyarrhythmia
+  cell_source: Patient-derived and engineered induced pluripotent stem cells differentiated into atrial-like cardiomyocytes
+  culture_system: Two-dimensional iPSC-derived atrial cardiomyocyte culture with electrophysiology and transcriptomic profiling
+  publication: PMID:38415356
+  findings:
+  - statement: HRAS-mutant atrial-like cardiomyocytes recapitulate pacemaker-like reprogramming and arrhythmogenic automaticity underlying Costello syndrome MAT
+    evidence:
+    - reference: PMID:38415356
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        This is the first human-induced pluripotent stem cell model
+        establishing the mechanistic basis for multifocal atrial tachycardia
+        in CS.
+      explanation: &gt;-
+        This directly supports the model as a disease-relevant mechanistic
+        platform for Costello syndrome arrhythmia.
+  evidence:
+  - reference: PMID:38415356
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      This study investigated how overactive HRAS activity triggers
+      arrhythmogenesis in atrial-like cardiomyocytes (ACMs) derived from
+      human-induced pluripotent stem cells bearing CS-associated HRAS variants.
+    explanation: &gt;-
+      This publication establishes a first-class human cardiac disease model
+      for Costello syndrome.
+- name: Costello syndrome patient fibroblast models
+  description: &gt;-
+    Primary fibroblast cultures derived from individuals with Costello syndrome
+    used to study disease-specific metabolic dysregulation and extracellular
+    matrix defects.
+  experimental_model_type: PRIMARY_CELL_CULTURE
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  cell_types:
+  - preferred_term: Fibroblast
+    term:
+      id: CL:0000057
+      label: fibroblast
+  conditions:
+  - Costello syndrome
+  cell_source: Primary patient-derived skin fibroblasts
+  culture_system: Two-dimensional fibroblast culture with metabolic and extracellular matrix assays
+  publication: PMID:34508588
+  findings:
+  - statement: Costello syndrome fibroblasts show increased energetic expenditure with accelerated glycolysis, lipid storage, and autophagic flux
+    evidence:
+    - reference: PMID:34508588
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        Our findings provide a mechanistic link between upregulated HRAS
+        function, defective growth and increased resting energetic expenditure
+        in CS, and document that targeting p38 and PI3K signaling is able to
+        revert this metabolic dysfunction.
+      explanation: &gt;-
+        This supports fibroblast models as a translational system for Costello
+        syndrome metabolic dysfunction.
+  - statement: Costello syndrome fibroblasts fail to assemble elastic fibers efficiently and reveal a connective tissue disease mechanism
+    evidence:
+    - reference: PMID:10712202
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        cultured skin fibroblasts obtained from patients with Costello syndrome
+        did not assemble elastic fibers, despite an adequate synthesis of
+        tropoelastin and normal deposition of the microfibrillar scaffold.
+      explanation: &gt;-
+        This supports patient fibroblast culture as a mechanism-bearing model
+        for the connective tissue component of Costello syndrome.
+  evidence:
+  - reference: PMID:34508588
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Here, we show that constitutive plasma membrane translocation and
+      activation of the GLUT4 glucose transporter, via reactive oxygen
+      species-dependent AMP-activated protein kinase α and p38 hyperactivation,
+      occurs in primary fibroblasts of CS patients,
+    explanation: &gt;-
+      This establishes primary patient fibroblasts as a validated Costello
+      syndrome metabolic model system.
 datasets:
+- accession: geo:GSE64194
+  title: Expression data to investigate Costello syndrome using human iPSCs differentiated into astroglial progenitors and astrocytes
+  description: &gt;-
+    Human microarray dataset comparing HRAS-mutant and HRAS-wild-type
+    pluripotent stem cell-derived astroglial progenitors and astrocytes to
+    define neuroglial extracellular-matrix and maturation abnormalities in
+    Costello syndrome.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: MICROARRAY
+  sample_types:
+  - preferred_term: iPSC-derived astroglial progenitor
+  - preferred_term: iPSC-derived astrocyte
+  sample_count: 9
+  conditions:
+  - Costello syndrome HRAS-mutant astroglial lineage
+  - HRAS-wild-type control astroglial lineage
+  publication: PMID:25947161
+  evidence:
+  - reference: PMID:25947161
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Human iPSCs derived from patients with Costello syndrome differentiated
+      to astroglia more rapidly in vitro than those derived from wild-type cell
+      lines with normal HRAS, exhibited hyperplasia, and also generated an
+      abundance of extracellular matrix remodeling factors and proteoglycans.
+    explanation: &gt;-
+      This publication-linked GEO series is a direct human-cell transcriptomic
+      resource for Costello syndrome astroglial pathology.
+- accession: geo:GSE187493
+  title: Transcriptome analysis of skeletal muscle tissue from Hras G12V mutant mice
+  description: &gt;-
+    Mouse bulk RNA-seq dataset profiling skeletal muscle from an activating
+    Hras Costello syndrome model to define transcriptional programs associated
+    with myopathy, hypotonia, and MAPK-driven rescue biology.
+  organism:
+    preferred_term: house mouse
+    term:
+      id: NCBITaxon:10090
+      label: Mus musculus
+  data_type: BULK_RNA_SEQ
+  sample_types:
+  - preferred_term: skeletal muscle tissue
+    tissue_term:
+      preferred_term: skeletal muscle tissue
+      term:
+        id: UBERON:0001134
+        label: skeletal muscle tissue
+  sample_count: 6
+  conditions:
+  - HrasG12V Costello syndrome mouse model
+  - wild-type skeletal muscle control
+  publication: PMID:34553752
+  evidence:
+  - reference: PMID:34553752
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      To gain a better understanding of the mechanisms underlying hypotonia in
+      CS, a mouse model with an activating HrasG12V allele was utilized.
+    explanation: &gt;-
+      This study anchors the linked GEO RNA-seq dataset as a mechanistically
+      relevant model-organism resource for Costello syndrome muscle pathology.
+clinical_trials:
+- name: NCT04888936
+  phase: NOT_APPLICABLE
+  status: RECRUITING
+  description: &gt;-
+    Ongoing NIH natural-history and biospecimen study of children and adults
+    with RASopathies, including Costello syndrome, designed to quantify cancer
+    incidence and longitudinal non-tumor manifestations.
+  evidence:
+  - reference: clinicaltrials:NCT04888936
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Objective: To learn more about RASopathies, how genes and environmental
+      factors contribute to cancer development in people with RASopathies, and
+      the best way to find these cancers and other conditions early or prevent
+      them.
+    explanation: &gt;-
+      ClinicalTrials.gov directly documents an actively recruiting natural
+      history cohort relevant to Costello syndrome cancer risk and longitudinal
+      phenotyping.
+- name: NCT05761314
+  phase: NOT_APPLICABLE
+  status: RECRUITING
+  description: &gt;-
+    Recruiting interventional diagnostic study of solid-tumor prevalence and
+    tumor molecular characterization across RASopathies including Costello
+    syndrome.
+  evidence:
+  - reference: clinicaltrials:NCT05761314
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Based on evidences provided by literature, cancer screening protocols are
+      applied in some individuals affected by RASopathies, even though detailed
+      information about prevalence and molecular pathogenesis of such tumors is
+      still not clearly elucidate.
+    explanation: &gt;-
+      This registry entry supports a currently recruiting study directly tied to
+      Costello syndrome tumor surveillance and tumor biology.
+- name: NCT06355622
+  phase: NOT_APPLICABLE
+  status: UNKNOWN
+  description: &gt;-
+    Costello-inclusive RASopathy study assessing the prevalence and
+    characterization of pain using questionnaires, biomarkers, and
+    neurophysiologic testing; ClinicalTrials.gov listed overall status as
+    unknown with last known recruiting status in the March 21, 2025 update.
+  evidence:
+  - reference: clinicaltrials:NCT06355622
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Pain is a neglected topic in RASopathies but it is frequently complained
+      by affected individuals.
+    explanation: &gt;-
+      ClinicalTrials.gov identifies an additional Costello-relevant registry
+      study targeting an undercurated symptom domain across RASopathies.
 references:
 - reference: DOI:10.1161/circep.123.012022
   title: &lt;i&gt;HRAS&lt;/i&gt; -Mutant Cardiomyocyte Model of Multifocal Atrial

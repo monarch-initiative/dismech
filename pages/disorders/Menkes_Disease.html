@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 12</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Copper metabolism disorder</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Neurodevelopmental disease</span>
@@ -1938,6 +2111,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -2001,6 +2177,14 @@
             <div class="stat-item">
                 <div class="stat-value">13</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">12</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2389,7 +2573,7 @@
                 <span class="card-count">4</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-atp7a-mediated-copper-export-failure">
                 <div class="item-name">ATP7A-mediated copper export failure</div>
                 
                 <div class="item-desc">ATP7A dysfunction impairs copper movement from the cytosol into the secretory pathway and prevents directional copper export across polarized epithelial barriers. The result is low circulating copper availability with copper retention in intestinal and renal epithelia and inadequate delivery to peripheral tissues and the brain.</div>
@@ -2480,6 +2664,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2534,7 +2719,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-cuproenzyme-deficiency-and-neurodevelopmental-injury">
                 <div class="item-name">Cuproenzyme deficiency and neurodevelopmental injury</div>
                 
                 <div class="item-desc">Brain copper deficiency compromises copper-dependent enzymes, especially dopamine-beta-hydroxylase and cytochrome c oxidase. This causes abnormal catecholamine biosynthesis, impaired oxidative phosphorylation, and progressive neurodevelopmental injury with seizures, hypotonia, and brain atrophy.</div>
@@ -2605,6 +2790,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -2681,7 +2867,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-redox-imbalance-from-copper-accumulation">
                 <div class="item-name">Mitochondrial redox imbalance from copper accumulation</div>
                 
                 <div class="item-desc">In cells lacking functional ATP7A, copper accumulates in mitochondria and disrupts glutathione-based redox buffering. This renders cells highly sensitive to oxidative stress and contributes to tissue injury, particularly in renal epithelia where copper paradoxically accumulates.</div>
@@ -2744,6 +2930,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2798,7 +2985,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-lysyl-oxidase-deficiency-and-connective-tissue-fragility">
                 <div class="item-name">Lysyl oxidase deficiency and connective tissue fragility</div>
                 
                 <div class="item-desc">Copper deficiency reduces lysyl oxidase activity, weakening collagen and elastin cross-linking in connective tissues and vessel walls. This produces tissue laxity, vascular tortuosity and phlebectasia, hernias, and skeletal fragility.</div>
@@ -2841,6 +3028,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -2890,6 +3078,7 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="graph-warning">
                 <strong>Referential integrity issues (4):</strong>
@@ -2911,13 +3100,13 @@
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Menkes Disease</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ATP7A-mediated copper export failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ATP7A dysfunction impairs copper movement from the cytosol into the secretory pathway and prevents directional copper export across polarized epithelial barriers. The result is low circulating copper availability with copper retention in intestinal and renal epithelia and inadequate delivery to peripheral tissues and the brain.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"enterocyte\", \"epithelial cell of proximal tubule\"], \"biological_processes\": [\"copper ion transport\"], \"genes\": [\"ATP7A\"], \"locations\": [\"small intestine\", \"kidney\"]}}, {\"id\": \"Brain copper deficiency\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Connective tissue laxity\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Cuproenzyme deficiency and neurodevelopmental injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Brain copper deficiency compromises copper-dependent enzymes, especially dopamine-beta-hydroxylase and cytochrome c oxidase. This causes abnormal catecholamine biosynthesis, impaired oxidative phosphorylation, and progressive neurodevelopmental injury with seizures, hypotonia, and brain atrophy.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"catecholamine biosynthetic process\", \"oxidative phosphorylation\"], \"locations\": [\"brain\"]}}, {\"id\": \"Lysyl oxidase deficiency and connective tissue fragility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Copper deficiency reduces lysyl oxidase activity, weakening collagen and elastin cross-linking in connective tissues and vessel walls. This produces tissue laxity, vascular tortuosity and phlebectasia, hernias, and skeletal fragility.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"extracellular matrix organization\"], \"locations\": [\"skin\", \"blood vessel\"]}}, {\"id\": \"Neurodevelopmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive neurodevelopmental impairment emerges in early infancy after a brief normal neonatal period.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012758\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures often emerge during early infancy as neurodegeneration and brain copper deficiency progress.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Systemic copper deficiency\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Vascular tortuosity and phlebectasia\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}], \"edges\": [{\"source\": \"ATP7A-mediated copper export failure\", \"target\": \"Systemic copper deficiency\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"ATP7A-mediated copper export failure\", \"target\": \"Brain copper deficiency\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"Cuproenzyme deficiency and neurodevelopmental injury\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cuproenzyme deficiency and neurodevelopmental injury\", \"target\": \"Neurodevelopmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lysyl oxidase deficiency and connective tissue fragility\", \"target\": \"Vascular tortuosity and phlebectasia\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"Lysyl oxidase deficiency and connective tissue fragility\", \"target\": \"Connective tissue laxity\", \"predicate\": \"causes\", \"is_orphan\": true}], \"orphan_targets\": [\"Brain copper deficiency\", \"Connective tissue laxity\", \"Systemic copper deficiency\", \"Vascular tortuosity and phlebectasia\"]}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ATP7A pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ATP7A\"], \"association\": \"Loss-of-function\"}}, {\"id\": \"ATP7A-mediated copper export failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ATP7A dysfunction impairs copper movement from the cytosol into the secretory pathway and prevents directional copper export across polarized epithelial barriers. The result is low circulating copper availability with copper retention in intestinal and renal epithelia and inadequate delivery to peripheral tissues and the brain.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"enterocyte\", \"epithelial cell of proximal tubule\"], \"biological_processes\": [\"copper ion transport\"], \"genes\": [\"ATP7A\"], \"locations\": [\"small intestine\", \"kidney\"]}}, {\"id\": \"Brain copper deficiency\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Connective tissue laxity\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Copper histidinate\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Early subcutaneous copper histidinate partially bypasses the intestinal copper-transport defect and improves survival and neurodevelopment most effectively when started in the presymptomatic neonatal window.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Cuproenzyme deficiency and neurodevelopmental injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Brain copper deficiency compromises copper-dependent enzymes, especially dopamine-beta-hydroxylase and cytochrome c oxidase. This causes abnormal catecholamine biosynthesis, impaired oxidative phosphorylation, and progressive neurodevelopmental injury with seizures, hypotonia, and brain atrophy.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"catecholamine biosynthetic process\", \"oxidative phosphorylation\"], \"locations\": [\"brain\"]}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor growth accompanies neurologic decline, feeding difficulty, and multisystem copper deficiency.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Lysyl oxidase deficiency and connective tissue fragility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Copper deficiency reduces lysyl oxidase activity, weakening collagen and elastin cross-linking in connective tissues and vessel walls. This produces tissue laxity, vascular tortuosity and phlebectasia, hernias, and skeletal fragility.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"extracellular matrix organization\"], \"locations\": [\"skin\", \"blood vessel\"]}}, {\"id\": \"Neurodevelopmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive neurodevelopmental impairment emerges in early infancy after a brief normal neonatal period.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012758\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures often emerge during early infancy as neurodegeneration and brain copper deficiency progress.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Systemic copper deficiency\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Vascular tortuosity and phlebectasia\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}], \"edges\": [{\"source\": \"ATP7A-mediated copper export failure\", \"target\": \"Systemic copper deficiency\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"ATP7A-mediated copper export failure\", \"target\": \"Brain copper deficiency\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"Cuproenzyme deficiency and neurodevelopmental injury\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cuproenzyme deficiency and neurodevelopmental injury\", \"target\": \"Neurodevelopmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lysyl oxidase deficiency and connective tissue fragility\", \"target\": \"Vascular tortuosity and phlebectasia\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"Lysyl oxidase deficiency and connective tissue fragility\", \"target\": \"Connective tissue laxity\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"Copper histidinate\", \"target\": \"Neurodevelopmental delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Copper histidinate\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Copper histidinate\", \"target\": \"Failure to thrive\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"ATP7A pathogenic variants\", \"target\": \"ATP7A-mediated copper export failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": [\"Brain copper deficiency\", \"Connective tissue laxity\", \"Systemic copper deficiency\", \"Vascular tortuosity and phlebectasia\"]}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4296,6 +4485,7 @@ inheritance:
     males.
   evidence:
   - reference: PMID:19888294
+    reference_title: &#34;Menkes disease.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;MD is inherited as an X-linked recessive trait, and as expected the vast majority of patients are males.&#34;
@@ -4308,6 +4498,7 @@ prevalence:
     missense alleles are included.
   evidence:
   - reference: PMID:32528851
+    reference_title: &#34;Estimated birth prevalence of Menkes disease and ATP7A-related disorders based on the Genome Aggregation Database (gnomAD).&#34;
     supports: SUPPORT
     evidence_source: COMPUTATIONAL
     snippet: &#34;Assuming Harvey-Weinberg equilibrium, this frequency of pathogenic alleles predicts 1 in 34,810 live male births with Menkes disease or other ATP7A-related disorders each year in the US.&#34;
@@ -4320,6 +4511,7 @@ progression:
     Untreated classic disease usually causes death before 3 years of age.
   evidence:
   - reference: PMID:32714836
+    reference_title: &#34;Targeted next generation sequencing for newborn screening of Menkes disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;At birth, affected Menkes infants appear healthy and typically develop normally for 6 to 10 weeks before seizures, failure to thrive, irreversible brain atrophy, and stalled neurodevelopment ensue.&#34;
@@ -4342,6 +4534,7 @@ genetic:
     transport.
   evidence:
   - reference: PMID:18256395
+    reference_title: &#34;Neonatal diagnosis and treatment of Menkes disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Menkes disease is a fatal neurodegenerative disorder of infancy caused by diverse mutations in a copper-transport gene, ATP7A.&#34;
@@ -4389,11 +4582,13 @@ pathophysiology:
       label: kidney
   evidence:
   - reference: PMID:19888294
+    reference_title: &#34;Menkes disease.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;ATP7A is an energy dependent transmembrane protein, which is involved in the delivery of copper to the secreted copper enzymes and in the export of surplus copper from cells.&#34;
     explanation: Supports ATP7A as the central mediator of intracellular copper delivery and cellular copper efflux.
   - reference: PMID:27226607
+    reference_title: &#34;The Activity of Menkes Disease Protein ATP7A Is Essential for Redox Balance in Mitochondria.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;In cells, ATP7A inactivation disrupts copper transport from the cytosol into the secretory pathway.&#34;
@@ -4403,6 +4598,7 @@ pathophysiology:
     description: Failed epithelial copper export lowers circulating copper and ceruloplasmin availability.
     evidence:
     - reference: PMID:24054147
+      reference_title: &#34;Catecholamine metabolites affected by the copper-dependent enzyme dopamine-beta-hydroxylase provide sensitive biomarkers for early diagnosis of menkes disease and viral-mediated ATP7A gene therapy.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Both conditions are linked to a biochemical phenotype (low copper levels in the blood and a copper deficiency in the brain) that denotes abnormal copper metabolism.&#34;
@@ -4411,6 +4607,7 @@ pathophysiology:
     description: Inadequate copper transfer across brain barriers limits neuronal copper delivery during development.
     evidence:
     - reference: PMID:24054147
+      reference_title: &#34;Catecholamine metabolites affected by the copper-dependent enzyme dopamine-beta-hydroxylase provide sensitive biomarkers for early diagnosis of menkes disease and viral-mediated ATP7A gene therapy.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Passage of copper across the blood-cerebrospinal fluid (CSF) barrier and the blood-brain barrier (BBB) is likely mediated by ATP7A.&#34;
@@ -4448,16 +4645,19 @@ pathophysiology:
       label: brain
   evidence:
   - reference: PMID:18256395
+    reference_title: &#34;Neonatal diagnosis and treatment of Menkes disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Exploiting the deficiency of a copper enzyme, dopamine-beta-hydroxylase, we prospectively evaluated the diagnostic usefulness of plasma neurochemical levels, assessed the clinical effect of early detection, and investigated the molecular bases for treatment outcomes.&#34;
     explanation: Supports dopamine-beta-hydroxylase deficiency as a measurable biochemical consequence of Menkes disease.
   - reference: PMID:27226607
+    reference_title: &#34;The Activity of Menkes Disease Protein ATP7A Is Essential for Redox Balance in Mitochondria.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;Thus, ATP7A activity protects mitochondria from excessive copper entry, which is deleterious to redox buffers.&#34;
     explanation: Supports mitochondrial dysfunction and redox imbalance as downstream consequences of ATP7A loss.
   - reference: PMID:32714836
+    reference_title: &#34;Targeted next generation sequencing for newborn screening of Menkes disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;At birth, affected Menkes infants appear healthy and typically develop normally for 6 to 10 weeks before seizures, failure to thrive, irreversible brain atrophy, and stalled neurodevelopment ensue.&#34;
@@ -4467,6 +4667,7 @@ pathophysiology:
     description: Neuronal copper deficiency lowers seizure threshold and contributes to epileptic manifestations.
     evidence:
     - reference: PMID:32714836
+      reference_title: &#34;Targeted next generation sequencing for newborn screening of Menkes disease.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;At birth, affected Menkes infants appear healthy and typically develop normally for 6 to 10 weeks before seizures, failure to thrive, irreversible brain atrophy, and stalled neurodevelopment ensue.&#34;
@@ -4475,6 +4676,7 @@ pathophysiology:
     description: Impaired energy metabolism and catecholamine synthesis disrupt normal brain growth and development.
     evidence:
     - reference: PMID:25281031
+      reference_title: &#34;Neurodevelopment and brain growth in classic Menkes disease is influenced by age and symptomatology at initiation of copper treatment.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Untreated affected individuals suffer failure to thrive and neurodevelopmental delays that usually commence at 6-8 weeks of age.&#34;
@@ -4507,11 +4709,13 @@ pathophysiology:
       label: kidney
   evidence:
   - reference: PMID:27226607
+    reference_title: &#34;The Activity of Menkes Disease Protein ATP7A Is Essential for Redox Balance in Mitochondria.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;Redox misbalance does not significantly affect mitochondrion morphology or the activity of respiratory complex IV but markedly increases cell sensitivity to even mild glutathione depletion, resulting in loss of cell viability.&#34;
     explanation: Demonstrates that ATP7A loss causes mitochondrial redox imbalance and increased sensitivity to glutathione depletion.
   - reference: PMID:27226607
+    reference_title: &#34;The Activity of Menkes Disease Protein ATP7A Is Essential for Redox Balance in Mitochondria.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;Mitochondrial redox misbalance could significantly contribute to pathologies associated with ATP7A inactivation in tissues with paradoxical accumulation of copper (i.e. renal epithelia).&#34;
@@ -4538,6 +4742,7 @@ pathophysiology:
       label: blood vessel
   evidence:
   - reference: PMID:32293788
+    reference_title: &#34;Neck masses due to internal jugular vein phlebectasia: Frequency in Menkes disease and literature review of 85 pediatric subjects.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;This feature and other connective tissue abnormalities appear to be consequences of deficient activity of lysyl oxidase, a copper-dependent enzyme.&#34;
@@ -4547,6 +4752,7 @@ pathophysiology:
     description: Defective extracellular-matrix cross-linking weakens vessel walls and alters vascular architecture.
     evidence:
     - reference: PMID:32293788
+      reference_title: &#34;Neck masses due to internal jugular vein phlebectasia: Frequency in Menkes disease and literature review of 85 pediatric subjects.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;We previously identified internal jugular vein phlebectasia (IJP) in four Menkes disease subjects. This feature and other connective tissue abnormalities appear to be consequences of deficient activity of lysyl oxidase, a copper-dependent enzyme.&#34;
@@ -4555,6 +4761,7 @@ pathophysiology:
     description: Weak collagen and elastin cross-linking contributes to hernias, skin laxity, and skeletal complications.
     evidence:
     - reference: PMID:32293788
+      reference_title: &#34;Neck masses due to internal jugular vein phlebectasia: Frequency in Menkes disease and literature review of 85 pediatric subjects.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;This feature and other connective tissue abnormalities appear to be consequences of deficient activity of lysyl oxidase, a copper-dependent enzyme.&#34;
@@ -4572,6 +4779,7 @@ phenotypes:
       label: Neurodevelopmental delay
   evidence:
   - reference: PMID:25281031
+    reference_title: &#34;Neurodevelopment and brain growth in classic Menkes disease is influenced by age and symptomatology at initiation of copper treatment.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Untreated affected individuals suffer failure to thrive and neurodevelopmental delays that usually commence at 6-8 weeks of age.&#34;
@@ -4588,6 +4796,7 @@ phenotypes:
       label: Seizure
   evidence:
   - reference: PMID:32714836
+    reference_title: &#34;Targeted next generation sequencing for newborn screening of Menkes disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;At birth, affected Menkes infants appear healthy and typically develop normally for 6 to 10 weeks before seizures, failure to thrive, irreversible brain atrophy, and stalled neurodevelopment ensue.&#34;
@@ -4604,6 +4813,7 @@ phenotypes:
       label: Hypotonia
   evidence:
   - reference: PMID:22695177
+    reference_title: &#34;In utero copper treatment for Menkes disease associated with a severe ATP7A mutation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Despite this very early intervention with copper, the infant showed hypotonia, developmental delay, and electroencephalographic abnormalities and died of respiratory failure at 5.5 months of age.&#34;
@@ -4620,6 +4830,7 @@ phenotypes:
       label: Failure to thrive
   evidence:
   - reference: PMID:25281031
+    reference_title: &#34;Neurodevelopment and brain growth in classic Menkes disease is influenced by age and symptomatology at initiation of copper treatment.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Untreated affected individuals suffer failure to thrive and neurodevelopmental delays that usually commence at 6-8 weeks of age.&#34;
@@ -4636,6 +4847,7 @@ phenotypes:
       label: Pili torti
   evidence:
   - reference: PMID:19888294
+    reference_title: &#34;Menkes disease.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Progressive neurodegeneration and connective tissue disturbances, together with the peculiar &#39;kinky&#39; hair are the main manifestations.&#34;
@@ -4652,6 +4864,7 @@ phenotypes:
       label: Cutis laxa
   evidence:
   - reference: PMID:22695177
+    reference_title: &#34;In utero copper treatment for Menkes disease associated with a severe ATP7A mutation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;His skin was dry and wrinkled with a post-mature quality, and loose and redundant on the back and trunk.&#34;
@@ -4668,6 +4881,7 @@ phenotypes:
       label: Cerebral atrophy
   evidence:
   - reference: PMID:32714836
+    reference_title: &#34;Targeted next generation sequencing for newborn screening of Menkes disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;At birth, affected Menkes infants appear healthy and typically develop normally for 6 to 10 weeks before seizures, failure to thrive, irreversible brain atrophy, and stalled neurodevelopment ensue.&#34;
@@ -4684,6 +4898,7 @@ phenotypes:
       label: Arterial tortuosity
   evidence:
   - reference: PMID:31198482
+    reference_title: &#34;Imaging findings of Menkes disease, a radiographic mimic of abusive trauma.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The classic radiographic findings seen in Menke&#39;s disease have been documented and include wormian bones, diaphyseal and metaphyseal bone fractures, subdural hematomas, and tortuous intracranial arteries&#34;
@@ -4700,6 +4915,7 @@ phenotypes:
       label: Abnormal venous morphology
   evidence:
   - reference: PMID:32293788
+    reference_title: &#34;Neck masses due to internal jugular vein phlebectasia: Frequency in Menkes disease and literature review of 85 pediatric subjects.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Our prospective results suggest that IJP occurs in approximately 14% (9/66) of Menkes disease patients and appears to be clinically benign with no specific medical or surgical actionability.&#34;
@@ -4716,6 +4932,7 @@ phenotypes:
       label: Bladder diverticulum
   evidence:
   - reference: PMID:406641
+    reference_title: &#34;Bladder diverticula and Menkes&#39; syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Multiple unusual diverticula of the bladder were observed in 3 of 4 children with Menkes&#39; syndrome.&#34;
@@ -4732,6 +4949,7 @@ phenotypes:
       label: Wormian bones
   evidence:
   - reference: PMID:20180106
+    reference_title: &#34;Long-term skeletal findings in Menkes disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Skeletal findings in infants with Menkes disease, the most characteristic of which are metaphyseal spurs, long-bone fractures and wormian bones, have been widely reported.&#34;
@@ -4748,6 +4966,7 @@ phenotypes:
       label: Subdural hemorrhage
   evidence:
   - reference: PMID:12483361
+    reference_title: &#34;Massive subdural haematomas in Menkes disease mimicking shaken baby syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We present a case of Menkes disease complicated by progressive macrocephaly following the development of massive subdural haematomas.&#34;
@@ -4764,6 +4983,7 @@ phenotypes:
       label: Fair hair
   evidence:
   - reference: PMID:29675083
+    reference_title: &#34;Neuroimaging in Menkes Disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;These patients can present with failure to thrive, severe psychomotor retardation, seizures and hypopigmented hair, which is characteristic of this condition.&#34;
@@ -4794,11 +5014,13 @@ treatments:
       label: Failure to thrive
   evidence:
   - reference: PMID:18256395
+    reference_title: &#34;Neonatal diagnosis and treatment of Menkes disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Among 12 newborns with positive screening tests who were treated early with copper, survival at a median follow-up of 4.6 years was 92%, as compared with 13% at a median follow-up of 1.8 years for a historical control group of 15 late-diagnosis and late-treatment patients.&#34;
     explanation: Supports markedly improved survival with early copper treatment relative to late-treated historical controls.
   - reference: PMID:25281031
+    reference_title: &#34;Neurodevelopment and brain growth in classic Menkes disease is influenced by age and symptomatology at initiation of copper treatment.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We conclude that early copper histidine for Menkes disease is safe and efficacious, with treatment outcomes influenced by the timing of intervention, and ATP7A mutation.&#34;
@@ -4815,6 +5037,7 @@ treatments:
       label: gene therapy
   evidence:
   - reference: PMID:30090842
+    reference_title: &#34;Cerebrospinal Fluid-Directed rAAV9-rsATP7A Plus Subcutaneous Copper Histidinate Advance Survival and Outcomes in a Menkes Disease Mouse Model.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Based on these findings, and the absence of a large animal model, we propose cerebrospinal fluid-directed rAAV9-rsATP7A gene therapy plus subcutaneous copper histidinate as a potential therapeutic approach to cure or ameliorate Menkes disease.&#34;
@@ -4827,6 +5050,7 @@ biochemical:
     normally low and not reliable for diagnosis until 6-8 weeks of age.
   evidence:
   - reference: PMID:22695177
+    reference_title: &#34;In utero copper treatment for Menkes disease associated with a severe ATP7A mutation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Affected individuals manifest low copper and ceruloplasmin levels in plasma or serum, as well as in cerebrospinal fluid.&#34;
@@ -4838,6 +5062,7 @@ biochemical:
     hepatic copper delivery to ceruloplasmin apoenzyme.
   evidence:
   - reference: PMID:22695177
+    reference_title: &#34;In utero copper treatment for Menkes disease associated with a severe ATP7A mutation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Affected individuals manifest low copper and ceruloplasmin levels in plasma or serum, as well as in cerebrospinal fluid.&#34;
@@ -4850,11 +5075,13 @@ biochemical:
     diagnostic test with high sensitivity and specificity.
   evidence:
   - reference: PMID:24054147
+    reference_title: &#34;Catecholamine metabolites affected by the copper-dependent enzyme dopamine-beta-hydroxylase provide sensitive biomarkers for early diagnosis of menkes disease and viral-mediated ATP7A gene therapy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Partial deficiency of dopamine-beta-hydroxylase is a biochemical hallmark of this illness due to the normal role of ATP7A in delivery of copper as an enzymatic cofactor.&#34;
     explanation: Confirms dopamine-beta-hydroxylase deficiency as a sensitive and specific biomarker for Menkes disease.
   - reference: PMID:18256395
+    reference_title: &#34;Neonatal diagnosis and treatment of Menkes disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Exploiting the deficiency of a copper enzyme, dopamine-beta-hydroxylase, we prospectively evaluated the diagnostic usefulness of plasma neurochemical levels, assessed the clinical effect of early detection, and investigated the molecular bases for treatment outcomes.&#34;
@@ -4867,6 +5094,7 @@ diagnosis:
     DOPAC:DHPG ratios enables rapid neonatal diagnosis within hours.
   evidence:
   - reference: PMID:18256395
+    reference_title: &#34;Neonatal diagnosis and treatment of Menkes disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;the neurochemical profiles were shown to have high sensitivity and specificity for detecting disease.&#34;
@@ -4879,6 +5107,7 @@ diagnosis:
     sensitivity from dried blood spots.
   evidence:
   - reference: PMID:32714836
+    reference_title: &#34;Targeted next generation sequencing for newborn screening of Menkes disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Our results support proof-of-concept that primary DNA-based NBS would accurately detect Menkes disease, a disorder that fulfills Wilson and Jungner screening criteria and for which biochemical NBS is unavailable.&#34;
@@ -4893,6 +5122,7 @@ has_subtypes:
     typically survive into adulthood.
   evidence:
   - reference: PMID:32528851
+    reference_title: &#34;Estimated birth prevalence of Menkes disease and ATP7A-related disorders based on the Genome Aggregation Database (gnomAD).&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Occipital horn syndrome and ATP7A-related distal motor neuropathy are allelic variants of Menkes disease that have less distinctive clincal and biochemical signs&#34;
@@ -4905,6 +5135,7 @@ has_subtypes:
     metabolism abnormalities.
   evidence:
   - reference: PMID:32528851
+    reference_title: &#34;Estimated birth prevalence of Menkes disease and ATP7A-related disorders based on the Genome Aggregation Database (gnomAD).&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Occipital horn syndrome and ATP7A-related distal motor neuropathy are allelic variants of Menkes disease that have less distinctive clincal and biochemical signs&#34;
@@ -4943,6 +5174,7 @@ datasets:
   publication: PMID:34069220
   evidence:
   - reference: PMID:34069220
+    reference_title: &#34;Whole-Exome Sequencing, Proteome Landscape, and Immune Cell Migration Patterns in a Clinical Context of Menkes Disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Compared with his parents and with child controls, 11 plasma proteins were upregulated and 59 downregulated in the patient.&#34;

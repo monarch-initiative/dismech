@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Urea Cycle Disorder</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Inborn Error of Metabolism</span>
@@ -1937,6 +2110,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1992,6 +2168,14 @@
             <div class="stat-item">
                 <div class="stat-value">12</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">8</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2071,7 +2255,7 @@
                 <span class="card-count">4</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-cps1-molecular-function-deficiency">
                 <div class="item-name">CPS1 molecular function deficiency</div>
                 
                 <div class="item-desc">Biallelic pathogenic variants in CPS1 reduce mitochondrial carbamoyl phosphate synthetase catalytic activity.
@@ -2119,6 +2303,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2153,7 +2338,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-mitochondrial-ureagenesis">
                 <div class="item-name">Impaired mitochondrial ureagenesis</div>
                 
                 <div class="item-desc">Reduced CPS1 function in hepatic mitochondria impairs ATP-dependent condensation of ammonia and bicarbonate into carbamoyl phosphate, the first and rate-limiting step of the urea cycle. This blocks hepatic nitrogen disposal and causes systemic ammonia accumulation. The reaction is functionally dependent on N-acetylglutamate (NAG) as an essential allosteric activator.
@@ -2190,6 +2375,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -2246,7 +2432,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-hyperammonemia-driven-neurotoxicity">
                 <div class="item-name">Hyperammonemia-driven neurotoxicity</div>
                 
                 <div class="item-desc">Failure of hepatic ureagenesis causes systemic hyperammonemia. Ammonia is specifically neurotoxic and readily crosses the blood-brain barrier. In astrocytes, ammonia is detoxified to glutamine via glutamine synthetase, leading to excessive intracellular glutamine accumulation. This causes osmotic astrocyte swelling, cerebral edema, raised intracranial pressure, and encephalopathy. Hyperammonemia may also interfere with mitochondrial function and neurotransmission.
@@ -2299,6 +2485,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2333,7 +2520,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-compensatory-nitrogen-buffering-as-glutamine">
                 <div class="item-name">Compensatory nitrogen buffering as glutamine</div>
                 
                 <div class="item-desc">When urea synthesis is blocked, the body compensates by storing excess nitrogen as glutamine. Plasma glutamine rises as a major nitrogen carrier and serves as a clinical index of total nitrogen load. Low plasma citrulline reflects reduced flux through the proximal urea cycle, while urinary orotic acid remains low or absent, distinguishing CPS1D from OTC deficiency.
@@ -2356,6 +2543,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2428,18 +2616,19 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Carbamoyl Phosphate Synthetase I Deficiency</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"CPS1 molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in CPS1 reduce mitochondrial carbamoyl phosphate synthetase catalytic activity.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"genes\": [\"CPS1\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Compensatory nitrogen buffering as glutamine\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"When urea synthesis is blocked, the body compensates by storing excess nitrogen as glutamine. Plasma glutamine rises as a major nitrogen carrier and serves as a clinical index of total nitrogen load. Low plasma citrulline reflects reduced flux through the proximal urea cycle, while urinary orotic acid remains low or absent, distinguishing CPS1D from OTC deficiency.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"urea cycle\"]}}, {\"id\": \"Hyperammonemia-driven neurotoxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure of hepatic ureagenesis causes systemic hyperammonemia. Ammonia is specifically neurotoxic and readily crosses the blood-brain barrier. In astrocytes, ammonia is detoxified to glutamine via glutamine synthetase, leading to excessive intracellular glutamine accumulation. This causes osmotic astrocyte swelling, cerebral edema, raised intracranial pressure, and encephalopathy. Hyperammonemia may also interfere with mitochondrial function and neurotransmission.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"astrocyte\"], \"biological_processes\": [\"glutamine biosynthetic process\"], \"locations\": [\"brain\"]}}, {\"id\": \"Impaired mitochondrial ureagenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced CPS1 function in hepatic mitochondria impairs ATP-dependent condensation of ammonia and bicarbonate into carbamoyl phosphate, the first and rate-limiting step of the urea cycle. This blocks hepatic nitrogen disposal and causes systemic ammonia accumulation. The reaction is functionally dependent on N-acetylglutamate (NAG) as an essential allosteric activator.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"urea cycle\"], \"locations\": [\"liver\"]}}], \"edges\": [{\"source\": \"CPS1 molecular function deficiency\", \"target\": \"Impaired mitochondrial ureagenesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial ureagenesis\", \"target\": \"Hyperammonemia-driven neurotoxicity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial ureagenesis\", \"target\": \"Compensatory nitrogen buffering as glutamine\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"CPS1 molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in CPS1 reduce mitochondrial carbamoyl phosphate synthetase catalytic activity.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"genes\": [\"CPS1\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"CPS1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"variant_count\": 3}}, {\"id\": \"Compensatory nitrogen buffering as glutamine\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"When urea synthesis is blocked, the body compensates by storing excess nitrogen as glutamine. Plasma glutamine rises as a major nitrogen carrier and serves as a clinical index of total nitrogen load. Low plasma citrulline reflects reduced flux through the proximal urea cycle, while urinary orotic acid remains low or absent, distinguishing CPS1D from OTC deficiency.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"urea cycle\"]}}, {\"id\": \"Compound heterozygous CPS1 variants (Chinese cohort)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Dong et al. identified 12 CPS1 variants in seven Chinese CPS1D patients, including seven missense, three frameshift, one in-frame deletion, and one splicing variant. Ten of 12 variants were novel, and all patients exhibited compound heterozygosity.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Compound heterozygous c.1145C\u003eT and c.4080_c.4091del CPS1 variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Compound heterozygous CPS1 variants identified in an adolescent-onset case, including a missense mutation and a novel non-frameshift deletion.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Homozygous c.2397G\u003eA (p.Met799Ile) CPS1 variant\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A homozygous likely pathogenic CPS1 variant identified in a 59-year-old Japanese woman with late-onset CPS1D manifested during corticosteroid treatment for polymyositis.\\n\"}, {\"id\": \"Hyperammonemia-driven neurotoxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure of hepatic ureagenesis causes systemic hyperammonemia. Ammonia is specifically neurotoxic and readily crosses the blood-brain barrier. In astrocytes, ammonia is detoxified to glutamine via glutamine synthetase, leading to excessive intracellular glutamine accumulation. This causes osmotic astrocyte swelling, cerebral edema, raised intracranial pressure, and encephalopathy. Hyperammonemia may also interfere with mitochondrial function and neurotransmission.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"astrocyte\"], \"biological_processes\": [\"glutamine biosynthetic process\"], \"locations\": [\"brain\"]}}, {\"id\": \"Impaired mitochondrial ureagenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced CPS1 function in hepatic mitochondria impairs ATP-dependent condensation of ammonia and bicarbonate into carbamoyl phosphate, the first and rate-limiting step of the urea cycle. This blocks hepatic nitrogen disposal and causes systemic ammonia accumulation. The reaction is functionally dependent on N-acetylglutamate (NAG) as an essential allosteric activator.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"urea cycle\"], \"locations\": [\"liver\"]}}], \"edges\": [{\"source\": \"CPS1 molecular function deficiency\", \"target\": \"Impaired mitochondrial ureagenesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial ureagenesis\", \"target\": \"Hyperammonemia-driven neurotoxicity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial ureagenesis\", \"target\": \"Compensatory nitrogen buffering as glutamine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Compound heterozygous CPS1 variants (Chinese cohort)\", \"target\": \"CPS1 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Homozygous c.2397G\u003eA (p.Met799Ile) CPS1 variant\", \"target\": \"CPS1 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Compound heterozygous c.1145C\u003eT and c.4080_c.4091del CPS1 variants\", \"target\": \"CPS1 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4025,6 +4214,7 @@ pathophysiology:
       label: mitochondrion
   evidence:
   - reference: PMID:39469307
+    reference_title: &#34;Carbamoly-phosphate synthetase 1 (CPS1) deficiency: A tertiary center retrospective cohort study and literature review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: CPS1 is an enzyme in the urea cycle that catalyzes ammonia and bicarbonate condensation.
@@ -4052,11 +4242,13 @@ pathophysiology:
       label: liver
   evidence:
   - reference: PMID:39469307
+    reference_title: &#34;Carbamoly-phosphate synthetase 1 (CPS1) deficiency: A tertiary center retrospective cohort study and literature review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: CPS1 deficiency presents in the neonatal period with hyperammonemia, resulting in death or neurological sequelae if patients survive.
     explanation: Supports severe hyperammonemic consequences downstream of impaired proximal ureagenesis.
   - reference: PMID:40710547
+    reference_title: &#34;Amino Acid Metabolism in Liver Mitochondria: From Homeostasis to Disease.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: Hepatic mitochondria play critical roles in sustaining systemic nutrient balance, nitrogen detoxification, and
@@ -4089,6 +4281,7 @@ pathophysiology:
       label: brain
   evidence:
   - reference: PMID:39469307
+    reference_title: &#34;Carbamoly-phosphate synthetase 1 (CPS1) deficiency: A tertiary center retrospective cohort study and literature review.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: CPS1 deficiency presents in the neonatal period with hyperammonemia, resulting in death or neurological sequelae
@@ -4109,12 +4302,14 @@ pathophysiology:
       label: urea cycle
   evidence:
   - reference: PMID:39469307
+    reference_title: &#34;Carbamoly-phosphate synthetase 1 (CPS1) deficiency: A tertiary center retrospective cohort study and literature review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Ammonia results from amino acid turnover and is produced by intestinal urease-positive bacteria. Ammonia must
       be detoxified, and the urea cycle converts ammonia into urea.
     explanation: Supports the role of the urea cycle in ammonia disposal and the consequence of its disruption.
   - reference: PMID:40125546
+    reference_title: &#34;Carbamoyl phosphate synthetase 1 deficiency manifested in an adult treated with prednisone for polymyositis, and cured by live-donor liver transplantation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Plasma amino acid analysis revealed decreased citrulline levels and elevated glutamine levels.
@@ -4134,11 +4329,13 @@ phenotypes:
       label: Hyperammonemia
   evidence:
   - reference: PMID:39174957
+    reference_title: &#34;Clinical features and CPS1 variants in Chinese patients with carbamoyl phosphate synthetase 1 deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Peak blood ammonia levels ranged from 160 to 1,000 µmol/L.
     explanation: Quantifies the range of hyperammonemia severity across a CPS1D cohort.
   - reference: PMID:40218931
+    reference_title: &#34;Understanding the Natural History and the Effects of Current Therapeutic Strategies on Urea Cycle Disorders: Insights from the UCD Spanish Registry.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The median ammonia level in deceased patients was higher at 1058 µmol/L (IQR 410-1793) than in survivors at 294
@@ -4157,12 +4354,14 @@ phenotypes:
       label: Encephalopathy
   evidence:
   - reference: PMID:39469307
+    reference_title: &#34;Carbamoly-phosphate synthetase 1 (CPS1) deficiency: A tertiary center retrospective cohort study and literature review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: CPS1 deficiency presents in the neonatal period with hyperammonemia, resulting in death or neurological sequelae
       if patients survive.
     explanation: Supports encephalopathy as a direct consequence of hyperammonemia in CPS1D.
   - reference: PMID:40125546
+    reference_title: &#34;Carbamoyl phosphate synthetase 1 deficiency manifested in an adult treated with prednisone for polymyositis, and cured by live-donor liver transplantation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: the patient, without apparent cause, suddenly developed confusion progressing to unconsciousness and coma.
@@ -4192,12 +4391,14 @@ phenotypes:
       label: Global developmental delay
   evidence:
   - reference: PMID:39469307
+    reference_title: &#34;Carbamoly-phosphate synthetase 1 (CPS1) deficiency: A tertiary center retrospective cohort study and literature review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: One patient had recurrent hyperammonemia episodes in her first year of life, which led to microcephaly and global
       developmental delay.
     explanation: Directly documents global developmental delay resulting from recurrent hyperammonemia in CPS1D.
   - reference: PMID:40218931
+    reference_title: &#34;Understanding the Natural History and the Effects of Current Therapeutic Strategies on Urea Cycle Disorders: Insights from the UCD Spanish Registry.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Neurological impairment occurred in 44% of patients, with worse neurological outcomes observed in patients with
@@ -4218,6 +4419,7 @@ phenotypes:
       label: Intellectual disability
   evidence:
   - reference: PMID:39174957
+    reference_title: &#34;Clinical features and CPS1 variants in Chinese patients with carbamoyl phosphate synthetase 1 deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The remaining four patients had late-onset CPS1 deficiency, presenting with mental retardation, psychiatric symptoms,
@@ -4236,6 +4438,7 @@ phenotypes:
       label: Hypotonia
   evidence:
   - reference: PMID:39469307
+    reference_title: &#34;Carbamoly-phosphate synthetase 1 (CPS1) deficiency: A tertiary center retrospective cohort study and literature review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: CPS1 deficiency presents in the neonatal period with hyperammonemia, resulting in death or neurological sequelae
@@ -4267,6 +4470,7 @@ phenotypes:
       label: Lethargy
   evidence:
   - reference: PMID:39469307
+    reference_title: &#34;Carbamoly-phosphate synthetase 1 (CPS1) deficiency: A tertiary center retrospective cohort study and literature review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: CPS1 deficiency presents in the neonatal period with hyperammonemia, resulting in death or neurological sequelae
@@ -4285,6 +4489,7 @@ phenotypes:
       label: Microcephaly
   evidence:
   - reference: PMID:39469307
+    reference_title: &#34;Carbamoly-phosphate synthetase 1 (CPS1) deficiency: A tertiary center retrospective cohort study and literature review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: One patient had recurrent hyperammonemia episodes in her first year of life, which led to microcephaly and global
@@ -4304,6 +4509,7 @@ phenotypes:
       label: Cerebral edema
   evidence:
   - reference: PMID:37164630
+    reference_title: &#34;Drug-induced hyperammonaemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The neurological consequences broadly reflect the ammonia level, duration and age, with paediatric patients being
@@ -4322,6 +4528,7 @@ phenotypes:
       label: Abnormal cerebral white matter morphology
   evidence:
   - reference: PMID:37365635
+    reference_title: &#34;Clinical and genetic analysis of a case of late onset carbamoyl phosphate synthase I deficiency caused by CPS1 mutation and literature review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: MRI of the brain showed diffuse white matter lesions.
@@ -4339,6 +4546,7 @@ phenotypes:
       label: Atypical behavior
   evidence:
   - reference: PMID:39174957
+    reference_title: &#34;Clinical features and CPS1 variants in Chinese patients with carbamoyl phosphate synthetase 1 deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The remaining four patients had late-onset CPS1 deficiency, presenting with mental retardation, psychiatric symptoms,
@@ -4354,11 +4562,13 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:39174957
+    reference_title: &#34;Clinical features and CPS1 variants in Chinese patients with carbamoyl phosphate synthetase 1 deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Peak blood ammonia levels ranged from 160 to 1,000 µmol/L.
     explanation: Quantifies ammonia elevation across a CPS1D cohort.
   - reference: PMID:40218931
+    reference_title: &#34;Understanding the Natural History and the Effects of Current Therapeutic Strategies on Urea Cycle Disorders: Insights from the UCD Spanish Registry.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The median ammonia level in deceased patients was higher at 1058 µmol/L (IQR 410-1793) than in survivors at 294
@@ -4372,6 +4582,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:40125546
+    reference_title: &#34;Carbamoyl phosphate synthetase 1 deficiency manifested in an adult treated with prednisone for polymyositis, and cured by live-donor liver transplantation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Plasma amino acid analysis revealed decreased citrulline levels and elevated glutamine levels.
@@ -4384,6 +4595,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:40125546
+    reference_title: &#34;Carbamoyl phosphate synthetase 1 deficiency manifested in an adult treated with prednisone for polymyositis, and cured by live-donor liver transplantation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Plasma amino acid analysis revealed decreased citrulline levels and elevated glutamine levels.
@@ -4407,6 +4619,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:37365635
+    reference_title: &#34;Clinical and genetic analysis of a case of late onset carbamoyl phosphate synthase I deficiency caused by CPS1 mutation and literature review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Blood genetic metabolic screening showed elevated blood alanine (757.06umol/L; reference range 148.8 ~ 739.74umol/L)
@@ -4424,6 +4637,7 @@ genetic:
   - name: Autosomal recessive
     evidence:
     - reference: PMID:39174957
+      reference_title: &#34;Clinical features and CPS1 variants in Chinese patients with carbamoyl phosphate synthetase 1 deficiency.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: Carbamoyl phosphate synthetase 1 (CPS1) deficiency (OMIM 237300), an autosomal recessive rare and severe urea
@@ -4438,6 +4652,7 @@ genetic:
       &#39;
     evidence:
     - reference: PMID:39174957
+      reference_title: &#34;Clinical features and CPS1 variants in Chinese patients with carbamoyl phosphate synthetase 1 deficiency.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: Among the 12 CPS1 variants identified in these patients, 10 were novel, with all patients exhibiting compound
@@ -4455,6 +4670,7 @@ genetic:
       &#39;
     evidence:
     - reference: PMID:37365635
+      reference_title: &#34;Clinical and genetic analysis of a case of late onset carbamoyl phosphate synthase I deficiency caused by CPS1 mutation and literature review.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: Whole-exome sequencing revealed compound heterozygous mutations in the CPS1, a missense mutation (c.1145 C
@@ -4462,6 +4678,7 @@ genetic:
       explanation: Documents specific compound heterozygous variants in a late-onset CPS1D case.
   evidence:
   - reference: PMID:39174957
+    reference_title: &#34;Clinical features and CPS1 variants in Chinese patients with carbamoyl phosphate synthetase 1 deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: No hotspot variants were observed among the patients. Our data contribute to expanding the mutation spectrum
@@ -4481,6 +4698,7 @@ treatments:
       label: dietary intervention
   evidence:
   - reference: PMID:38201843
+    reference_title: &#34;Long-Term Management of Patients with Mild Urea Cycle Disorders Identified through the Newborn Screening: An Expert Opinion for Clinical Practice.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The therapy should be based on a low-protein diet and nitrogen scavengers.
@@ -4499,6 +4717,7 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:37717413
+    reference_title: &#34;Monitoring the treatment of urea cycle disorders using phenylbutyrate metabolite analyses: Still many lessons to learn.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Medications that elicit an alternate pathway for nitrogen excretion such as oral sodium phenylbutyrate (NaPBA)
@@ -4519,12 +4738,14 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:37480106
+    reference_title: &#34;Citrulline in the management of patients with urea cycle disorders.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: During treatment, mean ammonia concentrations were 35.9 µmol/L with citrulline, 49.8 µmol/L with arginine, and
       53.0 µmol/L with arginine + citrulline.
     explanation: Quantifies ammonia control with citrulline versus arginine supplementation in UCDs.
   - reference: PMID:37480106
+    reference_title: &#34;Citrulline in the management of patients with urea cycle disorders.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: At last evaluation, mean height and weight for age were normal and most patients showed normal or adapted behavior
@@ -4544,6 +4765,7 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:39469307
+    reference_title: &#34;Carbamoly-phosphate synthetase 1 (CPS1) deficiency: A tertiary center retrospective cohort study and literature review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: All patients except one were on Carglumic acid which could contribute to their survival and disease control.
@@ -4561,11 +4783,13 @@ treatments:
       label: supportive care
   evidence:
   - reference: PMID:39469307
+    reference_title: &#34;Carbamoly-phosphate synthetase 1 (CPS1) deficiency: A tertiary center retrospective cohort study and literature review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: One patient underwent hemodialysis, and one patient underwent peritoneal dialysis.
     explanation: Documents use of dialysis modalities in acute CPS1D management.
   - reference: PMID:40125546
+    reference_title: &#34;Carbamoyl phosphate synthetase 1 deficiency manifested in an adult treated with prednisone for polymyositis, and cured by live-donor liver transplantation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The patient responded to pharmacotherapy and continuous hemodialysis.
@@ -4584,12 +4808,14 @@ treatments:
       label: liver transplantation
   evidence:
   - reference: PMID:36937980
+    reference_title: &#34;Urea cycle disorders and indications for liver transplantation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: 16 (59%) received liver transplantationwith 100% survival, normal protein tolerance and usual need of citrulline
       supplementation.
     explanation: Quantifies liver transplant outcomes in a UCD cohort including CPS1D patients.
   - reference: PMID:40218931
+    reference_title: &#34;Understanding the Natural History and the Effects of Current Therapeutic Strategies on Urea Cycle Disorders: Insights from the UCD Spanish Registry.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Among transplanted patients (20.6%), survival was 95.2%, with no significant neurological differences compared
@@ -4608,6 +4834,7 @@ treatments:
       label: genetic counseling
   evidence:
   - reference: PMID:37365635
+    reference_title: &#34;Clinical and genetic analysis of a case of late onset carbamoyl phosphate synthase I deficiency caused by CPS1 mutation and literature review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: It also provides a preliminary understanding of the relationship between genotype and phenotype, based on a summary

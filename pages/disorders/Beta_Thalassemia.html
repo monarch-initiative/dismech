@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Hematological Disease</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Genetic Disease</span>
@@ -1932,6 +2105,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1989,6 +2165,14 @@
             <div class="stat-item">
                 <div class="stat-value">18</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">9</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2208,7 +2392,7 @@
                 <span class="card-count">6</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-beta-globin-synthesis">
                 <div class="item-name">Defective Beta-Globin Synthesis</div>
                 
                 <div class="item-desc">Mutations in the HBB gene reduce or abolish beta-globin chain production. Beta-zero (beta0) mutations produce no beta-globin; beta-plus (beta+) mutations produce reduced amounts. Over 300 mutations have been identified, including point mutations, small deletions, and rarely large deletions.
@@ -2265,6 +2449,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2299,7 +2484,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-alpha-globin-chain-excess">
                 <div class="item-name">Alpha-Globin Chain Excess</div>
                 
                 <div class="item-desc">Excess unpaired alpha-globin chains precipitate as insoluble aggregates in erythroid precursors, causing oxidative membrane damage, apoptosis of erythroblasts (ineffective erythropoiesis), and shortened survival of mature red blood cells (hemolysis). This is the central pathogenic mechanism distinguishing beta-thalassemia from alpha-thalassemia.
@@ -2377,6 +2562,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2411,7 +2597,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-ineffective-erythropoiesis">
                 <div class="item-name">Ineffective Erythropoiesis</div>
                 
                 <div class="item-desc">Massive expansion of erythroid precursors in bone marrow and extramedullary sites, but most cells undergo apoptosis before maturing. This drives erythroid hyperplasia, skeletal deformities (marrow expansion), and inappropriately low reticulocyte output relative to the degree of erythroid expansion.
@@ -2471,6 +2657,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2505,7 +2692,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-hemolysis">
                 <div class="item-name">Chronic Hemolysis</div>
                 
                 <div class="item-desc">Peripheral destruction of abnormal erythrocytes with membrane damage from precipitated alpha-globin chains. Leads to anemia, jaundice, splenomegaly, and gallstones.
@@ -2575,6 +2762,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2609,7 +2797,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-iron-overload">
                 <div class="item-name">Iron Overload</div>
                 
                 <div class="item-desc">Iron accumulation from transfusional hemosiderosis and increased intestinal absorption (due to hepcidin suppression from ineffective erythropoiesis). Iron deposits in heart, liver, and endocrine organs cause cardiomyopathy, liver fibrosis, diabetes, and hypogonadism.
@@ -2680,6 +2868,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2734,7 +2923,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-fetal-hemoglobin-modulation">
                 <div class="item-name">Fetal Hemoglobin Modulation</div>
                 
                 <div class="item-desc">Genetic modifiers that increase fetal hemoglobin (HbF) production ameliorate disease severity by compensating for deficient adult hemoglobin (HbA) and reducing free alpha-globin chains. Key modifiers include BCL11A, HBS1L-MYB locus, and KLF1.
@@ -2808,6 +2997,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2855,18 +3045,19 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Beta Thalassemia</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alpha-Globin Chain Excess\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess unpaired alpha-globin chains precipitate as insoluble aggregates in erythroid precursors, causing oxidative membrane damage, apoptosis of erythroblasts (ineffective erythropoiesis), and shortened survival of mature red blood cells (hemolysis). This is the central pathogenic mechanism distinguishing beta-thalassemia from alpha-thalassemia.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythroblast\"], \"biological_processes\": [\"response to oxidative stress\", \"apoptotic process\"], \"genes\": [\"HBA1\", \"HBA2\"]}}, {\"id\": \"Chronic Hemolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Peripheral destruction of abnormal erythrocytes with membrane damage from precipitated alpha-globin chains. Leads to anemia, jaundice, splenomegaly, and gallstones.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythrocyte\", \"macrophage\"], \"biological_processes\": [\"erythrocyte homeostasis\", \"positive regulation of erythrocyte clearance\"]}}, {\"id\": \"Defective Beta-Globin Synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in the HBB gene reduce or abolish beta-globin chain production. Beta-zero (beta0) mutations produce no beta-globin; beta-plus (beta+) mutations produce reduced amounts. Over 300 mutations have been identified, including point mutations, small deletions, and rarely large deletions.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythroblast\"], \"biological_processes\": [\"hemoglobin biosynthetic process\"], \"genes\": [\"HBB\"]}}, {\"id\": \"Ineffective Erythropoiesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Massive expansion of erythroid precursors in bone marrow and extramedullary sites, but most cells undergo apoptosis before maturing. This drives erythroid hyperplasia, skeletal deformities (marrow expansion), and inappropriately low reticulocyte output relative to the degree of erythroid expansion.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythroid progenitor cell\"], \"biological_processes\": [\"erythrocyte differentiation\", \"erythrocyte homeostasis\"]}}, {\"id\": \"Iron Overload\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Iron accumulation from transfusional hemosiderosis and increased intestinal absorption (due to hepcidin suppression from ineffective erythropoiesis). Iron deposits in heart, liver, and endocrine organs cause cardiomyopathy, liver fibrosis, diabetes, and hypogonadism.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"intracellular iron ion homeostasis\", \"iron ion transport\"], \"genes\": [\"HAMP\"]}}], \"edges\": [{\"source\": \"Defective Beta-Globin Synthesis\", \"target\": \"Alpha-Globin Chain Excess\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Alpha-Globin Chain Excess\", \"target\": \"Ineffective Erythropoiesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Alpha-Globin Chain Excess\", \"target\": \"Chronic Hemolysis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ineffective Erythropoiesis\", \"target\": \"Iron Overload\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic Hemolysis\", \"target\": \"Iron Overload\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alpha-Globin Chain Excess\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess unpaired alpha-globin chains precipitate as insoluble aggregates in erythroid precursors, causing oxidative membrane damage, apoptosis of erythroblasts (ineffective erythropoiesis), and shortened survival of mature red blood cells (hemolysis). This is the central pathogenic mechanism distinguishing beta-thalassemia from alpha-thalassemia.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythroblast\"], \"biological_processes\": [\"response to oxidative stress\", \"apoptotic process\"], \"genes\": [\"HBA1\", \"HBA2\"]}}, {\"id\": \"BCL11A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Modifier\"}}, {\"id\": \"Chronic Hemolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Peripheral destruction of abnormal erythrocytes with membrane damage from precipitated alpha-globin chains. Leads to anemia, jaundice, splenomegaly, and gallstones.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythrocyte\", \"macrophage\"], \"biological_processes\": [\"erythrocyte homeostasis\", \"positive regulation of erythrocyte clearance\"]}}, {\"id\": \"Defective Beta-Globin Synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in the HBB gene reduce or abolish beta-globin chain production. Beta-zero (beta0) mutations produce no beta-globin; beta-plus (beta+) mutations produce reduced amounts. Over 300 mutations have been identified, including point mutations, small deletions, and rarely large deletions.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythroblast\"], \"biological_processes\": [\"hemoglobin biosynthetic process\"], \"genes\": [\"HBB\"]}}, {\"id\": \"Fetal Hemoglobin Modulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Genetic modifiers that increase fetal hemoglobin (HbF) production ameliorate disease severity by compensating for deficient adult hemoglobin (HbA) and reducing free alpha-globin chains. Key modifiers include BCL11A, HBS1L-MYB locus, and KLF1.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythroid progenitor cell\"], \"biological_processes\": [\"regulation of hemoglobin biosynthetic process\"], \"genes\": [\"BCL11A\", \"KLF1\", \"MYB\", \"HBS1L\"]}}, {\"id\": \"HBB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Causative\"}}, {\"id\": \"Ineffective Erythropoiesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Massive expansion of erythroid precursors in bone marrow and extramedullary sites, but most cells undergo apoptosis before maturing. This drives erythroid hyperplasia, skeletal deformities (marrow expansion), and inappropriately low reticulocyte output relative to the degree of erythroid expansion.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythroid progenitor cell\"], \"biological_processes\": [\"erythrocyte differentiation\", \"erythrocyte homeostasis\"]}}, {\"id\": \"Iron Overload\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Iron accumulation from transfusional hemosiderosis and increased intestinal absorption (due to hepcidin suppression from ineffective erythropoiesis). Iron deposits in heart, liver, and endocrine organs cause cardiomyopathy, liver fibrosis, diabetes, and hypogonadism.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"intracellular iron ion homeostasis\", \"iron ion transport\"], \"genes\": [\"HAMP\"]}}, {\"id\": \"KLF1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Modifier\"}}], \"edges\": [{\"source\": \"Defective Beta-Globin Synthesis\", \"target\": \"Alpha-Globin Chain Excess\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Alpha-Globin Chain Excess\", \"target\": \"Ineffective Erythropoiesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Alpha-Globin Chain Excess\", \"target\": \"Chronic Hemolysis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ineffective Erythropoiesis\", \"target\": \"Iron Overload\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic Hemolysis\", \"target\": \"Iron Overload\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"HBB\", \"target\": \"Defective Beta-Globin Synthesis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BCL11A\", \"target\": \"Fetal Hemoglobin Modulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KLF1\", \"target\": \"Fetal Hemoglobin Modulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4077,13 +4268,14 @@ prevalence:
     Indian subcontinent, Southeast Asia, and Melanesia.
   evidence:
   - reference: PMID:28293406
+    reference_title: &#34;β-Thalassemia Distribution in the Old World: an Ancient Disease Seen from a Historical Standpoint.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Approximately 1.5% of the global population are heterozygotes (carriers)
       of the β-thalassemias; there is a high incidence in populations from the Mediterranean
       basin, throughout the Middle East, the Indian subcontinent, Southeast Asia,
       and Melanesia to the Pacific Islands.&#34;
-    explanation: Supports the stated global carrier prevalence and its 
+    explanation: Supports the stated global carrier prevalence and its
       geographic concentration.
 inheritance:
 - name: Autosomal recessive
@@ -4117,12 +4309,13 @@ pathophysiology:
       precipitate and damage erythroid precursors.
   evidence:
   - reference: PMID:20492708
+    reference_title: &#34;Beta-thalassemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Beta-thalassemias are caused by point mutations or, more rarely, deletions
       in the beta globin gene on chromosome 11, leading to reduced (beta+) or absent
       (beta0) synthesis of the beta chains of hemoglobin (Hb).&#34;
-    explanation: Confirms that HBB mutations lead to reduced or absent 
+    explanation: Confirms that HBB mutations lead to reduced or absent
       beta-globin chain synthesis.
 - name: Alpha-Globin Chain Excess
   description: &gt;
@@ -4165,13 +4358,14 @@ pathophysiology:
       Surviving erythrocytes with membrane damage are cleared prematurely.
   evidence:
   - reference: PMID:21705976
+    reference_title: &#34;Pathophysiology of beta thalassaemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;unbalanced alpha globin chain synthesis results in severely rheologically
       compromised erythrocytes with premature destruction in the peripheral circulation
       and ineffective erythropoiesis within the bone marrow and in extramedullary
       sites&#34;
-    explanation: Confirms that excess alpha-globin chains cause both peripheral 
+    explanation: Confirms that excess alpha-globin chains cause both peripheral
       erythrocyte destruction and ineffective erythropoiesis.
 - name: Ineffective Erythropoiesis
   description: &gt;
@@ -4204,14 +4398,15 @@ pathophysiology:
       without transfusions.
   evidence:
   - reference: PMID:22631035
+    reference_title: &#34;The role of ineffective erythropoiesis in non-transfusion-dependent thalassemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Ineffective erythropoiesis is the hallmark of beta-thalassemia that
       triggers a cascade of compensatory mechanisms resulting in clinical sequelae
       such as erythroid marrow expansion, extramedullary hematopoiesis, splenomegaly,
       and increased gastrointestinal iron absorption.&#34;
-    explanation: Confirms ineffective erythropoiesis as the hallmark mechanism 
-      driving marrow expansion, extramedullary hematopoiesis, and iron 
+    explanation: Confirms ineffective erythropoiesis as the hallmark mechanism
+      driving marrow expansion, extramedullary hematopoiesis, and iron
       absorption.
 - name: Chronic Hemolysis
   description: &gt;
@@ -4240,15 +4435,16 @@ pathophysiology:
       label: macrophage
   downstream:
   - target: Iron Overload
-    description: Iron released from hemolyzed red cells contributes to iron 
+    description: Iron released from hemolyzed red cells contributes to iron
       loading.
   evidence:
   - reference: PMID:21705976
+    reference_title: &#34;Pathophysiology of beta thalassaemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;unbalanced alpha globin chain synthesis results in severely rheologically
       compromised erythrocytes with premature destruction in the peripheral circulation&#34;
-    explanation: Confirms peripheral destruction of rheologically compromised 
+    explanation: Confirms peripheral destruction of rheologically compromised
       erythrocytes (hemolysis).
 - name: Iron Overload
   description: &gt;
@@ -4279,14 +4475,16 @@ pathophysiology:
       label: hepatocyte
   evidence:
   - reference: PMID:21705976
+    reference_title: &#34;Pathophysiology of beta thalassaemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;erythropoiesis,anemia and hypoxia down-regulate hepcidin, the master
       regulator of iron homeostasis. Hepcidin deficiency in turn allows excessive
       duodenal iron absorption and development of systemic iron overload.&#34;
-    explanation: Confirms hepcidin suppression from ineffective erythropoiesis 
+    explanation: Confirms hepcidin suppression from ineffective erythropoiesis
       as the mechanism of iron overload.
   - reference: PMID:20492708
+    reference_title: &#34;Beta-thalassemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Regular transfusion therapy leads to iron overload-related complications
@@ -4294,7 +4492,7 @@ pathophysiology:
       diabetes mellitus, and insufficiency of the parathyroid, thyroid, pituitary,
       and less commonly, adrenal glands), dilated myocardiopathy, liver fibrosis and
       cirrhosis)&#34;
-    explanation: Confirms iron overload complications affecting heart, liver, 
+    explanation: Confirms iron overload complications affecting heart, liver,
       and endocrine organs.
 - name: Fetal Hemoglobin Modulation
   description: &gt;
@@ -4331,13 +4529,14 @@ pathophysiology:
       label: erythroid progenitor cell
   evidence:
   - reference: PMID:18691915
+    reference_title: &#34;BCL11A is a major HbF quantitative trait locus in three different populations with beta-hemoglobinopathies.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In this study, we showed that SNPs in BCL11A were associated with F-cell
       numbers in Chinese with beta-thalassemia trait, and with HbF levels in Thais
       with either beta-thalassemia or HbE trait and in African Americans with sickle
       cell anemia.&#34;
-    explanation: Provides beta-thalassemia-specific evidence that BCL11A 
+    explanation: Provides beta-thalassemia-specific evidence that BCL11A
       variants modulate HbF-related traits.
 phenotypes:
 - category: Hematological
@@ -4354,12 +4553,13 @@ phenotypes:
       label: Hypochromic microcytic anemia
   evidence:
   - reference: PMID:20492708
+    reference_title: &#34;Beta-thalassemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Individuals with thalassemia major usually present within the first
       two years of life with severe anemia, requiring regular red blood cell (RBC)
       transfusions.&#34;
-    explanation: Confirms severe anemia as the defining presentation of 
+    explanation: Confirms severe anemia as the defining presentation of
       thalassemia major.
 - category: Hematological
   name: Decreased Mean Corpuscular Volume
@@ -4581,13 +4781,14 @@ genetic:
     -28 A&gt;G) reduce production.
   evidence:
   - reference: PMID:20492708
+    reference_title: &#34;Beta-thalassemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Beta-thalassemias are caused by point mutations or, more rarely, deletions
       in the beta globin gene on chromosome 11, leading to reduced (beta+) or absent
       (beta0) synthesis of the beta chains of hemoglobin (Hb). Transmission is autosomal
       recessive&#34;
-    explanation: Confirms HBB mutations cause beta-thalassemia with autosomal 
+    explanation: Confirms HBB mutations cause beta-thalassemia with autosomal
       recessive inheritance.
 - name: BCL11A
   association: Modifier
@@ -4597,13 +4798,14 @@ genetic:
     erythroid cells.
   evidence:
   - reference: PMID:18691915
+    reference_title: &#34;BCL11A is a major HbF quantitative trait locus in three different populations with beta-hemoglobinopathies.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In this study, we showed that SNPs in BCL11A were associated with F-cell
       numbers in Chinese with beta-thalassemia trait, and with HbF levels in Thais
       with either beta-thalassemia or HbE trait and in African Americans with sickle
       cell anemia.&#34;
-    explanation: Supports BCL11A as an HbF modifier in beta-thalassemia 
+    explanation: Supports BCL11A as an HbF modifier in beta-thalassemia
       populations.
 - name: KLF1
   association: Modifier
@@ -4689,13 +4891,14 @@ treatments:
         label: Luspatercept
   evidence:
   - reference: PMID:32212518
+    reference_title: &#34;A Phase 3 Trial of Luspatercept in Patients with Transfusion-Dependent β-Thalassemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The percentage of patients who had a reduction in the transfusion burden
       of at least 33% from baseline during weeks 13 through 24 plus a reduction of
       at least 2 red-cell units over this 12-week interval was significantly greater
       in the luspatercept group than in the placebo group (21.4% vs. 4.5%, P&lt;0.001).&#34;
-    explanation: BELIEVE trial demonstrates luspatercept significantly reduces 
+    explanation: BELIEVE trial demonstrates luspatercept significantly reduces
       transfusion burden in transfusion-dependent beta-thalassemia.
 - name: Gene Therapy (Betibeglogene Autotemcel)
   description: &gt;
@@ -4709,6 +4912,7 @@ treatments:
       label: gene therapy
   evidence:
   - reference: PMID:34891223
+    reference_title: &#34;Betibeglogene Autotemcel Gene Therapy for Non-β(0)/β(0) Genotype β-Thalassemia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Transfusion independence occurred in 20 of 22 patients who could be
@@ -4727,15 +4931,15 @@ treatments:
       label: genetic counseling
 references:
 - reference: DOI:10.1038/s41467-023-41961-9
-  title: Human cellular model systems of β-thalassemia enable in-depth analysis 
+  title: Human cellular model systems of β-thalassemia enable in-depth analysis
     of disease phenotype
   findings: []
 - reference: DOI:10.1182/bloodadvances.2022007655
-  title: Elevated CDKN1A (P21) mediates β-thalassemia erythroid apoptosis, but 
+  title: Elevated CDKN1A (P21) mediates β-thalassemia erythroid apoptosis, but
     its loss does not improve β-thalassemic erythropoiesis
   findings: []
 - reference: DOI:10.1182/bloodadvances.2023012010
-  title: A human anti-matriptase-2 antibody limits iron overload, α-globin 
+  title: A human anti-matriptase-2 antibody limits iron overload, α-globin
     aggregates, and splenomegaly in β-thalassemic mice
   findings: []
 - reference: DOI:10.14218/ge.2023.00128
@@ -4743,16 +4947,16 @@ references:
     A Comprehensive Review&#39;
   findings: []
 - reference: DOI:10.3324/haematol.2023.283057
-  title: Novel potential therapeutics to modify iron metabolism and red cell 
+  title: Novel potential therapeutics to modify iron metabolism and red cell
     synthesis in diseases associated with defective erythropoiesis
   findings: []
 - reference: DOI:10.3389/fmolb.2023.1248742
-  title: A randomized placebo−controlled clinical trial of oral green tea 
-    epigallocatechin 3−gallate on erythropoiesis and oxidative stress in 
+  title: A randomized placebo−controlled clinical trial of oral green tea
+    epigallocatechin 3−gallate on erythropoiesis and oxidative stress in
     transfusion−dependent β−thalassemia patients
   findings: []
 - reference: DOI:10.3389/fphys.2024.1346173
-  title: The interactions between ineffective erythropoiesis and ferroptosis in 
+  title: The interactions between ineffective erythropoiesis and ferroptosis in
     β-thalassemia
   findings: []
 - reference: DOI:10.3390/cells13110918
