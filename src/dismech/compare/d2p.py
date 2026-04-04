@@ -9,8 +9,13 @@ from typing import Any
 
 import httpx
 import typer
-import yaml
 from oaklib import get_adapter
+
+from .support import default_kb_dir as _default_kb_dir
+from .support import get_disease_term_id as _get_mondo_id
+from .support import iter_disease_files as _iter_disease_files
+from .support import load_yaml_object as _load_disease_yaml
+from .support import normalize_hp_id as _normalize_hp_id
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -25,34 +30,6 @@ _SOURCE_OMIM = "infores:omim"
 _SOURCE_ORDO = "infores:orphanet"
 
 app = typer.Typer(help="Compare dismech phenotypes against OMIM/Orphanet databases.")
-
-# ---------------------------------------------------------------------------
-# Shared helpers (mirrors from phenoagent/matching.py to avoid import coupling)
-# ---------------------------------------------------------------------------
-
-
-def _normalize_hp_id(term_id: str | None) -> str | None:
-    """Normalize HPO identifiers to uppercase CURIE form."""
-    if not term_id:
-        return None
-    tid = str(term_id).strip()
-    if not tid or ":" not in tid:
-        return None
-    prefix, local = tid.split(":", 1)
-    if prefix.casefold() != "hp":
-        return None
-    local = local.strip()
-    if not local:
-        return None
-    return f"HP:{local}"
-
-
-def _default_kb_dir() -> Path:
-    return Path(__file__).resolve().parents[2] / "kb" / "disorders"
-
-
-def _iter_disease_files(kb_dir: Path) -> list[Path]:
-    return sorted(p for p in kb_dir.glob("*.yaml") if not p.name.endswith(".history.yaml"))
 
 
 # ---------------------------------------------------------------------------
@@ -83,7 +60,9 @@ class HPOClosureResolver:
         try:
             anc = {
                 a
-                for a in adapter.ancestors(normalized, predicates=["rdfs:subClassOf"], reflexive=True)
+                for a in adapter.ancestors(
+                    normalized, predicates=["rdfs:subClassOf"], reflexive=True
+                )
                 if isinstance(a, str)
             }
         except Exception:
@@ -234,7 +213,12 @@ def extract_dismech_phenotypes(disease_data: dict[str, Any]) -> list[dict[str, A
         if not hp_id:
             continue
 
-        label = raw_term.get("label") or term_desc.get("preferred_term") or item.get("name") or ""
+        label = (
+            raw_term.get("label")
+            or term_desc.get("preferred_term")
+            or item.get("name")
+            or ""
+        )
         frequency = str(item.get("frequency", "")) if item.get("frequency") else ""
 
         pmids: list[str] = []
@@ -245,12 +229,14 @@ def extract_dismech_phenotypes(disease_data: dict[str, Any]) -> list[dict[str, A
             if ref.upper().startswith("PMID:"):
                 pmids.append(ref)
 
-        results.append({
-            "hp_id": hp_id,
-            "label": label,
-            "frequency": frequency,
-            "pmids": pmids,
-        })
+        results.append(
+            {
+                "hp_id": hp_id,
+                "label": label,
+                "frequency": frequency,
+                "pmids": pmids,
+            }
+        )
 
     return results
 
@@ -358,15 +344,17 @@ def build_comparison_table(
         omim_match, omim_rec = _match_type(hp_id, omim_phenos, resolver)
         ordo_match, ordo_rec = _match_type(hp_id, ordo_phenos, resolver)
 
-        rows.append({
-            "disease_id": mondo_id,
-            "disease_name": disease_name,
-            "phenotype_id": hp_id,
-            "phenotype_label": label,
-            "dismech": _format_cell(dismech_match, dismech_rec),
-            "omim": _format_cell(omim_match, omim_rec),
-            "ordo": _format_cell(ordo_match, ordo_rec),
-        })
+        rows.append(
+            {
+                "disease_id": mondo_id,
+                "disease_name": disease_name,
+                "phenotype_id": hp_id,
+                "phenotype_label": label,
+                "dismech": _format_cell(dismech_match, dismech_rec),
+                "omim": _format_cell(omim_match, omim_rec),
+                "ordo": _format_cell(ordo_match, ordo_rec),
+            }
+        )
 
     return rows
 
@@ -416,25 +404,6 @@ def compute_venn_summary(table: list[dict[str, Any]]) -> dict[str, int]:
 # ---------------------------------------------------------------------------
 # Disease resolution helpers
 # ---------------------------------------------------------------------------
-
-
-def _load_disease_yaml(path: Path) -> dict[str, Any]:
-    with open(path) as f:
-        data = yaml.safe_load(f)
-    if not isinstance(data, dict):
-        raise ValueError(f"Disease YAML at {path} must be an object")
-    return data
-
-
-def _get_mondo_id(disease_data: dict[str, Any]) -> str | None:
-    dt = disease_data.get("disease_term")
-    if not isinstance(dt, dict):
-        return None
-    term = dt.get("term")
-    if not isinstance(term, dict):
-        return None
-    tid = term.get("id")
-    return str(tid) if tid else None
 
 
 def _resolve_disease_ref(ref: str) -> tuple[str, Path]:
@@ -505,7 +474,9 @@ def run_comparison(
     mondo_id = _get_mondo_id(disease_data)
 
     if not mondo_id:
-        typer.echo(f"WARNING: {slug} has no disease_term with MONDO ID, skipping.", err=True)
+        typer.echo(
+            f"WARNING: {slug} has no disease_term with MONDO ID, skipping.", err=True
+        )
         return [], {}, disease_name
 
     # Extract dismech phenotypes
@@ -539,10 +510,14 @@ def run_comparison(
 
 @app.command()
 def compare(
-    disease_ref: str = typer.Argument(help="Disease slug, MONDO ID, name, or YAML path."),
+    disease_ref: str = typer.Argument(
+        help="Disease slug, MONDO ID, name, or YAML path."
+    ),
     format: str = typer.Option("tsv", help="Output format: tsv, json, summary."),
     output: str | None = typer.Option(None, help="Output file path (default: stdout)."),
-    no_closure: bool = typer.Option(False, "--no-closure", help="Disable HPO closure matching."),
+    no_closure: bool = typer.Option(
+        False, "--no-closure", help="Disable HPO closure matching."
+    ),
 ) -> None:
     """Compare dismech phenotypes against OMIM/Orphanet for a single disease."""
     table, venn, disease_name = run_comparison(disease_ref, use_closure=not no_closure)
@@ -571,7 +546,9 @@ def compare(
 def compare_all(
     format: str = typer.Option("tsv", help="Output format: tsv, json."),
     output: str | None = typer.Option(None, help="Output file path (default: stdout)."),
-    no_closure: bool = typer.Option(False, "--no-closure", help="Disable HPO closure matching."),
+    no_closure: bool = typer.Option(
+        False, "--no-closure", help="Disable HPO closure matching."
+    ),
 ) -> None:
     """Compare all diseases in the KB against OMIM/Orphanet."""
     kb_dir = _default_kb_dir()
@@ -590,7 +567,10 @@ def compare_all(
         mondo_id = _get_mondo_id(disease_data)
 
         if not mondo_id:
-            typer.echo(f"WARNING: {slug} has no disease_term with MONDO ID, skipping.", err=True)
+            typer.echo(
+                f"WARNING: {slug} has no disease_term with MONDO ID, skipping.",
+                err=True,
+            )
             continue
 
         dismech_phenos = extract_dismech_phenotypes(disease_data)
