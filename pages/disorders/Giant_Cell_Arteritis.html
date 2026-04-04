@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,7 @@
                 </span>
                 
                 
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Autoimmune Disease</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Vasculitis</span>
@@ -1936,6 +2107,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1993,6 +2167,12 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
+            
+            
+            <div class="stat-item">
+                <div class="stat-value">0</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
             
             
             <a class="stat-link" href="#genetic">
@@ -2096,7 +2276,7 @@
                 <span class="card-count">3</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-dendritic-cell-activation-in-vessel-wall">
                 <div class="item-name">Dendritic Cell Activation in Vessel Wall</div>
                 
                 <div class="item-desc">Adventitial dendritic cells become activated and produce chemokines that recruit T cells and macrophages. Vascular dendritic cells may sense pathogen-associated or damage-associated molecular patterns.</div>
@@ -2137,6 +2317,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2169,7 +2350,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-th1-and-th17-t-cell-infiltration">
                 <div class="item-name">Th1 and Th17 T Cell Infiltration</div>
                 
                 <div class="item-desc">CD4+ T cells infiltrate the arterial wall and produce IFN-gamma (Th1) and IL-17 (Th17). IFN-gamma activates macrophages and promotes giant cell formation, while IL-17 drives vascular inflammation.</div>
@@ -2215,6 +2396,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2270,7 +2452,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-giant-cell-formation-and-intimal-hyperplasia">
                 <div class="item-name">Giant Cell Formation and Intimal Hyperplasia</div>
                 
                 <div class="item-desc">Multinucleated giant cells form at the media-intima junction. Smooth muscle cells proliferate causing intimal hyperplasia, leading to vessel stenosis and ischemic complications.</div>
@@ -2306,6 +2488,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2888,6 +3071,7 @@ pathophysiology:
       label: immune response
   evidence:
   - reference: PMID:35629030
+    reference_title: &#34;New Insights into the Pathogenesis of Giant Cell Arteritis: Mechanisms Involved in Maintaining Vascular Inflammation.&#34;
     supports: SUPPORT
     snippet: &gt;-
       Once activated, dendritic cells recruit CD4 T cells and induce their activation,
@@ -2917,6 +3101,7 @@ pathophysiology:
       label: inflammatory response
   evidence:
   - reference: PMID:35629030
+    reference_title: &#34;New Insights into the Pathogenesis of Giant Cell Arteritis: Mechanisms Involved in Maintaining Vascular Inflammation.&#34;
     supports: PARTIAL
     snippet: &gt;-
       IFN-γ triggers the production of chemokines by vascular smooth muscle cells,
@@ -2926,6 +3111,7 @@ pathophysiology:
       This demonstrates the role of IFN-gamma from Th1 cells in recruiting additional
       immune cells and promoting macrophage differentiation in the vessel wall.
   - reference: PMID:36656970
+    reference_title: &#34;Immunology of Giant Cell Arteritis.&#34;
     supports: PARTIAL
     snippet: &gt;-
       Loss of self-tolerance in the adaptive immune system is linked to aberrant
@@ -2952,6 +3138,7 @@ pathophysiology:
       label: cell population proliferation
   evidence:
   - reference: PMID:36656970
+    reference_title: &#34;Immunology of Giant Cell Arteritis.&#34;
     supports: SUPPORT
     snippet: &gt;-
       Due to the failure of the immuno-inhibitory PD-1 (programmed cell death protein
@@ -2965,6 +3152,7 @@ pathophysiology:
       This describes the immune checkpoint failure that allows multinucleated giant
       cells to form in the vessel wall through unchecked macrophage activation.
   - reference: PMID:35629030
+    reference_title: &#34;New Insights into the Pathogenesis of Giant Cell Arteritis: Mechanisms Involved in Maintaining Vascular Inflammation.&#34;
     supports: SUPPORT
     snippet: &gt;-
       Under the influence of different mediators, mainly endothelin-1 and PDGF,
@@ -3030,6 +3218,7 @@ treatments:
   description: IL-6 receptor inhibitor for steroid-sparing.
   evidence:
   - reference: PMID:37321636
+    reference_title: &#34;Relapse Risk and Safety of Long-Term Tocilizumab Use Among Patients With Giant Cell Arteritis: A Single-Enterprise Cohort Study.&#34;
     supports: SUPPORT
     snippet: &gt;-
       Relapse rate prior to TCZ start (0.84 relapses/person-year) was 3-fold reduced
@@ -3039,6 +3228,7 @@ treatments:
       This demonstrates tocilizumab&#39;s effectiveness in reducing relapse rates while
       on treatment, though relapse risk increases after discontinuation.
   - reference: PMID:37321636
+    reference_title: &#34;Relapse Risk and Safety of Long-Term Tocilizumab Use Among Patients With Giant Cell Arteritis: A Single-Enterprise Cohort Study.&#34;
     supports: PARTIAL
     snippet: &gt;-
       TCZ is well tolerated in GCA, with low rates of discontinuation for AESIs.
@@ -3057,6 +3247,7 @@ treatments:
     tocilizumab.
   evidence:
   - reference: PMID:38840219
+    reference_title: &#34;Effectiveness of janus kinase inhibitors in relapsing giant cell arteritis in real-world clinical practice and review of the literature.&#34;
     supports: PARTIAL
     snippet: &gt;-
       The Janus kinase/signal transducer and activator of transcription (JAK/STAT)
@@ -3066,6 +3257,7 @@ treatments:
       This provides the mechanistic rationale for using JAK inhibitors in GCA,
       linking the treatment to the underlying pathophysiology.
   - reference: PMID:38840219
+    reference_title: &#34;Effectiveness of janus kinase inhibitors in relapsing giant cell arteritis in real-world clinical practice and review of the literature.&#34;
     supports: PARTIAL
     snippet: &gt;-
       This real-world analysis and literature review suggest that JAKi could be

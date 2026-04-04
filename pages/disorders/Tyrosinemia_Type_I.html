@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Inborn Error of Metabolism</span>
                 
             </div>
@@ -1935,6 +2108,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1990,6 +2166,14 @@
             <div class="stat-item">
                 <div class="stat-value">13</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">7</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2069,7 +2253,7 @@
                 <span class="card-count">5</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-fumarylacetoacetate-hydrolase-deficiency">
                 <div class="item-name">Fumarylacetoacetate hydrolase deficiency</div>
                 
                 <div class="item-desc">Loss of FAH activity blocks the terminal enzymatic step of tyrosine catabolism.
@@ -2131,6 +2315,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2165,7 +2350,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-toxic-fumarylacetoacetate-and-maleylacetoacetate-accumulation">
                 <div class="item-name">Toxic fumarylacetoacetate and maleylacetoacetate accumulation</div>
                 
                 <div class="item-desc">FAH deficiency causes accumulation of fumarylacetoacetate (FAA) and maleylacetoacetate (MAA), with secondary formation of succinylacetone (SA). FAA is highly reactive and mutagenic, reacting with glutathione and protein sulfhydryl groups to cause oxidative cellular damage in hepatocytes and renal tubular epithelial cells.
@@ -2218,6 +2403,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2252,7 +2438,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-faa-induced-mitochondrial-apoptosis-in-hepatocytes">
                 <div class="item-name">FAA-induced mitochondrial apoptosis in hepatocytes</div>
                 
                 <div class="item-desc">Fumarylacetoacetate directly triggers mitochondrial outer membrane permeabilization with release of cytochrome c, activating the caspase cascade and inducing hepatocyte apoptosis. Caspase inhibitors were shown to prevent liver failure in FAH-deficient mouse models, confirming the causal role of the intrinsic apoptotic pathway.
@@ -2303,6 +2489,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -2359,7 +2546,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-succinylacetone-inhibition-of-heme-biosynthesis">
                 <div class="item-name">Succinylacetone inhibition of heme biosynthesis</div>
                 
                 <div class="item-desc">Succinylacetone (SA) is a competitive inhibitor of delta-aminolevulinic acid dehydratase (ALAD), blocking the heme biosynthetic pathway and causing accumulation of delta-aminolevulinic acid (ALA). This produces porphyria-like neurovisceral crises with neuropathy, similar to acute intermittent porphyria or lead poisoning.
@@ -2401,11 +2588,12 @@
                 
                 
                 
+                
     
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-persistent-hepatocarcinogenic-programs-under-ntbc-therapy">
                 <div class="item-name">Persistent hepatocarcinogenic programs under NTBC therapy</div>
                 
                 <div class="item-desc">Although nitisinone prevents acute toxicity by blocking upstream toxic metabolite formation, it does not restore FAH activity. Transcriptomic analysis in FAH-deficient mice under continuous NTBC revealed persistent enrichment of genes related to liver disease, liver regeneration, and hepatocellular carcinoma. This supports the ongoing HCC risk even in treated patients.
@@ -2442,6 +2630,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2514,18 +2703,19 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Tyrosinemia Type I</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"FAA-induced mitochondrial apoptosis in hepatocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fumarylacetoacetate directly triggers mitochondrial outer membrane permeabilization with release of cytochrome c, activating the caspase cascade and inducing hepatocyte apoptosis. Caspase inhibitors were shown to prevent liver failure in FAH-deficient mouse models, confirming the causal role of the intrinsic apoptotic pathway.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"intrinsic apoptotic signaling pathway\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Fumarylacetoacetate hydrolase deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of FAH activity blocks the terminal enzymatic step of tyrosine catabolism.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"tyrosine catabolic process\"], \"genes\": [\"FAH\"], \"locations\": [\"liver\"]}}, {\"id\": \"Persistent hepatocarcinogenic programs under NTBC therapy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Although nitisinone prevents acute toxicity by blocking upstream toxic metabolite formation, it does not restore FAH activity. Transcriptomic analysis in FAH-deficient mice under continuous NTBC revealed persistent enrichment of genes related to liver disease, liver regeneration, and hepatocellular carcinoma. This supports the ongoing HCC risk even in treated patients.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"liver development\"]}}, {\"id\": \"Succinylacetone inhibition of heme biosynthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Succinylacetone (SA) is a competitive inhibitor of delta-aminolevulinic acid dehydratase (ALAD), blocking the heme biosynthetic pathway and causing accumulation of delta-aminolevulinic acid (ALA). This produces porphyria-like neurovisceral crises with neuropathy, similar to acute intermittent porphyria or lead poisoning.\\n\", \"meta\": {\"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"heme biosynthetic process\"]}}, {\"id\": \"Toxic fumarylacetoacetate and maleylacetoacetate accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FAH deficiency causes accumulation of fumarylacetoacetate (FAA) and maleylacetoacetate (MAA), with secondary formation of succinylacetone (SA). FAA is highly reactive and mutagenic, reacting with glutathione and protein sulfhydryl groups to cause oxidative cellular damage in hepatocytes and renal tubular epithelial cells.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"response to oxidative stress\"], \"locations\": [\"liver\"]}}], \"edges\": [{\"source\": \"Fumarylacetoacetate hydrolase deficiency\", \"target\": \"Toxic fumarylacetoacetate and maleylacetoacetate accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic fumarylacetoacetate and maleylacetoacetate accumulation\", \"target\": \"FAA-induced mitochondrial apoptosis in hepatocytes\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic fumarylacetoacetate and maleylacetoacetate accumulation\", \"target\": \"Succinylacetone inhibition of heme biosynthesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic fumarylacetoacetate and maleylacetoacetate accumulation\", \"target\": \"Persistent hepatocarcinogenic programs under NTBC therapy\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"FAA-induced mitochondrial apoptosis in hepatocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fumarylacetoacetate directly triggers mitochondrial outer membrane permeabilization with release of cytochrome c, activating the caspase cascade and inducing hepatocyte apoptosis. Caspase inhibitors were shown to prevent liver failure in FAH-deficient mouse models, confirming the causal role of the intrinsic apoptotic pathway.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"intrinsic apoptotic signaling pathway\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"FAH deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"variant_count\": 1}}, {\"id\": \"FAH pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Over 100 pathogenic variants in FAH have been reported worldwide. The IVS12+5G\u003eA splice site mutation is the most common variant in the French-Canadian population of Quebec. Various missense, nonsense, splice-site, and frameshift mutations have been identified across diverse ethnic groups.\\n\"}, {\"id\": \"Fumarylacetoacetate hydrolase deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of FAH activity blocks the terminal enzymatic step of tyrosine catabolism.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"tyrosine catabolic process\"], \"genes\": [\"FAH\"], \"locations\": [\"liver\"]}}, {\"id\": \"Persistent hepatocarcinogenic programs under NTBC therapy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Although nitisinone prevents acute toxicity by blocking upstream toxic metabolite formation, it does not restore FAH activity. Transcriptomic analysis in FAH-deficient mice under continuous NTBC revealed persistent enrichment of genes related to liver disease, liver regeneration, and hepatocellular carcinoma. This supports the ongoing HCC risk even in treated patients.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"liver development\"]}}, {\"id\": \"Succinylacetone inhibition of heme biosynthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Succinylacetone (SA) is a competitive inhibitor of delta-aminolevulinic acid dehydratase (ALAD), blocking the heme biosynthetic pathway and causing accumulation of delta-aminolevulinic acid (ALA). This produces porphyria-like neurovisceral crises with neuropathy, similar to acute intermittent porphyria or lead poisoning.\\n\", \"meta\": {\"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"heme biosynthetic process\"]}}, {\"id\": \"Toxic fumarylacetoacetate and maleylacetoacetate accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FAH deficiency causes accumulation of fumarylacetoacetate (FAA) and maleylacetoacetate (MAA), with secondary formation of succinylacetone (SA). FAA is highly reactive and mutagenic, reacting with glutathione and protein sulfhydryl groups to cause oxidative cellular damage in hepatocytes and renal tubular epithelial cells.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"response to oxidative stress\"], \"locations\": [\"liver\"]}}], \"edges\": [{\"source\": \"Fumarylacetoacetate hydrolase deficiency\", \"target\": \"Toxic fumarylacetoacetate and maleylacetoacetate accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic fumarylacetoacetate and maleylacetoacetate accumulation\", \"target\": \"FAA-induced mitochondrial apoptosis in hepatocytes\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic fumarylacetoacetate and maleylacetoacetate accumulation\", \"target\": \"Succinylacetone inhibition of heme biosynthesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic fumarylacetoacetate and maleylacetoacetate accumulation\", \"target\": \"Persistent hepatocarcinogenic programs under NTBC therapy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FAH pathogenic variants\", \"target\": \"FAH deficiency\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4197,6 +4387,7 @@ pathophysiology:
       label: liver
   evidence:
   - reference: PMID:38505790
+    reference_title: &#34;Decoding hepatorenal tyrosinemia type 1: Unraveling the impact of early detection, NTBC, and the role of liver transplantation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Hepatorenal tyrosinemia type 1 (HT-1) is a rare autosomal recessive disease that results from a deficiency of
@@ -4228,6 +4419,7 @@ pathophysiology:
       label: liver
   evidence:
   - reference: PMID:38505790
+    reference_title: &#34;Decoding hepatorenal tyrosinemia type 1: Unraveling the impact of early detection, NTBC, and the role of liver transplantation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: This leads to the accumulation
@@ -4263,6 +4455,7 @@ pathophysiology:
       label: mitochondrion
   evidence:
   - reference: PMID:9689118
+    reference_title: &#34;Hepatocyte injury in tyrosinemia type 1 is induced by fumarylacetoacetate and is inhibited by caspase inhibitors.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: Cytochrome c was released from mitochondria prior to liver failure in the Fah-/- Hpd-/- double-mutant mice after
@@ -4270,6 +4463,7 @@ pathophysiology:
       c from the mitochondria.
     explanation: Demonstrates that FAA directly induces mitochondrial cytochrome c release in tyrosinemia model.
   - reference: PMID:9689118
+    reference_title: &#34;Hepatocyte injury in tyrosinemia type 1 is induced by fumarylacetoacetate and is inhibited by caspase inhibitors.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: We also found that caspase inhibitors were highly effective in preventing the liver failure induced by HGA in
@@ -4312,12 +4506,14 @@ pathophysiology:
       label: hepatocyte
   evidence:
   - reference: PMID:36980965
+    reference_title: &#34;Hereditary Tyrosinemia Type 1 Mice under Continuous Nitisinone Treatment Display Remnants of an Uncorrected Liver Disease Phenotype.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: The differentially expressed genes were enriched in toxicological gene classes related to liver disease, liver
       damage, liver regeneration and liver cancer, in particular HCC.
     explanation: Demonstrates persistent HCC-related gene expression under NTBC therapy in mouse model.
   - reference: PMID:36980965
+    reference_title: &#34;Hereditary Tyrosinemia Type 1 Mice under Continuous Nitisinone Treatment Display Remnants of an Uncorrected Liver Disease Phenotype.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: NTBC does not restore the enzymatic defects inflicted by the disease nor does it cure HT1.
@@ -4337,12 +4533,14 @@ phenotypes:
       label: Acute hepatic failure
   evidence:
   - reference: PMID:28771246
+    reference_title: &#34;Diagnosis and treatment of tyrosinemia type I: a US and Canadian consensus group review and recommendations.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Tyrosinemia type I (hepatorenal tyrosinemia, HT-1) is an autosomal recessive condition resulting in hepatic failure
       with comorbidities involving the renal and neurologic systems
     explanation: Directly supports hepatic failure as a primary manifestation.
   - reference: PMID:38505790
+    reference_title: &#34;Decoding hepatorenal tyrosinemia type 1: Unraveling the impact of early detection, NTBC, and the role of liver transplantation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Patients failing medical treatment (eg, due to non-adherence), and who develop acute liver failure (ALF), have
@@ -4361,6 +4559,7 @@ phenotypes:
       label: Hepatic fibrosis
   evidence:
   - reference: PMID:38132825
+    reference_title: &#34;A False-Negative Newborn Screen for Tyrosinemia Type 1-Need for Re-Evaluation of Newborn Screening with Succinylacetone.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Undiagnosed and untreated tyrosinemia type 1 (TT1) individuals carry a significant risk for developing liver
@@ -4379,11 +4578,13 @@ phenotypes:
       label: Cirrhosis
   evidence:
   - reference: PMID:38132825
+    reference_title: &#34;A False-Negative Newborn Screen for Tyrosinemia Type 1-Need for Re-Evaluation of Newborn Screening with Succinylacetone.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: A nine-year-old boy presented with HCC in a cirrhotic liver.
     explanation: Documents cirrhosis in a missed NBS case of HT-1.
   - reference: PMID:39050308
+    reference_title: &#34;Hereditary Tyrosinemia Type-1 With Late Presentation: A Case Report.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: A liver biopsy confirmed mixed nodular cirrhosis, and a subsequent whole exome sequencing revealed autosomal
@@ -4402,6 +4603,7 @@ phenotypes:
       label: Hepatocellular carcinoma
   evidence:
   - reference: PMID:38505790
+    reference_title: &#34;Decoding hepatorenal tyrosinemia type 1: Unraveling the impact of early detection, NTBC, and the role of liver transplantation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: NTBC combined with dietary therapy, if initiated early, can provide liver transplant (LT) free survival and reduce
@@ -4421,12 +4623,14 @@ phenotypes:
       label: Renal Fanconi syndrome
   evidence:
   - reference: PMID:38505790
+    reference_title: &#34;Decoding hepatorenal tyrosinemia type 1: Unraveling the impact of early detection, NTBC, and the role of liver transplantation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: This leads to the accumulation of toxic metabolites such as fumaryl and maleylacetoacetate, which can damage
       the liver, kidneys, and nervous system.
     explanation: Confirms kidney damage from toxic metabolite accumulation.
   - reference: PMID:28771246
+    reference_title: &#34;Diagnosis and treatment of tyrosinemia type I: a US and Canadian consensus group review and recommendations.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Tyrosinemia type I (hepatorenal tyrosinemia, HT-1) is an autosomal recessive condition resulting in hepatic failure
@@ -4458,6 +4662,7 @@ phenotypes:
       label: Peripheral neuropathy
   evidence:
   - reference: PMID:28771246
+    reference_title: &#34;Diagnosis and treatment of tyrosinemia type I: a US and Canadian consensus group review and recommendations.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Tyrosinemia type I (hepatorenal tyrosinemia, HT-1) is an autosomal recessive condition resulting in hepatic failure
@@ -4476,6 +4681,7 @@ phenotypes:
       label: Cognitive impairment
   evidence:
   - reference: PMID:38505790
+    reference_title: &#34;Decoding hepatorenal tyrosinemia type 1: Unraveling the impact of early detection, NTBC, and the role of liver transplantation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: They are also at risk of long-term neurocognitive impairment, which highlights the need for neurocognitive assessment
@@ -4494,6 +4700,7 @@ phenotypes:
       label: Failure to thrive
   evidence:
   - reference: PMID:39050308
+    reference_title: &#34;Hereditary Tyrosinemia Type-1 With Late Presentation: A Case Report.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: We present a case of HT-1 in a three-year-old female child characterized by abdominal distension, facial edema,
@@ -4512,6 +4719,7 @@ phenotypes:
       label: Hepatomegaly
   evidence:
   - reference: PMID:39050308
+    reference_title: &#34;Hereditary Tyrosinemia Type-1 With Late Presentation: A Case Report.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: We present a case of HT-1 in a three-year-old female child characterized by abdominal distension, facial edema,
@@ -4530,6 +4738,7 @@ phenotypes:
       label: Abnormality of coagulation
   evidence:
   - reference: PMID:28771246
+    reference_title: &#34;Diagnosis and treatment of tyrosinemia type I: a US and Canadian consensus group review and recommendations.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Tyrosinemia type I (hepatorenal tyrosinemia, HT-1) is an autosomal recessive condition resulting in hepatic failure
@@ -4560,6 +4769,7 @@ phenotypes:
       label: Edema
   evidence:
   - reference: PMID:39050308
+    reference_title: &#34;Hereditary Tyrosinemia Type-1 With Late Presentation: A Case Report.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: We present a case of HT-1 in a three-year-old female child characterized by abdominal distension, facial edema,
@@ -4575,12 +4785,14 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:38132825
+    reference_title: &#34;A False-Negative Newborn Screen for Tyrosinemia Type 1-Need for Re-Evaluation of Newborn Screening with Succinylacetone.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Elevated succinylacetone (SA) is pathognomonic for TT1 and therefore often used as marker for TT1 newborn screening
       (NBS).
     explanation: Directly states SA is pathognomonic and the key NBS marker.
   - reference: PMID:39728402
+    reference_title: &#34;Evaluation of Neonatal Screening Programs for Tyrosinemia Type 1 Worldwide.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Most used biomarkers were DBS SUAC (78.9%), DBS Tyrosine (Tyr; 5.3%), or DBS Tyr with second tier SUAC (15.8%).
@@ -4594,6 +4806,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:28771246
+    reference_title: &#34;Diagnosis and treatment of tyrosinemia type I: a US and Canadian consensus group review and recommendations.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Newborn screening (NBS) utilizing blood succinylacetone as the NBS marker is superior to observing tyrosine levels
@@ -4624,6 +4837,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:9689118
+    reference_title: &#34;Hepatocyte injury in tyrosinemia type 1 is induced by fumarylacetoacetate and is inhibited by caspase inhibitors.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: the addition of fumarylacetoacetate induced the release of cytochrome c from the mitochondria.
@@ -4637,11 +4851,13 @@ genetic:
       &#39;
     evidence:
     - reference: PMID:28771246
+      reference_title: &#34;Diagnosis and treatment of tyrosinemia type I: a US and Canadian consensus group review and recommendations.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: Tyrosinemia type I (hepatorenal tyrosinemia, HT-1) is an autosomal recessive condition
       explanation: Directly states autosomal recessive inheritance pattern.
     - reference: PMID:39050308
+      reference_title: &#34;Hereditary Tyrosinemia Type-1 With Late Presentation: A Case Report.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: With an autosomal recessive inheritance pattern, it is an uncommon genetic condition.
@@ -4661,6 +4877,7 @@ genetic:
     &#39;
   evidence:
   - reference: PMID:38505790
+    reference_title: &#34;Decoding hepatorenal tyrosinemia type 1: Unraveling the impact of early detection, NTBC, and the role of liver transplantation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Hepatorenal tyrosinemia type 1 (HT-1) is a rare autosomal recessive disease that results from a deficiency of
@@ -4681,12 +4898,14 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:38505790
+    reference_title: &#34;Decoding hepatorenal tyrosinemia type 1: Unraveling the impact of early detection, NTBC, and the role of liver transplantation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: NTBC or nitisinone has significantly improved the management of HT-1, particularly when initiated before the
       onset of symptoms.
     explanation: Supports NTBC as the transformative therapy for HT-1.
   - reference: PMID:36980965
+    reference_title: &#34;Hereditary Tyrosinemia Type 1 Mice under Continuous Nitisinone Treatment Display Remnants of an Uncorrected Liver Disease Phenotype.&#34;
     supports: PARTIAL
     evidence_source: MODEL_ORGANISM
     snippet: Nitisinone (NTBC), a potent inhibitor of the 4-hydroxyphenylpyruvate dioxygenase (HPD) enzyme, rescues HT1 patients
@@ -4706,12 +4925,14 @@ treatments:
       label: dietary intervention
   evidence:
   - reference: PMID:28771246
+    reference_title: &#34;Diagnosis and treatment of tyrosinemia type I: a US and Canadian consensus group review and recommendations.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: There was strong consensus in favor of NBS for HT-1, using blood succinylacetone as a marker, followed by diagnostic
       confirmation and early treatment with NTBC and diet.
     explanation: Consensus recommendation for combined NTBC and dietary therapy.
   - reference: PMID:38505790
+    reference_title: &#34;Decoding hepatorenal tyrosinemia type 1: Unraveling the impact of early detection, NTBC, and the role of liver transplantation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: NTBC combined with dietary therapy, if initiated early, can provide liver transplant (LT) free survival and reduce
@@ -4730,6 +4951,7 @@ treatments:
       label: organ transplantation
   evidence:
   - reference: PMID:38505790
+    reference_title: &#34;Decoding hepatorenal tyrosinemia type 1: Unraveling the impact of early detection, NTBC, and the role of liver transplantation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Patients failing medical treatment (eg, due to non-adherence), and who develop acute liver failure (ALF), have
@@ -4737,6 +4959,7 @@ treatments:
       severe dietary restrictions are currently indicated for LT.
     explanation: Lists specific indications for liver transplantation in HT-1.
   - reference: PMID:39050308
+    reference_title: &#34;Hereditary Tyrosinemia Type-1 With Late Presentation: A Case Report.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The patient is currently undergoing treatment with capsule nitisinone 5 mg, which inhibits the second step of
@@ -4754,17 +4977,20 @@ treatments:
       label: disease screening
   evidence:
   - reference: PMID:28771246
+    reference_title: &#34;Diagnosis and treatment of tyrosinemia type I: a US and Canadian consensus group review and recommendations.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Newborn screening (NBS) utilizing blood succinylacetone as the NBS marker is superior to observing tyrosine levels
       as a way of identifying neonates with HT-1.
     explanation: Strong consensus supporting SA-based NBS for HT-1.
   - reference: PMID:39728402
+    reference_title: &#34;Evaluation of Neonatal Screening Programs for Tyrosinemia Type 1 Worldwide.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Overall positive predictive values were 27.3% for SUAC, 1.2% for Tyr solely, and 90.1% for Tyr + SUAC.
     explanation: Provides worldwide performance data for NBS strategies.
   - reference: PMID:38132825
+    reference_title: &#34;A False-Negative Newborn Screen for Tyrosinemia Type 1-Need for Re-Evaluation of Newborn Screening with Succinylacetone.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: While SA was long considered to be elevated in every TT1 patient, here we present a recent false-negative SA
@@ -4782,6 +5008,7 @@ treatments:
       label: supportive care
   evidence:
   - reference: PMID:38505790
+    reference_title: &#34;Decoding hepatorenal tyrosinemia type 1: Unraveling the impact of early detection, NTBC, and the role of liver transplantation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Children with HT-1 require frequent monitoring of liver and renal function to assess disease progression and
@@ -4799,6 +5026,7 @@ treatments:
       label: genetic counseling
   evidence:
   - reference: PMID:28771246
+    reference_title: &#34;Diagnosis and treatment of tyrosinemia type I: a US and Canadian consensus group review and recommendations.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Tyrosinemia type I (hepatorenal tyrosinemia, HT-1) is an autosomal recessive condition
@@ -4815,6 +5043,7 @@ treatments:
       label: supportive care
   evidence:
   - reference: PMID:38505790
+    reference_title: &#34;Decoding hepatorenal tyrosinemia type 1: Unraveling the impact of early detection, NTBC, and the role of liver transplantation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: They are also at risk of long-term neurocognitive impairment, which highlights the need for neurocognitive assessment

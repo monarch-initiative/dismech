@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,7 @@
                 </span>
                 
                 
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Neglected tropical disease</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Protozoal infection</span>
@@ -1936,6 +2107,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1993,6 +2167,12 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
+            
+            
+            <div class="stat-item">
+                <div class="stat-value">0</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
             
             
             <div class="stat-item">
@@ -2068,10 +2248,11 @@
                 <span class="card-count">1</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-intracellular-amastigote-replication-in-host-cells">
                 <div class="item-name">Intracellular amastigote replication in host cells</div>
                 
                 <div class="item-desc">Metacyclic trypomastigotes invade host cells and differentiate into amastigotes that proliferate intracellularly.</div>
+                
                 
                 
                 
@@ -2371,6 +2552,7 @@ infectious_agent:
   description: Kinetoplastid protozoan parasite that causes Chagas disease.
   evidence:
   - reference: PMID:34207491
+    reference_title: &#34;Mechanisms Associated with Trypanosoma cruzi Host Target Cell Adhesion, Recognition and Internalization.&#34;
     supports: SUPPORT
     snippet: &#34;Chagas disease is caused by the kinetoplastid parasite Trypanosoma cruzi&#34;
     explanation: The review identifies Trypanosoma cruzi as the causative agent.
@@ -2399,6 +2581,7 @@ agent_life_cycle:
     description: Epimastigotes are the non-infective forms in triatomine vectors.
     evidence:
     - reference: PMID:28919885
+      reference_title: &#34;Trypanosoma cruzi Evades the Complement System as an Efficient Strategy to Survive in the Mammalian Host: The Specific Roles of Host/Parasite Molecules and Trypanosoma cruzi Calreticulin.&#34;
       supports: SUPPORT
       snippet: &#34;Epimastigotes, the non-infective form of the parasite, present in triatomine arthropod vectors&#34;
       explanation: The abstract locates epimastigotes in triatomine vectors.
@@ -2411,6 +2594,7 @@ agent_life_cycle:
     description: Metacyclic trypomastigotes in triatomine feces initiate infection.
     evidence:
     - reference: PMID:18512345
+      reference_title: &#34;Host cell actin remodeling in response to Trypanosoma cruzi: trypomastigote versus amastigote entry.&#34;
       supports: SUPPORT
       snippet: &#34;infected triatomines release in their feces highly motile and infective metacyclic trypomastigotes that may initiate infection&#34;
       explanation: The abstract describes infective metacyclic trypomastigotes released in vector feces.
@@ -2423,6 +2607,7 @@ agent_life_cycle:
     description: Trypomastigotes circulate in host blood as infective forms.
     evidence:
     - reference: PMID:28919885
+      reference_title: &#34;Trypanosoma cruzi Evades the Complement System as an Efficient Strategy to Survive in the Mammalian Host: The Specific Roles of Host/Parasite Molecules and Trypanosoma cruzi Calreticulin.&#34;
       supports: SUPPORT
       snippet: &#34;trypomastigotes, the infective form, present in host bloodstream&#34;
       explanation: The abstract identifies trypomastigotes in host bloodstream.
@@ -2435,6 +2620,7 @@ agent_life_cycle:
     description: Amastigotes differentiate in host cells and replicate by binary fission.
     evidence:
     - reference: PMID:18512345
+      reference_title: &#34;Host cell actin remodeling in response to Trypanosoma cruzi: trypomastigote versus amastigote entry.&#34;
       supports: SUPPORT
       snippet: &#34;differentiate into amastigotes that replicate by binary fission&#34;
       explanation: The abstract reports amastigote differentiation and replication in host cells.
@@ -2443,6 +2629,7 @@ transmission:
   description: Infected triatomines release metacyclic trypomastigotes in feces during blood meals.
   evidence:
   - reference: PMID:18512345
+    reference_title: &#34;Host cell actin remodeling in response to Trypanosoma cruzi: trypomastigote versus amastigote entry.&#34;
     supports: SUPPORT
     snippet: &#34;While feeding on host&#39;s blood, infected triatomines release in their feces highly motile and infective metacyclic trypomastigotes that may initiate infection.&#34;
     explanation: The abstract links transmission to triatomine blood feeding and fecal contamination.
@@ -2451,6 +2638,7 @@ pathophysiology:
   description: Metacyclic trypomastigotes invade host cells and differentiate into amastigotes that proliferate intracellularly.
   evidence:
   - reference: PMID:18512345
+    reference_title: &#34;Host cell actin remodeling in response to Trypanosoma cruzi: trypomastigote versus amastigote entry.&#34;
     supports: SUPPORT
     snippet: &#34;Metacyclic trypomastigotes promptly invade host cells (including gastric mucosa) and once free in the cytoplasm, differentiate into amastigotes that replicate by binary fission.&#34;
     explanation: The abstract describes intracellular invasion and amastigote replication.
@@ -2465,6 +2653,7 @@ phenotypes:
       label: Cardiomyopathy
   evidence:
   - reference: PMID:28284779
+    reference_title: &#34;Heart Transplantation for Chagas Cardiomyopathy.&#34;
     supports: SUPPORT
     snippet: &#34;Chagas cardiomyopathy (CC) is one of the chronic manifestations of Trypanosoma cruzi (T. cruzi) infection&#34;
     explanation: The abstract identifies cardiomyopathy as a chronic manifestation of Chagas disease.
@@ -2478,6 +2667,7 @@ phenotypes:
       label: Congestive heart failure
   evidence:
   - reference: PMID:28284779
+    reference_title: &#34;Heart Transplantation for Chagas Cardiomyopathy.&#34;
     supports: SUPPORT
     snippet: &#34;Chagas etiology of heart failure has become the third most common indication for HT in South America.&#34;
     explanation: The abstract links Chagas disease to heart failure requiring transplantation.
@@ -2491,6 +2681,7 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:30111183
+    reference_title: &#34;Clinical and pharmacological profile of benznidazole for treatment of Chagas disease.&#34;
     supports: SUPPORT
     snippet: &#34;Currently, only benznidazole (BZN) and nifurtimox are recognized by the World Health Organization as effective drugs for treatment of CD.&#34;
     explanation: The review lists benznidazole and nifurtimox as WHO-recognized therapies.

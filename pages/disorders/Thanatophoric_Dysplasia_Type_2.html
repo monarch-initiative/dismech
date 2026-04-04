@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">FGFR3-related skeletal dysplasia</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Lethal skeletal dysplasia</span>
@@ -1930,13 +2103,16 @@
             </div>
             
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; opacity: 0.95; position: relative;">
-                Thanatophoric dysplasia type 2 (TD2) is a severe, usually lethal skeletal dysplasia caused by the heterozygous FGFR3 K650E mutation. It is distinguished from TD1 by straight (rather than curved) femurs and a high frequency of cloverleaf skull (kleeblattschadel). Like TD1, it features extreme rhizomelic limb shortening, narrow thorax causing pulmonary hypoplasia, platyspondyly, and macrocephaly. Perinatal lethality is typical due to respiratory insufficiency, though rare long-term survivors have been reported with intensive support.
+                Thanatophoric dysplasia type 2 (TD2) is a severe, usually lethal skeletal dysplasia caused by the heterozygous FGFR3 K650E (p.Lys650Glu) mutation in the tyrosine kinase domain activation loop. It is distinguished from TD1 by straight (rather than curved) femurs and a high frequency of cloverleaf skull (kleeblattschadel). Like TD1, it features extreme rhizomelic limb shortening, narrow thorax causing pulmonary hypoplasia, platyspondyly, and macrocephaly. The K650E mutation introduces a network of hydrogen bonds that mimic activation-loop tyrosine phosphorylation, locking FGFR3 in its active conformation and constitutively activating downstream STAT and MAPK/ERK signaling. This profoundly inhibits chondrocyte differentiation and proliferation in the growth plate, disrupts endochondral ossification, and causes premature craniosynostosis. Perinatal lethality is typical due to respiratory insufficiency from pulmonary hypoplasia, though rare long-term survivors have been reported with intensive respiratory support. The K650E mutation is genetically homogeneous, being found in all molecularly characterized TD2 cases.
 
             </p>
             
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1978,7 +2154,7 @@
             
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
-                <div class="stat-value">2</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Pathophysiology</div>
             </div>
             </a>
@@ -1992,8 +2168,16 @@
             
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
-                <div class="stat-value">8</div>
+                <div class="stat-value">13</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">7</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2008,7 +2192,7 @@
             
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
-                <div class="stat-value">1</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
@@ -2038,10 +2222,12 @@
             </div>
             
             
+            <a class="stat-link" href="#models">
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Models</div>
             </div>
+            </a>
             
             
         </div>
@@ -2080,6 +2266,36 @@
     
                 
     
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7773297" target="_blank">PMID:7773297</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"A sporadic mutation causing a Lys650Glu change in the tyrosine kinase domain of FGFR3 was found in 16 of 16 individuals with one type of TD."</div>
+                
+                
+                <div class="evidence-explanation">All 16 TD2 cases carried the same de novo K650E mutation, confirming the sporadic and genetically homogeneous nature of TD2.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
     
             </div>
             
@@ -2098,13 +2314,100 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">8</span>
             </div>
             
-            <div class="item-box pathophys-box">
-                <div class="item-name">Severe FGFR3 gain-of-function (K650E)</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-fgfr3-kinase-activation-by-k650e">
+                <div class="item-name">Constitutive FGFR3 kinase activation by K650E</div>
                 
-                <div class="item-desc">The K650E mutation in the tyrosine kinase domain causes severe constitutive activation of FGFR3 through autophosphorylation, independent of ligand binding. This profoundly inhibits chondrocyte proliferation and differentiation, resulting in minimal endochondral bone growth. The K650E mutation causes more severe receptor activation than the K650M mutation (associated with SADDAN syndrome).
+                <div class="item-desc">The K650E mutation in the FGFR3 tyrosine kinase activation loop introduces a network of intramolecular hydrogen bonds that mimic the structural effect of activation-loop tyrosine phosphorylation, locking the kinase in its active conformation independent of ligand binding or A-loop phosphorylation. Crystal structure analysis shows that the glutamate side chain at position 650 forms hydrogen bonds with the catalytic loop arginine R616 and backbone amides of adjacent residues, stabilizing the active-state A-loop conformation and disengaging the autoinhibitory molecular brake at the kinase hinge region. This constitutive activation is more severe than the K650M mutation (associated with SADDAN syndrome).
+</div>
+                
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        FGFR signaling pathway
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0008543" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23972473" target="_blank">PMID:23972473</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"the mutation introduces a network of intramolecular hydrogen bonds to stabilize the active-state conformation"</div>
+                
+                
+                <div class="evidence-explanation">Crystal structure of FGFR3 K650E shows the mutation mimics A-loop phosphorylation, providing the structural basis for constitutive activation.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23972473" target="_blank">PMID:23972473</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"the K650E mutation circumvents the requirement for A-loop tyrosine phosphorylation in kinase activation"</div>
+                
+                
+                <div class="evidence-explanation">Biochemical and structural analysis demonstrates that K650E confers ligand-independent and phosphorylation-independent kinase activity.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-stat1-p21-mediated-growth-plate-chondrocyte-arrest">
+                <div class="item-name">STAT1/p21-mediated growth plate chondrocyte arrest</div>
+                
+                <div class="item-desc">Constitutively activated FGFR3 K650E signals through STAT1 and STAT5 in growth plate chondrocytes, upregulating the cell cycle inhibitor p21Cip1 and ink4 family members (p16, p18, p19). This drives premature exit of proliferative chondrocytes from the cell cycle and blocks their normal progression to hypertrophic differentiation. The extent of STAT1/p21 overexpression correlates directly with phenotypic severity across the FGFR3-related chondrodysplasia spectrum, being most pronounced in thanatophoric dysplasia.
 </div>
                 
                 
@@ -2119,6 +2422,252 @@
                     
     
     
+                    
+                </div>
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        JAK-STAT signaling
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0007259" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+    
+    
+                    
+                    <span class="tag tag-bio">
+                        Negative regulation of cell cycle
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0045786" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+    
+    
+                    
+                    <span class="tag tag-bio">
+                        Negative regulation of chondrocyte differentiation
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0032331" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14751560" target="_blank">PMID:14751560</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Abnormally high amounts of Stat1, Stat5 and p21Cip1 proteins were found in prehypertrophic-hypertrophic chondrocytes, the extent of overexpression being directly related to the severity of the disease."</div>
+                
+                
+                <div class="evidence-explanation">Direct human fetal growth plate analysis showing severity-correlated STAT/p21 overexpression across ACH and TD, with TD most severe.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14751560" target="_blank">PMID:14751560</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"defective differentiation of chondrocytes is the main cause of longitudinal bone growth retardation in FGFR3-related human chondrodysplasias"</div>
+                
+                
+                <div class="evidence-explanation">Demonstrates that chondrocyte differentiation defect (not proliferation alone) is the primary mechanism.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9887329" target="_blank">PMID:9887329</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"expression of the mutant receptor caused the activation of Stat1, Stat5a and Stat5b, and the up-regulation of p16, p18 and p19 cell cycle inhibitors, leading to dramatic expansion of the resting zone of chondrocytes at the expense of the proliferating chondrocytes"</div>
+                
+                
+                <div class="evidence-explanation">Mouse knock-in model with the equivalent K644E mutation directly demonstrates STAT and ink4 upregulation causing growth plate disruption.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-sustained-erk-mapk-pathway-activation">
+                <div class="item-name">Sustained ERK/MAPK pathway activation</div>
+                
+                <div class="item-desc">The K650E FGFR3 mutation also constitutively activates the RAS/MEK/ERK (MAPK) signaling cascade. Sustained ERK1/2 activation drives premature hypertrophic differentiation of growth plate chondrocytes. Studies in PC12 cells expressing inducible K650E FGFR3 demonstrate that sustained ERK1/2 activation is necessary for the ligand-independent differentiation phenotype, while STAT1/3 activation alone is not sufficient.
+</div>
+                
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        MAPK cascade
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15843401" target="_blank">PMID:15843401</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"sustained activation of ERK1/2 and activation of STAT1 and STAT3, but not STAT5, is observed in the absence of ligand"</div>
+                
+                
+                <div class="evidence-explanation">PC12 cells expressing the TDII K650E mutation show constitutive ligand-independent ERK1/2 and STAT activation.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15843401" target="_blank">PMID:15843401</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Silencing of STAT1 or 3 independently or in combination had no significant effect on ligand-independent neurite outgrowth, ERK1/2 activation or p21(WAF1/CIP1) protein levels"</div>
+                
+                
+                <div class="evidence-explanation">STAT1/3 knockdown does not block the differentiation phenotype, establishing ERK1/2 as the key pathway for premature differentiation.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20034074" target="_blank">PMID:20034074</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The signal transducers and activators of transcription (STAT1) pathway is involved in the inhibition of chondrocyte proliferation, and the mitogen-activated protein kinase (MAPK) pathways are involved in chondrocyte differentiation."</div>
+                
+                
+                <div class="evidence-explanation">Review article summarizing that STAT1 mediates proliferation inhibition while MAPK mediates differentiation effects in FGFR3 chondrodysplasias.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-plcgamma-stat1-mediated-chondrocyte-apoptosis">
+                <div class="item-name">PLCgamma-STAT1-mediated chondrocyte apoptosis</div>
+                
+                <div class="item-desc">In addition to cell cycle arrest, the constitutively active FGFR3 K650E promotes premature apoptosis of growth plate chondrocytes. Signaling through phospholipase C gamma (PLCgamma) activates STAT1, which induces caspase- dependent apoptosis. In human TD fetal growth plates, increased apoptotic chondrocytes are associated with elevated Bax and decreased Bcl-2 levels. This apoptotic phenotype compounds the differentiation block to severely reduce the hypertrophic zone required for ossification.
+</div>
+                
+                
+                <div class="item-meta">
                     
                     <span class="tag tag-cell">
                         Chondrocyte
@@ -2138,29 +2687,113 @@
                 <div class="item-meta">
                     
                     <span class="tag tag-bio">
-                        FGFR signaling pathway
+                        Apoptotic signaling pathway
                         
-                        <a href="http://purl.obolibrary.org/obo/GO_0008543" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-    
-    
-                    
-                    <span class="tag tag-bio">
-                        Negative regulation of chondrocyte differentiation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0032331" target="_blank" class="linkout">link</a>
+                        <a href="http://purl.obolibrary.org/obo/GO_0097190" target="_blank" class="linkout">link</a>
                         
                     </span>
                     
     
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+    
     
                     
-                    <span class="tag tag-bio">
-                        Endochondral ossification
+                </div>
+                
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9582336" target="_blank">PMID:9582336</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"the presence of an increased number of apoptotic chondrocytes in TD fetuses was associated with a higher expression of Bax and the simultaneous decrease of Bcl-2 levels"</div>
+                
+                
+                <div class="evidence-explanation">Direct observation of increased apoptosis with pro-apoptotic Bax/Bcl-2 shift in human TD fetal growth plate chondrocytes.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9582336" target="_blank">PMID:9582336</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"FGFR 3 mutations in TD I fetuses do not hamper chondrocyte proliferation but rather alter their differentiation by triggering premature apoptosis through activation of the STAT signaling pathway"</div>
+                
+                
+                <div class="evidence-explanation">Establishes that apoptosis (not proliferation defect) is the primary cellular consequence in TD, mediated by STAT signaling.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17561467" target="_blank">PMID:17561467</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"the constitutively active forms of FGFR3 (TDII-FGFR3) and STAT1 (STAT1-C) induce apoptosis of chondrogenic ATDC5 cells via caspase activity"</div>
+                
+                
+                <div class="evidence-explanation">Demonstrates that TDII-FGFR3 specifically induces apoptosis through the PLCgamma-STAT1 pathway in chondrogenic cells.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-endochondral-ossification-via-sox9-beta-catenin-dysregulation">
+                <div class="item-name">Disrupted endochondral ossification via Sox9/beta-catenin dysregulation</div>
+                
+                <div class="item-desc">The FGFR3 K650E mutation disrupts endochondral ossification by stabilizing Sox9 and promoting beta-catenin degradation in growth plate chondrocytes. This creates a block at the prehypertrophic stage, severely reducing the hypertrophic chondrocytes that produce VEGF, which in turn impairs vascularization of primary ossification centers. Since both Sox9 overexpression and beta-catenin deletion independently block hypertrophic differentiation, the simultaneous dysregulation of both constitutes a critical mechanism underlying the skeletal phenotype.
+</div>
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-cell">
+                        Growth plate chondrocyte
                         
-                        <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="linkout">link</a>
+                        <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="linkout">link</a>
                         
                     </span>
                     
@@ -2172,15 +2805,107 @@
                 
                 
                 
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        Endochondral ossification
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+    
+    
+                    
+                </div>
                 
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22843502" target="_blank">PMID:22843502</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"the mutant receptor caused a block in chondrocyte differentiation specifically at the prehypertrophic stage"</div>
+                
+                
+                <div class="evidence-explanation">TD2 mouse model shows FGFR3 K650E blocks chondrocyte maturation at the prehypertrophic stage.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22843502" target="_blank">PMID:22843502</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The differentiation block and defects in joint formation are associated with persistent expression of the chondrogenic factor Sox9 and down-regulation of β-catenin levels and activity in growth plate chondrocytes"</div>
+                
+                
+                <div class="evidence-explanation">Identifies Sox9 stabilization and beta-catenin loss as the molecular circuit disrupted by K650E FGFR3 in the TD2 mouse model.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22843502" target="_blank">PMID:22843502</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The differentiation block led to a severe reduction in hypertrophic chondrocytes that normally produce vascular endothelial growth factor"</div>
+                
+                
+                <div class="evidence-explanation">Links the chondrocyte differentiation block to impaired VEGF production and defective ossification center vascularization.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
             </div>
             
-            <div class="item-box pathophys-box">
-                <div class="item-name">Premature craniosynostosis</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-premature-craniosynostosis-and-synchondrosis-closure">
+                <div class="item-name">Premature craniosynostosis and synchondrosis closure</div>
                 
-                <div class="item-desc">The FGFR3 K650E mutation affects cranial suture development, leading to the cloverleaf skull deformity (kleeblattschadel) seen in many TD2 cases. This involves premature fusion of multiple cranial sutures with compensatory bulging at patent sutures.
+                <div class="item-desc">The FGFR3 K650E mutation affects cranial suture and synchondrosis development, leading to the cloverleaf skull deformity (kleeblattschadel) seen in most TD2 cases. FGFR3-MAPK signaling in chondrocytes promotes premature synchondrosis closure and fusion of ossification centers in the cranial base and spine by increasing BMP ligand expression and decreasing BMP antagonist expression. This premature closure contributes to foramen magnum stenosis and spinal canal narrowing, which can cause neurological complications. The cloverleaf skull involves premature fusion of multiple cranial sutures with compensatory bulging at patent sutures, and the resulting craniostenosis contributes to intracranial hypertension and pseudoencephaloceles.
 </div>
                 
                 
@@ -2199,12 +2924,263 @@
     
     
                     
+                    <span class="tag tag-bio">
+                        MAPK cascade
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+    
+    
+                    
                 </div>
                 
                 
                 
                 
                 
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18923003" target="_blank">PMID:18923003</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"FGFR3 and MAPK signaling in chondrocytes promote synchondrosis closure and fusion of ossification centers"</div>
+                
+                
+                <div class="evidence-explanation">Demonstrates that FGFR3-MAPK drives premature synchondrosis closure in cranial base and spine, directly explaining foramen magnum stenosis.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18923003" target="_blank">PMID:18923003</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"FGF signaling in chondrocytes increases Bmp ligand mRNA expression and decreases Bmp antagonist mRNA expression in a MAPK-dependent manner"</div>
+                
+                
+                <div class="evidence-explanation">Identifies BMP pathway modulation as the MAPK-dependent mechanism driving accelerated ossification center fusion.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18923003" target="_blank">PMID:18923003</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"premature synchondrosis closure in the spine and cranial base in human cases of homozygous achondroplasia and thanatophoric dysplasia"</div>
+                
+                
+                <div class="evidence-explanation">Confirms premature synchondrosis closure in human TD cases, not just mouse models.</div>
+                
+            </div>
+            
+            
+            <div class="evidence-more">+ 1 more reference</div>
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-pulmonary-hypoplasia-from-thoracic-restriction">
+                <div class="item-name">Pulmonary hypoplasia from thoracic restriction</div>
+                
+                <div class="item-desc">The severely narrow thorax restricts lung development in utero, resulting in pulmonary hypoplasia that is the primary cause of perinatal death. Respiratory insufficiency from small lung volume relative to body size is the immediate cause of lethality in most cases.
+</div>
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-cell">
+                        Chondrocyte
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        Lung development
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0030324" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8845844" target="_blank">PMID:8845844</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Thanatophoric dwarfism (TD) is a sporadic lethal skeletal dysplasia with micromelic shortening of the limbs, macrocephaly, platyspondyly and reduced thoracic cavity."</div>
+                
+                
+                <div class="evidence-explanation">Confirms the reduced thoracic cavity that restricts lung growth and causes the pulmonary hypoplasia responsible for perinatal lethality.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-cns-effects-of-fgfr3-gain-of-function">
+                <div class="item-name">CNS effects of FGFR3 gain-of-function</div>
+                
+                <div class="item-desc">FGFR3 K650E has direct effects on brain development beyond the secondary consequences of craniosynostosis. In mouse models expressing constitutively active FGFR3 K650E in postmitotic glutamatergic neurons, the mutation disrupts radial glial cell mitosis, inside-out radial migration of cortical neurons, and axonal tract projections. This contributes to the cortical dysplasia and severe developmental delay observed in TD2 survivors.
+</div>
+                
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        Axon guidance
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0007411" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33116259" target="_blank">PMID:33116259</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"GOF disrupts mitosis of radial-glia neural progenitors (RGCs), inside-out radial migration of post-mitotic glutamatergic neurons, and axonal tract projections"</div>
+                
+                
+                <div class="evidence-explanation">Mouse model expressing FGFR3 K650E in neurons demonstrates direct CNS effects including neuronal migration and axonal guidance defects.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21204232" target="_blank">PMID:21204232</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"FGF ligands and receptors (including FGFR3) act in concert to organize the whole telencephalon activity, rather than independently patterning different areas"</div>
+                
+                
+                <div class="evidence-explanation">FGFR3 has direct roles in telencephalic patterning, supporting the notion that K650E gain-of-function causes primary brain malformations.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
             </div>
@@ -2217,6 +3193,29 @@
 
         <!-- Causal Graph (Pathograph) -->
         
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
+                <h2 class="card-title">Pathograph</h2>
+            </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
+            
+            <div class="pathograph-container" id="pathograph">
+                <div class="pathograph-legend" id="pathograph-legend"></div>
+                <svg id="pathograph-svg" role="img">
+                    <title>Pathograph: causal mechanism network for Thanatophoric Dysplasia Type 2</title>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
+                </svg>
+                <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
+            </div>
+            <script>
+            (function() {
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Constitutive FGFR3 kinase activation by K650E\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The K650E mutation in the FGFR3 tyrosine kinase activation loop introduces a network of intramolecular hydrogen bonds that mimic the structural effect of activation-loop tyrosine phosphorylation, locking the kinase in its active conformation independent of ligand binding or A-loop phosphorylation. Crystal structure analysis shows that the glutamate side chain at position 650 forms hydrogen bonds with the catalytic loop arginine R616 and backbone amides of adjacent residues, stabilizing the active-state A-loop conformation and disengaging the autoinhibitory molecular brake at the kinase hinge region. This constitutive activation is more severe than the K650M mutation (associated with SADDAN syndrome).\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"FGFR signaling pathway\"], \"genes\": [\"FGFR3\"]}}, {\"id\": \"Disrupted endochondral ossification via Sox9/beta-catenin dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The FGFR3 K650E mutation disrupts endochondral ossification by stabilizing Sox9 and promoting beta-catenin degradation in growth plate chondrocytes. This creates a block at the prehypertrophic stage, severely reducing the hypertrophic chondrocytes that produce VEGF, which in turn impairs vascularization of primary ossification centers. Since both Sox9 overexpression and beta-catenin deletion independently block hypertrophic differentiation, the simultaneous dysregulation of both constitutes a critical mechanism underlying the skeletal phenotype.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Growth plate chondrocyte\"], \"biological_processes\": [\"Endochondral ossification\"]}}, {\"id\": \"FGFR3 K650E mutation\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"FGFR3\"], \"association\": \"Causative\", \"variant_count\": 1}}, {\"id\": \"PLCgamma-STAT1-mediated chondrocyte apoptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In addition to cell cycle arrest, the constitutively active FGFR3 K650E promotes premature apoptosis of growth plate chondrocytes. Signaling through phospholipase C gamma (PLCgamma) activates STAT1, which induces caspase- dependent apoptosis. In human TD fetal growth plates, increased apoptotic chondrocytes are associated with elevated Bax and decreased Bcl-2 levels. This apoptotic phenotype compounds the differentiation block to severely reduce the hypertrophic zone required for ossification.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Chondrocyte\"], \"biological_processes\": [\"Apoptotic signaling pathway\"]}}, {\"id\": \"STAT1/p21-mediated growth plate chondrocyte arrest\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Constitutively activated FGFR3 K650E signals through STAT1 and STAT5 in growth plate chondrocytes, upregulating the cell cycle inhibitor p21Cip1 and ink4 family members (p16, p18, p19). This drives premature exit of proliferative chondrocytes from the cell cycle and blocks their normal progression to hypertrophic differentiation. The extent of STAT1/p21 overexpression correlates directly with phenotypic severity across the FGFR3-related chondrodysplasia spectrum, being most pronounced in thanatophoric dysplasia.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Growth plate chondrocyte\"], \"biological_processes\": [\"JAK-STAT signaling\", \"Negative regulation of cell cycle\", \"Negative regulation of chondrocyte differentiation\"]}}, {\"id\": \"Sustained ERK/MAPK pathway activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The K650E FGFR3 mutation also constitutively activates the RAS/MEK/ERK (MAPK) signaling cascade. Sustained ERK1/2 activation drives premature hypertrophic differentiation of growth plate chondrocytes. Studies in PC12 cells expressing inducible K650E FGFR3 demonstrate that sustained ERK1/2 activation is necessary for the ligand-independent differentiation phenotype, while STAT1/3 activation alone is not sufficient.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"MAPK cascade\"]}}, {\"id\": \"c.1948A\u003eG (p.Lys650Glu)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Substitution in the tyrosine kinase activation loop that introduces a glutamate residue mimicking activation-loop phosphorylation, causing constitutive kinase activity.\"}], \"edges\": [{\"source\": \"Constitutive FGFR3 kinase activation by K650E\", \"target\": \"STAT1/p21-mediated growth plate chondrocyte arrest\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Constitutive FGFR3 kinase activation by K650E\", \"target\": \"Sustained ERK/MAPK pathway activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Constitutive FGFR3 kinase activation by K650E\", \"target\": \"PLCgamma-STAT1-mediated chondrocyte apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"STAT1/p21-mediated growth plate chondrocyte arrest\", \"target\": \"Disrupted endochondral ossification via Sox9/beta-catenin dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FGFR3 K650E mutation\", \"target\": \"Constitutive FGFR3 kinase activation by K650E\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.1948A\u003eG (p.Lys650Glu)\", \"target\": \"FGFR3 K650E mutation\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                renderPathograph("pathograph", graphData);
+            })();
+            </script>
+        </div>
+        
 
         <!-- Phenotypes -->
         
@@ -2224,7 +3223,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">8</span>
+                <span class="card-count">13</span>
             </div>
             
             
@@ -2232,13 +3231,17 @@
                 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Head and Neck<span class="pill-count">(3)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Limbs<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Integument<span class="pill-count">(1)</span></button>
                 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(2)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Respiratory<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(2)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Respiratory<span class="pill-count">(1)</span></button>
+                
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Growth<span class="pill-count">(2)</span></button>
+                
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(2)</span></button>
                 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -2270,6 +3273,36 @@
                     
                     
     
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8845844" target="_blank">PMID:8845844</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"in TD2, straight femurs are associated with cloverleaf skull."</div>
+                
+                
+                <div class="evidence-explanation">Establishes the association of cloverleaf skull with TD2 specifically.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
     
                     
     
@@ -2294,6 +3327,36 @@
                     
                     
                     
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8845844" target="_blank">PMID:8845844</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Thanatophoric dwarfism (TD) is a sporadic lethal skeletal dysplasia with micromelic shortening of the limbs, macrocephaly, platyspondyly and reduced thoracic cavity."</div>
+                
+                
+                <div class="evidence-explanation">Confirms macrocephaly as a core TD feature.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
                     
@@ -2331,28 +3394,58 @@
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Limbs
+                    Integument
                     <span class="cat-count">1</span>
                 </summary>
                 
                 <div class="item-box phenotype-box">
                     <div class="item-name">
-                        Straight femurs
-                        
-                        <span class="phenotype-freq">HP_0040281</span>
+                        Acanthosis nigricans (survivors)
                         
                         
                         <span class="phenotype-id">
-                            <a href="http://purl.obolibrary.org/obo/HP_0003097" target="_blank">
-                                Short femur
+                            <a href="http://purl.obolibrary.org/obo/HP_0000956" target="_blank">
+                                Acanthosis nigricans
                             </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0003097)</span>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000956)</span>
                         </span>
                         
                     </div>
                     
+                    <div class="item-desc">Observed in long-term survivors. This skin finding is shared with SADDAN syndrome, which also has an FGFR3 K650 mutation (K650M).</div>
                     
                     
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34597445" target="_blank">PMID:34597445</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Skin disorders (acanthosis nigricans and seborrheic keratoses) were common."</div>
+                
+                
+                <div class="evidence-explanation">Documents acanthosis nigricans in TD long-term survivors, a finding shared with the related FGFR3 K650M SADDAN phenotype.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
                     
@@ -2388,6 +3481,36 @@
                     
                     
     
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8845844" target="_blank">PMID:8845844</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Thanatophoric dwarfism (TD) is a sporadic lethal skeletal dysplasia with micromelic shortening of the limbs, macrocephaly, platyspondyly and reduced thoracic cavity."</div>
+                
+                
+                <div class="evidence-explanation">Confirms reduced thoracic cavity as a core TD feature.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
     
                     
     
@@ -2413,6 +3536,36 @@
                     
                     
     
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8845844" target="_blank">PMID:8845844</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Thanatophoric dwarfism (TD) is a sporadic lethal skeletal dysplasia with micromelic shortening of the limbs, macrocephaly, platyspondyly and reduced thoracic cavity."</div>
+                
+                
+                <div class="evidence-explanation">Confirms platyspondyly as a core feature.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
     
                     
     
@@ -2422,6 +3575,127 @@
             </details>
             
             <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">2</span>
+                </summary>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Hydrocephalus
+                        
+                        <span class="phenotype-freq">HP_0040282</span>
+                        
+                        
+                        <span class="phenotype-id">
+                            <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank">
+                                Hydrocephalus
+                            </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000238)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29458880" target="_blank">PMID:29458880</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Fetuses with TD2 may present increased NT, early onset hydrocephalus, enlarged cerebellum and cisterna magna, and hydrancephaly on prenatal ultrasound."</div>
+                
+                
+                <div class="evidence-explanation">Documents the spectrum of prenatal brain findings in TD2 including early onset hydrocephalus and hydrancephaly.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Severe global developmental delay
+                        
+                        <span class="phenotype-freq">HP_0040281</span>
+                        
+                        
+                        <span class="phenotype-id">
+                            <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank">
+                                Global developmental delay
+                            </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001263)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    <div class="item-desc">Observed in long-term survivors only; most cases are perinatally lethal.</div>
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34597445" target="_blank">PMID:34597445</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"All individuals showed severely delayed psychomotor development. The highest level of psychosocial development was equivalent to that at 2 years of age."</div>
+                
+                
+                <div class="evidence-explanation">Characterizes the developmental ceiling in surviving TD individuals.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+            </details>
+            
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Respiratory
@@ -2447,6 +3721,36 @@
                     
                     
     
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34597445" target="_blank">PMID:34597445</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"All individuals required assisted ventilation."</div>
+                
+                
+                <div class="evidence-explanation">Study of 20 long-term TD survivors confirms universal requirement for ventilatory support.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
     
                     
     
@@ -2455,11 +3759,11 @@
                 
             </details>
             
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
                 
                 <div class="item-box phenotype-box">
@@ -2480,6 +3784,225 @@
                     
                     
                     
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8845844" target="_blank">PMID:8845844</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Thanatophoric dwarfism (TD) is a sporadic lethal skeletal dysplasia with micromelic shortening of the limbs, macrocephaly, platyspondyly and reduced thoracic cavity."</div>
+                
+                
+                <div class="evidence-explanation">Classic clinical description confirming micromelic limb shortening as a defining feature of thanatophoric dysplasia.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Severe short stature (survivors)
+                        
+                        <span class="phenotype-freq">HP_0040281</span>
+                        
+                        
+                        <span class="phenotype-id">
+                            <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank">
+                                Short stature
+                            </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0004322)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    <div class="item-desc">Observed in long-term survivors only.</div>
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34597445" target="_blank">PMID:34597445</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The mean length at birth was 36 cm (-3.4 SD to -7.9 SD). The adult height (age &gt;16 years) was &lt;-15.2 SD."</div>
+                
+                
+                <div class="evidence-explanation">Quantifies the extreme growth deficiency in TD survivors.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+            </details>
+            
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">2</span>
+                </summary>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Straight femurs
+                        
+                        <span class="phenotype-freq">HP_0040281</span>
+                        
+                        
+                    </div>
+                    
+                    <div class="item-desc">No HPO term exists for straight (non-bowed) femur morphology specifically. HP:0003097 (Short femur) captures the length abnormality but not the shape distinction from TD1. The key TD2-distinguishing feature is femur straightness, not shortness per se.</div>
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8845844" target="_blank">PMID:8845844</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"In the most common subtype (TD1), femurs are curved, while in TD2, straight femurs are associated with cloverleaf skull."</div>
+                
+                
+                <div class="evidence-explanation">Defines straight femurs as the distinguishing TD2 radiographic feature.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21204232" target="_blank">PMID:21204232</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"the femur, which appears curved in TD1, while it remains straight but with a proximal medial spike in TD2"</div>
+                
+                
+                <div class="evidence-explanation">Adds the proximal medial spike detail for TD2 femur morphology.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Small foramen magnum
+                        
+                        
+                        <span class="phenotype-id">
+                            <a href="http://purl.obolibrary.org/obo/HP_0002677" target="_blank">
+                                Small foramen magnum
+                            </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002677)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18923003" target="_blank">PMID:18923003</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"spinal canal and foramen magnum stenosis can cause serious neurologic complications"</div>
+                
+                
+                <div class="evidence-explanation">Establishes foramen magnum stenosis as a clinically significant feature of FGFR3 chondrodysplasias including TD.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
                     
@@ -2536,6 +4059,76 @@
                 
                 
     
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7773297" target="_blank">PMID:7773297</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"A sporadic mutation causing a Lys650Glu change in the tyrosine kinase domain of FGFR3 was found in 16 of 16 individuals with one type of TD."</div>
+                
+                
+                <div class="evidence-explanation">Original identification of the K650E mutation in all 16 TD2 cases.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8845844" target="_blank">PMID:8845844</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"While TD2 was accounted for by a single recurrent mutation in the tyrosine kinase 2 domain, TD1 resulted from either stop codon mutations or missense mutations in the extracellular domain of the gene."</div>
+                
+                
+                <div class="evidence-explanation">Confirms TD2 genetic homogeneity with a single recurrent tyrosine kinase domain mutation, in contrast to TD1 heterogeneity.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21204232" target="_blank">PMID:21204232</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"the K650E mutation involving the change of a lysine to glutamic acid (&#34;Lys650Glu&#34;) has been found in all TD2 cases to date"</div>
+                
+                
+                <div class="evidence-explanation">Confirms 100% genotype-phenotype correlation for K650E in TD2.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
     
             </div>
             
@@ -2548,12 +4141,12 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
-                <span class="card-count">1</span>
+                <span class="card-count">2</span>
             </div>
             
             <div class="item-box treatment-box">
                 <div class="item-name">
-                    Supportive care
+                    Supportive and palliative care
                     
                     <span class="phenotype-id">
                         <a href="https://bioregistry.io/MAXO:0000950" target="_blank">
@@ -2564,13 +4157,97 @@
                 </div>
                 
                 
-                <div class="item-desc">Most affected infants die shortly after birth from respiratory failure. Palliative care is typically provided. Rare long-term survivors require intensive respiratory support.
+                <div class="item-desc">Most affected infants die shortly after birth from respiratory failure. Palliative care is typically provided. Rare long-term survivors require continuous ventilatory support, and some can be transitioned to home-based care with meticulous respiratory and nutritional management.
 </div>
                 
                 
                 
                 
                 
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34597445" target="_blank">PMID:34597445</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Long-term survival of TD individuals is common. Some individuals enjoy home-based lives; however, they are severely psychosocially and physically disabled and require meticulous respiratory and nutritional support."</div>
+                
+                
+                <div class="evidence-explanation">Characterizes the intensive supportive care needs of TD long-term survivors.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box treatment-box">
+                <div class="item-name">
+                    Statin therapy (preclinical)
+                    
+                    <span class="phenotype-id">
+                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
+                            MAXO:0000058
+                        </a>
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="item-desc">Statins (lovastatin, rosuvastatin) rescue FGFR3 skeletal dysplasia phenotypes in patient-derived iPSC models and ACH model mice, correcting degraded cartilage formation. This represents a potential pharmacological approach for FGFR3 chondrodysplasias, though clinical trials have not been conducted for TD2 given its typically perinatal lethality.
+</div>
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25231866" target="_blank">PMID:25231866</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"statins could correct the degraded cartilage in both chondrogenically differentiated TD1 and ACH iPSCs. Treatment of ACH model mice with statin led to a significant recovery of bone growth."</div>
+                
+                
+                <div class="evidence-explanation">Preclinical evidence for statin rescue of FGFR3 skeletal dysplasia phenotypes, including in TD1 iPSC-derived chondrocytes.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
             </div>
@@ -2595,6 +4272,270 @@
 
         <!-- Experimental Models -->
         
+        <div id="experimental-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fffbeb; color: #f59e0b;">🧫</div>
+                <h2 class="card-title">Experimental Models</h2>
+                <span class="card-count">3</span>
+            </div>
+            
+            <div class="item-box exp-model-box anchor-target" id="experimental-model-td1-and-ach-ipsc-derived-chondrocytes-statin-rescue">
+                <div class="item-name">
+                    TD1 and ACH iPSC-derived chondrocytes (statin rescue)
+                    
+                    <span class="tag tag-exp-model-type">IPSC_DERIVED_MODEL</span>
+                    
+                    
+                </div>
+                
+                <div class="item-desc">Patient-specific iPSCs from thanatophoric dysplasia type I and achondroplasia patients were differentiated into chondrocytes, recapitulating degraded cartilage formation. Statin treatment corrected the degraded cartilage phenotype in both TD1 and ACH iPSC-derived chondrocytes, suggesting potential therapeutic approaches.
+</div>
+                
+                
+                
+                <div class="tag-list" style="margin-top: 10px;">
+                    
+                    <span class="tag tag-cell">
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" style="color: inherit; text-decoration: none;">Chondrocyte ↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="model-detail-list">
+                    
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Cell source</div>
+                        <div class="model-detail-value">iPSC</div>
+                    </div>
+                    
+                    
+                    
+                </div>
+                
+                
+                
+    
+    
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25231866" target="_blank">PMID:25231866</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The chondrogenic differentiation of TD1 iPSCs and ACH iPSCs resulted in the formation of degraded cartilage"</div>
+                
+                
+                <div class="evidence-explanation">Patient-derived iPSCs recapitulate the cartilage defect, providing a human cellular model for FGFR3 chondrodysplasias.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25231866" target="_blank">PMID:25231866</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"statins could correct the degraded cartilage in both chondrogenically differentiated TD1 and ACH iPSCs"</div>
+                
+                
+                <div class="evidence-explanation">Demonstrates statin-mediated rescue of FGFR3 chondrodysplasia phenotypes in patient-derived iPSC models.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box exp-model-box anchor-target" id="experimental-model-atdc5-chondrogenic-cells-expressing-tdii-fgfr3">
+                <div class="item-name">
+                    ATDC5 chondrogenic cells expressing TDII-FGFR3
+                    
+                    <span class="tag tag-exp-model-type">CELL_LINE</span>
+                    
+                    
+                </div>
+                
+                <div class="item-desc">ATDC5 chondrogenic cell line expressing the TDII FGFR3 K650E mutation demonstrates constitutive PLCgamma-STAT1 signaling leading to caspase-dependent apoptosis. This model established the PLCgamma-STAT1 apoptotic signaling axis in FGFR3 chondrodysplasia.
+</div>
+                
+                
+                
+                <div class="tag-list" style="margin-top: 10px;">
+                    
+                    <span class="tag tag-cell">
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" style="color: inherit; text-decoration: none;">Chondrocyte ↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="model-detail-list">
+                    
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Cell source</div>
+                        <div class="model-detail-value">immortalized</div>
+                    </div>
+                    
+                    
+                    
+                </div>
+                
+                
+                
+    
+    
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17561467" target="_blank">PMID:17561467</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"the constitutively active forms of FGFR3 (TDII-FGFR3) and STAT1 (STAT1-C) induce apoptosis of chondrogenic ATDC5 cells via caspase activity. DN-PLCgamma reduced the apoptosis of ATDC5 cells expressing TDII-FGFR3"</div>
+                
+                
+                <div class="evidence-explanation">Identifies PLCgamma as the mediator between FGFR3 K650E and STAT1 activation leading to chondrocyte apoptosis.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box exp-model-box anchor-target" id="experimental-model-pc12-cells-expressing-inducible-k650e-fgfr3">
+                <div class="item-name">
+                    PC12 cells expressing inducible K650E FGFR3
+                    
+                    <span class="tag tag-exp-model-type">CELL_LINE</span>
+                    
+                    
+                </div>
+                
+                <div class="item-desc">PC12 cell lines (rat pheochromocytoma) stably expressing inducible FGFR3 with the TDII K650E mutation show sustained ligand-independent ERK1/2 activation and STAT1/3 activation. RNA interference showed that sustained ERK1/2 (not STAT1/3) is required for the differentiation phenotype, establishing the relative contributions of MAPK and STAT pathways.
+</div>
+                
+                
+                
+                <div class="tag-list" style="margin-top: 10px;">
+                    
+                    <span class="tag tag-cell">
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0000166" target="_blank" style="color: inherit; text-decoration: none;">Chromaffin cell (PC12) ↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="model-detail-list">
+                    
+                    
+                    
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Cell source</div>
+                        <div class="model-detail-value">immortalized</div>
+                    </div>
+                    
+                    
+                    
+                </div>
+                
+                
+                
+    
+    
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15843401" target="_blank">PMID:15843401</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"sustained ERK1/2 activity is required for this ligand-independent differentiation"</div>
+                
+                
+                <div class="evidence-explanation">Establishes ERK/MAPK as the functionally required pathway for the K650E differentiation phenotype.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+        </div>
+        
 
         <!-- Computational Models -->
         
@@ -2612,16 +4553,23 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Thanatophoric Dysplasia Type 2
 creation_date: &#39;2026-02-02T00:16:36Z&#39;
-updated_date: &#39;2026-02-17T21:53:14Z&#39;
+updated_date: &#39;2026-04-02T16:00:00Z&#39;
 category: Mendelian
 description: &gt;
   Thanatophoric dysplasia type 2 (TD2) is a severe, usually lethal skeletal dysplasia
-  caused by the heterozygous FGFR3 K650E mutation. It is distinguished from TD1 by
-  straight (rather than curved) femurs and a high frequency of cloverleaf skull
-  (kleeblattschadel). Like TD1, it features extreme rhizomelic limb shortening, narrow
-  thorax causing pulmonary hypoplasia, platyspondyly, and macrocephaly. Perinatal
-  lethality is typical due to respiratory insufficiency, though rare long-term survivors
-  have been reported with intensive support.
+  caused by the heterozygous FGFR3 K650E (p.Lys650Glu) mutation in the tyrosine kinase
+  domain activation loop. It is distinguished from TD1 by straight (rather than curved)
+  femurs and a high frequency of cloverleaf skull (kleeblattschadel). Like TD1, it
+  features extreme rhizomelic limb shortening, narrow thorax causing pulmonary
+  hypoplasia, platyspondyly, and macrocephaly. The K650E mutation introduces a network
+  of hydrogen bonds that mimic activation-loop tyrosine phosphorylation, locking FGFR3
+  in its active conformation and constitutively activating downstream STAT and
+  MAPK/ERK signaling. This profoundly inhibits chondrocyte differentiation and
+  proliferation in the growth plate, disrupts endochondral ossification, and causes
+  premature craniosynostosis. Perinatal lethality is typical due to respiratory
+  insufficiency from pulmonary hypoplasia, though rare long-term survivors have been
+  reported with intensive respiratory support. The K650E mutation is genetically
+  homogeneous, being found in all molecularly characterized TD2 cases.
 disease_term:
   preferred_term: thanatophoric dysplasia type 2
   term:
@@ -2636,6 +4584,16 @@ inheritance:
     Virtually all cases arise from de novo heterozygous mutations. The K650E mutation
     is highly recurrent at a CpG dinucleotide, explaining the consistent genotype
     in TD2.
+  evidence:
+  - reference: PMID:7773297
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      A sporadic mutation causing a Lys650Glu change in the tyrosine kinase domain
+      of FGFR3 was found in 16 of 16 individuals with one type of TD.
+    explanation: &gt;-
+      All 16 TD2 cases carried the same de novo K650E mutation, confirming
+      the sporadic and genetically homogeneous nature of TD2.
 prevalence:
 - population: Global live births (TD2 estimate inferred from overall thanatophoric dysplasia prevalence)
   percentage: Approximately 1 in 70,000 live births
@@ -2652,107 +4610,501 @@ prevalence:
   - reference: PMID:7773297
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Thanatophoric dysplasia (TD), the most common neonatal lethal skeletal dysplasia, affects one out of 20,000 live births.&#34;
+    snippet: &gt;-
+      Thanatophoric dysplasia (TD), the most common neonatal lethal skeletal
+      dysplasia, affects one out of 20,000 live births.
     explanation: Provides the commonly cited overall live-birth prevalence for thanatophoric dysplasia.
   - reference: PMID:7773297
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;A sporadic mutation causing a Lys650Glu change in the tyrosine kinase domain of FGFR3 was found in 16 of 16 individuals with one type of TD.&#34;
-    explanation: The Lys650Glu FGFR3 mutation defines TD2, so this case series supports the subtype share used in the note.
+    snippet: &gt;-
+      A sporadic mutation causing a Lys650Glu change in the tyrosine kinase domain
+      of FGFR3 was found in 16 of 16 individuals with one type of TD.
+    explanation: &gt;-
+      The Lys650Glu FGFR3 mutation defines TD2, so this case series supports
+      the subtype share used in the note.
   - reference: PMID:18698630
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;The prevalence of thanatophoric dysplasia ranged from 0.21 to 0.30 per 10,000 livebirths (1/33,330-1/47,620 livebirths).&#34;
-    explanation: Population-based US surveillance confirms the rarity of thanatophoric dysplasia overall and bounds the inferred TD2 estimate.
+    snippet: &gt;-
+      The prevalence of thanatophoric dysplasia ranged from 0.21 to 0.30 per
+      10,000 livebirths (1/33,330-1/47,620 livebirths).
+    explanation: &gt;-
+      Population-based US surveillance confirms the rarity of thanatophoric
+      dysplasia overall and bounds the inferred TD2 estimate.
 pathophysiology:
-- name: Severe FGFR3 gain-of-function (K650E)
+- name: Constitutive FGFR3 kinase activation by K650E
   description: &gt;
-    The K650E mutation in the tyrosine kinase domain causes severe constitutive
-    activation of FGFR3 through autophosphorylation, independent of ligand binding.
-    This profoundly inhibits chondrocyte proliferation and differentiation, resulting
-    in minimal endochondral bone growth. The K650E mutation causes more severe receptor
-    activation than the K650M mutation (associated with SADDAN syndrome).
+    The K650E mutation in the FGFR3 tyrosine kinase activation loop introduces a
+    network of intramolecular hydrogen bonds that mimic the structural effect of
+    activation-loop tyrosine phosphorylation, locking the kinase in its active
+    conformation independent of ligand binding or A-loop phosphorylation. Crystal
+    structure analysis shows that the glutamate side chain at position 650 forms
+    hydrogen bonds with the catalytic loop arginine R616 and backbone amides of
+    adjacent residues, stabilizing the active-state A-loop conformation and
+    disengaging the autoinhibitory molecular brake at the kinase hinge region.
+    This constitutive activation is more severe than the K650M mutation
+    (associated with SADDAN syndrome).
   gene:
     preferred_term: FGFR3
-    description: Fibroblast growth factor receptor 3 with severe
-      gain-of-function mutation in the kinase domain.
+    description: &gt;-
+      Fibroblast growth factor receptor 3 with severe gain-of-function mutation
+      (K650E) in the kinase domain activation loop.
     modifier: INCREASED
     term:
       id: hgnc:3690
       label: FGFR3
-  cell_types:
-  - preferred_term: Growth plate chondrocyte
-    term:
-      id: CL:1000217
-      label: growth plate cartilage chondrocyte
-  - preferred_term: Chondrocyte
-    term:
-      id: CL:0000138
-      label: chondrocyte
   biological_processes:
   - preferred_term: FGFR signaling pathway
     term:
       id: GO:0008543
       label: fibroblast growth factor receptor signaling pathway
+    modifier: INCREASED
+  downstream:
+  - target: STAT1/p21-mediated growth plate chondrocyte arrest
+  - target: Sustained ERK/MAPK pathway activation
+  - target: PLCgamma-STAT1-mediated chondrocyte apoptosis
+  evidence:
+  - reference: PMID:23972473
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      the mutation introduces a network of intramolecular hydrogen bonds to
+      stabilize the active-state conformation
+    explanation: &gt;-
+      Crystal structure of FGFR3 K650E shows the mutation mimics A-loop
+      phosphorylation, providing the structural basis for constitutive
+      activation.
+  - reference: PMID:23972473
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      the K650E mutation circumvents the requirement for A-loop tyrosine
+      phosphorylation in kinase activation
+    explanation: &gt;-
+      Biochemical and structural analysis demonstrates that K650E confers
+      ligand-independent and phosphorylation-independent kinase activity.
+- name: STAT1/p21-mediated growth plate chondrocyte arrest
+  description: &gt;
+    Constitutively activated FGFR3 K650E signals through STAT1 and STAT5 in growth
+    plate chondrocytes, upregulating the cell cycle inhibitor p21Cip1 and ink4 family
+    members (p16, p18, p19). This drives premature exit of proliferative chondrocytes
+    from the cell cycle and blocks their normal progression to hypertrophic
+    differentiation. The extent of STAT1/p21 overexpression correlates directly
+    with phenotypic severity across the FGFR3-related chondrodysplasia spectrum,
+    being most pronounced in thanatophoric dysplasia.
+  cell_types:
+  - preferred_term: Growth plate chondrocyte
+    term:
+      id: CL:1000217
+      label: growth plate cartilage chondrocyte
+  biological_processes:
+  - preferred_term: JAK-STAT signaling
+    term:
+      id: GO:0007259
+      label: cell surface receptor signaling pathway via JAK-STAT
+    modifier: INCREASED
+  - preferred_term: Negative regulation of cell cycle
+    term:
+      id: GO:0045786
+      label: negative regulation of cell cycle
+    modifier: INCREASED
   - preferred_term: Negative regulation of chondrocyte differentiation
     term:
       id: GO:0032331
       label: negative regulation of chondrocyte differentiation
+    modifier: INCREASED
+  downstream:
+  - target: Disrupted endochondral ossification via Sox9/beta-catenin dysregulation
+  evidence:
+  - reference: PMID:14751560
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Abnormally high amounts of Stat1, Stat5 and p21Cip1 proteins were found in
+      prehypertrophic-hypertrophic chondrocytes, the extent of overexpression being
+      directly related to the severity of the disease.
+    explanation: &gt;-
+      Direct human fetal growth plate analysis showing severity-correlated
+      STAT/p21 overexpression across ACH and TD, with TD most severe.
+  - reference: PMID:14751560
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      defective differentiation of chondrocytes is the main cause of longitudinal
+      bone growth retardation in FGFR3-related human chondrodysplasias
+    explanation: &gt;-
+      Demonstrates that chondrocyte differentiation defect (not proliferation
+      alone) is the primary mechanism.
+  - reference: PMID:9887329
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      expression of the mutant receptor caused the activation of Stat1, Stat5a
+      and Stat5b, and the up-regulation of p16, p18 and p19 cell cycle
+      inhibitors, leading to dramatic expansion of the resting zone of
+      chondrocytes at the expense of the proliferating chondrocytes
+    explanation: &gt;-
+      Mouse knock-in model with the equivalent K644E mutation directly
+      demonstrates STAT and ink4 upregulation causing growth plate disruption.
+- name: Sustained ERK/MAPK pathway activation
+  description: &gt;
+    The K650E FGFR3 mutation also constitutively activates the RAS/MEK/ERK
+    (MAPK) signaling cascade. Sustained ERK1/2 activation drives premature
+    hypertrophic differentiation of growth plate chondrocytes. Studies in PC12
+    cells expressing inducible K650E FGFR3 demonstrate that sustained ERK1/2
+    activation is necessary for the ligand-independent differentiation phenotype,
+    while STAT1/3 activation alone is not sufficient.
+  biological_processes:
+  - preferred_term: MAPK cascade
+    term:
+      id: GO:0000165
+      label: MAPK cascade
+    modifier: INCREASED
+  evidence:
+  - reference: PMID:15843401
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      sustained activation of ERK1/2 and activation of STAT1 and STAT3, but not
+      STAT5, is observed in the absence of ligand
+    explanation: &gt;-
+      PC12 cells expressing the TDII K650E mutation show constitutive
+      ligand-independent ERK1/2 and STAT activation.
+  - reference: PMID:15843401
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Silencing of STAT1 or 3 independently or in combination had no significant
+      effect on ligand-independent neurite outgrowth, ERK1/2 activation or
+      p21(WAF1/CIP1) protein levels
+    explanation: &gt;-
+      STAT1/3 knockdown does not block the differentiation phenotype,
+      establishing ERK1/2 as the key pathway for premature differentiation.
+  - reference: PMID:20034074
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      The signal transducers and activators of transcription (STAT1) pathway is
+      involved in the inhibition of chondrocyte proliferation, and the
+      mitogen-activated protein kinase (MAPK) pathways are involved in
+      chondrocyte differentiation.
+    explanation: &gt;-
+      Review article summarizing that STAT1 mediates proliferation inhibition
+      while MAPK mediates differentiation effects in FGFR3 chondrodysplasias.
+- name: PLCgamma-STAT1-mediated chondrocyte apoptosis
+  description: &gt;
+    In addition to cell cycle arrest, the constitutively active FGFR3 K650E
+    promotes premature apoptosis of growth plate chondrocytes. Signaling through
+    phospholipase C gamma (PLCgamma) activates STAT1, which induces caspase-
+    dependent apoptosis. In human TD fetal growth plates, increased apoptotic
+    chondrocytes are associated with elevated Bax and decreased Bcl-2 levels.
+    This apoptotic phenotype compounds the differentiation block to severely
+    reduce the hypertrophic zone required for ossification.
+  cell_types:
+  - preferred_term: Chondrocyte
+    term:
+      id: CL:0000138
+      label: chondrocyte
+  biological_processes:
+  - preferred_term: Apoptotic signaling pathway
+    term:
+      id: GO:0097190
+      label: apoptotic signaling pathway
+    modifier: INCREASED
+  evidence:
+  - reference: PMID:9582336
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      the presence of an increased number of apoptotic chondrocytes in TD fetuses
+      was associated with a higher expression of Bax and the simultaneous decrease
+      of Bcl-2 levels
+    explanation: &gt;-
+      Direct observation of increased apoptosis with pro-apoptotic Bax/Bcl-2
+      shift in human TD fetal growth plate chondrocytes.
+  - reference: PMID:9582336
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      FGFR 3 mutations in TD I fetuses do not hamper chondrocyte proliferation
+      but rather alter their differentiation by triggering premature apoptosis
+      through activation of the STAT signaling pathway
+    explanation: &gt;-
+      Establishes that apoptosis (not proliferation defect) is the primary
+      cellular consequence in TD, mediated by STAT signaling.
+  - reference: PMID:17561467
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      the constitutively active forms of FGFR3 (TDII-FGFR3) and STAT1 (STAT1-C)
+      induce apoptosis of chondrogenic ATDC5 cells via caspase activity
+    explanation: &gt;-
+      Demonstrates that TDII-FGFR3 specifically induces apoptosis through
+      the PLCgamma-STAT1 pathway in chondrogenic cells.
+- name: Disrupted endochondral ossification via Sox9/beta-catenin dysregulation
+  description: &gt;
+    The FGFR3 K650E mutation disrupts endochondral ossification by stabilizing
+    Sox9 and promoting beta-catenin degradation in growth plate chondrocytes.
+    This creates a block at the prehypertrophic stage, severely reducing the
+    hypertrophic chondrocytes that produce VEGF, which in turn impairs
+    vascularization of primary ossification centers. Since both Sox9
+    overexpression and beta-catenin deletion independently block hypertrophic
+    differentiation, the simultaneous dysregulation of both constitutes a
+    critical mechanism underlying the skeletal phenotype.
+  cell_types:
+  - preferred_term: Growth plate chondrocyte
+    term:
+      id: CL:1000217
+      label: growth plate cartilage chondrocyte
+  biological_processes:
   - preferred_term: Endochondral ossification
     term:
       id: GO:0001958
       label: endochondral ossification
-- name: Premature craniosynostosis
+    modifier: DECREASED
+  evidence:
+  - reference: PMID:22843502
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      the mutant receptor caused a block in chondrocyte differentiation
+      specifically at the prehypertrophic stage
+    explanation: &gt;-
+      TD2 mouse model shows FGFR3 K650E blocks chondrocyte maturation at
+      the prehypertrophic stage.
+  - reference: PMID:22843502
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      The differentiation block and defects in joint formation are associated
+      with persistent expression of the chondrogenic factor Sox9 and
+      down-regulation of β-catenin levels and activity in growth plate
+      chondrocytes
+    explanation: &gt;-
+      Identifies Sox9 stabilization and beta-catenin loss as the molecular
+      circuit disrupted by K650E FGFR3 in the TD2 mouse model.
+  - reference: PMID:22843502
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      The differentiation block led to a severe reduction in hypertrophic
+      chondrocytes that normally produce vascular endothelial growth factor
+    explanation: &gt;-
+      Links the chondrocyte differentiation block to impaired VEGF production
+      and defective ossification center vascularization.
+- name: Premature craniosynostosis and synchondrosis closure
   description: &gt;
-    The FGFR3 K650E mutation affects cranial suture development, leading to the
-    cloverleaf skull deformity (kleeblattschadel) seen in many TD2 cases. This
-    involves premature fusion of multiple cranial sutures with compensatory bulging
-    at patent sutures.
+    The FGFR3 K650E mutation affects cranial suture and synchondrosis development,
+    leading to the cloverleaf skull deformity (kleeblattschadel) seen in most TD2
+    cases. FGFR3-MAPK signaling in chondrocytes promotes premature synchondrosis
+    closure and fusion of ossification centers in the cranial base and spine by
+    increasing BMP ligand expression and decreasing BMP antagonist expression.
+    This premature closure contributes to foramen magnum stenosis and spinal canal
+    narrowing, which can cause neurological complications. The cloverleaf skull
+    involves premature fusion of multiple cranial sutures with compensatory
+    bulging at patent sutures, and the resulting craniostenosis contributes to
+    intracranial hypertension and pseudoencephaloceles.
   biological_processes:
   - preferred_term: Cranial suture morphogenesis
     term:
       id: GO:0060363
       label: cranial suture morphogenesis
+  - preferred_term: MAPK cascade
+    term:
+      id: GO:0000165
+      label: MAPK cascade
+    modifier: INCREASED
+  evidence:
+  - reference: PMID:18923003
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      FGFR3 and MAPK signaling in chondrocytes promote synchondrosis closure
+      and fusion of ossification centers
+    explanation: &gt;-
+      Demonstrates that FGFR3-MAPK drives premature synchondrosis closure
+      in cranial base and spine, directly explaining foramen magnum stenosis.
+  - reference: PMID:18923003
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      FGF signaling in chondrocytes increases Bmp ligand mRNA expression and
+      decreases Bmp antagonist mRNA expression in a MAPK-dependent manner
+    explanation: &gt;-
+      Identifies BMP pathway modulation as the MAPK-dependent mechanism
+      driving accelerated ossification center fusion.
+  - reference: PMID:18923003
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      premature synchondrosis closure in the spine and cranial base in human
+      cases of homozygous achondroplasia and thanatophoric dysplasia
+    explanation: &gt;-
+      Confirms premature synchondrosis closure in human TD cases, not
+      just mouse models.
+  - reference: PMID:21204232
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      we consider encephaloceles described in TD to be pseudoencephaloceles,
+      since they are secondary to the intracranial pressure generated by severe
+      hydrocephaly and to severe cranial structural anomalies
+    explanation: &gt;-
+      Clarifies that brain herniation in TD2 results from intracranial
+      pressure due to craniosynostosis and hydrocephalus.
+- name: Pulmonary hypoplasia from thoracic restriction
+  description: &gt;
+    The severely narrow thorax restricts lung development in utero, resulting in
+    pulmonary hypoplasia that is the primary cause of perinatal death. Respiratory
+    insufficiency from small lung volume relative to body size is the immediate
+    cause of lethality in most cases.
+  cell_types:
+  - preferred_term: Chondrocyte
+    term:
+      id: CL:0000138
+      label: chondrocyte
+  biological_processes:
+  - preferred_term: Lung development
+    term:
+      id: GO:0030324
+      label: lung development
+    modifier: DECREASED
+  evidence:
+  - reference: PMID:8845844
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Thanatophoric dwarfism (TD) is a sporadic lethal skeletal dysplasia with
+      micromelic shortening of the limbs, macrocephaly, platyspondyly and reduced
+      thoracic cavity.
+    explanation: &gt;-
+      Confirms the reduced thoracic cavity that restricts lung growth and
+      causes the pulmonary hypoplasia responsible for perinatal lethality.
+- name: CNS effects of FGFR3 gain-of-function
+  description: &gt;
+    FGFR3 K650E has direct effects on brain development beyond the secondary
+    consequences of craniosynostosis. In mouse models expressing constitutively
+    active FGFR3 K650E in postmitotic glutamatergic neurons, the mutation
+    disrupts radial glial cell mitosis, inside-out radial migration of cortical
+    neurons, and axonal tract projections. This contributes to the cortical
+    dysplasia and severe developmental delay observed in TD2 survivors.
+  biological_processes:
+  - preferred_term: Axon guidance
+    term:
+      id: GO:0007411
+      label: axon guidance
+  evidence:
+  - reference: PMID:33116259
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      GOF disrupts mitosis of radial-glia neural progenitors (RGCs), inside-out
+      radial migration of post-mitotic glutamatergic neurons, and axonal tract
+      projections
+    explanation: &gt;-
+      Mouse model expressing FGFR3 K650E in neurons demonstrates direct
+      CNS effects including neuronal migration and axonal guidance defects.
+  - reference: PMID:21204232
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      FGF ligands and receptors (including FGFR3) act in concert to organize
+      the whole telencephalon activity, rather than independently patterning
+      different areas
+    explanation: &gt;-
+      FGFR3 has direct roles in telencephalic patterning, supporting the
+      notion that K650E gain-of-function causes primary brain malformations.
 phenotypes:
 - name: Lethal short-limbed short stature
   description: &gt;
-    Extreme micromelia with severely shortened limbs appearing flipper-like.
+    Extreme micromelia with severely shortened limbs appearing flipper-like,
+    predominantly rhizomelic in distribution.
   frequency: HP_0040281
   phenotype_term:
     preferred_term: Lethal short-limbed short stature
     term:
       id: HP:0008909
       label: Lethal short-limbed short stature
+  evidence:
+  - reference: PMID:8845844
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Thanatophoric dwarfism (TD) is a sporadic lethal skeletal dysplasia with
+      micromelic shortening of the limbs, macrocephaly, platyspondyly and reduced
+      thoracic cavity.
+    explanation: &gt;-
+      Classic clinical description confirming micromelic limb shortening
+      as a defining feature of thanatophoric dysplasia.
 - name: Straight femurs
   description: &gt;
-    Unlike TD1, the femurs in TD2 are straight rather than bowed. This is a key
-    distinguishing feature between the two types.
+    Unlike TD1, the femurs in TD2 are straight rather than bowed. This is the
+    key distinguishing radiographic feature between the two types, with TD2
+    femurs described as having a proximal medial spike.
   frequency: HP_0040281
+  notes: &gt;-
+    No HPO term exists for straight (non-bowed) femur morphology specifically.
+    HP:0003097 (Short femur) captures the length abnormality but not the
+    shape distinction from TD1. The key TD2-distinguishing feature is femur
+    straightness, not shortness per se.
   phenotype_term:
-    preferred_term: Short femur
-    term:
-      id: HP:0003097
-      label: Short femur
+    preferred_term: Straight femur
+  evidence:
+  - reference: PMID:8845844
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      In the most common subtype (TD1), femurs are curved, while in TD2, straight
+      femurs are associated with cloverleaf skull.
+    explanation: &gt;-
+      Defines straight femurs as the distinguishing TD2 radiographic feature.
+  - reference: PMID:21204232
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      the femur, which appears curved in TD1, while it remains straight but with
+      a proximal medial spike in TD2
+    explanation: &gt;-
+      Adds the proximal medial spike detail for TD2 femur morphology.
 - name: Cloverleaf skull
   description: &gt;
-    Kleeblattschadel (cloverleaf skull) deformity with trilobed skull shape due to
-    premature craniosynostosis is highly characteristic of TD2 and helps distinguish
-    it from TD1.
+    Kleeblattschadel (cloverleaf skull) deformity with trilobed skull shape due
+    to premature craniosynostosis. This is highly characteristic of TD2 and
+    helps distinguish it from TD1, where it is less common.
   frequency: HP_0040281
   phenotype_term:
     preferred_term: Cloverleaf skull
     term:
       id: HP:0002676
       label: Cloverleaf skull
+  evidence:
+  - reference: PMID:8845844
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      in TD2, straight femurs are associated with cloverleaf skull.
+    explanation: &gt;-
+      Establishes the association of cloverleaf skull with TD2 specifically.
 - name: Narrow thorax
   description: &gt;
-    Severely narrow, bell-shaped thorax with short ribs leading to pulmonary hypoplasia.
+    Severely narrow, bell-shaped thorax with short ribs leading to pulmonary
+    hypoplasia and respiratory failure.
   frequency: HP_0040281
   phenotype_term:
     preferred_term: Narrow chest
     term:
       id: HP:0000774
       label: Narrow chest
+  evidence:
+  - reference: PMID:8845844
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Thanatophoric dwarfism (TD) is a sporadic lethal skeletal dysplasia with
+      micromelic shortening of the limbs, macrocephaly, platyspondyly and reduced
+      thoracic cavity.
+    explanation: Confirms reduced thoracic cavity as a core TD feature.
 - name: Platyspondyly
   description: Severe flattening of the vertebral bodies.
   frequency: HP_0040281
@@ -2761,14 +5113,32 @@ phenotypes:
     term:
       id: HP:0000926
       label: Platyspondyly
+  evidence:
+  - reference: PMID:8845844
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Thanatophoric dwarfism (TD) is a sporadic lethal skeletal dysplasia with
+      micromelic shortening of the limbs, macrocephaly, platyspondyly and reduced
+      thoracic cavity.
+    explanation: Confirms platyspondyly as a core feature.
 - name: Macrocephaly
-  description: Large head circumference, often with cloverleaf deformity.
+  description: Large head circumference, often associated with cloverleaf deformity.
   frequency: HP_0040281
   phenotype_term:
     preferred_term: Macrocephaly
     term:
       id: HP:0000256
       label: Macrocephaly
+  evidence:
+  - reference: PMID:8845844
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Thanatophoric dwarfism (TD) is a sporadic lethal skeletal dysplasia with
+      micromelic shortening of the limbs, macrocephaly, platyspondyly and reduced
+      thoracic cavity.
+    explanation: Confirms macrocephaly as a core TD feature.
 - name: Frontal bossing
   description: Prominent forehead.
   frequency: HP_0040281
@@ -2779,72 +5149,477 @@ phenotypes:
       label: Frontal bossing
 - name: Respiratory insufficiency
   description: &gt;
-    Severe respiratory failure due to pulmonary hypoplasia causes perinatal death.
+    Severe respiratory failure due to pulmonary hypoplasia is the primary cause
+    of perinatal death. All long-term survivors require assisted ventilation.
   frequency: HP_0040281
   phenotype_term:
     preferred_term: Respiratory insufficiency
     term:
       id: HP:0002093
       label: Respiratory insufficiency
+  evidence:
+  - reference: PMID:34597445
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: All individuals required assisted ventilation.
+    explanation: &gt;-
+      Study of 20 long-term TD survivors confirms universal requirement for
+      ventilatory support.
+- name: Hydrocephalus
+  description: &gt;
+    Ventricular enlargement is common and can present as early onset
+    hydrocephalus detectable prenatally. In severe cases, hydrancephaly may
+    develop. The hydrocephalus is associated with intracranial pressure from
+    craniosynostosis.
+  frequency: HP_0040282
+  phenotype_term:
+    preferred_term: Hydrocephalus
+    term:
+      id: HP:0000238
+      label: Hydrocephalus
+  evidence:
+  - reference: PMID:29458880
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Fetuses with TD2 may present increased NT, early onset hydrocephalus,
+      enlarged cerebellum and cisterna magna, and hydrancephaly on prenatal
+      ultrasound.
+    explanation: &gt;-
+      Documents the spectrum of prenatal brain findings in TD2 including
+      early onset hydrocephalus and hydrancephaly.
+- name: Small foramen magnum
+  description: &gt;
+    Foramen magnum stenosis resulting from premature closure of cranial base
+    synchondroses driven by FGFR3-MAPK signaling. This can cause neurological
+    complications from cervicomedullary compression.
+  phenotype_term:
+    preferred_term: Small foramen magnum
+    term:
+      id: HP:0002677
+      label: Small foramen magnum
+  evidence:
+  - reference: PMID:18923003
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      spinal canal and foramen magnum stenosis can cause serious neurologic
+      complications
+    explanation: &gt;-
+      Establishes foramen magnum stenosis as a clinically significant
+      feature of FGFR3 chondrodysplasias including TD.
+- name: Severe global developmental delay
+  description: &gt;
+    All long-term TD survivors show severely delayed psychomotor development.
+    The highest developmental level achieved is equivalent to approximately
+    2 years of age, reflecting both primary CNS effects of FGFR3 K650E and
+    secondary consequences of craniosynostosis and hydrocephalus.
+  frequency: HP_0040281
+  notes: Observed in long-term survivors only; most cases are perinatally lethal.
+  phenotype_term:
+    preferred_term: Global developmental delay
+    term:
+      id: HP:0001263
+      label: Global developmental delay
+  evidence:
+  - reference: PMID:34597445
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      All individuals showed severely delayed psychomotor development. The
+      highest level of psychosocial development was equivalent to that at 2
+      years of age.
+    explanation: &gt;-
+      Characterizes the developmental ceiling in surviving TD individuals.
+- name: Severe short stature (survivors)
+  description: &gt;
+    Long-term survivors show extreme growth deficiency with birth length
+    averaging 36 cm and adult height below -15.2 SD.
+  frequency: HP_0040281
+  notes: Observed in long-term survivors only.
+  phenotype_term:
+    preferred_term: Short stature
+    term:
+      id: HP:0004322
+      label: Short stature
+  evidence:
+  - reference: PMID:34597445
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The mean length at birth was 36 cm (-3.4 SD to -7.9 SD). The adult height
+      (age &gt;16 years) was &lt;-15.2 SD.
+    explanation: &gt;-
+      Quantifies the extreme growth deficiency in TD survivors.
+- name: Acanthosis nigricans (survivors)
+  description: &gt;
+    Skin disorders including acanthosis nigricans and seborrheic keratoses are
+    common in long-term survivors, reflecting FGFR3 effects on keratinocyte
+    biology.
+  notes: &gt;-
+    Observed in long-term survivors. This skin finding is shared with
+    SADDAN syndrome, which also has an FGFR3 K650 mutation (K650M).
+  phenotype_term:
+    preferred_term: Acanthosis nigricans
+    term:
+      id: HP:0000956
+      label: Acanthosis nigricans
+  evidence:
+  - reference: PMID:34597445
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Skin disorders (acanthosis nigricans and seborrheic keratoses) were common.
+    explanation: &gt;-
+      Documents acanthosis nigricans in TD long-term survivors, a finding
+      shared with the related FGFR3 K650M SADDAN phenotype.
 genetic:
 - name: FGFR3 K650E mutation
   association: Causative
+  gene_term:
+    preferred_term: FGFR3
+    term:
+      id: hgnc:3690
+      label: FGFR3
   notes: &gt;
-    The c.1948A&gt;G (p.Lys650Glu) mutation is the specific and consistent cause of TD2.
-    This mutation occurs at a CpG dinucleotide hotspot, explaining its recurrence.
-    Unlike TD1, which has multiple causative mutations, TD2 is genetically homogeneous.
+    The c.1948A&gt;G (p.Lys650Glu) mutation is the specific and consistent cause of
+    TD2. This mutation occurs at a CpG dinucleotide hotspot, explaining its
+    recurrence. Unlike TD1, which has multiple causative mutations in the
+    extracellular and transmembrane domains, TD2 is genetically homogeneous.
+    The same codon is affected in SADDAN syndrome (K650M) and when acquired
+    somatically, K650E contributes to bladder cancer and multiple myeloma.
   variants:
   - name: c.1948A&gt;G (p.Lys650Glu)
-    description: The specific mutation causing TD2, in the tyrosine kinase
-      activation loop.
+    description: &gt;-
+      Substitution in the tyrosine kinase activation loop that introduces a
+      glutamate residue mimicking activation-loop phosphorylation, causing
+      constitutive kinase activity.
+  evidence:
+  - reference: PMID:7773297
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      A sporadic mutation causing a Lys650Glu change in the tyrosine kinase
+      domain of FGFR3 was found in 16 of 16 individuals with one type of TD.
+    explanation: &gt;-
+      Original identification of the K650E mutation in all 16 TD2 cases.
+  - reference: PMID:8845844
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      While TD2 was accounted for by a single recurrent mutation in the tyrosine
+      kinase 2 domain, TD1 resulted from either stop codon mutations or missense
+      mutations in the extracellular domain of the gene.
+    explanation: &gt;-
+      Confirms TD2 genetic homogeneity with a single recurrent tyrosine
+      kinase domain mutation, in contrast to TD1 heterogeneity.
+  - reference: PMID:21204232
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      the K650E mutation involving the change of a lysine to glutamic acid
+      (&#34;Lys650Glu&#34;) has been found in all TD2 cases to date
+    explanation: &gt;-
+      Confirms 100% genotype-phenotype correlation for K650E in TD2.
+animal_models:
+- species: Mouse (Mus musculus)
+  genotype: Fgfr3 K644E knock-in (equivalent to human K650E)
+  description: &gt;
+    Heterozygous Fgfr3(TD/+) mice express the mutant allele at approximately
+    20% of wild-type level and exhibit mild bone dysplasia. Homozygous
+    Fgfr3(TD/TD) mice show severe retardation of bone growth resembling
+    achondroplasia, with dramatically reduced proliferation of growth plate
+    cartilage, macrocephaly, and shortening of long bones. The severity is
+    directly linked to the expression level of the mutated Fgfr3.
+  genes:
+  - preferred_term: FGFR3
+    term:
+      id: hgnc:3690
+      label: FGFR3
+  associated_phenotypes:
+  - Rhizomelic short stature
+  - Macrocephaly
+  evidence:
+  - reference: PMID:9887329
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      the Lys644Glu mutation resulted in retarded endochondral bone growth with
+      severity directly linked to the expression level of the mutated Fgfr3
+    explanation: &gt;-
+      First knock-in mouse model of the TD2-equivalent mutation, showing
+      dose-dependent bone growth retardation.
+  - reference: PMID:9887329
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      when the copy number of the mutant allele increased from one (Fgfr3(TD/+)
+      to two (Fgfr3(TD/TD), the retardation of bone growth became more severe
+      and showed phenotypes resembling those of achondroplasia patients,
+      characterized by a dramatically reduced proliferation of growth plate
+      cartilage, macrocephaly and shortening of the long bones
+    explanation: &gt;-
+      Homozygous mice recapitulate key skeletal features including
+      macrocephaly and limb shortening.
+- species: Mouse (Mus musculus)
+  genotype: FGFR3(K650E) targeted expression in appendicular skeleton
+  description: &gt;
+    Transgenic mice expressing FGFR3 K650E in the appendicular skeleton develop
+    a block in chondrocyte differentiation at the prehypertrophic stage, with
+    persistent Sox9 expression, beta-catenin downregulation, and poor
+    vascularization of primary ossification centers. This model directly
+    demonstrates the Sox9/beta-catenin circuit disruption mechanism.
+  genes:
+  - preferred_term: FGFR3
+    term:
+      id: hgnc:3690
+      label: FGFR3
+  evidence:
+  - reference: PMID:22843502
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      Using a mouse model of thanatophoric dysplasia type II in which
+      FGFR3(K650E) expression was directed to the appendicular skeleton, we show
+      that the mutant receptor caused a block in chondrocyte differentiation
+      specifically at the prehypertrophic stage
+    explanation: &gt;-
+      Targeted expression model directly demonstrates the differentiation
+      block mechanism.
+- species: Mouse (Mus musculus)
+  genotype: FGFR3(K650E) in postmitotic glutamatergic neurons (Nex-Cre)
+  description: &gt;
+    Transgenic mice expressing constitutively active FGFR3 K650E in postmitotic
+    glutamatergic neurons develop cortical dysplasia with disrupted radial
+    migration of late-born CUX1-positive neurons, reduced radial glial
+    processes, and axonal tract abnormalities. This model demonstrates FGFR3
+    gain-of-function effects on brain development independent of skeletal
+    abnormalities.
+  genes:
+  - preferred_term: FGFR3
+    term:
+      id: hgnc:3690
+      label: FGFR3
+  evidence:
+  - reference: PMID:33116259
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      FGFR3 GOF in postmitotic neurons not only alters axonal growth of
+      postmitotic neurons but also impairs RGC neurogenesis and radial glia
+      processes
+    explanation: &gt;-
+      Demonstrates primary CNS effects of FGFR3 K650E beyond skeletal
+      phenotypes, relevant to the developmental delay in TD2 survivors.
+experimental_models:
+- name: TD1 and ACH iPSC-derived chondrocytes (statin rescue)
+  description: &gt;
+    Patient-specific iPSCs from thanatophoric dysplasia type I and
+    achondroplasia patients were differentiated into chondrocytes, recapitulating
+    degraded cartilage formation. Statin treatment corrected the degraded
+    cartilage phenotype in both TD1 and ACH iPSC-derived chondrocytes,
+    suggesting potential therapeutic approaches.
+  experimental_model_type: IPSC_DERIVED_MODEL
+  cell_types:
+  - preferred_term: Chondrocyte
+    term:
+      id: CL:0000138
+      label: chondrocyte
+  cell_source: iPSC
+  evidence:
+  - reference: PMID:25231866
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      The chondrogenic differentiation of TD1 iPSCs and ACH iPSCs resulted in
+      the formation of degraded cartilage
+    explanation: &gt;-
+      Patient-derived iPSCs recapitulate the cartilage defect, providing
+      a human cellular model for FGFR3 chondrodysplasias.
+  - reference: PMID:25231866
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      statins could correct the degraded cartilage in both chondrogenically
+      differentiated TD1 and ACH iPSCs
+    explanation: &gt;-
+      Demonstrates statin-mediated rescue of FGFR3 chondrodysplasia
+      phenotypes in patient-derived iPSC models.
+- name: ATDC5 chondrogenic cells expressing TDII-FGFR3
+  description: &gt;
+    ATDC5 chondrogenic cell line expressing the TDII FGFR3 K650E mutation
+    demonstrates constitutive PLCgamma-STAT1 signaling leading to
+    caspase-dependent apoptosis. This model established the PLCgamma-STAT1
+    apoptotic signaling axis in FGFR3 chondrodysplasia.
+  experimental_model_type: CELL_LINE
+  cell_types:
+  - preferred_term: Chondrocyte
+    term:
+      id: CL:0000138
+      label: chondrocyte
+  cell_source: immortalized
+  evidence:
+  - reference: PMID:17561467
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      the constitutively active forms of FGFR3 (TDII-FGFR3) and STAT1 (STAT1-C)
+      induce apoptosis of chondrogenic ATDC5 cells via caspase activity.
+      DN-PLCgamma reduced the apoptosis of ATDC5 cells expressing TDII-FGFR3
+    explanation: &gt;-
+      Identifies PLCgamma as the mediator between FGFR3 K650E and STAT1
+      activation leading to chondrocyte apoptosis.
+- name: PC12 cells expressing inducible K650E FGFR3
+  description: &gt;
+    PC12 cell lines (rat pheochromocytoma) stably expressing inducible FGFR3
+    with the TDII K650E mutation show sustained ligand-independent ERK1/2
+    activation and STAT1/3 activation. RNA interference showed that sustained
+    ERK1/2 (not STAT1/3) is required for the differentiation phenotype,
+    establishing the relative contributions of MAPK and STAT pathways.
+  experimental_model_type: CELL_LINE
+  cell_types:
+  - preferred_term: Chromaffin cell (PC12)
+    term:
+      id: CL:0000166
+      label: chromaffin cell
+  cell_source: immortalized
+  evidence:
+  - reference: PMID:15843401
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      sustained ERK1/2 activity is required for this ligand-independent
+      differentiation
+    explanation: &gt;-
+      Establishes ERK/MAPK as the functionally required pathway for the
+      K650E differentiation phenotype.
 treatments:
-- name: Supportive care
+- name: Supportive and palliative care
   description: &gt;
     Most affected infants die shortly after birth from respiratory failure.
     Palliative care is typically provided. Rare long-term survivors require
-    intensive respiratory support.
+    continuous ventilatory support, and some can be transitioned to home-based
+    care with meticulous respiratory and nutritional management.
   treatment_term:
     preferred_term: Supportive care
     term:
       id: MAXO:0000950
       label: supportive care
+  evidence:
+  - reference: PMID:34597445
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Long-term survival of TD individuals is common. Some individuals enjoy
+      home-based lives; however, they are severely psychosocially and physically
+      disabled and require meticulous respiratory and nutritional support.
+    explanation: &gt;-
+      Characterizes the intensive supportive care needs of TD long-term
+      survivors.
+- name: Statin therapy (preclinical)
+  description: &gt;
+    Statins (lovastatin, rosuvastatin) rescue FGFR3 skeletal dysplasia
+    phenotypes in patient-derived iPSC models and ACH model mice, correcting
+    degraded cartilage formation. This represents a potential pharmacological
+    approach for FGFR3 chondrodysplasias, though clinical trials have not
+    been conducted for TD2 given its typically perinatal lethality.
+  treatment_term:
+    preferred_term: Statin therapy
+    term:
+      id: MAXO:0000058
+      label: pharmacotherapy
+  evidence:
+  - reference: PMID:25231866
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      statins could correct the degraded cartilage in both chondrogenically
+      differentiated TD1 and ACH iPSCs. Treatment of ACH model mice with statin
+      led to a significant recovery of bone growth.
+    explanation: &gt;-
+      Preclinical evidence for statin rescue of FGFR3 skeletal dysplasia
+      phenotypes, including in TD1 iPSC-derived chondrocytes.
 notes: &gt;
   TD2 is distinguished from TD1 by straight (rather than curved) femurs and frequent
   cloverleaf skull. Both types share severe limb shortening, narrow thorax, and
   perinatal lethality. The genotype-phenotype correlation is clear: TD2 is consistently
-  caused by the K650E mutation in the kinase domain, while TD1 is caused by various
-  mutations in the extracellular and transmembrane domains. The K650E mutation is
-  at
-  the same codon as the K650M mutation causing SADDAN syndrome, but K650E causes more
-  severe receptor activation and a more severe phenotype.
+  caused by the K650E mutation in the kinase domain activation loop, while TD1 is
+  caused by various mutations in the extracellular and transmembrane domains. The
+  K650E mutation is at the same codon as the K650M mutation causing SADDAN syndrome,
+  but K650E causes more severe receptor activation and a more severe phenotype. The
+  same K650E mutation, when acquired somatically, is also found in bladder cancer
+  and multiple myeloma, indicating the broader oncogenic potential of this
+  gain-of-function allele.
 datasets:
 references:
-- reference: DOI:10.1038/s41598-020-75537-0
-  title: Enhanced FGFR3 activity in postmitotic principal neurons during brain
-    development results in cortical dysplasia and axonal tract abnormality
+- reference: PMID:7773297
+  title: Thanatophoric dysplasia (types I and II) caused by distinct mutations in
+    fibroblast growth factor receptor 3.
   findings: []
-- reference: DOI:10.1093/hmg/ddn339
+- reference: PMID:8845844
+  title: Missense FGFR3 mutations create cysteine residues in thanatophoric dwarfism
+    type I (TD1).
+  findings: []
+- reference: PMID:9887329
+  title: A Lys644Glu substitution in fibroblast growth factor receptor 3 (FGFR3)
+    causes dwarfism in mice by activation of STATs and ink4 cell cycle inhibitors.
+  findings: []
+- reference: PMID:9582336
+  title: Fibroblast growth factor receptor 3 mutations promote apoptosis but do not
+    alter chondrocyte proliferation in thanatophoric dysplasia.
+  findings: []
+- reference: PMID:14751560
+  title: Overexpression of FGFR3, Stat1, Stat5 and p21Cip1 correlates with phenotypic
+    severity and defective chondrocyte differentiation in FGFR3-related chondrodysplasias.
+  findings: []
+- reference: PMID:15843401
+  title: Sustained ERK1/2 but not STAT1 or 3 activation is required for thanatophoric
+    dysplasia phenotypes in PC12 cells.
+  findings: []
+- reference: PMID:17561467
+  title: Sustained phosphorylation of mutated FGFR3 is a crucial feature of genetic
+    dwarfism and induces apoptosis in the ATDC5 chondrogenic cell line via PLCgamma-activated
+    STAT1.
+  findings: []
+- reference: PMID:20034074
+  title: Review of the recently defined molecular mechanisms underlying thanatophoric
+    dysplasia and their potential therapeutic implications for achondroplasia.
+  findings: []
+- reference: PMID:22843502
+  title: Disruption of a Sox9-β-catenin circuit by mutant Fgfr3 in thanatophoric
+    dysplasia type II.
+  findings: []
+- reference: PMID:23972473
+  title: Structural mimicry of a-loop tyrosine phosphorylation by a pathogenic FGF
+    receptor 3 mutation.
+  findings: []
+- reference: PMID:25231866
+  title: Statin treatment rescues FGFR3 skeletal dysplasia phenotypes.
+  findings: []
+- reference: PMID:33116259
+  title: Enhanced FGFR3 activity in postmitotic principal neurons during brain development
+    results in cortical dysplasia and axonal tract abnormality.
+  findings: []
+- reference: PMID:34597445
+  title: Development of individuals with thanatophoric dysplasia surviving beyond
+    infancy.
+  findings: []
+- reference: PMID:29458880
+  title: Prenatal diagnosis of hydrancephaly and enlarged cerebellum and cisterna
+    magna in a fetus with thanatophoric dysplasia type II and a review of prenatal
+    diagnosis of brain anomalies associated with thanatophoric dysplasia.
+  findings: []
+- reference: PMID:21204232
+  title: Thanatophoric dysplasia type II with encephalocele and semilobar holoprosencephaly
+    - Insights into its pathogenesis.
+  findings: []
+- reference: PMID:18923003
   title: FGFR3 promotes synchondrosis closure and fusion of ossification centers
-    through the MAPK pathway
+    through the MAPK pathway.
   findings: []
-- reference: DOI:10.1101/2022.04.11.487861
-  title: Quantitation of FGFR3 signaling via GRB2 recruitment on micropatterned
-    surfaces
-  findings: []
-- reference: DOI:10.1186/s12920-023-01697-3
-  title: &#39;Prenatal whole-exome sequencing for fetal structural anomalies: a retrospective
-    analysis of 145 Chinese cases&#39;
-  findings: []
-- reference: DOI:10.2741/1671
-  title: Roles of FGF signaling in skeletal development and human genetic
-    diseases
-  findings: []
-- reference: DOI:10.3389/fgene.2023.1032346
-  title: &#39;Exome sequencing in fetuses with short long bones detected by ultrasonography:
-    A retrospective cohort study&#39;
-  findings: []
-- reference: DOI:10.5005/jp-journals-10009-2023
-  title: Skeletal Dysplasias
+- reference: PMID:18698630
+  title: The population-based prevalence of achondroplasia and thanatophoric dysplasia
+    in selected regions of the US.
   findings: []
 </pre>
             </div>

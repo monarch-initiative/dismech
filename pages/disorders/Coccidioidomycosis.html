@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1921,11 +2091,15 @@
                 </span>
                 
                 
+                
             </div>
             
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1991,6 +2165,12 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
+            
+            
+            <div class="stat-item">
+                <div class="stat-value">0</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
             
             
             <a class="stat-link" href="#genetic">
@@ -2477,7 +2657,7 @@
                 <span class="card-count">4</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-arthroconidia-inhalation-and-spherule-morphogenesis">
                 <div class="item-name">Arthroconidia inhalation and spherule morphogenesis</div>
                 
                 <div class="item-desc">Coccidioides exists as a mycelial form in soil. When soil is disturbed, arthroconidia (barrel-shaped spores 2-5 micrometers in size) become airborne and are inhaled into the lungs, reaching terminal bronchioles. In host tissues at 37 degrees C, arthroconidia undergo a morphological transition to spherules, which are large round structures that undergo internal division to produce hundreds of endospores. Developing spherules secrete a metalloproteinase that contributes to immune masking. Rupture of mature spherules releases endospores that trigger rapid immune cell influx and can spread hematogenously.
@@ -2550,6 +2730,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2604,7 +2785,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-innate-immune-recognition-via-pattern-recognition-receptors">
                 <div class="item-name">Innate immune recognition via pattern recognition receptors</div>
                 
                 <div class="item-desc">Initial recognition of Coccidioides involves pattern recognition receptors including Toll-like receptors and C-type lectin receptors. Dectin-1 (CLEC7A) is the primary receptor for fungal beta-1,3-glucan exposed on spherule surfaces. Dectin-1 signals through CARD9 via the Syk kinase pathway, activating NF-kB and promoting pro-inflammatory cytokine production. Deficiency in Dectin-1 or CARD9 leads to impaired Th17/Th1 responses and increased susceptibility to disseminated disease. Arthroconidia can initially bias macrophage differentiation toward a noninflammatory state and induce limited dendritic cell activation.
@@ -2666,6 +2847,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2720,7 +2902,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-th1-th17-cell-mediated-adaptive-immunity">
                 <div class="item-name">Th1/Th17 cell-mediated adaptive immunity</div>
                 
                 <div class="item-desc">Protective immunity against Coccidioides depends on robust Th1 and Th17 CD4+ T cell responses. IFN-gamma produced by Th1 cells activates macrophages to kill fungal organisms. IL-17 from Th17 cells recruits neutrophils and supports mucosal immunity. The IL-12/IFN-gamma signaling axis is critical; genetic defects in IL12RB1, STAT4, or STAT3 impair these responses and increase susceptibility to severe disseminated disease. TNF-alpha is essential for granuloma formation and maintenance. Th2 skewing or immunosuppression (particularly TNF-alpha blockade) predisposes to dissemination.
@@ -2802,6 +2984,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2856,7 +3039,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-granuloma-formation-and-containment">
                 <div class="item-name">Granuloma formation and containment</div>
                 
                 <div class="item-desc">The host attempts to contain Coccidioides infection through granuloma formation, a hallmark of the tissue response. Granulomas consist of epithelioid macrophages, multinucleated giant cells, and a surrounding cuff of lymphocytes. TNF-alpha is essential for granuloma formation and maintenance. CD14-positive macrophages localize to granuloma cores while CD206-positive macrophages are present internally and peripherally. Effective granuloma formation correlates with disease containment, while failure to form organized granulomas (as in immunocompromise or TNF-alpha blockade) is associated with dissemination and mortality.
@@ -2893,6 +3076,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -4795,6 +4979,7 @@ classifications:
   - classification_value: infectious disease
     evidence:
     - reference: PMID:39452676
+      reference_title: &#34;Overview of the Current Challenges in Pulmonary Coccidioidomycosis.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Coccidioidomycosis is a disease caused by soil fungi of the genus Coccidioides, divided genetically into Coccidioides immitis (California isolates) and Coccidioides posadasii (isolates outside California).&#34;
@@ -4802,6 +4987,7 @@ classifications:
   - classification_value: fungal infectious disease
     evidence:
     - reference: PMID:39365073
+      reference_title: &#34;From soil to clinic: current advances in understanding Coccidioides and coccidioidomycosis.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Coccidioides immitis and Coccidioides posadasii are fungal pathogens that cause systemic mycoses and are prevalent in arid regions in the Americas.&#34;
@@ -4821,11 +5007,13 @@ has_subtypes:
     pneumonia in endemic areas. Most symptomatic infections resolve spontaneously.
   evidence:
   - reference: PMID:39452676
+    reference_title: &#34;Overview of the Current Challenges in Pulmonary Coccidioidomycosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Clinically, the infection ranges from asymptomatic to fatal disease due to pneumonia or disseminated states. The recognition of coccidioidomycosis can be challenging, as it frequently mimics bacterial community-acquired pneumonia.&#34;
     explanation: Confirms that primary pulmonary coccidioidomycosis mimics community-acquired pneumonia and ranges from asymptomatic to severe.
   - reference: PMID:38535182
+    reference_title: &#34;The Host Response to Coccidioidomycosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;only half of infected, immunologically intact people develop symptomatic pneumonia; most symptomatic infections resolve spontaneously, although some resolve very slowly.&#34;
@@ -4837,11 +5025,13 @@ has_subtypes:
     at significantly higher risk.
   evidence:
   - reference: PMID:39189034
+    reference_title: &#34;Clinical Characteristics and Mortality Risks Among Patients With Culture-Proven Coccidioidomycosis Who Are Critically Ill: A Multicenter Study in an Endemic Region.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;41 had extrapulmonary disease (17 meningitis, 13 fungemia, 10 musculoskeletal disease, and 4 pericardial or aortic involvement).&#34;
     explanation: Documents the spectrum of extrapulmonary dissemination sites in critically ill patients.
   - reference: PMID:38535182
+    reference_title: &#34;The Host Response to Coccidioidomycosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;People who are immunocompromised are much more likely to develop disseminated infection.&#34;
@@ -4852,6 +5042,7 @@ has_subtypes:
     that is associated with very high mortality without antifungal treatment and requires lifelong antifungal therapy.
   evidence:
   - reference: PMID:39189034
+    reference_title: &#34;Clinical Characteristics and Mortality Risks Among Patients With Culture-Proven Coccidioidomycosis Who Are Critically Ill: A Multicenter Study in an Endemic Region.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;41 had extrapulmonary disease (17 meningitis, 13 fungemia, 10 musculoskeletal disease, and 4 pericardial or aortic involvement). Seventy patients (48%) died during hospitalization&#34;
@@ -4865,11 +5056,13 @@ infectious_agent:
       label: Coccidioides immitis
   evidence:
   - reference: PMID:39452676
+    reference_title: &#34;Overview of the Current Challenges in Pulmonary Coccidioidomycosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Coccidioidomycosis is a disease caused by soil fungi of the genus Coccidioides, divided genetically into Coccidioides immitis (California isolates) and Coccidioides posadasii (isolates outside California).&#34;
     explanation: Identifies C. immitis as one of two causative species, primarily associated with California isolates.
   - reference: PMID:39365073
+    reference_title: &#34;From soil to clinic: current advances in understanding Coccidioides and coccidioidomycosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Coccidioides immitis and Coccidioides posadasii are fungal pathogens that cause systemic mycoses and are prevalent in arid regions in the Americas.&#34;
@@ -4882,11 +5075,13 @@ infectious_agent:
       label: Coccidioides posadasii
   evidence:
   - reference: PMID:39452676
+    reference_title: &#34;Overview of the Current Challenges in Pulmonary Coccidioidomycosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Coccidioidomycosis is a disease caused by soil fungi of the genus Coccidioides, divided genetically into Coccidioides immitis (California isolates) and Coccidioides posadasii (isolates outside California).&#34;
     explanation: Identifies C. posadasii as the species found outside California.
   - reference: PMID:39365073
+    reference_title: &#34;From soil to clinic: current advances in understanding Coccidioides and coccidioidomycosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;While C. immitis mainly occurs in California and Washington, C. posadasii is widely distributed across North and South America.&#34;
@@ -4926,11 +5121,13 @@ pathophysiology:
       label: innate immune response
   evidence:
   - reference: PMID:39452676
+    reference_title: &#34;Overview of the Current Challenges in Pulmonary Coccidioidomycosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Coccidioidomycosis is transmitted through the inhalation of fungal spores, arthroconidia, which can cause disease in susceptible mammalian hosts, including humans.&#34;
     explanation: Confirms the inhalation route of arthroconidia transmission.
   - reference: PMID:33262956
+    reference_title: &#34;Host Response to Coccidioides Infection: Fungal Immunity.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;In the spherule state, Coccidioides secretes metalloproteinase 1 (Mep1) which digests an immunodominant antigen spherical outer wall glycoprotein (SOWgp) on the fungal surface&#34;
@@ -4965,11 +5162,13 @@ pathophysiology:
       label: cytokine production
   evidence:
   - reference: PMID:32358020
+    reference_title: &#34;CARD9-Associated Dectin-1 and Dectin-2 Are Required for Protective Immunity of a Multivalent Vaccine against Coccidioides posadasii Infection.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;the GCP-rCpa1 vaccine stimulates a robust Th17 immunity against Coccidioides infection through activation of the CARD9-associated Dectin-1 and Dectin-2 signal pathways.&#34;
     explanation: Demonstrates that innate immune recognition of Coccidioides involves CARD9-associated Dectin-1 and Dectin-2 C-type lectin receptor signaling pathways.
   - reference: PMID:33262956
+    reference_title: &#34;Host Response to Coccidioides Infection: Fungal Immunity.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Macrophages and neutrophils detect Coccidioides arthroconidia and immature spherules via receptors Dectin-1, Dectin-2, and Mincle interacting with SOWgp&#34;
@@ -5011,11 +5210,13 @@ pathophysiology:
       label: T-helper 17 type immune response
   evidence:
   - reference: PMID:38535182
+    reference_title: &#34;The Host Response to Coccidioidomycosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;the host response to this organism is very effective at resolving the infection in most cases and immunizing to prevent second infections. People who are immunocompromised are much more likely to develop disseminated infection.&#34;
     explanation: Confirms the effectiveness of cell-mediated immunity and the role of immunocompromise in dissemination.
   - reference: PMID:38667927
+    reference_title: &#34;The Known and Unknown \&#34;Knowns\&#34; of Human Susceptibility to Coccidioidomycosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Specific genetic variants, sex, and immune suppression by TNF inhibitors have been validated in later cohort studies, confirming the original hypotheses.&#34;
@@ -5041,11 +5242,13 @@ pathophysiology:
       label: granuloma formation
   evidence:
   - reference: PMID:37367586
+    reference_title: &#34;Coccidioidomycosis Granulomas Informed by Other Diseases: Advancements, Gaps, and Challenges.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;One mechanism by which the host immune system attempts to control and eliminate Coccidioides is through granuloma formation.&#34;
     explanation: Directly supports granuloma formation as a key containment mechanism in coccidioidomycosis.
   - reference: PMID:33262956
+    reference_title: &#34;Host Response to Coccidioides Infection: Fungal Immunity.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Host responses sometimes control infections through granuloma formation in the lung as fungi is walled off instead of destroyed&#34;
@@ -5062,6 +5265,7 @@ phenotypes:
       label: Cough
   evidence:
   - reference: PMID:26904326
+    reference_title: &#34;Risk Factors and Epidemiology of Coccidioidomycosis Demonstrated by a Case of Spontaneous Pulmonary Rupture of Cavitary Coccidioidomycosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Symptoms are nonspecific yet usually involve fatigue, cough, and pleurisy.&#34;
@@ -5076,11 +5280,13 @@ phenotypes:
       label: Pleuritic chest pain
   evidence:
   - reference: PMID:24613568
+    reference_title: &#34;Surgical pathology of pleural coccidioidomycosis: a clinicopathological study of 36 cases.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Common symptoms (median, 5 weeks) included cough (47%), chest pain (44%), and dyspnea (39%).&#34;
     explanation: Documents chest pain in 44% of patients with pleural coccidioidomycosis.
   - reference: PMID:26904326
+    reference_title: &#34;Risk Factors and Epidemiology of Coccidioidomycosis Demonstrated by a Case of Spontaneous Pulmonary Rupture of Cavitary Coccidioidomycosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Symptoms are nonspecific yet usually involve fatigue, cough, and pleurisy.&#34;
@@ -5096,6 +5302,7 @@ phenotypes:
       label: Fever
   evidence:
   - reference: PMID:33262956
+    reference_title: &#34;Host Response to Coccidioides Infection: Fungal Immunity.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;the host presents generic flu-like symptoms including headache, fever, body ache, coughing, and respiratory distress&#34;
@@ -5110,11 +5317,13 @@ phenotypes:
       label: Fatigue
   evidence:
   - reference: PMID:21791226
+    reference_title: &#34;Two cases illustrating successful adjunctive interferon-γ immunotherapy in refractory disseminated coccidioidomycosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;His initial presentation included a non-productive cough, dyspnea, fatigue, night sweats, myalgias, and arthralgias.&#34;
     explanation: Documents fatigue as a presenting symptom in a patient with disseminated coccidioidomycosis.
   - reference: PMID:26904326
+    reference_title: &#34;Risk Factors and Epidemiology of Coccidioidomycosis Demonstrated by a Case of Spontaneous Pulmonary Rupture of Cavitary Coccidioidomycosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Symptoms are nonspecific yet usually involve fatigue, cough, and pleurisy.&#34;
@@ -5128,11 +5337,13 @@ phenotypes:
       label: Night sweats
   evidence:
   - reference: PMID:28857979
+    reference_title: &#34;Coccidioidomycosis Involving Lungs and Skin: A Mimicker of Metastatic Disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;a 42-year-old male farmer from the west Texas who presented with an approximately 2-month history of progressive shortness of breath and dyspnea on exertion, weight loss, and night sweats&#34;
     explanation: Documents night sweats as a presenting symptom in a patient with disseminated coccidioidomycosis.
   - reference: PMID:21791226
+    reference_title: &#34;Two cases illustrating successful adjunctive interferon-γ immunotherapy in refractory disseminated coccidioidomycosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;His initial presentation included a non-productive cough, dyspnea, fatigue, night sweats, myalgias, and arthralgias.&#34;
@@ -5147,11 +5358,13 @@ phenotypes:
       label: Weight loss
   evidence:
   - reference: PMID:28857979
+    reference_title: &#34;Coccidioidomycosis Involving Lungs and Skin: A Mimicker of Metastatic Disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;a 42-year-old male farmer from the west Texas who presented with an approximately 2-month history of progressive shortness of breath and dyspnea on exertion, weight loss, and night sweats&#34;
     explanation: Documents weight loss as a presenting symptom in disseminated coccidioidomycosis.
   - reference: PMID:21791226
+    reference_title: &#34;Two cases illustrating successful adjunctive interferon-γ immunotherapy in refractory disseminated coccidioidomycosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Pain progressed over the ensuing weeks, refractory to analgesics, and then accompanied by fevers, night sweats, and unintentional (15-pound) weight loss prompting further evaluation.&#34;
@@ -5168,11 +5381,13 @@ phenotypes:
       label: Erythema nodosum
   evidence:
   - reference: PMID:38196429
+    reference_title: &#34;Valley Fever: Pathogenesis and Evolving Treatment Options.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;A common triad of symptoms of coccidioidomycosis, also called \&#34;desert rheumatism,\&#34; include fever, erythema nodosum, and arthralgia, often accompanied by a respiratory problem.&#34;
     explanation: Erythema nodosum is identified as part of the classic symptom triad of coccidioidomycosis.
   - reference: PMID:38667927
+    reference_title: &#34;The Known and Unknown \&#34;Knowns\&#34; of Human Susceptibility to Coccidioidomycosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;some risk factors, such as ABO blood group, Filipino ancestry, or lack of erythema nodosum among black individuals, are repeated in the literature despite the lack of supporting studies or biologic plausibility.&#34;
@@ -5187,6 +5402,7 @@ phenotypes:
       label: Arthralgia
   evidence:
   - reference: PMID:38196429
+    reference_title: &#34;Valley Fever: Pathogenesis and Evolving Treatment Options.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;A common triad of symptoms of coccidioidomycosis, also called \&#34;desert rheumatism,\&#34; include fever, erythema nodosum, and arthralgia, often accompanied by a respiratory problem.&#34;
@@ -5201,6 +5417,7 @@ phenotypes:
       label: Hemoptysis
   evidence:
   - reference: PMID:37233271
+    reference_title: &#34;Coccidioidal Pulmonary Cavitation: A New Age.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Cavitary lung disease may be found incidentally or when investigating symptoms such as cough or hemoptysis.&#34;
@@ -5215,11 +5432,13 @@ phenotypes:
       label: Dyspnea
   evidence:
   - reference: PMID:24613568
+    reference_title: &#34;Surgical pathology of pleural coccidioidomycosis: a clinicopathological study of 36 cases.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Common symptoms (median, 5 weeks) included cough (47%), chest pain (44%), and dyspnea (39%).&#34;
     explanation: Documents dyspnea in 39% of patients with pleural coccidioidomycosis.
   - reference: PMID:28857979
+    reference_title: &#34;Coccidioidomycosis Involving Lungs and Skin: A Mimicker of Metastatic Disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;a 42-year-old male farmer from the west Texas who presented with an approximately 2-month history of progressive shortness of breath and dyspnea on exertion, weight loss, and night sweats&#34;
@@ -5234,6 +5453,7 @@ phenotypes:
       label: Headache
   evidence:
   - reference: PMID:33262956
+    reference_title: &#34;Host Response to Coccidioides Infection: Fungal Immunity.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;the host presents generic flu-like symptoms including headache, fever, body ache, coughing, and respiratory distress&#34;
@@ -5248,6 +5468,7 @@ phenotypes:
       label: Fungal meningitis
   evidence:
   - reference: PMID:39189034
+    reference_title: &#34;Clinical Characteristics and Mortality Risks Among Patients With Culture-Proven Coccidioidomycosis Who Are Critically Ill: A Multicenter Study in an Endemic Region.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;41 had extrapulmonary disease (17 meningitis, 13 fungemia, 10 musculoskeletal disease, and 4 pericardial or aortic involvement).&#34;
@@ -5262,6 +5483,7 @@ phenotypes:
       label: Osteomyelitis
   evidence:
   - reference: PMID:39189034
+    reference_title: &#34;Clinical Characteristics and Mortality Risks Among Patients With Culture-Proven Coccidioidomycosis Who Are Critically Ill: A Multicenter Study in an Endemic Region.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;41 had extrapulmonary disease (17 meningitis, 13 fungemia, 10 musculoskeletal disease, and 4 pericardial or aortic involvement).&#34;
@@ -5276,6 +5498,7 @@ phenotypes:
       label: Granulomatosis
   evidence:
   - reference: PMID:37367586
+    reference_title: &#34;Coccidioidomycosis Granulomas Informed by Other Diseases: Advancements, Gaps, and Challenges.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;One mechanism by which the host immune system attempts to control and eliminate Coccidioides is through granuloma formation.&#34;
@@ -5289,11 +5512,13 @@ genetic:
     studies in disseminated disease cohorts show enrichment for CLEC7A mutations.
   evidence:
   - reference: PMID:18418396
+    reference_title: &#34;Susceptibility to Coccidioides species in C57BL/6 mice is associated with expression of a truncated splice variant of Dectin-1 (Clec7a).&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;These results suggest that alternative splicing of the Dectin-1 gene contributes to susceptibility of C57BL/6 mice to coccidioidomycosis, and affects the cytokine responses of macrophages and mDCs to spherules.&#34;
     explanation: Demonstrates that truncated Dectin-1 (Clec7a) splice variant in C57BL/6 mice contributes to coccidioidomycosis susceptibility.
   - reference: PMID:35071044
+    reference_title: &#34;Vaccine Protection of Mice With Primary Immunodeficiencies Against Disseminated Coccidioidomycosis.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Several DCM-associated PID (STAT4, STAT3, IFNγ, and Dectin-1) are modeled in mice.&#34;
@@ -5305,6 +5530,7 @@ genetic:
     deficiency impairs antifungal defense through disrupted CLR signaling.
   evidence:
   - reference: PMID:32358020
+    reference_title: &#34;CARD9-Associated Dectin-1 and Dectin-2 Are Required for Protective Immunity of a Multivalent Vaccine against Coccidioides posadasii Infection.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;The GCP-rCpa1 vaccine stimulates a robust Th17 immunity against Coccidioides infection through activation of the CARD9-associated Dectin-1 and Dectin-2 signal pathways.&#34;
@@ -5316,11 +5542,13 @@ genetic:
     increasing susceptibility to disseminated coccidioidomycosis.
   evidence:
   - reference: PMID:35149520
+    reference_title: &#34;Mouse Model of a Human STAT4 Point Mutation That Predisposes to Disseminated Coccidiomycosis.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;All affected family members had a single heterozygous base change in STAT4, c.1877A&gt;G, causing substitution of glycine for glutamate at AA626 (STAT4E626G/+ ). A knockin mouse, heterozygous for the substitution, developed more severe experimental coccidioidomycosis than did wild-type mice.&#34;
     explanation: Identifies the STAT4 E626G mutation in a family with disseminated coccidioidomycosis and validates its effect in a mouse model.
   - reference: PMID:35149520
+    reference_title: &#34;Mouse Model of a Human STAT4 Point Mutation That Predisposes to Disseminated Coccidiomycosis.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;defective early induction of IFN-γ and adaptive responses by STAT4 prevents normal control of coccidioidomycosis in both mice and humans.&#34;
@@ -5332,11 +5560,13 @@ genetic:
     increased susceptibility to disseminated coccidioidomycosis.
   evidence:
   - reference: PMID:35071044
+    reference_title: &#34;Vaccine Protection of Mice With Primary Immunodeficiencies Against Disseminated Coccidioidomycosis.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Several DCM-associated PID (STAT4, STAT3, IFNγ, and Dectin-1) are modeled in mice.&#34;
     explanation: Identifies STAT3 mutations as a primary immunodeficiency associated with disseminated coccidioidomycosis.
   - reference: PMID:35071044
+    reference_title: &#34;Vaccine Protection of Mice With Primary Immunodeficiencies Against Disseminated Coccidioidomycosis.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Splenic dissemination was prevented in most vaccinated immunodeficient mice while all unvaccinated B6 mice and the Rag-1 KO mice displayed disseminated disease.&#34;
@@ -5348,6 +5578,7 @@ genetic:
     Clinical improvement has been reported with IFN-gamma treatment and dupilumab (IL-4/IL-13 blockade).
   evidence:
   - reference: PMID:21258095
+    reference_title: &#34;Interleukin-12 receptor β1 deficiency predisposing to disseminated Coccidioidomycosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We report a family with disseminated coccidioidomycosis due to a novel homozygous C186Y mutation in interleukin (IL)-12 receptor β1. This family confirms the centrality of the IL-12/IFN-γ axis to human immunity to Coccidioides spp.&#34;
@@ -5362,16 +5593,19 @@ environmental:
     Cases have been increasing, with reported incidence surging notably in California and Arizona.
   evidence:
   - reference: PMID:39452676
+    reference_title: &#34;Overview of the Current Challenges in Pulmonary Coccidioidomycosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Coccidioidomycosis is endemic to the western part of the United States of America, including the central valley of California, Arizona, New Mexico, and parts of western Texas.&#34;
     explanation: Confirms the endemic geography of coccidioidomycosis in the southwestern United States.
   - reference: PMID:39365073
+    reference_title: &#34;From soil to clinic: current advances in understanding Coccidioides and coccidioidomycosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Coccidioides immitis and Coccidioides posadasii are fungal pathogens that cause systemic mycoses and are prevalent in arid regions in the Americas.&#34;
     explanation: Confirms the association with arid regions across the Americas.
   - reference: PMID:39710556
+    reference_title: &#34;Coccidioidomycosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The number of clinically recognized coccidioidomycosis cases continues to increase yearly including in regions outside the traditional regions of endemicity.&#34;
@@ -5384,11 +5618,13 @@ epidemiology:
     144.1/100,000 in 2019. ICU mortality rate of 48% in culture-proven critically ill patients.
   evidence:
   - reference: PMID:32358020
+    reference_title: &#34;CARD9-Associated Dectin-1 and Dectin-2 Are Required for Protective Immunity of a Multivalent Vaccine against Coccidioides posadasii Infection.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;An estimated 150,000 new infections occur each year in the US.&#34;
     explanation: Provides the estimated annual incidence of coccidioidomycosis in the United States.
   - reference: PMID:39452676
+    reference_title: &#34;Overview of the Current Challenges in Pulmonary Coccidioidomycosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The incidence of reported cases of coccidioidomycosis has notably increased since it became reportable in 1995.&#34;
@@ -5410,6 +5646,7 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:11074900
+    reference_title: &#34;Comparison of oral fluconazole and itraconazole for progressive, nonmeningeal coccidioidomycosis. A randomized, double-blind trial. Mycoses Study Group.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;fluconazole and itraconazole were effective therapy for progressive forms of coccidioidomycosis.&#34;
@@ -5428,11 +5665,13 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:11074900
+    reference_title: &#34;Comparison of oral fluconazole and itraconazole for progressive, nonmeningeal coccidioidomycosis. A randomized, double-blind trial. Mycoses Study Group.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;50% of patients (47 of 94) and 63% of patients (61 of 97) responded to 8 months of treatment with fluconazole and itraconazole, respectively&#34;
     explanation: Randomized double-blind trial of 198 patients showing itraconazole had a 63% response rate in nonmeningeal coccidioidomycosis.
   - reference: PMID:11074900
+    reference_title: &#34;Comparison of oral fluconazole and itraconazole for progressive, nonmeningeal coccidioidomycosis. A randomized, double-blind trial. Mycoses Study Group.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Patients with skeletal infections responded twice as frequently to itraconazole as to fluconazole.&#34;
@@ -5453,11 +5692,13 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:21791226
+    reference_title: &#34;Two cases illustrating successful adjunctive interferon-γ immunotherapy in refractory disseminated coccidioidomycosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Treatment was initiated with liposomal amphotericin and posaconazole (400-mg bid) with fatty meals.&#34;
     explanation: Documents use of liposomal amphotericin B as initial induction therapy for severe disseminated coccidioidomycosis.
   - reference: PMID:39189034
+    reference_title: &#34;Clinical Characteristics and Mortality Risks Among Patients With Culture-Proven Coccidioidomycosis Who Are Critically Ill: A Multicenter Study in an Endemic Region.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;most (91%) received antifungal therapy during hospitalization.&#34;
@@ -5519,11 +5760,13 @@ definitions:
     endospores in tissue specimens.
   evidence:
   - reference: PMID:38535182
+    reference_title: &#34;The Host Response to Coccidioidomycosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;only half of infected, immunologically intact people develop symptomatic pneumonia; most symptomatic infections resolve spontaneously, although some resolve very slowly.&#34;
     explanation: Supports the clinical definition by documenting the disease spectrum from asymptomatic to symptomatic pneumonia.
   - reference: PMID:39452676
+    reference_title: &#34;Overview of the Current Challenges in Pulmonary Coccidioidomycosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Coccidioidomycosis is a disease caused by soil fungi of the genus Coccidioides, divided genetically into Coccidioides immitis (California isolates) and Coccidioides posadasii (isolates outside California).&#34;
@@ -5536,6 +5779,7 @@ diagnosis:
     correlate with disease severity and are used to monitor treatment response.
   evidence:
   - reference: PMID:21791226
+    reference_title: &#34;Two cases illustrating successful adjunctive interferon-γ immunotherapy in refractory disseminated coccidioidomycosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;positive coccidioides serology (the ELISA was positive for both IgG and IgM, and presenting complement-fixation (CF) titer was 1:8). Titers less than or equal to 1:2 are considered negative.&#34;
@@ -5547,6 +5791,7 @@ diagnosis:
     H&amp;E, PAS, or GMS staining.
   evidence:
   - reference: PMID:28857979
+    reference_title: &#34;Coccidioidomycosis Involving Lungs and Skin: A Mimicker of Metastatic Disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Skin biopsy of the lesion revealed prominent squamous epithelial hyperplasia with basal keratinocytic atypia and associated mixed inflammatory infiltrate and scattered large thick-walled spherules containing variable-sized endospores, predominantly within the multinucleated giant cells.&#34;
@@ -5560,11 +5805,13 @@ animal_models:
     immunodeficiency-associated disseminated disease and vaccine efficacy.
   evidence:
   - reference: PMID:18418396
+    reference_title: &#34;Susceptibility to Coccidioides species in C57BL/6 mice is associated with expression of a truncated splice variant of Dectin-1 (Clec7a).&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;These results suggest that alternative splicing of the Dectin-1 gene contributes to susceptibility of C57BL/6 mice to coccidioidomycosis, and affects the cytokine responses of macrophages and mDCs to spherules.&#34;
     explanation: Establishes the C57BL/6 mouse as a susceptible model for coccidioidomycosis due to truncated Dectin-1.
   - reference: PMID:35071044
+    reference_title: &#34;Vaccine Protection of Mice With Primary Immunodeficiencies Against Disseminated Coccidioidomycosis.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;mice with mutations in Stat4, Stat3, Ifngr1, Clec7a (Dectin-1), and Rag-1 (T- and B-cell deficient) knockout (KO) mice were vaccinated with the live, avirulent, Δcps1 vaccine strain and subsequently challenged intranasally with pathogenic Coccidioides posadasii Silveira strain.&#34;

@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,7 @@
                 </span>
                 
                 
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Inner Ear Diseases</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Vestibular Disorders</span>
@@ -1932,6 +2103,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1989,6 +2163,12 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
+            
+            
+            <div class="stat-item">
+                <div class="stat-value">0</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
             
             
             <div class="stat-item">
@@ -2064,11 +2244,12 @@
                 <span class="card-count">4</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-endolymphatic-hydrops">
                 <div class="item-name">Endolymphatic Hydrops</div>
                 
                 <div class="item-desc">Meniere&#39;s disease is characterized by distension of the endolymphatic space (endolymphatic hydrops) due to impaired reabsorption of endolymph or excess production. This results in rupture of the membranous labyrinth and mixing of endolymph and perilymph, leading to vestibular and cochlear dysfunction.
 </div>
+                
                 
                 
                 
@@ -2110,7 +2291,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-ion-transport-dysfunction">
                 <div class="item-name">Ion Transport Dysfunction</div>
                 
                 <div class="item-desc">Abnormal regulation of fluid and ion homeostasis in the inner ear, particularly involving potassium transport in the stria vascularis and endolymphatic sac, contributes to endolymph accumulation and hydrops formation. Dysregulation of Na+/K+-ATPase, NKCC1, and K+ channels disrupts the electrochemical gradients required for normal endolymphatic fluid balance.
@@ -2158,6 +2339,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2190,7 +2372,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-autoimmune-and-inflammatory-mechanisms">
                 <div class="item-name">Autoimmune and Inflammatory Mechanisms</div>
                 
                 <div class="item-desc">Elevated inflammatory markers and autoantibodies have been found in some patients, suggesting that immune-mediated inner ear damage may contribute to disease pathogenesis in a subset of cases. Local (inner ear/endolymphatic sac) and systemic immune activation includes cytokine signaling and NF-κB pathway engagement. TWEAK-FN14 receptor signaling and dysregulated Fcγ receptor polymorphisms contribute to immune complex-mediated injury.
@@ -2233,6 +2415,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2308,7 +2491,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-blood-labyrinth-barrier-dysfunction-and-oxidative-stress">
                 <div class="item-name">Blood-Labyrinth Barrier Dysfunction and Oxidative Stress</div>
                 
                 <div class="item-desc">The blood-labyrinth barrier (BLB) maintains inner-ear homeostasis through tight junctions between endothelial cells and pericytes. In MD, increased vascular permeability and oxidative/nitrosative stress damage the BLB, leading to edema and epithelial dysfunction. Elevated iNOS and nitrotyrosine levels indicate oxidative stress-mediated cascading cellular injury.
@@ -2331,6 +2514,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3096,6 +3280,7 @@ pathophysiology:
     of endolymph and perilymph, leading to vestibular and cochlear dysfunction.
   evidence:
   - reference: PMID:27083887
+    reference_title: &#34;What is Menière&#39;s disease? A contemporary re-evaluation of endolymphatic hydrops.&#34;
     supports: SUPPORT
     snippet: &#34;Over 75 years ago, endolymphatic hydrops was discovered as the pathologic correlate of Menière&#39;s disease.&#34;
     explanation: &#34;This review confirms endolymphatic hydrops as the pathologic correlate of Meniere&#39;s disease.&#34;
@@ -3120,6 +3305,7 @@ pathophysiology:
       label: multicellular organismal-level water homeostasis
   evidence:
   - reference: PMID:29436285
+    reference_title: &#34;Ménière&#39;s Disease Pathophysiology: Endolymphatic Sac Immunohistochemical Study of Aquaporin-2, V2R Vasopressin Receptor, NKCC2, and TRPV4.&#34;
     supports: SUPPORT
     snippet: &#34;on ELS epithelium. AQP2 expression density was significantly elevated in MD&#34;
     explanation: &#34;Immunohistochemical study identifies AQP2 upregulation as a key molecular abnormality in MD endolymphatic sac&#34;
@@ -3146,18 +3332,22 @@ pathophysiology:
       label: cellular response to cytokine stimulus
   evidence:
   - reference: PMID:35280304
+    reference_title: &#34;Up-Regulated Expression of Interferon-Gamma, Interleukin-6 and Tumor Necrosis Factor-Alpha in the Endolymphatic Sac of Meniere&#39;s Disease Suggesting the Local Inflammatory Response Underlies the Mechanism of This Disease.&#34;
     supports: SUPPORT
     snippet: &#34;Up-regulated expression of interferon-γ, interleukin-6 and tumor necrosis factor-α in the endolymphatic sac.&#34;
     explanation: &#34;Study documents elevated pro-inflammatory cytokines (IFN-γ, IL-6, TNF-α) in MD endolymphatic sac tissue&#34;
   - reference: PMID:29326686
+    reference_title: &#34;Regulation of Fn14 Receptor and NF-κB Underlies Inflammation in Meniere&#39;s Disease.&#34;
     supports: SUPPORT
     snippet: &#34;Carriers of the risk genotype may develop an NF-κB-mediated inflammatory response in MD.&#34;
     explanation: &#34;Demonstrates TWEAK-FN14-NF-κB pathway activation as key inflammatory mechanism in MD&#34;
   - reference: PMID:22053211
+    reference_title: &#34;High prevalence of systemic autoimmune diseases in patients with Menière&#39;s disease.&#34;
     supports: SUPPORT
     snippet: &#34;MD displays an elevated prevalence of systemic AD such as RA, SLE and AS.&#34;
     explanation: &#34;Large case-control study establishes association between MD and systemic autoimmune disease&#34;
   - reference: PMID:21208440
+    reference_title: &#34;Polymorphisms of CD16A and CD32 Fcγ receptors and circulating immune complexes in Ménière&#39;s disease: a case-control study.&#34;
     supports: SUPPORT
     snippet: &#34;Polymorphisms of CD16A and CD32 Fcγ receptors and circulating immune complexes in Ménière&#39;s disease.&#34;
     explanation: &#34;Case-control study identifies Fcγ receptor polymorphisms and immune complex dysregulation in MD&#34;
@@ -3175,10 +3365,12 @@ pathophysiology:
       label: response to oxidative stress
   evidence:
   - reference: PMID:28325925
+    reference_title: &#34;The blood labyrinthine barrier in the human normal and Meniere&#39;s disease macula utricle.&#34;
     supports: SUPPORT
     snippet: &#34;Meniere&#39;s disease specimens revealed differential ultrastructural pathological changes in the cellular elements of the microvasculature.&#34;
     explanation: &#34;Ultrastructural study documents pathological BLB changes including endothelial and pericyte damage in MD&#34;
   - reference: PMID:30233382
+    reference_title: &#34;Oxidative Stress in the Blood Labyrinthine Barrier in the Macula Utricle of Meniere&#39;s Disease Patients.&#34;
     supports: SUPPORT
     snippet: &#34;We proposed that oxidative stress mediated the damage to the vestibular endorgan and the BLB in MD.&#34;
     explanation: &#34;Documents oxidative stress as key pathogenic mechanism in MD blood-labyrinth barrier dysfunction&#34;
@@ -3196,10 +3388,12 @@ phenotypes:
       label: Paroxysmal vertigo
   evidence:
   - reference: PMID:27083887
+    reference_title: &#34;What is Menière&#39;s disease? A contemporary re-evaluation of endolymphatic hydrops.&#34;
     supports: SUPPORT
     snippet: &#34;episodic attacks of vertigo, fluctuating hearing loss, tinnitus, aural pressure&#34;
     explanation: &#34;Confirms vertigo as cardinal episodic manifestation of MD&#34;
   - reference: PMID:22053211
+    reference_title: &#34;High prevalence of systemic autoimmune diseases in patients with Menière&#39;s disease.&#34;
     supports: SUPPORT
     snippet: &#34;episodes of vertigo associated with hearing loss and tinnitus&#34;
     explanation: &#34;Large epidemiological study documents episodes of vertigo as defining MD feature&#34;
@@ -3216,10 +3410,12 @@ phenotypes:
       label: Low-frequency sensorineural hearing impairment
   evidence:
   - reference: PMID:27083887
+    reference_title: &#34;What is Menière&#39;s disease? A contemporary re-evaluation of endolymphatic hydrops.&#34;
     supports: SUPPORT
     snippet: &#34;episodic attacks of vertigo, fluctuating hearing loss, tinnitus, aural pressure&#34;
     explanation: &#34;Establishes fluctuating sensorineural hearing loss as core MD feature&#34;
   - reference: PMID:22053211
+    reference_title: &#34;High prevalence of systemic autoimmune diseases in patients with Menière&#39;s disease.&#34;
     supports: SUPPORT
     snippet: &#34;MD, an inner ear disorder characterized by episodes of vertigo associated with hearing loss and tinnitus&#34;
     explanation: &#34;Confirms hearing loss as cardinal MD manifestation in large epidemiological study&#34;
@@ -3235,10 +3431,12 @@ phenotypes:
       label: Tinnitus
   evidence:
   - reference: PMID:27083887
+    reference_title: &#34;What is Menière&#39;s disease? A contemporary re-evaluation of endolymphatic hydrops.&#34;
     supports: SUPPORT
     snippet: &#34;episodic attacks of vertigo, fluctuating hearing loss, tinnitus, aural pressure&#34;
     explanation: &#34;Confirms tinnitus as defining component of MD clinical tetrad&#34;
   - reference: PMID:22053211
+    reference_title: &#34;High prevalence of systemic autoimmune diseases in patients with Menière&#39;s disease.&#34;
     supports: SUPPORT
     snippet: &#34;episodes of vertigo associated with hearing loss and tinnitus&#34;
     explanation: &#34;Epidemiological evidence reaffirms tinnitus as hallmark MD symptom&#34;
@@ -3254,6 +3452,7 @@ phenotypes:
       label: Abnormal ear physiology
   evidence:
   - reference: PMID:27083887
+    reference_title: &#34;What is Menière&#39;s disease? A contemporary re-evaluation of endolymphatic hydrops.&#34;
     supports: SUPPORT
     snippet: &#34;episodic attacks of vertigo, fluctuating hearing loss, tinnitus, aural pressure&#34;
     explanation: &#34;Documents aural pressure/fullness as diagnostic feature of MD clinical presentation&#34;
@@ -3280,6 +3479,7 @@ treatments:
       label: dietary intervention
   evidence:
   - reference: PMID:15090872
+    reference_title: &#34;Ménière&#39;s disease.&#34;
     supports: SUPPORT
     snippet: &#34;Initial management of Ménière&#39;s disease can involve a low-salt diet and a diuretic.&#34;
     explanation: &#34;Establishes low-sodium diet as first-line initial management approach&#34;
@@ -3296,6 +3496,7 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:15090872
+    reference_title: &#34;Ménière&#39;s disease.&#34;
     supports: SUPPORT
     snippet: &#34;Initial management of Ménière&#39;s disease can involve a low-salt diet and a diuretic.&#34;
     explanation: &#34;Establishes diuretics as component of initial management strategy&#34;
@@ -3317,6 +3518,7 @@ treatments:
         label: betahistine
   evidence:
   - reference: PMID:11465871
+    reference_title: &#34;Menière&#39;s disease: pathophysiology and treatment.&#34;
     supports: SUPPORT
     snippet: &#34;The very common use in Europe of histaminergic agents.&#34;
     explanation: &#34;Documents histaminergic agent (betahistine) use as standard therapy in Europe&#34;
@@ -3333,10 +3535,12 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:15090872
+    reference_title: &#34;Ménière&#39;s disease.&#34;
     supports: SUPPORT
     snippet: &#34;Treatment with intratympanic injection of gentamicin can be beneficial when vertigo persists despite optimal medical management.&#34;
     explanation: &#34;Establishes intratympanic gentamicin as second-line therapy for refractory vertigo&#34;
   - reference: PMID:12590850
+    reference_title: &#34;Treatment of Ménière&#39;s disease by intratympanic gentamicin application.&#34;
     supports: SUPPORT
     snippet: &#34;Transtympanic injection, as a quick, easy, well-tolerated, ambulatory and cost-effective technique.&#34;
     explanation: &#34;Confirms intratympanic approach as practical, well-tolerated treatment modality&#34;

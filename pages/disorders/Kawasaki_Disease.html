@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 2</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Vasculitis</span>
                 
             </div>
@@ -1934,6 +2107,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1989,6 +2165,14 @@
             <div class="stat-item">
                 <div class="stat-value">11</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">2</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2092,7 +2276,7 @@
                 <span class="card-count">2</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-vascular-inflammation">
                 <div class="item-name">Vascular Inflammation</div>
                 
                 <div class="item-desc">Widespread inflammation of medium-sized arteries, including coronary arteries.</div>
@@ -2201,6 +2385,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2271,7 +2456,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-response-dysregulation">
                 <div class="item-name">Immune Response Dysregulation</div>
                 
                 <div class="item-desc">An abnormal immune response leading to vessel wall damage and inflammation.</div>
@@ -2423,6 +2608,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2506,12 +2692,13 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Kawasaki Disease</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
@@ -4318,6 +4505,7 @@ prevalence:
   percentage: Rare
   evidence:
   - reference: PMID:10392592
+    reference_title: &#34;Kawasaki disease.&#34;
     supports: REFUTE
     snippet: Most children who contract this illness are less than two years
       old, and 80 percent of affected children are younger than five years of
@@ -4326,6 +4514,7 @@ prevalence:
       is refuted by the literature, which indicates that 80% of affected
       children are younger than five years of age.
   - reference: PMID:36611091
+    reference_title: &#34;Epidemiology and risk factors for resistance to treatment of Kawasaki disease in Cyprus.&#34;
     supports: REFUTE
     snippet: 83% of patients were &lt; 5 years of age and 10% were &lt; 6 months.
     explanation: The study shows that a significant proportion of Kawasaki
@@ -4337,6 +4526,7 @@ progression:
   notes: Sudden onset with high fever
   evidence:
   - reference: PMID:36472296
+    reference_title: &#34;A CASE OF KAWASAKI DISEASE IN AN EIGHT-YEAR-OLD BOY.&#34;
     supports: PARTIAL
     snippet: Given the variety and inconsistency of the clinical symptoms (the
       child had four of the five mandatory criteria together with prolonged
@@ -4344,6 +4534,7 @@ progression:
     explanation: This reference mentions prolonged fever as a symptom of
       Kawasaki Disease but does not specify the sudden onset of high fever.
   - reference: PMID:34459958
+    reference_title: &#34;Kawasaki disease in children younger than 6 months of age: characteristics of a Spanish cohort.&#34;
     supports: PARTIAL
     snippet: A retrospective study that compared children younger than 6 months
       versus older children of a Spanish cohort of patients diagnosed with
@@ -4352,12 +4543,14 @@ progression:
       children younger than 6 months and older but does not specifically mention
       the age range of 6 months to 5 years or the sudden onset with high fever.
   - reference: PMID:37553209
+    reference_title: &#34;Rising Kawasaki disease incidence in New Zealand: analysis of national population incidence and outcomes 2000-2017.&#34;
     supports: PARTIAL
     snippet: The mean age was 39.8 months (SD 37) and 592 (59%) were boys.
     explanation: This reference indicates that the mean age of Kawasaki Disease
       patients was within the 6 months to 5 years range but does not
       specifically mention the sudden onset with high fever.
   - reference: PMID:31910632
+    reference_title: &#34;Japanese Kawasaki Disease Scoring Systems: Are they Applicable to the Iranian Population?&#34;
     supports: PARTIAL
     snippet: Kawasaki disease (KD) is the most frequent cause of coronary artery
       aneurysm (CAA) in children.
@@ -4365,6 +4558,7 @@ progression:
       with Kawasaki Disease but does not provide specific details about the age
       range or the sudden onset with high fever.
   - reference: PMID:36611091
+    reference_title: &#34;Epidemiology and risk factors for resistance to treatment of Kawasaki disease in Cyprus.&#34;
     supports: PARTIAL
     snippet: 83% of patients were &lt; 5 years of age and 10% were &lt; 6 months.
     explanation: This reference mentions that 83% of Kawasaki Disease patients
@@ -4375,6 +4569,7 @@ progression:
   notes: High fever, rash, conjunctivitis, swollen hands and feet
   evidence:
   - reference: PMID:9665974
+    reference_title: &#34;Kawasaki syndrome.&#34;
     supports: PARTIAL
     snippet: The illness is manifested by prolonged fever, conjunctival
       injection, enanthem, exanthem, erythema and swelling of the hands and
@@ -4385,6 +4580,7 @@ progression:
       acute phase of Kawasaki Disease. However, it does not specify the exact
       duration of 1-2 weeks.
   - reference: PMID:31974671
+    reference_title: &#34;Clinico-laboratory profile of Kawasaki disease with arthritis in children.&#34;
     supports: PARTIAL
     snippet: Arthritis in KD is usually non-erosive, self-limiting, and responds
       well to a short course of NSAIDs.
@@ -4392,6 +4588,7 @@ progression:
       which implies a limited duration. However, it does not explicitly confirm
       the 1-2 week duration for the acute phase.
   - reference: PMID:39117827
+    reference_title: &#34;Kawasaki Disease-Associated Cytokine Storm Syndrome.&#34;
     supports: PARTIAL
     snippet: Kawasaki disease (KD) is a hyperinflammatory syndrome manifesting
       as an acute systemic vasculitis characterized by fever, nonsuppurative
@@ -4405,6 +4602,7 @@ progression:
   notes: Peeling skin, joint pain, possible coronary artery changes
   evidence:
   - reference: PMID:28580712
+    reference_title: &#34;Kawasaki disease: State of the art.&#34;
     supports: PARTIAL
     snippet: Kawasaki disease begins as a necrotizing arteritis with
       neutrophilic infiltrate, followed by subacute/chronic changes and luminal
@@ -4413,6 +4611,7 @@ progression:
       changes but does not specify the duration of 2-4 weeks or mention peeling
       skin and joint pain.
   - reference: PMID:33453126
+    reference_title: &#34;Kawasaki disease for the paediatric dermatologist: skin manifestations and new insights into the pathophysiology.&#34;
     supports: PARTIAL
     snippet: All children with KD have fever accompanied by clinical signs, with
       four of the five classic criteria for complete KD being mucocutaneous,
@@ -4425,6 +4624,7 @@ progression:
   notes: Symptoms resolve, but coronary artery abnormalities may persist
   evidence:
   - reference: PMID:28580712
+    reference_title: &#34;Kawasaki disease: State of the art.&#34;
     supports: PARTIAL
     snippet: Kawasaki disease is an acute febrile arteritis of childhood that
       can result in coronary artery aneurysms if untreated in the first 10 and
@@ -4438,6 +4638,7 @@ progression:
       coronary artery abnormalities but does not confirm the exact duration of
       the convalescent phase.
   - reference: PMID:17033807
+    reference_title: &#34;Predictive risk factors for coronary artery abnormalities in Kawasaki disease.&#34;
     supports: PARTIAL
     snippet: Conclusively, the most important predictor of CAA in KD is total
       duration of fever longer than 8 days. Early identification of IVGG
@@ -4447,6 +4648,7 @@ progression:
       to prevent coronary artery abnormalities but does not provide specific
       information about the duration of the convalescent phase.
   - reference: PMID:29437127
+    reference_title: &#34;Kawasaki Disease.&#34;
     supports: NO_EVIDENCE
     snippet: Kawasaki Disease.
     explanation: This reference does not provide specific information about the
@@ -4513,6 +4715,7 @@ pathophysiology:
       leading to dilation and aneurysm formation.
     evidence:
     - reference: PMID:21447126
+      reference_title: &#34;Pathogenesis of Kawasaki disease.&#34;
       supports: SUPPORT
       snippet: Histologically, coronary arteritis begins 6-8 days after the
         onset of KD, and leads immediately to inflammation of all layers of the
@@ -4524,6 +4727,7 @@ pathophysiology:
         damage.
   evidence:
   - reference: PMID:23188196
+    reference_title: &#34;Kawasaki disease: basic and pathological findings.&#34;
     supports: SUPPORT
     snippet: Kawasaki disease (KD) is considered to be a kind of systemic
       vasculitis syndrome. It most frequently affects infants and young children
@@ -4533,18 +4737,21 @@ pathophysiology:
       widespread inflammation of medium-sized arteries, including coronary
       arteries.
   - reference: PMID:31599798
+    reference_title: &#34;One year in review: Kawasaki disease.&#34;
     supports: SUPPORT
     snippet: Kawasaki disease is a childhood vasculitis of unknown origin, whose
       major complication is the development of coronary artery aneurysms (CAA).
     explanation: The literature supports that Kawasaki disease leads to vascular
       inflammation and aneurysm formation.
   - reference: PMID:27090101
+    reference_title: &#34;[Coronary artery aneurysms probably due to Kawasaki&#39;s disease].&#34;
     supports: SUPPORT
     snippet: Coronary angiography showed multiple aneurysms which suggested
       sequelae of misdiagnosed Kawasaki disease.
     explanation: The case report indicates that Kawasaki disease can lead to
       aneurysm formation as a result of vascular inflammation.
   - reference: PMID:36102118
+    reference_title: &#34;Long-term vascular dysfunction in Kawasaki disease: systematic review and meta-analyses.&#34;
     supports: SUPPORT
     snippet: Long-term physiological dysfunction in coronary/systemic
       vasculature may persist in individuals with Kawasaki disease even in the
@@ -4552,6 +4759,7 @@ pathophysiology:
     explanation: The literature suggests long-term vascular dysfunction due to
       Kawasaki disease, supporting the idea of widespread vascular inflammation.
   - reference: PMID:35420684
+    reference_title: &#34;Silent Kawasaki Disease Affecting Multiple Coronary Arteries in a 39-Year-Old Egyptian Woman.&#34;
     supports: SUPPORT
     snippet: Kawasaki disease, an acute febrile illness, can cause vasculitis in
       the coronary arteries.
@@ -4559,6 +4767,7 @@ pathophysiology:
       inflammation in coronary arteries, leading to complications such as
       aneurysms.
   - reference: PMID:16990356
+    reference_title: &#34;The pathophysiology of coronary artery aneurysms in Kawasaki disease: role of matrix metalloproteinases.&#34;
     supports: SUPPORT
     snippet: Kawasaki disease is an acute inflammatory syndrome that takes the
       form of systemic vasculitis, and predominantly affects children. Important
@@ -4640,6 +4849,7 @@ pathophysiology:
       label: NLRP3 inflammasome complex
   evidence:
   - reference: PMID:34890998
+    reference_title: &#34;Atlas of circulating immune cells in Kawasaki disease.&#34;
     supports: SUPPORT
     snippet: Increasing evidence shows that the pathogenesis of Kawasaki disease
       (KD) is caused by abnormal and unbalanced innate and adaptive immune
@@ -4648,6 +4858,7 @@ pathophysiology:
       characterized by immune response dysregulation leading to vessel wall
       damage and inflammation.
   - reference: PMID:30183655
+    reference_title: &#34;Autoimmune Aspects of Kawasaki Disease.&#34;
     supports: SUPPORT
     snippet: Kawasaki disease (KD) is a vasculitis that is part of systemic
       vasculitis syndrome. It affects medium-sized vessels and is characterized
@@ -4655,6 +4866,7 @@ pathophysiology:
     explanation: This reference supports that KD involves immune dysregulation
       leading to vessel wall damage.
   - reference: PMID:30619331
+    reference_title: &#34;How Should We Classify Kawasaki Disease?&#34;
     supports: SUPPORT
     snippet: Others have favored an autoreactive hypothesis that KD is triggered
       by an antigen that shares homology with structures in the vascular wall,
@@ -4663,6 +4875,7 @@ pathophysiology:
     explanation: This supports the notion of an abnormal immune response leading
       to vessel wall damage in KD.
   - reference: PMID:39117827
+    reference_title: &#34;Kawasaki Disease-Associated Cytokine Storm Syndrome.&#34;
     supports: SUPPORT
     snippet: Kawasaki disease (KD) is a hyperinflammatory syndrome manifesting
       as an acute systemic vasculitis characterized by fever, nonsuppurative
@@ -4679,6 +4892,7 @@ phenotypes:
   diagnostic: true
   evidence:
   - reference: PMID:30029859
+    reference_title: &#34;Intestinal Involvement in Kawasaki Disease.&#34;
     supports: SUPPORT
     snippet: Fever, abdominal pain, and vomiting were the most frequent symptoms
       observed and typical Kawasaki disease signs and symptoms appeared after
@@ -4687,6 +4901,7 @@ phenotypes:
       symptoms observed in Kawasaki disease, supporting the statement that fever
       is a very frequent systemic diagnostic symptom of Kawasaki disease.
   - reference: PMID:31900257
+    reference_title: &#34;Fifteen-minute consultation: Kawasaki disease: how to distinguish from other febrile illnesses: tricks and tips.&#34;
     supports: SUPPORT
     snippet: The conundrum for acute paediatricians is which clinical features
       best distinguish the febrile child with possible KD, needing intravenous
@@ -4695,6 +4910,7 @@ phenotypes:
       Kawasaki disease from other febrile illnesses, indicating that fever is a
       very frequent systemic diagnostic symptom in Kawasaki disease.
   - reference: PMID:26631821
+    reference_title: &#34;Kawasaki disease in adults: Observations in France and literature review.&#34;
     supports: SUPPORT
     snippet: The main symptoms were fever (100%), exanthema (98%), changes in
       the extremities (91%), conjunctivitis (77%), oral cavity changes (89%),
@@ -4716,29 +4932,34 @@ phenotypes:
   frequency: VERY_FREQUENT
   evidence:
   - reference: PMID:26631821
+    reference_title: &#34;Kawasaki disease in adults: Observations in France and literature review.&#34;
     supports: SUPPORT
     snippet: The main symptoms were fever (100%), exanthema (98%)...
     explanation: Exanthema, which refers to a widespread rash, was present in
       98% of the adult patients with Kawasaki Disease.
   - reference: PMID:1440951
+    reference_title: &#34;Kawasaki syndrome.&#34;
     supports: SUPPORT
     snippet: We describe a four-year-old girl who presented with fever, a
       diffuse erythematous maculopapular rash...
     explanation: The case description includes a diffuse erythematous
       maculopapular rash as one of the clinical features.
   - reference: PMID:33453126
+    reference_title: &#34;Kawasaki disease for the paediatric dermatologist: skin manifestations and new insights into the pathophysiology.&#34;
     supports: SUPPORT
     snippet: All children with KD have fever accompanied by clinical signs, with
       four of the five classic criteria for complete KD being mucocutaneous...
     explanation: The abstract emphasizes the mucocutaneous manifestations, which
       include skin rashes, as critical for diagnosing Kawasaki Disease.
   - reference: PMID:23481152
+    reference_title: &#34;Incomplete Kawasaki disease.&#34;
     supports: SUPPORT
     snippet: This is a report of a 4-year-old Hispanic boy who presented with
       skin changes to the lips and oral cavity, a generalized rash...
     explanation: The case report mentions a generalized rash as one of the
       symptoms of Kawasaki Disease.
   - reference: PMID:32843441
+    reference_title: &#34;COVID-19 Inflammatory Syndrome With Clinical Features Resembling Kawasaki Disease.&#34;
     supports: SUPPORT
     snippet: Both patients presented with fever lasting &gt;5 days and were found
       to have rash, conjunctival injection, and swollen lips.
@@ -4759,6 +4980,7 @@ phenotypes:
   notes: Non-purulent (no pus)
   evidence:
   - reference: PMID:34814144
+    reference_title: &#34;Kawasaki Disease and Atopic Diseases: A Systematic Review and Meta-Analysis of Observational Studies.&#34;
     supports: SUPPORT
     snippet: In cross-sectional studies, KD was associated with allergic
       rhinitis (n = 6; OR, 1.69; 95% CI, 1.52-1.87), asthma (n = 3; OR, 1.72;
@@ -4768,12 +4990,14 @@ phenotypes:
       allergic conjunctivitis, supporting the statement that conjunctivitis is
       very frequent in Kawasaki Disease.
   - reference: PMID:32843441
+    reference_title: &#34;COVID-19 Inflammatory Syndrome With Clinical Features Resembling Kawasaki Disease.&#34;
     supports: SUPPORT
     snippet: Both patients presented with fever lasting &gt;5 days and were found
       to have rash, conjunctival injection, and swollen lips.
     explanation: The description of conjunctival injection in patients with
       Kawasaki Disease supports the statement.
   - reference: PMID:7299613
+    reference_title: &#34;Eye involvement in Kawasaki disease.&#34;
     supports: SUPPORT
     snippet: In a prospective series, ophthalmologic examinations on 10 children
       with Kawasaki disease showed that eight had anterior uveitis during the
@@ -4795,6 +5019,7 @@ phenotypes:
   frequency: VERY_FREQUENT
   evidence:
   - reference: PMID:1704148
+    reference_title: &#34;[Kawasaki disease].&#34;
     supports: SUPPORT
     snippet: &#39;The six main clinical presentations of Kawasaki disease are: prolonged
       fever, conjunctivitis, lesions of the oral and pharyngeal mucosa, inflammatory
@@ -4804,6 +5029,7 @@ phenotypes:
       and feet is one of the six main clinical presentations of Kawasaki
       disease.
   - reference: PMID:3333141
+    reference_title: &#34;Pathological features of Kawasaki disease (mucocutaneous lymph node syndrome).&#34;
     supports: SUPPORT
     snippet: Early clinical features include fever, rash, conjunctival
       injection, dry reddened lips, oropharyngeal reddening, enlarged cervical
@@ -4818,6 +5044,7 @@ phenotypes:
   notes: Particularly on the fingers and toes, often during the subacute phase
   evidence:
   - reference: PMID:6833960
+    reference_title: &#34;Kawasaki disease.&#34;
     supports: SUPPORT
     snippet: The second, subacute, phase begins with a decline of the acute
       findings and proceeds with desquamation of rash...
@@ -4825,6 +5052,7 @@ phenotypes:
       supports the statement that peeling skin is a frequent dermatologic
       manifestation of Kawasaki Disease, particularly during the subacute phase.
   - reference: PMID:3333141
+    reference_title: &#34;Pathological features of Kawasaki disease (mucocutaneous lymph node syndrome).&#34;
     supports: SUPPORT
     snippet: Peeling of skin of fingers and toes, arthralgia, and marked
       thrombocytosis are frequent 1-2 weeks after onset.
@@ -4832,6 +5060,7 @@ phenotypes:
       the fingers and toes is a frequent occurrence 1-2 weeks after the onset of
       Kawasaki Disease.
   - reference: PMID:37065507
+    reference_title: &#34;Neurological involvement, immune response, and biomarkers in Kawasaki disease along with its pathogenesis, therapeutic and diagnostic updates.&#34;
     supports: SUPPORT
     snippet: Kawasaki disease&#39;s clinical manifestations range from oral skin
       disease to the blistering of the mucosa, symptoms involving the hands and
@@ -4847,6 +5076,7 @@ phenotypes:
   notes: Includes &#34;strawberry tongue&#34; and inflammation in the mouth and throat
   evidence:
   - reference: PMID:15835487
+    reference_title: &#34;Kawasaki disease.&#34;
     supports: SUPPORT
     snippet: The disease can present with protean clinical manifestations which
       include high grade fever (for at least 5 days), rash, redness of the lips
@@ -4856,6 +5086,7 @@ phenotypes:
     explanation: The abstract mentions redness of the lips and a typical
       strawberry tongue as clinical manifestations of Kawasaki disease.
   - reference: PMID:30903929
+    reference_title: &#34;Otorhinolaryngological manifestations and delayed diagnosis in Kawasaki disease.&#34;
     supports: SUPPORT
     snippet: Kawasaki disease (KD) is a febrile multisystemic vasculitis of
       unknown etiology whose coronary prognosis is improved by early diagnosis
@@ -4866,6 +5097,7 @@ phenotypes:
       manifestations, which include oropharyngeal symptoms, are frequently at
       the forefront of KD.
   - reference: PMID:1440951
+    reference_title: &#34;Kawasaki syndrome.&#34;
     supports: SUPPORT
     snippet: We describe a four-year-old girl who presented with fever, a
       diffuse erythematous maculopapular rash, bilateral nonpurulent bulbar
@@ -4875,6 +5107,7 @@ phenotypes:
     explanation: The case description includes dry, red, fissured lips and a
       tongue with a strawberry &#39;appearance&#39;, supporting the statement.
   - reference: PMID:23481152
+    reference_title: &#34;Incomplete Kawasaki disease.&#34;
     supports: SUPPORT
     snippet: This is a report of a 4-year-old Hispanic boy who presented with
       skin changes to the lips and oral cavity, a generalized rash, edema of
@@ -4890,6 +5123,7 @@ phenotypes:
   notes: Can lead to serious heart complications
   evidence:
   - reference: PMID:10512599
+    reference_title: &#34;Kawasaki disease.&#34;
     supports: REFUTE
     snippet: Coronary artery aneurysms or ectasia develop in approximately
       15-25% of children with the disease.
@@ -4897,6 +5131,7 @@ phenotypes:
       common complication of Kawasaki disease, occurring in 15-25% of cases,
       which is more frequent than &#39;occasional&#39;.
   - reference: PMID:31732547
+    reference_title: &#34;Systemic Artery Aneurysms and Kawasaki Disease.&#34;
     supports: REFUTE
     snippet: Twenty-three patients had SAAs, demonstrating an incidence of 14.2%
       (23 of 162) in patients who were screened at 1 month after onset. The
@@ -4906,6 +5141,7 @@ phenotypes:
       disease is significant, with a notable percentage of patients developing
       CAAs, indicating that the frequency is more than &#39;occasional&#39;.
   - reference: PMID:34651205
+    reference_title: &#34;Analysis of multiple organ involvement in Kawasaki disease.&#34;
     supports: REFUTE
     snippet: Among the 640 KD children, most were 1-5 years old (415/640,
       64.8%). Children &lt; 1 year old (31.6%) and &gt; 5 years old (28.3%) were more
@@ -4914,6 +5150,7 @@ phenotypes:
       complications in children with Kawasaki disease, indicating that coronary
       artery aneurysms and other heart complications are not just occasional.
   - reference: PMID:23075819
+    reference_title: &#34;Kawasaki disease: late cardiovascular sequelae.&#34;
     supports: REFUTE
     snippet: Patients with persistent or remodeled coronary aneurysms after
       Kawasaki disease have a high rate of complications including thrombosis or
@@ -4929,12 +5166,14 @@ phenotypes:
   notes: Often appears 1-2 weeks after onset
   evidence:
   - reference: PMID:33527178
+    reference_title: &#34;Clinical implications of thrombocytosis in acute phase Kawasaki disease.&#34;
     supports: SUPPORT
     snippet: In Kawasaki disease (KD), thrombocytosis is commonly found in the
       subacute phase.
     explanation: Thrombocytosis is a common finding during the subacute phase of
       KD.
   - reference: PMID:6833960
+    reference_title: &#34;Kawasaki disease.&#34;
     supports: SUPPORT
     snippet: The second, subacute, phase begins with a decline of the acute
       findings and proceeds with desquamation of rash, joint manifestations,
@@ -4976,12 +5215,14 @@ phenotypes:
   frequency: FREQUENT
   evidence:
   - reference: PMID:31599798
+    reference_title: &#34;One year in review: Kawasaki disease.&#34;
     supports: SUPPORT
     snippet: Kawasaki disease is a childhood vasculitis of unknown origin, whose
       major complication is the development of coronary artery aneurysms (CAA).
     explanation: This reference directly states that coronary artery aneurysm
       development is a major complication of Kawasaki disease.
   - reference: PMID:21447126
+    reference_title: &#34;Pathogenesis of Kawasaki disease.&#34;
     supports: SUPPORT
     snippet: Histologically, coronary arteritis begins 6-8 days after the onset
       of KD, and leads immediately to inflammation of all layers of the artery.
@@ -5003,6 +5244,7 @@ biochemical:
   context: Indicator of inflammation
   evidence:
   - reference: PMID:34078404
+    reference_title: &#34;The occurrence of coronary artery lesions in Kawasaki disease based on C-reactive protein levels: a retrospective cohort study.&#34;
     supports: SUPPORT
     snippet: CAL were found in 12.9 and 18.3% of the high and low CRP patients,
       respectively (p &lt; 0.001), based on z-scores; and in 9.9 and 12.5%,
@@ -5012,6 +5254,7 @@ biochemical:
       Disease patients, with specific percentages of high and low CRP levels
       noted.
   - reference: PMID:39117827
+    reference_title: &#34;Kawasaki Disease-Associated Cytokine Storm Syndrome.&#34;
     supports: SUPPORT
     snippet: Kawasaki disease (KD) is a hyperinflammatory syndrome manifesting
       as an acute systemic vasculitis characterized by fever, nonsuppurative
@@ -5020,6 +5263,7 @@ biochemical:
     explanation: The abstract describes KD as a hyperinflammatory syndrome,
       implying elevated inflammatory markers such as CRP.
   - reference: PMID:37551875
+    reference_title: &#34;N-Terminal Pro-Brain Natriuretic Peptide Levels in Kawasaki Disease, Sepsis and Other Febrile Illnesses.&#34;
     supports: SUPPORT
     snippet: Complete blood count, C-reactive protein (CRP), liver and renal
       function tests, serum electrolytes, chest X-ray, NT-proBNP level, Bactec
@@ -5028,6 +5272,7 @@ biochemical:
     explanation: The study includes CRP as part of the diagnostic tests for
       Kawasaki Disease, indicating its relevance as an inflammatory marker.
   - reference: PMID:34731266
+    reference_title: &#34;Clinical indications for Kawasaki disease in febrile infants aged less than three months.&#34;
     supports: SUPPORT
     snippet: The KD group had a significantly higher level of initial c-reactive
       protein (CRP) compared to the BI and NBI groups, with a cutoff value of
@@ -5040,6 +5285,7 @@ biochemical:
   context: Indicator of inflammation
   evidence:
   - reference: PMID:36604937
+    reference_title: &#34;Neutrophil-Lymphocyte Ratio for Predicting Coronary Artery Lesions in Children With Kawasaki Disease.&#34;
     supports: SUPPORT
     snippet: NLR &gt;/=2.08 was 82% sensitive and 80% specific in predicting CAL.
       ESR &gt;/=88 mm/h was 85% sensitive and 64% specific in predicting IVIg
@@ -5047,6 +5293,7 @@ biochemical:
     explanation: The study indicates that ESR is elevated in Kawasaki Disease
       and can be used to predict IVIg resistance.
   - reference: PMID:33413220
+    reference_title: &#34;Clinical aspects for differential diagnosis of Kawasaki disease shock syndrome: a case control study.&#34;
     supports: SUPPORT
     snippet: In comparison between KDSS and TSS, patients with KDSS had a
       significantly higher erythrocyte sedimentation rate (ESR) and
@@ -5054,6 +5301,7 @@ biochemical:
     explanation: The study shows that patients with Kawasaki Disease Shock
       Syndrome (KDSS) have significantly higher ESR levels.
   - reference: PMID:15677370
+    reference_title: &#34;High-dose intravenous immunoglobulin downregulates the activated levels of inflammatory indices except erythrocyte sedimentation rate in acute stage of Kawasaki Disease.&#34;
     supports: SUPPORT
     snippet: The erythrocyte sedimentation rate (ESR) increased significantly 24
       h after IVIG, and the elevated level was sustained for 7 days.
@@ -5064,12 +5312,14 @@ biochemical:
   context: Often seen in the subacute phase
   evidence:
   - reference: PMID:33527178
+    reference_title: &#34;Clinical implications of thrombocytosis in acute phase Kawasaki disease.&#34;
     supports: SUPPORT
     snippet: In Kawasaki disease (KD), thrombocytosis is commonly found in the
       subacute phase.
     explanation: The abstract states that thrombocytosis (elevated platelet
       count) is commonly found in the subacute phase of Kawasaki disease.
   - reference: PMID:6833960
+    reference_title: &#34;Kawasaki disease.&#34;
     supports: SUPPORT
     snippet: The second, subacute, phase begins with a decline of the acute
       findings and proceeds with desquamation of rash, joint manifestations,
@@ -5083,6 +5333,7 @@ diagnosis:
   notes: Used to check for coronary artery involvement
   evidence:
   - reference: PMID:28921836
+    reference_title: &#34;Clinical assessment of coronary arteries in Kawasaki disease: Focus on echocardiographic assessment.&#34;
     supports: SUPPORT
     snippet: Echocardiography is an excellent noninvasive imaging modality for
       evaluation and follow-up of cardiac lesions, especially coronary artery
@@ -5096,6 +5347,7 @@ diagnosis:
   notes: Elevated inflammatory markers (CRP and ESR)
   evidence:
   - reference: PMID:36569014
+    reference_title: &#34;Kawasaki disease without changes in inflammatory biomarkers: A case report.&#34;
     supports: PARTIAL
     snippet: Since KD is a disease caused by arterial inflammation, many
       patients with KD have elevated levels of inflammatory biomarkers, such as
@@ -5105,6 +5357,7 @@ diagnosis:
       Disease have elevated inflammatory markers, but it also reports cases
       where such elevations are not observed.
   - reference: PMID:34854940
+    reference_title: &#34;Assessing the Association of Kawasaki Disease Symptoms and Echocardiographic Findings.&#34;
     supports: SUPPORT
     snippet: Thrombocytosis, conjunctivitis, and oral and/or pharyngeal erythema
       and/or strawberry tongue were associated with higher rates of
@@ -5113,6 +5366,7 @@ diagnosis:
       with echocardiographic abnormalities in Kawasaki Disease, supporting the
       statement.
   - reference: PMID:33481812
+    reference_title: &#34;A novel score system of blood tests for differentiating Kawasaki disease from febrile children.&#34;
     supports: SUPPORT
     snippet: We obtained eight independent predictors (platelets, eosinophil,
       alanine aminotransferase, C-reactive protein, hemoglobin, mean corpuscular
@@ -5120,6 +5374,7 @@ diagnosis:
     explanation: CRP is identified as one of the independent predictors for
       Kawasaki Disease, supporting the statement.
   - reference: PMID:27881022
+    reference_title: &#34;Elevated serum YKL-40 levels in patients with Kawasaki disease.&#34;
     supports: SUPPORT
     snippet: YKL-40 concentration in the serum of KD patients significantly
       increased during the acute disease phase compared with those of disease
@@ -5127,6 +5382,7 @@ diagnosis:
     explanation: The study supports the presence of elevated inflammatory
       markers in Kawasaki Disease patients.
   - reference: PMID:37188888
+    reference_title: &#34;Prokineticin 2 as a potential biomarker for the diagnosis of Kawasaki disease.&#34;
     supports: SUPPORT
     snippet: PK2 can significantly predict Kawasaki disease independently of CRP
       and ESR (p &lt; 0.0001).
@@ -5220,6 +5476,7 @@ treatments:
     artery complications.
   evidence:
   - reference: PMID:23283289
+    reference_title: &#34;Advances in the treatment of Kawasaki disease.&#34;
     supports: SUPPORT
     snippet: Intravenous immunoglobulin (IVIG) and aspirin is the standard
       initial therapy in the treatment of Kawasaki disease.
@@ -5227,6 +5484,7 @@ treatments:
       initial therapy for Kawasaki disease, aimed at reducing inflammation and
       preventing coronary artery complications.
   - reference: PMID:38135926
+    reference_title: &#34;Early Clinical Evaluation of Coronary Artery Lesions in Kawasaki Disease.&#34;
     supports: SUPPORT
     snippet: For KD patients, male, children aged 3 to 9 years, and those with
       fever longer than 6 days before intravenous immunoglobulin (IVIG) use were
@@ -5235,6 +5493,7 @@ treatments:
       to the risk of coronary artery lesions, supporting its role in reducing
       such risks.
   - reference: PMID:24034380
+    reference_title: &#34;Kawasaki disease: part II. Complications and treatment.&#34;
     supports: SUPPORT
     snippet: The standard of care for treatment is intravenous immunoglobulin
       plus aspirin, but adding corticosteroids may provide additional benefit
@@ -5242,6 +5501,7 @@ treatments:
     explanation: The literature states that IVIG is the standard of care for
       treating Kawasaki disease to reduce coronary artery complications.
   - reference: PMID:34535199
+    reference_title: &#34;Shaanxi Provincial Diagnosis and Treatment Center of Kawasaki Disease.&#34;
     supports: SUPPORT
     snippet: Intravenous immunoglobulin (IVIG) has become an effective treatment
       regimen, which can effectively reduce the incidence of cardiovascular
@@ -5249,6 +5509,7 @@ treatments:
     explanation: The literature confirms that IVIG is effective in reducing
       cardiovascular complications in Kawasaki disease.
   - reference: PMID:32888683
+    reference_title: &#34;Update on the Management of Kawasaki Disease.&#34;
     supports: SUPPORT
     snippet: Treatment of Kawasaki disease (KD) with intravenous immunoglobulin
       (IVIG) administered within the initial 10 days of fever onset decreases
@@ -5266,6 +5527,7 @@ treatments:
     effects, followed by a lower dose to prevent blood clots.
   evidence:
   - reference: PMID:9513217
+    reference_title: &#34;Kawasaki disease: a dangerous acute childhood illness.&#34;
     supports: SUPPORT
     snippet: Treatment includes the hospitalization of the child and subsequent
       administration of high doses of aspirin and intravenous immunoglobulin.
@@ -5274,6 +5536,7 @@ treatments:
     explanation: This reference confirms that high doses of aspirin are used
       initially for Kawasaki disease, followed by lower doses after recovery.
   - reference: PMID:10935427
+    reference_title: &#34;New perspectives in the drug treatment of Kawasaki disease.&#34;
     supports: SUPPORT
     snippet: Conventional therapy for KD includes intravenous gammaglobulin (2
       g/kg as a single dose over 12 hours) and aspirin (acetylsalicylic acid;
@@ -5281,6 +5544,7 @@ treatments:
     explanation: This reference also supports the statement that high doses of
       aspirin are used initially, followed by lower doses.
   - reference: PMID:32159800
+    reference_title: &#34;What dose of aspirin should be used in the initial treatment of Kawasaki disease? A meta-analysis.&#34;
     supports: PARTIAL
     snippet: Low-dose aspirin plus IVIG might be as effective as high-dose
       aspirin plus IVIG for the initial treatment of Kawasaki disease.
@@ -5291,6 +5555,7 @@ treatments:
       effective as high-dose aspirin and should be recommended to avoid adverse
       reactions, indicating a shift in treatment preference.
   - reference: PMID:28043685
+    reference_title: &#34;Medium- or Higher-Dose Acetylsalicylic Acid for Acute Kawasaki Disease and Patient Outcomes.&#34;
     supports: PARTIAL
     snippet: The use of medium- or higher-dose ASA in acute Kawasaki disease did
       not prevent CAA. A future randomized controlled trial is needed to
@@ -5343,6 +5608,7 @@ treatments:
   description: Used in cases resistant to IVIG or with severe inflammation.
   evidence:
   - reference: PMID:31914832
+    reference_title: &#34;The role of corticosteroids in the treatment of Kawasaki disease.&#34;
     supports: SUPPORT
     snippet: We suggest using methylprednisolone pulse therapy as an alternative
       rescue therapy for immunoglobulin-resistant KD, as well as identifying
@@ -5352,6 +5618,7 @@ treatments:
       Kawasaki Disease that are resistant to IVIG or in high-risk patients with
       severe inflammation.
   - reference: PMID:29101553
+    reference_title: &#34;Treatment Options for Resistant Kawasaki Disease.&#34;
     supports: SUPPORT
     snippet: &#39;&#34;Resistant&#34; Kawasaki disease is defined by the American Heart Association
       as failure to respond within 36 h following the first dose of intravenous immunoglobulin.
@@ -5360,6 +5627,7 @@ treatments:
     explanation: This reference discusses the management of resistant Kawasaki
       Disease, which includes considering corticosteroid use.
   - reference: PMID:33541111
+    reference_title: &#34;Risk Factors of Coronary Artery Abnormalities and Resistance to Intravenous Immunoglobulin Plus Corticosteroid Therapy in Severe Kawasaki Disease: An Analysis of Post RAISE.&#34;
     supports: SUPPORT
     snippet: To prevent CAA, more intensified or adjunctive therapies using
       other agents, such as pulsed methylprednisolone, ciclosporin, infliximab,

@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 4</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Metabolic Disease</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Inborn error of metabolism</span>
@@ -1937,6 +2110,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1992,6 +2168,14 @@
             <div class="stat-item">
                 <div class="stat-value">11</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">4</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2071,7 +2255,7 @@
                 <span class="card-count">4</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-gamt-molecular-function-deficiency">
                 <div class="item-name">GAMT molecular function deficiency</div>
                 
                 <div class="item-desc">Biallelic pathogenic variants in GAMT reduce guanidinoacetate methyltransferase catalytic activity.
@@ -2119,6 +2303,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2153,7 +2338,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-deficient-creatine-biosynthesis">
                 <div class="item-name">Deficient creatine biosynthesis</div>
                 
                 <div class="item-desc">Blocked conversion of guanidinoacetate to creatine causes systemic and cerebral creatine depletion, impairing the creatine/phosphocreatine energy shuttle needed for rapid ATP regeneration in high-energy-demand tissues.
@@ -2216,6 +2401,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2250,7 +2436,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-guanidinoacetate-neurotoxicity">
                 <div class="item-name">Guanidinoacetate neurotoxicity</div>
                 
                 <div class="item-desc">Guanidinoacetate (GAA) accumulates in brain, CSF, blood, and urine due to blocked conversion to creatine. GAA is neurotoxic and may alter inhibitory neurotransmission, compounding the effects of cerebral energy deficiency.
@@ -2310,6 +2496,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2364,7 +2551,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neuronal-energy-homeostasis">
                 <div class="item-name">Impaired neuronal energy homeostasis</div>
                 
                 <div class="item-desc">The creatine/phosphocreatine system serves as a critical ATP buffer and energy shuttle in neurons. Creatine deficiency impairs rapid ATP regeneration during fluctuating energy demands, contributing to neurodevelopmental dysfunction, seizure susceptibility, and disrupted neurite outgrowth and neurotransmission.
@@ -2415,6 +2602,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -2484,12 +2672,13 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Guanidinoacetate Methyltransferase Deficiency</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
@@ -4388,6 +4577,7 @@ pathophysiology:
       label: liver
   evidence:
   - reference: PMID:37465909
+    reference_title: &#34;Evidence and Recommendation for Guanidinoacetate Methyltransferase Deficiency Newborn Screening.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Guanidinoacetate methyltransferase (GAMT) deficiency is an autosomal recessive disorder of creatine biosynthesis due to pathogenic variants in the GAMT gene that lead to cerebral creatine deficiency and neurotoxic levels of guanidinoacetate.
@@ -4422,6 +4612,7 @@ pathophysiology:
       label: brain
   evidence:
   - reference: PMID:38469086
+    reference_title: &#34;Long term follow-up in GAMT deficiency - Correlation of therapy regimen, biochemical and in vivo brain proton MR spectroscopy data.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Cerebral creatine depletion and accumulation of guanidinoacetate (GAA) lead to clinical presentation with intellectual
@@ -4455,12 +4646,14 @@ pathophysiology:
       label: basal ganglion
   evidence:
   - reference: PMID:38469086
+    reference_title: &#34;Long term follow-up in GAMT deficiency - Correlation of therapy regimen, biochemical and in vivo brain proton MR spectroscopy data.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Cerebral creatine depletion and accumulation of guanidinoacetate (GAA) lead to clinical presentation with intellectual
       disability, seizures, speech disturbances and movement disorders.
     explanation: Confirms GAA accumulation as a contributor to the neurological phenotype.
   - reference: PMID:35505663
+    reference_title: &#34;Gene therapy for guanidinoacetate methyltransferase deficiency restores cerebral and myocardial creatine while resolving behavioral abnormalities.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: Along with low creatine levels, guanidinoacetic acid (GAA) toxicity has been implicated in the pathophysiology
@@ -4491,6 +4684,7 @@ pathophysiology:
       label: brain
   evidence:
   - reference: PMID:37465909
+    reference_title: &#34;Evidence and Recommendation for Guanidinoacetate Methyltransferase Deficiency Newborn Screening.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Guanidinoacetate methyltransferase (GAMT) deficiency is an autosomal recessive disorder of creatine biosynthesis
@@ -4498,6 +4692,7 @@ pathophysiology:
     explanation: Cerebral creatine deficiency directly implies impaired neuronal energy homeostasis via loss of the creatine/phosphocreatine
       shuttle.
   - reference: PMID:35505663
+    reference_title: &#34;Gene therapy for guanidinoacetate methyltransferase deficiency restores cerebral and myocardial creatine while resolving behavioral abnormalities.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: Creatine deficiency disorders are inborn errors of creatine metabolism, an energy homeostasis molecule.
@@ -4516,12 +4711,14 @@ phenotypes:
       label: Global developmental delay
   evidence:
   - reference: PMID:24268530
+    reference_title: &#34;Guanidinoacetate methyltransferase (GAMT) deficiency: outcomes in 48 individuals and recommendations for diagnosis, treatment and monitoring.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Global developmental delay/intellectual disability (DD/ID) with speech/language delay and behavioral problems
       as the most affected domains was present in 44 participants
     explanation: Quantifies developmental delay at 44/48 (92%) in the landmark GAMT deficiency cohort.
   - reference: PMID:39006040
+    reference_title: &#34;Phenotypic and Molecular Spectrum of Guanidinoacetate N-Methyltransferase Deficiency: An Analytical Study of a Case Series and a Scoping Review of 53 Cases of Guanidinoacetate N-Methyltransferase.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: 84% of the cases expressed a form of developmental delay.
@@ -4539,12 +4736,14 @@ phenotypes:
       label: Intellectual disability
   evidence:
   - reference: PMID:24268530
+    reference_title: &#34;Guanidinoacetate methyltransferase (GAMT) deficiency: outcomes in 48 individuals and recommendations for diagnosis, treatment and monitoring.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The median age at treatment initiation was 25.5 and 39 months in patients with mild and moderate DD/ID, respectively,
       and 11 years in patients with severe DD/ID.
     explanation: Demonstrates correlation between treatment timing and severity of intellectual disability.
   - reference: PMID:39006040
+    reference_title: &#34;Phenotypic and Molecular Spectrum of Guanidinoacetate N-Methyltransferase Deficiency: An Analytical Study of a Case Series and a Scoping Review of 53 Cases of Guanidinoacetate N-Methyltransferase.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: 43% of the cases had intellectual disabilities and mental retardation that affected their learning process; most
@@ -4563,11 +4762,13 @@ phenotypes:
       label: Delayed speech and language development
   evidence:
   - reference: PMID:19289269
+    reference_title: &#34;Guanidinoacetate methyltransferase deficiency (GAMT).&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The symptoms and signs are reviewed, emphasising that delayed language development is a particular feature.
     explanation: Identifies delayed language development as a particularly prominent feature of GAMT deficiency.
   - reference: PMID:24268530
+    reference_title: &#34;Guanidinoacetate methyltransferase (GAMT) deficiency: outcomes in 48 individuals and recommendations for diagnosis, treatment and monitoring.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Global developmental delay/intellectual disability (DD/ID) with speech/language delay and behavioral problems
@@ -4587,6 +4788,7 @@ phenotypes:
       label: Seizure
   evidence:
   - reference: PMID:24268530
+    reference_title: &#34;Guanidinoacetate methyltransferase (GAMT) deficiency: outcomes in 48 individuals and recommendations for diagnosis, treatment and monitoring.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Global developmental delay/intellectual disability (DD/ID) with speech/language delay and behavioral problems
@@ -4594,11 +4796,13 @@ phenotypes:
       in 13.
     explanation: Quantifies epilepsy at 35/48 (73%) in the landmark cohort.
   - reference: PMID:39006040
+    reference_title: &#34;Phenotypic and Molecular Spectrum of Guanidinoacetate N-Methyltransferase Deficiency: An Analytical Study of a Case Series and a Scoping Review of 53 Cases of Guanidinoacetate N-Methyltransferase.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: 68% of the cases developed generalized seizures throughout their life.
     explanation: Confirms seizures in 68% of cases in the scoping review.
   - reference: PMID:19289269
+    reference_title: &#34;Guanidinoacetate methyltransferase deficiency (GAMT).&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Other symptoms include learning disorders, autistic behaviour, epileptic seizures, and movement disorders.
@@ -4616,11 +4820,13 @@ phenotypes:
       label: Atypical behavior
   evidence:
   - reference: PMID:19289269
+    reference_title: &#34;Guanidinoacetate methyltransferase deficiency (GAMT).&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Other symptoms include learning disorders, autistic behaviour, epileptic seizures, and movement disorders.
     explanation: Identifies autistic behaviour as a core symptom of GAMT deficiency.
   - reference: PMID:36856349
+    reference_title: &#34;Creatine Deficiency Disorders: Phenotypes, Genotypes, Diagnosis, and Treatment Outcomes.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Patients with these disorders present with a wide range of symptoms, including developmental delay, seizures,
@@ -4639,6 +4845,7 @@ phenotypes:
       label: Abnormality of movement
   evidence:
   - reference: PMID:24268530
+    reference_title: &#34;Guanidinoacetate methyltransferase (GAMT) deficiency: outcomes in 48 individuals and recommendations for diagnosis, treatment and monitoring.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Global developmental delay/intellectual disability (DD/ID) with speech/language delay and behavioral problems
@@ -4646,6 +4853,7 @@ phenotypes:
       in 13.
     explanation: Quantifies movement disorder at 13/48 (27%) in the cohort.
   - reference: PMID:19289269
+    reference_title: &#34;Guanidinoacetate methyltransferase deficiency (GAMT).&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Other symptoms include learning disorders, autistic behaviour, epileptic seizures, and movement disorders.
@@ -4662,12 +4870,14 @@ phenotypes:
       label: Hypotonia
   evidence:
   - reference: PMID:37465909
+    reference_title: &#34;Evidence and Recommendation for Guanidinoacetate Methyltransferase Deficiency Newborn Screening.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Untreated, GAMT deficiency is associated with hypotonia, significant intellectual disability, limited speech
       development, recurrent seizures, behavior problems, and involuntary movements.
     explanation: Lists hypotonia as an associated feature of untreated GAMT deficiency.
   - reference: PMID:36856349
+    reference_title: &#34;Creatine Deficiency Disorders: Phenotypes, Genotypes, Diagnosis, and Treatment Outcomes.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Patients with these disorders present with a wide range of symptoms, including developmental delay, seizures,
@@ -4685,6 +4895,7 @@ phenotypes:
       label: Autism
   evidence:
   - reference: PMID:19289269
+    reference_title: &#34;Guanidinoacetate methyltransferase deficiency (GAMT).&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Other symptoms include learning disorders, autistic behaviour, epileptic seizures, and movement disorders.
@@ -4702,6 +4913,7 @@ phenotypes:
       label: Abnormal globus pallidus morphology
   evidence:
   - reference: PMID:19289269
+    reference_title: &#34;Guanidinoacetate methyltransferase deficiency (GAMT).&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The MRI scan shows an increased signal in the globus pallidus, and the diagnosis is confirmed by finding increased
@@ -4720,6 +4932,7 @@ phenotypes:
       label: Absent speech
   evidence:
   - reference: PMID:37465909
+    reference_title: &#34;Evidence and Recommendation for Guanidinoacetate Methyltransferase Deficiency Newborn Screening.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Untreated, GAMT deficiency is associated with hypotonia, significant intellectual disability, limited speech
@@ -4738,6 +4951,7 @@ phenotypes:
       label: Involuntary movements
   evidence:
   - reference: PMID:37465909
+    reference_title: &#34;Evidence and Recommendation for Guanidinoacetate Methyltransferase Deficiency Newborn Screening.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Untreated, GAMT deficiency is associated with hypotonia, significant intellectual disability, limited speech
@@ -4753,17 +4967,20 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:37465909
+    reference_title: &#34;Evidence and Recommendation for Guanidinoacetate Methyltransferase Deficiency Newborn Screening.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Guanidinoacetate methyltransferase (GAMT) deficiency is an autosomal recessive disorder of creatine biosynthesis
       due to pathogenic variants in the GAMT gene that lead to cerebral creatine deficiency and neurotoxic levels of guanidinoacetate.
     explanation: Confirms neurotoxic GAA accumulation as a defining feature.
   - reference: PMID:19289269
+    reference_title: &#34;Guanidinoacetate methyltransferase deficiency (GAMT).&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: the diagnosis is confirmed by finding increased guanidinoacetate in the urine and a low plasma creatine.
     explanation: Confirms elevated urinary GAA as a diagnostic marker.
   - reference: PMID:24268530
+    reference_title: &#34;Guanidinoacetate methyltransferase (GAMT) deficiency: outcomes in 48 individuals and recommendations for diagnosis, treatment and monitoring.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Increase of cerebral creatine and decrease of plasma/CSF guanidinoacetate levels were achieved by supplementation
@@ -4778,17 +4995,20 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:19289269
+    reference_title: &#34;Guanidinoacetate methyltransferase deficiency (GAMT).&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: the diagnosis is confirmed by finding increased guanidinoacetate in the urine and a low plasma creatine.
     explanation: Confirms low plasma creatine as a diagnostic finding.
   - reference: PMID:38469086
+    reference_title: &#34;Long term follow-up in GAMT deficiency - Correlation of therapy regimen, biochemical and in vivo brain proton MR spectroscopy data.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: the creatine concentrations, which were regularly monitored over a long follow-up period, increased significantly
       over time, but did not reach age matched control ranges.
     explanation: Shows that even with treatment, brain creatine does not normalize, confirming baseline deficiency.
   - reference: PMID:36856349
+    reference_title: &#34;Creatine Deficiency Disorders: Phenotypes, Genotypes, Diagnosis, and Treatment Outcomes.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The diagnosis can be suspected by elevated guanidinoacetate and low creatine levels in body fluids in guanidinoacetate
@@ -4802,6 +5022,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:38469086
+    reference_title: &#34;Long term follow-up in GAMT deficiency - Correlation of therapy regimen, biochemical and in vivo brain proton MR spectroscopy data.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: the creatine concentrations, which were regularly monitored over a long follow-up period, increased significantly
@@ -4819,6 +5040,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:36856349
+    reference_title: &#34;Creatine Deficiency Disorders: Phenotypes, Genotypes, Diagnosis, and Treatment Outcomes.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The diagnosis can be suspected by elevated guanidinoacetate and low creatine levels in body fluids in guanidinoacetate
@@ -4830,12 +5052,14 @@ genetic:
   - name: Autosomal recessive
     evidence:
     - reference: PMID:37465909
+      reference_title: &#34;Evidence and Recommendation for Guanidinoacetate Methyltransferase Deficiency Newborn Screening.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: Guanidinoacetate methyltransferase (GAMT) deficiency is an autosomal recessive disorder of creatine biosynthesis
         due to pathogenic variants in the GAMT gene
       explanation: Explicitly states autosomal recessive inheritance.
     - reference: PMID:19289269
+      reference_title: &#34;Guanidinoacetate methyltransferase deficiency (GAMT).&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: The condition is inherited in an autosomal recessive manner, and mutations in the GAMT gene severely affect
@@ -4850,17 +5074,20 @@ genetic:
     &#39;
   evidence:
   - reference: PMID:37465909
+    reference_title: &#34;Evidence and Recommendation for Guanidinoacetate Methyltransferase Deficiency Newborn Screening.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Guanidinoacetate methyltransferase (GAMT) deficiency is an autosomal recessive disorder of creatine biosynthesis
       due to pathogenic variants in the GAMT gene that lead to cerebral creatine deficiency and neurotoxic levels of guanidinoacetate.
     explanation: Confirms pathogenic variants in GAMT as the cause.
   - reference: PMID:39006040
+    reference_title: &#34;Phenotypic and Molecular Spectrum of Guanidinoacetate N-Methyltransferase Deficiency: An Analytical Study of a Case Series and a Scoping Review of 53 Cases of Guanidinoacetate N-Methyltransferase.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: 23% of the affected cases were of consanguineous marriages, and 7% had affected relatives.
     explanation: Quantifies consanguinity as a risk factor in the scoping review.
   - reference: PMID:39006040
+    reference_title: &#34;Phenotypic and Molecular Spectrum of Guanidinoacetate N-Methyltransferase Deficiency: An Analytical Study of a Case Series and a Scoping Review of 53 Cases of Guanidinoacetate N-Methyltransferase.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Guanidinoacetate methyltransferase deficiency (GAMT) is an autosomal recessive inborn error of metabolism. A
@@ -4880,18 +5107,21 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:24268530
+    reference_title: &#34;Guanidinoacetate methyltransferase (GAMT) deficiency: outcomes in 48 individuals and recommendations for diagnosis, treatment and monitoring.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Increase of cerebral creatine and decrease of plasma/CSF guanidinoacetate levels were achieved by supplementation
       with creatine-monohydrate combined with high dosages of l-ornithine and/or an arginine-restricted diet
     explanation: Directly supports creatine supplementation as effective in increasing cerebral creatine.
   - reference: PMID:24268530
+    reference_title: &#34;Guanidinoacetate methyltransferase (GAMT) deficiency: outcomes in 48 individuals and recommendations for diagnosis, treatment and monitoring.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Therapy was associated with improvement or stabilization of symptoms in all of the symptomatic cases. The 4 patients
       treated younger than 9 months had normal or almost normal developmental outcomes.
     explanation: Demonstrates clinical benefit of early creatine-based therapy.
   - reference: PMID:38469086
+    reference_title: &#34;Long term follow-up in GAMT deficiency - Correlation of therapy regimen, biochemical and in vivo brain proton MR spectroscopy data.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Treatment consists of daily creatine supplementation to increase cerebral creatine, reduction of arginine intake
@@ -4910,18 +5140,21 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:24268530
+    reference_title: &#34;Guanidinoacetate methyltransferase (GAMT) deficiency: outcomes in 48 individuals and recommendations for diagnosis, treatment and monitoring.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Treatment regimens included various combinations/dosages of creatine-monohydrate, l-ornithine, sodium benzoate
       and protein/arginine restricted diets.
     explanation: Confirms ornithine as a standard treatment component.
   - reference: PMID:24268530
+    reference_title: &#34;Guanidinoacetate methyltransferase (GAMT) deficiency: outcomes in 48 individuals and recommendations for diagnosis, treatment and monitoring.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Increase of cerebral creatine and decrease of plasma/CSF guanidinoacetate levels were achieved by supplementation
       with creatine-monohydrate combined with high dosages of l-ornithine and/or an arginine-restricted diet
     explanation: Demonstrates that high-dose ornithine contributes to GAA reduction.
   - reference: PMID:38469086
+    reference_title: &#34;Long term follow-up in GAMT deficiency - Correlation of therapy regimen, biochemical and in vivo brain proton MR spectroscopy data.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Treatment consists of daily creatine supplementation to increase cerebral creatine, reduction of arginine intake
@@ -4939,6 +5172,7 @@ treatments:
       label: dietary intervention
   evidence:
   - reference: PMID:24268530
+    reference_title: &#34;Guanidinoacetate methyltransferase (GAMT) deficiency: outcomes in 48 individuals and recommendations for diagnosis, treatment and monitoring.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Increase of cerebral creatine and decrease of plasma/CSF guanidinoacetate levels were achieved by supplementation
@@ -4946,6 +5180,7 @@ treatments:
       l-arginine).
     explanation: Supports arginine-restricted diet as part of the effective treatment regimen.
   - reference: PMID:19289269
+    reference_title: &#34;Guanidinoacetate methyltransferase deficiency (GAMT).&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Treatment is based on giving creatine supplementation orally and a low-protein diet with restricted arginine
@@ -4964,6 +5199,7 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:24268530
+    reference_title: &#34;Guanidinoacetate methyltransferase (GAMT) deficiency: outcomes in 48 individuals and recommendations for diagnosis, treatment and monitoring.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Treatment regimens included various combinations/dosages of creatine-monohydrate, l-ornithine, sodium benzoate
@@ -4983,6 +5219,7 @@ treatments:
       label: disease screening
   evidence:
   - reference: PMID:37465909
+    reference_title: &#34;Evidence and Recommendation for Guanidinoacetate Methyltransferase Deficiency Newborn Screening.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: the feasibility of screening, the low number of positive results, the relative ease of diagnosis, and the expected
@@ -5003,6 +5240,7 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:19289269
+    reference_title: &#34;Guanidinoacetate methyltransferase deficiency (GAMT).&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: This results in improvement of many of the symptoms, especially of the epileptic seizures and the abnormal movements.
@@ -5019,12 +5257,14 @@ treatments:
       label: genetic counseling
   evidence:
   - reference: PMID:39006040
+    reference_title: &#34;Phenotypic and Molecular Spectrum of Guanidinoacetate N-Methyltransferase Deficiency: An Analytical Study of a Case Series and a Scoping Review of 53 Cases of Guanidinoacetate N-Methyltransferase.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Premarital testing of neurogenetic diseases using whole-exome sequencing is probably a future direction, especially
       in populations with high consanguinity rates.
     explanation: Supports genetic counseling and carrier testing, particularly in consanguineous populations.
   - reference: PMID:37465909
+    reference_title: &#34;Evidence and Recommendation for Guanidinoacetate Methyltransferase Deficiency Newborn Screening.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Guanidinoacetate methyltransferase (GAMT) deficiency is an autosomal recessive disorder of creatine biosynthesis
@@ -5048,12 +5288,14 @@ treatments:
     &#39;
   evidence:
   - reference: PMID:35505663
+    reference_title: &#34;Gene therapy for guanidinoacetate methyltransferase deficiency restores cerebral and myocardial creatine while resolving behavioral abnormalities.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: Serial collection of blood demonstrated a marked early and sustained reduction of GAA with normalization of plasma
       creatine; urinary GAA levels also markedly declined.
     explanation: Shows sustained biochemical correction in the gene therapy mouse model.
   - reference: PMID:35505663
+    reference_title: &#34;Gene therapy for guanidinoacetate methyltransferase deficiency restores cerebral and myocardial creatine while resolving behavioral abnormalities.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: The terminal time point demonstrated marked improvement in cerebral and myocardial creatine levels. In conjunction

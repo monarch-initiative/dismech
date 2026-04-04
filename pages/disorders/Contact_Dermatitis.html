@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 15</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Dermatological Disease</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Inflammatory Disease</span>
@@ -1936,6 +2109,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -2005,6 +2181,14 @@
             <div class="stat-item">
                 <div class="stat-value">4</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">15</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2630,10 +2814,11 @@
                 <span class="card-count">13</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-irritant-exposure-and-toxic-insult">
                 <div class="item-name">Irritant exposure and toxic insult</div>
                 
                 <div class="item-desc">In irritant contact dermatitis, direct exposure to chemical or physical irritants causes the initiating toxic cutaneous insult.</div>
+                
                 
                 
                 
@@ -2677,7 +2862,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-epidermal-barrier-disruption">
                 <div class="item-name">Epidermal barrier disruption</div>
                 
                 <div class="item-desc">Irritant injury disrupts epidermal barrier integrity and creates the tissue context for downstream inflammatory activation.</div>
@@ -2696,6 +2881,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2738,7 +2924,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-keratinocyte-activation-and-proinflammatory-mediator-release">
                 <div class="item-name">Keratinocyte activation and proinflammatory mediator release</div>
                 
                 <div class="item-desc">Barrier-injured keratinocytes enter an activated inflammatory state and release mediators that propagate local cutaneous inflammation.</div>
@@ -2784,6 +2970,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2843,7 +3030,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-innate-inflammatory-cell-recruitment">
                 <div class="item-name">Innate inflammatory cell recruitment</div>
                 
                 <div class="item-desc">Irritant-induced mediators recruit and activate inflammatory cells in skin after barrier injury.</div>
@@ -2884,6 +3071,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2918,10 +3106,11 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-hapten-exposure">
                 <div class="item-name">Hapten exposure</div>
                 
                 <div class="item-desc">In allergic contact dermatitis, repeated skin contact with small reactive chemicals exposes the immune system to haptens and initiates sensitization.</div>
+                
                 
                 
                 
@@ -2965,7 +3154,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-skin-innate-immune-activation-during-sensitization">
                 <div class="item-name">Skin innate immune activation during sensitization</div>
                 
                 <div class="item-desc">Early innate immune signaling in allergen-exposed skin shapes the sensitization phase and supports subsequent adaptive immune priming.</div>
@@ -2994,6 +3183,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3036,7 +3226,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-breakdown-of-regulatory-t-cell-mediated-hapten-tolerance">
                 <div class="item-name">Breakdown of regulatory T-cell-mediated hapten tolerance</div>
                 
                 <div class="item-desc">Allergic contact dermatitis reflects failure of suppressive CD4-positive regulatory T-cell programs that normally prevent hapten priming and dampen eczema in sensitized individuals.</div>
@@ -3055,6 +3245,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3097,7 +3288,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-allergen-specific-t-cell-priming">
                 <div class="item-name">Allergen-specific T-cell priming</div>
                 
                 <div class="item-desc">During sensitization, antigen-presenting cells prime allergen-specific T cells, establishing the adaptive immune memory required for later flares.</div>
@@ -3168,6 +3359,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3202,7 +3394,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-re-exposure-driven-effector-t-cell-recruitment">
                 <div class="item-name">Re-exposure-driven effector T-cell recruitment</div>
                 
                 <div class="item-desc">Upon renewed hapten exposure, primed effector T cells re-enter skin and initiate the elicitation phase of allergic contact dermatitis.</div>
@@ -3243,6 +3435,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3277,7 +3470,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-resident-memory-t-cell-flare-activation">
                 <div class="item-name">Resident memory T-cell flare activation</div>
                 
                 <div class="item-desc">Epidermal resident memory CD8-positive T cells are activated in allergen-experienced skin and intensify local flare responses.</div>
@@ -3296,6 +3489,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3338,7 +3532,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-mixed-type-1-and-type-3-cytokine-and-chemokine-amplification">
                 <div class="item-name">Mixed type 1 and type 3 cytokine and chemokine amplification</div>
                 
                 <div class="item-desc">Activated effector and resident memory T cells amplify IFNg-, IL-17A-, IL-1beta-, and chemokine-rich inflammatory programs, with predominant type 1 and type 3 effector responses and lesser type 2 contributions.</div>
@@ -3384,6 +3578,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3443,7 +3638,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-fibroblast-cxcl9-cxcl10-reinforcement">
                 <div class="item-name">Fibroblast CXCL9/CXCL10 reinforcement</div>
                 
                 <div class="item-desc">Dermal fibroblasts adopt a chemokine-producing inflammatory phenotype that reinforces type 1 lymphocyte polarization and sustains cutaneous inflammation.</div>
@@ -3494,6 +3689,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3528,7 +3724,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-complement-associated-sensory-neuron-activation">
                 <div class="item-name">Complement-associated sensory neuron activation</div>
                 
                 <div class="item-desc">In allergic contact dermatitis, complement-associated neuroimmune signaling activates peripheral sensory pathways and contributes to itch generation.</div>
@@ -3547,6 +3743,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3697,12 +3894,13 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Contact Dermatitis</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
@@ -5603,11 +5801,13 @@ definitions:
   scope: General clinical framing of contact dermatitis in dermatology and occupational medicine
   evidence:
   - reference: PMID:25102574
+    reference_title: &#34;Identifying the causes of contact dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Contact dermatitis results from skin contact with an exogenous substance.&#34;
     explanation: This supports the core disease definition as dermatitis caused by external cutaneous exposure.
   - reference: PMID:25102574
+    reference_title: &#34;Identifying the causes of contact dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The two most common variants are irritant contact dermatitis (ICD) and allergic contact dermatitis (ACD).&#34;
@@ -5622,11 +5822,13 @@ definitions:
   scope: Clinical diagnosis of recurrent, persistent, or exposure-pattern dermatitis suspicious for allergic contact dermatitis
   evidence:
   - reference: PMID:31757238
+    reference_title: &#34;Allergic Contact Dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Diagnosis is based on a thorough history, physical examination, and patch testing.&#34;
     explanation: This supports the practical diagnostic framework of history, examination, and patch testing.
   - reference: PMID:25102574
+    reference_title: &#34;Identifying the causes of contact dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;If ACD is suspected the patient should be referred to secondary care for patch testing.&#34;
@@ -5672,11 +5874,13 @@ has_subtypes:
   description: Delayed type IV hypersensitivity dermatitis caused by prior sensitization to a contact allergen.
   evidence:
   - reference: PMID:25102574
+    reference_title: &#34;Identifying the causes of contact dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Classical ACD is mediated by type 4 cell-mediated immunity.&#34;
     explanation: This review explicitly defines allergic contact dermatitis as a type IV cell-mediated immune process.
   - reference: PMID:19839974
+    reference_title: &#34;Effector and regulatory mechanisms in allergic contact dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Allergic contact dermatitis (ACD), one of the commonest occupational diseases, is a T-cell-mediated skin inflammation caused by repeated skin exposure to contact allergens, i.e. nonprotein chemicals called haptens.&#34;
@@ -5685,11 +5889,13 @@ has_subtypes:
   description: Non-sensitization-dependent dermatitis caused by direct toxic or barrier-disrupting effects of an exposure.
   evidence:
   - reference: PMID:25274939
+    reference_title: &#34;Irritant contact dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Irritant contact dermatitis (ICD) is the most common form of contact dermatitis.&#34;
     explanation: This supports irritant contact dermatitis as a principal subtype within the broader contact dermatitis category.
   - reference: PMID:25102574
+    reference_title: &#34;Identifying the causes of contact dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;ICD is a form of eczema and is induced by direct inflammatory pathways without prior sensitisation.&#34;
@@ -5705,12 +5911,14 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: PMID:25274939
+      reference_title: &#34;Irritant contact dermatitis.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;The pathophysiological mechanism depends on activation of the innate immune system and involves skin barrier disruption&#34;
       explanation: This supports a direct transition from irritant exposure to epidermal barrier injury in irritant contact dermatitis.
   evidence:
   - reference: PMID:25274939
+    reference_title: &#34;Irritant contact dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;It represents the cutaneous response to the toxic/physical effects of a wide variety of environmental agents.&#34;
@@ -5730,12 +5938,14 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: PMID:25274939
+      reference_title: &#34;Irritant contact dermatitis.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;involves skin barrier disruption, cellular changes&#34;
       explanation: This supports barrier disruption as the immediate precursor to keratinocyte and mediator activation.
   evidence:
   - reference: PMID:25274939
+    reference_title: &#34;Irritant contact dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;involves skin barrier disruption&#34;
@@ -5764,12 +5974,14 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: PMID:25274939
+      reference_title: &#34;Irritant contact dermatitis.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;release of proinflammatory mediators that directly recruit and activate T lymphocytes.&#34;
       explanation: This supports mediator-driven recruitment of inflammatory cells as the next step after keratinocyte activation.
   evidence:
   - reference: PMID:25274939
+    reference_title: &#34;Irritant contact dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;involves skin barrier disruption, cellular changes, and release of proinflammatory mediators.&#34;
@@ -5799,12 +6011,14 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: PMID:9590995
+      reference_title: &#34;Irritant contact dermatitis. Clues to causes, clinical characteristics, and control.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Clinical signs include vesicles, papules, bullae, erythema, edema, scaling, and lichenification.&#34;
       explanation: This supports progression from inflammatory recruitment to clinically evident contact dermatitis.
   evidence:
   - reference: PMID:25274939
+    reference_title: &#34;Irritant contact dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;release of proinflammatory mediators that directly recruit and activate T lymphocytes.&#34;
@@ -5819,12 +6033,14 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: PMID:19839974
+      reference_title: &#34;Effector and regulatory mechanisms in allergic contact dermatitis.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Recent advances in the pathophysiology of ACD have demonstrated the important role of skin innate immunity in the sensitization process&#34;
       explanation: This supports repeated hapten exposure feeding into innate skin immune activation during sensitization.
   evidence:
   - reference: PMID:19839974
+    reference_title: &#34;Effector and regulatory mechanisms in allergic contact dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Allergic contact dermatitis (ACD), one of the commonest occupational diseases, is a T-cell-mediated skin inflammation caused by repeated skin exposure to contact allergens, i.e. nonprotein chemicals called haptens.&#34;
@@ -5848,12 +6064,14 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: PMID:19839974
+      reference_title: &#34;Effector and regulatory mechanisms in allergic contact dermatitis.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Recent advances in the pathophysiology of ACD have demonstrated the important role of skin innate immunity in the sensitization process and have revisited the dogma that Langerhans cells are mandatory for CD8+ T-cell priming.&#34;
       explanation: This supports innate skin immune activation as an upstream component of adaptive immune priming in allergic contact dermatitis.
   evidence:
   - reference: PMID:19839974
+    reference_title: &#34;Effector and regulatory mechanisms in allergic contact dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Recent advances in the pathophysiology of ACD have demonstrated the important role of skin innate immunity in the sensitization process&#34;
@@ -5874,6 +6092,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: PMID:19839974
+      reference_title: &#34;Effector and regulatory mechanisms in allergic contact dermatitis.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Subsets of CD4+ T cells endowed with suppressive activity are responsible for both the down-regulation of eczema in allergic patients and the prevention of priming to haptens in nonallergic individuals.&#34;
@@ -5883,12 +6102,14 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: PMID:19839974
+      reference_title: &#34;Effector and regulatory mechanisms in allergic contact dermatitis.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Therefore, ACD should be considered as a breakdown of the skin immune tolerance to haptens.&#34;
       explanation: This supports failed immune tolerance as a causal contributor to allergic contact dermatitis lesions.
   evidence:
   - reference: PMID:19839974
+    reference_title: &#34;Effector and regulatory mechanisms in allergic contact dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Subsets of CD4+ T cells endowed with suppressive activity are responsible for both the down-regulation of eczema in allergic patients and the prevention of priming to haptens in nonallergic individuals.&#34;
@@ -5925,12 +6146,14 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: PMID:19839974
+      reference_title: &#34;Effector and regulatory mechanisms in allergic contact dermatitis.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Allergic contact dermatitis, also referred to as contact hypersensitivity, is mediated by CD8+ T cells, which are primed in lymphoid organs during the sensitization phase and are recruited in the skin upon re-exposure to the hapten.&#34;
       explanation: This directly supports progression from sensitization-phase priming to re-exposure-driven effector T-cell recruitment.
   evidence:
   - reference: PMID:19839974
+    reference_title: &#34;Effector and regulatory mechanisms in allergic contact dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Allergic contact dermatitis, also referred to as contact hypersensitivity, is mediated by CD8+ T cells, which are primed in lymphoid organs during the sensitization phase and are recruited in the skin upon re-exposure to the hapten.&#34;
@@ -5955,12 +6178,14 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: PMID:37700557
+      reference_title: &#34;CD100 boosts the inflammatory response in the challenge phase of allergic contact dermatitis in mice.&#34;
       supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &#34;We show that CD8+ TRM cells express CD100 during homeostatic conditions and up-regulate it following re-exposure of allergen-experienced skin to the experimental contact allergen 1-fluoro-2,4-dinitrobenzene (DNFB).&#34;
       explanation: This supports activation of resident memory T cells after allergen re-exposure during the elicitation phase.
   evidence:
   - reference: PMID:19839974
+    reference_title: &#34;Effector and regulatory mechanisms in allergic contact dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Allergic contact dermatitis, also referred to as contact hypersensitivity, is mediated by CD8+ T cells, which are primed in lymphoid organs during the sensitization phase and are recruited in the skin upon re-exposure to the hapten.&#34;
@@ -5980,12 +6205,14 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: PMID:37700557
+      reference_title: &#34;CD100 boosts the inflammatory response in the challenge phase of allergic contact dermatitis in mice.&#34;
       supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &#34;We show that loss of CD100 results in a reduced inflammatory response to DNFB with impaired production of IFNγ, IL-17A, CXCL1, CXCL2, CXCL5, and IL-1β and decreased recruitment of neutrophils to the epidermis.&#34;
       explanation: This supports resident memory T-cell-dependent amplification of cytokine and chemokine production during allergic flare responses.
   evidence:
   - reference: PMID:37700557
+    reference_title: &#34;CD100 boosts the inflammatory response in the challenge phase of allergic contact dermatitis in mice.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;BACKGROUND: Allergic contact dermatitis (ACD) is an inflammatory disease with a complex pathophysiology in which epidermal-resident memory CD8+ T (TRM ) cells play a key role.&#34;
@@ -6015,12 +6242,14 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: PMID:39213029
+      reference_title: &#34;Defining cell type-specific immune responses in a mouse model of allergic contact dermatitis by single-cell transcriptomics.&#34;
       supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &#34;IFNγ treatment shifted dermal fibroblasts from collagen-producing to CXCL9/10-producing, which promoted T cell polarization toward the type-1 phenotype through a CXCR3-dependent mechanism.&#34;
       explanation: This supports a direct edge from type 1 inflammatory cytokine signaling to fibroblast chemokine reinforcement.
   evidence:
   - reference: PMID:37700557
+    reference_title: &#34;CD100 boosts the inflammatory response in the challenge phase of allergic contact dermatitis in mice.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;We show that loss of CD100 results in a reduced inflammatory response to DNFB with impaired production of IFNγ, IL-17A, CXCL1, CXCL2, CXCL5, and IL-1β and decreased recruitment of neutrophils to the epidermis.&#34;
@@ -6055,12 +6284,14 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: PMID:39213029
+      reference_title: &#34;Defining cell type-specific immune responses in a mouse model of allergic contact dermatitis by single-cell transcriptomics.&#34;
       supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &#34;Together, our results define the cell type-specific immune responses in ACD, and recognize an indispensable role of dermal fibroblasts in shaping the development of type-1 skin inflammation through the IFNGR-CXCR3 signaling circuit during ACD pathogenesis.&#34;
       explanation: This supports fibroblast chemokine reinforcement as a direct contributor to sustained allergic contact dermatitis lesions.
   evidence:
   - reference: PMID:39213029
+    reference_title: &#34;Defining cell type-specific immune responses in a mouse model of allergic contact dermatitis by single-cell transcriptomics.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;IFNγ treatment shifted dermal fibroblasts from collagen-producing to CXCL9/10-producing, which promoted T cell polarization toward the type-1 phenotype through a CXCR3-dependent mechanism.&#34;
@@ -6080,12 +6311,14 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: PMID:34417985
+      reference_title: &#34;Proteome Profile of Trigeminal Ganglion in Murine Model of Allergic Contact Dermatitis: Complement 3 Pathway Contributes to Itch and Pain Sensation.&#34;
       supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &#34;The complement system in sensory ganglion might play an essential role in forming pruritic and nociceptive sensations in ACD.&#34;
       explanation: This supports complement-associated sensory neuron activation as a direct contributor to pruritus in allergic contact dermatitis.
   evidence:
   - reference: PMID:34417985
+    reference_title: &#34;Proteome Profile of Trigeminal Ganglion in Murine Model of Allergic Contact Dermatitis: Complement 3 Pathway Contributes to Itch and Pain Sensation.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;The complement system in sensory ganglion might play an essential role in forming pruritic and nociceptive sensations in ACD.&#34;
@@ -6103,6 +6336,7 @@ phenotypes:
       label: Contact dermatitis
   evidence:
   - reference: PMID:25102574
+    reference_title: &#34;Identifying the causes of contact dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The two most common variants are irritant contact dermatitis (ICD) and allergic contact dermatitis (ACD).&#34;
@@ -6119,6 +6353,7 @@ phenotypes:
       label: Pruritus
   evidence:
   - reference: PMID:39941494
+    reference_title: &#34;Eyelid Contact Dermatitis: 25-Year Single-Center Retrospective Study.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Background/Objectives: Eyelid dermatitis is an inflammatory disease affecting the palpebral skin characterized by itching, edema, and scaling of the periorbital area.&#34;
@@ -6134,6 +6369,7 @@ phenotypes:
       label: Erythema
   evidence:
   - reference: PMID:9590995
+    reference_title: &#34;Irritant contact dermatitis. Clues to causes, clinical characteristics, and control.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Clinical signs include vesicles, papules, bullae, erythema, edema, scaling, and lichenification.&#34;
@@ -6149,6 +6385,7 @@ phenotypes:
       label: Scaling skin
   evidence:
   - reference: PMID:39941494
+    reference_title: &#34;Eyelid Contact Dermatitis: 25-Year Single-Center Retrospective Study.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Background/Objectives: Eyelid dermatitis is an inflammatory disease affecting the palpebral skin characterized by itching, edema, and scaling of the periorbital area.&#34;
@@ -6163,6 +6400,7 @@ histopathology:
   subtype: Allergic Contact Dermatitis
   evidence:
   - reference: PMID:39709083
+    reference_title: &#34;Epidermal spongiotic Langerhans cell collections, but not eosinophils, are a clue to the diagnosis of allergic contact dermatitis: A series of 170 clinically- and patch test-confirmed cases.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;BACKGROUND: Allergic contact dermatitis cannot be reliably differentiated from other forms of spongiotic/eczematous dermatitis by histology alone.&#34;
@@ -6175,6 +6413,7 @@ histopathology:
   subtype: Allergic Contact Dermatitis
   evidence:
   - reference: PMID:39709083
+    reference_title: &#34;Epidermal spongiotic Langerhans cell collections, but not eosinophils, are a clue to the diagnosis of allergic contact dermatitis: A series of 170 clinically- and patch test-confirmed cases.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;CONCLUSION: This largest study to date is the first to independently confirm Langerhans cell collections as the single histopathologic feature most closely associated with allergic contact dermatitis.&#34;
@@ -6190,11 +6429,13 @@ prevalence:
     contact dermatitis estimate of 15.1%.
   evidence:
   - reference: PMID:29247509
+    reference_title: &#34;Prevalence of skin disease in a population-based sample of adults from five European countries.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The most common skin disease was warts (41·3%), followed by acne (19·2%) and contact dermatitis (15·0%).&#34;
     explanation: This provides a direct population-based lifetime prevalence estimate for contact dermatitis in adults from five European countries.
   - reference: PMID:26370659
+    reference_title: &#34;Prevalence of contact allergy in the general population in different European regions.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Subjects reporting contact dermatitis in their lifetime (age-standardized prevalence 15·1%, 95% CI 13·8-16·3)&#34;
@@ -6208,6 +6449,7 @@ prevalence:
     meta-analytic prevalence estimate.
   evidence:
   - reference: PMID:39403761
+    reference_title: &#34;Contact Dermatitis in the United States: A Population-Based Study on Patient Visit Characteristics and Treatment Prescription Patterns.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Background: Contact dermatitis (CD) affects ∼15% of the general population over a lifetime.&#34;
@@ -6219,11 +6461,13 @@ epidemiology:
   - occupation
   evidence:
   - reference: PMID:19580930
+    reference_title: &#34;Management of occupational dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Contact dermatitis is the most common occupational skin disorder, responsible for up to 30% of all cases of occupational disease in industrialized nations.&#34;
     explanation: This review supports contact dermatitis as a leading occupational disease burden.
   - reference: PMID:19580930
+    reference_title: &#34;Management of occupational dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Epidemiologic data suggest that contact dermatitis accounts for 90% to 95% of all cases of occupational skin disease&#34;
@@ -6240,6 +6484,7 @@ genetic:
       label: FLG
   evidence:
   - reference: PMID:23343419
+    reference_title: &#34;Filaggrin mutations are strongly associated with contact sensitization in individuals with dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;FLG mutation carriers with self-reported dermatitis have an increased risk of contact sensitization to substances other than nickel&#34;
@@ -6255,6 +6500,7 @@ genetic:
       label: FLG
   evidence:
   - reference: PMID:23039796
+    reference_title: &#34;Impact of atopic dermatitis and loss-of-function mutations in the filaggrin gene on the development of occupational irritant contact dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Our results indicate that both FLG mutations and AD increase the risk of ICD.&#34;
@@ -6284,6 +6530,7 @@ environmental:
   effect: TRIGGERS
   evidence:
   - reference: PMID:25102574
+    reference_title: &#34;Identifying the causes of contact dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Cumulative effects of water, soaps and detergents are the most common cause of ICD which affects the hands more often than any other site.&#34;
@@ -6333,6 +6580,7 @@ environmental:
     snippet: &#34;Metals, especially nickel, fragrance mix, isothiazolinones, and para-phenylenediamine, are the most commonly positive allergens in patients patch tested for suspected ACD.&#34;
     explanation: This review identifies isothiazolinones as common sensitizing preservatives in allergic contact dermatitis.
   - reference: PMID:41804652
+    reference_title: &#34;Prevalence of Contact Allergy to Isothiazolinones in Dermatitis Patients From 2000 to 2025: A Systematic Review and Meta-Analysis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The prevalence of CA to methylchloroisothiazolinone/methylisothiazolinone (MCI/MI) was 4.58%, methylisothiazolinone (MI) was 5.48%, and benzisothiazolinone (BIT) was 2.09%.&#34;
@@ -6349,6 +6597,7 @@ environmental:
   effect: TRIGGERS
   evidence:
   - reference: PMID:30465037
+    reference_title: &#34;Allergic Contact Dermatitis to Mastisol Adhesive Used for Skin Closure in Orthopedic Surgery: A Case Report.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We report on a rare case of allergic contact dermatitis (ACD) from Mastisol liquid adhesive.&#34;
@@ -6377,11 +6626,13 @@ environmental:
   effect: TRIGGERS
   evidence:
   - reference: PMID:41784277
+    reference_title: &#34;Systematic Review and Meta Analysis of Allergic Contact Dermatitis from 2-Octyl Cyanoacrylate Adhesives.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;2-octyl cyanoacrylate (2-OCA) topical skin adhesives are widely used for surgical wound closure but are increasingly associated with allergic contact dermatitis (ACD).&#34;
     explanation: This systematic review supports 2-octyl cyanoacrylate as a specific surgical adhesive trigger of allergic contact dermatitis.
   - reference: PMID:41784277
+    reference_title: &#34;Systematic Review and Meta Analysis of Allergic Contact Dermatitis from 2-Octyl Cyanoacrylate Adhesives.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Re-exposure markedly increased risk, with reaction rates rising from 1-3% after initial exposure to &gt;20% in staged or repeat procedures in several cohorts.&#34;
@@ -6404,6 +6655,7 @@ environmental:
   effect: TRIGGERS
   evidence:
   - reference: PMID:25102574
+    reference_title: &#34;Identifying the causes of contact dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Nickel, fragrances, rubber accelerators and biocides are the most common sensitisers in ACD.&#34;
@@ -6415,6 +6667,7 @@ environmental:
   effect: TRIGGERS
   evidence:
   - reference: PMID:25102574
+    reference_title: &#34;Identifying the causes of contact dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Nickel, fragrances, rubber accelerators and biocides are the most common sensitisers in ACD.&#34;
@@ -6426,6 +6679,7 @@ environmental:
   effect: Increases sensitization risk
   evidence:
   - reference: PMID:25102574
+    reference_title: &#34;Identifying the causes of contact dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Frequent exposure and high concentrations of potential allergens increase the risk of sensitisation.&#34;
@@ -6453,11 +6707,13 @@ environmental:
   effect: TRIGGERS
   evidence:
   - reference: PMID:14700441
+    reference_title: &#34;Topical pimecrolimus in the treatment of human allergic contact dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Plants of the Toxicodendron species cause allergic contact dermatitis (ACD) in 50% to 70% of the population.&#34;
     explanation: This supports Toxicodendron plant exposure as a common and clinically important trigger of allergic contact dermatitis.
   - reference: PMID:27548435
+    reference_title: &#34;CD1a on Langerhans cells controls inflammatory skin disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Among various urushiol congeners, we identified diunsaturated pentadecylcatechol (C15:2) as the dominant antigen for CD1a-restricted T cells.&#34;
@@ -6470,6 +6726,7 @@ environmental:
   effect: TRIGGERS
   evidence:
   - reference: PMID:41064302
+    reference_title: &#34;Mojito-Induced Phytophotodermatitis: A Case of Lime-Triggered Skin Reaction.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Lime-induced phytophotodermatitis, sometimes called \&#34;lime disease\&#34; or \&#34;margarita photodermatitis,\&#34; is one of the most common forms, caused by furocoumarins in lime juice or peel.&#34;
@@ -6481,6 +6738,7 @@ environmental:
   effect: TRIGGERS
   evidence:
   - reference: PMID:40921440
+    reference_title: &#34;Allergic Contact Dermatitis Triggered by a Mare&#39;s Milk-Based Soap.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Allergic Contact Dermatitis Triggered by a Mare&#39;s Milk-Based Soap.&#34;
@@ -6498,11 +6756,13 @@ treatments:
       label: medical action avoidance
   evidence:
   - reference: PMID:25102574
+    reference_title: &#34;Identifying the causes of contact dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Accurate diagnosis, avoidance of identified allergens and protection from irritants are the key to successful treatment.&#34;
     explanation: This supports avoidance of sensitizers and irritants as first-line disease management.
   - reference: PMID:9590995
+    reference_title: &#34;Irritant contact dermatitis. Clues to causes, clinical characteristics, and control.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Elimination of the offending agent and protection from further exposure are important in both diagnosis and management.&#34;
@@ -6540,6 +6800,7 @@ treatments:
           label: Topical Route of Administration
   evidence:
   - reference: PMID:31757238
+    reference_title: &#34;Allergic Contact Dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Topical corticosteroids can be used to treat exacerbations, but should be avoided in long-term treatment.&#34;
@@ -6590,11 +6851,13 @@ treatments:
           label: Topical Route of Administration
   evidence:
   - reference: PMID:16781290
+    reference_title: &#34;A prospective randomized clinical trial of 0.1% tacrolimus ointment in a model of chronic allergic contact dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;CONCLUSIONS: Tacrolimus ointment 0.1% is well tolerated and significantly more effective than vehicle in treating chronically exposed, nickel-induced ACD.&#34;
     explanation: This randomized clinical trial supports topical tacrolimus as an effective steroid-sparing option for chronic nickel-induced allergic contact dermatitis.
   - reference: PMID:14700441
+    reference_title: &#34;Topical pimecrolimus in the treatment of human allergic contact dermatitis.&#34;
     supports: REFUTE
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;CONCLUSIONS: The application of topical pimecrolimus is ineffective in the treatment of ongoing Toxicodendron-induced ACD.&#34;
@@ -6638,6 +6901,7 @@ diagnosis:
       label: diagnostic procedure
   evidence:
   - reference: PMID:31757238
+    reference_title: &#34;Allergic Contact Dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Diagnosis is based on a thorough history, physical examination, and patch testing.&#34;
@@ -6672,11 +6936,13 @@ diagnosis:
           label: skin of body
   evidence:
   - reference: PMID:31757238
+    reference_title: &#34;Allergic Contact Dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Diagnosis is based on a thorough history, physical examination, and patch testing.&#34;
     explanation: This supports patch testing as a core diagnostic modality for allergic contact dermatitis.
   - reference: PMID:25102574
+    reference_title: &#34;Identifying the causes of contact dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;If ACD is suspected the patient should be referred to secondary care for patch testing.&#34;
@@ -6702,11 +6968,13 @@ differential_diagnoses:
   - Contact dermatitis is more tightly linked to external exposures and tends to localize to the area of contact with the exogenous trigger.
   evidence:
   - reference: PMID:38713001
+    reference_title: &#34;Differential diagnosis of contact dermatitis: A practical-approach review by the EADV Task Force on contact dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Furthermore, other conditions, with different pathogenesis and treatment, may clinically simulate contact dermatitis.&#34;
     explanation: This task-force review supports atopic dermatitis as part of the clinical differential diagnosis for contact dermatitis.
   - reference: PMID:38713001
+    reference_title: &#34;Differential diagnosis of contact dermatitis: A practical-approach review by the EADV Task Force on contact dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Although irritant and allergic contact dermatitis have a different pathogenesis, both are characterized by a rather typical morphology, are triggered by external factors and tend to occur primarily in the area of contact with the exogenous agent.&#34;
@@ -6726,11 +6994,13 @@ differential_diagnoses:
   - Contact dermatitis is usually linked to a relevant irritant or allergen exposure history and improves when the offending exposure is removed.
   evidence:
   - reference: PMID:38713001
+    reference_title: &#34;Differential diagnosis of contact dermatitis: A practical-approach review by the EADV Task Force on contact dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Furthermore, other conditions, with different pathogenesis and treatment, may clinically simulate contact dermatitis.&#34;
     explanation: This practical review supports psoriasis as a plausible simulator within the differential diagnosis of contact dermatitis.
   - reference: PMID:25102574
+    reference_title: &#34;Identifying the causes of contact dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Contact dermatitis results from skin contact with an exogenous substance.&#34;
@@ -6749,11 +7019,13 @@ differential_diagnoses:
   - Contact dermatitis is evaluated through exposure history and, for allergic disease, patch testing rather than mycologic testing.
   evidence:
   - reference: PMID:38713001
+    reference_title: &#34;Differential diagnosis of contact dermatitis: A practical-approach review by the EADV Task Force on contact dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Furthermore, other conditions, with different pathogenesis and treatment, may clinically simulate contact dermatitis.&#34;
     explanation: This supports superficial fungal infection as part of the broader mimic set that must be separated from contact dermatitis.
   - reference: PMID:31757238
+    reference_title: &#34;Allergic Contact Dermatitis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Diagnosis is based on a thorough history, physical examination, and patch testing.&#34;

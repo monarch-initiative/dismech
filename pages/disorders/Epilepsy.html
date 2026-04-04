@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 6</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Neurological Disease</span>
                 
             </div>
@@ -1930,6 +2103,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1985,6 +2161,14 @@
             <div class="stat-item">
                 <div class="stat-value">6</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">6</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2262,7 +2446,7 @@
                 <span class="card-count">7</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuronal-hyperexcitability">
                 <div class="item-name">Neuronal Hyperexcitability</div>
                 
                 <div class="item-desc">Imbalance between excitatory (glutamate) and inhibitory (GABA) neurotransmission leads to synchronized, excessive neuronal firing. Ion channel dysfunction is a common mechanism.
@@ -2309,6 +2493,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2364,7 +2549,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-blood-brain-barrier-disruption">
                 <div class="item-name">Blood-Brain Barrier Disruption</div>
                 
                 <div class="item-desc">Loss of tight junction proteins (claudin-5) in brain endothelial cells leads to blood-brain barrier breakdown, allowing albumin extravasation and disruption of ionic homeostasis.
@@ -2401,6 +2586,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2474,7 +2660,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-network-hyperexcitability">
                 <div class="item-name">Network Hyperexcitability</div>
                 
                 <div class="item-desc">Abnormal synchronization of neuronal networks that can recruit adjacent or distant brain regions, leading to seizure propagation.
@@ -2502,11 +2688,12 @@
                 
                 
                 
+                
     
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuroinflammation-and-gliosis">
                 <div class="item-name">Neuroinflammation and Gliosis</div>
                 
                 <div class="item-desc">Activation of microglia and reactive astrocytes following brain injury or during seizures, releasing inflammatory mediators and undergoing morphological changes that alter the brain microenvironment.
@@ -2558,11 +2745,12 @@
                 
                 
                 
+                
     
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-synaptic-reorganization">
                 <div class="item-name">Synaptic Reorganization</div>
                 
                 <div class="item-desc">Aberrant sprouting, formation of new synaptic connections, and altered synaptic plasticity that promote recurrent excitatory circuits and seizure susceptibility.
@@ -2590,11 +2778,12 @@
                 
                 
                 
+                
     
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-mtor-pathway-hyperactivation">
                 <div class="item-name">mTOR Pathway Hyperactivation</div>
                 
                 <div class="item-desc">Constitutive activation of the mechanistic target of rapamycin (mTOR) signaling pathway, driving abnormal neuronal growth and development of dysmorphic neurons in focal cortical malformations.
@@ -2617,6 +2806,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2672,11 +2862,12 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysmorphic-neuron-generation">
                 <div class="item-name">Dysmorphic Neuron Generation</div>
                 
                 <div class="item-desc">Formation of abnormally enlarged neurons with cytoskeletal disruption and cellular senescence markers, creating epileptogenic foci in cortical malformations.
 </div>
+                
                 
                 
                 
@@ -2749,12 +2940,13 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Epilepsy</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
@@ -3638,6 +3830,7 @@ pathophysiology:
       label: chemical synaptic transmission
   evidence:
   - reference: PMID:39056027
+    reference_title: &#34;Excitation/Inhibition balance relates to cognitive function and gene expression in temporal lobe epilepsy: a high density EEG assessment with aperiodic exponent.&#34;
     supports: PARTIAL
     snippet: &#34;Patients with temporal lobe epilepsy showed a significantly larger exponent,
       corresponding to inhibition-directed E/I balance, in bilateral frontal and temporal
@@ -3646,6 +3839,7 @@ pathophysiology:
       epilepsy, but only partially supports this broad descriptor for epilepsy
       overall.
   - reference: PMID:39056027
+    reference_title: &#34;Excitation/Inhibition balance relates to cognitive function and gene expression in temporal lobe epilepsy: a high density EEG assessment with aperiodic exponent.&#34;
     supports: PARTIAL
     snippet: &#34;Limited to patients with temporal lobe epilepsy, we detected a significant
       correlation between the exponent and the cortical expression of GABRA1, GRIN2A,
@@ -3674,6 +3868,7 @@ pathophysiology:
       increasing neuronal excitability.
   evidence:
   - reference: PMID:35422069
+    reference_title: &#34;Microvascular stabilization via blood-brain barrier regulation prevents seizure activity.&#34;
     supports: SUPPORT
     snippet: &#34;claudin-5 protein levels are significantly diminished in surgically
       resected brain tissue from patients with treatment-resistant epilepsy. Concomitantly,
@@ -3681,6 +3876,7 @@ pathophysiology:
     explanation: Demonstrates that BBB dysfunction occurs in human epilepsy
       patients and is characterized by loss of tight junction proteins.
   - reference: PMID:35422069
+    reference_title: &#34;Microvascular stabilization via blood-brain barrier regulation prevents seizure activity.&#34;
     supports: SUPPORT
     snippet: &#34;inducible knockdown of claudin-5 in mice leads to spontaneous recurrent
       seizures, severe neuroinflammation, and mortality.&#34;
@@ -3688,6 +3884,7 @@ pathophysiology:
       generation, showing that disruption of endothelial tight junctions is
       sufficient to trigger spontaneous seizures.
   - reference: PMID:35422069
+    reference_title: &#34;Microvascular stabilization via blood-brain barrier regulation prevents seizure activity.&#34;
     supports: SUPPORT
     snippet: &#34;RepSox, a regulator of claudin-5 expression, can prevent seizure activity
       in experimental epilepsy.&#34;
@@ -3752,6 +3949,7 @@ pathophysiology:
       enlargement and cytoskeletal changes.
   evidence:
   - reference: PMID:31174205
+    reference_title: &#34;Chronic mTORC1 inhibition rescues behavioral and biochemical deficits resulting from neuronal Depdc5 loss in mice.&#34;
     supports: SUPPORT
     snippet: &#34;Treatment with the mTORC1 inhibitor rapamycin starting after 3 weeks
       of age significantly prolonged the survival of Depdc5cc+ mice and partially
@@ -3760,6 +3958,7 @@ pathophysiology:
       DEPDC5 loss drives epilepsy pathogenesis and that mTOR inhibition can
       rescue the phenotype.
   - reference: PMID:31174205
+    reference_title: &#34;Chronic mTORC1 inhibition rescues behavioral and biochemical deficits resulting from neuronal Depdc5 loss in mice.&#34;
     supports: SUPPORT
     snippet: &#34;Rapamycin decreased the enlarged brain size of Depdc5cc+ mice with corresponding
       decrease in neuronal soma size.&#34;
@@ -3772,6 +3971,7 @@ pathophysiology:
     cortical malformations.
   evidence:
   - reference: PMID:38710875
+    reference_title: &#34;Targeting pathological cells with senolytic drugs reduces seizures in neurodevelopmental mTOR-related epilepsy.&#34;
     supports: PARTIAL
     snippet: &#34;We uncovered multiple signatures of cellular senescence in these pathological
       cells, including p53/p16 expression, SASP expression and senescence-associated
@@ -3780,6 +3980,7 @@ pathophysiology:
       mTOR-related FCD, but only partially supports all structural details in
       this descriptor.
   - reference: PMID:38710875
+    reference_title: &#34;Targeting pathological cells with senolytic drugs reduces seizures in neurodevelopmental mTOR-related epilepsy.&#34;
     supports: PARTIAL
     snippet: &#34;administration of senolytic drugs (dasatinib/quercetin) decreases the
       load of senescent cells and reduces seizure frequency in an MtorS2215F FCDII
@@ -3826,6 +4027,7 @@ phenotypes:
       label: Memory impairment
   evidence:
   - reference: PMID:39056027
+    reference_title: &#34;Excitation/Inhibition balance relates to cognitive function and gene expression in temporal lobe epilepsy: a high density EEG assessment with aperiodic exponent.&#34;
     supports: PARTIAL
     snippet: &#34;Lower E/I in the left entorhinal and bilateral dorsolateral prefrontal
       cortices corresponded to a lower performance of short-term verbal memory.&#34;
@@ -3855,12 +4057,14 @@ genetic:
   notes: Dravet syndrome, GEFS+
   evidence:
   - reference: PMID:37812819
+    reference_title: &#34;Temporal manipulation of the Scn1a gene reveals its essential role in adult brain function.&#34;
     supports: SUPPORT
     snippet: &#34;It is caused by haploinsufficiency of SCN1A gene encoding for the α-subunit
       of the voltage-gated sodium channel Nav1.1.&#34;
     explanation: Establishes SCN1A haploinsufficiency as the genetic cause of
       Dravet syndrome epileptic encephalopathy.
   - reference: PMID:37812819
+    reference_title: &#34;Temporal manipulation of the Scn1a gene reveals its essential role in adult brain function.&#34;
     supports: SUPPORT
     snippet: &#34;Induction of heterozygous Nav1.1 mutation at P30 and P60 elicited susceptibility
       to the development of both spontaneous and hyperthermia-induced seizures and
@@ -3874,6 +4078,7 @@ genetic:
   notes: Early infantile epileptic encephalopathy
   evidence:
   - reference: PMID:31205438
+    reference_title: &#34;Biallelic SCN2A Gene Mutation Causing Early Infantile Epileptic Encephalopathy: Case Report and Review.&#34;
     supports: SUPPORT
     snippet: &#34;The voltage-gated sodium channel neuronal type 2 alpha subunit
       (Navα1.2) encoded by the SCN2A gene causes early infantile epileptic
@@ -3885,6 +4090,7 @@ genetic:
   notes: Benign familial neonatal seizures
   evidence:
   - reference: PMID:17675531
+    reference_title: &#34;Deletions or duplications in KCNQ2 can cause benign familial neonatal seizures.&#34;
     supports: SUPPORT
     snippet: &#34;Benign familial neonatal seizures are most often caused by
       mutations in the voltage-gated potassium channel subunit gene KCNQ2. More
@@ -3897,6 +4103,7 @@ genetic:
   notes: Juvenile myoclonic epilepsy
   evidence:
   - reference: PMID:11992121
+    reference_title: &#34;Mutation of GABRA1 in an autosomal dominant form of juvenile myoclonic epilepsy.&#34;
     supports: SUPPORT
     snippet: &#34;We report that an Ala322Asp mutation in GABRA1, encoding the alpha1
       subunit of the gamma-aminobutyric acid receptor subtype A (GABA(A)), is
@@ -3909,6 +4116,7 @@ genetic:
   notes: Early-onset epileptic encephalopathy
   evidence:
   - reference: PMID:20493745
+    reference_title: &#34;Epilepsy caused by CDKL5 mutations.&#34;
     supports: SUPPORT
     snippet: &#34;Mutations in the cyclin-dependent kinase-like 5 gene (CDKL5) have
       been identified in female patients with early onset epileptic
@@ -3932,6 +4140,7 @@ treatments:
     carbamazepine.
   evidence:
   - reference: PMID:30587993
+    reference_title: &#34;Levetiracetam for epilepsy: an evidence map of efficacy, safety and economic profiles.&#34;
     supports: SUPPORT
     snippet: &#34;Meta-analysis of the included RCTs indicated that LEV was as
       effective as carbamazepine (CBZ; treatment for 6 months: 58.9% vs 64.8%,
@@ -3946,6 +4155,7 @@ treatments:
     epilepsy.
   evidence:
   - reference: PMID:18456557
+    reference_title: &#34;The ketogenic diet for the treatment of childhood epilepsy: a randomised controlled trial.&#34;
     supports: SUPPORT
     snippet: &#34;28 children (38%) in the diet group had greater than 50% seizure
       reduction compared with four (6%) controls (p&lt;0.0001), and five children
@@ -3957,6 +4167,7 @@ treatments:
   description: Implanted device for drug-resistant epilepsy.
   evidence:
   - reference: PMID:21838505
+    reference_title: &#34;Vagus nerve stimulation for epilepsy: a meta-analysis of efficacy and predictors of response.&#34;
     supports: SUPPORT
     snippet: &#34;After VNS, seizure frequency was reduced by an average of 45%, with
       a 36% reduction in seizures at 3-12 months after surgery and a 51%
@@ -3967,6 +4178,7 @@ treatments:
   description: Resection of seizure focus for drug-resistant focal epilepsy.
   evidence:
   - reference: PMID:11484687
+    reference_title: &#34;A randomized, controlled trial of surgery for temporal-lobe epilepsy.&#34;
     supports: SUPPORT
     snippet: &#34;At one year, the cumulative proportion of patients who were free of
       seizures impairing awareness was 58 percent in the surgical group and 8
@@ -3977,6 +4189,7 @@ treatments:
   description: Closed-loop brain stimulation for focal epilepsy.
   evidence:
   - reference: PMID:32690786
+    reference_title: &#34;Nine-year prospective efficacy and safety of brain-responsive neurostimulation for focal epilepsy.&#34;
     supports: SUPPORT
     snippet: &#34;At 9 years, the median percent reduction in seizure frequency was
       75% (p &lt; 0.0001, Wilcoxon signed rank), responder rate was 73%, and 35%
@@ -3987,6 +4200,7 @@ treatments:
   description: Anterior thalamic stimulation for drug-resistant epilepsy.
   evidence:
   - reference: PMID:25663221
+    reference_title: &#34;Long-term efficacy and safety of thalamic stimulation for drug-resistant partial epilepsy.&#34;
     supports: SUPPORT
     snippet: &#34;The median percent seizure reduction from baseline at 1 year was
       41%, and 69% at 5 years. The responder rate (≥50% reduction in seizure

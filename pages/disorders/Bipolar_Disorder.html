@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,7 @@
                 </span>
                 
                 
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Psychiatric Disease</span>
                 
             </div>
@@ -1930,6 +2101,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1987,6 +2161,12 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
+            
+            
+            <div class="stat-item">
+                <div class="stat-value">0</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
             
             
             <a class="stat-link" href="#genetic">
@@ -2198,7 +2378,7 @@
                 <span class="card-count">5</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-monoamine-dysregulation">
                 <div class="item-name">Monoamine Dysregulation</div>
                 
                 <div class="item-desc">Imbalances in dopamine, norepinephrine, and serotonin neurotransmission contribute to mood episodes. Elevated dopamine in mania, reduced in depression.
@@ -2260,6 +2440,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2310,7 +2491,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-dysfunction">
                 <div class="item-name">Mitochondrial Dysfunction</div>
                 
                 <div class="item-desc">Impaired cellular energy metabolism and oxidative stress affect neuronal function. Mitochondrial abnormalities linked to mood dysregulation.
@@ -2333,6 +2514,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2370,7 +2552,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-circadian-rhythm-disruption">
                 <div class="item-name">Circadian Rhythm Disruption</div>
                 
                 <div class="item-desc">Disrupted sleep-wake cycles and circadian gene expression contribute to mood instability. Sleep deprivation can trigger mania.
@@ -2393,6 +2575,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2430,7 +2613,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuroplasticity-alterations">
                 <div class="item-name">Neuroplasticity Alterations</div>
                 
                 <div class="item-desc">Reduced BDNF and altered synaptic plasticity in mood circuits. Lithium and other mood stabilizers enhance neuroplasticity.
@@ -2467,6 +2650,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2522,7 +2706,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuroinflammation">
                 <div class="item-name">Neuroinflammation</div>
                 
                 <div class="item-desc">Elevated inflammatory markers during mood episodes. Microglial activation and cytokine abnormalities contribute to pathophysiology.
@@ -2559,6 +2743,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3318,6 +3503,7 @@ pathophysiology:
       label: chemical synaptic transmission
   evidence:
   - reference: PMID:22363263
+    reference_title: &#34;Inhibition of GSK3 by lithium, from single molecules to signaling networks.&#34;
     supports: PARTIAL
     snippet: &#34;Activation of the dopamine receptor 2 (D2R) has been shown to stimulate
       the inactivation of Akt by PP2A (Beaulieu et al., 2005; Beaulieu and Gainetdinov,
@@ -3327,6 +3513,7 @@ pathophysiology:
       providing a molecular link between monoaminergic neurotransmission and
       mood regulation in bipolar disorder.
   - reference: PMID:22363263
+    reference_title: &#34;Inhibition of GSK3 by lithium, from single molecules to signaling networks.&#34;
     supports: PARTIAL
     snippet: &#34;This mechanism of D2R signaling appears to play important roles in the
       regulation of locomotor behavior and sensory motor gating by dopamine (Beaulieu
@@ -3348,6 +3535,7 @@ pathophysiology:
       label: mitochondrion organization
   evidence:
   - reference: PMID:30285728
+    reference_title: &#34;The TRAX, DISC1, and GSK3 complex in mental disorders and therapeutic interventions.&#34;
     supports: NO_EVIDENCE
     snippet: &#34;Psychiatric disorders (such as bipolar disorder, depression, and schizophrenia)
       affect the lives of millions of individuals worldwide.&#34;
@@ -3365,6 +3553,7 @@ pathophysiology:
       label: circadian rhythm
   evidence:
   - reference: PMID:22363263
+    reference_title: &#34;Inhibition of GSK3 by lithium, from single molecules to signaling networks.&#34;
     supports: NO_EVIDENCE
     snippet: &#34;For more than 60 years, the mood stabilizer lithium has been used alone
       or in combination for the treatment of bipolar disorder, schizophrenia, depression,
@@ -3389,6 +3578,7 @@ pathophysiology:
       label: regulation of synaptic plasticity
   evidence:
   - reference: PMID:30285728
+    reference_title: &#34;The TRAX, DISC1, and GSK3 complex in mental disorders and therapeutic interventions.&#34;
     supports: PARTIAL
     snippet: &#34;DISC1 binds directly to GSK3 and modulates many cellular functions by
       negatively inhibiting GSK3 activity.&#34;
@@ -3396,6 +3586,7 @@ pathophysiology:
       key mechanism in bipolar disorder treatment, affecting synaptic plasticity
       and neuronal survival pathways.
   - reference: PMID:30285728
+    reference_title: &#34;The TRAX, DISC1, and GSK3 complex in mental disorders and therapeutic interventions.&#34;
     supports: PARTIAL
     snippet: &#34;In the present review, we will focus on the emerging roles of TRAX and
       its interacting proteins (including DISC1 and GSK3β) in psychiatric disorders
@@ -3419,6 +3610,7 @@ pathophysiology:
       label: inflammatory response
   evidence:
   - reference: PMID:33958577
+    reference_title: &#34;Glutamate and microglia activation as a driver of dendritic apoptosis: a core pathophysiological mechanism to understand schizophrenia.&#34;
     supports: NO_EVIDENCE
     snippet: &#34;considering that schizophrenia is a multifactorial and highly polygenic
       disorder that shares many risk genes with other psychiatric illnesses including
@@ -3484,6 +3676,7 @@ phenotypes:
       label: Cognitive impairment
   evidence:
   - reference: PMID:23846857
+    reference_title: &#34;Clinical phenotypes of psychosis in the Bipolar-Schizophrenia Network on Intermediate Phenotypes (B-SNIP).&#34;
     supports: PARTIAL
     snippet: &#34;All proband groups showed lower psychosocial functioning than the relatives
       or comparison group. On average, schizophrenia probands showed more symptoms
@@ -3508,6 +3701,7 @@ genetic:
   notes: Calcium channel
   evidence:
   - reference: PMID:18711365
+    reference_title: &#34;Collaborative genome-wide association analysis supports a role for ANK3 and CACNA1C in bipolar disorder.&#34;
     supports: SUPPORT
     snippet: &#34;We also found further support for the previously reported CACNA1C (alpha
       1C subunit of the L-type voltage-gated calcium channel; combined P = 7.0 x 10(-8),
@@ -3516,6 +3710,7 @@ genetic:
       that CACNA1C is a susceptibility locus for bipolar disorder, implicating
       calcium channel dysfunction in disease pathogenesis.
   - reference: PMID:21057379
+    reference_title: &#34;Case-case genome-wide association analysis shows markers differentially associated with schizophrenia and bipolar disorder and implicates calcium channel genes.&#34;
     supports: SUPPORT
     snippet: &#34;The finding for CACNG5, taken together with the earlier implication
       of CACNA1C and CACNA1B, strongly suggests a key role for voltage-dependent calcium
@@ -3528,6 +3723,7 @@ genetic:
   notes: Ankyrin-3
   evidence:
   - reference: PMID:18711365
+    reference_title: &#34;Collaborative genome-wide association analysis supports a role for ANK3 and CACNA1C in bipolar disorder.&#34;
     supports: SUPPORT
     snippet: &#34;To identify susceptibility loci for bipolar disorder, we tested 1.8
       million variants in 4,387 cases and 6,209 controls and identified a region of
@@ -3555,6 +3751,7 @@ treatments:
     prevention.
   evidence:
   - reference: PMID:22363263
+    reference_title: &#34;Inhibition of GSK3 by lithium, from single molecules to signaling networks.&#34;
     supports: SUPPORT
     snippet: &#34;Lithium has been reported to reduce suicide rates and prevent manic
       episodes in individuals with bipolar disorder, major depression, or schizoaffective
@@ -3563,6 +3760,7 @@ treatments:
       disorder with demonstrated efficacy in preventing manic episodes and
       reducing suicide risk through GSK3 inhibition.
   - reference: PMID:22363263
+    reference_title: &#34;Inhibition of GSK3 by lithium, from single molecules to signaling networks.&#34;
     supports: SUPPORT
     snippet: &#34;In 1996, two independent studies (Klein and Melton, 1996; Stambolic
       et al., 1996) of the effects of lithium on cell signaling and development have

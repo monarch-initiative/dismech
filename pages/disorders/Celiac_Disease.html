@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,7 @@
                 </span>
                 
                 
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Gastrointestinal Disease</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Autoimmune Disease</span>
@@ -1932,6 +2103,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1989,6 +2163,12 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
+            
+            
+            <div class="stat-item">
+                <div class="stat-value">0</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
             
             
             <a class="stat-link" href="#genetic">
@@ -2090,7 +2270,7 @@
                 <span class="card-count">4</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-gluten-triggered-immune-response">
                 <div class="item-name">Gluten-Triggered Immune Response</div>
                 
                 <div class="item-desc">Gluten peptides (gliadin) cross the intestinal epithelium and are deamidated by tissue transglutaminase (tTG). Deamidated peptides bind HLA-DQ2/DQ8 and activate CD4+ T cells.
@@ -2127,6 +2307,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2200,7 +2381,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-intestinal-epithelial-damage">
                 <div class="item-name">Intestinal Epithelial Damage</div>
                 
                 <div class="item-desc">Activated T cells release IFN-gamma and other cytokines causing villous atrophy, crypt hyperplasia, and increased intraepithelial lymphocytes. Leads to malabsorption.
@@ -2237,6 +2418,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2312,7 +2494,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-autoantibody-production">
                 <div class="item-name">Autoantibody Production</div>
                 
                 <div class="item-desc">B cells produce antibodies against tTG (anti-tTG IgA) and deamidated gliadin peptides (anti-DGP). These serve as diagnostic markers and may contribute to pathology.
@@ -2332,6 +2514,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2372,11 +2555,12 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-barrier-dysfunction">
                 <div class="item-name">Barrier Dysfunction</div>
                 
                 <div class="item-desc">Increased intestinal permeability allows greater gluten peptide translocation. Zonulin upregulation disrupts tight junctions.
 </div>
+                
                 
                 
                 
@@ -3494,6 +3678,7 @@ pathophysiology:
       label: antigen processing and presentation
   evidence:
   - reference: PMID:10684852
+    reference_title: &#34;The intestinal T cell response to alpha-gliadin in adult celiac disease is focused on a single deamidated glutamine targeted by tissue transglutaminase.&#34;
     supports: SUPPORT
     snippet: &#34;tissue transglutaminase (tTG)-mediated deamidation of gliadin plays
       an important role in recognition of this food antigen by intestinal T cells&#34;
@@ -3501,6 +3686,7 @@ pathophysiology:
       gluten peptides into immunogenic epitopes recognized by T cells in celiac
       disease.
   - reference: PMID:10684852
+    reference_title: &#34;The intestinal T cell response to alpha-gliadin in adult celiac disease is focused on a single deamidated glutamine targeted by tissue transglutaminase.&#34;
     supports: SUPPORT
     snippet: &#34;the deamidated peptides displayed an increased affinity for DQ2, a molecule
       known to preferentially bind peptides containing negatively charged residues&#34;
@@ -3508,6 +3694,7 @@ pathophysiology:
       introducing negatively charged glutamate residues, enhancing antigen
       presentation.
   - reference: PMID:38914866
+    reference_title: &#34;Transcriptomic analysis of intestine following administration of a transglutaminase 2 inhibitor to prevent gluten-induced intestinal damage in celiac disease.&#34;
     supports: SUPPORT
     snippet: &#34;Transglutaminase 2 (TG2) plays a pivotal role in the pathogenesis of
       celiac disease (CeD) by deamidating dietary gluten peptides, which facilitates
@@ -3532,6 +3719,7 @@ pathophysiology:
       label: apoptotic process
   evidence:
   - reference: PMID:38914866
+    reference_title: &#34;Transcriptomic analysis of intestine following administration of a transglutaminase 2 inhibitor to prevent gluten-induced intestinal damage in celiac disease.&#34;
     supports: SUPPORT
     snippet: &#34;Nearly half of the gluten-induced gene expression changes in CeD were
       associated with the epithelial interferon-γ response.&#34;
@@ -3539,6 +3727,7 @@ pathophysiology:
       the transcriptional changes underlying epithelial damage in celiac
       disease.
   - reference: PMID:15357947
+    reference_title: &#34;Coordinated induction by IL15 of a TCR-independent NKG2D signaling pathway converts CTL into lymphokine-activated killer cells in celiac disease.&#34;
     supports: SUPPORT
     snippet: &#34;under conditions of dysregulated IL15 expression in vivo in patients
       with celiac disease and in vitro in healthy individuals, multiple steps of the
@@ -3549,6 +3738,7 @@ pathophysiology:
       cytotoxic lymphokine-activated killer cells via NKG2D signaling, mediating
       epithelial damage.
   - reference: PMID:24942692
+    reference_title: &#34;IL-15: a central regulator of celiac disease immunopathology.&#34;
     supports: SUPPORT
     snippet: &#34;the upregulation of IL-15 expression in the intestinal mucosa has become
       a hallmark of the disease&#34;
@@ -3556,6 +3746,7 @@ pathophysiology:
       disease that drives intraepithelial lymphocyte expansion and epithelial
       injury.
   - reference: PMID:38914866
+    reference_title: &#34;Transcriptomic analysis of intestine following administration of a transglutaminase 2 inhibitor to prevent gluten-induced intestinal damage in celiac disease.&#34;
     supports: SUPPORT
     snippet: &#34;ZED1227 treatment preserved transcriptome signatures associated with
       mucosal morphology, inflammation, cell differentiation and nutrient absorption
@@ -3575,6 +3766,7 @@ pathophysiology:
       label: plasma cell
   evidence:
   - reference: PMID:39273359
+    reference_title: &#34;Expression of MicroRNAs in Adults with Celiac Disease: A Narrative Review.&#34;
     supports: NO_EVIDENCE
     snippet: &#34;Celiac disease (CD) is an immune-mediated enteropathy triggered by the
       ingestion of proline- and glutamine-rich proteins, widely termed \&#34;gluten\&#34;\
@@ -3589,6 +3781,7 @@ pathophysiology:
     translocation. Zonulin upregulation disrupts tight junctions.
   evidence:
   - reference: PMID:38914866
+    reference_title: &#34;Transcriptomic analysis of intestine following administration of a transglutaminase 2 inhibitor to prevent gluten-induced intestinal damage in celiac disease.&#34;
     supports: PARTIAL
     snippet: &#34;ZED1227 treatment preserved transcriptome signatures associated with
       mucosal morphology, inflammation, cell differentiation and nutrient absorption
@@ -3607,6 +3800,7 @@ phenotypes:
       label: Chronic diarrhea
   evidence:
   - reference: PMID:39273359
+    reference_title: &#34;Expression of MicroRNAs in Adults with Celiac Disease: A Narrative Review.&#34;
     supports: PARTIAL
     snippet: &#34;CD induces an altered immune response that leads to chronic inflammation
       and duodenal mucosal damage.&#34;
@@ -3622,6 +3816,7 @@ phenotypes:
       label: Abdominal pain
   evidence:
   - reference: PMID:28722929
+    reference_title: &#34;Celiac Disease.&#34;
     supports: SUPPORT
     snippet: &#34;Typical gastrointestinal symptoms include diarrhea, abdominal discomfort, bloating, and constipation.&#34;
     explanation: Abdominal pain/discomfort is a typical gastrointestinal symptom of celiac disease.
@@ -3635,6 +3830,7 @@ phenotypes:
       label: Abdominal distention
   evidence:
   - reference: PMID:28722929
+    reference_title: &#34;Celiac Disease.&#34;
     supports: SUPPORT
     snippet: &#34;Typical gastrointestinal symptoms include diarrhea, abdominal discomfort, bloating, and constipation.&#34;
     explanation: Bloating is a typical gastrointestinal symptom of celiac disease.
@@ -3648,6 +3844,7 @@ phenotypes:
       label: Weight loss
   evidence:
   - reference: PMID:38914866
+    reference_title: &#34;Transcriptomic analysis of intestine following administration of a transglutaminase 2 inhibitor to prevent gluten-induced intestinal damage in celiac disease.&#34;
     supports: PARTIAL
     snippet: &#34;ZED1227 treatment preserved transcriptome signatures associated with
       mucosal morphology, inflammation, cell differentiation and nutrient absorption
@@ -3666,6 +3863,7 @@ phenotypes:
       label: Anemia
   evidence:
   - reference: PMID:38914866
+    reference_title: &#34;Transcriptomic analysis of intestine following administration of a transglutaminase 2 inhibitor to prevent gluten-induced intestinal damage in celiac disease.&#34;
     supports: PARTIAL
     snippet: &#34;ZED1227 treatment preserved transcriptome signatures associated with
       mucosal morphology, inflammation, cell differentiation and nutrient absorption
@@ -3683,6 +3881,7 @@ phenotypes:
       label: Fatigue
   evidence:
   - reference: PMID:28722929
+    reference_title: &#34;Celiac Disease.&#34;
     supports: SUPPORT
     snippet: &#34;celiac disease can also present with extraintestinal manifestations such as fatigue, weight loss, skin rashes, anemia, and osteoporosis.&#34;
     explanation: Fatigue is a common extraintestinal manifestation of celiac disease.
@@ -3697,6 +3896,7 @@ phenotypes:
       label: Skin rash
   evidence:
   - reference: PMID:29757210
+    reference_title: &#34;Dermatitis Herpetiformis: A Common Extraintestinal Manifestation of Coeliac Disease.&#34;
     supports: SUPPORT
     snippet: &#34;Dermatitis herpetiformis (DH) is a common extraintestinal manifestation of coeliac disease presenting with itchy papules and vesicles on the elbows, knees, and buttocks.&#34;
     explanation: Dermatitis herpetiformis is the specific cutaneous manifestation of celiac disease.
@@ -3711,6 +3911,7 @@ phenotypes:
       label: Reduced bone mineral density
   evidence:
   - reference: PMID:10071918
+    reference_title: &#34;Osteoporosis in adult patients with celiac disease.&#34;
     supports: SUPPORT
     snippet: &#34;26% of all celiac patients, but only 5% of control subjects, were classified as having osteoporosis&#34;
     explanation: Osteoporosis is significantly more prevalent in celiac disease patients due to calcium and vitamin D malabsorption.
@@ -3787,6 +3988,7 @@ treatments:
       label: dietary intervention
   evidence:
   - reference: PMID:39273359
+    reference_title: &#34;Expression of MicroRNAs in Adults with Celiac Disease: A Narrative Review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The only available treatment strategy is lifelong adherence to a gluten-free diet.&#34;
@@ -3811,6 +4013,7 @@ treatments:
   description: Essential for dietary compliance.
   evidence:
   - reference: PMID:39273359
+    reference_title: &#34;Expression of MicroRNAs in Adults with Celiac Disease: A Narrative Review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The only available treatment strategy is lifelong adherence to a gluten-free diet.&#34;

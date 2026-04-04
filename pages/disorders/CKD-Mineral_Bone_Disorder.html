@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 15</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Renal Disease</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Metabolic Bone Disease</span>
@@ -1932,6 +2105,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1987,6 +2163,14 @@
             <div class="stat-item">
                 <div class="stat-value">9</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">15</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2335,7 +2519,7 @@
                 <span class="card-count">7</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-phosphate-retention-and-fgf23-axis">
                 <div class="item-name">Phosphate Retention and FGF23 Axis</div>
                 
                 <div class="item-desc">As nephron mass declines, phosphate excretion per nephron increases via FGF23 and PTH-mediated suppression of proximal tubular sodium-phosphate cotransporters (NaPi-2a/NaPi-2c). FGF23 rises early in CKD (stage 2) before serum phosphate becomes overtly elevated. FGF23 requires the co-receptor alpha-Klotho, which is predominantly expressed in the kidney and declines with CKD progression, creating a vicious cycle.
@@ -2415,6 +2599,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2489,7 +2674,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-kidney-glycolysis-g3p-phosphate-sensing">
                 <div class="item-name">Kidney Glycolysis-G3P Phosphate Sensing</div>
                 
                 <div class="item-desc">A recently discovered kidney-bone feedback loop: phosphate loading increases kidney-specific glycolysis and production of glycerol-3-phosphate (G-3-P) via GPD1. G-3-P enters the circulation and triggers FGF23 production in bone osteocytes. This places glycolysis at the nexus of mineral and energy metabolism, revealing that phosphate does not directly stimulate bone FGF23 expression but acts through a renal metabolic intermediate.
@@ -2562,6 +2747,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2616,7 +2802,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-secondary-hyperparathyroidism">
                 <div class="item-name">Secondary Hyperparathyroidism</div>
                 
                 <div class="item-desc">Declining calcitriol synthesis (due to reduced 1-alpha-hydroxylase activity in damaged kidneys), hypocalcemia, hyperphosphatemia, and reduced calcium-sensing receptor (CaSR) and vitamin D receptor (VDR) expression in parathyroid glands collectively stimulate PTH secretion. PTH levels spike above normal as early as CKD stage G2. Chronically elevated PTH drives high-turnover bone disease with increased osteoclastic resorption and extends to the cardiovascular system promoting vascular calcifications.
@@ -2709,6 +2895,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2783,7 +2970,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-calcitriol-deficiency">
                 <div class="item-name">Calcitriol Deficiency</div>
                 
                 <div class="item-desc">The kidney is the primary site of 1-alpha-hydroxylation of 25-hydroxyvitamin D to active 1,25-dihydroxyvitamin D (calcitriol). Progressive nephron loss reduces calcitriol production, impairing intestinal calcium absorption and skeletal mineralization. FGF23 further suppresses 1-alpha-hydroxylase and upregulates 24-hydroxylase, accelerating calcitriol depletion.
@@ -2820,6 +3007,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -2876,7 +3064,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-vascular-calcification">
                 <div class="item-name">Vascular Calcification</div>
                 
                 <div class="item-desc">Hyperphosphatemia and elevated calcium-phosphate product promote osteogenic transdifferentiation of vascular smooth muscle cells (VSMCs) into osteoblast-like cells via RUNX2 and Pit-1/Pit-2 phosphate transporters. Loss of calcification inhibitors (fetuin-A, matrix Gla protein, pyrophosphate, osteoprotegerin) and Klotho deficiency further drive medial arterial calcification. Calciprotein particles (CPPs), colloidal mineral-protein nanoparticles, have emerged as key mediators of phosphate toxicity, linking mineral stress to vascular inflammation and calcification. This is the major cause of cardiovascular mortality in CKD-MBD.
@@ -2927,6 +3115,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -3005,7 +3194,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-bone-vascular-paradox-sclerostin-wnt-axis">
                 <div class="item-name">Bone-Vascular Paradox (Sclerostin/Wnt Axis)</div>
                 
                 <div class="item-desc">Calcified arteries in CKD produce sclerostin and other factors that inhibit bone remodeling, explaining the paradox of simultaneous vascular calcification and low-turnover (adynamic) bone disease. Vascular osteoblastic/osteocytic transdifferentiation produces sclerostin that brakes Wnt-driven calcification in the vasculature but also suppresses skeletal bone formation. Anti-sclerostin antibody therapy improves bone but can worsen vascular calcification, highlighting the therapeutic complexity.
@@ -3062,6 +3251,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3141,7 +3331,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-rankl-opg-imbalance">
                 <div class="item-name">RANKL/OPG Imbalance</div>
                 
                 <div class="item-desc">Elevated PTH increases RANKL expression by osteoblasts and osteocytes while suppressing osteoprotegerin (OPG), shifting the balance toward excessive osteoclastogenesis and bone resorption. Uremic toxins may independently alter RANKL/OPG signaling. Novel biologicals targeting RANKL (denosumab) and sclerostin are being explored in CKD-MBD but require careful consideration of the bone-vascular paradox.
@@ -3164,6 +3354,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3216,12 +3407,13 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for CKD-Mineral Bone Disorder</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
@@ -6242,6 +6434,7 @@ has_subtypes:
     The most common form in dialysis patients.
   evidence:
   - reference: PMID:34137924
+    reference_title: &#34;Bone Histomorphometry and (18)F-Sodium Fluoride Positron Emission Tomography Imaging: Comparison Between only Bone Turnover-based and Unified TMV-based Classification of Renal Osteodystrophy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: 42% had high turnover/hyperparathyroid bone disease and 23% had low turnover/adynamic bone disease
@@ -6253,6 +6446,7 @@ has_subtypes:
     with increased fracture risk and vascular calcification.
   evidence:
   - reference: PMID:34137924
+    reference_title: &#34;Bone Histomorphometry and (18)F-Sodium Fluoride Positron Emission Tomography Imaging: Comparison Between only Bone Turnover-based and Unified TMV-based Classification of Renal Osteodystrophy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: 42% had high turnover/hyperparathyroid bone disease and 23% had low turnover/adynamic bone disease
@@ -6263,6 +6457,7 @@ has_subtypes:
     Features of both high- and low-turnover disease. Shows areas of increased resorption alongside defective mineralization.
   evidence:
   - reference: PMID:28540603
+    reference_title: &#34;Positioning novel biologicals in CKD-mineral and bone disorders.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Renal osteodystrophy (ROD), the histologic bone lesions of chronic kidney disease (CKD), is now included in a
@@ -6275,6 +6470,7 @@ has_subtypes:
     volume with decreased mineralization rate.
   evidence:
   - reference: PMID:28646995
+    reference_title: &#34;Executive summary of the 2017 KDIGO Chronic Kidney Disease-Mineral and Bone Disorder (CKD-MBD) Guideline Update: what&#39;s changed and why it matters.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Topic areas encompassing updated recommendations include diagnosis of bone abnormalities in CKD-mineral and bone
@@ -6317,6 +6513,7 @@ pathophysiology:
       label: bone tissue
   evidence:
   - reference: PMID:37258233
+    reference_title: &#34;Role of Chronic Kidney Disease (CKD)-Mineral and Bone Disorder (MBD) in the Pathogenesis of Cardiovascular Disease in CKD.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: CKD-MBD manifests as hypocalcemia and hyperphosphatemia in the later stages of CKD; however, it initially develops
@@ -6326,6 +6523,7 @@ pathophysiology:
     explanation: Confirms that FGF23 and PTH rise early in CKD as compensatory responses to decreased phosphate excretion,
       before overt hyperphosphatemia.
   - reference: PMID:36821389
+    reference_title: &#34;Kidney glycolysis serves as a mammalian phosphate sensor that maintains phosphate homeostasis.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: phosphate increases kidney-specific glycolysis and synthesis of glycerol-3-phosphate (G-3-P), which then circulates
@@ -6333,6 +6531,7 @@ pathophysiology:
     explanation: Identifies the molecular mechanism linking phosphate load to FGF23 production via a kidney-bone metabolic
       feedback loop involving G-3-P. Mouse and human data.
   - reference: PMID:38541742
+    reference_title: &#34;Chronic Kidney Disease with Mineral Bone Disorder and Vascular Calcification: An Overview.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: These disturbances, observed early in CKD, contribute to the progression of bone disorders and renal osteodystrophy
@@ -6384,6 +6583,7 @@ pathophysiology:
       label: kidney
   evidence:
   - reference: PMID:36821389
+    reference_title: &#34;Kidney glycolysis serves as a mammalian phosphate sensor that maintains phosphate homeostasis.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: these findings place glycolysis at the nexus of mineral and energy metabolism and identify a kidney-bone feedback
@@ -6391,6 +6591,7 @@ pathophysiology:
     explanation: Landmark study demonstrating that kidney glycolysis produces G-3-P as a phosphate-sensing signal to bone
       FGF23 production. Loss of GPD1 abolished phosphate-stimulated FGF23 in mice.
   - reference: PMID:36821389
+    reference_title: &#34;Kidney glycolysis serves as a mammalian phosphate sensor that maintains phosphate homeostasis.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: phosphate does not directly stimulate bone FGF23 expression
@@ -6439,17 +6640,20 @@ pathophysiology:
       label: parathyroid gland
   evidence:
   - reference: PMID:38785509
+    reference_title: &#34;The Molecular Mechanisms Underlying the Systemic Effects Mediated by Parathormone in the Context of Chronic Kidney Disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: levels of PTH spike out of the normal range as early as stage G2 CKD, advancing it as a possible determinant
       of systemic damage
     explanation: Confirms PTH elevation begins very early in CKD, consistent with the updated trade-off hypothesis.
   - reference: PMID:38785509
+    reference_title: &#34;The Molecular Mechanisms Underlying the Systemic Effects Mediated by Parathormone in the Context of Chronic Kidney Disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: the altered mineral balance extends to the cardiovascular system, promoting vascular calcifications
     explanation: Elevated PTH drives not only bone resorption but also vascular calcification as a systemic consequence.
   - reference: PMID:37258233
+    reference_title: &#34;Role of Chronic Kidney Disease (CKD)-Mineral and Bone Disorder (MBD) in the Pathogenesis of Cardiovascular Disease in CKD.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: FGF23 and PTH cause left ventricular hypertrophy, arrhythmia, and cardiovascular calcification
@@ -6489,6 +6693,7 @@ pathophysiology:
       label: kidney
   evidence:
   - reference: PMID:26303319
+    reference_title: &#34;Pathophysiology of Calcium, Phosphorus, and Magnesium Dysregulation in Chronic Kidney Disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Calcium, phosphorus, and magnesium homeostasis is altered in chronic kidney disease (CKD). Hypocalcemia, hyperphosphatemia,
@@ -6496,6 +6701,7 @@ pathophysiology:
     explanation: Reviews the adaptive mechanisms maintaining mineral homeostasis in CKD, including the role of reduced calcitriol
       in hypocalcemia.
   - reference: PMID:37258233
+    reference_title: &#34;Role of Chronic Kidney Disease (CKD)-Mineral and Bone Disorder (MBD) in the Pathogenesis of Cardiovascular Disease in CKD.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Simultaneously, the serum calcitriol concentration decreases as a result of FGF23 elevation.
@@ -6542,6 +6748,7 @@ pathophysiology:
       label: arterial blood vessel
   evidence:
   - reference: PMID:39684805
+    reference_title: &#34;Understanding Vascular Calcification in Chronic Kidney Disease: Pathogenesis and Therapeutic Implications.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: several pathophysiological processes contribute to vascular calcifications, including osteochondrogenic differentiation
@@ -6550,12 +6757,14 @@ pathophysiology:
     explanation: Comprehensive description of vascular calcification as an active cell-mediated process involving osteochondrogenic
       differentiation and loss of endogenous inhibitors.
   - reference: PMID:38541742
+    reference_title: &#34;Chronic Kidney Disease with Mineral Bone Disorder and Vascular Calcification: An Overview.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The pathophysiology involves complex processes in vascular smooth muscle cells and the formation of calciprotein
       particles (CPP).
     explanation: Confirms VSMC involvement and CPP formation as key components of CKD-MBD vascular calcification.
   - reference: PMID:36107466
+    reference_title: &#34;Effect of the phosphate binder sucroferric oxyhydroxide in dialysis patients on endogenous calciprotein particles, inflammation, and vascular cells.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Calciprotein particles (CPPs), colloidal mineral-protein nanoparticles, have emerged as potential mediators of
@@ -6563,6 +6772,7 @@ pathophysiology:
       inflammation.
     explanation: Identifies CPPs as mediators of phosphate toxicity linking mineral stress to vascular damage.
   - reference: PMID:36107466
+    reference_title: &#34;Effect of the phosphate binder sucroferric oxyhydroxide in dialysis patients on endogenous calciprotein particles, inflammation, and vascular cells.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: Serum-induced HASMC calcification and HCAEC activation was ameliorated by removal of the CPP-containing fraction
@@ -6613,6 +6823,7 @@ pathophysiology:
       label: bone remodeling
   evidence:
   - reference: PMID:36776982
+    reference_title: &#34;Updates in the chronic kidney disease-mineral bone disorder show the role of osteocytic proteins, a potential mechanism of the bone-Vascular paradox, a therapeutic target, and a biomarker.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The discovery that calcified arteries in chronic kidney disease inhibit bone remodeling lead to the identification
@@ -6621,6 +6832,7 @@ pathophysiology:
     explanation: Identifies the mechanism of the bone-vascular paradox where calcified arteries produce factors that inhibit
       skeletal bone remodeling.
   - reference: PMID:36776982
+    reference_title: &#34;Updates in the chronic kidney disease-mineral bone disorder show the role of osteocytic proteins, a potential mechanism of the bone-Vascular paradox, a therapeutic target, and a biomarker.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Sclerostin is a potent inhibitor of bone remodeling and an osteocyte specific protein. Its production by the
@@ -6629,6 +6841,7 @@ pathophysiology:
     explanation: Vascular production of sclerostin through osteoblastic transdifferentiation of vascular cells links vascular
       calcification to bone disease.
   - reference: PMID:36776982
+    reference_title: &#34;Updates in the chronic kidney disease-mineral bone disorder show the role of osteocytic proteins, a potential mechanism of the bone-Vascular paradox, a therapeutic target, and a biomarker.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: inhibition of sclerostin activity by a monoclonal antibody improved bone remodeling as expected, but stimulated
@@ -6656,6 +6869,7 @@ pathophysiology:
       label: osteoclast differentiation
   evidence:
   - reference: PMID:28540603
+    reference_title: &#34;Positioning novel biologicals in CKD-mineral and bone disorders.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Renal osteodystrophy (ROD), the histologic bone lesions of chronic kidney disease (CKD), is now included in a
@@ -6694,6 +6908,7 @@ phenotypes:
       label: Bone pain
   evidence:
   - reference: PMID:32961953
+    reference_title: &#34;Osteoporosis in Patients with Chronic Kidney Diseases: A Systemic Review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Changes in mineral and humoral metabolism as well as bone structure develop early in the course of CKD.
@@ -6710,11 +6925,13 @@ phenotypes:
       label: Pathologic fracture
   evidence:
   - reference: PMID:32961953
+    reference_title: &#34;Osteoporosis in Patients with Chronic Kidney Diseases: A Systemic Review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The consequences of CKD-MBD include increased fracture risk, greater morbidity, and mortality.
     explanation: Systematic review confirming increased fracture risk as a key consequence of CKD-MBD.
   - reference: PMID:38785509
+    reference_title: &#34;The Molecular Mechanisms Underlying the Systemic Effects Mediated by Parathormone in the Context of Chronic Kidney Disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: persistently high levels of PTH determine a reduction in mineral density and a concurrent increase in fracture
@@ -6730,6 +6947,7 @@ phenotypes:
       label: Reduced bone mineral density
   evidence:
   - reference: PMID:32961953
+    reference_title: &#34;Osteoporosis in Patients with Chronic Kidney Diseases: A Systemic Review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: CKD-MBD includes abnormalities of calcium, phosphorus, PTH, and/or vitamin D; abnormalities in bone turnover,
@@ -6746,6 +6964,7 @@ phenotypes:
       label: Short stature
   evidence:
   - reference: PMID:24187550
+    reference_title: &#34;Growth retardation in children with kidney disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Growth failure is almost inextricably linked with chronic kidney disease (CKD) and end-stage renal disease (ESRD).
@@ -6763,6 +6982,7 @@ phenotypes:
       label: Proximal muscle weakness
   evidence:
   - reference: PMID:28646995
+    reference_title: &#34;Executive summary of the 2017 KDIGO Chronic Kidney Disease-Mineral and Bone Disorder (CKD-MBD) Guideline Update: what&#39;s changed and why it matters.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: This review highlights key aspects of the 2017 CKD-MBD Guideline Update, with an emphasis on the rationale for
@@ -6782,6 +7002,7 @@ phenotypes:
       label: Arterial calcification
   evidence:
   - reference: PMID:38573243
+    reference_title: &#34;New therapeutic perspectives for vascular and valvular calcifications in chronic kidney disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: as yet no medication has been approved to treat vascular or valvular calcification, or calciphylaxis
@@ -6797,6 +7018,7 @@ phenotypes:
       label: Left ventricular hypertrophy
   evidence:
   - reference: PMID:37258233
+    reference_title: &#34;Role of Chronic Kidney Disease (CKD)-Mineral and Bone Disorder (MBD) in the Pathogenesis of Cardiovascular Disease in CKD.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: FGF23 and PTH cause left ventricular hypertrophy, arrhythmia, and cardiovascular calcification
@@ -6812,6 +7034,7 @@ phenotypes:
       label: Pruritus
   evidence:
   - reference: PMID:32954065
+    reference_title: &#34;CKD-Associated Pruritus: New Insights Into Diagnosis, Pathogenesis, and Management.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Chronic kidney disease-associated pruritus (CKD-aP) is a common, troubling and in some cases debilitating problem
@@ -6820,6 +7043,7 @@ phenotypes:
     explanation: Reviews CKD-associated pruritus prevalence (20% CKD, 40% ESRD) and pathogenesis including toxin build-up,
       neuropathy, and immune dysregulation.
   - reference: PMID:35545226
+    reference_title: &#34;Uremic pruritus: pathophysiology, clinical presentation, and treatments.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Uremic pruritus is one of the most common and bothersome symptoms in patients with end-stage renal disease.
@@ -6837,6 +7061,7 @@ phenotypes:
       label: Calcinosis cutis
   evidence:
   - reference: PMID:38573243
+    reference_title: &#34;New therapeutic perspectives for vascular and valvular calcifications in chronic kidney disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: as yet no medication has been approved to treat vascular or valvular calcification, or calciphylaxis
@@ -6847,6 +7072,7 @@ biochemical:
   context: Impaired renal excretion, overtly elevated in CKD stages 4-5
   evidence:
   - reference: PMID:33784965
+    reference_title: &#34;Hyperphosphatemia with elevated serum PTH and FGF23, reduced 1,25(OH)(2)D and normal FGF7 concentrations characterize patients with CKD.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Significant increases in serum iFGF23, PTH, and phosphate were observed at eGFRs of &lt; 33 (95 % CI, 26.40-40.05),
@@ -6872,11 +7098,13 @@ biochemical:
   context: Earliest biomarker, rises in CKD stage 2 before phosphate elevation
   evidence:
   - reference: PMID:33784965
+    reference_title: &#34;Hyperphosphatemia with elevated serum PTH and FGF23, reduced 1,25(OH)(2)D and normal FGF7 concentrations characterize patients with CKD.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: a compensatory increase in circulating FGF23 concentrations commences before the occurrence of hyperphosphatemia
     explanation: Confirms FGF23 rises as an early compensatory mechanism in CKD before phosphate elevation.
   - reference: PMID:37258233
+    reference_title: &#34;Role of Chronic Kidney Disease (CKD)-Mineral and Bone Disorder (MBD) in the Pathogenesis of Cardiovascular Disease in CKD.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: increased circulating concentrations of fibroblast growth factor 23 (FGF23) and parathyroid hormone (PTH), which
@@ -6897,6 +7125,7 @@ biochemical:
   context: Kidney glycolysis-derived metabolite that triggers FGF23 production in bone
   evidence:
   - reference: PMID:36821389
+    reference_title: &#34;Kidney glycolysis serves as a mammalian phosphate sensor that maintains phosphate homeostasis.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: phosphate increases kidney-specific glycolysis and synthesis of glycerol-3-phosphate (G-3-P), which then circulates
@@ -6912,12 +7141,14 @@ biochemical:
   context: Secondary hyperparathyroidism, spikes above normal as early as CKD stage G2
   evidence:
   - reference: PMID:38785509
+    reference_title: &#34;The Molecular Mechanisms Underlying the Systemic Effects Mediated by Parathormone in the Context of Chronic Kidney Disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: levels of PTH spike out of the normal range as early as stage G2 CKD, advancing it as a possible determinant
       of systemic damage
     explanation: Confirms PTH elevation begins in early CKD stage G2.
   - reference: PMID:33784965
+    reference_title: &#34;Hyperphosphatemia with elevated serum PTH and FGF23, reduced 1,25(OH)(2)D and normal FGF7 concentrations characterize patients with CKD.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Significant increases in serum iFGF23, PTH, and phosphate were observed at eGFRs of &lt; 33 (95 % CI, 26.40-40.05),
@@ -6938,6 +7169,7 @@ biochemical:
   context: Reduced 1-alpha-hydroxylase activity and FGF23-mediated suppression
   evidence:
   - reference: PMID:33784965
+    reference_title: &#34;Hyperphosphatemia with elevated serum PTH and FGF23, reduced 1,25(OH)(2)D and normal FGF7 concentrations characterize patients with CKD.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: a significant decrease in serum 1,25(OH)2D concentrations was observed at an eGFR of &lt; 52 mL/min/1.73 m2 (95
@@ -6962,6 +7194,7 @@ biochemical:
   context: Reduced intestinal absorption from calcitriol deficiency
   evidence:
   - reference: PMID:26303319
+    reference_title: &#34;Pathophysiology of Calcium, Phosphorus, and Magnesium Dysregulation in Chronic Kidney Disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Calcium, phosphorus, and magnesium homeostasis is altered in chronic kidney disease (CKD). Hypocalcemia, hyperphosphatemia,
@@ -6987,6 +7220,7 @@ biochemical:
   context: Marker of osteoblastic activity and bone turnover
   evidence:
   - reference: PMID:36510335
+    reference_title: &#34;Bone Turnover Markers: Basic Biology to Clinical Applications.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: chronic kidney disease-mineral bone disorder
@@ -7007,12 +7241,14 @@ biochemical:
   context: Produced by calcified vasculature; inhibits bone remodeling via Wnt pathway suppression
   evidence:
   - reference: PMID:33301619
+    reference_title: &#34;Chronic Kidney Disease-Induced Vascular Calcification Impairs Bone Metabolism.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: ex vivo cultures of aorta from uremic rats showed high secretion of the Wnt inhibitor sclerostin
     explanation: Demonstrates that calcified arteries from CKD rats secrete sclerostin, which impairs bone metabolism through
       a vasculature-to-bone cross-talk.
   - reference: PMID:36776982
+    reference_title: &#34;Updates in the chronic kidney disease-mineral bone disorder show the role of osteocytic proteins, a potential mechanism of the bone-Vascular paradox, a therapeutic target, and a biomarker.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Sclerostin is a potent inhibitor of bone remodeling and an osteocyte specific protein. Its production by the
@@ -7029,6 +7265,7 @@ biochemical:
   context: FGF23 co-receptor; declines with CKD progression
   evidence:
   - reference: PMID:27125746
+    reference_title: &#34;αKlotho and Chronic Kidney Disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Soluble αKlotho in the circulation starts to decline in chronic kidney disease (CKD) stage 2 and urinary αKlotho
@@ -7045,6 +7282,7 @@ biochemical:
   context: Calcification inhibitor; reduced levels increase CPP maturation and calcification propensity
   evidence:
   - reference: PMID:36107466
+    reference_title: &#34;Effect of the phosphate binder sucroferric oxyhydroxide in dialysis patients on endogenous calciprotein particles, inflammation, and vascular cells.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: Serum-induced HASMC calcification and HCAEC activation was ameliorated by removal of the CPP-containing fraction
@@ -7063,6 +7301,7 @@ genetic:
     calcium.
   evidence:
   - reference: PMID:20661308
+    reference_title: &#34;Genome-wide meta-analysis for serum calcium identifies significantly associated SNPs near the calcium-sensing receptor (CASR) gene.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Our meta-analysis shows that serum calcium is associated with SNPs in or near the calcium-sensing receptor (CASR)
@@ -7075,6 +7314,7 @@ genetic:
     24-hydroxylase variants affect vitamin D catabolism. GWAS association with serum calcium and kidney stones.
   evidence:
   - reference: PMID:31729369
+    reference_title: &#34;Genetic variants of calcium and vitamin D metabolism in kidney stone disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: A CYP24A1 locus is predicted to affect vitamin D metabolism and five loci, DGKD, DGKH, WDR72, GPIC1, and BCR,
@@ -7087,6 +7327,7 @@ genetic:
     1-alpha-hydroxylase gene. Variants affect calcitriol synthesis capacity.
   evidence:
   - reference: PMID:27074284
+    reference_title: &#34;Vascular Calcification Induced by Chronic Kidney Disease Is Mediated by an Increase of 1α-Hydroxylase Expression in Vascular Smooth Muscle Cells.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: Rats with subtotal nephrectomy and kidney recipient patients showed increased arterial expression of 1α-hydroxylase
@@ -7094,6 +7335,7 @@ genetic:
     explanation: Demonstrates CYP27B1 (1-alpha-hydroxylase) upregulation in vascular smooth muscle cells during CKD, mediating
       vascular calcification through local calcitriol production.
   - reference: PMID:33784965
+    reference_title: &#34;Hyperphosphatemia with elevated serum PTH and FGF23, reduced 1,25(OH)(2)D and normal FGF7 concentrations characterize patients with CKD.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: FGF23 also suppresses renal synthesis of 1,25(OH)2D by inhibiting expression of the enzyme 1-alpha-hydroxylase
@@ -7105,6 +7347,7 @@ genetic:
     Tissue-nonspecific alkaline phosphatase. Variants associated with bone mineralization defects.
   evidence:
   - reference: PMID:36510335
+    reference_title: &#34;Bone Turnover Markers: Basic Biology to Clinical Applications.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: commonly used bone formation markers (bone alkaline phosphatase, osteocalcin, and procollagen I N-propeptide)
@@ -7116,6 +7359,7 @@ genetic:
     to trigger FGF23.
   evidence:
   - reference: PMID:36821389
+    reference_title: &#34;Kidney glycolysis serves as a mammalian phosphate sensor that maintains phosphate homeostasis.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: these findings place glycolysis at the nexus of mineral and energy metabolism and identify a kidney-bone feedback
@@ -7129,6 +7373,7 @@ genetic:
     to bone disease.
   evidence:
   - reference: PMID:33301619
+    reference_title: &#34;Chronic Kidney Disease-Induced Vascular Calcification Impairs Bone Metabolism.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: the presence of VC lowers BMD, impairs bone metabolism, and affects several pathways in bone. The present results
@@ -7141,6 +7386,7 @@ genetic:
     Not typically mutated in CKD-MBD (unlike XLH/ADHR), but dramatically elevated as a consequence of nephron loss.
   evidence:
   - reference: PMID:37258233
+    reference_title: &#34;Role of Chronic Kidney Disease (CKD)-Mineral and Bone Disorder (MBD) in the Pathogenesis of Cardiovascular Disease in CKD.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: increased circulating concentrations of fibroblast growth factor 23 (FGF23) and parathyroid hormone (PTH), which
@@ -7153,6 +7399,7 @@ genetic:
     Klotho deficiency accelerates CKD-MBD features. Klotho-null mice recapitulate the full CKD-MBD phenotype.
   evidence:
   - reference: PMID:26303319
+    reference_title: &#34;Pathophysiology of Calcium, Phosphorus, and Magnesium Dysregulation in Chronic Kidney Disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: the phosphaturic effect of FGF23 is reduced by downregulation of its cofactor Klotho necessary for binding FGF23
@@ -7165,6 +7412,7 @@ genetic:
     Pit-1 sodium-dependent phosphate transporter. Mediates phosphate uptake in VSMCs, driving osteogenic transdifferentiation.
   evidence:
   - reference: PMID:11576919
+    reference_title: &#34;Vascular calcification and inorganic phosphate.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: The effects of elevated Pi on HSMC were mediated by a sodium-dependent phosphate cotransporter (NPC), as indicated
@@ -7173,6 +7421,7 @@ genetic:
     explanation: Landmark study identifying Pit-1 (SLC20A1) as the sodium-dependent phosphate transporter mediating phosphate-induced
       VSMC calcification.
   - reference: PMID:11576919
+    reference_title: &#34;Vascular calcification and inorganic phosphate.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: the NPC in HSMC was identified as Pit-1 (Glvr-1), a member of the type III NPCs
@@ -7184,6 +7433,7 @@ genetic:
     Pit-2 sodium-dependent phosphate transporter. Together with Pit-1, mediates phosphate-driven vascular calcification.
   evidence:
   - reference: PMID:11576919
+    reference_title: &#34;Vascular calcification and inorganic phosphate.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: elevated Pi may directly stimulate HSMC to undergo phenotypic changes that predispose to calcification
@@ -7201,6 +7451,7 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:36107466
+    reference_title: &#34;Effect of the phosphate binder sucroferric oxyhydroxide in dialysis patients on endogenous calciprotein particles, inflammation, and vascular cells.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: High-dose SO reduced endogenous CPP formation in dialysis patients and yielded serum with attenuated pro-calcific
@@ -7218,6 +7469,7 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:29523679
+    reference_title: &#34;Parathyroidectomy in the Management of Secondary Hyperparathyroidism.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: There is insufficient data on whether to prefer vitamin D analogs compared with calcimimetics, but the available
@@ -7235,6 +7487,7 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:23121374
+    reference_title: &#34;Effect of cinacalcet on cardiovascular disease in patients undergoing dialysis.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: In an unadjusted intention-to-treat analysis, cinacalcet did not significantly reduce the risk of death or major
@@ -7252,6 +7505,7 @@ treatments:
       label: surgical procedure
   evidence:
   - reference: PMID:29523679
+    reference_title: &#34;Parathyroidectomy in the Management of Secondary Hyperparathyroidism.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: When parathyroid hormone level persists &gt;800 pg/ml for &gt;6 months, despite exhaustive medical interventions, monoclonal
@@ -7270,6 +7524,7 @@ treatments:
       label: hemodialysis
   evidence:
   - reference: PMID:38573243
+    reference_title: &#34;New therapeutic perspectives for vascular and valvular calcifications in chronic kidney disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Conventional therapies targeted at CKD-mineral and bone disorder (MBD) modulation have yielded conflicting or
@@ -7287,6 +7542,7 @@ treatments:
       label: organ transplantation
   evidence:
   - reference: PMID:33765230
+    reference_title: &#34;Bone Mineral Disease After Kidney Transplantation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Chronic kidney disease-mineral bone disorder (CKD-MBD) after kidney transplantation is a mix of pre-existing

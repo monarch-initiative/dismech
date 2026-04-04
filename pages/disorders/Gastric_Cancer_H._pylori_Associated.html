@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1921,6 +2091,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 11</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">gastric carcinoma</span>
                 
             </div>
@@ -1932,6 +2105,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1989,6 +2165,14 @@
             <div class="stat-item">
                 <div class="stat-value">7</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">11</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2180,7 +2364,7 @@
                 <span class="card-count">4</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-caga-mediated-oncogenic-signaling">
                 <div class="item-name">CagA-Mediated Oncogenic Signaling</div>
                 
                 <div class="item-desc">The cagA gene encodes the CagA oncoprotein, a major H. pylori virulence factor injected into host cells via a type IV secretion system. CagA is phosphorylated by host kinases and activates SHP-2, disrupting cell polarity, promoting proliferation, and inhibiting apoptosis. CagA-positive strains confer higher cancer risk.</div>
@@ -2250,11 +2434,12 @@
                 </div>
                 
                 
+                
     
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-vaca-induced-cellular-damage">
                 <div class="item-name">VacA-Induced Cellular Damage</div>
                 
                 <div class="item-desc">VacA (vacuolating cytotoxin A) is a pore-forming toxin that induces vacuolation, mitochondrial dysfunction, and apoptosis in epithelial cells. It also suppresses T cell function, allowing bacterial persistence. Different VacA alleles (s1/s2, m1/m2) confer different cancer risk.</div>
@@ -2285,11 +2470,12 @@
                 
                 
                 
+                
     
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-inflammation-correa-cascade">
                 <div class="item-name">Chronic Inflammation (Correa Cascade)</div>
                 
                 <div class="item-desc">H. pylori induces chronic gastritis with infiltration of neutrophils, lymphocytes, and macrophages. Persistent inflammation generates reactive oxygen and nitrogen species that cause DNA damage. Over decades, this leads to atrophic gastritis, intestinal metaplasia, dysplasia, and ultimately adenocarcinoma.</div>
@@ -2334,6 +2520,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2366,7 +2553,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-cdh1-e-cadherin-inactivation">
                 <div class="item-name">CDH1/E-cadherin Inactivation</div>
                 
                 <div class="item-desc">Loss of E-cadherin function through somatic mutation, promoter methylation, or loss of heterozygosity occurs in diffuse-type gastric cancer and some intestinal-type tumors. E-cadherin loss disrupts cell-cell adhesion and activates Wnt/beta-catenin signaling, promoting invasion.</div>
@@ -2377,6 +2564,8 @@
                     
                     <span class="tag tag-gene">
                         CDH1
+                        
+                        <a href="https://bioregistry.io/hgnc:1748" target="_blank" class="linkout">link</a>
                         
                     </span>
                     
@@ -2401,6 +2590,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2475,6 +2665,7 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="graph-warning">
                 <strong>Referential integrity issues (6):</strong>
@@ -2500,13 +2691,13 @@
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Gastric Cancer H. pylori Associated</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Atrophic Gastritis\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"CDH1/E-cadherin Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of E-cadherin function through somatic mutation, promoter methylation, or loss of heterozygosity occurs in diffuse-type gastric cancer and some intestinal-type tumors. E-cadherin loss disrupts cell-cell adhesion and activates Wnt/beta-catenin signaling, promoting invasion.\", \"meta\": {\"biological_processes\": [\"cell-cell adhesion\"], \"genes\": [\"CDH1\"]}}, {\"id\": \"CagA-Mediated Oncogenic Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cagA gene encodes the CagA oncoprotein, a major H. pylori virulence factor injected into host cells via a type IV secretion system. CagA is phosphorylated by host kinases and activates SHP-2, disrupting cell polarity, promoting proliferation, and inhibiting apoptosis. CagA-positive strains confer higher cancer risk.\", \"meta\": {\"cell_types\": [\"epithelial cell of stomach\"], \"biological_processes\": [\"cell population proliferation\", \"apoptotic process\"], \"locations\": [\"stomach\"]}}, {\"id\": \"Chronic Inflammation (Correa Cascade)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"H. pylori induces chronic gastritis with infiltration of neutrophils, lymphocytes, and macrophages. Persistent inflammation generates reactive oxygen and nitrogen species that cause DNA damage. Over decades, this leads to atrophic gastritis, intestinal metaplasia, dysplasia, and ultimately adenocarcinoma.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"inflammatory response\", \"response to oxidative stress\"]}}, {\"id\": \"Disrupted Cell Polarity\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Immune Suppression\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Intestinal Metaplasia\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Loss of Cell Cohesion\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"SHP-2 Activation\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"VacA-Induced Cellular Damage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VacA (vacuolating cytotoxin A) is a pore-forming toxin that induces vacuolation, mitochondrial dysfunction, and apoptosis in epithelial cells. It also suppresses T cell function, allowing bacterial persistence. Different VacA alleles (s1/s2, m1/m2) confer different cancer risk.\", \"meta\": {\"biological_processes\": [\"cellular response to cytotoxic stimulus\"]}}], \"edges\": [{\"source\": \"CagA-Mediated Oncogenic Signaling\", \"target\": \"Disrupted Cell Polarity\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"CagA-Mediated Oncogenic Signaling\", \"target\": \"SHP-2 Activation\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"VacA-Induced Cellular Damage\", \"target\": \"Immune Suppression\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"Chronic Inflammation (Correa Cascade)\", \"target\": \"Atrophic Gastritis\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"Chronic Inflammation (Correa Cascade)\", \"target\": \"Intestinal Metaplasia\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"CDH1/E-cadherin Inactivation\", \"target\": \"Loss of Cell Cohesion\", \"predicate\": \"causes\", \"is_orphan\": true}], \"orphan_targets\": [\"Atrophic Gastritis\", \"Disrupted Cell Polarity\", \"Immune Suppression\", \"Intestinal Metaplasia\", \"Loss of Cell Cohesion\", \"SHP-2 Activation\"]}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Atrophic Gastritis\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"CDH1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Somatic and Germline Mutations\"}}, {\"id\": \"CDH1/E-cadherin Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of E-cadherin function through somatic mutation, promoter methylation, or loss of heterozygosity occurs in diffuse-type gastric cancer and some intestinal-type tumors. E-cadherin loss disrupts cell-cell adhesion and activates Wnt/beta-catenin signaling, promoting invasion.\", \"meta\": {\"biological_processes\": [\"cell-cell adhesion\"], \"genes\": [\"CDH1\"]}}, {\"id\": \"CagA-Mediated Oncogenic Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cagA gene encodes the CagA oncoprotein, a major H. pylori virulence factor injected into host cells via a type IV secretion system. CagA is phosphorylated by host kinases and activates SHP-2, disrupting cell polarity, promoting proliferation, and inhibiting apoptosis. CagA-positive strains confer higher cancer risk.\", \"meta\": {\"cell_types\": [\"epithelial cell of stomach\"], \"biological_processes\": [\"cell population proliferation\", \"apoptotic process\"], \"locations\": [\"stomach\"]}}, {\"id\": \"Chronic Inflammation (Correa Cascade)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"H. pylori induces chronic gastritis with infiltration of neutrophils, lymphocytes, and macrophages. Persistent inflammation generates reactive oxygen and nitrogen species that cause DNA damage. Over decades, this leads to atrophic gastritis, intestinal metaplasia, dysplasia, and ultimately adenocarcinoma.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"inflammatory response\", \"response to oxidative stress\"]}}, {\"id\": \"Disrupted Cell Polarity\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Immune Suppression\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Intestinal Metaplasia\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Loss of Cell Cohesion\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"SHP-2 Activation\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"VacA-Induced Cellular Damage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VacA (vacuolating cytotoxin A) is a pore-forming toxin that induces vacuolation, mitochondrial dysfunction, and apoptosis in epithelial cells. It also suppresses T cell function, allowing bacterial persistence. Different VacA alleles (s1/s2, m1/m2) confer different cancer risk.\", \"meta\": {\"biological_processes\": [\"cellular response to cytotoxic stimulus\"]}}], \"edges\": [{\"source\": \"CagA-Mediated Oncogenic Signaling\", \"target\": \"Disrupted Cell Polarity\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"CagA-Mediated Oncogenic Signaling\", \"target\": \"SHP-2 Activation\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"VacA-Induced Cellular Damage\", \"target\": \"Immune Suppression\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"Chronic Inflammation (Correa Cascade)\", \"target\": \"Atrophic Gastritis\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"Chronic Inflammation (Correa Cascade)\", \"target\": \"Intestinal Metaplasia\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"CDH1/E-cadherin Inactivation\", \"target\": \"Loss of Cell Cohesion\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"CDH1\", \"target\": \"CDH1/E-cadherin Inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": [\"Atrophic Gastritis\", \"Disrupted Cell Polarity\", \"Immune Suppression\", \"Intestinal Metaplasia\", \"Loss of Cell Cohesion\", \"SHP-2 Activation\"]}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3050,7 +3241,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Gastric Cancer H. pylori Associated
 creation_date: &#39;2026-01-26T02:55:13Z&#39;
-updated_date: &#39;2026-02-27T21:52:57Z&#39;
+updated_date: &#39;2026-04-03T00:00:00Z&#39;
 description: &gt;-
   Helicobacter pylori-associated gastric cancer represents the majority of gastric
   adenocarcinomas worldwide. H. pylori is classified as a Class I carcinogen by the
@@ -3089,6 +3280,7 @@ infectious_agent:
     genetics, and environmental factors including diet.
   evidence:
   - reference: PMID:39004993
+    reference_title: &#34;[Advances in the application of intragastric flora in the diagnosis and treatment of gastric cancer].&#34;
     supports: PARTIAL
     snippet: Gastric cancer is one of the major causes of cancer-related deaths worldwide, and infection with Helicobacter pylori and EBV, smoking and a salt-heavy diet have been shown to be risk factors for the development of gastric cancer.
     explanation: This abstract identifies H. pylori infection as a risk factor for gastric cancer, supporting the infectious etiology noted here.
@@ -3155,6 +3347,7 @@ pathophysiology:
     ultimately adenocarcinoma.
   evidence:
   - reference: PMID:26668499
+    reference_title: &#34;Helicobacter pylori-induced inflammation and epigenetic changes during gastric carcinogenesis.&#34;
     supports: PARTIAL
     snippet: &#34;This cascade is a dynamic process that includes lesions, such as atrophic gastritis, intestinal metaplasia and dysplasia.&#34;
     explanation: &#34;Abstract describes the gastric precancerous cascade with atrophic gastritis, intestinal metaplasia, and dysplasia.&#34;
@@ -3182,6 +3375,9 @@ pathophysiology:
     activates Wnt/beta-catenin signaling, promoting invasion.
   genes:
   - preferred_term: CDH1
+    term:
+      id: hgnc:1748
+      label: CDH1
   biological_processes:
   - preferred_term: cell-cell adhesion
     modifier: DECREASED
@@ -3202,6 +3398,7 @@ histopathology:
   description: Adenocarcinoma is the most common histologic type of gastric cancer.
   evidence:
   - reference: PMID:40647518
+    reference_title: &#34;A Histopathological and Surgical Analysis of Gastric Cancer: A Two-Year Experience in a Single Center.&#34;
     supports: PARTIAL
     snippet: &#34;with adenocarcinoma being the most &#34;
     explanation: Abstract notes adenocarcinoma as the predominant histologic type in a gastric cancer cohort.
