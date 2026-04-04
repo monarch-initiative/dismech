@@ -681,29 +681,36 @@ window.searchData = [
       "Rhizomelic limb shortening syndrome"
     ],
     "creation_date": "2026-02-02T00:16:36Z",
-    "updated_date": "2026-03-07T14:53:10Z",
+    "updated_date": "2026-04-03T12:00:00Z",
     "subtypes": [],
-    "description": "Achondroplasia is the most common form of short-limbed dwarfism, affecting approximately 1 in 15,000-40,000 live births. It is caused by gain-of-function mutations in FGFR3, with over 95% of cases resulting from the G380R (c.1138G>A) mutation. The constitutively active FGFR3 receptor inhibits chondrocyte proliferation and differentiation in growth plate cartilage, leading to impaired endochondral ossification and disproportionate short stature with rhizomelic limb shortening, macrocephaly, frontal bossing, and characteristic trident hand configuration. Vosoritide, a C-type natriuretic peptide analog that antagonizes FGFR3 signaling, was approved by the FDA in 2021 as the first disease-modifying therapy.\n",
+    "description": "Achondroplasia is the most common form of short-limbed dwarfism, affecting approximately 1 in 15,000-40,000 live births. It is caused by gain-of-function mutations in FGFR3, with over 95% of cases resulting from the G380R (c.1138G>A) mutation. The constitutively active FGFR3 receptor inhibits chondrocyte proliferation and differentiation in growth plate cartilage, leading to impaired endochondral ossification and disproportionate short stature with rhizomelic limb shortening, macrocephaly, frontal bossing, and characteristic trident hand configuration. Complications include foramen magnum stenosis with risk of cervicomedullary compression in infancy, progressive spinal stenosis, obstructive sleep apnea, recurrent otitis media, and obesity. Vosoritide, a C-type natriuretic peptide analog that antagonizes FGFR3 signaling, was approved by the FDA in 2021 as the first disease-modifying therapy.\n",
     "pathophysiology": [
       "FGFR3 gain-of-function signaling",
-      "Impaired growth plate cartilage development"
+      "MAPK-mediated inhibition of chondrocyte differentiation",
+      "Impaired growth plate cartilage development",
+      "Cranial base synchondrosis closure",
+      "CNP-NPR2 counter-regulatory pathway"
     ],
     "cell_types": [
       "Growth plate chondrocyte",
       "Hypertrophic chondrocyte",
+      "Prehypertrophic chondrocyte",
       "Columnar chondrocyte"
     ],
     "cell_type_ids": [
       "CL:1000217",
       "CL:0000743",
+      "CL:0020022",
       "CL:0000744"
     ],
     "biological_processes": [
       "FGFR signaling pathway",
       "Endochondral ossification",
       "Chondrocyte differentiation",
+      "MAPK cascade",
       "Growth plate chondrocyte differentiation",
-      "Bone development"
+      "Growth plate cartilage development",
+      "Receptor guanylyl cyclase signaling pathway"
     ],
     "phenotypes": [
       "Disproportionate short stature",
@@ -712,15 +719,26 @@ window.searchData = [
       "Frontal bossing",
       "Midface retrusion",
       "Trident hand",
+      "Brachydactyly",
       "Genu varum",
-      "Lumbar hyperlordosis"
+      "Lumbar hyperlordosis",
+      "Thoracolumbar kyphosis",
+      "Foramen magnum stenosis",
+      "Spinal canal stenosis",
+      "Obstructive sleep apnea",
+      "Recurrent otitis media",
+      "Obesity",
+      "Hydrocephalus"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
+      "Ear",
       "Growth",
       "Head and Neck",
+      "Immune",
       "Limbs",
-      "Musculoskeletal"
+      "Musculoskeletal",
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0008873",
@@ -729,12 +747,21 @@ window.searchData = [
       "HP:0002007",
       "HP:0011800",
       "HP:0004060",
+      "HP:0001156",
       "HP:0002970",
-      "HP:0002938"
+      "HP:0002938",
+      "HP:0005619",
+      "HP:0002677",
+      "HP:0003416",
+      "HP:0002870",
+      "HP:0000403",
+      "HP:0001513",
+      "HP:0000238"
     ],
     "frequencies": [
       "HP_0040281",
-      "HP_0040282"
+      "HP_0040282",
+      "HP_0040283"
     ],
     "genes": [
       "FGFR3 G380R mutation"
@@ -749,12 +776,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Achondroplasia.yaml",
     "page_url": "../pages/disorders/Achondroplasia.html",
-    "num_phenotypes": 8,
-    "num_pathophysiology": 2,
+    "num_phenotypes": 16,
+    "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "1",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Achoo Syndrome",
@@ -28248,6 +28275,96 @@ window.searchData = [
     "causal_graph_longest_path": "8"
   },
   {
+    "name": "Leri-Weill Dyschondrosteosis",
+    "disease_id": "MONDO:0007481",
+    "category": "Mendelian",
+    "parents": [
+      "SHOX-related skeletal dysplasia",
+      "Mesomelic dysplasia"
+    ],
+    "creation_date": "2026-04-02T12:00:00Z",
+    "updated_date": "2026-04-02T16:30:00Z",
+    "subtypes": [],
+    "description": "Leri-Weill dyschondrosteosis (LWD) is a pseudoautosomal dominant skeletal dysplasia caused by haploinsufficiency of the SHOX gene in the pseudoautosomal region 1 (PAR1) of the sex chromosomes. It is characterized by mesomelic short stature and Madelung deformity of the wrist, resulting from impaired growth plate chondrocyte differentiation and proliferation in the distal radius and ulna. The phenotype is more severe in females than males, likely due to estrogen-mediated acceleration of premature epiphyseal fusion. LWD is allelic with Langer mesomelic dysplasia, which represents the homozygous/compound heterozygous form with more severe limb shortening.\n",
+    "pathophysiology": [
+      "SHOX haploinsufficiency in growth plate chondrocytes",
+      "Estrogen-mediated acceleration of premature epiphyseal fusion"
+    ],
+    "cell_types": [
+      "Growth plate chondrocyte",
+      "Hypertrophic chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:1000217",
+      "CL:0000743"
+    ],
+    "biological_processes": [
+      "Growth plate chondrocyte differentiation",
+      "Growth plate chondrocyte proliferation",
+      "Endochondral bone morphogenesis",
+      "Response to estrogen"
+    ],
+    "phenotypes": [
+      "Mesomelic short stature",
+      "Madelung deformity",
+      "Short forearm",
+      "Short tibia",
+      "Bowing of the forearm bones",
+      "Dorsal subluxation of the distal ulna",
+      "Limited wrist movement",
+      "Short stature",
+      "Cubitus valgus",
+      "High arched palate",
+      "Short 4th metacarpal",
+      "Scoliosis"
+    ],
+    "phenotype_categories": [
+      "Skeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0008845",
+      "HP:0003067",
+      "HP:0005773",
+      "HP:0005736",
+      "HP:0003956",
+      "HP:0006459",
+      "HP:0006248",
+      "HP:0004322",
+      "HP:0002967",
+      "HP:0000218",
+      "HP:0010044",
+      "HP:0002650"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "SHOX deletions and point mutations"
+    ],
+    "treatments": [
+      "Recombinant Growth Hormone Therapy",
+      "Surgical correction of Madelung deformity"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Leri-Weill_Dyschondrosteosis.yaml",
+    "page_url": "../pages/disorders/Leri-Weill_Dyschondrosteosis.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "1"
+  },
+  {
     "name": "Lesch-Nyhan Syndrome",
     "disease_id": "MONDO:0010298",
     "category": "Mendelian",
@@ -36801,6 +36918,117 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Opsismodysplasia",
+    "disease_id": "MONDO:0009785",
+    "category": "Mendelian",
+    "parents": [
+      "Spondylodysplastic dysplasia",
+      "INPPL1-related skeletal dysplasia"
+    ],
+    "creation_date": "2026-04-02T00:00:00Z",
+    "updated_date": "2026-04-02T00:00:00Z",
+    "subtypes": [],
+    "description": "Opsismodysplasia is a rare autosomal recessive skeletal chondrodysplasia caused by biallelic loss-of-function mutations in INPPL1, which encodes the phosphoinositide 5-phosphatase SHIP2. The disease is characterized by prenatal-onset short stature, micromelia with extremely short hands and feet, platyspondyly, delayed skeletal maturation, and distinctive craniofacial features including relative macrocephaly, frontal bossing, midface retrusion, and anteverted nares. Growth plate histology shows a widened hypertrophic zone with irregular provisional calcification. Loss of SHIP2 catalytic activity disrupts phosphoinositide signaling, leading to elevated MEK-Erk1/2 activity in chondrocytes, impaired chondrocyte differentiation, and defective endochondral ossification. Some patients develop renal phosphate wasting with hypophosphatemic rickets, which is associated with a more severe phenotype. Prognosis is variable, with perinatal demise in some infants and survival into childhood and beyond in others. Bisphosphonate therapy has shown benefit for bone mineral density and motor function.\n",
+    "pathophysiology": [
+      "Loss of SHIP2 phosphoinositide phosphatase activity",
+      "Impaired chondrocyte differentiation and endochondral ossification",
+      "Defective cell migration and adhesion",
+      "Renal phosphate wasting"
+    ],
+    "cell_types": [
+      "Chondrocyte",
+      "Hypertrophic chondrocyte",
+      "Fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000138",
+      "CL:0000743",
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "Phosphatidylinositol dephosphorylation",
+      "Endochondral ossification",
+      "Chondrocyte differentiation",
+      "MAPK cascade",
+      "Bone mineralization",
+      "Cell migration",
+      "Cell adhesion",
+      "Phosphate ion homeostasis"
+    ],
+    "phenotypes": [
+      "Prenatal-onset short stature",
+      "Micromelia",
+      "Platyspondyly",
+      "Delayed skeletal maturation",
+      "Metaphyseal cupping",
+      "Relative macrocephaly",
+      "Frontal bossing",
+      "Midface retrusion",
+      "Depressed nasal bridge",
+      "Short nose",
+      "Anteverted nares",
+      "Long philtrum",
+      "Bowing of the long bones",
+      "Delayed epiphyseal ossification",
+      "Scoliosis",
+      "Hypophosphatemic rickets",
+      "Reduced bone mineral density",
+      "Short foot",
+      "Small hand"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0003510",
+      "HP:0002983",
+      "HP:0000926",
+      "HP:0002750",
+      "HP:0003021",
+      "HP:0004482",
+      "HP:0002007",
+      "HP:0011800",
+      "HP:0005280",
+      "HP:0003196",
+      "HP:0000463",
+      "HP:0000343",
+      "HP:0006487",
+      "HP:0002663",
+      "HP:0002650",
+      "HP:0004912",
+      "HP:0004349",
+      "HP:0001773",
+      "HP:0200055"
+    ],
+    "frequencies": [
+      "HP_0040281"
+    ],
+    "genes": [
+      "INPPL1 biallelic variants"
+    ],
+    "treatments": [
+      "Bisphosphonate therapy",
+      "Phosphate and calcitriol supplementation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Opsismodysplasia.yaml",
+    "page_url": "../pages/disorders/Opsismodysplasia.html",
+    "num_phenotypes": 19,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "3",
+    "causal_graph_longest_path": "2"
+  },
+  {
     "name": "Ornithine Carbamoyltransferase Deficiency",
     "disease_id": "MONDO:0010703",
     "category": "Mendelian",
@@ -43778,6 +44006,96 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "Schneckenbecken Dysplasia",
+    "disease_id": "MONDO:0010013",
+    "category": "Mendelian",
+    "parents": [
+      "Lethal Skeletal Dysplasia",
+      "Spondylodysplastic Dysplasia",
+      "Congenital Disorder of Glycosylation"
+    ],
+    "creation_date": "2026-04-02T00:00:00Z",
+    "updated_date": "2026-04-03T12:00:00Z",
+    "subtypes": [
+      "Classic Lethal",
+      "Mild Nonlethal"
+    ],
+    "description": "Schneckenbecken dysplasia is a perinatally lethal autosomal recessive skeletal dysplasia classified in the severe spondylodysplastic dysplasias group. The name derives from the German word for \"snail pelvis,\" referring to the characteristic snail-like configuration of the hypoplastic iliac bones on radiography. The disorder is caused by biallelic loss-of-function mutations in SLC35D1, encoding an endoplasmic reticulum nucleotide-sugar transporter critical for chondroitin sulfate biosynthesis in cartilage proteoglycans. A second locus (INPPL1) has been identified in rare cases. Cardinal features include severe platyspondyly, short ribs with narrow thorax, markedly shortened long bones with dumbbell-shaped appearance, and precocious tarsal ossification. Histology reveals hypercellular and hypervascular cartilage with loss of columnar chondrocyte organization in the growth plate. Death occurs in utero or shortly after birth, typically from pulmonary hypoplasia secondary to thoracic restriction. Hypomorphic SLC35D1 alleles can produce a milder, nonlethal phenotype with short stature and skeletal anomalies, indicating a phenotypic spectrum.\n",
+    "pathophysiology": [
+      "Defective Nucleotide-Sugar Transport",
+      "Growth Plate Disorganization"
+    ],
+    "cell_types": [
+      "Chondrocyte",
+      "Growth Plate Chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000138",
+      "CL:1000217"
+    ],
+    "biological_processes": [
+      "Nucleotide-Sugar Transmembrane Transport",
+      "Chondroitin Sulfate Proteoglycan Biosynthesis",
+      "Cartilage Development in Endochondral Bone Formation",
+      "Chondrocyte Differentiation"
+    ],
+    "phenotypes": [
+      "Severe Platyspondyly",
+      "Hypoplastic Ilia with Snail-Like Configuration",
+      "Severe Micromelia",
+      "Dumbbell-Shaped Long Bones",
+      "Short Ribs with Narrow Thorax",
+      "Precocious Tarsal Ossification",
+      "Hydrops Fetalis",
+      "Pulmonary Hypoplasia"
+    ],
+    "phenotype_categories": [
+      "Skeletal",
+      "Prenatal",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Prenatal and Birth",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0000926",
+      "HP:0000946",
+      "HP:0002983",
+      "HP:0000947",
+      "HP:0000773",
+      "HP:0005616",
+      "HP:0001789",
+      "HP:0002089"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "SLC35D1 Loss-of-Function Mutations",
+      "INPPL1 Mutations (Second Locus)"
+    ],
+    "treatments": [
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Deficient Chondroitin Sulfate Biosynthesis"
+    ],
+    "source_file": "Schneckenbecken_Dysplasia.yaml",
+    "page_url": "../pages/disorders/Schneckenbecken_Dysplasia.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 2,
+    "num_genes": 2,
+    "num_treatments": 1,
+    "causal_graph_edges": "1",
+    "causal_graph_longest_path": "1"
+  },
+  {
     "name": "Scimitar Syndrome",
     "disease_id": "MONDO:0015987",
     "category": "Complex",
@@ -45415,7 +45733,7 @@ window.searchData = [
     "description": "Spondyloepimetaphyseal dysplasia Strudwick type (SEMD Strudwick) is a rare autosomal dominant type II collagenopathy caused by heterozygous missense mutations in COL2A1, typically glycine substitutions within the Gly-X-Y triple-helical repeat. The disorder is characterized by disproportionate short-trunk dwarfism, progressive kyphoscoliosis, pectus carinatum, cleft palate, and distinctive dappled or flocculated metaphyseal changes on radiographs. Mutant type II procollagen is retained in the endoplasmic reticulum of chondrocytes, where it may trigger ER stress and the unfolded protein response or, in some variants, evade ER quality control entirely (failed cellular surveillance), in either case disrupting chondrocyte proliferation, differentiation, and endochondral ossification. Ocular involvement (high myopia, retinal detachment) reflects the role of type II collagen in vitreous humor, and premature osteoarthritis results from defective articular cartilage matrix. The condition was first described in the Strudwick family by Murdoch and Walker in 1969.\n",
     "pathophysiology": [
       "Collagen Triple Helix Disruption",
-      "ER Stress and Unfolded Protein Response",
+      "ER Retention and Impaired Procollagen Proteostasis",
       "Disrupted Endochondral Ossification",
       "Defective Articular Cartilage Matrix"
     ],
@@ -45644,6 +45962,101 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 7,
     "causal_graph_edges": "2",
+    "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Spondylometaphyseal Dysplasia Kozlowski Type",
+    "disease_id": "MONDO:0008477",
+    "category": "Mendelian",
+    "parents": [
+      "Spondylometaphyseal Dysplasia",
+      "TRPV4-Related Skeletal Dysplasia"
+    ],
+    "creation_date": "2026-04-03T00:00:00Z",
+    "updated_date": "2026-04-03T12:00:00Z",
+    "subtypes": [],
+    "description": "Spondylometaphyseal dysplasia Kozlowski type (SMDK) is an autosomal dominant skeletal dysplasia caused by heterozygous mutations in TRPV4, encoding a calcium-permeable nonselective cation channel expressed in chondrocytes. SMDK is characterized by disproportionate short-trunk short stature, generalized platyspondyly with overfaced pedicles, mild metaphyseal irregularities, progressive kyphoscoliosis, and brachydactyly. Onset is typically recognized in early childhood when growth faltering and waddling gait become apparent. Adult height ranges from approximately 130-150 cm. SMDK occupies an intermediate position in the TRPV4 skeletal dysplasia spectrum, which ranges from mild brachyolmia to lethal metatropic dysplasia. The R594H substitution in exon 11 is a recurrent mutational hotspot for SMDK. While most pathogenic TRPV4 mutations result in gain-of-function channel activation, a loss-of-function mechanism has also been reported, associated with a milder phenotype.\n",
+    "pathophysiology": [
+      "TRPV4 Gain-of-Function Channel Activation",
+      "TRPV4 Loss-of-Function Channel Impairment",
+      "Elevated Intracellular Calcium Disrupts Chondrocyte Differentiation",
+      "Follistatin Upregulation in Chondrocytes",
+      "Follistatin-Mediated Inhibition of Bone Ossification"
+    ],
+    "cell_types": [
+      "Chondrocyte",
+      "Growth plate chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000138",
+      "CL:1000217"
+    ],
+    "biological_processes": [
+      "Calcium Ion Transmembrane Transport",
+      "Chondrocyte Differentiation",
+      "Bone Mineralization"
+    ],
+    "phenotypes": [
+      "Disproportionate Short-Trunk Short Stature",
+      "Platyspondyly",
+      "Metaphyseal Irregularity",
+      "Scoliosis",
+      "Kyphosis",
+      "Pectus Carinatum",
+      "Barrel-Shaped Chest",
+      "Brachydactyly",
+      "Waddling Gait",
+      "Short Neck",
+      "Bone Pain",
+      "Delayed Ossification of Carpal Bones",
+      "Hypoplasia of the Odontoid Process"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0003521",
+      "HP:0000926",
+      "HP:0003025",
+      "HP:0002650",
+      "HP:0002808",
+      "HP:0000768",
+      "HP:0001552",
+      "HP:0001156",
+      "HP:0002515",
+      "HP:0000470",
+      "HP:0002653",
+      "HP:0001216",
+      "HP:0003311"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "TRPV4 Mutations"
+    ],
+    "treatments": [
+      "Supportive Multidisciplinary Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Spondylometaphyseal_Dysplasia_Kozlowski_Type.yaml",
+    "page_url": "../pages/disorders/Spondylometaphyseal_Dysplasia_Kozlowski_Type.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "4",
     "causal_graph_longest_path": "2"
   },
   {
@@ -47149,12 +47562,18 @@ window.searchData = [
       "Lethal skeletal dysplasia"
     ],
     "creation_date": "2026-02-02T00:16:36Z",
-    "updated_date": "2026-02-17T21:53:14Z",
+    "updated_date": "2026-04-02T16:00:00Z",
     "subtypes": [],
-    "description": "Thanatophoric dysplasia type 2 (TD2) is a severe, usually lethal skeletal dysplasia caused by the heterozygous FGFR3 K650E mutation. It is distinguished from TD1 by straight (rather than curved) femurs and a high frequency of cloverleaf skull (kleeblattschadel). Like TD1, it features extreme rhizomelic limb shortening, narrow thorax causing pulmonary hypoplasia, platyspondyly, and macrocephaly. Perinatal lethality is typical due to respiratory insufficiency, though rare long-term survivors have been reported with intensive support.\n",
+    "description": "Thanatophoric dysplasia type 2 (TD2) is a severe, usually lethal skeletal dysplasia caused by the heterozygous FGFR3 K650E (p.Lys650Glu) mutation in the tyrosine kinase domain activation loop. It is distinguished from TD1 by straight (rather than curved) femurs and a high frequency of cloverleaf skull (kleeblattschadel). Like TD1, it features extreme rhizomelic limb shortening, narrow thorax causing pulmonary hypoplasia, platyspondyly, and macrocephaly. The K650E mutation introduces a network of hydrogen bonds that mimic activation-loop tyrosine phosphorylation, locking FGFR3 in its active conformation and constitutively activating downstream STAT and MAPK/ERK signaling. This profoundly inhibits chondrocyte differentiation and proliferation in the growth plate, disrupts endochondral ossification, and causes premature craniosynostosis. Perinatal lethality is typical due to respiratory insufficiency from pulmonary hypoplasia, though rare long-term survivors have been reported with intensive respiratory support. The K650E mutation is genetically homogeneous, being found in all molecularly characterized TD2 cases.\n",
     "pathophysiology": [
-      "Severe FGFR3 gain-of-function (K650E)",
-      "Premature craniosynostosis"
+      "Constitutive FGFR3 kinase activation by K650E",
+      "STAT1/p21-mediated growth plate chondrocyte arrest",
+      "Sustained ERK/MAPK pathway activation",
+      "PLCgamma-STAT1-mediated chondrocyte apoptosis",
+      "Disrupted endochondral ossification via Sox9/beta-catenin dysregulation",
+      "Premature craniosynostosis and synchondrosis closure",
+      "Pulmonary hypoplasia from thoracic restriction",
+      "CNS effects of FGFR3 gain-of-function"
     ],
     "cell_types": [
       "Growth plate chondrocyte",
@@ -47166,9 +47585,15 @@ window.searchData = [
     ],
     "biological_processes": [
       "FGFR signaling pathway",
+      "JAK-STAT signaling",
+      "Negative regulation of cell cycle",
       "Negative regulation of chondrocyte differentiation",
+      "MAPK cascade",
+      "Apoptotic signaling pathway",
       "Endochondral ossification",
-      "Cranial suture morphogenesis"
+      "Cranial suture morphogenesis",
+      "Lung development",
+      "Axon guidance"
     ],
     "phenotypes": [
       "Lethal short-limbed short stature",
@@ -47178,45 +47603,57 @@ window.searchData = [
       "Platyspondyly",
       "Macrocephaly",
       "Frontal bossing",
-      "Respiratory insufficiency"
+      "Respiratory insufficiency",
+      "Hydrocephalus",
+      "Small foramen magnum",
+      "Severe global developmental delay",
+      "Severe short stature (survivors)",
+      "Acanthosis nigricans (survivors)"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
       "Growth",
       "Head and Neck",
-      "Limbs",
+      "Integument",
       "Musculoskeletal",
+      "Nervous System",
       "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0008909",
-      "HP:0003097",
       "HP:0002676",
       "HP:0000774",
       "HP:0000926",
       "HP:0000256",
       "HP:0002007",
-      "HP:0002093"
+      "HP:0002093",
+      "HP:0000238",
+      "HP:0002677",
+      "HP:0001263",
+      "HP:0004322",
+      "HP:0000956"
     ],
     "frequencies": [
-      "HP_0040281"
+      "HP_0040281",
+      "HP_0040282"
     ],
     "genes": [
       "FGFR3 K650E mutation"
     ],
     "treatments": [
-      "Supportive care"
+      "Supportive and palliative care",
+      "Statin therapy (preclinical)"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Thanatophoric_Dysplasia_Type_2.yaml",
     "page_url": "../pages/disorders/Thanatophoric_Dysplasia_Type_2.html",
-    "num_phenotypes": 8,
-    "num_pathophysiology": 2,
+    "num_phenotypes": 13,
+    "num_pathophysiology": 8,
     "num_genes": 1,
-    "num_treatments": 1,
-    "causal_graph_edges": "1",
-    "causal_graph_longest_path": "1"
+    "num_treatments": 2,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Trachoma",
