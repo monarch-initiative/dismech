@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05761314
+reference_id: "clinicaltrials:NCT05761314"
 title: Incidence and Molecular Pathogenesis of Solid Tumors in RASopathies
 content_type: summary
 ---

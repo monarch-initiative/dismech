@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,7 @@
                 </span>
                 
                 
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Bacterial Infection</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Tick-Borne Disease</span>
@@ -1937,6 +2108,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1994,6 +2168,12 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
+            
+            
+            <div class="stat-item">
+                <div class="stat-value">0</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
             
             
             <a class="stat-link" href="#genetic">
@@ -2218,7 +2398,7 @@
                 <span class="card-count">3</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-spirochete-invasion-and-dissemination">
                 <div class="item-name">Spirochete Invasion and Dissemination</div>
                 
                 <div class="item-desc">Borrelia burgdorferi is transmitted through Ixodes tick bites. The spirochete disseminates from the skin through the bloodstream to multiple organ systems including joints, heart, and nervous system. Surface adhesins like BBK32 and decorin-binding proteins (DbpA/DbpB) facilitate tissue colonization.
@@ -2260,6 +2440,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2292,7 +2473,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-autoimmune-activation-after-persistent-infection">
                 <div class="item-name">Autoimmune Activation after Persistent Infection</div>
                 
                 <div class="item-desc">Prolonged exposure of the host immune system to Borrelia antigens can drive post-infectious autoimmunity, with reported triggers of systemic autoimmune disease after Lyme borreliosis.
@@ -2334,6 +2515,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2366,7 +2548,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-inflammatory-response-and-tissue-damage">
                 <div class="item-name">Inflammatory Response and Tissue Damage</div>
                 
                 <div class="item-desc">The host immune response to Borrelia antigens contributes to tissue damage. Spirochetal lipoproteins and peptidoglycan trigger robust innate immune activation with production of IL-6, IL-8, TNF, and chemokines (CCL3/CCL4). Persistent inflammation in joints may continue even after spirochete clearance.
@@ -2423,6 +2605,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -4228,6 +4411,7 @@ pathophysiology:
     decorin-binding proteins (DbpA/DbpB) facilitate tissue colonization.
   evidence:
   - reference: PMID:33669940
+    reference_title: &#34;Lyme Disease among Patients at an Ambulatory Unit in a Highly Endemic Country: Lithuania.&#34;
     supports: SUPPORT
     snippet: &#34;The clinical manifestations of Lyme disease range from a localized infection, for example, erythema migrans (EM) to a disseminated neurological or rheumatological infection, cardiac involvement, or even chronic disease.&#34;
     explanation: Epidemiologic series shows Borrelia disseminates beyond skin to neurologic, rheumatologic, and cardiac sites.
@@ -4248,6 +4432,7 @@ pathophysiology:
     disease after Lyme borreliosis.
   evidence:
   - reference: PMID:34786243
+    reference_title: &#34;Lyme Borreliosis as a Trigger for Autoimmune Disease.&#34;
     supports: SUPPORT
     snippet: &#34;long-term exposure of the host&#39;s immune system to spirochetes can contribute to the development of chronic autoimmune disease de novo.&#34;
     explanation: Case review links persistent Borrelia exposure to downstream autoimmune disease.
@@ -4269,6 +4454,7 @@ pathophysiology:
     Persistent inflammation in joints may continue even after spirochete clearance.
   evidence:
   - reference: PMID:37407232
+    reference_title: &#34;Trauma-related Lyme arthritis.&#34;
     supports: SUPPORT
     snippet: &#34;Aspiration of the left knee joint revealed a white cell count of 21.0×109/L (83% neutrophils) with negative Gram stain and culture. However, Lyme PCR was positive and accompanied by serologies consistent with Lyme arthritis.&#34;
     explanation: Lyme arthritis joint fluid shows marked neutrophilic inflammation despite negative cultures, consistent with immune-driven damage.
@@ -4302,6 +4488,7 @@ phenotypes:
       label: Erythema migrans
   evidence:
   - reference: PMID:33669940
+    reference_title: &#34;Lyme Disease among Patients at an Ambulatory Unit in a Highly Endemic Country: Lithuania.&#34;
     supports: SUPPORT
     snippet: &#34;Results: In total, 1005 patients were enrolled with the following prevalence of clinical syndromes: erythema migrans (EM), 945 (94.02%); Lyme arthritis, 32 (3.18%); neuroborreliosis, 23 (2.28%); Lyme carditis, 4 (0.39%); and acrodermatitis, 1 (0.09%).&#34;
     explanation: Large Lithuanian cohort confirms erythema migrans as the dominant presentation.
@@ -4316,6 +4503,7 @@ phenotypes:
       label: Fatigue
   evidence:
   - reference: PMID:33669940
+    reference_title: &#34;Lyme Disease among Patients at an Ambulatory Unit in a Highly Endemic Country: Lithuania.&#34;
     supports: SUPPORT
     snippet: &#34;Clinical symptoms were as follows: arthralgia (33.2%), general weakness (19%), head pain (13.1%), myalgia (11.2%), fever (6.2%), joint swelling (5.9%), head dizziness (5.1%), nervus facialis neuropathy (2.4%), and radiculitis (2.0%).&#34;
     explanation: Population data list general weakness among frequent symptoms of Lyme disease.
@@ -4330,6 +4518,7 @@ phenotypes:
       label: Arthralgia
   evidence:
   - reference: PMID:33669940
+    reference_title: &#34;Lyme Disease among Patients at an Ambulatory Unit in a Highly Endemic Country: Lithuania.&#34;
     supports: SUPPORT
     snippet: &#34;Clinical symptoms were as follows: arthralgia (33.2%), general weakness (19%), head pain (13.1%), myalgia (11.2%), fever (6.2%), joint swelling (5.9%), head dizziness (5.1%), nervus facialis neuropathy (2.4%), and radiculitis (2.0%).&#34;
     explanation: Arthralgia was reported in one-third of patients in a large endemic cohort.
@@ -4344,6 +4533,7 @@ phenotypes:
       label: Facial palsy
   evidence:
   - reference: PMID:33669940
+    reference_title: &#34;Lyme Disease among Patients at an Ambulatory Unit in a Highly Endemic Country: Lithuania.&#34;
     supports: SUPPORT
     snippet: &#34;The main symptoms were the following: nervus facialis neuropathy (47.8%), myalgia (39%), head pain (26%), and radiculitis (21%).&#34;
     explanation: Neuroborreliosis cases frequently manifested facial nerve palsy.
@@ -4358,6 +4548,7 @@ phenotypes:
       label: Arthritis
   evidence:
   - reference: PMID:33669940
+    reference_title: &#34;Lyme Disease among Patients at an Ambulatory Unit in a Highly Endemic Country: Lithuania.&#34;
     supports: SUPPORT
     snippet: &#34;Lyme arthritis mainly manifested among middle-aged women as an oligoarthritis, mostly affecting the knee joint.&#34;
     explanation: Cohort study documents oligoarticular knee-predominant Lyme arthritis.
@@ -4372,6 +4563,7 @@ phenotypes:
       label: Atrioventricular block
   evidence:
   - reference: PMID:37234726
+    reference_title: &#34;Lyme disease presenting as complete heart block in a young man: Case report and review of pathogenesis.&#34;
     supports: SUPPORT
     snippet: &#34;the most common clinical manifestation is AV block, which can be acute in onset and can rapidly progress to complete heart block.&#34;
     explanation: Case report and review emphasize AV block as the hallmark of Lyme carditis.
@@ -4386,10 +4578,12 @@ phenotypes:
       label: Dementia
   evidence:
   - reference: PMID:30046879
+    reference_title: &#34;Secondary dementia due to Lyme neuroborreliosis.&#34;
     supports: SUPPORT
     snippet: &#34;Dementia-like syndromes are rare manifestations of Lyme neuroborreliosis... The response to 2-4 weeks of antibiotic treatment with ceftriaxone was excellent.&#34;
     explanation: Review of definite neuroborreliosis cases shows dementia syndromes resolving after ceftriaxone.
   - reference: PMID:36740841
+    reference_title: &#34;A Case of Reversible Dementia? Dementia vs Delirium in Lyme Disease.&#34;
     supports: SUPPORT
     snippet: &#34;Lyme disease is an uncommon cause of reversible dementia... the brilliant clinical improvement after the appropriate antimicrobial therapy is strongly suggestive for a diagnosis of neuroborreliosis.&#34;
     explanation: Geriatric case of reversible dementia with marked improvement after antimicrobial therapy.
@@ -4404,6 +4598,7 @@ phenotypes:
       label: Myelitis
   evidence:
   - reference: PMID:33082765
+    reference_title: &#34;Isolated Cervical Myelitis in Lyme Disease: A Rare Manifestation of Acute Neuroborreliosis.&#34;
     supports: SUPPORT
     snippet: &#34;We report a case of acute neuroborreliosis that manifested as extended isolated cervical myelitis.&#34;
     explanation: Case report confirms Lyme-associated cervical myelitis with CSF pleocytosis and intrathecal Borrelia antibodies.
@@ -4418,6 +4613,7 @@ phenotypes:
       label: Subepidermal blistering
   evidence:
   - reference: PMID:41133080
+    reference_title: &#34;Lyme Disease Causing Complex Bullous Lesions: A Case Report.&#34;
     supports: SUPPORT
     snippet: &#34;developed acquired epidermolysis bullosa (EBA) following an LD diagnosis. Initially, the patient presented with atypical erythema migrans, which later evolved into multiple bullous lesions&#34;
     explanation: Case report documents bullous lesions evolving after Lyme disease.
@@ -4448,6 +4644,7 @@ environmental:
   notes: Rare reports of dog tick (Rhipicephalus) transmission in India; underscores need to consider atypical vectors in endemic settings
   evidence:
   - reference: PMID:36352974
+    reference_title: &#34;Dog tick (Rhipecephalus) causing Lyme disease in an adult human.&#34;
     supports: SUPPORT
     snippet: &#34;we present the case of Lyme&#39;s disease in an adult male with dog tick, Rhipecephalus as a vector.&#34;
     explanation: Case report documents Lyme transmission by Rhipicephalus dog tick, highlighting atypical vector risk.
@@ -4469,6 +4666,7 @@ treatments:
         label: doxycycline
   evidence:
   - reference: PMID:17029130
+    reference_title: &#34;The clinical assessment, treatment, and prevention of lyme disease, human granulocytic anaplasmosis, and babesiosis: clinical practice guidelines by the Infectious Diseases Society of America.&#34;
     supports: SUPPORT
     snippet: &#34;Tables list the doses and durations of antimicrobial therapy recommended for treatment and prevention of Lyme disease&#34;
     explanation: IDSA guidelines provide evidence-based antibiotic treatment recommendations for Lyme disease.
@@ -4488,6 +4686,7 @@ treatments:
         label: amoxicillin
   evidence:
   - reference: PMID:17176487
+    reference_title: &#34;Lyme disease in pregnancy: case report and review of the literature.&#34;
     supports: SUPPORT
     snippet: &#34;We describe a favorable outcome in a 42-year-old woman who developed Lyme disease in the third trimester and was treated with a full course of oral amoxicillin.&#34;
     explanation: Case report in pregnancy shows successful treatment with amoxicillin.
@@ -4508,6 +4707,7 @@ treatments:
         label: ceftriaxone
   evidence:
   - reference: PMID:37692616
+    reference_title: &#34;Lyme Disease Presenting With Interesting Neurological Features of Weakness and Hyporeflexia: A Case Report.&#34;
     supports: SUPPORT
     snippet: &#34;The patient&#39;s symptoms resolved quickly with a four-day inpatient course of IV ceftriaxone followed by 10 days of oral doxycycline.&#34;
     explanation: Neuroborreliosis case improved with intravenous ceftriaxone then doxycycline.
@@ -4524,6 +4724,7 @@ differential_diagnoses:
   - Typically lacks systemic neurologic or cardiac involvement seen in disseminated Lyme.
   evidence:
   - reference: PMID:40788480
+    reference_title: &#34;Could alpha-gal syndrome be the cause of southern tick-associated rash illness (STARI)? : A simple study could answer that question.&#34;
     supports: SUPPORT
     snippet: &#34;Southern tick-associated rash illness (STARI)&#34;
     explanation: Highlights STARI as a distinct erythema migrans–like illness linked to lone star tick bites.
@@ -4540,6 +4741,7 @@ differential_diagnoses:
   - Responds rapidly to anti-staphylococcal/streptococcal therapy.
   evidence:
   - reference: PMID:26437159
+    reference_title: &#34;Vesicular erythema migrans: an atypical and easily misdiagnosed form of Lyme disease.&#34;
     supports: SUPPORT
     snippet: &#34;atypical vesicular features... resulted in multiple misdiagnoses and delayed treatment&#34;
     explanation: Atypical erythema migrans presentations can be misdiagnosed as bacterial cellulitis.
@@ -4556,6 +4758,7 @@ differential_diagnoses:
   - Requires urgent drainage.
   evidence:
   - reference: PMID:24028811
+    reference_title: &#34;[Lyme arthritis in children: a diagnostic trap].&#34;
     supports: SUPPORT
     snippet: &#34;clinical and biological picture often resembles that of septic arthritis&#34;
     explanation: Pediatric Lyme arthritis cases can initially be confused with septic arthritis.
@@ -4572,6 +4775,7 @@ differential_diagnoses:
   - Nodules and erosions on imaging.
   evidence:
   - reference: PMID:24028811
+    reference_title: &#34;[Lyme arthritis in children: a diagnostic trap].&#34;
     supports: SUPPORT
     snippet: &#34;clinical and biological picture often resembles that of septic arthritis and juvenile rheumatoid arthritis&#34;
     explanation: Lyme arthritis may mimic rheumatoid patterns, prompting serologic differentiation.
@@ -4588,6 +4792,7 @@ differential_diagnoses:
   - Often acute febrile onset.
   evidence:
   - reference: PMID:29848409
+    reference_title: &#34;Serologic Evidence of Tick-Borne Encephalitis Virus Infection in a Patient with Suspected Lyme Disease in Japan.&#34;
     supports: SUPPORT
     snippet: &#34;Two serum samples from one patient showed neutralizing antibodies against TBE virus.&#34;
     explanation: Tick-borne encephalitis virus infection was found in a patient initially suspected of Lyme, illustrating viral encephalitis as a key differential.
@@ -4604,6 +4809,7 @@ differential_diagnoses:
   - Relapsing course without tick exposure.
   evidence:
   - reference: PMID:34861197
+    reference_title: &#34;Mistaken Identity: Many Diagnoses are Frequently Misattributed to Lyme Disease.&#34;
     supports: SUPPORT
     snippet: &#34;examples... newly diagnosed included multiple sclerosis&#34;
     explanation: Cohort of presumed Lyme referrals identified multiple sclerosis as a frequent alternate diagnosis.
@@ -4620,6 +4826,7 @@ differential_diagnoses:
   - Persistent AV block without rapid reversal on antibiotics.
   evidence:
   - reference: PMID:40385752
+    reference_title: &#34;Dengue Fever-Induced Complete Heart Block (Cardiac Dengue) Requiring Permanent Pacemaker Implantation in a 53-Year-Old Man: A Case Report.&#34;
     supports: SUPPORT
     snippet: &#34;Comprehensive investigations excluded other bradyarrhythmia causes, such as Lyme disease, sarcoidosis, and myocarditis&#34;
     explanation: Case of dengue-related complete heart block underscores non-Lyme infectious causes of advanced AV block.

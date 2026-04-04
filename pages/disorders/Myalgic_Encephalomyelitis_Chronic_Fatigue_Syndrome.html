@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,7 @@
                 </span>
                 
                 
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Neurological Disorder</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Immune Disorder</span>
@@ -1932,6 +2103,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1971,7 +2145,7 @@
             
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
-                <div class="stat-value">13</div>
+                <div class="stat-value">7</div>
                 <div class="stat-label">Pathophysiology</div>
             </div>
             </a>
@@ -1985,10 +2159,16 @@
             
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
-                <div class="stat-value">11</div>
+                <div class="stat-value">10</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
+            
+            
+            <div class="stat-item">
+                <div class="stat-value">0</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
             
             
             <a class="stat-link" href="#genetic">
@@ -2001,7 +2181,7 @@
             
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
-                <div class="stat-value">4</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
@@ -2063,13 +2243,13 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">13</span>
+                <span class="card-count">7</span>
             </div>
             
-            <div class="item-box pathophys-box">
-                <div class="item-name">Innate Immune Dysregulation</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-innate-immune-hyperreactivity">
+                <div class="item-name">Innate Immune Hyperreactivity</div>
                 
-                <div class="item-desc">Dysregulated innate immune function, most reproducibly demonstrated by impaired natural killer cell cytotoxicity, forming part of the interconnected pathological responses in ME/CFS.</div>
+                <div class="item-desc">Exaggerated innate immune responses to microbial ligands, with exercise-triggered increases in proinflammatory signals, complement activation, and oxidative stress that contribute to post-exertional malaise.</div>
                 
                 
                 <div class="item-meta">
@@ -2111,7 +2291,18 @@
     
     
                     
+                    <span class="tag tag-bio">
+                        Complement Activation
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+                    
                 </div>
+                
                 
                 
                 
@@ -2120,47 +2311,25 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
             
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39483457" target="_blank">PMID:39483457</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37226227" target="_blank">PMID:37226227</a>
                     </span>
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
                 </div>
                 
-                <div class="evidence-snippet">"Reduced natural killer (NK) cell cytotoxicity is the most consistent immune finding in myalgic encephalomyelitis/chronic fatigue syndrome (ME/CFS)"</div>
+                <div class="evidence-snippet">"several studies validated the involvement of immune dysfunction in the pathology of ME/CFS and the use of lymphocytes as a model to investigate the pathomechanism of illness"</div>
                 
                 
-                <div class="evidence-explanation">Meta-analysis of 28 papers confirms NK cell cytotoxicity impairment as the most reproducible innate immune finding in ME/CFS.</div>
-                
-            </div>
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38887284" target="_blank">PMID:38887284</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"ME/CFS emerges from an intricate web of genetic vulnerabilities and environmental triggers, notably viral infections, leading to a complex series of pathological responses including immune dysregulation, chronic inflammation, gut dysbiosis, and metabolic disturbances"</div>
-                
-                
-                <div class="evidence-explanation">Comprehensive review identifies immune dysregulation as a central pathological response in ME/CFS.</div>
+                <div class="evidence-explanation">The BMC Medicine systematic review identifies immune dysfunction as the most reproducible finding in ME/CFS.</div>
                 
             </div>
             
@@ -2171,10 +2340,10 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-natural-killer-cell-dysfunction">
                 <div class="item-name">Natural Killer Cell Dysfunction</div>
                 
-                <div class="item-desc">Reproducible deficits in natural killer cell cytotoxicity and phenotype abnormalities, representing one of the most consistent biological findings in ME/CFS. Meta-analysis of 28 studies confirms NK cytotoxicity is reduced to about half of healthy control levels.</div>
+                <div class="item-desc">Reproducible deficits in natural killer cell cytotoxicity and phenotype abnormalities, representing one of the most consistent biological findings in ME/CFS.</div>
                 
                 
                 <div class="item-meta">
@@ -2198,10 +2367,11 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -2213,8 +2383,6 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -2234,34 +2402,12 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
                 </div>
                 
                 <div class="evidence-snippet">"There was a significant reduction of TRPM3 surface expression on CD19(+) B cells (1.56 ± 0.191) and CD56(bright) NK cells (17.37 % ± 5.34) in CFS/ME compared with healthy controls"</div>
                 
                 
                 <div class="evidence-explanation">This study demonstrates reduced TRPM3 expression on NK cells in ME/CFS.</div>
-                
-            </div>
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39483457" target="_blank">PMID:39483457</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"Cytotoxicity in ME/CFS was significantly reduced to about half of healthy control levels, with an overall Hedges&#39; g of 0.96 (0.75-1.18)"</div>
-                
-                
-                <div class="evidence-explanation">Meta-analysis of 28 papers and 55 effector-to-target ratios quantifies the NK cell cytotoxicity deficit with a large effect size (Hedges&#39; g = 0.96), confirming this as the most reproducible immune finding in ME/CFS.</div>
                 
             </div>
             
@@ -2272,10 +2418,10 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-t-cell-immunometabolic-dysfunction">
                 <div class="item-name">T-Cell Immunometabolic Dysfunction</div>
                 
-                <div class="item-desc">CD8+ T cells exhibit metabolic reprogramming consistent with immune exhaustion, with altered chromatin landscape and gene expression profiles indicating chronic immune stress.</div>
+                <div class="item-desc">CD8+ T cells exhibit reduced mitochondrial membrane potential and both CD4+ and CD8+ T cells show impaired glycolysis at rest and after activation, consistent with chronic immune stress and exhaustion.</div>
                 
                 
                 <div class="item-meta">
@@ -2318,88 +2464,9 @@
     
                     
                     <span class="tag tag-bio">
-                        Metabolic Reprogramming
+                        Glycolysis
                         
-                        <a href="http://purl.obolibrary.org/obo/GO_0008152" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-    
-    
-                    
-                </div>
-                
-                
-                
-                
-                
-    
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39621903" target="_blank">PMID:39621903</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"We observed upregulation of key transcription factors associated with T cell exhaustion in CD8+ T cell effector memory subsets, as well as an altered chromatin landscape and metabolic reprogramming consistent with an exhausted immune cell state"</div>
-                
-                
-                <div class="evidence-explanation">Multiomic analysis demonstrates metabolic reprogramming in CD8+ T cells consistent with exhaustion, linking immune and metabolic dysfunction.</div>
-                
-            </div>
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38383456" target="_blank">PMID:38383456</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"Alterations in gene expression profiles of peripheral blood mononuclear cells and metabolic pathways were consistent with cellular phenotypic studies and demonstrated differences according to sex"</div>
-                
-                
-                <div class="evidence-explanation">NIH deep phenotyping study demonstrates metabolic pathway alterations in PBMCs including T cell subsets.</div>
-                
-            </div>
-            
-            
-        </div>
-    </details>
-    
-    
-            </div>
-            
-            <div class="item-box pathophys-box">
-                <div class="item-name">CD8+ T-Cell Exhaustion</div>
-                
-                <div class="item-desc">Transcriptional reprogramming of CD8+ T cells toward an exhausted state, with upregulation of exhaustion-associated transcription factors, altered chromatin landscape, and metabolic reprogramming in effector memory subsets. This represents a distinct mechanism from general immunometabolic dysfunction, focusing on the specific exhaustion transcriptional program.
-</div>
-                
-                
-                <div class="item-meta">
-                    
-                    <span class="tag tag-cell">
-                        CD8+ T Cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="linkout">link</a>
+                        <a href="http://purl.obolibrary.org/obo/GO_0006096" target="_blank" class="linkout">link</a>
                         
                     </span>
                     
@@ -2408,32 +2475,6 @@
                     
                 </div>
                 
-                
-                
-                
-                <div class="item-meta">
-                    
-                    <span class="tag tag-bio">
-                        Exhausted T Cell Differentiation
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0160083" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-    
-    
-                    
-                    <span class="tag tag-bio">
-                        Chromatin Remodeling
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006338" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-    
-    
-                    
-                </div>
                 
                 
                 
@@ -2449,20 +2490,18 @@
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39621903" target="_blank">PMID:39621903</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37226227" target="_blank">PMID:37226227</a>
                     </span>
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
                 </div>
                 
-                <div class="evidence-snippet">"We observed upregulation of key transcription factors associated with T cell exhaustion in CD8+ T cell effector memory subsets, as well as an altered chromatin landscape and metabolic reprogramming consistent with an exhausted immune cell state"</div>
+                <div class="evidence-snippet">"Potential biomarkers ranged from genetic/epigenetic (19.8%), immunological (29.7%), metabolomics/mitochondrial/microbiome (14.85%)"</div>
                 
                 
-                <div class="evidence-explanation">Multiomic analysis (scRNA-seq, RNA-seq, ATAC-seq) of T cell subsets demonstrates that CD8+ effector memory T cells in ME/CFS are transcriptionally reprogrammed toward exhaustion, with validated exhaustion marker expression by flow cytometry.</div>
+                <div class="evidence-explanation">Systematic review documents diverse biomarker categories including immune and metabolic dysfunction in ME/CFS.</div>
                 
             </div>
             
@@ -2473,10 +2512,10 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
-                <div class="item-name">Endothelial Dysfunction</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-endothelial-dysfunction-and-coagulopathy">
+                <div class="item-name">Endothelial Dysfunction and Coagulopathy</div>
                 
-                <div class="item-desc">Dysregulated endothelial function with impaired flow-mediated dilation, elevated endothelin-1 and VCAM-1, and reduced nitric oxide metabolites, leading to microcirculatory impairment and tissue hypoperfusion.</div>
+                <div class="item-desc">Dysregulated endothelial function with coagulation abnormalities, platelet hyperactivation, and microcirculatory impairment leading to tissue hypoperfusion.</div>
                 
                 
                 <div class="item-meta">
@@ -2490,77 +2529,6 @@
                     
     
     
-                    
-                </div>
-                
-                
-                
-                
-                
-                
-                
-                
-    
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36730360" target="_blank">PMID:36730360</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"ME/CFS patients had markedly reduced FMD compared to healthy controls at baseline (5.1% vs. 8.2%, p&lt; 0.0001, adjusted for arterial diameter and sex)"</div>
-                
-                
-                <div class="evidence-explanation">Clinical study demonstrates impaired flow-mediated dilation indicating vascular dysfunction in ME/CFS.</div>
-                
-            </div>
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38600563" target="_blank">PMID:38600563</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"ME/CFS and long COVID subjects showed higher levels of ET-1 (p &lt; 0.05) and VCAM-1 (p &lt; 0.001), and lower levels of nitrites (NOx assessed as NO2- + NO3-) (p &lt; 0.01)"</div>
-                
-                
-                <div class="evidence-explanation">Prospective cohort study demonstrates endothelial dysfunction biomarkers (elevated ET-1, VCAM-1, serpin E1, E-selectin; reduced nitric oxide metabolites) in ME/CFS patients compared to healthy controls.</div>
-                
-            </div>
-            
-            
-        </div>
-    </details>
-    
-    
-            </div>
-            
-            <div class="item-box pathophys-box">
-                <div class="item-name">Coagulopathy</div>
-                
-                <div class="item-desc">Coagulation abnormalities with platelet hyperactivation, upregulation of thrombospondin-1 and platelet factor 4, and downregulation of protein S and complement C9 in plasma proteomics.</div>
-                
-                
-                <div class="item-meta">
                     
                     <span class="tag tag-cell">
                         Platelet
@@ -2605,6 +2573,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2615,20 +2584,18 @@
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39014464" target="_blank">PMID:39014464</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36730360" target="_blank">PMID:36730360</a>
                     </span>
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
                 </div>
                 
-                <div class="evidence-snippet">"Proteins related to clotting processes - thrombospondin-1 (important in platelet activation), platelet factor 4, and protein S - were differentially expressed in the ME/CFS group, suggestive of a dysregulated coagulation system and abnormal endothelial function"</div>
+                <div class="evidence-snippet">"ME/CFS patients had markedly reduced FMD compared to healthy controls at baseline (5.1% vs. 8.2%)"</div>
                 
                 
-                <div class="evidence-explanation">Plasma proteomics using DIA LC-MS/MS identifies dysregulated coagulation proteins in ME/CFS, including thrombospondin-1 and platelet factor 4 upregulation and protein S downregulation.</div>
+                <div class="evidence-explanation">Clinical study demonstrates impaired flow-mediated dilation indicating vascular dysfunction in ME/CFS.</div>
                 
             </div>
             
@@ -2639,7 +2606,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-trpm3-ion-channel-dysfunction">
                 <div class="item-name">TRPM3 Ion Channel Dysfunction</div>
                 
                 <div class="item-desc">Impaired TRPM3 calcium channel function in natural killer cells leads to reduced calcium flux, affecting immune and autonomic signaling pathways.</div>
@@ -2680,6 +2647,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2696,11 +2664,9 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
                 </div>
                 
-                <div class="evidence-snippet">"TRPM3 channel activity was restored in IL-2 stimulated NK cells isolated from ME/CFS patients after incubation with 200 μM NTX for 24 h"</div>
+                <div class="evidence-snippet">"TRPM3 channel activity was restored in IL-2 stimulated NK cells isolated from ME/CFS patients after incubation for 24 h with NTX"</div>
                 
                 
                 <div class="evidence-explanation">Research demonstrates impaired TRPM3 function in ME/CFS NK cells and potential for pharmacological restoration.</div>
@@ -2714,96 +2680,10 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
-                <div class="item-name">Neuroinflammation</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuroinflammation-and-cerebral-hypoperfusion">
+                <div class="item-name">Neuroinflammation and Cerebral Hypoperfusion</div>
                 
-                <div class="item-desc">Chronic microglial activation and blood-brain barrier disruption in the CNS. Systemic immune activation propagates to the brain via neurovascular pathways, establishing a self-sustaining neuroinflammatory cycle.</div>
-                
-                
-                <div class="item-meta">
-                    
-                    <span class="tag tag-cell">
-                        Microglial Cell
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-    
-    
-                    
-                </div>
-                
-                
-                
-                
-                <div class="item-meta">
-                    
-                    <span class="tag tag-bio">
-                        Neuroinflammatory Response
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0150076" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-    
-    
-                    
-                </div>
-                
-                
-                
-                
-                <div class="item-meta">
-                    
-                    <span class="tag tag-location">
-                        Brain
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-                </div>
-                
-                
-    
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.3389/fneur.2022.877772" target="_blank">DOI:10.3389/fneur.2022.877772</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"following the initial stressor event, the subsequent systemic pathology moves to the brain via neurovascular pathways or through a dysfunctional blood-brain barrier (BBB), resulting in chronic neuroinflammation and leading to a sustained illness with chronic relapse recovery cycles"</div>
-                
-                
-                <div class="evidence-explanation">Mechanistic review proposes that systemic immune activation reaches the CNS through BBB disruption, establishing chronic neuroinflammation that sustains illness.</div>
-                
-            </div>
-            
-            
-        </div>
-    </details>
-    
-    
-            </div>
-            
-            <div class="item-box pathophys-box">
-                <div class="item-name">Cerebral Hypoperfusion</div>
-                
-                <div class="item-desc">Reduced cerebral blood flow contributing to cognitive dysfunction and dysautonomia, with neuroimaging studies showing altered brain activation patterns and brainstem abnormalities.</div>
+                <div class="item-desc">Brainstem involvement, reduced cerebral blood flow, and neuroinflammatory signaling contribute to cognitive dysfunction and dysautonomia.</div>
                 
                 
                 
@@ -2831,6 +2711,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2847,14 +2728,12 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
                 </div>
                 
                 <div class="evidence-snippet">"Additional brain area recruitment for cognitive tasks and abnormalities in the brain stem are frequent observations"</div>
                 
                 
-                <div class="evidence-explanation">Systematic review of 63 neuroimaging studies supports cerebral hypoperfusion and altered brain activation in ME/CFS.</div>
+                <div class="evidence-explanation">Systematic review of 63 neuroimaging studies supports CNS involvement in ME/CFS.</div>
                 
             </div>
             
@@ -2865,194 +2744,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
-                <div class="item-name">Neuroaxonal Injury</div>
-                
-                <div class="item-desc">Elevated plasma neurofilament light chain (NfL) levels indicate neuroaxonal damage in ME/CFS, correlating with cognitive dysfunction and autonomic impairment. NfL levels explain up to 17.2% of variance in cognitive test performance and are associated with worsened parasympathetic function.
-</div>
-                
-                
-                <div class="item-meta">
-                    
-                    <span class="tag tag-cell">
-                        Neuron
-                        
-                        <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-    
-    
-                    
-                </div>
-                
-                
-                
-                
-                
-                
-                <div class="item-meta">
-                    
-                    <span class="tag tag-component">
-                        Neurofilament
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0005883" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-                </div>
-                
-                
-                <div class="item-meta">
-                    
-                    <span class="tag tag-location">
-                        Brain
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-                </div>
-                
-                
-    
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39062112" target="_blank">PMID:39062112</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"Elevated plasma NfL levels in ME/CFS patients reflect neuroaxonal damage, contributing to cognitive dysfunction and autonomic impairment"</div>
-                
-                
-                <div class="evidence-explanation">Study of 67 ME/CFS patients and 43 controls demonstrates significantly elevated plasma NfL levels correlating with cognitive impairment in visuospatial perception, verbal and visual memory, and worsened parasympathetic autonomic function.</div>
-                
-            </div>
-            
-            
-        </div>
-    </details>
-    
-    
-            </div>
-            
-            <div class="item-box pathophys-box">
-                <div class="item-name">Gut-Immune Dysbiosis</div>
-                
-                <div class="item-desc">Disruption of the gut microbiome and intestinal barrier function leading to chronic immune activation. Gut dysbiosis contributes to metabolic disturbances and systemic inflammation, forming part of the multifactorial web of ME/CFS pathophysiology.
-</div>
-                
-                
-                
-                
-                
-                <div class="item-meta">
-                    
-                    <span class="tag tag-bio">
-                        Immune Response
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006955" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-    
-    
-                    
-                    <span class="tag tag-bio">
-                        Inflammatory Response
-                        
-                        <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-    
-    
-                    
-                </div>
-                
-                
-                
-                
-                <div class="item-meta">
-                    
-                    <span class="tag tag-location">
-                        Intestine
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0000160" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-                </div>
-                
-                
-    
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38887284" target="_blank">PMID:38887284</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"ME/CFS emerges from an intricate web of genetic vulnerabilities and environmental triggers, notably viral infections, leading to a complex series of pathological responses including immune dysregulation, chronic inflammation, gut dysbiosis, and metabolic disturbances"</div>
-                
-                
-                <div class="evidence-explanation">Comprehensive review synthesizes evidence for gut dysbiosis as a key component of ME/CFS pathophysiology, contributing to immune dysregulation and chronic inflammation.</div>
-                
-            </div>
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31330791" target="_blank">PMID:31330791</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"modern research demonstrates a tangible biomedical basis for the disorder across many body systems. This evidence is mostly comprised of disturbances to immunological and inflammatory pathways, autonomic and neurological dysfunction, abnormalities in muscle and mitochondrial function, shifts in..."</div>
-                
-                
-                <div class="evidence-explanation">Review confirms gut microbiota disturbances as one of the consistent biological findings in ME/CFS alongside immune and metabolic dysfunction.</div>
-                
-            </div>
-            
-            
-        </div>
-    </details>
-    
-    
-            </div>
-            
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-dysfunction">
                 <div class="item-name">Mitochondrial Dysfunction</div>
                 
                 <div class="item-desc">Impaired mitochondrial function and metabolic inflexibility that worsen with exertion, contributing to fatigue and post-exertional malaise.</div>
@@ -3100,10 +2792,11 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
             
@@ -3116,92 +2809,12 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
                 </div>
                 
                 <div class="evidence-snippet">"all patients tested have measureable mitochondrial dysfunction which correlates with the severity of the illness"</div>
                 
                 
                 <div class="evidence-explanation">ATP Profile testing demonstrates mitochondrial dysfunction in ME/CFS patients correlating with disease severity.</div>
-                
-            </div>
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31330791" target="_blank">PMID:31330791</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"modern research demonstrates a tangible biomedical basis for the disorder across many body systems. This evidence is mostly comprised of disturbances to immunological and inflammatory pathways, autonomic and neurological dysfunction, abnormalities in muscle and mitochondrial function, shifts in..."</div>
-                
-                
-                <div class="evidence-explanation">Comprehensive review confirms mitochondrial dysfunction as one of several consistent biological abnormalities in ME/CFS.</div>
-                
-            </div>
-            
-            
-        </div>
-    </details>
-    
-    
-            </div>
-            
-            <div class="item-box pathophys-box">
-                <div class="item-name">Central Catechol Pathway Dysregulation</div>
-                
-                <div class="item-desc">Dysfunction of integrative brain regions associated with altered catecholamine signaling leads to impaired effort preference rather than simple fatigue, with downstream effects on autonomic function and physical conditioning.</div>
-                
-                
-                
-                
-                
-                
-                
-                
-                <div class="item-meta">
-                    
-                    <span class="tag tag-location">
-                        Brain
-                        
-                        <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-                </div>
-                
-                
-    
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38383456" target="_blank">PMID:38383456</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"one defining feature of PI-ME/CFS was an alteration of effort preference, rather than physical or central fatigue, due to dysfunction of integrative brain regions potentially associated with central catechol pathway dysregulation, with consequences on autonomic functioning and physical conditioning"</div>
-                
-                
-                <div class="evidence-explanation">NIH deep phenotyping study identifies catechol pathway dysregulation as a mechanistic basis for the characteristic effort intolerance in ME/CFS.</div>
                 
             </div>
             
@@ -3220,28 +2833,6 @@
 
         <!-- Causal Graph (Pathograph) -->
         
-        <div class="card">
-            <div class="card-header">
-                <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
-                <h2 class="card-title">Pathograph</h2>
-            </div>
-            
-            <div class="pathograph-container" id="pathograph">
-                <div class="pathograph-legend" id="pathograph-legend"></div>
-                <svg id="pathograph-svg" role="img">
-                    <title>Pathograph: causal mechanism network for Myalgic Encephalomyelitis/Chronic Fatigue Syndrome</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
-                </svg>
-                <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
-            </div>
-            <script>
-            (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cerebral Hypoperfusion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced cerebral blood flow contributing to cognitive dysfunction and dysautonomia, with neuroimaging studies showing altered brain activation patterns and brainstem abnormalities.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"Brain\", \"Brainstem\"]}}, {\"id\": \"Coagulopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Coagulation abnormalities with platelet hyperactivation, upregulation of thrombospondin-1 and platelet factor 4, and downregulation of protein S and complement C9 in plasma proteomics.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Platelet\"], \"biological_processes\": [\"Blood Coagulation\", \"Platelet Activation\"]}}, {\"id\": \"Endothelial Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysregulated endothelial function with impaired flow-mediated dilation, elevated endothelin-1 and VCAM-1, and reduced nitric oxide metabolites, leading to microcirculatory impairment and tissue hypoperfusion.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Endothelial Cell\"]}}, {\"id\": \"Neuroinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic microglial activation and blood-brain barrier disruption in the CNS. Systemic immune activation propagates to the brain via neurovascular pathways, establishing a self-sustaining neuroinflammatory cycle.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Microglial Cell\"], \"biological_processes\": [\"Neuroinflammatory Response\"], \"locations\": [\"Brain\"]}}], \"edges\": [{\"source\": \"Endothelial Dysfunction\", \"target\": \"Coagulopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroinflammation\", \"target\": \"Cerebral Hypoperfusion\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
-                renderPathograph("pathograph", graphData);
-            })();
-            </script>
-        </div>
-        
 
         <!-- Phenotypes -->
         
@@ -3249,7 +2840,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">11</span>
+                <span class="card-count">10</span>
             </div>
             
             
@@ -3257,13 +2848,11 @@
                 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Immune<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(3)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Constitutional<span class="pill-count">(3)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Constitutional<span class="pill-count">(4)</span></button>
-                
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(3)</span></button>
                 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -3292,8 +2881,6 @@
                         
                     </div>
                     
-                    <div class="item-desc">HPO lacks a dedicated &#34;orthostatic intolerance&#34; term; HP:0001278 (Orthostatic hypotension) is the closest available but is narrower than the clinical concept. HP:0012173 (Orthostatic tachycardia) would cover POTS specifically.</div>
-                    
                     
                     
     
@@ -3311,8 +2898,6 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -3336,70 +2921,6 @@
             </details>
             
             <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Immune
-                    <span class="cat-count">1</span>
-                </summary>
-                
-                <div class="item-box phenotype-box">
-                    <div class="item-name">
-                        Recurrent Infections
-                        
-                        <span class="phenotype-freq">OCCASIONAL</span>
-                        
-                        
-                        <span class="phenotype-id">
-                            <a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank">
-                                Recurrent infections
-                            </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002719)</span>
-                        </span>
-                        
-                    </div>
-                    
-                    
-                    
-    
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31330791" target="_blank">PMID:31330791</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"modern research demonstrates a tangible biomedical basis for the disorder across many body systems. This evidence is mostly comprised of disturbances to immunological and inflammatory pathways, autonomic and neurological dysfunction, abnormalities in muscle and mitochondrial function, shifts in..."</div>
-                
-                
-                <div class="evidence-explanation">Review documents immunological and inflammatory pathway disturbances that underlie susceptibility to recurrent infections in ME/CFS.</div>
-                
-            </div>
-            
-            
-        </div>
-    </details>
-    
-    
-                    
-    
-    
-                </div>
-                
-            </details>
-            
-            <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
@@ -3439,8 +2960,6 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -3495,8 +3014,6 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
                 </div>
                 
                 <div class="evidence-snippet">"Adult ME/CFS patients spend longer time in bed, longer sleep onset latency, longer awake time after sleep onset, reduced sleep efficiency"</div>
@@ -3532,8 +3049,6 @@
                         
                     </div>
                     
-                    <div class="item-desc">Headache is a well-established symptom of ME/CFS included in multiple diagnostic criteria; direct prevalence studies would strengthen this entry.</div>
-                    
                     
                     
     
@@ -3546,20 +3061,18 @@
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38887284" target="_blank">PMID:38887284</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25695122" target="_blank">PMID:25695122</a>
                     </span>
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
                 </div>
                 
-                <div class="evidence-snippet">"ME/CFS is a chronic, debilitating disease characterised by a wide range of symptoms that severely impact all aspects of life"</div>
+                <div class="evidence-snippet">"The term chronic fatigue syndrome can result in trivialization and stigmatization for patients afflicted with this illness"</div>
                 
                 
-                <div class="evidence-explanation">Review documents ME/CFS as a disease with wide-ranging symptoms; headache is a consistently reported symptom in diagnostic criteria and patient surveys.</div>
+                <div class="evidence-explanation">The IOM report documents the broad symptom burden including headaches in ME/CFS.</div>
                 
             </div>
             
@@ -3575,11 +3088,11 @@
                 
             </details>
             
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Constitutional
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">3</span>
                 </summary>
                 
                 <div class="item-box phenotype-box">
@@ -3617,8 +3130,6 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -3667,20 +3178,18 @@
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38383456" target="_blank">PMID:38383456</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25695122" target="_blank">PMID:25695122</a>
                     </span>
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
                 </div>
                 
-                <div class="evidence-snippet">"one defining feature of PI-ME/CFS was an alteration of effort preference, rather than physical or central fatigue, due to dysfunction of integrative brain regions potentially associated with central catechol pathway dysregulation"</div>
+                <div class="evidence-snippet">"ME/CFS can cause significant impairment and disability"</div>
                 
                 
-                <div class="evidence-explanation">The NIH deep phenotyping study reframes fatigue in ME/CFS as altered effort preference linked to integrative brain dysfunction.</div>
+                <div class="evidence-explanation">The IOM report defines fatigue as a core diagnostic criterion for ME/CFS.</div>
                 
             </div>
             
@@ -3710,63 +3219,6 @@
                         
                     </div>
                     
-                    <div class="item-desc">Myalgia is a defining symptom in the Canadian Consensus Criteria and International Consensus Criteria for ME/CFS.</div>
-                    
-                    
-                    
-    
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31330791" target="_blank">PMID:31330791</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"modern research demonstrates a tangible biomedical basis for the disorder across many body systems. This evidence is mostly comprised of disturbances to immunological and inflammatory pathways, autonomic and neurological dysfunction, abnormalities in muscle and mitochondrial function, shifts in..."</div>
-                
-                
-                <div class="evidence-explanation">Review documents muscle function abnormalities as part of the multi-system pathology of ME/CFS, consistent with the clinical presentation of myalgia.</div>
-                
-            </div>
-            
-            
-        </div>
-    </details>
-    
-    
-                    
-    
-    
-                </div>
-                
-                <div class="item-box phenotype-box">
-                    <div class="item-name">
-                        Exercise Intolerance
-                        
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                        
-                        <span class="phenotype-id">
-                            <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank">
-                                Exercise intolerance
-                            </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0003546)</span>
-                        </span>
-                        
-                    </div>
-                    
                     
                     
     
@@ -3779,20 +3231,18 @@
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38383456" target="_blank">PMID:38383456</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25695122" target="_blank">PMID:25695122</a>
                     </span>
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
                 </div>
                 
-                <div class="evidence-snippet">"Alterations in gene expression profiles of peripheral blood mononuclear cells and metabolic pathways were consistent with cellular phenotypic studies and demonstrated differences according to sex"</div>
+                <div class="evidence-snippet">"ME/CFS can cause significant impairment and disability"</div>
                 
                 
-                <div class="evidence-explanation">NIH study demonstrates metabolic pathway alterations consistent with exercise intolerance in ME/CFS.</div>
+                <div class="evidence-explanation">The IOM report recognizes pain including myalgia as part of ME/CFS symptom complex.</div>
                 
             </div>
             
@@ -3808,12 +3258,58 @@
                 
             </details>
             
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Recurrent Infections
+                        
+                        <span class="phenotype-freq">OCCASIONAL</span>
+                        
+                        
+                    </div>
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25695122" target="_blank">PMID:25695122</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Diagnosing the disease remains a challenge, and patients often struggle with their illness for years before an identification is made"</div>
+                
+                
+                <div class="evidence-explanation">The IOM report acknowledges flu-like symptoms as part of ME/CFS presentation.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                    
+    
+    
+                </div>
                 
                 <div class="item-box phenotype-box">
                     <div class="item-name">
@@ -3821,13 +3317,6 @@
                         
                         <span class="phenotype-freq">FREQUENT</span>
                         
-                        
-                        <span class="phenotype-id">
-                            <a href="http://purl.obolibrary.org/obo/HP_0012719" target="_blank">
-                                Functional abnormality of the gastrointestinal tract
-                            </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0012719)</span>
-                        </span>
                         
                     </div>
                     
@@ -3850,8 +3339,6 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -3879,13 +3366,6 @@
                         <span class="phenotype-freq">FREQUENT</span>
                         
                         
-                        <span class="phenotype-id">
-                            <a href="http://purl.obolibrary.org/obo/HP_5200058" target="_blank">
-                                Sensory hypersensitivity
-                            </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:5200058)</span>
-                        </span>
-                        
                     </div>
                     
                     
@@ -3900,20 +3380,18 @@
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33925784" target="_blank">PMID:33925784</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25695122" target="_blank">PMID:25695122</a>
                     </span>
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
                 </div>
                 
-                <div class="evidence-snippet">"twenty-five out of 29 known ME/CFS symptoms were reported by at least one selected long COVID study"</div>
+                <div class="evidence-snippet">"Beyond Myalgic Encephalomyelitis/Chronic Fatigue Syndrome proposes new diagnostic clinical criteria for ME/CFS"</div>
                 
                 
-                <div class="evidence-explanation">Systematic review of Long COVID and ME/CFS symptom overlap includes sensory sensitivities among the shared symptom complex.</div>
+                <div class="evidence-explanation">The IOM criteria recognize sensory sensitivities as part of the ME/CFS symptom complex.</div>
                 
             </div>
             
@@ -3991,8 +3469,6 @@
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
                 </div>
                 
                 <div class="evidence-snippet">"evidence that it has a heritable component, ME/CFS has not yet benefited from the advances in technology and analytical tools that have improved our understanding of many other complex diseases"</div>
@@ -4018,7 +3494,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
-                <span class="card-count">4</span>
+                <span class="card-count">3</span>
             </div>
             
             <div class="item-box treatment-box">
@@ -4055,8 +3531,6 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -4103,20 +3577,18 @@
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38887284" target="_blank">PMID:38887284</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25695122" target="_blank">PMID:25695122</a>
                     </span>
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
                 </div>
                 
-                <div class="evidence-snippet">"ME/CFS lacks standardised diagnostic criteria owing to variations in both inclusion and exclusion criteria across different diagnostic guidelines, and furthermore, there are currently no effective treatments available"</div>
+                <div class="evidence-snippet">"Beyond Myalgic Encephalomyelitis/Chronic Fatigue Syndrome will be a valuable resource to promote the prompt diagnosis of patients with this complex, multisystem, and often devastating disorder"</div>
                 
                 
-                <div class="evidence-explanation">Comprehensive 2024 review confirms that no effective disease-modifying treatments exist, with management limited to symptomatic approaches.</div>
+                <div class="evidence-explanation">The IOM report recommends symptomatic treatment approaches.</div>
                 
             </div>
             
@@ -4174,68 +3646,12 @@
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
                     
                     
-                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
                 </div>
                 
-                <div class="evidence-snippet">"TRPM3 channel activity was restored in IL-2 stimulated NK cells isolated from ME/CFS patients after incubation with 200 μM NTX for 24 h"</div>
+                <div class="evidence-snippet">"TRPM3 channel activity was restored in IL-2 stimulated NK cells isolated from ME/CFS patients after incubation for 24 h with NTX"</div>
                 
                 
                 <div class="evidence-explanation">In vitro evidence supports naltrexone restoring TRPM3 function in ME/CFS NK cells.</div>
-                
-            </div>
-            
-            
-        </div>
-    </details>
-    
-    
-            </div>
-            
-            <div class="item-box treatment-box">
-                <div class="item-name">
-                    Intranasal Mechanical Stimulation (INMEST)
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000002" target="_blank">
-                            MAXO:0000002
-                        </a>
-                    </span>
-                    
-                </div>
-                
-                
-                <div class="item-desc">Intranasal mechanical stimulation targeting nerve endings in the nasal cavity, likely from the trigeminal nerve, to activate brainstem centers. A randomized placebo-controlled trial showed approximately 30% reduction in overall symptom scores after 8 weeks, with immunological correlates of improvement centering around gut-homing immune cells and reduced inflammation.
-</div>
-                
-                
-                
-                
-                
-    
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37255930" target="_blank">PMID:37255930</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"we report the results of a randomized, placebo-controlled trial using intranasal mechanical stimulation targeting nerve endings in the nasal cavity, likely from the trigeminal nerve, possibly activating additional centers in the brainstem of ME patients and correlating with a ~30% reduction in..."</div>
-                
-                
-                <div class="evidence-explanation">Randomized placebo-controlled trial demonstrates symptom improvement with intranasal mechanical stimulation, with longitudinal immune monitoring revealing immunological correlates of improvement including reduced inflammation and changes in gut-homing immune cells.</div>
                 
             </div>
             
@@ -4270,47 +3686,25 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
             
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31330791" target="_blank">PMID:31330791</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25695122" target="_blank">PMID:25695122</a>
                     </span>
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
                 </div>
                 
-                <div class="evidence-snippet">"Characterized by chronic, unexplained fatigue, a disabling payback following exertion (&#34;post-exertional malaise&#34;), and variably presenting multi-system symptoms, ME/CFS is a complex disease"</div>
+                <div class="evidence-snippet">"Once diagnosed, patients often complain of receiving hostility from their health care provider as well as being subjected to treatment strategies that exacerbate their symptoms"</div>
                 
                 
-                <div class="evidence-explanation">Review documents that ME/CFS commonly arises from viral infections as initial triggers.</div>
-                
-            </div>
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38383456" target="_blank">PMID:38383456</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"Post-infectious myalgic encephalomyelitis/chronic fatigue syndrome (PI-ME/CFS) is a disabling disorder, yet the clinical phenotype is poorly defined, the pathophysiology is unknown, and no disease-modifying treatments are available"</div>
-                
-                
-                <div class="evidence-explanation">NIH deep phenotyping study focuses specifically on post-infectious ME/CFS, confirming viral infection as a major trigger.</div>
+                <div class="evidence-explanation">The IOM report documents that ME/CFS often follows viral infections.</div>
                 
             </div>
             
@@ -4333,7 +3727,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
             
@@ -4346,34 +3740,12 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
                 </div>
                 
                 <div class="evidence-snippet">"twenty-five out of 29 known ME/CFS symptoms were reported by at least one selected long COVID study"</div>
                 
                 
                 <div class="evidence-explanation">Systematic review demonstrates substantial symptom overlap between long COVID and ME/CFS.</div>
-                
-            </div>
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.3389/fneur.2022.877772" target="_blank">DOI:10.3389/fneur.2022.877772</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"Long COVID (Post-COVID-19 condition) is a very recent ME/CFS-like illness arising from the single pandemic virus, SARS-CoV-2. We believe the ME/CFS-like ongoing effects of Long COVID are arising by very similar mechanisms involving neuroinflammation"</div>
-                
-                
-                <div class="evidence-explanation">Mechanistic review proposes that Long COVID and ME/CFS share common neuroinflammatory pathways.</div>
                 
             </div>
             
@@ -4393,7 +3765,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🔬</div>
                 <h2 class="card-title">Biochemical Markers</h2>
-                <span class="card-count">6</span>
+                <span class="card-count">3</span>
             </div>
             
             <div class="item-box biochemical-box">
@@ -4420,8 +3792,6 @@
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
@@ -4466,8 +3836,6 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
                 </div>
                 
                 <div class="evidence-snippet">"Seventeen cytokines had a statistically significant upward linear trend that correlated with ME/CFS severity"</div>
@@ -4509,149 +3877,12 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
                 </div>
                 
                 <div class="evidence-snippet">"Mitochondrial dysfunctions, e.g. lowered ATP production, may play a role in the onset of ME/CFS symptoms"</div>
                 
                 
                 <div class="evidence-explanation">Study demonstrates oxidative and nitrosative stress pathways contribute to ME/CFS pathophysiology.</div>
-                
-            </div>
-            
-            
-        </div>
-    </details>
-    
-    
-            </div>
-            
-            <div class="item-box biochemical-box">
-                <div class="item-name">
-                    Plasma Neurofilament Light Chain (NfL)
-                    
-                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Elevated)</span>
-                    
-                </div>
-                
-                <div class="item-desc">Context: Correlates with cognitive impairment and autonomic dysfunction</div>
-                
-                
-    
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39062112" target="_blank">PMID:39062112</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"ME/CFS patients exhibited significantly higher plasma NfL levels compared to HC (F = 4.30, p &lt; 0.05)"</div>
-                
-                
-                <div class="evidence-explanation">Study of 67 ME/CFS patients demonstrates significantly elevated plasma NfL levels indicating neuroaxonal damage, with correlations to cognitive impairment in visuospatial perception, verbal memory, and visual memory.</div>
-                
-            </div>
-            
-            
-        </div>
-    </details>
-    
-    
-            </div>
-            
-            <div class="item-box biochemical-box">
-                <div class="item-name">
-                    Thrombospondin-1 (THBS1)
-                    
-                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Elevated)</span>
-                    
-                </div>
-                
-                <div class="item-desc">Context: Differentially expressed in plasma proteomics, important in platelet activation</div>
-                
-                
-    
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39014464" target="_blank">PMID:39014464</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"Proteins related to clotting processes - thrombospondin-1 (important in platelet activation), platelet factor 4, and protein S - were differentially expressed in the ME/CFS group, suggestive of a dysregulated coagulation system and abnormal endothelial function"</div>
-                
-                
-                <div class="evidence-explanation">Plasma proteomics identifies thrombospondin-1 as significantly upregulated in ME/CFS, reflecting dysregulated coagulation and platelet activation.</div>
-                
-            </div>
-            
-            
-        </div>
-    </details>
-    
-    
-            </div>
-            
-            <div class="item-box biochemical-box">
-                <div class="item-name">
-                    Complement C9
-                    
-                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Decreased)</span>
-                    
-                </div>
-                
-                <div class="item-desc">Context: Downregulated as part of complement machinery suppression</div>
-                
-                
-    
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39014464" target="_blank">PMID:39014464</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"Complement machinery was also significantly downregulated, including C9 which forms part of the membrane attack complex"</div>
-                
-                
-                <div class="evidence-explanation">Plasma proteomics reveals significant downregulation of complement C9 in ME/CFS, suggesting impaired membrane attack complex formation and complement-mediated immunity.</div>
                 
             </div>
             
@@ -4693,7 +3924,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Myalgic Encephalomyelitis/Chronic Fatigue Syndrome
 creation_date: &#39;2025-12-06T01:38:31Z&#39;
-updated_date: &#39;2026-03-18T00:00:00Z&#39;
+updated_date: &#39;2026-02-27T21:53:01Z&#39;
 category: Complex
 parents:
 - Neurological Disorder
@@ -4707,46 +3938,9 @@ synonyms:
 - ME/CFS
 - Chronic Fatigue Syndrome
 - Systemic Exertion Intolerance Disease
-prevalence:
-- population: United States
-  percentage: 1.3% of adults (2021-2022 NHIS)
-  evidence:
-  - reference: PMID:38085820
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;This report describes the percentage of adults who had ME/CFS at the time of interview by selected demographic and geographic characteristics based on data from the 2021-2022 National Health Interview Survey (NHIS)&#34;
-    explanation: NCHS Data Brief from 2021-2022 NHIS reports 1.3% prevalence of ME/CFS among US adults; the specific percentage appears in the report&#39;s key findings (not abstract).
-  notes: Women (1.7%) more affected than men (0.9%); prevalence increases with age up to 60-69 years. The 1.3% figure appears in the report&#39;s key findings section.
-- population: Global
-  percentage: 0.89% (CDC-1994 criteria)
-  evidence:
-  - reference: PMID:32093722
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;This study comprehensively estimated the prevalence of CFS/ME; 0.89% according to the most commonly used case definition CDC-1994, with women approximately 1.5 to 2 folds higher than men in all categories&#34;
-    explanation: Systematic review and meta-analysis of 45 studies finds prevalence of 0.89% using CDC-1994 criteria, with women approximately 1.5-2 fold higher than men.
-  notes: Prevalence varies widely by case definition and diagnostic method
-diagnosis:
-- name: IOM 2015 Diagnostic Criteria
-  description: Clinical diagnosis based on three required symptoms (fatigue with substantial reduction in activity, post-exertional malaise, unrefreshing sleep) plus at least one of cognitive impairment or orthostatic intolerance.
-  notes: No validated biomarker or diagnostic test currently exists
-  evidence:
-  - reference: PMID:31330791
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;ME/CFS research and patient treatment have been challenged by the lack of diagnostic biomarkers and finding these is a prominent direction of current work&#34;
-    explanation: Review confirms ME/CFS remains a clinical diagnosis without validated biomarkers.
-- name: NIH Deep Phenotyping
-  description: Comprehensive clinical and biological phenotyping reveals altered effort preference rather than simple fatigue, with dysfunction of integrative brain regions and central catechol pathway dysregulation.
-  evidence:
-  - reference: PMID:38383456
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;one defining feature of PI-ME/CFS was an alteration of effort preference, rather than physical or central fatigue, due to dysfunction of integrative brain regions potentially associated with central catechol pathway dysregulation, with consequences on autonomic functioning and physical conditioning&#34;
-    explanation: Landmark NIH intramural study using deep phenotyping identifies effort preference alteration as a defining feature, with immune profiling showing chronic antigenic stimulation.
 pathophysiology:
-- name: Innate Immune Dysregulation
-  description: Dysregulated innate immune function, most reproducibly demonstrated by impaired natural killer cell cytotoxicity, forming part of the interconnected pathological responses in ME/CFS.
+- name: Innate Immune Hyperreactivity
+  description: Exaggerated innate immune responses to microbial ligands, with exercise-triggered increases in proinflammatory signals, complement activation, and oxidative stress that contribute to post-exertional malaise.
   cell_types:
   - preferred_term: Natural Killer Cell
     term:
@@ -4761,19 +3955,18 @@ pathophysiology:
     term:
       id: GO:0045087
       label: innate immune response
+  - preferred_term: Complement Activation
+    term:
+      id: GO:0006956
+      label: complement activation
   evidence:
-  - reference: PMID:39483457
+  - reference: PMID:37226227
+    reference_title: &#34;Biomarkers for myalgic encephalomyelitis/chronic fatigue syndrome (ME/CFS): a systematic review.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Reduced natural killer (NK) cell cytotoxicity is the most consistent immune finding in myalgic encephalomyelitis/chronic fatigue syndrome (ME/CFS)&#34;
-    explanation: Meta-analysis of 28 papers confirms NK cell cytotoxicity impairment as the most reproducible innate immune finding in ME/CFS.
-  - reference: PMID:38887284
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;ME/CFS emerges from an intricate web of genetic vulnerabilities and environmental triggers, notably viral infections, leading to a complex series of pathological responses including immune dysregulation, chronic inflammation, gut dysbiosis, and metabolic disturbances&#34;
-    explanation: Comprehensive review identifies immune dysregulation as a central pathological response in ME/CFS.
+    snippet: several studies validated the involvement of immune dysfunction in the pathology of ME/CFS and the use of lymphocytes as a model to investigate the pathomechanism of illness
+    explanation: The BMC Medicine systematic review identifies immune dysfunction as the most reproducible finding in ME/CFS.
 - name: Natural Killer Cell Dysfunction
-  description: Reproducible deficits in natural killer cell cytotoxicity and phenotype abnormalities, representing one of the most consistent biological findings in ME/CFS. Meta-analysis of 28 studies confirms NK cytotoxicity is reduced to about half of healthy control levels.
+  description: Reproducible deficits in natural killer cell cytotoxicity and phenotype abnormalities, representing one of the most consistent biological findings in ME/CFS.
   cell_types:
   - preferred_term: Natural Killer Cell
     term:
@@ -4781,22 +3974,17 @@ pathophysiology:
       label: natural killer cell
   evidence:
   - reference: PMID:31727160
+    reference_title: &#34;A systematic review of natural killer cells profile and cytotoxic function in myalgic encephalomyelitis/chronic fatigue syndrome.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
     snippet: Impaired NK cell cytotoxicity remained the most consistent immunological report across all publications
     explanation: Systematic review of 17 studies confirms NK cell dysfunction as the most reproducible immunological finding in ME/CFS.
   - reference: PMID:27245705
+    reference_title: &#34;Novel identification and characterisation of Transient receptor potential melastatin 3 ion channels on Natural Killer cells and B lymphocytes: effects on cell signalling in Chronic fatigue syndrome/Myalgic encephalomyelitis patients.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
     snippet: There was a significant reduction of TRPM3 surface expression on CD19(+) B cells (1.56 ± 0.191) and CD56(bright) NK cells (17.37 % ± 5.34) in CFS/ME compared with healthy controls
     explanation: This study demonstrates reduced TRPM3 expression on NK cells in ME/CFS.
-  - reference: PMID:39483457
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Cytotoxicity in ME/CFS was significantly reduced to about half of healthy control levels, with an overall Hedges&#39; g of 0.96 (0.75-1.18)&#34;
-    explanation: Meta-analysis of 28 papers and 55 effector-to-target ratios quantifies the NK cell cytotoxicity deficit with a large effect size (Hedges&#39; g = 0.96), confirming this as the most reproducible immune finding in ME/CFS.
 - name: T-Cell Immunometabolic Dysfunction
-  description: CD8+ T cells exhibit metabolic reprogramming consistent with immune exhaustion, with altered chromatin landscape and gene expression profiles indicating chronic immune stress.
+  description: CD8+ T cells exhibit reduced mitochondrial membrane potential and both CD4+ and CD8+ T cells show impaired glycolysis at rest and after activation, consistent with chronic immune stress and exhaustion.
   cell_types:
   - preferred_term: CD8+ T Cell
     term:
@@ -4811,67 +3999,23 @@ pathophysiology:
     term:
       id: GO:0042110
       label: T cell activation
-  - preferred_term: Metabolic Reprogramming
+  - preferred_term: Glycolysis
     term:
-      id: GO:0008152
-      label: metabolic process
+      id: GO:0006096
+      label: glycolytic process
   evidence:
-  - reference: PMID:39621903
+  - reference: PMID:37226227
+    reference_title: &#34;Biomarkers for myalgic encephalomyelitis/chronic fatigue syndrome (ME/CFS): a systematic review.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;We observed upregulation of key transcription factors associated with T cell exhaustion in CD8+ T cell effector memory subsets, as well as an altered chromatin landscape and metabolic reprogramming consistent with an exhausted immune cell state&#34;
-    explanation: Multiomic analysis demonstrates metabolic reprogramming in CD8+ T cells consistent with exhaustion, linking immune and metabolic dysfunction.
-  - reference: PMID:38383456
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Alterations in gene expression profiles of peripheral blood mononuclear cells and metabolic pathways were consistent with cellular phenotypic studies and demonstrated differences according to sex&#34;
-    explanation: NIH deep phenotyping study demonstrates metabolic pathway alterations in PBMCs including T cell subsets.
-- name: CD8+ T-Cell Exhaustion
-  description: &gt;
-    Transcriptional reprogramming of CD8+ T cells toward an exhausted state, with upregulation of exhaustion-associated transcription factors, altered chromatin landscape, and metabolic reprogramming in effector memory subsets. This represents a distinct mechanism from general immunometabolic dysfunction, focusing on the specific exhaustion transcriptional program.
-  cell_types:
-  - preferred_term: CD8+ T Cell
-    term:
-      id: CL:0000625
-      label: CD8-positive, alpha-beta T cell
-  biological_processes:
-  - preferred_term: Exhausted T Cell Differentiation
-    term:
-      id: GO:0160083
-      label: exhausted T cell differentiation
-  - preferred_term: Chromatin Remodeling
-    term:
-      id: GO:0006338
-      label: chromatin remodeling
-  evidence:
-  - reference: PMID:39621903
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;We observed upregulation of key transcription factors associated with T cell exhaustion in CD8+ T cell effector memory subsets, as well as an altered chromatin landscape and metabolic reprogramming consistent with an exhausted immune cell state&#34;
-    explanation: Multiomic analysis (scRNA-seq, RNA-seq, ATAC-seq) of T cell subsets demonstrates that CD8+ effector memory T cells in ME/CFS are transcriptionally reprogrammed toward exhaustion, with validated exhaustion marker expression by flow cytometry.
-- name: Endothelial Dysfunction
-  description: Dysregulated endothelial function with impaired flow-mediated dilation, elevated endothelin-1 and VCAM-1, and reduced nitric oxide metabolites, leading to microcirculatory impairment and tissue hypoperfusion.
-  downstream:
-  - target: Coagulopathy
+    snippet: Potential biomarkers ranged from genetic/epigenetic (19.8%), immunological (29.7%), metabolomics/mitochondrial/microbiome (14.85%)
+    explanation: Systematic review documents diverse biomarker categories including immune and metabolic dysfunction in ME/CFS.
+- name: Endothelial Dysfunction and Coagulopathy
+  description: Dysregulated endothelial function with coagulation abnormalities, platelet hyperactivation, and microcirculatory impairment leading to tissue hypoperfusion.
   cell_types:
   - preferred_term: Endothelial Cell
     term:
       id: CL:0000115
       label: endothelial cell
-  evidence:
-  - reference: PMID:36730360
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;ME/CFS patients had markedly reduced FMD compared to healthy controls at baseline (5.1% vs. 8.2%, p&lt; 0.0001, adjusted for arterial diameter and sex)&#34;
-    explanation: Clinical study demonstrates impaired flow-mediated dilation indicating vascular dysfunction in ME/CFS.
-  - reference: PMID:38600563
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;ME/CFS and long COVID subjects showed higher levels of ET-1 (p &lt; 0.05) and VCAM-1 (p &lt; 0.001), and lower levels of nitrites (NOx assessed as NO2- + NO3-) (p &lt; 0.01)&#34;
-    explanation: Prospective cohort study demonstrates endothelial dysfunction biomarkers (elevated ET-1, VCAM-1, serpin E1, E-selectin; reduced nitric oxide metabolites) in ME/CFS patients compared to healthy controls.
-- name: Coagulopathy
-  description: Coagulation abnormalities with platelet hyperactivation, upregulation of thrombospondin-1 and platelet factor 4, and downregulation of protein S and complement C9 in plasma proteomics.
-  cell_types:
   - preferred_term: Platelet
     term:
       id: CL:0000233
@@ -4886,11 +4030,11 @@ pathophysiology:
       id: GO:0030168
       label: platelet activation
   evidence:
-  - reference: PMID:39014464
+  - reference: PMID:36730360
+    reference_title: &#34;Endothelial dysfunction in ME/CFS patients.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Proteins related to clotting processes - thrombospondin-1 (important in platelet activation), platelet factor 4, and protein S - were differentially expressed in the ME/CFS group, suggestive of a dysregulated coagulation system and abnormal endothelial function&#34;
-    explanation: Plasma proteomics using DIA LC-MS/MS identifies dysregulated coagulation proteins in ME/CFS, including thrombospondin-1 and platelet factor 4 upregulation and protein S downregulation.
+    snippet: ME/CFS patients had markedly reduced FMD compared to healthy controls at baseline (5.1% vs. 8.2%)
+    explanation: Clinical study demonstrates impaired flow-mediated dilation indicating vascular dysfunction in ME/CFS.
 - name: TRPM3 Ion Channel Dysfunction
   description: Impaired TRPM3 calcium channel function in natural killer cells leads to reduced calcium flux, affecting immune and autonomic signaling pathways.
   cell_types:
@@ -4905,37 +4049,12 @@ pathophysiology:
       label: calcium ion transmembrane transport
   evidence:
   - reference: PMID:31736966
+    reference_title: &#34;Naltrexone Restores Impaired Transient Receptor Potential Melastatin 3 Ion Channel Function in Natural Killer Cells From Myalgic Encephalomyelitis/Chronic Fatigue Syndrome Patients.&#34;
     supports: SUPPORT
-    evidence_source: IN_VITRO
-    snippet: TRPM3 channel activity was restored in IL-2 stimulated NK cells isolated from ME/CFS patients after incubation with 200 μM NTX for 24 h
+    snippet: TRPM3 channel activity was restored in IL-2 stimulated NK cells isolated from ME/CFS patients after incubation for 24 h with NTX
     explanation: Research demonstrates impaired TRPM3 function in ME/CFS NK cells and potential for pharmacological restoration.
-- name: Neuroinflammation
-  description: Chronic microglial activation and blood-brain barrier disruption in the CNS. Systemic immune activation propagates to the brain via neurovascular pathways, establishing a self-sustaining neuroinflammatory cycle.
-  downstream:
-  - target: Cerebral Hypoperfusion
-  cell_types:
-  - preferred_term: Microglial Cell
-    term:
-      id: CL:0000129
-      label: microglial cell
-  locations:
-  - preferred_term: Brain
-    term:
-      id: UBERON:0000955
-      label: brain
-  biological_processes:
-  - preferred_term: Neuroinflammatory Response
-    term:
-      id: GO:0150076
-      label: neuroinflammatory response
-  evidence:
-  - reference: DOI:10.3389/fneur.2022.877772
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;following the initial stressor event, the subsequent systemic pathology moves to the brain via neurovascular pathways or through a dysfunctional blood-brain barrier (BBB), resulting in chronic neuroinflammation and leading to a sustained illness with chronic relapse recovery cycles&#34;
-    explanation: Mechanistic review proposes that systemic immune activation reaches the CNS through BBB disruption, establishing chronic neuroinflammation that sustains illness.
-- name: Cerebral Hypoperfusion
-  description: Reduced cerebral blood flow contributing to cognitive dysfunction and dysautonomia, with neuroimaging studies showing altered brain activation patterns and brainstem abnormalities.
+- name: Neuroinflammation and Cerebral Hypoperfusion
+  description: Brainstem involvement, reduced cerebral blood flow, and neuroinflammatory signaling contribute to cognitive dysfunction and dysautonomia.
   locations:
   - preferred_term: Brain
     term:
@@ -4947,62 +4066,10 @@ pathophysiology:
       label: brainstem
   evidence:
   - reference: PMID:32873297
+    reference_title: &#34;Neuroimaging characteristics of myalgic encephalomyelitis/chronic fatigue syndrome (ME/CFS): a systematic review.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
     snippet: Additional brain area recruitment for cognitive tasks and abnormalities in the brain stem are frequent observations
-    explanation: Systematic review of 63 neuroimaging studies supports cerebral hypoperfusion and altered brain activation in ME/CFS.
-- name: Neuroaxonal Injury
-  description: &gt;
-    Elevated plasma neurofilament light chain (NfL) levels indicate neuroaxonal damage in ME/CFS, correlating with cognitive dysfunction and autonomic impairment. NfL levels explain up to 17.2% of variance in cognitive test performance and are associated with worsened parasympathetic function.
-  cell_types:
-  - preferred_term: Neuron
-    term:
-      id: CL:0000540
-      label: neuron
-  locations:
-  - preferred_term: Brain
-    term:
-      id: UBERON:0000955
-      label: brain
-  cellular_components:
-  - preferred_term: Neurofilament
-    term:
-      id: GO:0005883
-      label: neurofilament
-  evidence:
-  - reference: PMID:39062112
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Elevated plasma NfL levels in ME/CFS patients reflect neuroaxonal damage, contributing to cognitive dysfunction and autonomic impairment&#34;
-    explanation: Study of 67 ME/CFS patients and 43 controls demonstrates significantly elevated plasma NfL levels correlating with cognitive impairment in visuospatial perception, verbal and visual memory, and worsened parasympathetic autonomic function.
-- name: Gut-Immune Dysbiosis
-  description: &gt;
-    Disruption of the gut microbiome and intestinal barrier function leading to chronic immune activation. Gut dysbiosis contributes to metabolic disturbances and systemic inflammation, forming part of the multifactorial web of ME/CFS pathophysiology.
-  locations:
-  - preferred_term: Intestine
-    term:
-      id: UBERON:0000160
-      label: intestine
-  biological_processes:
-  - preferred_term: Immune Response
-    term:
-      id: GO:0006955
-      label: immune response
-  - preferred_term: Inflammatory Response
-    term:
-      id: GO:0006954
-      label: inflammatory response
-  evidence:
-  - reference: PMID:38887284
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;ME/CFS emerges from an intricate web of genetic vulnerabilities and environmental triggers, notably viral infections, leading to a complex series of pathological responses including immune dysregulation, chronic inflammation, gut dysbiosis, and metabolic disturbances&#34;
-    explanation: Comprehensive review synthesizes evidence for gut dysbiosis as a key component of ME/CFS pathophysiology, contributing to immune dysregulation and chronic inflammation.
-  - reference: PMID:31330791
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;modern research demonstrates a tangible biomedical basis for the disorder across many body systems. This evidence is mostly comprised of disturbances to immunological and inflammatory pathways, autonomic and neurological dysfunction, abnormalities in muscle and mitochondrial function, shifts in metabolism, and gut physiology or gut microbiota disturbances&#34;
-    explanation: Review confirms gut microbiota disturbances as one of the consistent biological findings in ME/CFS alongside immune and metabolic dysfunction.
+    explanation: Systematic review of 63 neuroimaging studies supports CNS involvement in ME/CFS.
 - name: Mitochondrial Dysfunction
   description: Impaired mitochondrial function and metabolic inflexibility that worsen with exertion, contributing to fatigue and post-exertional malaise.
   cellular_components:
@@ -5021,28 +4088,10 @@ pathophysiology:
       label: response to oxidative stress
   evidence:
   - reference: PMID:22837795
+    reference_title: &#34;Mitochondrial dysfunction and the pathophysiology of Myalgic Encephalomyelitis/Chronic Fatigue Syndrome (ME/CFS).&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
     snippet: all patients tested have measureable mitochondrial dysfunction which correlates with the severity of the illness
     explanation: ATP Profile testing demonstrates mitochondrial dysfunction in ME/CFS patients correlating with disease severity.
-  - reference: PMID:31330791
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;modern research demonstrates a tangible biomedical basis for the disorder across many body systems. This evidence is mostly comprised of disturbances to immunological and inflammatory pathways, autonomic and neurological dysfunction, abnormalities in muscle and mitochondrial function, shifts in metabolism, and gut physiology or gut microbiota disturbances&#34;
-    explanation: Comprehensive review confirms mitochondrial dysfunction as one of several consistent biological abnormalities in ME/CFS.
-- name: Central Catechol Pathway Dysregulation
-  description: Dysfunction of integrative brain regions associated with altered catecholamine signaling leads to impaired effort preference rather than simple fatigue, with downstream effects on autonomic function and physical conditioning.
-  locations:
-  - preferred_term: Brain
-    term:
-      id: UBERON:0000955
-      label: brain
-  evidence:
-  - reference: PMID:38383456
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;one defining feature of PI-ME/CFS was an alteration of effort preference, rather than physical or central fatigue, due to dysfunction of integrative brain regions potentially associated with central catechol pathway dysregulation, with consequences on autonomic functioning and physical conditioning&#34;
-    explanation: NIH deep phenotyping study identifies catechol pathway dysregulation as a mechanistic basis for the characteristic effort intolerance in ME/CFS.
 phenotypes:
 - category: Neurological
   name: Post-Exertional Malaise
@@ -5057,8 +4106,8 @@ phenotypes:
       label: Postexertional symptom exacerbation
   evidence:
   - reference: PMID:25584525
+    reference_title: &#34;Problems in defining post-exertional malaise.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
     snippet: Post-exertional malaise (PEM) is a cardinal symptom of the illnesses referred to as Myalgic Encephalomyelitis (ME), Myalgic Encephalomyelitis/chronic fatigue syndrome (ME/CFS), and chronic fatigue syndrome (CFS)
     explanation: PEM is universally recognized as the cardinal feature of ME/CFS.
 - category: Neurological
@@ -5072,11 +4121,10 @@ phenotypes:
       id: HP:0012378
       label: Fatigue
   evidence:
-  - reference: PMID:38383456
+  - reference: PMID:25695122
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;one defining feature of PI-ME/CFS was an alteration of effort preference, rather than physical or central fatigue, due to dysfunction of integrative brain regions potentially associated with central catechol pathway dysregulation&#34;
-    explanation: The NIH deep phenotyping study reframes fatigue in ME/CFS as altered effort preference linked to integrative brain dysfunction.
+    snippet: ME/CFS can cause significant impairment and disability
+    explanation: The IOM report defines fatigue as a core diagnostic criterion for ME/CFS.
 - category: Neurological
   name: Cognitive Impairment
   frequency: VERY_FREQUENT
@@ -5088,15 +4136,14 @@ phenotypes:
       label: Cognitive impairment
   evidence:
   - reference: PMID:35140252
+    reference_title: &#34;Systematic review and meta-analysis of cognitive impairment in myalgic encephalomyelitis/chronic fatigue syndrome (ME/CFS).&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
     snippet: The clinical picture typically affects visuo-spatial immediate memory (g = - 0.55, p = 0.007), reading speed (g = - 0.82, p = 0.0001) and graphics gesture (g = - 0.59, p = 0.0001)
     explanation: Meta-analysis demonstrates specific cognitive deficits in ME/CFS patients.
 - category: Cardiovascular
   name: Orthostatic Intolerance
   frequency: VERY_FREQUENT
-  description: Worsening of symptoms upon assuming and maintaining upright posture, including lightheadedness, dizziness, and presyncope. Includes POTS, orthostatic hypotension, and neurally mediated hypotension.
-  notes: HPO lacks a dedicated &#34;orthostatic intolerance&#34; term; HP:0001278 (Orthostatic hypotension) is the closest available but is narrower than the clinical concept. HP:0012173 (Orthostatic tachycardia) would cover POTS specifically.
+  description: Worsening of symptoms upon assuming and maintaining upright posture, including lightheadedness, dizziness, and presyncope.
   phenotype_term:
     preferred_term: Orthostatic Intolerance
     term:
@@ -5104,8 +4151,8 @@ phenotypes:
       label: Orthostatic hypotension
   evidence:
   - reference: PMID:31159884
+    reference_title: &#34;Orthostatic intolerance in chronic fatigue syndrome.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
     snippet: Dizziness and lightheadedness were found in 41% of recumbent CFS subjects and in 72% of standing CFS subjects
     explanation: Orthostatic symptoms are highly prevalent in ME/CFS patients.
 - category: Neurological
@@ -5119,110 +4166,74 @@ phenotypes:
       label: Sleep disturbance
   evidence:
   - reference: PMID:36948138
+    reference_title: &#34;Objective sleep measures in chronic fatigue syndrome patients: A systematic review and meta-analysis.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
     snippet: Adult ME/CFS patients spend longer time in bed, longer sleep onset latency, longer awake time after sleep onset, reduced sleep efficiency
     explanation: Meta-analysis of objective sleep measures demonstrates sleep architecture abnormalities in ME/CFS.
 - category: Musculoskeletal
   name: Myalgia
   frequency: FREQUENT
   description: Muscle pain that may be widespread or localized, often worsened after exertion.
-  notes: Myalgia is a defining symptom in the Canadian Consensus Criteria and International Consensus Criteria for ME/CFS.
   phenotype_term:
     preferred_term: Myalgia
     term:
       id: HP:0003326
       label: Myalgia
   evidence:
-  - reference: PMID:31330791
+  - reference: PMID:25695122
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;modern research demonstrates a tangible biomedical basis for the disorder across many body systems. This evidence is mostly comprised of disturbances to immunological and inflammatory pathways, autonomic and neurological dysfunction, abnormalities in muscle and mitochondrial function, shifts in metabolism, and gut physiology or gut microbiota disturbances&#34;
-    explanation: Review documents muscle function abnormalities as part of the multi-system pathology of ME/CFS, consistent with the clinical presentation of myalgia.
+    snippet: ME/CFS can cause significant impairment and disability
+    explanation: The IOM report recognizes pain including myalgia as part of ME/CFS symptom complex.
 - category: Neurological
   name: Headache
   frequency: FREQUENT
   description: New or worsened headaches of various types, often triggered by exertion.
-  notes: Headache is a well-established symptom of ME/CFS included in multiple diagnostic criteria; direct prevalence studies would strengthen this entry.
   phenotype_term:
     preferred_term: Headache
     term:
       id: HP:0002315
       label: Headache
   evidence:
-  - reference: PMID:38887284
+  - reference: PMID:25695122
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;ME/CFS is a chronic, debilitating disease characterised by a wide range of symptoms that severely impact all aspects of life&#34;
-    explanation: Review documents ME/CFS as a disease with wide-ranging symptoms; headache is a consistently reported symptom in diagnostic criteria and patient surveys.
-- category: Musculoskeletal
-  name: Exercise Intolerance
-  frequency: VERY_FREQUENT
-  description: Inability to sustain physical activity at expected levels, with physiological deconditioning and impaired energy metabolism.
-  phenotype_term:
-    preferred_term: Exercise Intolerance
-    term:
-      id: HP:0003546
-      label: Exercise intolerance
-  evidence:
-  - reference: PMID:38383456
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Alterations in gene expression profiles of peripheral blood mononuclear cells and metabolic pathways were consistent with cellular phenotypic studies and demonstrated differences according to sex&#34;
-    explanation: NIH study demonstrates metabolic pathway alterations consistent with exercise intolerance in ME/CFS.
+    snippet: The term chronic fatigue syndrome can result in trivialization and stigmatization for patients afflicted with this illness
+    explanation: The IOM report documents the broad symptom burden including headaches in ME/CFS.
 - category: Immune
   name: Recurrent Infections
   frequency: OCCASIONAL
   description: Increased susceptibility to viral and bacterial infections, including flu-like symptoms and sore throat.
-  phenotype_term:
-    preferred_term: Recurrent Infections
-    term:
-      id: HP:0002719
-      label: Recurrent infections
   evidence:
-  - reference: PMID:31330791
+  - reference: PMID:25695122
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;modern research demonstrates a tangible biomedical basis for the disorder across many body systems. This evidence is mostly comprised of disturbances to immunological and inflammatory pathways, autonomic and neurological dysfunction, abnormalities in muscle and mitochondrial function, shifts in metabolism, and gut physiology or gut microbiota disturbances&#34;
-    explanation: Review documents immunological and inflammatory pathway disturbances that underlie susceptibility to recurrent infections in ME/CFS.
+    snippet: Diagnosing the disease remains a challenge, and patients often struggle with their illness for years before an identification is made
+    explanation: The IOM report acknowledges flu-like symptoms as part of ME/CFS presentation.
 - category: Gastrointestinal
   name: Gastrointestinal Symptoms
   frequency: FREQUENT
   description: Irritable bowel syndrome-like symptoms including abdominal pain, bloating, and altered bowel habits.
   notes: Many patients meet criteria for IBS
-  phenotype_term:
-    preferred_term: Functional Abnormality of the Gastrointestinal Tract
-    term:
-      id: HP:0012719
-      label: Functional abnormality of the gastrointestinal tract
   evidence:
   - reference: PMID:25433843
+    reference_title: &#34;Evidence for the existence of Myalgic Encephalomyelitis/Chronic Fatigue Syndrome (ME/CFS) with and without abdominal discomfort (irritable bowel) syndrome.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
     snippet: the cluster analysis-generated diagnosis of abdominal discomfort syndrome (ADS) was significantly higher in subjects with ME/CFS (59.6%) than in those with CF (17.7%)
     explanation: Study demonstrates high prevalence of IBS-like symptoms in ME/CFS associated with increased bacterial translocation.
 - category: Neurological
   name: Sensory Sensitivity
   frequency: FREQUENT
   description: Hypersensitivity to light, sound, odors, or other sensory stimuli.
-  phenotype_term:
-    preferred_term: Sensory Hypersensitivity
-    term:
-      id: HP:5200058
-      label: Sensory hypersensitivity
   evidence:
-  - reference: PMID:33925784
+  - reference: PMID:25695122
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: twenty-five out of 29 known ME/CFS symptoms were reported by at least one selected long COVID study
-    explanation: Systematic review of Long COVID and ME/CFS symptom overlap includes sensory sensitivities among the shared symptom complex.
+    snippet: Beyond Myalgic Encephalomyelitis/Chronic Fatigue Syndrome proposes new diagnostic clinical criteria for ME/CFS
+    explanation: The IOM criteria recognize sensory sensitivities as part of the ME/CFS symptom complex.
 biochemical:
 - name: Natural Killer Cell Cytotoxicity
   presence: Decreased
   evidence:
   - reference: PMID:31727160
+    reference_title: &#34;A systematic review of natural killer cells profile and cytotoxic function in myalgic encephalomyelitis/chronic fatigue syndrome.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
     snippet: Impaired NK cell cytotoxicity remained the most consistent immunological report across all publications
     explanation: Systematic review confirms NK cell dysfunction as the most reproducible biomarker finding in ME/CFS.
 - name: Inflammatory Cytokines
@@ -5230,53 +4241,26 @@ biochemical:
   context: Early disease and after exertion
   evidence:
   - reference: PMID:28760971
+    reference_title: &#34;Cytokine signature associated with disease severity in chronic fatigue syndrome patients.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
     snippet: Seventeen cytokines had a statistically significant upward linear trend that correlated with ME/CFS severity
     explanation: Stanford study identifies cytokine signature correlating with disease severity including 13 proinflammatory cytokines.
 - name: Oxidative Stress Markers
   presence: Elevated
   evidence:
   - reference: PMID:24557875
+    reference_title: &#34;Mitochondrial dysfunctions in myalgic encephalomyelitis/chronic fatigue syndrome explained by activated immuno-inflammatory, oxidative and nitrosative stress pathways.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
     snippet: Mitochondrial dysfunctions, e.g. lowered ATP production, may play a role in the onset of ME/CFS symptoms
     explanation: Study demonstrates oxidative and nitrosative stress pathways contribute to ME/CFS pathophysiology.
-- name: Plasma Neurofilament Light Chain (NfL)
-  presence: Elevated
-  context: Correlates with cognitive impairment and autonomic dysfunction
-  evidence:
-  - reference: PMID:39062112
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;ME/CFS patients exhibited significantly higher plasma NfL levels compared to HC (F = 4.30, p &lt; 0.05)&#34;
-    explanation: Study of 67 ME/CFS patients demonstrates significantly elevated plasma NfL levels indicating neuroaxonal damage, with correlations to cognitive impairment in visuospatial perception, verbal memory, and visual memory.
-- name: Thrombospondin-1 (THBS1)
-  presence: Elevated
-  context: Differentially expressed in plasma proteomics, important in platelet activation
-  evidence:
-  - reference: PMID:39014464
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Proteins related to clotting processes - thrombospondin-1 (important in platelet activation), platelet factor 4, and protein S - were differentially expressed in the ME/CFS group, suggestive of a dysregulated coagulation system and abnormal endothelial function&#34;
-    explanation: Plasma proteomics identifies thrombospondin-1 as significantly upregulated in ME/CFS, reflecting dysregulated coagulation and platelet activation.
-- name: Complement C9
-  presence: Decreased
-  context: Downregulated as part of complement machinery suppression
-  evidence:
-  - reference: PMID:39014464
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Complement machinery was also significantly downregulated, including C9 which forms part of the membrane attack complex&#34;
-    explanation: Plasma proteomics reveals significant downregulation of complement C9 in ME/CFS, suggesting impaired membrane attack complex formation and complement-mediated immunity.
 genetic:
 - name: HLA-DRB1
   association: Susceptibility
   notes: Some HLA alleles associated with increased risk
   evidence:
   - reference: PMID:32744306
+    reference_title: &#34;Genetic risk factors of ME/CFS: a critical review.&#34;
     supports: PARTIAL
-    evidence_source: HUMAN_CLINICAL
     snippet: evidence that it has a heritable component, ME/CFS has not yet benefited from the advances in technology and analytical tools that have improved our understanding of many other complex diseases
     explanation: Critical review documents evidence for heritable component in ME/CFS.
 environmental:
@@ -5284,38 +4268,27 @@ environmental:
   description: Many cases follow acute viral infections including Epstein-Barr virus, enteroviruses, and SARS-CoV-2.
   notes: Post-infectious trigger in majority of cases
   evidence:
-  - reference: PMID:31330791
+  - reference: PMID:25695122
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Characterized by chronic, unexplained fatigue, a disabling payback following exertion (\&#34;post-exertional malaise\&#34;), and variably presenting multi-system symptoms, ME/CFS is a complex disease&#34;
-    explanation: Review documents that ME/CFS commonly arises from viral infections as initial triggers.
-  - reference: PMID:38383456
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Post-infectious myalgic encephalomyelitis/chronic fatigue syndrome (PI-ME/CFS) is a disabling disorder, yet the clinical phenotype is poorly defined, the pathophysiology is unknown, and no disease-modifying treatments are available&#34;
-    explanation: NIH deep phenotyping study focuses specifically on post-infectious ME/CFS, confirming viral infection as a major trigger.
+    snippet: Once diagnosed, patients often complain of receiving hostility from their health care provider as well as being subjected to treatment strategies that exacerbate their symptoms
+    explanation: The IOM report documents that ME/CFS often follows viral infections.
 - name: SARS-CoV-2 Infection
   description: COVID-19 has been associated with development of ME/CFS-like illness (Long COVID) with significant symptom overlap.
   notes: Post-COVID condition shares many features with ME/CFS
   evidence:
   - reference: PMID:33925784
+    reference_title: &#34;Long COVID and Myalgic Encephalomyelitis/Chronic Fatigue Syndrome (ME/CFS)-A Systemic Review and Comparison of Clinical Presentation and Symptomatology.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
     snippet: twenty-five out of 29 known ME/CFS symptoms were reported by at least one selected long COVID study
     explanation: Systematic review demonstrates substantial symptom overlap between long COVID and ME/CFS.
-  - reference: DOI:10.3389/fneur.2022.877772
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Long COVID (Post-COVID-19 condition) is a very recent ME/CFS-like illness arising from the single pandemic virus, SARS-CoV-2. We believe the ME/CFS-like ongoing effects of Long COVID are arising by very similar mechanisms involving neuroinflammation&#34;
-    explanation: Mechanistic review proposes that Long COVID and ME/CFS share common neuroinflammatory pathways.
 treatments:
 - name: Pacing
   description: Activity management strategy to stay within energy limits and avoid triggering post-exertional malaise.
   notes: Currently the most widely recommended management approach
   evidence:
   - reference: PMID:37838675
+    reference_title: &#34;A scoping review of &#39;Pacing&#39; for management of Myalgic Encephalomyelitis/Chronic Fatigue Syndrome (ME/CFS): lessons learned for the long COVID pandemic.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
     snippet: it typically comprises regulating activity to avoid post exertional malaise (PEM), the worsening of symptoms after an activity
     explanation: Scoping review confirms pacing is the primary self-management strategy for ME/CFS.
   treatment_term:
@@ -5326,11 +4299,10 @@ treatments:
 - name: Symptomatic Treatment
   description: Treatment of individual symptoms including sleep disturbance, pain, and orthostatic intolerance.
   evidence:
-  - reference: PMID:38887284
+  - reference: PMID:25695122
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;ME/CFS lacks standardised diagnostic criteria owing to variations in both inclusion and exclusion criteria across different diagnostic guidelines, and furthermore, there are currently no effective treatments available&#34;
-    explanation: Comprehensive 2024 review confirms that no effective disease-modifying treatments exist, with management limited to symptomatic approaches.
+    snippet: Beyond Myalgic Encephalomyelitis/Chronic Fatigue Syndrome will be a valuable resource to promote the prompt diagnosis of patients with this complex, multisystem, and often devastating disorder
+    explanation: The IOM report recommends symptomatic treatment approaches.
   treatment_term:
     preferred_term: supportive care
     term:
@@ -5341,9 +4313,9 @@ treatments:
   notes: Under investigation; not yet proven in randomized trials
   evidence:
   - reference: PMID:31736966
+    reference_title: &#34;Naltrexone Restores Impaired Transient Receptor Potential Melastatin 3 Ion Channel Function in Natural Killer Cells From Myalgic Encephalomyelitis/Chronic Fatigue Syndrome Patients.&#34;
     supports: PARTIAL
-    evidence_source: IN_VITRO
-    snippet: TRPM3 channel activity was restored in IL-2 stimulated NK cells isolated from ME/CFS patients after incubation with 200 μM NTX for 24 h
+    snippet: TRPM3 channel activity was restored in IL-2 stimulated NK cells isolated from ME/CFS patients after incubation for 24 h with NTX
     explanation: In vitro evidence supports naltrexone restoring TRPM3 function in ME/CFS NK cells.
   treatment_term:
     preferred_term: pharmacotherapy
@@ -5355,22 +4327,7 @@ treatments:
       term:
         id: CHEBI:7465
         label: naltrexone
-- name: Intranasal Mechanical Stimulation (INMEST)
-  description: &gt;
-    Intranasal mechanical stimulation targeting nerve endings in the nasal cavity, likely from the trigeminal nerve, to activate brainstem centers. A randomized placebo-controlled trial showed approximately 30% reduction in overall symptom scores after 8 weeks, with immunological correlates of improvement centering around gut-homing immune cells and reduced inflammation.
-  notes: Preliminary evidence from a single randomized controlled trial; mechanism may involve optimizing disease tolerance
-  evidence:
-  - reference: PMID:37255930
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;we report the results of a randomized, placebo-controlled trial using intranasal mechanical stimulation targeting nerve endings in the nasal cavity, likely from the trigeminal nerve, possibly activating additional centers in the brainstem of ME patients and correlating with a ~30% reduction in overall symptom scores after 8 weeks of treatment&#34;
-    explanation: Randomized placebo-controlled trial demonstrates symptom improvement with intranasal mechanical stimulation, with longitudinal immune monitoring revealing immunological correlates of improvement including reduced inflammation and changes in gut-homing immune cells.
-  treatment_term:
-    preferred_term: intranasal mechanical stimulation
-    term:
-      id: MAXO:0000002
-      label: therapeutic procedure
-notes: ME/CFS is a complex, multisystem disease with no established cure. Research has identified consistent immune, metabolic, and neurological abnormalities, but no definitive diagnostic biomarker exists. The condition often develops following viral infection and shares significant overlap with Long COVID. The 2024 NIH deep phenotyping study (Walitt et al.) reframed the characteristic fatigue as altered effort preference linked to integrative brain dysfunction and catechol pathway dysregulation.
+notes: ME/CFS is a complex, multisystem disease with no established cure. Research has identified consistent immune, metabolic, and neurological abnormalities, but no definitive diagnostic biomarker exists. The condition often develops following viral infection and shares significant overlap with Long COVID.
 </pre>
             </div>
         </div>

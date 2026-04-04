@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Organic Acidemia</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Inborn Error of Metabolism</span>
@@ -1937,6 +2110,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1992,6 +2168,14 @@
             <div class="stat-item">
                 <div class="stat-value">12</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">8</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2093,7 +2277,7 @@
                 <span class="card-count">5</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-ivd-molecular-function-deficiency">
                 <div class="item-name">IVD molecular function deficiency</div>
                 
                 <div class="item-desc">Biallelic pathogenic variants in IVD reduce isovaleryl-CoA dehydrogenase catalytic activity in mitochondria.
@@ -2141,6 +2325,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2175,7 +2360,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-deficient-leucine-catabolic-flux">
                 <div class="item-name">Deficient leucine catabolic flux</div>
                 
                 <div class="item-desc">IVD deficiency blocks leucine degradation at the mitochondrial isovaleryl-CoA to 3-methylcrotonyl-CoA step, causing upstream accumulation of isovaleryl-CoA, isovaleric acid, and characteristic secondary metabolites.
@@ -2208,6 +2393,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2247,7 +2433,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-secondary-urea-cycle-impairment-and-hyperammonemia">
                 <div class="item-name">Secondary urea cycle impairment and hyperammonemia</div>
                 
                 <div class="item-desc">Isovaleryl-CoA inhibits N-acetylglutamate synthase (NAGS), reducing N-acetylglutamate availability and impairing activation of carbamoyl phosphate synthetase 1 (CPS1), the rate-limiting entry enzyme of the urea cycle. Combined with acetyl-CoA depletion, this produces secondary hyperammonemia that contributes to encephalopathy and neurological complications.
@@ -2298,6 +2484,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -2354,7 +2541,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-energy-depletion-and-oxidative-stress">
                 <div class="item-name">Mitochondrial energy depletion and oxidative stress</div>
                 
                 <div class="item-desc">Accumulated isovaleryl-CoA and isovaleric acid impair tricarboxylic acid cycle function, with evidence for inhibition of citrate synthase and reduced CO2 production from acetate in brain tissue. Chronic metabolite accumulation also increases oxidative stress, contributing to neurological morbidity. Oxidative stress from chronic persistent buildup of isovaleric acid may be more neurologically detrimental than acute buildup.
@@ -2417,6 +2604,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2471,7 +2659,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuronal-membrane-dysfunction-via-na-k-atpase-inhibition">
                 <div class="item-name">Neuronal membrane dysfunction via Na+,K+-ATPase inhibition</div>
                 
                 <div class="item-desc">Isovaleric acid directly inhibits Na+,K+-ATPase activity in cerebral cortex, a crucial enzyme for maintaining membrane potential and normal neurotransmission. This inhibition is observed as early as 2 hours after exposure and persists at 24 hours, contributing to the acute encephalopathy seen during metabolic crises.
@@ -2524,6 +2712,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2571,18 +2760,19 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Isovaleric Acidemia</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Deficient leucine catabolic flux\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IVD deficiency blocks leucine degradation at the mitochondrial isovaleryl-CoA to 3-methylcrotonyl-CoA step, causing upstream accumulation of isovaleryl-CoA, isovaleric acid, and characteristic secondary metabolites.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"branched-chain amino acid catabolic process\", \"leucine catabolic process\"]}}, {\"id\": \"IVD molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in IVD reduce isovaleryl-CoA dehydrogenase catalytic activity in mitochondria.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"genes\": [\"IVD\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Mitochondrial energy depletion and oxidative stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulated isovaleryl-CoA and isovaleric acid impair tricarboxylic acid cycle function, with evidence for inhibition of citrate synthase and reduced CO2 production from acetate in brain tissue. Chronic metabolite accumulation also increases oxidative stress, contributing to neurological morbidity. Oxidative stress from chronic persistent buildup of isovaleric acid may be more neurologically detrimental than acute buildup.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"tricarboxylic acid cycle\", \"response to oxidative stress\"], \"locations\": [\"cerebral cortex\"]}}, {\"id\": \"Neuronal membrane dysfunction via Na+,K+-ATPase inhibition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Isovaleric acid directly inhibits Na+,K+-ATPase activity in cerebral cortex, a crucial enzyme for maintaining membrane potential and normal neurotransmission. This inhibition is observed as early as 2 hours after exposure and persists at 24 hours, contributing to the acute encephalopathy seen during metabolic crises.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"sodium ion transport\"], \"locations\": [\"cerebral cortex\"]}}, {\"id\": \"Secondary urea cycle impairment and hyperammonemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Isovaleryl-CoA inhibits N-acetylglutamate synthase (NAGS), reducing N-acetylglutamate availability and impairing activation of carbamoyl phosphate synthetase 1 (CPS1), the rate-limiting entry enzyme of the urea cycle. Combined with acetyl-CoA depletion, this produces secondary hyperammonemia that contributes to encephalopathy and neurological complications.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"urea cycle\"], \"locations\": [\"liver\"]}}], \"edges\": [{\"source\": \"IVD molecular function deficiency\", \"target\": \"Deficient leucine catabolic flux\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Deficient leucine catabolic flux\", \"target\": \"Secondary urea cycle impairment and hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Deficient leucine catabolic flux\", \"target\": \"Mitochondrial energy depletion and oxidative stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Deficient leucine catabolic flux\", \"target\": \"Neuronal membrane dysfunction via Na+,K+-ATPase inhibition\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Deficient leucine catabolic flux\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IVD deficiency blocks leucine degradation at the mitochondrial isovaleryl-CoA to 3-methylcrotonyl-CoA step, causing upstream accumulation of isovaleryl-CoA, isovaleric acid, and characteristic secondary metabolites.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"branched-chain amino acid catabolic process\", \"leucine catabolic process\"]}}, {\"id\": \"IVD - c.941C\u003eT (p.Ala314Val) - mild IVA variant\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The c.941C\u003eT (p.Ala314Val) variant in IVD is commonly associated with the attenuated or mild biochemical phenotype detected by newborn screening. Individuals homozygous for this variant may remain clinically asymptomatic.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"IVD molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in IVD reduce isovaleryl-CoA dehydrogenase catalytic activity in mitochondria.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"genes\": [\"IVD\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"IVD variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"IVD\"], \"variant_count\": 2}}, {\"id\": \"Mitochondrial energy depletion and oxidative stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulated isovaleryl-CoA and isovaleric acid impair tricarboxylic acid cycle function, with evidence for inhibition of citrate synthase and reduced CO2 production from acetate in brain tissue. Chronic metabolite accumulation also increases oxidative stress, contributing to neurological morbidity. Oxidative stress from chronic persistent buildup of isovaleric acid may be more neurologically detrimental than acute buildup.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"tricarboxylic acid cycle\", \"response to oxidative stress\"], \"locations\": [\"cerebral cortex\"]}}, {\"id\": \"Neuronal membrane dysfunction via Na+,K+-ATPase inhibition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Isovaleric acid directly inhibits Na+,K+-ATPase activity in cerebral cortex, a crucial enzyme for maintaining membrane potential and normal neurotransmission. This inhibition is observed as early as 2 hours after exposure and persists at 24 hours, contributing to the acute encephalopathy seen during metabolic crises.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"sodium ion transport\"], \"locations\": [\"cerebral cortex\"]}}, {\"id\": \"Secondary urea cycle impairment and hyperammonemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Isovaleryl-CoA inhibits N-acetylglutamate synthase (NAGS), reducing N-acetylglutamate availability and impairing activation of carbamoyl phosphate synthetase 1 (CPS1), the rate-limiting entry enzyme of the urea cycle. Combined with acetyl-CoA depletion, this produces secondary hyperammonemia that contributes to encephalopathy and neurological complications.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"urea cycle\"], \"locations\": [\"liver\"]}}, {\"id\": \"Various pathogenic IVD variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Multiple pathogenic variants in IVD have been described causing variable clinical severity from severe neonatal-onset to chronic intermittent forms. Biallelic pathogenic variants are required for disease manifestation.\\n\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"IVD molecular function deficiency\", \"target\": \"Deficient leucine catabolic flux\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Deficient leucine catabolic flux\", \"target\": \"Secondary urea cycle impairment and hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Deficient leucine catabolic flux\", \"target\": \"Mitochondrial energy depletion and oxidative stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Deficient leucine catabolic flux\", \"target\": \"Neuronal membrane dysfunction via Na+,K+-ATPase inhibition\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"IVD variants\", \"target\": \"IVD molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IVD - c.941C\u003eT (p.Ala314Val) - mild IVA variant\", \"target\": \"IVD variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Various pathogenic IVD variants\", \"target\": \"IVD variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4359,6 +4549,7 @@ pathophysiology:
       label: mitochondrion
   evidence:
   - reference: PMID:41133704
+    reference_title: &#34;Practical Considerations for the Diagnosis and Management of Isovaleryl-CoA-Dehydrogenase Deficiency (Isovaleric Acidemia): Systematic Search and Review and Expert Opinions.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Isovaleric acidemia (IVA, OMIM 243500) is an inherited disorder of leucine metabolism caused by a deficiency of isovaleryl-CoA dehydrogenase (IVD), leading to an accumulation of isovaleric acid and its derivates 3-hydroxyisovaleric acid, isovaleryl (C5)-carnitine and isovalerylglycine in body fluids.
@@ -4383,6 +4574,7 @@ pathophysiology:
       label: L-leucine catabolic process
   evidence:
   - reference: PMID:30740403
+    reference_title: &#34;Organic acid disorders.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Organic acids (OAs) are intermediary products of several amino acid catabolism or degradation via multiple biochemical
@@ -4415,11 +4607,13 @@ pathophysiology:
       label: liver
   evidence:
   - reference: PMID:30740403
+    reference_title: &#34;Organic acid disorders.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: High anion gap metabolic acidosis with hyperammonemia is a characteristic OA biochemical finding.
     explanation: Supports hyperammonemia as characteristic of organic acid disorders.
   - reference: PMID:41133704
+    reference_title: &#34;Practical Considerations for the Diagnosis and Management of Isovaleryl-CoA-Dehydrogenase Deficiency (Isovaleric Acidemia): Systematic Search and Review and Expert Opinions.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The clinical presentation is highly variable, ranging from life-threatening metabolic crises with metabolic acidosis
@@ -4453,12 +4647,14 @@ pathophysiology:
       label: cerebral cortex
   evidence:
   - reference: PMID:19210957
+    reference_title: &#34;Creatine administration prevents Na+,K+-ATPase inhibition induced by intracerebroventricular administration of isovaleric acid in cerebral cortex of young rats.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: IVA administration significantly inhibited (14)CO(2) production from acetate (22%) and citrate synthase activity
       (20%) in cerebral cortex homogenates prepared 24 h after injection.
     explanation: Demonstrates TCA cycle impairment in cerebral cortex from isovaleric acid exposure in vivo.
   - reference: PMID:27613073
+    reference_title: &#34;\&#34;Classical organic acidurias\&#34;: diagnosis and pathogenesis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: More than 65 organic acidurias have been described
@@ -4487,6 +4683,7 @@ pathophysiology:
       label: cerebral cortex
   evidence:
   - reference: PMID:19210957
+    reference_title: &#34;Creatine administration prevents Na+,K+-ATPase inhibition induced by intracerebroventricular administration of isovaleric acid in cerebral cortex of young rats.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: IVA injection significantly inhibited Na(+),K(+)-ATPase activity (25%) in cerebral cortex of rats 2 or 24 h after
@@ -4507,11 +4704,13 @@ phenotypes:
       label: Metabolic acidosis
   evidence:
   - reference: PMID:38344522
+    reference_title: &#34;Isovaleric Acidemia in Jordan.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Laboratory results showed acidosis (81%), hyperammonemia (71.4%), and hypoglycemia (14.3%).
     explanation: Directly quantifies acidosis at 81% in an IVA cohort.
   - reference: PMID:41133704
+    reference_title: &#34;Practical Considerations for the Diagnosis and Management of Isovaleryl-CoA-Dehydrogenase Deficiency (Isovaleric Acidemia): Systematic Search and Review and Expert Opinions.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The clinical presentation is highly variable, ranging from life-threatening metabolic crises with metabolic acidosis
@@ -4530,11 +4729,13 @@ phenotypes:
       label: Hyperammonemia
   evidence:
   - reference: PMID:38344522
+    reference_title: &#34;Isovaleric Acidemia in Jordan.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Laboratory results showed acidosis (81%), hyperammonemia (71.4%), and hypoglycemia (14.3%).
     explanation: Directly quantifies hyperammonemia at 71.4% in an IVA cohort.
   - reference: PMID:30522498
+    reference_title: &#34;Hyperammonaemia in classic organic acidaemias: a review of the literature and two case histories.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Repeated and frequent episodes of hyperammonaemia (alongside metabolic decompensations) can result in impaired
@@ -4553,6 +4754,7 @@ phenotypes:
       label: Vomiting
   evidence:
   - reference: PMID:38344522
+    reference_title: &#34;Isovaleric Acidemia in Jordan.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Vomiting was the most prevalent symptom (57.1%), and encephalopathy occurred in 33.3%.
@@ -4570,11 +4772,13 @@ phenotypes:
       label: Acute encephalopathy
   evidence:
   - reference: PMID:38344522
+    reference_title: &#34;Isovaleric Acidemia in Jordan.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Vomiting was the most prevalent symptom (57.1%), and encephalopathy occurred in 33.3%.
     explanation: Directly quantifies encephalopathy at 33.3% in an IVA cohort.
   - reference: PMID:19210957
+    reference_title: &#34;Creatine administration prevents Na+,K+-ATPase inhibition induced by intracerebroventricular administration of isovaleric acid in cerebral cortex of young rats.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: Patients affected by IVAcidemia suffer from acute episodes of encephalopathy, whose underlying mechanisms are
@@ -4592,6 +4796,7 @@ phenotypes:
       label: Lethargy
   evidence:
   - reference: PMID:30522498
+    reference_title: &#34;Hyperammonaemia in classic organic acidaemias: a review of the literature and two case histories.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The &#39;classic&#39; organic acidaemias (OAs) (propionic, methylmalonic and isovaleric) typically present in neonates
@@ -4609,6 +4814,7 @@ phenotypes:
       label: Hypoglycemia
   evidence:
   - reference: PMID:38344522
+    reference_title: &#34;Isovaleric Acidemia in Jordan.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Laboratory results showed acidosis (81%), hyperammonemia (71.4%), and hypoglycemia (14.3%).
@@ -4626,6 +4832,7 @@ phenotypes:
       label: Seizure
   evidence:
   - reference: PMID:30522498
+    reference_title: &#34;Hyperammonaemia in classic organic acidaemias: a review of the literature and two case histories.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: This is frequently accompanied by severe hyperammonaemia and constitutes a metabolic emergency, as increased
@@ -4644,6 +4851,7 @@ phenotypes:
       label: Global developmental delay
   evidence:
   - reference: PMID:30522498
+    reference_title: &#34;Hyperammonaemia in classic organic acidaemias: a review of the literature and two case histories.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Repeated and frequent episodes of hyperammonaemia (alongside metabolic decompensations) can result in impaired
@@ -4662,6 +4870,7 @@ phenotypes:
       label: Intellectual disability
   evidence:
   - reference: PMID:30522498
+    reference_title: &#34;Hyperammonaemia in classic organic acidaemias: a review of the literature and two case histories.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Repeated and frequent episodes of hyperammonaemia (alongside metabolic decompensations) can result in impaired
@@ -4680,6 +4889,7 @@ phenotypes:
       label: Failure to thrive
   evidence:
   - reference: PMID:30522498
+    reference_title: &#34;Hyperammonaemia in classic organic acidaemias: a review of the literature and two case histories.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Repeated and frequent episodes of hyperammonaemia (alongside metabolic decompensations) can result in impaired
@@ -4710,6 +4920,7 @@ phenotypes:
       label: Body odor
   evidence:
   - reference: PMID:27613073
+    reference_title: &#34;\&#34;Classical organic acidurias\&#34;: diagnosis and pathogenesis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Among these disorders, methyl malonic aciduria, propionic aciduria, maple syrup urine disease and isovaleric
@@ -4726,6 +4937,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:41133704
+    reference_title: &#34;Practical Considerations for the Diagnosis and Management of Isovaleryl-CoA-Dehydrogenase Deficiency (Isovaleric Acidemia): Systematic Search and Review and Expert Opinions.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Isovaleric acidemia (IVA, OMIM 243500) is an inherited disorder of leucine metabolism caused by a deficiency
@@ -4733,6 +4945,7 @@ biochemical:
       acid, isovaleryl (C5)-carnitine and isovalerylglycine in body fluids.
     explanation: Directly supports elevated C5 carnitine as a characteristic IVA biomarker.
   - reference: PMID:36636590
+    reference_title: &#34;Neonatal screening for isovaleric aciduria: Reducing the increasingly high false-positive rate in Germany.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Newborn screening (NBS) for isovaleric acidemia (IVA) is performed by flow injection tandem mass spectrometry
@@ -4746,6 +4959,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:41133704
+    reference_title: &#34;Practical Considerations for the Diagnosis and Management of Isovaleryl-CoA-Dehydrogenase Deficiency (Isovaleric Acidemia): Systematic Search and Review and Expert Opinions.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Isovaleric acidemia (IVA, OMIM 243500) is an inherited disorder of leucine metabolism caused by a deficiency
@@ -4753,6 +4967,7 @@ biochemical:
       acid, isovaleryl (C5)-carnitine and isovalerylglycine in body fluids.
     explanation: Directly supports isovalerylglycine as a characteristic accumulated metabolite.
   - reference: PMID:36817957
+    reference_title: &#34;The glycine N-acyltransferases, GLYAT and GLYATL1, contribute to the detoxification of isovaleryl-CoA - an in-silico and in vitro validation.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: GLYAT forms part of the phase II glycine conjugation pathway in the liver and detoxifies excess acyl-CoA&#39;s namely
@@ -4766,6 +4981,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:41133704
+    reference_title: &#34;Practical Considerations for the Diagnosis and Management of Isovaleryl-CoA-Dehydrogenase Deficiency (Isovaleric Acidemia): Systematic Search and Review and Expert Opinions.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Isovaleric acidemia (IVA, OMIM 243500) is an inherited disorder of leucine metabolism caused by a deficiency
@@ -4781,6 +4997,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:19210957
+    reference_title: &#34;Creatine administration prevents Na+,K+-ATPase inhibition induced by intracerebroventricular administration of isovaleric acid in cerebral cortex of young rats.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: Isovaleric acidemia (IVAcidemia) is an inborn error of metabolism due to deficiency of isovaleryl-CoA dehydrogenase
@@ -4794,11 +5011,13 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:38344522
+    reference_title: &#34;Isovaleric Acidemia in Jordan.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Laboratory results showed acidosis (81%), hyperammonemia (71.4%), and hypoglycemia (14.3%).
     explanation: Directly quantifies hyperammonemia frequency in an IVA cohort.
   - reference: PMID:30522498
+    reference_title: &#34;Hyperammonaemia in classic organic acidaemias: a review of the literature and two case histories.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: This is frequently accompanied by severe hyperammonaemia and constitutes a metabolic emergency
@@ -4811,6 +5030,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:41133704
+    reference_title: &#34;Practical Considerations for the Diagnosis and Management of Isovaleryl-CoA-Dehydrogenase Deficiency (Isovaleric Acidemia): Systematic Search and Review and Expert Opinions.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Treatment consists of a protein-restricted diet combined with supplementation of carnitine and/or glycine and
@@ -4827,6 +5047,7 @@ genetic:
   - name: Autosomal recessive
     evidence:
     - reference: PMID:41133704
+      reference_title: &#34;Practical Considerations for the Diagnosis and Management of Isovaleryl-CoA-Dehydrogenase Deficiency (Isovaleric Acidemia): Systematic Search and Review and Expert Opinions.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: Isovaleric acidemia (IVA, OMIM 243500) is an inherited disorder of leucine metabolism caused by a deficiency
@@ -4840,6 +5061,7 @@ genetic:
       &#39;
     evidence:
     - reference: PMID:36837923
+      reference_title: &#34;Machine Learning Methods Improve Specificity in Newborn Screening for Isovaleric Aciduria.&#34;
       supports: SUPPORT
       evidence_source: COMPUTATIONAL
       snippet: NBS for IVA is hampered by, first, the increased birth prevalence due to the identification of individuals
@@ -4852,6 +5074,7 @@ genetic:
       &#39;
     evidence:
     - reference: PMID:41133704
+      reference_title: &#34;Practical Considerations for the Diagnosis and Management of Isovaleryl-CoA-Dehydrogenase Deficiency (Isovaleric Acidemia): Systematic Search and Review and Expert Opinions.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: Isovaleric acidemia (IVA, OMIM 243500) is an inherited disorder of leucine metabolism caused by a deficiency
@@ -4864,6 +5087,7 @@ genetic:
     &#39;
   evidence:
   - reference: PMID:41133704
+    reference_title: &#34;Practical Considerations for the Diagnosis and Management of Isovaleryl-CoA-Dehydrogenase Deficiency (Isovaleric Acidemia): Systematic Search and Review and Expert Opinions.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Isovaleric acidemia (IVA, OMIM 243500) is an inherited disorder of leucine metabolism caused by a deficiency
@@ -4871,6 +5095,7 @@ genetic:
       acid, isovaleryl (C5)-carnitine and isovalerylglycine in body fluids.
     explanation: Directly supports IVD as the causal gene with characteristic metabolite accumulation.
   - reference: PMID:27613073
+    reference_title: &#34;\&#34;Classical organic acidurias\&#34;: diagnosis and pathogenesis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Among these disorders, methyl malonic aciduria, propionic aciduria, maple syrup urine disease and isovaleric
@@ -4889,12 +5114,14 @@ treatments:
       label: dietary intervention
   evidence:
   - reference: PMID:41133704
+    reference_title: &#34;Practical Considerations for the Diagnosis and Management of Isovaleryl-CoA-Dehydrogenase Deficiency (Isovaleric Acidemia): Systematic Search and Review and Expert Opinions.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Treatment consists of a protein-restricted diet combined with supplementation of carnitine and/or glycine and
       emergency treatment in catabolic episodes.
     explanation: Directly supports protein-restricted diet as the primary chronic treatment.
   - reference: PMID:38344522
+    reference_title: &#34;Isovaleric Acidemia in Jordan.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The early initiation of treatment for organic acid disorders carries a more favorable prognosis.
@@ -4911,6 +5138,7 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:41133704
+    reference_title: &#34;Practical Considerations for the Diagnosis and Management of Isovaleryl-CoA-Dehydrogenase Deficiency (Isovaleric Acidemia): Systematic Search and Review and Expert Opinions.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Treatment consists of a protein-restricted diet combined with supplementation of carnitine and/or glycine and
@@ -4929,6 +5157,7 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:41133704
+    reference_title: &#34;Practical Considerations for the Diagnosis and Management of Isovaleryl-CoA-Dehydrogenase Deficiency (Isovaleric Acidemia): Systematic Search and Review and Expert Opinions.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Treatment consists of a protein-restricted diet combined with supplementation of carnitine and/or glycine and
@@ -4947,6 +5176,7 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:30522498
+    reference_title: &#34;Hyperammonaemia in classic organic acidaemias: a review of the literature and two case histories.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Treatment with N-carbamyl-L-glutamate can rapidly normalise ammonia levels by stimulating the first step of the
@@ -4964,12 +5194,14 @@ treatments:
       label: supportive care
   evidence:
   - reference: PMID:41133704
+    reference_title: &#34;Practical Considerations for the Diagnosis and Management of Isovaleryl-CoA-Dehydrogenase Deficiency (Isovaleric Acidemia): Systematic Search and Review and Expert Opinions.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Treatment consists of a protein-restricted diet combined with supplementation of carnitine and/or glycine and
       emergency treatment in catabolic episodes.
     explanation: Directly supports emergency treatment during catabolic episodes.
   - reference: PMID:30522498
+    reference_title: &#34;Hyperammonaemia in classic organic acidaemias: a review of the literature and two case histories.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The acute management of hyperammonaemia in organic acidaemias requires administration of intravenous calories
@@ -4989,12 +5221,14 @@ treatments:
       label: disease screening
   evidence:
   - reference: PMID:36636590
+    reference_title: &#34;Neonatal screening for isovaleric aciduria: Reducing the increasingly high false-positive rate in Germany.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#39;Out of 156 772 newborns tested, one turned out to have genetically proven IVA while 99 were false positive (C5:
       0.5-8.2 μmol/L) due to the presence of pivaloylcarnitine.&#39;
     explanation: Documents NBS implementation and the high false-positive rate from pivaloylcarnitine interference.
   - reference: PMID:36837923
+    reference_title: &#34;Machine Learning Methods Improve Specificity in Newborn Screening for Isovaleric Aciduria.&#34;
     supports: SUPPORT
     evidence_source: COMPUTATIONAL
     snippet: Our results show that this reduces the false positive rate by 69.9% from 103 to 31 while maintaining 100% sensitivity
@@ -5012,6 +5246,7 @@ treatments:
       label: genetic counseling
   evidence:
   - reference: PMID:41133704
+    reference_title: &#34;Practical Considerations for the Diagnosis and Management of Isovaleryl-CoA-Dehydrogenase Deficiency (Isovaleric Acidemia): Systematic Search and Review and Expert Opinions.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Isovaleric acidemia (IVA, OMIM 243500) is an inherited disorder of leucine metabolism caused by a deficiency

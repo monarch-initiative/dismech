@@ -1,4 +1,4 @@
-from __future__ import annotations
+from __future__ import annotations 
 
 import re
 import sys
@@ -7,8 +7,8 @@ from datetime import (
     datetime,
     time
 )
-from decimal import Decimal
-from enum import Enum
+from decimal import Decimal 
+from enum import Enum 
 from typing import (
     Any,
     ClassVar,
@@ -144,6 +144,10 @@ linkml_meta = LinkMLMeta({'default_prefix': 'dismech',
                                    'prefix_reference': 'https://www.ebi.ac.uk/metabolights/'},
                   'morphic': {'prefix_prefix': 'morphic',
                               'prefix_reference': 'https://data.morphic.bio/'},
+                  'namo': {'prefix_prefix': 'namo',
+                           'prefix_reference': 'https://w3id.org/monarch-initiative/namo/'},
+                  'osdr': {'prefix_prefix': 'osdr',
+                           'prefix_reference': 'https://osdr.nasa.gov/bio/repo/data/studies/OSD-'},
                   'phenopacket-store': {'prefix_prefix': 'phenopacket-store',
                                         'prefix_reference': 'https://github.com/monarch-initiative/phenopacket-store/tree/main/notebooks/'},
                   'pride': {'prefix_prefix': 'pride',
@@ -664,25 +668,25 @@ class EvidenceItemSupportEnum(str, Enum):
     """
     The level of support for an evidence item
     """
-    WRONG_STATEMENT = "WRONG_STATEMENT"
+    Wrong_statement = "WRONG_STATEMENT"
     """
-    WRONG_STATEMENT
+    The annotated claim contains a demonstrable factual error (e.g., an incorrect statistic or assertion); the cited evidence documents the correct information. Use this when the claim is outright wrong, not merely contested.
     """
-    SUPPORT = "SUPPORT"
+    Supports = "SUPPORT"
     """
-    SUPPORT
+    The cited evidence directly supports the claim
     """
-    REFUTE = "REFUTE"
+    Refutes = "REFUTE"
     """
-    REFUTE
+    The cited evidence directly contradicts the claim
     """
-    NO_EVIDENCE = "NO_EVIDENCE"
+    No_evidence = "NO_EVIDENCE"
     """
-    NO_EVIDENCE
+    The cited reference does not contain evidence relevant to the claim
     """
-    PARTIAL = "PARTIAL"
+    Partially_supports = "PARTIAL"
     """
-    PARTIAL
+    The cited evidence partially or indirectly supports the claim
     """
 
 
@@ -690,23 +694,23 @@ class EvidenceSourceEnum(str, Enum):
     """
     The provenance/source of the evidence item
     """
-    HUMAN_CLINICAL = "HUMAN_CLINICAL"
+    Human_clinical = "HUMAN_CLINICAL"
     """
     Human clinical observations (patients, cohorts, case reports, clinical trials, epidemiology)
     """
-    MODEL_ORGANISM = "MODEL_ORGANISM"
+    Model_organism = "MODEL_ORGANISM"
     """
     In vivo animal evidence (mouse, zebrafish, primate, veterinary case series including dog/cat/horse, other non-human animal models etc.)
     """
-    IN_VITRO = "IN_VITRO"
+    In_vitro_SOLIDUS_ex_vivo = "IN_VITRO"
     """
     In vitro or ex vivo assays (cell culture, organoids, tissue slices, biochemical assays)
     """
-    COMPUTATIONAL = "COMPUTATIONAL"
+    Computational = "COMPUTATIONAL"
     """
     In silico/modeling studies (simulation, docking, ML predictions, network inference) even when using clinical data inputs
     """
-    OTHER = "OTHER"
+    Other = "OTHER"
     """
     Evidence not fitting the above (e.g., expert consensus without data, image atlases without cohort context)
     """
@@ -760,25 +764,25 @@ class FrequencyEnum(str, Enum):
     """
     The frequency of an event or phenomenon
     """
-    FREQUENT = "FREQUENT"
+    Obligate_LEFT_PARENTHESIS100PERCENT_SIGNRIGHT_PARENTHESIS = "OBLIGATE"
     """
-    Frequent
+    Present in all cases (100% of patients)
     """
-    OCCASIONAL = "OCCASIONAL"
+    Very_frequent_LEFT_PARENTHESIS80_99PERCENT_SIGNRIGHT_PARENTHESIS = "VERY_FREQUENT"
     """
-    Occasional
+    Present in most cases (80-99% of patients)
     """
-    VERY_FREQUENT = "VERY_FREQUENT"
+    Frequent_LEFT_PARENTHESIS30_79PERCENT_SIGNRIGHT_PARENTHESIS = "FREQUENT"
     """
-    Very frequent
+    Present in many cases (30-79% of patients)
     """
-    VERY_RARE = "VERY_RARE"
+    Occasional_LEFT_PARENTHESIS5_29PERCENT_SIGNRIGHT_PARENTHESIS = "OCCASIONAL"
     """
-    Very rare
+    Present in some cases (5-29% of patients)
     """
-    OBLIGATE = "OBLIGATE"
+    Very_rare_LEFT_PARENTHESISLESS_THAN_SIGN5PERCENT_SIGNRIGHT_PARENTHESIS = "VERY_RARE"
     """
-    Obligate
+    Present in rare cases (<5% of patients)
     """
 
 
@@ -786,25 +790,25 @@ class ClinicalSignificanceEnum(str, Enum):
     """
     The clinical significance of a variant for a condition (ACMG guidelines)
     """
-    PATHOGENIC = "PATHOGENIC"
+    Pathogenic = "PATHOGENIC"
     """
-    pathogenic_for_condition
+    Variant is pathogenic for the condition (ACMG class 5)
     """
-    LIKELY_PATHOGENIC = "LIKELY_PATHOGENIC"
+    Likely_pathogenic = "LIKELY_PATHOGENIC"
     """
-    likely_pathogenic_for_condition
+    Variant is likely pathogenic for the condition (ACMG class 4)
     """
-    BENIGN = "BENIGN"
+    Benign = "BENIGN"
     """
-    benign_for_condition
+    Variant is benign for the condition (ACMG class 1)
     """
-    LIKELY_BENIGN = "LIKELY_BENIGN"
+    Likely_benign = "LIKELY_BENIGN"
     """
-    likely_benign_for_condition
+    Variant is likely benign for the condition (ACMG class 2)
     """
-    UNCERTAIN_SIGNIFICANCE = "UNCERTAIN_SIGNIFICANCE"
+    Uncertain_significance = "UNCERTAIN_SIGNIFICANCE"
     """
-    has_uncertain_significance_for_condition
+    Clinical significance of the variant is uncertain (ACMG class 3)
     """
 
 
@@ -812,27 +816,27 @@ class RegulatoryVariantCategoryEnum(str, Enum):
     """
     Functional classification of non-coding gene regulatory variants based on their impact on gene expression patterns. Adapted from Cheng et al. 2024 (PMID:38436667). Includes traditional coding variant categories for completeness.
     """
-    LOE = "LOE"
+    Loss_of_expression = "LOE"
     """
     Non-modular loss-of-expression. Diminishes or abolishes gene expression across all cell types that intrinsically express the gene. Analogous to coding amorphic or hypomorphic loss-of-function.
     """
-    mLOE = "mLOE"
+    Modular_loss_of_expression = "mLOE"
     """
     Modular loss-of-expression. Diminishes or abolishes gene expression in only a subset of cell types or developmental windows. Represents a disease mechanism largely unique to non-coding regulatory variants.
     """
-    GOE = "GOE"
+    Gain_of_ectopic_expression = "GOE"
     """
     Gain-of-ectopic-expression. Results in ectopic spatial and/or temporal expression of a gene. Can arise from enhancer adoption, novel TFBS creation, promoter switching, or repressor site disruption.
     """
-    LOF = "LOF"
+    Loss_of_function = "LOF"
     """
     Coding loss-of-function. Loss of normal biological function via complete (amorphic) or partial (hypomorphic) loss of protein activity.
     """
-    GOF = "GOF"
+    Gain_of_function = "GOF"
     """
     Coding gain-of-function. Creates a protein with increased activity (hypermorphic) or entirely new function (neomorphic).
     """
-    DN = "DN"
+    Dominant_negative = "DN"
     """
     Dominant-negative. Creates a protein that blocks the normal function of the remaining wild-type protein (antimorphic).
     """
@@ -842,27 +846,27 @@ class RegulatoryElementTypeEnum(str, Enum):
     """
     Type of gene regulatory element disrupted by a non-coding variant.
     """
-    PROMOTER = "PROMOTER"
+    Promoter = "PROMOTER"
     """
     Promoter-proximal element overlapping the transcription start site, containing core TF binding elements (TATA, CAAT, GC, CACCC boxes).
     """
-    ENHANCER = "ENHANCER"
+    Enhancer = "ENHANCER"
     """
     Distal regulatory element that upregulates transcriptional activity. May be cell-type-specific or shared across cell types.
     """
-    SILENCER = "SILENCER"
+    Silencer = "SILENCER"
     """
     Regulatory element that represses or silences gene transcription.
     """
-    INSULATOR = "INSULATOR"
+    Insulator = "INSULATOR"
     """
     Boundary element (often CTCF-bound) that compartmentalizes adjacent gene regulatory domains and limits enhancer-promoter interactions.
     """
-    TAD_BOUNDARY = "TAD_BOUNDARY"
+    TAD_boundary = "TAD_BOUNDARY"
     """
     Topologically associating domain boundary. Structural element maintaining chromatin loop domains; disruption can cause enhancer adoption or ectopic regulatory interactions.
     """
-    LOCUS_CONTROL_REGION = "LOCUS_CONTROL_REGION"
+    Locus_control_region = "LOCUS_CONTROL_REGION"
     """
     A cluster of regulatory elements that controls expression of a gene cluster (e.g., the beta-globin LCR).
     """
@@ -872,23 +876,23 @@ class ModifierEnum(str, Enum):
     """
     Qualifiers for direction, intensity, or pathological state of a descriptor
     """
-    INCREASED = "INCREASED"
+    Increased = "INCREASED"
     """
     Upregulated, hyperactive, elevated, or excessive
     """
-    DECREASED = "DECREASED"
+    Decreased = "DECREASED"
     """
     Downregulated, hypoactive, reduced, or deficient
     """
-    ABNORMAL = "ABNORMAL"
+    Abnormal = "ABNORMAL"
     """
     Qualitatively abnormal (e.g., misfolding, mislocalization, malformed)
     """
-    DYSREGULATED = "DYSREGULATED"
+    Dysregulated = "DYSREGULATED"
     """
     Regulation is impaired (may be increased or decreased)
     """
-    ABSENT = "ABSENT"
+    Absent = "ABSENT"
     """
     Not occurring or not present
     """
@@ -898,17 +902,17 @@ class PenetranceEnum(str, Enum):
     """
     Penetrance classification for inheritance
     """
-    COMPLETE = "COMPLETE"
+    Complete = "COMPLETE"
     """
-    Complete penetrance
+    All individuals with the variant express the phenotype
     """
-    INCOMPLETE = "INCOMPLETE"
+    Incomplete = "INCOMPLETE"
     """
-    Incomplete or partial penetrance
+    Not all individuals with the variant express the phenotype
     """
-    UNKNOWN = "UNKNOWN"
+    Unknown = "UNKNOWN"
     """
-    Unknown or not specified
+    Penetrance has not been determined
     """
 
 
@@ -916,17 +920,17 @@ class ExpressivityEnum(str, Enum):
     """
     Expressivity classification for inheritance
     """
-    VARIABLE = "VARIABLE"
+    Variable = "VARIABLE"
     """
-    Variable expressivity
+    Phenotype severity or features vary among individuals with the same variant
     """
-    CONSISTENT = "CONSISTENT"
+    Consistent = "CONSISTENT"
     """
-    Consistent or uniform expressivity
+    Phenotype is uniform among individuals with the same variant
     """
-    UNKNOWN = "UNKNOWN"
+    Unknown = "UNKNOWN"
     """
-    Unknown or not specified
+    Expressivity has not been determined
     """
 
 
@@ -934,15 +938,15 @@ class LateralityEnum(str, Enum):
     """
     Laterality qualifier for anatomical structures or procedures
     """
-    LEFT = "LEFT"
+    Left = "LEFT"
     """
     Left side of the body
     """
-    RIGHT = "RIGHT"
+    Right = "RIGHT"
     """
     Right side of the body
     """
-    BILATERAL = "BILATERAL"
+    Bilateral = "BILATERAL"
     """
     Both sides of the body
     """
@@ -1270,9 +1274,47 @@ class DatasetTypeEnum(str, Enum):
     """
     Curated genetic variant collection
     """
+    MULTI_OMICS = "MULTI_OMICS"
+    """
+    Integrated multi-omics profiling (e.g., combined transcriptomics, proteomics, metabolomics)
+    """
     MULTI_OMICS_PERTURBATION = "MULTI_OMICS_PERTURBATION"
     """
     Multi-omics profiling of genetic perturbations (e.g., CRISPR knockout combined with transcriptomic, chromatin accessibility, and cellular phenotyping)
+    """
+
+
+class ExperimentalModelTypeEnum(str, Enum):
+    """
+    Broad disease-centric categories for experimental model systems, primarily non-animal systems curated in this section
+    """
+    ORGANOID = "ORGANOID"
+    """
+    Self-organizing three-dimensional tissue model, often stem-cell-derived
+    """
+    ORGAN_ON_CHIP = "ORGAN_ON_CHIP"
+    """
+    Microfluidic organ- or tissue-on-chip model
+    """
+    CELL_LINE = "CELL_LINE"
+    """
+    Immortalized cell line-based disease model
+    """
+    IPSC_DERIVED_MODEL = "IPSC_DERIVED_MODEL"
+    """
+    Differentiated model derived from induced pluripotent stem cells
+    """
+    PRIMARY_CELL_CULTURE = "PRIMARY_CELL_CULTURE"
+    """
+    Primary-cell or biopsy-derived culture system, including monolayers
+    """
+    CO_CULTURE = "CO_CULTURE"
+    """
+    Host-microbe or multi-cell-type coculture system
+    """
+    OTHER = "OTHER"
+    """
+    Other experimental model type not covered above
     """
 
 
@@ -1741,6 +1783,7 @@ class Descriptor(ConfiguredBaseModel):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -1748,6 +1791,7 @@ class Descriptor(ConfiguredBaseModel):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -1826,6 +1870,7 @@ class CellTypeDescriptor(Descriptor):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -1833,6 +1878,7 @@ class CellTypeDescriptor(Descriptor):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -1897,6 +1943,7 @@ class BiologicalProcessDescriptor(Descriptor):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -1904,6 +1951,7 @@ class BiologicalProcessDescriptor(Descriptor):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -1968,6 +2016,7 @@ class MolecularFunctionDescriptor(Descriptor):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -1975,6 +2024,7 @@ class MolecularFunctionDescriptor(Descriptor):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -2039,6 +2089,7 @@ class AnatomicalEntityDescriptor(Descriptor):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -2046,6 +2097,7 @@ class AnatomicalEntityDescriptor(Descriptor):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -2110,6 +2162,7 @@ class ChemicalEntityDescriptor(Descriptor):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -2117,6 +2170,7 @@ class ChemicalEntityDescriptor(Descriptor):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -2181,6 +2235,7 @@ class GeneDescriptor(Descriptor):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -2188,6 +2243,7 @@ class GeneDescriptor(Descriptor):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -2252,6 +2308,7 @@ class CellularComponentDescriptor(Descriptor):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -2259,6 +2316,7 @@ class CellularComponentDescriptor(Descriptor):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -2323,6 +2381,7 @@ class ProteinComplexDescriptor(Descriptor):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -2330,6 +2389,7 @@ class ProteinComplexDescriptor(Descriptor):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -2393,6 +2453,7 @@ class AssayDescriptor(Descriptor):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -2400,6 +2461,7 @@ class AssayDescriptor(Descriptor):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -2463,6 +2525,7 @@ class TriggerDescriptor(Descriptor):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -2470,6 +2533,7 @@ class TriggerDescriptor(Descriptor):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -2533,6 +2597,7 @@ class DiseaseDescriptor(Descriptor):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -2540,6 +2605,7 @@ class DiseaseDescriptor(Descriptor):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -2603,6 +2669,7 @@ class BiomarkerDescriptor(Descriptor):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -2610,6 +2677,7 @@ class BiomarkerDescriptor(Descriptor):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -2673,6 +2741,7 @@ class GeneProductDescriptor(Descriptor):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -2680,6 +2749,7 @@ class GeneProductDescriptor(Descriptor):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -2750,6 +2820,7 @@ class HistopathologyFindingDescriptor(Descriptor):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -2757,6 +2828,7 @@ class HistopathologyFindingDescriptor(Descriptor):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -2820,6 +2892,7 @@ class LifeCycleStageDescriptor(Descriptor):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -2827,6 +2900,7 @@ class LifeCycleStageDescriptor(Descriptor):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -2890,6 +2964,7 @@ class PhenotypeDescriptor(Descriptor):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -2897,6 +2972,7 @@ class PhenotypeDescriptor(Descriptor):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -2961,6 +3037,7 @@ class InheritanceDescriptor(Descriptor):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -2968,6 +3045,7 @@ class InheritanceDescriptor(Descriptor):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -3052,6 +3130,7 @@ class TreatmentDescriptor(Descriptor):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -3059,6 +3138,7 @@ class TreatmentDescriptor(Descriptor):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -3122,6 +3202,7 @@ class RegimenDescriptor(Descriptor):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -3129,6 +3210,7 @@ class RegimenDescriptor(Descriptor):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -3197,6 +3279,7 @@ class ExposureDescriptor(Descriptor):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -3204,6 +3287,7 @@ class ExposureDescriptor(Descriptor):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -3270,6 +3354,7 @@ class EnvironmentDescriptor(Descriptor):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -3277,6 +3362,7 @@ class EnvironmentDescriptor(Descriptor):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -3340,6 +3426,7 @@ class OrganismDescriptor(Descriptor):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -3347,6 +3434,7 @@ class OrganismDescriptor(Descriptor):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -3410,6 +3498,7 @@ class HostDescriptor(OrganismDescriptor):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -3417,6 +3506,7 @@ class HostDescriptor(OrganismDescriptor):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -3470,13 +3560,15 @@ class SampleTypeDescriptor(Descriptor):
     """
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
 
-    tissue_term: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""UBERON term for the tissue""", json_schema_extra = { "linkml_meta": {'alias': 'tissue_term', 'domain_of': ['SampleTypeDescriptor']} })
+    tissue_term: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""UBERON term for the tissue""", json_schema_extra = { "linkml_meta": {'alias': 'tissue_term',
+         'domain_of': ['SampleTypeDescriptor', 'ExperimentalModel']} })
     cell_type_term: Optional[CellTypeDescriptor] = Field(default=None, description="""CL term for the cell type""", json_schema_extra = { "linkml_meta": {'alias': 'cell_type_term', 'domain_of': ['SampleTypeDescriptor']} })
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -3484,6 +3576,7 @@ class SampleTypeDescriptor(Descriptor):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -3552,6 +3645,7 @@ class GeneticContext(ConfiguredBaseModel):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -3559,6 +3653,7 @@ class GeneticContext(ConfiguredBaseModel):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -3592,6 +3687,7 @@ class GeneticContext(ConfiguredBaseModel):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -3641,6 +3737,7 @@ class OnsetDescriptor(ConfiguredBaseModel):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -3707,6 +3804,7 @@ class PhenotypeContext(ConfiguredBaseModel):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -3742,12 +3840,14 @@ class PhenotypeContext(ConfiguredBaseModel):
     evidence: Optional[list[EvidenceItem]] = Field(default=None, description="""Evidence supporting the frequency, severity, or onset claims made in this specific context. Distinct from the D2P evidence on the parent Phenotype.""", json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -3827,6 +3927,7 @@ class Dataset(ConfiguredBaseModel):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -3834,6 +3935,7 @@ class Dataset(ConfiguredBaseModel):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -3863,11 +3965,11 @@ class Dataset(ConfiguredBaseModel):
                        'UpstreamConditionHypothesis',
                        'MechanisticHypothesis'],
          'recommended': True} })
-    organism: Optional[OrganismDescriptor] = Field(default=None, description="""The organism from which samples were derived""", json_schema_extra = { "linkml_meta": {'alias': 'organism', 'domain_of': ['Dataset']} })
+    organism: Optional[OrganismDescriptor] = Field(default=None, description="""The organism from which samples were derived""", json_schema_extra = { "linkml_meta": {'alias': 'organism', 'domain_of': ['Dataset', 'ExperimentalModel']} })
     data_type: Optional[DatasetTypeEnum] = Field(default=None, description="""The type of omics or other data in the dataset""", json_schema_extra = { "linkml_meta": {'alias': 'data_type', 'domain_of': ['Dataset']} })
     sample_types: Optional[list[SampleTypeDescriptor]] = Field(default=None, description="""Types of biological samples in the dataset""", json_schema_extra = { "linkml_meta": {'alias': 'sample_types', 'domain_of': ['Dataset']} })
     sample_count: Optional[int] = Field(default=None, description="""Total number of samples in the dataset""", json_schema_extra = { "linkml_meta": {'alias': 'sample_count', 'domain_of': ['Dataset']} })
-    conditions: Optional[list[str]] = Field(default=None, description="""Experimental conditions or disease states represented""", json_schema_extra = { "linkml_meta": {'alias': 'conditions', 'domain_of': ['Dataset']} })
+    conditions: Optional[list[str]] = Field(default=None, description="""Experimental conditions or disease states represented""", json_schema_extra = { "linkml_meta": {'alias': 'conditions', 'domain_of': ['Dataset', 'ExperimentalModel']} })
     exposures: Optional[list[ExposureDescriptor]] = Field(default=None, description="""Environmental exposures studied in the dataset""", json_schema_extra = { "linkml_meta": {'alias': 'exposures', 'domain_of': ['Dataset']} })
     genes: Optional[list[GeneDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'genes',
          'domain_of': ['GeneticContext',
@@ -3878,18 +3980,26 @@ class Dataset(ConfiguredBaseModel):
          'examples': [{'value': '[{preferred_term: HLA-DQ2}, {preferred_term: INS}]'}]} })
     platform: Optional[str] = Field(default=None, description="""Sequencing or array platform used""", json_schema_extra = { "linkml_meta": {'alias': 'platform', 'domain_of': ['Dataset']} })
     publication: Optional[str] = Field(default=None, description="""Associated publication (PMID)""", json_schema_extra = { "linkml_meta": {'alias': 'publication',
-         'domain_of': ['Dataset', 'ComputationalModel', 'ProteinStructure']} })
+         'domain_of': ['Dataset',
+                       'ExperimentalModel',
+                       'ComputationalModel',
+                       'ProteinStructure']} })
     findings: Optional[list[Finding]] = Field(default=None, description="""Key findings or claims extracted from this source (publication or dataset)""", json_schema_extra = { "linkml_meta": {'alias': 'findings',
-         'domain_of': ['Dataset', 'ComputationalModel', 'PublicationReference']} })
+         'domain_of': ['Dataset',
+                       'ExperimentalModel',
+                       'ComputationalModel',
+                       'PublicationReference']} })
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -3925,6 +4035,202 @@ class Dataset(ConfiguredBaseModel):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'Prevalence',
+                       'ProgressionInfo',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'Treatment',
+                       'Transmission',
+                       'Diagnosis',
+                       'ClassificationAssignment',
+                       'Definition',
+                       'CriteriaSet',
+                       'TermMapping',
+                       'MappingConsistency',
+                       'ComorbidityAssociation',
+                       'AssociationSignal',
+                       'AssociationMetric',
+                       'AssociationStatistics',
+                       'MechanisticHypothesis'],
+         'examples': [{'value': 'Contagious stage where symptoms appear and the '
+                                'bacteria can be spread to others.'}]} })
+
+
+class ExperimentalModel(ConfiguredBaseModel):
+    """
+    A disease-relevant non-animal experimental model system. This is a disease-centric bridge class inspired by NAMO, intended to capture the model itself while keeping dismech focused on disease mechanisms rather than study-level model registries.
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'comments': ['Use `namo_type` to map to a corresponding NAMO class when '
+                      'applicable',
+                      'Prefer `experimental_model_type` for broad local categorization '
+                      'and `description` or `notes` for disease-specific nuance',
+                      'Use `cell_source` to record whether the system is '
+                      'patient-derived, iPSC-derived, primary, immortalized, or mixed'],
+         'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
+
+    name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'alias': 'name',
+         'domain_of': ['ExperimentalModel',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'SeverityTier',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycleStage',
+                       'Treatment',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'Mechanism',
+                       'ModelingConsideration',
+                       'Definition',
+                       'CriteriaSet',
+                       'ComorbidityAssociation'],
+         'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
+    description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
+         'domain_of': ['Descriptor',
+                       'GeneticContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
+                       'ProteinStructure',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'HistopathologyFinding',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'FunctionalEffect',
+                       'Mechanism',
+                       'ModelingConsideration',
+                       'Definition',
+                       'CriteriaSet',
+                       'ConditionDescriptor',
+                       'GOEnrichment',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis']} })
+    experimental_model_type: Optional[ExperimentalModelTypeEnum] = Field(default=None, description="""Broad category for an experimental model system""", json_schema_extra = { "linkml_meta": {'alias': 'experimental_model_type', 'domain_of': ['ExperimentalModel']} })
+    namo_type: Optional[str] = Field(default=None, description="""Optional mapping to the corresponding NAMO class, such as `namo:Organoid` or `namo:OrganOnChip`.""", json_schema_extra = { "linkml_meta": {'alias': 'namo_type', 'domain_of': ['ExperimentalModel']} })
+    organism: Optional[OrganismDescriptor] = Field(default=None, description="""The organism from which samples were derived""", json_schema_extra = { "linkml_meta": {'alias': 'organism', 'domain_of': ['Dataset', 'ExperimentalModel']} })
+    tissue_term: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""UBERON term for the tissue""", json_schema_extra = { "linkml_meta": {'alias': 'tissue_term',
+         'domain_of': ['SampleTypeDescriptor', 'ExperimentalModel']} })
+    cell_types: Optional[list[CellTypeDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'cell_types',
+         'domain_of': ['ExperimentalModel', 'Pathophysiology', 'Biochemical'],
+         'examples': [{'value': '[{preferred_term: Macrophage}, {preferred_term: T '
+                                'Cell}]'}]} })
+    conditions: Optional[list[str]] = Field(default=None, description="""Experimental conditions or disease states represented""", json_schema_extra = { "linkml_meta": {'alias': 'conditions', 'domain_of': ['Dataset', 'ExperimentalModel']} })
+    cell_source: Optional[str] = Field(default=None, description="""Source of cells used in the experimental model""", json_schema_extra = { "linkml_meta": {'alias': 'cell_source', 'domain_of': ['ExperimentalModel']} })
+    culture_system: Optional[str] = Field(default=None, description="""Culture format or device context used by the experimental model""", json_schema_extra = { "linkml_meta": {'alias': 'culture_system', 'domain_of': ['ExperimentalModel']} })
+    publication: Optional[str] = Field(default=None, description="""Associated publication (PMID)""", json_schema_extra = { "linkml_meta": {'alias': 'publication',
+         'domain_of': ['Dataset',
+                       'ExperimentalModel',
+                       'ComputationalModel',
+                       'ProteinStructure']} })
+    modeled_mechanisms: Optional[list[ModelMechanismLink]] = Field(default=None, description="""Pathophysiology mechanism nodes/assertions that this experimental model is intended to recapitulate, perturb, or measure within the disease pathograph.""", json_schema_extra = { "linkml_meta": {'alias': 'modeled_mechanisms',
+         'comments': ['Target names should match pathophysiology entry names in the '
+                      'same disease file',
+                      'Use description to capture the specific assayable or modeled '
+                      'assertion, not just the node label',
+                      'Kept intentionally lightweight so it can later align more '
+                      'explicitly with NAMO relations'],
+         'domain_of': ['ExperimentalModel']} })
+    findings: Optional[list[Finding]] = Field(default=None, description="""Key findings or claims extracted from this source (publication or dataset)""", json_schema_extra = { "linkml_meta": {'alias': 'findings',
+         'domain_of': ['Dataset',
+                       'ExperimentalModel',
+                       'ComputationalModel',
+                       'PublicationReference']} })
+    evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
+         'domain_of': ['PhenotypeContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
+                       'Finding',
+                       'Prevalence',
+                       'ProgressionInfo',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'ModelingConsideration',
+                       'ClassificationAssignment',
+                       'Definition',
+                       'CriteriaSet',
+                       'AssociationSignal',
+                       'AssociationStatistics',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis'],
+         'recommended': True} })
+    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'notes',
+         'domain_of': ['GeneticContext',
+                       'OnsetDescriptor',
+                       'PhenotypeContext',
+                       'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -3992,8 +4298,9 @@ class ClinicalTrial(ConfiguredBaseModel):
                                    'range': 'ClinicalTrialStatusEnum',
                                    'recommended': True}}})
 
-    name: Optional[str] = Field(default=None, description="""NCT identifier (e.g., NCT00000001) or trial name""", json_schema_extra = { "linkml_meta": {'alias': 'name',
-         'domain_of': ['ClinicalTrial',
+    name: str = Field(default=..., description="""NCT identifier (e.g., NCT00000001) or trial name""", json_schema_extra = { "linkml_meta": {'alias': 'name',
+         'domain_of': ['ExperimentalModel',
+                       'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
                        'SeverityTier',
@@ -4026,6 +4333,7 @@ class ClinicalTrial(ConfiguredBaseModel):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -4033,6 +4341,7 @@ class ClinicalTrial(ConfiguredBaseModel):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -4075,12 +4384,14 @@ class ClinicalTrial(ConfiguredBaseModel):
     evidence: Optional[list[EvidenceItem]] = Field(default=None, description="""Supporting evidence with snippets from trial documentation""", json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -4123,6 +4434,7 @@ class ClinicalTrial(ConfiguredBaseModel):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -4183,7 +4495,8 @@ class ComputationalModel(ConfiguredBaseModel):
          'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
 
     name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'alias': 'name',
-         'domain_of': ['ClinicalTrial',
+         'domain_of': ['ExperimentalModel',
+                       'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
                        'SeverityTier',
@@ -4216,6 +4529,7 @@ class ComputationalModel(ConfiguredBaseModel):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -4223,6 +4537,7 @@ class ComputationalModel(ConfiguredBaseModel):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -4260,18 +4575,26 @@ class ComputationalModel(ConfiguredBaseModel):
     model_software: Optional[str] = Field(default=None, description="""Software/toolbox for running the model (e.g., COBRApy, COBRA Toolbox)""", json_schema_extra = { "linkml_meta": {'alias': 'model_software', 'domain_of': ['ComputationalModel']} })
     model_format: Optional[str] = Field(default=None, description="""File format (e.g., SBML, MATLAB, JSON, ONNX)""", json_schema_extra = { "linkml_meta": {'alias': 'model_format', 'domain_of': ['ComputationalModel']} })
     publication: Optional[str] = Field(default=None, description="""Associated publication (PMID)""", json_schema_extra = { "linkml_meta": {'alias': 'publication',
-         'domain_of': ['Dataset', 'ComputationalModel', 'ProteinStructure']} })
+         'domain_of': ['Dataset',
+                       'ExperimentalModel',
+                       'ComputationalModel',
+                       'ProteinStructure']} })
     findings: Optional[list[Finding]] = Field(default=None, description="""Key findings or claims extracted from this source (publication or dataset)""", json_schema_extra = { "linkml_meta": {'alias': 'findings',
-         'domain_of': ['Dataset', 'ComputationalModel', 'PublicationReference']} })
+         'domain_of': ['Dataset',
+                       'ExperimentalModel',
+                       'ComputationalModel',
+                       'PublicationReference']} })
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -4307,6 +4630,7 @@ class ComputationalModel(ConfiguredBaseModel):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -4356,7 +4680,8 @@ class ModelVariable(ConfiguredBaseModel):
          'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
 
     name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'alias': 'name',
-         'domain_of': ['ClinicalTrial',
+         'domain_of': ['ExperimentalModel',
+                       'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
                        'SeverityTier',
@@ -4392,6 +4717,7 @@ class ModelVariable(ConfiguredBaseModel):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -4399,6 +4725,7 @@ class ModelVariable(ConfiguredBaseModel):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -4436,6 +4763,7 @@ class ModelVariable(ConfiguredBaseModel):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -4486,7 +4814,8 @@ class SeverityTier(ConfiguredBaseModel):
 
     threshold: float = Field(default=..., description="""The variable value at which this severity tier activates""", json_schema_extra = { "linkml_meta": {'alias': 'threshold', 'domain_of': ['SeverityTier', 'ModelVariableDescriptor']} })
     name: str = Field(default=..., description="""Severity label (e.g., \"mild\", \"moderate\", \"severe\")""", json_schema_extra = { "linkml_meta": {'alias': 'name',
-         'domain_of': ['ClinicalTrial',
+         'domain_of': ['ExperimentalModel',
+                       'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
                        'SeverityTier',
@@ -4544,6 +4873,7 @@ class ModelVariableDescriptor(Descriptor):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -4551,6 +4881,7 @@ class ModelVariableDescriptor(Descriptor):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -4625,7 +4956,8 @@ class DifferentialDiagnosis(ConfiguredBaseModel):
                                   'name': 'notes'}}})
 
     name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'alias': 'name',
-         'domain_of': ['ClinicalTrial',
+         'domain_of': ['ExperimentalModel',
+                       'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
                        'SeverityTier',
@@ -4658,6 +4990,7 @@ class DifferentialDiagnosis(ConfiguredBaseModel):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -4665,6 +4998,7 @@ class DifferentialDiagnosis(ConfiguredBaseModel):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -4699,12 +5033,14 @@ class DifferentialDiagnosis(ConfiguredBaseModel):
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -4740,6 +5076,7 @@ class DifferentialDiagnosis(ConfiguredBaseModel):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -4779,7 +5116,8 @@ class Subtype(ConfiguredBaseModel):
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
 
     name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'alias': 'name',
-         'domain_of': ['ClinicalTrial',
+         'domain_of': ['ExperimentalModel',
+                       'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
                        'SeverityTier',
@@ -4808,11 +5146,13 @@ class Subtype(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
+    display_name: Optional[str] = Field(default=None, description="""Human-readable display name for a subtype, used when the name (which serves as the FK target) is too terse for comfortable display. Optional; when absent, renderers should fall back to name.""", json_schema_extra = { "linkml_meta": {'alias': 'display_name', 'domain_of': ['Subtype']} })
     subtype_term: Optional[DiseaseDescriptor] = Field(default=None, description="""The MONDO term for a disease subtype""", json_schema_extra = { "linkml_meta": {'alias': 'subtype_term', 'domain_of': ['Subtype']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -4820,6 +5160,7 @@ class Subtype(ConfiguredBaseModel):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -4851,12 +5192,14 @@ class Subtype(ConfiguredBaseModel):
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -4928,7 +5271,7 @@ class EvidenceItem(ConfiguredBaseModel):
          'domain_of': ['EvidenceItem', 'PublicationReference', 'MappingConsistency'],
          'examples': [{'value': 'PMID:35533128'}],
          'implements': ['linkml:authoritative_reference']} })
-    reference_title: Optional[str] = Field(default=None, description="""The title of the referenced publication""", json_schema_extra = { "linkml_meta": {'alias': 'reference_title', 'domain_of': ['EvidenceItem']} })
+    reference_title: Optional[str] = Field(default=None, description="""The title of the referenced publication""", json_schema_extra = { "linkml_meta": {'alias': 'reference_title', 'domain_of': ['EvidenceItem'], 'recommended': True} })
     supports: Optional[EvidenceItemSupportEnum] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'supports',
          'domain_of': ['EvidenceItem'],
          'examples': [{'value': 'SUPPORT'}]} })
@@ -4978,11 +5321,13 @@ class CausalEdge(ConfiguredBaseModel):
                                                                    'edge',
                                                     'name': 'intermediate_mechanisms'}}})
 
-    target: str = Field(default=..., description="""The name of the target element in a causal relationship""", json_schema_extra = { "linkml_meta": {'alias': 'target', 'domain_of': ['CausalEdge', 'TreatmentMechanismTarget']} })
+    target: str = Field(default=..., description="""The name of the target element in a causal relationship""", json_schema_extra = { "linkml_meta": {'alias': 'target',
+         'domain_of': ['CausalEdge', 'TreatmentMechanismTarget', 'ModelMechanismLink']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -4990,6 +5335,7 @@ class CausalEdge(ConfiguredBaseModel):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -5021,12 +5367,14 @@ class CausalEdge(ConfiguredBaseModel):
     evidence: Optional[list[EvidenceItem]] = Field(default=None, description="""Evidence that supports this specific edge (not just the parent node-level claim)""", json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -5076,12 +5424,14 @@ class TreatmentMechanismTarget(ConfiguredBaseModel):
                                                   'disease file.',
                                    'name': 'target'}}})
 
-    target: str = Field(default=..., description="""Name of the pathophysiology entry this treatment targets. Must match a pathophysiology name in the same disease file.""", json_schema_extra = { "linkml_meta": {'alias': 'target', 'domain_of': ['CausalEdge', 'TreatmentMechanismTarget']} })
+    target: str = Field(default=..., description="""Name of the pathophysiology entry this treatment targets. Must match a pathophysiology name in the same disease file.""", json_schema_extra = { "linkml_meta": {'alias': 'target',
+         'domain_of': ['CausalEdge', 'TreatmentMechanismTarget', 'ModelMechanismLink']} })
     treatment_effect: Optional[TreatmentEffectEnum] = Field(default=None, description="""How the treatment affects the targeted mechanism""", json_schema_extra = { "linkml_meta": {'alias': 'treatment_effect', 'domain_of': ['TreatmentMechanismTarget']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -5089,6 +5439,7 @@ class TreatmentMechanismTarget(ConfiguredBaseModel):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -5120,12 +5471,120 @@ class TreatmentMechanismTarget(ConfiguredBaseModel):
     evidence: Optional[list[EvidenceItem]] = Field(default=None, description="""Evidence that this treatment targets this specific mechanism""", json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
+                       'Finding',
+                       'Prevalence',
+                       'ProgressionInfo',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'ModelingConsideration',
+                       'ClassificationAssignment',
+                       'Definition',
+                       'CriteriaSet',
+                       'AssociationSignal',
+                       'AssociationStatistics',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis'],
+         'recommended': True} })
+
+
+class ModelMechanismLink(ConfiguredBaseModel):
+    """
+    Links an experimental model to a specific pathophysiology mechanism node, with optional assertion text describing the aspect of the mechanism that the model recapitulates, perturbs, or reads out.
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'description': {'description': 'Brief assertion-level note '
+                                                       'describing what facet of the '
+                                                       'linked mechanism the model '
+                                                       'captures or assays.',
+                                        'name': 'description'},
+                        'evidence': {'description': 'Evidence that this model is '
+                                                    'informative for the linked '
+                                                    'mechanism',
+                                     'name': 'evidence'},
+                        'target': {'description': 'Name of the pathophysiology entry '
+                                                  'this model is linked to. Must match '
+                                                  'a pathophysiology name in the same '
+                                                  'disease file.',
+                                   'name': 'target'}}})
+
+    target: str = Field(default=..., description="""Name of the pathophysiology entry this model is linked to. Must match a pathophysiology name in the same disease file.""", json_schema_extra = { "linkml_meta": {'alias': 'target',
+         'domain_of': ['CausalEdge', 'TreatmentMechanismTarget', 'ModelMechanismLink']} })
+    description: Optional[str] = Field(default=None, description="""Brief assertion-level note describing what facet of the linked mechanism the model captures or assays.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
+         'domain_of': ['Descriptor',
+                       'GeneticContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
+                       'ProteinStructure',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'HistopathologyFinding',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'FunctionalEffect',
+                       'Mechanism',
+                       'ModelingConsideration',
+                       'Definition',
+                       'CriteriaSet',
+                       'ConditionDescriptor',
+                       'GOEnrichment',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis']} })
+    evidence: Optional[list[EvidenceItem]] = Field(default=None, description="""Evidence that this model is informative for the linked mechanism""", json_schema_extra = { "linkml_meta": {'alias': 'evidence',
+         'domain_of': ['PhenotypeContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -5169,6 +5628,7 @@ class ProteinStructure(ConfiguredBaseModel):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -5176,6 +5636,7 @@ class ProteinStructure(ConfiguredBaseModel):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -5210,7 +5671,10 @@ class ProteinStructure(ConfiguredBaseModel):
     ligand: Optional[str] = Field(default=None, description="""Name of bound drug/ligand if this is a co-crystal structure""", json_schema_extra = { "linkml_meta": {'alias': 'ligand', 'domain_of': ['ProteinStructure']} })
     target_protein: Optional[str] = Field(default=None, description="""Name of the protein target in the structure""", json_schema_extra = { "linkml_meta": {'alias': 'target_protein', 'domain_of': ['ProteinStructure']} })
     publication: Optional[str] = Field(default=None, description="""Reference for the structure deposition or associated paper (e.g., PMID:12345678)""", json_schema_extra = { "linkml_meta": {'alias': 'publication',
-         'domain_of': ['Dataset', 'ComputationalModel', 'ProteinStructure']} })
+         'domain_of': ['Dataset',
+                       'ExperimentalModel',
+                       'ComputationalModel',
+                       'ProteinStructure']} })
 
 
 class PublicationReference(ConfiguredBaseModel):
@@ -5231,7 +5695,10 @@ class PublicationReference(ConfiguredBaseModel):
          'implements': ['linkml:title']} })
     found_in: Optional[list[str]] = Field(default=None, description="""Deep-research output files where this reference was cited""", json_schema_extra = { "linkml_meta": {'alias': 'found_in', 'domain_of': ['PublicationReference']} })
     findings: Optional[list[Finding]] = Field(default=None, description="""Key findings or claims extracted from this source (publication or dataset)""", json_schema_extra = { "linkml_meta": {'alias': 'findings',
-         'domain_of': ['Dataset', 'ComputationalModel', 'PublicationReference']} })
+         'domain_of': ['Dataset',
+                       'ExperimentalModel',
+                       'ComputationalModel',
+                       'PublicationReference']} })
 
 
 class Finding(ConfiguredBaseModel):
@@ -5245,12 +5712,14 @@ class Finding(ConfiguredBaseModel):
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -5307,12 +5776,14 @@ class Prevalence(ConfiguredBaseModel):
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -5348,6 +5819,7 @@ class Prevalence(ConfiguredBaseModel):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -5403,12 +5875,14 @@ class ProgressionInfo(ConfiguredBaseModel):
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -5463,6 +5937,7 @@ class ProgressionInfo(ConfiguredBaseModel):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -5507,7 +5982,8 @@ class EpidemiologyInfo(ConfiguredBaseModel):
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
 
     name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'alias': 'name',
-         'domain_of': ['ClinicalTrial',
+         'domain_of': ['ExperimentalModel',
+                       'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
                        'SeverityTier',
@@ -5540,6 +6016,7 @@ class EpidemiologyInfo(ConfiguredBaseModel):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -5547,6 +6024,7 @@ class EpidemiologyInfo(ConfiguredBaseModel):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -5583,6 +6061,7 @@ class EpidemiologyInfo(ConfiguredBaseModel):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -5626,12 +6105,14 @@ class EpidemiologyInfo(ConfiguredBaseModel):
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -5668,7 +6149,8 @@ class Pathophysiology(ConfiguredBaseModel):
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
 
     name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'alias': 'name',
-         'domain_of': ['ClinicalTrial',
+         'domain_of': ['ExperimentalModel',
+                       'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
                        'SeverityTier',
@@ -5701,6 +6183,7 @@ class Pathophysiology(ConfiguredBaseModel):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -5708,6 +6191,7 @@ class Pathophysiology(ConfiguredBaseModel):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -5737,18 +6221,20 @@ class Pathophysiology(ConfiguredBaseModel):
                        'UpstreamConditionHypothesis',
                        'MechanisticHypothesis']} })
     cell_types: Optional[list[CellTypeDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'cell_types',
-         'domain_of': ['Pathophysiology', 'Biochemical'],
+         'domain_of': ['ExperimentalModel', 'Pathophysiology', 'Biochemical'],
          'examples': [{'value': '[{preferred_term: Macrophage}, {preferred_term: T '
                                 'Cell}]'}]} })
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -5862,6 +6348,7 @@ class Pathophysiology(ConfiguredBaseModel):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -5915,7 +6402,8 @@ class Phenotype(ConfiguredBaseModel):
          'domain_of': ['Phenotype', 'Disease', 'AnimalModel'],
          'examples': [{'value': 'Hematologic'}]} })
     name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'alias': 'name',
-         'domain_of': ['ClinicalTrial',
+         'domain_of': ['ExperimentalModel',
+                       'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
                        'SeverityTier',
@@ -5958,6 +6446,7 @@ class Phenotype(ConfiguredBaseModel):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -5965,6 +6454,7 @@ class Phenotype(ConfiguredBaseModel):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -6001,12 +6491,14 @@ class Phenotype(ConfiguredBaseModel):
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -6067,6 +6559,7 @@ class Phenotype(ConfiguredBaseModel):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -6115,7 +6608,8 @@ class Biochemical(ConfiguredBaseModel):
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
 
     name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'alias': 'name',
-         'domain_of': ['ClinicalTrial',
+         'domain_of': ['ExperimentalModel',
+                       'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
                        'SeverityTier',
@@ -6155,12 +6649,14 @@ class Biochemical(ConfiguredBaseModel):
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -6208,6 +6704,7 @@ class Biochemical(ConfiguredBaseModel):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -6259,7 +6756,7 @@ class Biochemical(ConfiguredBaseModel):
                        'Genetic'],
          'examples': [{'value': 'Eyelid Myoclonia with Absences'}]} })
     cell_types: Optional[list[CellTypeDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'cell_types',
-         'domain_of': ['Pathophysiology', 'Biochemical'],
+         'domain_of': ['ExperimentalModel', 'Pathophysiology', 'Biochemical'],
          'examples': [{'value': '[{preferred_term: Macrophage}, {preferred_term: T '
                                 'Cell}]'}]} })
     assays: Optional[list[AssayDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'assays',
@@ -6309,7 +6806,8 @@ class HistopathologyFinding(ConfiguredBaseModel):
                                  'name': 'name'}}})
 
     name: str = Field(default=..., description="""Name of the histopathologic finding""", json_schema_extra = { "linkml_meta": {'alias': 'name',
-         'domain_of': ['ClinicalTrial',
+         'domain_of': ['ExperimentalModel',
+                       'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
                        'SeverityTier',
@@ -6350,6 +6848,7 @@ class HistopathologyFinding(ConfiguredBaseModel):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -6357,6 +6856,7 @@ class HistopathologyFinding(ConfiguredBaseModel):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -6398,12 +6898,14 @@ class HistopathologyFinding(ConfiguredBaseModel):
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -6439,6 +6941,7 @@ class HistopathologyFinding(ConfiguredBaseModel):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -6495,7 +6998,8 @@ class Genetic(ConfiguredBaseModel):
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
 
     name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'alias': 'name',
-         'domain_of': ['ClinicalTrial',
+         'domain_of': ['ExperimentalModel',
+                       'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
                        'SeverityTier',
@@ -6531,12 +7035,14 @@ class Genetic(ConfiguredBaseModel):
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -6616,6 +7122,7 @@ class Genetic(ConfiguredBaseModel):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -6664,7 +7171,8 @@ class Environmental(ConfiguredBaseModel):
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
 
     name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'alias': 'name',
-         'domain_of': ['ClinicalTrial',
+         'domain_of': ['ExperimentalModel',
+                       'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
                        'SeverityTier',
@@ -6699,12 +7207,14 @@ class Environmental(ConfiguredBaseModel):
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -6740,6 +7250,7 @@ class Environmental(ConfiguredBaseModel):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -6776,6 +7287,7 @@ class Environmental(ConfiguredBaseModel):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -6783,6 +7295,7 @@ class Environmental(ConfiguredBaseModel):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -6866,7 +7379,8 @@ class Disease(ConfiguredBaseModel):
                                          'name': 'updated_date'}}})
 
     name: str = Field(default=..., description="""Preferred name for the disease""", json_schema_extra = { "linkml_meta": {'alias': 'name',
-         'domain_of': ['ClinicalTrial',
+         'domain_of': ['ExperimentalModel',
+                       'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
                        'SeverityTier',
@@ -6906,6 +7420,7 @@ class Disease(ConfiguredBaseModel):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -6913,6 +7428,7 @@ class Disease(ConfiguredBaseModel):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -6998,6 +7514,7 @@ class Disease(ConfiguredBaseModel):
          'domain_of': ['Subtype', 'Genetic', 'Disease'],
          'examples': [{'value': 'Autosomal Dominant'}]} })
     animal_models: Optional[list[AnimalModel]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'animal_models', 'domain_of': ['Disease']} })
+    experimental_models: Optional[list[ExperimentalModel]] = Field(default=None, description="""Disease-relevant organoids, cell lines, chip systems, cocultures, and related experimental models curated as mechanism or translational resources.""", json_schema_extra = { "linkml_meta": {'alias': 'experimental_models', 'domain_of': ['Disease'], 'recommended': False} })
     datasets: Optional[list[Dataset]] = Field(default=None, description="""Publicly available datasets relevant to disease research""", json_schema_extra = { "linkml_meta": {'alias': 'datasets', 'domain_of': ['Disease'], 'recommended': True} })
     clinical_trials: Optional[list[ClinicalTrial]] = Field(default=None, description="""Clinical trials relevant to disease treatment and research""", json_schema_extra = { "linkml_meta": {'alias': 'clinical_trials', 'domain_of': ['Disease'], 'recommended': False} })
     computational_models: Optional[list[ComputationalModel]] = Field(default=None, description="""Computational models (metabolic, mechanistic, ML, digital twins) for this disease""", json_schema_extra = { "linkml_meta": {'alias': 'computational_models', 'domain_of': ['Disease']} })
@@ -7009,6 +7526,7 @@ class Disease(ConfiguredBaseModel):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -7087,7 +7605,8 @@ class Stage(ConfiguredBaseModel):
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
 
     name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'alias': 'name',
-         'domain_of': ['ClinicalTrial',
+         'domain_of': ['ExperimentalModel',
+                       'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
                        'SeverityTier',
@@ -7120,6 +7639,7 @@ class Stage(ConfiguredBaseModel):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -7127,6 +7647,7 @@ class Stage(ConfiguredBaseModel):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -7158,12 +7679,14 @@ class Stage(ConfiguredBaseModel):
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -7199,6 +7722,7 @@ class Stage(ConfiguredBaseModel):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -7275,6 +7799,7 @@ class AgentLifeCycle(ConfiguredBaseModel):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -7282,6 +7807,7 @@ class AgentLifeCycle(ConfiguredBaseModel):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -7320,12 +7846,14 @@ class AgentLifeCycle(ConfiguredBaseModel):
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -7361,6 +7889,7 @@ class AgentLifeCycle(ConfiguredBaseModel):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -7421,7 +7950,8 @@ class AgentLifeCycleStage(ConfiguredBaseModel):
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
 
     name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'alias': 'name',
-         'domain_of': ['ClinicalTrial',
+         'domain_of': ['ExperimentalModel',
+                       'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
                        'SeverityTier',
@@ -7455,6 +7985,7 @@ class AgentLifeCycleStage(ConfiguredBaseModel):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -7462,6 +7993,7 @@ class AgentLifeCycleStage(ConfiguredBaseModel):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -7493,12 +8025,14 @@ class AgentLifeCycleStage(ConfiguredBaseModel):
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -7534,6 +8068,7 @@ class AgentLifeCycleStage(ConfiguredBaseModel):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -7615,6 +8150,7 @@ class AnimalModel(ConfiguredBaseModel):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -7622,6 +8158,7 @@ class AnimalModel(ConfiguredBaseModel):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -7657,12 +8194,14 @@ class AnimalModel(ConfiguredBaseModel):
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -7699,7 +8238,8 @@ class Treatment(ConfiguredBaseModel):
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
 
     name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'alias': 'name',
-         'domain_of': ['ClinicalTrial',
+         'domain_of': ['ExperimentalModel',
+                       'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
                        'SeverityTier',
@@ -7732,6 +8272,7 @@ class Treatment(ConfiguredBaseModel):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -7739,6 +8280,7 @@ class Treatment(ConfiguredBaseModel):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -7788,12 +8330,14 @@ class Treatment(ConfiguredBaseModel):
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -7829,6 +8373,7 @@ class Treatment(ConfiguredBaseModel):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -7900,7 +8445,8 @@ class InfectiousAgent(ConfiguredBaseModel):
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
 
     name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'alias': 'name',
-         'domain_of': ['ClinicalTrial',
+         'domain_of': ['ExperimentalModel',
+                       'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
                        'SeverityTier',
@@ -7933,12 +8479,14 @@ class InfectiousAgent(ConfiguredBaseModel):
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -7973,6 +8521,7 @@ class InfectiousAgent(ConfiguredBaseModel):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -7980,6 +8529,7 @@ class InfectiousAgent(ConfiguredBaseModel):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -8015,7 +8565,8 @@ class Transmission(ConfiguredBaseModel):
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
 
     name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'alias': 'name',
-         'domain_of': ['ClinicalTrial',
+         'domain_of': ['ExperimentalModel',
+                       'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
                        'SeverityTier',
@@ -8048,6 +8599,7 @@ class Transmission(ConfiguredBaseModel):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -8055,6 +8607,7 @@ class Transmission(ConfiguredBaseModel):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -8086,12 +8639,14 @@ class Transmission(ConfiguredBaseModel):
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -8127,6 +8682,7 @@ class Transmission(ConfiguredBaseModel):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -8168,7 +8724,8 @@ class Assay(ConfiguredBaseModel):
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
 
     name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'alias': 'name',
-         'domain_of': ['ClinicalTrial',
+         'domain_of': ['ExperimentalModel',
+                       'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
                        'SeverityTier',
@@ -8201,6 +8758,7 @@ class Assay(ConfiguredBaseModel):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -8208,6 +8766,7 @@ class Assay(ConfiguredBaseModel):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -8242,7 +8801,8 @@ class Diagnosis(ConfiguredBaseModel):
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
 
     name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'alias': 'name',
-         'domain_of': ['ClinicalTrial',
+         'domain_of': ['ExperimentalModel',
+                       'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
                        'SeverityTier',
@@ -8282,12 +8842,14 @@ class Diagnosis(ConfiguredBaseModel):
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -8323,6 +8885,7 @@ class Diagnosis(ConfiguredBaseModel):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -8365,6 +8928,7 @@ class Diagnosis(ConfiguredBaseModel):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -8372,6 +8936,7 @@ class Diagnosis(ConfiguredBaseModel):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -8406,7 +8971,8 @@ class Inheritance(ConfiguredBaseModel):
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
 
     name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'alias': 'name',
-         'domain_of': ['ClinicalTrial',
+         'domain_of': ['ExperimentalModel',
+                       'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
                        'SeverityTier',
@@ -8444,12 +9010,14 @@ class Inheritance(ConfiguredBaseModel):
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -8484,6 +9052,7 @@ class Inheritance(ConfiguredBaseModel):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -8491,6 +9060,7 @@ class Inheritance(ConfiguredBaseModel):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -8528,7 +9098,8 @@ class Variant(ConfiguredBaseModel):
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
 
     name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'alias': 'name',
-         'domain_of': ['ClinicalTrial',
+         'domain_of': ['ExperimentalModel',
+                       'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
                        'SeverityTier',
@@ -8561,6 +9132,7 @@ class Variant(ConfiguredBaseModel):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -8568,6 +9140,7 @@ class Variant(ConfiguredBaseModel):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -8602,12 +9175,14 @@ class Variant(ConfiguredBaseModel):
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -8664,6 +9239,7 @@ class FunctionalEffect(ConfiguredBaseModel):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -8671,6 +9247,7 @@ class FunctionalEffect(ConfiguredBaseModel):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -8711,7 +9288,8 @@ class Mechanism(ConfiguredBaseModel):
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
 
     name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'alias': 'name',
-         'domain_of': ['ClinicalTrial',
+         'domain_of': ['ExperimentalModel',
+                       'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
                        'SeverityTier',
@@ -8744,6 +9322,7 @@ class Mechanism(ConfiguredBaseModel):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -8751,6 +9330,7 @@ class Mechanism(ConfiguredBaseModel):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -8785,7 +9365,8 @@ class ModelingConsideration(ConfiguredBaseModel):
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
 
     name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'alias': 'name',
-         'domain_of': ['ClinicalTrial',
+         'domain_of': ['ExperimentalModel',
+                       'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
                        'SeverityTier',
@@ -8818,6 +9399,7 @@ class ModelingConsideration(ConfiguredBaseModel):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -8825,6 +9407,7 @@ class ModelingConsideration(ConfiguredBaseModel):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -8856,12 +9439,14 @@ class ModelingConsideration(ConfiguredBaseModel):
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -8903,12 +9488,14 @@ class ClassificationAssignment(ConfiguredBaseModel):
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -8944,6 +9531,7 @@ class ClassificationAssignment(ConfiguredBaseModel):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -8997,12 +9585,14 @@ class ICDOMorphologyAssignment(ClassificationAssignment):
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -9038,6 +9628,7 @@ class ICDOMorphologyAssignment(ClassificationAssignment):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -9091,12 +9682,14 @@ class HarrisonsChapterAssignment(ClassificationAssignment):
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -9132,6 +9725,7 @@ class HarrisonsChapterAssignment(ClassificationAssignment):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -9185,12 +9779,14 @@ class LysosomalStorageAssignment(ClassificationAssignment):
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -9226,6 +9822,7 @@ class LysosomalStorageAssignment(ClassificationAssignment):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -9279,12 +9876,14 @@ class MechanisticNosologyAssignment(ClassificationAssignment):
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -9320,6 +9919,7 @@ class MechanisticNosologyAssignment(ClassificationAssignment):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -9373,12 +9973,14 @@ class IUISAssignment(ClassificationAssignment):
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -9414,6 +10016,7 @@ class IUISAssignment(ClassificationAssignment):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -9467,12 +10070,14 @@ class ChannelopathyAssignment(ClassificationAssignment):
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -9508,6 +10113,7 @@ class ChannelopathyAssignment(ClassificationAssignment):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -9566,7 +10172,8 @@ class Definition(ConfiguredBaseModel):
                         'name': {'name': 'name', 'required': True}}})
 
     name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'alias': 'name',
-         'domain_of': ['ClinicalTrial',
+         'domain_of': ['ExperimentalModel',
+                       'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
                        'SeverityTier',
@@ -9600,6 +10207,7 @@ class Definition(ConfiguredBaseModel):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -9607,6 +10215,7 @@ class Definition(ConfiguredBaseModel):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -9642,12 +10251,14 @@ class Definition(ConfiguredBaseModel):
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -9683,6 +10294,7 @@ class Definition(ConfiguredBaseModel):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -9725,7 +10337,8 @@ class CriteriaSet(ConfiguredBaseModel):
          'slot_usage': {'name': {'name': 'name', 'required': True}}})
 
     name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'alias': 'name',
-         'domain_of': ['ClinicalTrial',
+         'domain_of': ['ExperimentalModel',
+                       'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
                        'SeverityTier',
@@ -9758,6 +10371,7 @@ class CriteriaSet(ConfiguredBaseModel):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -9765,6 +10379,7 @@ class CriteriaSet(ConfiguredBaseModel):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -9804,12 +10419,14 @@ class CriteriaSet(ConfiguredBaseModel):
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -9845,6 +10462,7 @@ class CriteriaSet(ConfiguredBaseModel):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -9890,6 +10508,7 @@ class CriteriaItem(Descriptor):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -9897,6 +10516,7 @@ class CriteriaItem(Descriptor):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -9965,6 +10585,7 @@ class TermMapping(ConfiguredBaseModel):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -10027,6 +10648,7 @@ class ICD10CMMapping(TermMapping):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -10089,6 +10711,7 @@ class ICD11FMapping(TermMapping):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -10151,6 +10774,7 @@ class MondoMapping(TermMapping):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -10207,6 +10831,7 @@ class MappingConsistency(ConfiguredBaseModel):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -10274,6 +10899,7 @@ class ConditionDescriptor(Descriptor):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -10281,6 +10907,7 @@ class ConditionDescriptor(Descriptor):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -10348,7 +10975,8 @@ class ComorbidityAssociation(ConfiguredBaseModel):
                                          'name': 'updated_date'}}})
 
     name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'alias': 'name',
-         'domain_of': ['ClinicalTrial',
+         'domain_of': ['ExperimentalModel',
+                       'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
                        'SeverityTier',
@@ -10398,6 +11026,7 @@ class ComorbidityAssociation(ConfiguredBaseModel):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -10496,12 +11125,14 @@ class AssociationSignal(ConfiguredBaseModel):
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -10537,6 +11168,7 @@ class AssociationSignal(ConfiguredBaseModel):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -10601,6 +11233,7 @@ class AssociationMetric(ConfiguredBaseModel):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -10646,12 +11279,14 @@ class AssociationStatistics(ConfiguredBaseModel):
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -10687,6 +11322,7 @@ class AssociationStatistics(ConfiguredBaseModel):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -10733,6 +11369,7 @@ class GOEnrichment(ConfiguredBaseModel):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -10740,6 +11377,7 @@ class GOEnrichment(ConfiguredBaseModel):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -10799,6 +11437,7 @@ class ComorbidityHypothesis(ConfiguredBaseModel):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -10806,6 +11445,7 @@ class ComorbidityHypothesis(ConfiguredBaseModel):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -10837,12 +11477,14 @@ class ComorbidityHypothesis(ConfiguredBaseModel):
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -10888,6 +11530,7 @@ class UpstreamConditionHypothesis(ConfiguredBaseModel):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -10895,6 +11538,7 @@ class UpstreamConditionHypothesis(ConfiguredBaseModel):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -10926,12 +11570,14 @@ class UpstreamConditionHypothesis(ConfiguredBaseModel):
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -10985,6 +11631,7 @@ class MechanisticHypothesis(ConfiguredBaseModel):
          'domain_of': ['Descriptor',
                        'GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -10992,6 +11639,7 @@ class MechanisticHypothesis(ConfiguredBaseModel):
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'ProteinStructure',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -11024,12 +11672,14 @@ class MechanisticHypothesis(ConfiguredBaseModel):
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
                        'Subtype',
                        'CausalEdge',
                        'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
                        'Finding',
                        'Prevalence',
                        'ProgressionInfo',
@@ -11065,6 +11715,7 @@ class MechanisticHypothesis(ConfiguredBaseModel):
                        'OnsetDescriptor',
                        'PhenotypeContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -11140,6 +11791,7 @@ GeneticContext.model_rebuild()
 OnsetDescriptor.model_rebuild()
 PhenotypeContext.model_rebuild()
 Dataset.model_rebuild()
+ExperimentalModel.model_rebuild()
 ClinicalTrial.model_rebuild()
 ComputationalModel.model_rebuild()
 ModelVariable.model_rebuild()
@@ -11150,6 +11802,7 @@ Subtype.model_rebuild()
 EvidenceItem.model_rebuild()
 CausalEdge.model_rebuild()
 TreatmentMechanismTarget.model_rebuild()
+ModelMechanismLink.model_rebuild()
 ProteinStructure.model_rebuild()
 PublicationReference.model_rebuild()
 Finding.model_rebuild()
@@ -11206,3 +11859,4 @@ ComorbidityHypothesis.model_rebuild()
 UpstreamConditionHypothesis.model_rebuild()
 MechanisticHypothesis.model_rebuild()
 DiseaseCollection.model_rebuild()
+

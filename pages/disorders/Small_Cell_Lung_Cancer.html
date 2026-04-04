@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1921,6 +2091,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 4</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">lung neoplasm</span>
                 
             </div>
@@ -1932,6 +2105,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1989,6 +2165,14 @@
             <div class="stat-item">
                 <div class="stat-value">4</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">4</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2304,7 +2488,7 @@
                 <span class="card-count">8</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-tp53-inactivation">
                 <div class="item-name">TP53 Inactivation</div>
                 
                 <div class="item-desc">TP53 is inactivated in &gt;90% of SCLC through mutations, deletions, or both. Loss of p53 function eliminates the G1/S checkpoint and apoptotic response to DNA damage, enabling survival despite genomic instability.</div>
@@ -2349,6 +2533,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2381,7 +2566,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-rb1-inactivation">
                 <div class="item-name">RB1 Inactivation</div>
                 
                 <div class="item-desc">RB1 is inactivated in &gt;90% of SCLC through mutations, deletions, or both. Loss of Rb function eliminates the G1/S checkpoint by releasing E2F transcription factors, enabling uncontrolled S-phase entry.</div>
@@ -2412,6 +2597,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2444,7 +2630,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-cell-cycle-checkpoints">
                 <div class="item-name">Loss of Cell Cycle Checkpoints</div>
                 
                 <div class="item-desc">Combined TP53 and RB1 loss eliminates major cell cycle checkpoints. Cells proliferate rapidly without the normal restraints on replication. This explains the rapid doubling time and initial chemosensitivity (dividing cells are vulnerable to chemotherapy).</div>
@@ -2475,11 +2661,12 @@
                 
                 
                 
+                
     
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-genomic-instability">
                 <div class="item-name">Genomic Instability</div>
                 
                 <div class="item-desc">Loss of TP53 and RB1 leads to widespread genomic instability with frequent chromosomal gains and losses. Amplification of MYC family genes (MYC, MYCL, MYCN) occurs in ~20% of SCLC and is associated with worse prognosis.</div>
@@ -2510,11 +2697,12 @@
                 
                 
                 
+                
     
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuroendocrine-differentiation">
                 <div class="item-name">Neuroendocrine Differentiation</div>
                 
                 <div class="item-desc">SCLC cells exhibit neuroendocrine differentiation, expressing markers such as synaptophysin, chromogranin A, and CD56 (NCAM). Neuroendocrine phenotype is regulated by lineage transcription factors (ASCL1, NEUROD1). Some SCLC produces paraneoplastic hormones (ACTH, ADH).</div>
@@ -2545,11 +2733,12 @@
                 
                 
                 
+                
     
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-functional-neuron-sclc-synapses">
                 <div class="item-name">Functional Neuron-SCLC Synapses</div>
                 
                 <div class="item-desc">SCLC cells can form functional synapses with neurons and receive synaptic transmission.</div>
@@ -2594,6 +2783,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2626,7 +2816,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuron-driven-proliferation">
                 <div class="item-name">Neuron-Driven Proliferation</div>
                 
                 <div class="item-desc">SCLC cells gain a proliferation advantage when co-cultured with neurons.</div>
@@ -2652,6 +2842,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2689,7 +2880,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-glutamate-signaling-dependency">
                 <div class="item-name">Glutamate Signaling Dependency</div>
                 
                 <div class="item-desc">Inhibition of glutamate signaling has therapeutic efficacy in SCLC models, implicating glutamatergic signaling in tumor growth.</div>
@@ -2729,6 +2920,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2832,12 +3024,13 @@ very aggressive neuroendocrine carcinoma"</div>
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Small Cell Lung Cancer</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
@@ -3463,6 +3656,7 @@ environmental:
     genomic damage and contribute to TP53 and RB1 inactivation.
   evidence:
   - reference: PMID:8166467
+    reference_title: &#34;Overview on small cell lung cancer in the world: industrialized countries, Third World, eastern Europe.&#34;
     supports: SUPPORT
     snippet: &#34;Cigarette smoking and occupational risk factors are more strongly associated with squamous and small cell lung cancers than with adenocarcinoma.&#34;
     explanation: &#34;Supports the strong association between SCLC and cigarette smoking.&#34;
@@ -3479,6 +3673,7 @@ pathophysiology:
     to DNA damage, enabling survival despite genomic instability.
   evidence:
   - reference: PMID:36399634
+    reference_title: &#34;Retinoblastoma Expression and Targeting by CDK4/6 Inhibitors in Small Cell Lung Cancer.&#34;
     supports: PARTIAL
     snippet: &#39;The canonical model of &#34;small cell lung cancer&#34; (SCLC) depicts tumors arising from dual inactivation of TP53 and RB1.&#39;
     explanation: &#34;Abstract states the canonical model involves TP53 and RB1 inactivation.&#34;
@@ -3503,6 +3698,7 @@ pathophysiology:
     transcription factors, enabling uncontrolled S-phase entry.
   evidence:
   - reference: PMID:36399634
+    reference_title: &#34;Retinoblastoma Expression and Targeting by CDK4/6 Inhibitors in Small Cell Lung Cancer.&#34;
     supports: PARTIAL
     snippet: &#39;The canonical model of &#34;small cell lung cancer&#34; (SCLC) depicts tumors arising from dual inactivation of TP53 and RB1.&#39;
     explanation: &#34;Abstract states the canonical model involves TP53 and RB1 inactivation.&#34;
@@ -3570,6 +3766,7 @@ pathophysiology:
       label: chemical synaptic transmission
   evidence:
   - reference: PMID:40931078
+    reference_title: &#34;Functional synapses between neurons and small cell lung cancer.&#34;
     supports: SUPPORT
     snippet: &#34;Here we show that SCLC cells can form functional synapses and receive synaptic transmission.&#34;
     explanation: &#34;Abstract reports functional synapses and synaptic transmission between neurons and SCLC cells.&#34;
@@ -3584,6 +3781,7 @@ pathophysiology:
       label: positive regulation of cell population proliferation
   evidence:
   - reference: PMID:40931078
+    reference_title: &#34;Functional synapses between neurons and small cell lung cancer.&#34;
     supports: SUPPORT
     snippet: &#34;we showed that SCLC cells derive a proliferation advantage when co-cultured with vagal sensory or cortical neurons.&#34;
     explanation: &#34;Abstract reports neuron co-culture provides a proliferation advantage to SCLC cells.&#34;
@@ -3604,6 +3802,7 @@ pathophysiology:
       label: synaptic transmission, glutamatergic
   evidence:
   - reference: PMID:40931078
+    reference_title: &#34;Functional synapses between neurons and small cell lung cancer.&#34;
     supports: SUPPORT
     snippet: &#34;Moreover, inhibition of glutamate signalling had therapeutic efficacy in an autochthonous mouse model of SCLC.&#34;
     explanation: &#34;Abstract reports therapeutic efficacy of glutamate signaling inhibition in an SCLC mouse model.&#34;
@@ -3618,6 +3817,7 @@ histopathology:
   description: Small-cell lung cancer is a very aggressive neuroendocrine carcinoma.
   evidence:
   - reference: PMID:24734358
+    reference_title: &#34;[Role of surgery in small cell lung cancer].&#34;
     supports: SUPPORT
     snippet: &#34;Small-cell lung cancer (SCLC) is a \nvery aggressive neuroendocrine carcinoma&#34;
     explanation: Abstract defines SCLC as a very aggressive neuroendocrine carcinoma.
@@ -3677,6 +3877,7 @@ biochemical:
     frequently positive. Ki-67 proliferation index is typically very high (&gt;50%).
   evidence:
   - reference: PMID:33687006
+    reference_title: &#34;Clinicopathological and immunohistochemical study of pulmonary neuroendocrine tumors - A single-institute experience.&#34;
     supports: PARTIAL
     snippet: &#34;markers which included synaptophysin, chromogranin, CD56&#34;
     explanation: &#34;Pulmonary neuroendocrine tumor study notes diagnostic IHC panel includes classic neuroendocrine markers used for SCLC.&#34;

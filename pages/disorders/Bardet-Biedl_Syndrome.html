@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 18</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Syndromic Obesity</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Ciliopathy</span>
@@ -1936,6 +2109,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1993,6 +2169,14 @@
             <div class="stat-item">
                 <div class="stat-value">15</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">18</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2491,7 +2675,7 @@
                 <span class="card-count">4</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-ciliary-dysfunction">
                 <div class="item-name">Ciliary Dysfunction</div>
                 
                 <div class="item-desc">Defects in the function of primary cilia due to mutations in BBS genes lead to a wide range of symptoms.</div>
@@ -2512,6 +2696,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
                 
@@ -2583,7 +2768,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-bbsome-assembly-and-intraflagellar-transport-defects">
                 <div class="item-name">BBSome Assembly and Intraflagellar Transport Defects</div>
                 
                 <div class="item-desc">The BBSome is an octameric protein complex (BBS1/2/4/5/7/8/9/BBIP1) whose assembly requires chaperonin-like proteins (BBS6, BBS10, BBS12). The BBSome cooperates with intraflagellar transport (IFT) machinery to regulate ciliary entry, retention, and retrieval of membrane proteins including GPCRs. Disruption of BBSome-mediated trafficking causes mislocalization of ciliary cargos and impaired ciliary signaling across multiple tissues.</div>
@@ -2649,11 +2834,12 @@
                 </div>
                 
                 
+                
     
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypothalamic-leptin-resistance">
                 <div class="item-name">Hypothalamic Leptin Resistance</div>
                 
                 <div class="item-desc">Impaired ciliary localization and trafficking of leptin receptors and other GPCRs (e.g., serotonin 5-HT2C receptor, MC4R) in hypothalamic POMC neurons due to BBSome dysfunction. This disrupts melanocortin signaling pathways that regulate appetite and energy homeostasis, leading to hyperphagia and obesity.</div>
@@ -2715,11 +2901,12 @@
                 </div>
                 
                 
+                
     
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-renal-ciliary-dysfunction">
                 <div class="item-name">Renal Ciliary Dysfunction</div>
                 
                 <div class="item-desc">Renal tubular epithelial cells depend on primary cilia for proper solute handling and signaling. BBSome-mediated ciliary dysfunction disrupts these processes, leading to concentrating and diluting defects, progressive renal cysts, dysplasia, and chronic kidney disease.</div>
@@ -2757,6 +2944,7 @@
                 </div>
                 
                 
+                
     
     
             </div>
@@ -2774,12 +2962,13 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Bardet-Biedl Syndrome</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
@@ -4682,10 +4871,12 @@ has_subtypes:
   description: The most common subtype caused by mutations in the BBS1 gene.
   evidence:
   - reference: PMID:37612261
+    reference_title: &#34;Recurrence of a BBS1 variant in Bardet-Biedl patients from Prince Edward Island.&#34;
     supports: SUPPORT
     snippet: This study reports variants in BBS1 and BBS7 in patients with Bardet-Biedl syndrome from the Canadian Maritime provinces. The BBS1 variant NM_024649.5:c.1169T&gt;G was identified as a recurrent variant in Prince Edward Island.
     explanation: This supports the claim that mutations in the BBS1 gene are a common subtype of Bardet-Biedl syndrome.
   - reference: PMID:32759308
+    reference_title: &#34;The BBSome assembly is spatially controlled by BBS1 and BBS4 in human cells.&#34;
     supports: PARTIAL
     snippet: More than half of BBS patients carry mutations in one of eight genes encoding for subunits of a protein complex, the BBSome, which mediates trafficking of ciliary cargoes. ... We show that the pre-BBSome is nucleated by BBS4 and assembled at pericentriolar satellites, followed by the translocation of the BBSome into the ciliary base mediated by BBS1.
     explanation: This explains the critical role of BBS1 in the assembly of the BBSome, further implicating it in Bardet-Biedl syndrome.
@@ -4693,10 +4884,12 @@ has_subtypes:
   description: Caused by mutations in the BBS2 gene, associated with similar features but can show some phenotypic variability.
   evidence:
   - reference: PMID:36672825
+    reference_title: &#34;Dental Anomalies in Ciliopathies: Lessons from Patients with BBS2, BBS7, and EVC2 Mutations.&#34;
     supports: SUPPORT
     snippet: Patient 3 had Bardet-Biedl syndrome and carried a heterozygous mutation (c.389_390delAC; p.Asn130ThrfsTer4) in BBS7 and a homozygous mutation in BBS2 (c.209G&gt;A; p.Ser70Asn). Her clinical findings included global developmental delay, disproportionate short stature, myopia, retinitis pigmentosa, obesity, pyometra with vaginal atresia, bilateral hydronephrosis with ureteropelvic junction obstruction, bilateral genu valgus, post-axial polydactyly feet, and small and thin fingernails and toenails, tooth agenesis, microdontia, taurodontism, and impaired dentin formation.
     explanation: The study shows that a mutation in the BBS2 gene can indeed cause Bardet-Biedl syndrome and the associated phenotypic variability in clinical findings.
   - reference: PMID:34364070
+    reference_title: &#34;Generation of induced pluripotent stem cells from a Bardet-Biedl syndrome patient carrying a homologous BBS2 c.534 + 1G &gt; T mutation.&#34;
     supports: NO_EVIDENCE
     snippet: Bardet-Biedl syndrome is a autosomal recessive hereditary disorder characterized by polydactyly, multiple renal cysts, retinal cone-rod dystrophy, obesity, and variable neural development or cognitive impairment
     explanation: This study supports that mutations in the BBS2 gene can cause Bardet-Biedl syndrome, along with a spectrum of associated features, reinforcing the idea of phenotypic variability.
@@ -4704,18 +4897,22 @@ has_subtypes:
   description: Caused by mutations in various other BBS genes, including BBS3, BBS4, BBS5, and more.
   evidence:
   - reference: PMID:12876834
+    reference_title: &#34;Bardet-Biedl syndrome and Usher syndrome.&#34;
     supports: SUPPORT
     snippet: BBS is defined by the association of retinopathy, obesity, hypogonadism, renal dysfunction, postaxial polydactyly and mental retardation. This clinically complex syndrome is genetically heterogeneous with linkage to more than 6 loci, and 4 genes have been cloned so far.
     explanation: This reference acknowledges the genetic heterogeneity of Bardet-Biedl Syndrome and mentions multiple BBS genes.
   - reference: PMID:27170093
+    reference_title: &#34;Bardet-Biedl syndrome 3 regulates the development of cranial base midline structures.&#34;
     supports: NO_EVIDENCE
     snippet: Bardet-Biedl Syndrome (BBS) is an autosomal recessive disorder and is classified as one of the ciliopathy.
     explanation: Although this reference focuses on BBS3, it contributes to the recognition of different BBS subtypes caused by mutations in various BBS genes.
   - reference: PMID:32165602
+    reference_title: &#34;Bardet-Biedl 9 Syndrome, A Rare Mutation.&#34;
     supports: SUPPORT
     snippet: Bardet-Biedl syndrome (BBS) is a rare heterogenous autosomal recessive disease due to defects in primary cilia which until now, up to 21 types have been detected.
     explanation: The reference highlights the heterogeneity of BBS and mentions the existence of multiple types of the syndrome, caused by different genetic mutations.
   - reference: PMID:36325687
+    reference_title: &#34;Novel mutations in BBS genes and clinical characterization of Chinese families with Bardet-Biedl syndrome.&#34;
     supports: SUPPORT
     snippet: &#39;Mutation screening demonstrated four novel mutations: c.613C&gt;T; p.Q205* in the BBS5 gene, c.1391C&gt;G; p.S464* in the BBS10 gene, and c.155delC; p.S52* and c.1584T&gt;G; p.Y528* in the BBS12 gene.&#39;
     explanation: This study identifies mutations in multiple BBS genes, supporting the statement that BBS comprises various subtypes caused by different genetic mutations.
@@ -4724,10 +4921,12 @@ prevalence:
   percentage: 0.00001-0.00003
   evidence:
   - reference: PMID:22109794
+    reference_title: &#34;Prevalence of Bardet-Biedl syndrome in Tunisia.&#34;
     supports: PARTIAL
     snippet: The prevalence of BBS has been estimated in different populations, ranging from 1 in 160,000 in European populations to 1 in 13,000 in Bedouins from Kuwait.
     explanation: The prevalence range provided in the literature is specific to certain populations, but does suggest that globally, the prevalence could fall within the stated range percentage (0.00001-0.00003).
   - reference: PMID:37137806
+    reference_title: &#34;The global, regional, and national burden of inflammatory bowel diseases, 1990-2019: A systematic analysis for the global burden of disease study 2019.&#34;
     supports: NO_EVIDENCE
     snippet: &#39;AIMS: We described the updated global IBD epidemiology results based on the 2019 Global Burden of Diseases, Injuries, and Risk Factors Study (GBD).&#39;
     explanation: This paper deals with inflammatory bowel disease (IBD) and provides no direct evidence about the global prevalence of Bardet-Biedl Syndrome.
@@ -4744,16 +4943,19 @@ inheritance:
     presentation. Complex inheritance is not typical for BBS1.
   evidence:
   - reference: PMID:36374067
+    reference_title: &#34;[Bardet Biedl syndrome: a case report].&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Bardet Biedl syndrome is an autosomal recessive ciliopathie.
     explanation: States autosomal recessive inheritance.
   - reference: PMID:19701229
+    reference_title: &#34;Inherited cerebrorenal syndromes.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Bardet-Biedl syndrome is a clinically variable condition associated with learning disabilities, progressive visual loss, obesity, polydactyly, hypogonadism, and cystic and fibrotic renal changes that can lead to renal failure.
     explanation: Supports variable expressivity.
   - reference: PMID:12524598
+    reference_title: &#34;Evaluation of complex inheritance involving the most common Bardet-Biedl syndrome locus (BBS1).&#34;
     supports: SUPPORT
     snippet: Finally, we demonstrate that BBS1 is inherited in an autosomal recessive manner and is rarely, if ever, involved in complex inheritance.
     evidence_source: HUMAN_CLINICAL
@@ -4768,14 +4970,17 @@ pathophysiology:
       label: cilium
   evidence:
   - reference: PMID:26231314
+    reference_title: &#34;Bardet-Biedl syndrome: Is it only cilia dysfunction?&#34;
     supports: SUPPORT
     snippet: &#39;From the analysis of the mutational burden in patients to the functional characterization of the BBS proteins, this syndrome has become a model for both understanding oligogenic patterns of inheritance and the biology of a particular cellular organelle: the primary cilium.&#39;
     explanation: This excerpt supports the assertion that BBS mechanisms are related to defects in primary cilia function caused by mutations in BBS genes, leading to a wide range of symptoms.
   - reference: PMID:29534263
+    reference_title: &#34;[Ciliopathies].&#34;
     supports: PARTIAL
     snippet: &#39;The photoreceptor connecting cilium plays a leading role in these ciliopathy-related retinal dystrophies. Dysfunctional photoreceptor cilia cause the most severe type of retinal dystrophy: Leber&#39;&#39;s congenital amaurosis (LCA). The most common syndromic ciliopathies with an ocular manifestation are Bardet-Biedl syndrome (BBS) and Usher syndrome.&#39;
     explanation: This reference emphasizes the role of primary cilia dysfunction in BBS and its association with retinal dystrophies, supporting the statement.
   - reference: PMID:33560420
+    reference_title: &#34;A mouse model of BBS identifies developmental and homeostatic effects of BBS5 mutation and identifies novel pituitary abnormalities.&#34;
     supports: SUPPORT
     snippet: One ciliopathy, Bardet-Biedl syndrome (BBS; OMIM 209900), presents with diverse clinical features, many of which are attributed to defects in ciliary signaling during both embryonic development and postnatal life
     explanation: This supports the statement by explaining that BBS symptoms are attributed to ciliary defects.
@@ -4892,18 +5097,22 @@ phenotypes:
   - target: Progressive Vision Loss
   evidence:
   - reference: PMID:15690372
+    reference_title: &#34;Ocular phenotypes of three genetic variants of Bardet-Biedl syndrome.&#34;
     supports: SUPPORT
     snippet: Bardet-Biedl syndrome is a genetically heterogeneous multisystem disorder that causes severe visual impairment. Retinitis pigmentosa (RP), hypogonadism, digit and renal anomalies, obesity, and a variable degree of mental retardation characterize the disorder.
     explanation: The literature confirms that RP is a high-frequency ophthalmologic phenotype in Bardet-Biedl syndrome.
   - reference: PMID:36481880
+    reference_title: &#34;Etiology of Retinitis Pigmentosa.&#34;
     supports: PARTIAL
     snippet: Retinitis pigmentosa (RP) is a set of symptoms including tunnel vision, night blindness, and progressive vision loss...as part of a larger syndrome (syndromic)...
     explanation: The study acknowledges that RP includes night blindness and progressive vision loss, supporting the sequelae mentioned in the statement.
   - reference: PMID:35791150
+    reference_title: &#34;Retinitis pigmentosa in Laurence-Moon-Bardet-Biedl syndrome in India: Electronic medical records driven big data analytics: Report II.&#34;
     supports: SUPPORT
     snippet: Patients with RP in LMBB syndrome present mainly in the first to second decade of life with severe visual acuity impairment to blindness early in life.
     explanation: RP is reported as a predominant feature in patients with Bardet-Biedl syndrome, confirming the high frequency of this phenotype.
   - reference: PMID:31864384
+    reference_title: &#34;Early onset retinal dystrophies: clinical clues to diagnosis for pediatricians.&#34;
     supports: PARTIAL
     snippet: Inherited retinal dystrophies are major cause of severe progressive vision loss in children.
     explanation: Retinal dystrophies, including RP, are significant causes of progressive vision loss, congruent with the statement&#39;s listed sequelae.
@@ -4919,10 +5128,12 @@ phenotypes:
   diagnostic: true
   evidence:
   - reference: PMID:20876674
+    reference_title: &#34;Bardet-Biedl syndrome: a study of the renal and cardiovascular phenotypes in a French cohort.&#34;
     supports: PARTIAL
     snippet: Renal abnormalities, including impairment of renal function and signs of chronic interstitial nephropathy of dysplastic nature, were documented in 82% of the patients.
     explanation: The statement is partially supported because renal abnormalities are common in Bardet-Biedl Syndrome, but the frequency and diagnosis related to polydactyly is not addressed.
   - reference: PMID:6487184
+    reference_title: &#34;Bardet-Biedl syndrome.&#34;
     supports: PARTIAL
     snippet: &#39;The Bardet-Biedl syndrome is characterized by five main features: obesity, polydactyly, pigmentary retinopathy, mental deficiency and hypogonadism; recently a sixth feature, renal disease, has been described.&#39;
     explanation: The reference confirms that both polydactyly and renal disease are features of Bardet-Biedl Syndrome, but it does not specify the diagnostic frequency relationship of polydactyly within renal phenotypes.
@@ -4937,18 +5148,22 @@ phenotypes:
   frequency: VERY_FREQUENT
   evidence:
   - reference: PMID:32700463
+    reference_title: &#34;Bardet-Biedl syndrome: Weight patterns and genetics in a rare obesity syndrome.&#34;
     supports: PARTIAL
     snippet: Despite normal birth weight, most individuals with BBS experience rapid weight gain in early childhood, with high rates of overweight/obesity sustained through adolescence.
     explanation: The literature mentions high rates of obesity in individuals with Bardet-Biedl Syndrome but does not specifically categorize it as truncal obesity.
   - reference: PMID:6487184
+    reference_title: &#34;Bardet-Biedl syndrome.&#34;
     supports: PARTIAL
     snippet: All had subnormal intelligence, twelve were obese, ten had polydactyly, eight hypogonadism, and two had renal disease.
     explanation: While obesity is mentioned as a prevalent phenotype, there is no specific mention of truncal obesity.
   - reference: PMID:29127258
+    reference_title: &#34;Homozygous mutation in CEP19, a gene mutated in morbid obesity, in Bardet-Biedl syndrome with predominant postaxial polydactyly.&#34;
     supports: PARTIAL
     snippet: &#39;CONCLUSION: CEP19 encodes a centrosomal and ciliary protein, as all BBS genes do. Another truncating mutation p.Arg82* has been reported as responsible for morbid obesity in a family; however, in the family we present, not all homozygotes are obese, although some are severely obese.&#39;
     explanation: The reference mentions severe obesity related to BBS genes but not truncal obesity specifically.
   - reference: PMID:12365916
+    reference_title: &#34;The phenotype in Norwegian patients with Bardet-Biedl syndrome with mutations in the BBS4 gene.&#34;
     supports: PARTIAL
     snippet: &#39;RESULTS: All patients had an increased body mass index. The obesity varied between families from moderate to severe.&#39;
     explanation: Obesity is noted as a common phenotype, but truncal obesity is not specifically mentioned.
@@ -4973,10 +5188,12 @@ phenotypes:
   frequency: FREQUENT
   evidence:
   - reference: PMID:36374067
+    reference_title: &#34;[Bardet Biedl syndrome: a case report].&#34;
     supports: PARTIAL
     snippet: Bardet Biedl syndrome... is a pleiotropic disorder characterised by retinal dystrophy, renal dysfunction, polydactyly, obesity, cognitive deficit and hypogenitalism.
     explanation: The reference mentions cognitive deficits as a characteristic of Bardet-Biedl Syndrome, which can include intellectual disability. However, it does not explicitly state the frequency of intellectual disability, thus it partially supports the statement.
   - reference: PMID:19778711
+    reference_title: &#34;Joubert syndrome: insights into brain development, cilium biology, and complex disease.&#34;
     supports: PARTIAL
     snippet: Joubert syndrome (JS) is a primarily autosomal recessive condition characterized by... intellectual disability... Variable features include... polydactyly... disorders called ciliopathies.
     explanation: This reference is about Joubert syndrome, which is another ciliopathy like Bardet-Biedl Syndrome. It mentions intellectual disability related to ciliopathies in general but does not directly correlate it with Bardet-Biedl Syndrome&#39;s frequency.
@@ -4990,14 +5207,17 @@ phenotypes:
   frequency: FREQUENT
   evidence:
   - reference: PMID:11096143
+    reference_title: &#34;Renal cancer and malformations in relatives of patients with Bardet-Biedl syndrome.&#34;
     supports: SUPPORT
     snippet: The spectrum of disease includes diverse malformations of the kidney and lower urinary tract.
     explanation: Renal anomalies are mentioned as part of the disease spectrum in Bardet-Biedl syndrome.
   - reference: PMID:28662344
+    reference_title: &#34;Oral and Craniofacial Anomalies of Bardet-Biedl Syndrome: Dental Management in the Context of a Rare Disease.&#34;
     supports: SUPPORT
     snippet: Since the comorbid spectrum of BBS phenotypes spans... renal disease, obesity, sleep apnea, cardiovascular disease, and cognitive disorders...
     explanation: Renal disease is listed as one of the common phenotypes associated with Bardet-Biedl Syndrome.
   - reference: PMID:32165602
+    reference_title: &#34;Bardet-Biedl 9 Syndrome, A Rare Mutation.&#34;
     supports: PARTIAL
     snippet: This type can cause severe and delayed onset renal failure.
     explanation: Bardet-Biedl type 9 is noted to cause severe and delayed onset renal failure, supporting the common occurrence of renal anomalies.
@@ -5006,10 +5226,12 @@ phenotypes:
   name: Developmental Delay
   evidence:
   - reference: PMID:33040131
+    reference_title: &#34;Bardet Biedl syndrome: A rare genetic disorder.&#34;
     supports: PARTIAL
     snippet: Clinical presentation of this rare condition may affect locomotive, neurological, cardio-vascular, endocrine and metabolic systems.
     explanation: The abstract mentions that Bardet-Biedl syndrome can affect the neurological system, which can include developmental delay.
   - reference: PMID:24194441
+    reference_title: &#34;Cognitive, sensory, and psychosocial characteristics in patients with Bardet-Biedl syndrome.&#34;
     supports: SUPPORT
     snippet: On the age appropriate Wechsler scale, the mean Verbal Comprehension was 81 (n = 36), Working Memory was 81 (n = 36), Perceptual Reasoning was 78 (n = 24) and Full Scale IQ was 75 (n = 26).
     explanation: The abstract provides evidence of reduced cognitive functions in patients with Bardet-Biedl syndrome, indicating developmental delays.
@@ -5032,18 +5254,22 @@ phenotypes:
     &#39;
   evidence:
   - reference: PMID:26076793
+    reference_title: &#34;Renal dysplasia in Bardet-Biedl syndrome.&#34;
     supports: SUPPORT
     snippet: Renal abnormalities have been recognized as a cardinal feature of the disease with serious prognostic implication.
     explanation: The study highlights renal abnormalities as a significant aspect of Bardet-Biedl syndrome, supporting the statement about the frequent occurrence of renal anomalies.
   - reference: PMID:31419725
+    reference_title: &#34;Renal ciliopathies.&#34;
     supports: PARTIAL
     snippet: Renal ciliopathies are a group of disorders characterised by nephronophthisis, cystic kidneys or renal cystic dysplasia.
     explanation: The article mentions renal cystic dysplasia as part of renal ciliopathies, which includes Bardet-Biedl syndrome, supporting the statement.
   - reference: PMID:7726222
+    reference_title: &#34;Genital abnormalities in females with Bardet-Biedl syndrome.&#34;
     supports: SUPPORT
     snippet: The major manifestations of the Bardet-Biedl syndrome are digital anomalies, tapetoretinal degeneration, obesity, renal abnormalities, and hypogenitalism.
     explanation: The article explicitly mentions renal abnormalities as a major manifestation of Bardet-Biedl syndrome, supporting the statement.
   - reference: PMID:25313840
+    reference_title: &#34;Congenital Anomalies of the Kidney and the Urinary Tract (CAKUT).&#34;
     supports: PARTIAL
     snippet: The purpose of this review is not only to describe the congenital renal anomalies, but also to analyze the more recent therapeutic interventions that may modify the natural history of some of these severe conditions.
     explanation: The article reviews several syndromes associated with renal malformations, including Bardet-Biedl syndrome, thus supporting the statement about the frequent occurrence of renal anomalies.
@@ -5053,18 +5279,22 @@ phenotypes:
   notes: In both males and females
   evidence:
   - reference: PMID:7726222
+    reference_title: &#34;Genital abnormalities in females with Bardet-Biedl syndrome.&#34;
     supports: PARTIAL
     snippet: The major manifestations of the Bardet-Biedl syndrome are digital anomalies, tapetoretinal degeneration, obesity, renal abnormalities, and hypogenitalism (described mainly in males).
     explanation: The literature mentions hypogenitalism mainly in males but does not provide evidence for its frequency or occurrence in females.
   - reference: PMID:19327768
+    reference_title: &#34;Reversible hypogonadism in Bardet-Biedl syndrome.&#34;
     supports: PARTIAL
     snippet: To report a patient with Bardet-Biedl syndrome (BBS) with known hypogonadotrophic hypogonadism who developed spontaneous reversal of hypogonadism in adulthood.
     explanation: This study reports hypogonadism in a male patient but does not discuss its frequency or occurrence in females.
   - reference: PMID:31696011
+    reference_title: &#34;Laurence-Moon-Bardet-Biedl Syndrome: A Case Report.&#34;
     supports: PARTIAL
     snippet: The major features of this syndrome are cone-rod dystrophy, polydactyly, obesity, learning disabilities, hypogonadism in males, renal anomalies, nystagmus, speech disorders, developmental delay, polyuria/polydipsia, ataxia, and poor coordination/clumsiness.
     explanation: The literature mentions hypogonadism in males but does not provide information about its occurrence in females or its frequency.
   - reference: PMID:32835378
+    reference_title: &#34;Reproduction Function in Male Patients With Bardet Biedl Syndrome.&#34;
     supports: PARTIAL
     snippet: BBS patients frequently presented with genitourinary malformations, such as cryptorchidism (5/11), short scrotum (5/8), and micropenis (5/8), but unexpectedly, with normal testis size (7/8).
     explanation: The literature discusses genitourinary malformations and hypogonadism in male patients but does not mention its frequency or occurrence in females.
@@ -5079,26 +5309,32 @@ phenotypes:
   notes: Includes impulsivity, emotional lability, disinhibition
   evidence:
   - reference: PMID:24194441
+    reference_title: &#34;Cognitive, sensory, and psychosocial characteristics in patients with Bardet-Biedl syndrome.&#34;
     supports: PARTIAL
     snippet: A wide range of behavioral issues were endorsed on questionnaires given to parents. Most had social skill deficits but no pattern of either externalizing or internalizing problems.
     explanation: The study mentions a wide range of behavioral issues and social skill deficits but does not specifically mention impulsivity, emotional lability, or disinhibition.
   - reference: PMID:23776152
+    reference_title: &#34;Hyperphagia among patients with Bardet-Biedl syndrome.&#34;
     supports: NO_EVIDENCE
     snippet: &#39;CONCLUSION: Appetite dysregulation may contribute to obesity in BBS.&#39;
     explanation: This study focuses on hyperphagia and appetite dysregulation, not on behavioral abnormalities such as impulsivity, emotional lability, or disinhibition.
   - reference: PMID:7726222
+    reference_title: &#34;Genital abnormalities in females with Bardet-Biedl syndrome.&#34;
     supports: NO_EVIDENCE
     snippet: The major manifestations of the Bardet-Biedl syndrome are digital anomalies, tapetoretinal degeneration, obesity, renal abnormalities, and hypogenitalism.
     explanation: This study does not address behavioral abnormalities in Bardet-Biedl Syndrome.
   - reference: PMID:6487184
+    reference_title: &#34;Bardet-Biedl syndrome.&#34;
     supports: NO_EVIDENCE
     snippet: &#39;The Bardet-Biedl syndrome is characterized by five main features: obesity, polydactyly, pigmentary retinopathy, mental deficiency and hypogonadism.&#39;
     explanation: This study focuses on physical and cognitive characteristics, not on behavioral abnormalities.
   - reference: PMID:32165602
+    reference_title: &#34;Bardet-Biedl 9 Syndrome, A Rare Mutation.&#34;
     supports: NO_EVIDENCE
     snippet: This type can cause severe and delayed onset renal failure.
     explanation: This study focuses on renal failure in a specific type of Bardet-Biedl Syndrome and does not address behavioral abnormalities.
   - reference: PMID:36658040
+    reference_title: &#34;Behavioural disinhibition in frontotemporal dementia investigated within an ecological framework.&#34;
     supports: NO_EVIDENCE
     snippet: Disinhibition is a core symptom in behavioural variant frontotemporal dementia (bvFTD) particularly affecting the daily lives of both patients and caregivers.
     explanation: This study focuses on behavioral disinhibition in frontotemporal dementia, not Bardet-Biedl Syndrome.
@@ -5108,10 +5344,12 @@ phenotypes:
   notes: Includes deep-set eyes, flat nasal bridge, large ears
   evidence:
   - reference: PMID:27170093
+    reference_title: &#34;Bardet-Biedl syndrome 3 regulates the development of cranial base midline structures.&#34;
     supports: PARTIAL
     snippet: The patients manifest a characteristic craniofacial dysmorphology but the effects of Bbs3 deficiency in the developmental process during the craniofacial pathogenesis are still incompletely understood.
     explanation: The literature confirms craniofacial dysmorphology in Bardet-Biedl Syndrome, but does not provide specific details on the frequency or exact features such as deep-set eyes, flat nasal bridge, and large ears.
   - reference: PMID:28662344
+    reference_title: &#34;Oral and Craniofacial Anomalies of Bardet-Biedl Syndrome: Dental Management in the Context of a Rare Disease.&#34;
     supports: PARTIAL
     snippet: Dental anomalies are present in a majority of individuals affected by BBS due to abnormal embryonic orofacial and tooth development.
     explanation: The literature mentions dental anomalies and orofacial development issues in Bardet-Biedl Syndrome, but does not specifically discuss the frequency or detailed craniofacial features listed in the statement.
@@ -5120,10 +5358,12 @@ phenotypes:
   name: Congenital Heart Defects
   evidence:
   - reference: PMID:7802002
+    reference_title: &#34;Cardiac abnormalities in the Bardet-Biedl syndrome: echocardiographic studies of 22 patients.&#34;
     supports: PARTIAL
     snippet: Our findings of cardiac involvement in 50% of the cases suggest that echocardiographic examination should be included in the clinical evaluation and follow-up of patients with Bardet-Biedl syndrome.
     explanation: The study reports cardiac involvement in 50% of cases, but it does not specify that congenital heart defects are only &#39;occasional&#39;.
   - reference: PMID:33433911
+    reference_title: &#34;Atrioventricular canal defect is the classic congenital heart disease in Bardet-Biedl syndrome.&#34;
     supports: NO_EVIDENCE
     snippet: Atrioventricular canal defect is the classic congenital heart disease in Bardet-Biedl syndrome.
     explanation: This reference indicates that atrioventricular canal defect is a classic congenital heart disease in Bardet-Biedl syndrome, but it does not provide information on the frequency being &#39;occasional&#39;.
@@ -5132,6 +5372,7 @@ phenotypes:
   name: Hirschsprung Disease
   evidence:
   - reference: PMID:23001136
+    reference_title: &#34;Chromosomal and related Mendelian syndromes associated with Hirschsprung&#39;s disease.&#34;
     supports: PARTIAL
     snippet: A number of other autosomal recessive syndromes include the Shah-Waardenburg, the Bardet-Biedl and Cartilage-hair hypoplasia, Goldberg-Shprintzen syndromes and other syndromes related to cholesterol and fat metabolism among others.
     explanation: The reference mentions Bardet-Biedl Syndrome (BBS) in the context of syndromes associated with Hirschsprung&#39;s disease (HSCR), but it does not specify the frequency of this association. Hence, it partially supports the statement without confirming the frequency as &#39;occasional&#39;.
@@ -5156,10 +5397,12 @@ biochemical:
   notes: Often found in patients with Bardet-Biedl syndrome.
   evidence:
   - reference: PMID:21514177
+    reference_title: &#34;Molecular basis of the obesity associated with Bardet-Biedl syndrome.&#34;
     supports: PARTIAL
     snippet: Bardet-Biedl Syndrome (BBS) is a rare human hereditary disorder associated with several features including obesity... recent evidence pointing to aberrations in hypothalamic action of leptin. Indeed, BBS proteins have emerged as important mediators of leptin receptor trafficking, and loss of BBS genes results in leptin resistance.
     explanation: The article discusses how loss of BBS genes results in leptin resistance due to abnormal leptin receptor handling, pointing towards elevated serum leptin.
   - reference: PMID:37919024
+    reference_title: &#34;Management of Monogenic and Syndromic Obesity.&#34;
     supports: NO_EVIDENCE
     snippet: Additional therapies, including metreleptin and setmelanotide, that target defects within the leptin signaling pathway can effectively synergize with lifestyle efforts to treat monogenic disorders of leptin, leptin receptor, proopiomelanocortin (POMC), and proprotein convertase subtilisin/kexin type 1 (PCSK1) and syndromic conditions, such as the ciliopathies Bardet-Biedl and Alström syndromes, whose pathophysiological mechanisms also converge on the leptin pathway
     explanation: The reference mentions that Bardet-Biedl Syndrome is a ciliopathy with mechanisms converging on the leptin pathway, suggesting a role for leptin in the syndrome.
@@ -5169,22 +5412,27 @@ genetic:
   frequency: Most common subtype
   evidence:
   - reference: PMID:27625843
+    reference_title: &#34;Bardet-Biedl syndrome: A rare genetic disease.&#34;
     supports: PARTIAL
     snippet: There are 17 BBS genes (BBS1-BBS17) described to date, which explain 70-80% of the patients clinically diagnosed, therefore more BBS genes remain to be identified.
     explanation: The literature confirms that BBS1 is one of the genes associated with Bardet-Biedl syndrome, but it does not specify that BBS1 is the most common subtype.
   - reference: PMID:22940089
+    reference_title: &#34;Phenotypic expression of Bardet-Biedl syndrome in patients homozygous for the common M390R mutation in the BBS1 gene.&#34;
     supports: SUPPORT
     snippet: &#39;PURPOSE: To characterize the phenotype of Bardet-Biedl syndrome (BBS) patients homozygous for the BBS1 M390R mutation... Our findings confirm the consistent pathogenicity of the BBS1 M390R mutation.&#39;
     explanation: The literature supports the pathogenicity of the BBS1 mutation, suggesting it as a common and consistent cause of the disease.
   - reference: PMID:36833331
+    reference_title: &#34;Delineating the Spectrum of Genetic Variants Associated with Bardet-Biedl Syndrome in Consanguineous Pakistani Pedigrees.&#34;
     supports: PARTIAL
     snippet: Whole-exome sequencing revealed 9 pathogenic variants in six genes associated with BBS in 12 families... Three known variants were detected in the BBS1, BBS2, and BBS7 genes.
     explanation: The study mentions BBS1 among others but does not establish it as the most common subtype.
   - reference: PMID:32361989
+    reference_title: &#34;High prevalence of Bardet-Biedl syndrome in La Réunion Island is due to a founder variant in ARL6/BBS3.&#34;
     supports: PARTIAL
     snippet: In eight families (12 individuals) we identified the same ARL6/BBS3 variation... Knowledge of this founder effect modifies our diagnostic strategy.
     explanation: The reference identifies both BBS1 and other genes involved in BBS.
   - reference: PMID:12118255
+    reference_title: &#34;Identification of the gene (BBS1) most commonly involved in Bardet-Biedl syndrome, a complex human obesity syndrome.&#34;
     supports: SUPPORT
     snippet: Here we report the identification of the gene BBS1 and show that a missense mutation of this gene is a frequent cause of BBS.
     explanation: The literature supports BBS1 as a common gene associated with Bardet-Biedl syndrome, confirming frequent pathogenic variants in BBS1.
@@ -5193,10 +5441,12 @@ genetic:
   frequency: FREQUENT subtype
   evidence:
   - reference: PMID:38407766
+    reference_title: &#34;Characterizing Homozygous Variants in Bardet-Biedl Syndrome-Associated Genes Within Iranian Families: Unveiling a Founder Variant in BBS2, c.471G&gt;A.&#34;
     supports: PARTIAL
     snippet: Our results identified the founder variant c.471G &gt; A in the BBS2 gene in the Baloch ethnicity of the Iranian population. This finding can guide the diagnostic approach of this syndrome in future studies.
     explanation: This indicates a common pathogenic variant in the BBS2 gene within a specific population, supporting the statement that BBS2 is associated with pathogenic variants.
   - reference: PMID:12677556
+    reference_title: &#34;Genetic interaction of BBS1 mutations with alleles at other BBS loci can result in non-Mendelian Bardet-Biedl syndrome.&#34;
     supports: PARTIAL
     snippet: Bardet-Biedl syndrome is a genetically and clinically heterogeneous disorder caused by mutations in at least seven loci (BBS1-7), five of which are cloned (BBS1, BBS2, BBS4, BBS6, and BBS7).
     explanation: This provides evidence that BBS2 is one of the BBS genes associated with pathogenic variants, supporting the claim in the statement.
@@ -5204,22 +5454,27 @@ genetic:
   association: Pathogenic Variants
   evidence:
   - reference: PMID:37239474
+    reference_title: &#34;Biallelic Variants in Seven Different Genes Associated with Clinically Suspected Bardet-Biedl Syndrome.&#34;
     supports: SUPPORT
     snippet: Bardet-Biedl syndrome (BBS) is a rare clinically and genetically heterogeneous autosomal recessive multi-systemic disorder with 22 known genes.
     explanation: The literature supports the genetic association of BBS with pathogenic variants in multiple genes beyond BBS1. The abstract mentions 22 known genes related to BBS.
   - reference: PMID:27984625
+    reference_title: &#34;[Progress of research on the pathogenesis of obesity in Bardet-Biedl syndrome].&#34;
     supports: SUPPORT
     snippet: So far 21 candidate genes have been discovered, and mutations of such genes can all cause the BBS phenotype.
     explanation: This reference also indicates that multiple BBS genes, beyond just one, are associated with the disease.
   - reference: PMID:37612261
+    reference_title: &#34;Recurrence of a BBS1 variant in Bardet-Biedl patients from Prince Edward Island.&#34;
     supports: SUPPORT
     snippet: This study reports variants in BBS1 and BBS7 in patients with Bardet-Biedl syndrome from the Canadian Maritime provinces.
     explanation: The reference mentions that variants in BBS1 and BBS7 are observed, supporting the genetic heterogeneity of BBS.
   - reference: PMID:29653013
+    reference_title: &#34;[Progress of research on Bardet-Biedl syndrome].&#34;
     supports: SUPPORT
     snippet: To date, more than 21 BBS genes (BBS1 - 21) have been reported to independently cause the disorder.
     explanation: The document affirms that there are more than 21 BBS genes associated with Bardet-Biedl syndrome, supporting the statement.
   - reference: PMID:33777945
+    reference_title: &#34;Ocular Characteristics of Patients With Bardet-Biedl Syndrome Caused by Pathogenic BBS Gene Variation in a Chinese Cohort.&#34;
     supports: SUPPORT
     snippet: A total of five known and twelve novel variants in four BBS genes (BBS2, 58.33%; BBS4, 8.33%; BBS7, 16.67%; and BBS9, 16.67%) were identified.
     explanation: This study reveals the presence of multiple BBS genes (BBS2, BBS4, BBS7, and BBS9) in diagnosed patients, corroborating the statement.
@@ -5228,14 +5483,17 @@ environmental:
   notes: There are no significant environmental factors specifically associated with the onset of Bardet-Biedl syndrome.
   evidence:
   - reference: PMID:29161709
+    reference_title: &#34;Impact of Local and Systemic Factors on Kidney Dysfunction in Bardet-Biedl Syndrome.&#34;
     supports: NO_EVIDENCE
     snippet: Bardet Biedl syndrome (BBS) is a rare inherited syndromic condition characterized by renal and extra-renal disorders.
     explanation: The article emphasizes that BBS is inherited and does not highlight any specific environmental factors associated with the onset of the syndrome.
   - reference: PMID:36374067
+    reference_title: &#34;[Bardet Biedl syndrome: a case report].&#34;
     supports: NO_EVIDENCE
     snippet: Bardet Biedl syndrome is an autosomal recessive ciliopathie... Diagnosis is based on clinical features. Molecular genetic testing is available.
     explanation: This reference explains that BBS is an autosomal recessive ciliopathy, focusing on genetic causes rather than environmental factors.
   - reference: PMID:29409041
+    reference_title: &#34;The Endocrine and Metabolic Characteristics of a Large Bardet-Biedl Syndrome Clinic Population.&#34;
     supports: NO_EVIDENCE
     snippet: We describe the endocrine and metabolic characteristics of a large BBS population compared with matched control subjects.
     explanation: While the article describes metabolic characteristics, it does not associate the onset of BBS with environmental factors.
@@ -5249,22 +5507,27 @@ treatments:
       label: physical therapy
   evidence:
   - reference: PMID:15852167
+    reference_title: &#34;[Bardet-Biedl syndrome].&#34;
     supports: NO_EVIDENCE
     snippet: Based on the history, presentation, ophthalmic clinical examination, obesity, mental retardation and dental alterations, the patient was diagnosed with Bardet-Biedl syndrome.
     explanation: The case report discusses the management of symptoms like vision loss and obesity, which aligns with supportive therapy addressing specific symptoms.
   - reference: PMID:29754569
+    reference_title: &#34;Toward personalized medicine in Bardet-Biedl syndrome.&#34;
     supports: PARTIAL
     snippet: Advances in the understanding of ciliary biology and diagnostic techniques have opened up the prospect of treating BBS in a patient-specific manner.
     explanation: The article mentions ongoing research in personalized medicine for BBS, focusing on treatments addressing specific symptoms, which supports the idea of supportive therapy.
   - reference: PMID:36647077
+    reference_title: &#34;Quality of life improvements following one year of setmelanotide in children and adult patients with Bardet-Biedl syndrome: phase 3 trial results.&#34;
     supports: PARTIAL
     snippet: This study highlights the need to address the impaired health-related quality of life in Bardet-Biedl syndrome, and supports utility of setmelanotide for reducing this burden.
     explanation: The study discusses treatments impacting quality of life related to obesity, which is part of supportive therapy.
   - reference: PMID:36700052
+    reference_title: &#34;Subretinal gene therapy delays vision loss in a Bardet-Biedl Syndrome type 10 mouse model.&#34;
     supports: NO_EVIDENCE
     snippet: We show that subretinal gene therapy slowed photoreceptor cell death and preserved retinal function in treated eyes. Notably, cone photoreceptors regained their electrical function after gene augmentation.
     explanation: The article reports on gene therapy to manage vision loss in BBS, which fits under supportive treatment focusing on specific symptoms like vision support.
   - reference: PMID:27245600
+    reference_title: &#34;Renal transplantation in Bardet-Biedl Syndrome.&#34;
     supports: PARTIAL
     snippet: Renal transplantation is indicated in cases of end-stage renal disease (ESRD), but transplant centers may be hesitant to perform the necessary transplant in light of the multitude of metabolic comorbidities these patients often face with the potential to complicate outcomes.
     explanation: The study supports the notion of addressing specific symptoms such as renal disease, fitting within supportive therapy for BBS.
@@ -5277,6 +5540,7 @@ treatments:
       label: genetic counseling
   evidence:
   - reference: PMID:20301537
+    reference_title: &#34;Bardet-Biedl Syndrome Overview.&#34;
     supports: SUPPORT
     snippet: Provide an evaluation strategy to identify the genetic cause of Bardet-Biedl syndrome in a proband (when possible); 4.
     explanation: The overview highlights the importance of genetic counseling for identifying the genetic cause of the syndrome, supporting its role as a treatment component.
@@ -5297,18 +5561,22 @@ treatments:
       label: dietary intervention
   evidence:
   - reference: PMID:38302651
+    reference_title: &#34;Bardet-Biedl syndrome: A focus on genetics, mechanisms and metabolic dysfunction.&#34;
     supports: PARTIAL
     snippet: We review current approaches to the metabolic management of patients with BBS, including the use of weight loss medications and bariatric surgery.
     explanation: Bardet-Biedl Syndrome (BBS) metabolic management mentions both dietary and lifestyle approaches, which include weight loss strategies.
   - reference: PMID:27356116
+    reference_title: &#34;Overweight and obesity management strategies.&#34;
     supports: PARTIAL
     snippet: Comprehensive lifestyle interventions, including nutrition, physical activity, and behavioral therapy, are the foundation for clinical obesity management.
     explanation: Although not specific to BBS, this reference supports the use of lifestyle modifications for managing obesity.
   - reference: PMID:36647077
+    reference_title: &#34;Quality of life improvements following one year of setmelanotide in children and adult patients with Bardet-Biedl syndrome: phase 3 trial results.&#34;
     supports: PARTIAL
     snippet: Bardet-Biedl syndrome is a rare genetic disease associated with hyperphagia and early-onset, severe obesity...patients reported clinically meaningful improvements across multiple health-related quality of life measures.
     explanation: This study involving BBS patients includes dietary and lifestyle modifications as part of the treatment to manage obesity.
   - reference: PMID:37919024
+    reference_title: &#34;Management of Monogenic and Syndromic Obesity.&#34;
     supports: SUPPORT
     snippet: Similar to the general population, lifestyle interventions focused on nutrition and physical activity form the foundation for treating obesity caused by rare genetic disorders.
     explanation: Supports lifestyle interventions as foundational treatments for obesity in syndromic conditions like BBS.
@@ -5321,6 +5589,7 @@ treatments:
       label: gene therapy
   evidence:
   - reference: PMID:36700052
+    reference_title: &#34;Subretinal gene therapy delays vision loss in a Bardet-Biedl Syndrome type 10 mouse model.&#34;
     supports: SUPPORT
     snippet: We show that subretinal gene therapy slowed photoreceptor cell death and preserved retinal function in treated eyes. Notably, cone photoreceptors regained their electrical function after gene augmentation.
     explanation: The article reports on gene therapy to manage vision loss in BBS, showing promising results in preserving retinal function.
@@ -5350,14 +5619,17 @@ animal_models:
   species: Mouse
   evidence:
   - reference: PMID:34262361
+    reference_title: &#34;Retinitis Pigmentosa and Polydactyly in a Patient with a Heterozygous Mutation on the BBS1 Gene.&#34;
     supports: NO_EVIDENCE
     snippet: Genetic testing was positive for a pathogenic heterozygous mutation in the BBS1 gene of the variant c.1169T&gt;G (p.Met390Arg)
     explanation: This study reports on a heterozygous mutation carrier and does not provide evidence for the homozygous Bbs1 M390R/M390R mutation in mice.
   - reference: PMID:14993910
+    reference_title: &#34;Bardet-Biedl syndrome 1 genotype and obesity in the Newfoundland population.&#34;
     supports: NO_EVIDENCE
     snippet: Our data do not support the hypothesis that the M390R BBS1 mutation plays a significant role in the frequency of obesity in the general public in Newfoundland.
     explanation: The study focuses on the frequency of the M390R mutation in the human population and does not provide relevant evidence for mouse models.
   - reference: PMID:16794820
+    reference_title: &#34;Phenotypic characterization of Bbs4 null mice reveals age-dependent penetrance and variable expressivity.&#34;
     supports: PARTIAL
     snippet: Bbs4 null mice, although initially runted compared to their littermates, ultimately become obese in a gender-dependent manner.
     explanation: While not specific to the Bbs1 M390R/M390R genotype, this study on Bbs4 null mice supports phenotypes such as obesity, indirectly supporting the overall statement about BBS mouse models showing similar phenotypes.
@@ -5372,14 +5644,17 @@ animal_models:
   species: Mouse
   evidence:
   - reference: PMID:16794820
+    reference_title: &#34;Phenotypic characterization of Bbs4 null mice reveals age-dependent penetrance and variable expressivity.&#34;
     supports: SUPPORT
     snippet: Bbs4 null mice, although initially runted compared to their littermates, ultimately become obese in a gender-dependent manner...As in patients with BBS, we found age-dependent retinal dystrophy...Behavioral assessment revealed that mutant mice displayed more anxiety-related responses and reduced social dominance.
     explanation: This reference indicates that Bbs4 null mice exhibit obesity, retinal dystrophy, and behavioral changes similar to anxiety-related responses and reduced social dominance, which can be interpreted as learning and memory deficits.
   - reference: PMID:28533336
+    reference_title: &#34;A Coding Variant in the Gene Bardet-Biedl Syndrome 4 (BBS4) Is Associated with a Novel Form of Canine Progressive Retinal Atrophy.&#34;
     supports: PARTIAL
     snippet: We identified canine phenotypes comparable with Bbs4-null mice including obesity and spermatozoa flagella defects...In the affected Hungarian Puli spermatozoa flagella are present, however a large proportion of sperm are morphologically abnormal and &lt;5% are motile.
     explanation: While this reference primarily talks about canine models, it confirms the analogous phenotypic features observed in Bbs4-null mice, such as obesity.
   - reference: PMID:18381349
+    reference_title: &#34;Genetic interaction between Bardet-Biedl syndrome genes and implications for limb patterning.&#34;
     supports: NO_EVIDENCE
     snippet: Bardet-Biedl syndrome (BBS) is a pleiotropic, genetically heterogeneous disorder characterized by obesity, retinopathy, polydactyly, cognitive impairment, renal and cardiac anomalies, as well as hypertension and diabetes...Here, we demonstrate that individual knockdown of bbs1 and bbs3 results in the same prototypical phenotypes as reported previously for other BBS genes.
     explanation: This paper supports the range of phenotypes, including cognitive impairment (indicative of learning and memory deficits), obesity, retinopathy, and polydactyly, in zebrafish models of BBS but can be inferred to support findings in other models (e.g., mouse).
@@ -5393,14 +5668,17 @@ animal_models:
   species: Mouse
   evidence:
   - reference: PMID:19150989
+    reference_title: &#34;Requirement of Bardet-Biedl syndrome proteins for leptin receptor signaling.&#34;
     supports: SUPPORT
     snippet: We found that Bbs2(-/-), Bbs4(-/-) and Bbs6(-/-) mice are resistant to the action of leptin to reduce body weight and food intake regardless of serum leptin levels and obesity.
     explanation: This study supports the allele &#39;Bbs6-/-&#39; in mice, displaying obesity as a phenotype, consistent with Bardet-Biedl Syndrome.
   - reference: PMID:18032602
+    reference_title: &#34;A knockin mouse model of the Bardet-Biedl syndrome 1 M390R mutation has cilia defects, ventriculomegaly, retinopathy, and obesity.&#34;
     supports: PARTIAL
     snippet: Similar abnormalities were also observed in the brains of Bbs2(-/-), Bbs4(-/-), and Bbs6(-/-) mice, establishing these neuroanatomical defects as a previously undescribed BBS mouse model phenotype.
     explanation: This study confirms obesity, retinal degeneration, and new neuroanatomical defects in &#39;Bbs6-/-&#39; mouse model of BBS, indirectly supporting infertility.
   - reference: PMID:32962042
+    reference_title: &#34;Deletion in the Bardet-Biedl Syndrome Gene TTC8 Results in a Syndromic Retinal Degeneration in Dogs.&#34;
     supports: NO_EVIDENCE
     snippet: In golden retriever dogs, a 1 bp deletion in the canine TTC8 gene has been shown to cause progressive retinal atrophy (PRA), the canine equivalent of retinitis pigmentosa. In humans, TTC8 is also implicated in Bardet-Biedl syndrome (BBS).
     explanation: This study focuses on the TTC8 gene in dogs and does not provide evidence specifically regarding Bbs6-/- mice.
@@ -5422,22 +5700,27 @@ animal_models:
   species: Mouse
   evidence:
   - reference: PMID:22139371
+    reference_title: &#34;Bardet-Biedl syndrome 3 (Bbs3) knockout mouse model reveals common BBS-associated phenotypes and Bbs3 unique phenotypes.&#34;
     supports: SUPPORT
     snippet: Bbs3(-/-) mice develop BBS-associated phenotypes, including retinal degeneration, male infertility, and increased body fat.
     explanation: This study mentions retinal degeneration (similar to photoreceptor degeneration), increased body fat (indicative of obesity), and infers a learning/memory deficit as part of the broader phenotype analysis, supporting the claim in the statement.
   - reference: PMID:21514177
+    reference_title: &#34;Molecular basis of the obesity associated with Bardet-Biedl syndrome.&#34;
     supports: NO_EVIDENCE
     snippet: Bardet-Biedl Syndrome (BBS) is a rare human hereditary disorder associated with several features including obesity, retinopathy, renal defects, polydactyly, learning disabilities and hypogenitalism.
     explanation: The description includes obesity, retinal degeneration (as retinopathy), renal defects (kidney abnormalities), and learning disabilities, supporting multiple phenotypes in the statement.
   - reference: PMID:30901771
+    reference_title: &#34;Progressive Characterization of Visual Phenotype in Bardet-Biedl Syndrome Mutant Mice.&#34;
     supports: PARTIAL
     snippet: Complete loss of BBS5, BBS6, or BBS8 leads to different rates of retinal degeneration and visual function over time.
     explanation: The study highlights retinal degeneration and notes the use of BBSome components like BBS5 and BBS6, but does not mention learning and memory deficits or kidney abnormalities directly.
   - reference: PMID:15539463
+    reference_title: &#34;Bbs2-null mice have neurosensory deficits, a defect in social dominance, and retinopathy associated with mislocalization of rhodopsin.&#34;
     supports: PARTIAL
     snippet: We show that mice lacking Bbs2 gene expression have major components of the human phenotype, including obesity and retinopathy.
     explanation: The support is partial because only obesity and retinal degeneration (retinopathy) are mentioned. Learning deficits and kidney abnormalities are not addressed.
   - reference: PMID:34262361
+    reference_title: &#34;Retinitis Pigmentosa and Polydactyly in a Patient with a Heterozygous Mutation on the BBS1 Gene.&#34;
     supports: PARTIAL
     snippet: A 25-year-old male presented to the clinic complaining of poor visual acuity since childhood, night-blindness, and progressive peripheral vision loss.
     explanation: The article focuses on a patient case involving visual issues and a history of polydactyly, but does not discuss other phenotypes like obesity or kidney abnormalities in the context of mice models.

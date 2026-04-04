@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 3</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Progressive Myoclonus Epilepsy</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Glycogen Storage Disease</span>
@@ -1937,6 +2110,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1994,6 +2170,14 @@
             <div class="stat-item">
                 <div class="stat-value">8</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">3</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2318,7 +2502,7 @@
                 <span class="card-count">2</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-lafora-body-formation-through-aberrant-glycogen-metabolism">
                 <div class="item-name">Lafora body formation through aberrant glycogen metabolism</div>
                 
                 <div class="item-desc">Loss of laforin phosphatase activity leads to glycogen hyperphosphorylation and abnormal chain length patterns. Laforin normally controls glycogen chain lengths in a malin-dependent fashion, maintaining glycogen solubility and proper branching structure. Without functional laforin or malin, glycogen becomes poorly branched, hyperphosphorylated, and insoluble, aggregating into Lafora bodies (polyglucosan inclusions) in neurons, astrocytes, and other tissues.
@@ -2365,6 +2549,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2446,7 +2631,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-malin-laforin-complex-dysfunction-in-glycogen-regulation">
                 <div class="item-name">Malin-laforin complex dysfunction in glycogen regulation</div>
                 
                 <div class="item-desc">Malin (NHLRC1) is an E3 ubiquitin ligase that forms a functional complex with laforin. Malin functions to maintain laforin associated with soluble glycogen, and its absence causes sequestration of laforin to an insoluble polysaccharide fraction where it is functionally inert. Loss of malin impairs ubiquitination of substrates involved in glycogen metabolism. While autophagy disruption has been observed in Lafora disease models, evidence indicates that general impairment of autophagy is not necessary for disease pathogenesis; rather, the primary defect is loss of glycogen chain length control through the malin-laforin axis.
@@ -2469,6 +2654,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2563,6 +2749,7 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="graph-warning">
                 <strong>Referential integrity issues (1):</strong>
@@ -2578,13 +2765,13 @@
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Lafora_Disease</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Lafora body formation through aberrant glycogen metabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of laforin phosphatase activity leads to glycogen hyperphosphorylation and abnormal chain length patterns. Laforin normally controls glycogen chain lengths in a malin-dependent fashion, maintaining glycogen solubility and proper branching structure. Without functional laforin or malin, glycogen becomes poorly branched, hyperphosphorylated, and insoluble, aggregating into Lafora bodies (polyglucosan inclusions) in neurons, astrocytes, and other tissues.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Neuron\", \"Astrocyte\"], \"biological_processes\": [\"Glycogen metabolic process\"]}}, {\"id\": \"Malin-laforin complex dysfunction in glycogen regulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Malin (NHLRC1) is an E3 ubiquitin ligase that forms a functional complex with laforin. Malin functions to maintain laforin associated with soluble glycogen, and its absence causes sequestration of laforin to an insoluble polysaccharide fraction where it is functionally inert. Loss of malin impairs ubiquitination of substrates involved in glycogen metabolism. While autophagy disruption has been observed in Lafora disease models, evidence indicates that general impairment of autophagy is not necessary for disease pathogenesis; rather, the primary defect is loss of glycogen chain length control through the malin-laforin axis.\\n\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"Protein ubiquitination\"]}}, {\"id\": \"Neuronal dysfunction and death\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}], \"edges\": [{\"source\": \"Lafora body formation through aberrant glycogen metabolism\", \"target\": \"Neuronal dysfunction and death\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"Malin-laforin complex dysfunction in glycogen regulation\", \"target\": \"Lafora body formation through aberrant glycogen metabolism\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": [\"Neuronal dysfunction and death\"]}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Lafora body formation through aberrant glycogen metabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of laforin phosphatase activity leads to glycogen hyperphosphorylation and abnormal chain length patterns. Laforin normally controls glycogen chain lengths in a malin-dependent fashion, maintaining glycogen solubility and proper branching structure. Without functional laforin or malin, glycogen becomes poorly branched, hyperphosphorylated, and insoluble, aggregating into Lafora bodies (polyglucosan inclusions) in neurons, astrocytes, and other tissues.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Neuron\", \"Astrocyte\"], \"biological_processes\": [\"Glycogen metabolic process\"], \"genes\": [\"EPM2A\"]}}, {\"id\": \"Malin-laforin complex dysfunction in glycogen regulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Malin (NHLRC1) is an E3 ubiquitin ligase that forms a functional complex with laforin. Malin functions to maintain laforin associated with soluble glycogen, and its absence causes sequestration of laforin to an insoluble polysaccharide fraction where it is functionally inert. Loss of malin impairs ubiquitination of substrates involved in glycogen metabolism. While autophagy disruption has been observed in Lafora disease models, evidence indicates that general impairment of autophagy is not necessary for disease pathogenesis; rather, the primary defect is loss of glycogen chain length control through the malin-laforin axis.\\n\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"Protein ubiquitination\"], \"genes\": [\"NHLRC1\"]}}, {\"id\": \"Neuronal dysfunction and death\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}], \"edges\": [{\"source\": \"Lafora body formation through aberrant glycogen metabolism\", \"target\": \"Neuronal dysfunction and death\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"Malin-laforin complex dysfunction in glycogen regulation\", \"target\": \"Lafora body formation through aberrant glycogen metabolism\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": [\"Neuronal dysfunction and death\"]}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3395,11 +3582,13 @@ inheritance:
     are asymptomatic.
   evidence:
   - reference: PMID:30143794
+    reference_title: &#34;Lafora disease - from pathogenesis to treatment strategies.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Lafora disease is a severe, autosomal recessive, progressive myoclonus epilepsy.&#34;
     explanation: Confirms autosomal recessive inheritance pattern for Lafora disease.
   - reference: PMID:20538597
+    reference_title: &#34;Genetic depletion of the malin E3 ubiquitin ligase in mice leads to lafora bodies and the accumulation of insoluble laforin.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Approximately 90% of cases of Lafora disease, a fatal teenage-onset progressive myoclonus epilepsy, are caused by mutations in either the EPM2A or the EPM2B genes that encode, respectively, a glycogen phosphatase called laforin and an E3 ubiquitin ligase called malin.&#34;
@@ -3418,6 +3607,7 @@ has_subtypes:
       label: EPM2A
   evidence:
   - reference: PMID:11483392
+    reference_title: &#34;Lafora&#39;s disease: towards a clinical, pathologic, and molecular synthesis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Up to 80% of patients with Lafora&#39;s disease have mutations in the EPM2A gene.&#34;
@@ -3435,6 +3625,7 @@ has_subtypes:
       label: NHLRC1
   evidence:
   - reference: PMID:12958597
+    reference_title: &#34;Mutations in NHLRC1 cause progressive myoclonus epilepsy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;we identify a second gene associated with this disease, NHLRC1 (also called EPM2B), which encodes malin, a putative E3 ubiquitin ligase with a RING finger domain and six NHL motifs.&#34;
@@ -3477,21 +3668,25 @@ pathophysiology:
       neurodegeneration.
   evidence:
   - reference: PMID:30143794
+    reference_title: &#34;Lafora disease - from pathogenesis to treatment strategies.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The absence of either protein results in poorly branched, hyperphosphorylated glycogen, which precipitates, aggregates and accumulates into Lafora bodies.&#34;
     explanation: Directly describes the core mechanism of Lafora body formation from defective laforin/malin function.
   - reference: PMID:28536304
+    reference_title: &#34;Abnormal glycogen chain length pattern, not hyperphosphorylation, is critical in Lafora disease.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;We conclude that laforin&#39;s principle function is to control glycogen chain lengths, in a malin-dependent fashion, and that loss of this control underlies LD.&#34;
     explanation: Demonstrates that abnormal glycogen chain length, controlled by laforin in a malin-dependent manner, is the critical mechanism.
   - reference: PMID:29483193
+    reference_title: &#34;Lafora disease offers a unique window into neuronal glycogen metabolism.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Individuals with LD develop cytoplasmic, aberrant glycogen inclusions in nearly all tissues that more closely resemble plant starch than human glycogen.&#34;
     explanation: Confirms the aberrant nature of the glycogen inclusions and their widespread tissue distribution.
   - reference: PMID:36899857
+    reference_title: &#34;Role of Astrocytes in the Pathophysiology of Lafora Disease and Other Glycogen Storage Disorders.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;most of these glycogen aggregates are present in astrocytes. Importantly, astrocytic Lafora bodies have been shown to contribute to pathology in Lafora disease.&#34;
@@ -3526,21 +3721,25 @@ pathophysiology:
       ubiquitinate and regulate glycogen synthase and other substrates.
   evidence:
   - reference: PMID:12958597
+    reference_title: &#34;Mutations in NHLRC1 cause progressive myoclonus epilepsy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;NHLRC1 (also called EPM2B), which encodes malin, a putative E3 ubiquitin ligase with a RING finger domain and six NHL motifs. Laforin and malin colocalize to the ER, suggesting they operate in a related pathway protecting against polyglucosan accumulation and epilepsy.&#34;
     explanation: Establishes malin as an E3 ubiquitin ligase that colocalizes with laforin and operates in a common pathway.
   - reference: PMID:20538597
+    reference_title: &#34;Genetic depletion of the malin E3 ubiquitin ligase in mice leads to lafora bodies and the accumulation of insoluble laforin.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;we conclude that malin functions to maintain laforin associated with soluble glycogen and that its absence causes sequestration of laforin to an insoluble polysaccharide fraction where it is functionally inert.&#34;
     explanation: Demonstrates malin&#39;s role in maintaining laforin function and how its absence leads to functional inactivation of laforin.
   - reference: PMID:30336494
+    reference_title: &#34;Lafora Disease: A Review of Molecular Mechanisms and Pathology.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Laforin and malin interact to regulate glycogen phosphorylation and chain length pattern, the latter critical to glycogen&#39;s solubility.&#34;
     explanation: Confirms the functional interaction between laforin and malin in regulating glycogen structure.
   - reference: PMID:28536304
+    reference_title: &#34;Abnormal glycogen chain length pattern, not hyperphosphorylation, is critical in Lafora disease.&#34;
     supports: PARTIAL
     evidence_source: MODEL_ORGANISM
     snippet: &#34;general impairment of autophagy is not necessary in LD&#34;
@@ -3560,6 +3759,7 @@ phenotypes:
       label: Myoclonus
   evidence:
   - reference: PMID:29489177
+    reference_title: &#34;Lafora Disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Characteristic features of Lafora disease include intractable myoclonic and photosensitive seizures, drop attacks, ataxia, apraxia, cortical blindness, rapidly progressive dementia, and neuropsychiatric symptoms.&#34;
@@ -3579,6 +3779,7 @@ phenotypes:
       label: Seizure
   evidence:
   - reference: PMID:20527995
+    reference_title: &#34;Lafora disease: epidemiology, pathophysiology and management.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The condition is characterized by epilepsy, myoclonus and dementia.&#34;
@@ -3593,6 +3794,7 @@ phenotypes:
       label: Bilateral tonic-clonic seizure
   evidence:
   - reference: PMID:30336494
+    reference_title: &#34;Lafora Disease: A Review of Molecular Mechanisms and Pathology.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Soon thereafter myoclonus appears and a generalized tonic-clonic seizure.&#34;
@@ -3607,6 +3809,7 @@ phenotypes:
       label: Generalized non-motor (absence) seizure
   evidence:
   - reference: PMID:30336494
+    reference_title: &#34;Lafora Disease: A Review of Molecular Mechanisms and Pathology.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Atypical and myoclonic absences set in and then become so constant that the young patient&#39;s every thought and sentence are constantly interrupted and incomplete.&#34;
@@ -3625,11 +3828,13 @@ phenotypes:
       label: Visual hallucination
   evidence:
   - reference: PMID:11483392
+    reference_title: &#34;Lafora&#39;s disease: towards a clinical, pathologic, and molecular synthesis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Characteristic seizures include myoclonic and occipital lobe seizures with visual hallucinations, scotomata, and photoconvulsions.&#34;
     explanation: Confirms visual hallucinations from occipital seizures as a characteristic feature.
   - reference: PMID:30336494
+    reference_title: &#34;Lafora Disease: A Review of Molecular Mechanisms and Pathology.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The patient commonly develops visual hallucinations, usually frightening which have been shown to be both epileptic and psychotic.&#34;
@@ -3649,11 +3854,13 @@ phenotypes:
       label: Dementia
   evidence:
   - reference: PMID:11483392
+    reference_title: &#34;Lafora&#39;s disease: towards a clinical, pathologic, and molecular synthesis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The course of the disease consists of worsening seizures and an inexorable decline in mental and other neurologic functions that result in dementia and death within 10 years of onset.&#34;
     explanation: Confirms progressive cognitive decline leading to dementia as a cardinal feature with a 10-year disease course.
   - reference: PMID:36899857
+    reference_title: &#34;Role of Astrocytes in the Pathophysiology of Lafora Disease and Other Glycogen Storage Disorders.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;the disease progresses rapidly with dementia, neuropsychiatric symptoms, and cognitive deterioration and has a fatal outcome within 5-10 years after onset.&#34;
@@ -3672,6 +3879,7 @@ phenotypes:
     develop as the disease advances toward a vegetative state.
   evidence:
   - reference: PMID:30336494
+    reference_title: &#34;Lafora Disease: A Review of Molecular Mechanisms and Pathology.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;patients undergo first insidious then rapid progressive myoclonus epilepsy toward a vegetative state and death within a decade.&#34;
@@ -3686,6 +3894,7 @@ phenotypes:
       label: Ataxia
   evidence:
   - reference: PMID:29489177
+    reference_title: &#34;Lafora Disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Characteristic features of Lafora disease include intractable myoclonic and photosensitive seizures, drop attacks, ataxia, apraxia, cortical blindness, rapidly progressive dementia, and neuropsychiatric symptoms.&#34;
@@ -3699,11 +3908,13 @@ diagnosis:
   presence: PAS-positive polyglucosan inclusions in eccrine/apocrine sweat gland duct cells.
   evidence:
   - reference: PMID:29489177
+    reference_title: &#34;Lafora Disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The presence of the pathognomic Lafora bodies in a tissue biopsy is diagnostic of Lafora disease.&#34;
     explanation: Confirms Lafora bodies in tissue biopsy as pathognomonic for diagnosis.
   - reference: PMID:30336494
+    reference_title: &#34;Lafora Disease: A Review of Molecular Mechanisms and Pathology.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;LB are found in skin eccrine sweat gland ducts. They are also found in the myoepithelia of apocrine glands&#34;
@@ -3715,6 +3926,7 @@ diagnosis:
     both genes identifies biallelic pathogenic variants in the majority of cases.
   evidence:
   - reference: PMID:30336494
+    reference_title: &#34;Lafora Disease: A Review of Molecular Mechanisms and Pathology.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Today, the diagnosis of LD is based on biallelic mutation identification in either the EPM2A or EPM2B gene.&#34;
@@ -3727,6 +3939,7 @@ diagnosis:
     disease course.
   evidence:
   - reference: PMID:30336494
+    reference_title: &#34;Lafora Disease: A Review of Molecular Mechanisms and Pathology.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;successive electroencephalographs (EEG&#39;s) show, unlike in JME, a slowing background and spike-wave discharges&#34;
@@ -3745,11 +3958,13 @@ treatments:
       label: anticonvulsant agent therapy
   evidence:
   - reference: PMID:30336494
+    reference_title: &#34;Lafora Disease: A Review of Molecular Mechanisms and Pathology.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Sodium channel blocking antiseizure medications, such as phenytoin worsen myoclonus and probably seizures but can be very beneficial in stopping status epilepticus.&#34;
     explanation: Documents that sodium channel blockers worsen myoclonus while being useful for status epilepticus.
   - reference: PMID:29489177
+    reference_title: &#34;Lafora Disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Antiepileptic drugs can be used for the management of myoclonus and seizures. However, patients can become drug-resistant over time, resulting in disease progression, increased seizure frequency, and a decline in neurologic function.&#34;
@@ -3766,6 +3981,7 @@ treatments:
       label: supportive care
   evidence:
   - reference: PMID:29489177
+    reference_title: &#34;Lafora Disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Management Lafora disease focuses on symptomatic relief of seizures and myoclonus, together with palliative, supportive, and rehabilitative measures.&#34;
@@ -3794,6 +4010,7 @@ animal_models:
       label: EPM2A
   evidence:
   - reference: PMID:30143794
+    reference_title: &#34;Lafora disease - from pathogenesis to treatment strategies.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Evidence from Lafora disease genetic mouse models indicates that these intracellular inclusions are a principal driver of neurodegeneration and neurological disease.&#34;
@@ -3810,6 +4027,7 @@ animal_models:
       label: NHLRC1
   evidence:
   - reference: PMID:20538597
+    reference_title: &#34;Genetic depletion of the malin E3 ubiquitin ligase in mice leads to lafora bodies and the accumulation of insoluble laforin.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Disruption of the Epm2b gene in mice resulted in viable animals that, by 3 months of age, accumulated Lafora bodies in the brain and to a lesser extent in heart and skeletal muscle.&#34;

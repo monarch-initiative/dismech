@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Metabolic Disease</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Inborn Error of Metabolism</span>
@@ -1937,6 +2110,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1992,6 +2168,14 @@
             <div class="stat-item">
                 <div class="stat-value">12</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">9</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2071,7 +2255,7 @@
                 <span class="card-count">5</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-cbs-molecular-function-deficiency">
                 <div class="item-name">CBS molecular function deficiency</div>
                 
                 <div class="item-desc">Biallelic CBS pathogenic variants reduce cystathionine beta-synthase catalytic activity.
@@ -2101,6 +2285,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
                 
@@ -2142,7 +2327,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-transsulfuration-and-methionine-metabolism">
                 <div class="item-name">Disrupted transsulfuration and methionine metabolism</div>
                 
                 <div class="item-desc">Loss of CBS function causes upstream accumulation of homocysteine, methionine, SAM, and SAH with downstream depletion of cystathionine and cysteine, disrupting sulfur amino acid homeostasis and one-carbon metabolism.
@@ -2175,6 +2360,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2214,7 +2400,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-oxidative-stress-and-mitochondrial-dysfunction">
                 <div class="item-name">Oxidative stress and mitochondrial dysfunction</div>
                 
                 <div class="item-desc">Elevated homocysteine is a reactive thiol that generates reactive oxygen species, while cysteine depletion impairs glutathione-dependent antioxidant defenses. CBS-deficient patients show altered NAD redox metrics, elevated mitokines (FGF-21, GDF-15), and increased mitochondrial DAMPs, indicating coupled oxidative damage and mitochondrial dysfunction.
@@ -2266,6 +2452,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2300,7 +2487,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-cbs-protein-misfolding-and-proteostasis-disruption">
                 <div class="item-name">CBS protein misfolding and proteostasis disruption</div>
                 
                 <div class="item-desc">Many CBS pathogenic variants cause protein misfolding and instability rather than active-site disruption. Misfolded CBS is cleared primarily by proteasomal degradation with contributions from ERAD and lysosomal-autophagic pathways. This conformational disease mechanism suggests proteostasis modulation as a potential therapeutic strategy.
@@ -2333,6 +2520,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2372,7 +2560,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-endothelial-dysfunction-thrombosis-and-vascular-injury">
                 <div class="item-name">Endothelial dysfunction, thrombosis, and vascular injury</div>
                 
                 <div class="item-desc">Homocysteine-driven oxidative stress and protein modifications cause endothelial cell dysfunction and platelet activation, promoting thrombus formation and vascular occlusion. Modification of fibrinogen by homocysteine thiolactone increases resistance to fibrinolysis, providing a direct mechanistic link to the high thromboembolism risk in HCU.
@@ -2419,6 +2607,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2471,18 +2660,19 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Homocystinuria</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"CBS molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic CBS pathogenic variants reduce cystathionine beta-synthase catalytic activity.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"genes\": [\"CBS\"]}}, {\"id\": \"CBS protein misfolding and proteostasis disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Many CBS pathogenic variants cause protein misfolding and instability rather than active-site disruption. Misfolded CBS is cleared primarily by proteasomal degradation with contributions from ERAD and lysosomal-autophagic pathways. This conformational disease mechanism suggests proteostasis modulation as a potential therapeutic strategy.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"proteasome-mediated ubiquitin-dependent protein catabolic process\", \"endoplasmic reticulum unfolded protein response\"]}}, {\"id\": \"Disrupted transsulfuration and methionine metabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of CBS function causes upstream accumulation of homocysteine, methionine, SAM, and SAH with downstream depletion of cystathionine and cysteine, disrupting sulfur amino acid homeostasis and one-carbon metabolism.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"sulfur amino acid metabolic process\", \"homocysteine metabolic process\"]}}, {\"id\": \"Endothelial dysfunction, thrombosis, and vascular injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homocysteine-driven oxidative stress and protein modifications cause endothelial cell dysfunction and platelet activation, promoting thrombus formation and vascular occlusion. Modification of fibrinogen by homocysteine thiolactone increases resistance to fibrinolysis, providing a direct mechanistic link to the high thromboembolism risk in HCU.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"endothelial cell\", \"platelet\"], \"biological_processes\": [\"blood coagulation\"]}}, {\"id\": \"Oxidative stress and mitochondrial dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated homocysteine is a reactive thiol that generates reactive oxygen species, while cysteine depletion impairs glutathione-dependent antioxidant defenses. CBS-deficient patients show altered NAD redox metrics, elevated mitokines (FGF-21, GDF-15), and increased mitochondrial DAMPs, indicating coupled oxidative damage and mitochondrial dysfunction.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"cellular response to oxidative stress\", \"mitochondrion organization\"]}}], \"edges\": [{\"source\": \"CBS molecular function deficiency\", \"target\": \"CBS molecular function deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted transsulfuration and methionine metabolism\", \"target\": \"Oxidative stress and mitochondrial dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oxidative stress and mitochondrial dysfunction\", \"target\": \"Endothelial dysfunction, thrombosis, and vascular injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"CBS protein misfolding and proteostasis disruption\", \"target\": \"Disrupted transsulfuration and methionine metabolism\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"CBS (cystathionine beta-synthase) deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"variant_count\": 3}}, {\"id\": \"CBS molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic CBS pathogenic variants reduce cystathionine beta-synthase catalytic activity.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"genes\": [\"CBS\"]}}, {\"id\": \"CBS protein misfolding and proteostasis disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Many CBS pathogenic variants cause protein misfolding and instability rather than active-site disruption. Misfolded CBS is cleared primarily by proteasomal degradation with contributions from ERAD and lysosomal-autophagic pathways. This conformational disease mechanism suggests proteostasis modulation as a potential therapeutic strategy.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"proteasome-mediated ubiquitin-dependent protein catabolic process\", \"endoplasmic reticulum unfolded protein response\"]}}, {\"id\": \"Disrupted transsulfuration and methionine metabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of CBS function causes upstream accumulation of homocysteine, methionine, SAM, and SAH with downstream depletion of cystathionine and cysteine, disrupting sulfur amino acid homeostasis and one-carbon metabolism.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"sulfur amino acid metabolic process\", \"homocysteine metabolic process\"]}}, {\"id\": \"Endothelial dysfunction, thrombosis, and vascular injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homocysteine-driven oxidative stress and protein modifications cause endothelial cell dysfunction and platelet activation, promoting thrombus formation and vascular occlusion. Modification of fibrinogen by homocysteine thiolactone increases resistance to fibrinolysis, providing a direct mechanistic link to the high thromboembolism risk in HCU.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"endothelial cell\", \"platelet\"], \"biological_processes\": [\"blood coagulation\"]}}, {\"id\": \"I278T\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"One of the most common CBS pathogenic variants worldwide. Shows reduced protein half-life (approximately 5.9 hours vs 16.6 hours for wild-type) and impaired folding. May respond partially to pyridoxine supplementation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Oxidative stress and mitochondrial dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated homocysteine is a reactive thiol that generates reactive oxygen species, while cysteine depletion impairs glutathione-dependent antioxidant defenses. CBS-deficient patients show altered NAD redox metrics, elevated mitokines (FGF-21, GDF-15), and increased mitochondrial DAMPs, indicating coupled oxidative damage and mitochondrial dysfunction.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"cellular response to oxidative stress\", \"mitochondrion organization\"]}}, {\"id\": \"R125Q\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A permissive CBS variant that responds to pharmacological proteostasis modulation and chaperone co-expression, showing partial functional rescue.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"T191M\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A common CBS pathogenic variant showing reduced protein half-life (approximately 7.7 hours) and responsiveness to proteasome inhibition.\\n\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"CBS molecular function deficiency\", \"target\": \"CBS molecular function deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted transsulfuration and methionine metabolism\", \"target\": \"Oxidative stress and mitochondrial dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oxidative stress and mitochondrial dysfunction\", \"target\": \"Endothelial dysfunction, thrombosis, and vascular injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"CBS protein misfolding and proteostasis disruption\", \"target\": \"Disrupted transsulfuration and methionine metabolism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"I278T\", \"target\": \"CBS (cystathionine beta-synthase) deficiency\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"T191M\", \"target\": \"CBS (cystathionine beta-synthase) deficiency\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"R125Q\", \"target\": \"CBS (cystathionine beta-synthase) deficiency\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4274,6 +4464,7 @@ pathophysiology:
       label: hepatocyte
   evidence:
   - reference: PMID:39366068
+    reference_title: &#34;Mechanism of action and impact of thiol homeostasis on efficacy of an enzyme replacement therapy for classical homocystinuria.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: Homocystinuria (HCU) due to cystathionine beta-synthase (CBS) deficiency is characterized by elevated plasma and tissue homocysteine levels.
@@ -4298,6 +4489,7 @@ pathophysiology:
       label: homocysteine metabolic process
   evidence:
   - reference: PMID:36417581
+    reference_title: &#34;Recent therapeutic approaches to cystathionine beta-synthase-deficient homocystinuria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The pyridoxine non-responsive form of the disease manifests itself by massively increasing plasma and tissue
@@ -4328,6 +4520,7 @@ pathophysiology:
       label: hepatocyte
   evidence:
   - reference: PMID:39567721
+    reference_title: &#34;Oxidative damage and mitochondrial dysfunction in cystathionine beta-synthase deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The alterations in NAD+, FGF-21, GDF-15 levels, and NAD+/NADH ratio in patients suggest that oxidative damage
@@ -4352,6 +4545,7 @@ pathophysiology:
       label: endoplasmic reticulum unfolded protein response
   evidence:
   - reference: PMID:38051092
+    reference_title: &#34;Genetic and Pharmacological Modulation of Cellular Proteostasis Leads to Partial Functional Rescue of Homocystinuria-Causing Cystathionine-Beta Synthase Variants.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: Endoplasmic reticulum stress sensor BiP was found upregulated with CBS I278T variant associated with proteasomes
@@ -4381,6 +4575,7 @@ pathophysiology:
       label: platelet
   evidence:
   - reference: PMID:36417581
+    reference_title: &#34;Recent therapeutic approaches to cystathionine beta-synthase-deficient homocystinuria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: a toxic intermediate of methionine metabolism that is thought to be the major cause of clinical complications
@@ -4400,6 +4595,7 @@ phenotypes:
       label: Ectopia lentis
   evidence:
   - reference: PMID:38201964
+    reference_title: &#34;Hyperhomocysteinemia in Adult Patients: A Treatable Metabolic Condition.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Hyperhomocysteinemia (HHcy) is recognized as an independent risk factor for various significant medical conditions
@@ -4417,6 +4613,7 @@ phenotypes:
       label: Myopia
   evidence:
   - reference: PMID:35791106
+    reference_title: &#34;Homocystinuria and ocular complications - A review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: This review aims to present the ophthalmic spectrum of homocystinuria and its molecular basis
@@ -4434,6 +4631,7 @@ phenotypes:
       label: Thromboembolism
   evidence:
   - reference: PMID:38201964
+    reference_title: &#34;Hyperhomocysteinemia in Adult Patients: A Treatable Metabolic Condition.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: In cases of arterial or venous thrombotic vascular events, particularly with other comorbidities, it is crucial
@@ -4452,6 +4650,7 @@ phenotypes:
       label: Intellectual disability
   evidence:
   - reference: PMID:37994477
+    reference_title: &#34;Inborn errors of amino acid metabolism - from underlying pathophysiology to therapeutic advances.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Genetic defects in the synthesis, catabolism or transport of amino acids underlie a diverse class of diseases
@@ -4470,6 +4669,7 @@ phenotypes:
       label: Seizure
   evidence:
   - reference: PMID:37994477
+    reference_title: &#34;Inborn errors of amino acid metabolism - from underlying pathophysiology to therapeutic advances.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Understanding the biochemical perturbations caused by defects in amino acid metabolism will contribute to ongoing
@@ -4488,6 +4688,7 @@ phenotypes:
       label: Osteoporosis
   evidence:
   - reference: PMID:36417581
+    reference_title: &#34;Recent therapeutic approaches to cystathionine beta-synthase-deficient homocystinuria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: a toxic intermediate of methionine metabolism that is thought to be the major cause of clinical complications
@@ -4506,6 +4707,7 @@ phenotypes:
       label: Disproportionate tall stature
   evidence:
   - reference: PMID:38201964
+    reference_title: &#34;Hyperhomocysteinemia in Adult Patients: A Treatable Metabolic Condition.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Hyperhomocysteinemia (HHcy) is recognized as an independent risk factor for various significant medical conditions
@@ -4523,6 +4725,7 @@ phenotypes:
       label: Global developmental delay
   evidence:
   - reference: PMID:37994477
+    reference_title: &#34;Inborn errors of amino acid metabolism - from underlying pathophysiology to therapeutic advances.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Genetic defects in the synthesis, catabolism or transport of amino acids underlie a diverse class of diseases
@@ -4540,6 +4743,7 @@ phenotypes:
       label: Scoliosis
   evidence:
   - reference: PMID:36417581
+    reference_title: &#34;Recent therapeutic approaches to cystathionine beta-synthase-deficient homocystinuria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: the major cause of clinical complications including skeletal deformities, connective tissue defects, thromboembolism
@@ -4558,6 +4762,7 @@ phenotypes:
       label: Stroke
   evidence:
   - reference: PMID:38201964
+    reference_title: &#34;Hyperhomocysteinemia in Adult Patients: A Treatable Metabolic Condition.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: In cases of arterial or venous thrombotic vascular events, particularly with other comorbidities, it is crucial
@@ -4576,6 +4781,7 @@ phenotypes:
       label: Fair hair
   evidence:
   - reference: PMID:35791106
+    reference_title: &#34;Homocystinuria and ocular complications - A review.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: The timely recognition of this rare metabolic disorder and prompt methionine-restricted diet are crucial in lessening
@@ -4594,6 +4800,7 @@ phenotypes:
       label: Atypical behavior
   evidence:
   - reference: PMID:38201964
+    reference_title: &#34;Hyperhomocysteinemia in Adult Patients: A Treatable Metabolic Condition.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Hyperhomocysteinemia (HHcy) is recognized as an independent risk factor for various significant medical conditions
@@ -4607,11 +4814,13 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:38962401
+    reference_title: &#34;Estimating prevalence of classical homocystinuria in the United States using Optum&#39;s de-identified market clarity data.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: An algorithm was developed to identify 2 cohorts of patients using broad and strict definitions of HCU.
     explanation: US prevalence study confirms elevated tHcy as the primary diagnostic criterion for classical HCU.
   - reference: PMID:39567721
+    reference_title: &#34;Oxidative damage and mitochondrial dysfunction in cystathionine beta-synthase deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Cystathionine beta-synthase deficiency (CBSD) is the most prevalent inherited disorder of homocysteine metabolism
@@ -4625,6 +4834,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:37994477
+    reference_title: &#34;Inborn errors of amino acid metabolism - from underlying pathophysiology to therapeutic advances.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Genetic defects in the synthesis, catabolism or transport of amino acids underlie a diverse class of diseases
@@ -4638,6 +4848,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:39366068
+    reference_title: &#34;Mechanism of action and impact of thiol homeostasis on efficacy of an enzyme replacement therapy for classical homocystinuria.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: only a reduced homocysteine serves as a substrate for CBS and its availability restricts the homocysteine-degrading
@@ -4651,6 +4862,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:39567721
+    reference_title: &#34;Oxidative damage and mitochondrial dysfunction in cystathionine beta-synthase deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: In patient group, a positive correlation was found between the total homocysteine level and both GDF-15 and NAD+/NADH
@@ -4664,6 +4876,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:39567721
+    reference_title: &#34;Oxidative damage and mitochondrial dysfunction in cystathionine beta-synthase deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The alterations in NAD+, FGF-21, GDF-15 levels, and NAD+/NADH ratio in patients suggest that oxidative damage
@@ -4677,6 +4890,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:39567721
+    reference_title: &#34;Oxidative damage and mitochondrial dysfunction in cystathionine beta-synthase deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The alterations in NAD+, FGF-21, GDF-15 levels, and NAD+/NADH ratio in patients suggest that oxidative damage
@@ -4688,6 +4902,7 @@ genetic:
   - name: Autosomal recessive
     evidence:
     - reference: PMID:36417581
+      reference_title: &#34;Recent therapeutic approaches to cystathionine beta-synthase-deficient homocystinuria.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: Cystathionine beta-synthase (CBS)-deficient homocystinuria (HCU) is the most common inborn error of sulfur
@@ -4701,6 +4916,7 @@ genetic:
       &#39;
     evidence:
     - reference: PMID:39041895
+      reference_title: &#34;Cellular turnover and degradation of the most common missense cystathionine beta-synthase variants causing homocystinuria.&#34;
       supports: SUPPORT
       evidence_source: IN_VITRO
       snippet: Proteasomal inhibition significantly increased the half-life and activity of T191M and I278T CBS mutants.
@@ -4712,6 +4928,7 @@ genetic:
       &#39;
     evidence:
     - reference: PMID:39041895
+      reference_title: &#34;Cellular turnover and degradation of the most common missense cystathionine beta-synthase variants causing homocystinuria.&#34;
       supports: SUPPORT
       evidence_source: IN_VITRO
       snippet: Proteasomal inhibition significantly increased the half-life and activity of T191M and I278T CBS mutants.
@@ -4723,6 +4940,7 @@ genetic:
       &#39;
     evidence:
     - reference: PMID:38051092
+      reference_title: &#34;Genetic and Pharmacological Modulation of Cellular Proteostasis Leads to Partial Functional Rescue of Homocystinuria-Causing Cystathionine-Beta Synthase Variants.&#34;
       supports: SUPPORT
       evidence_source: IN_VITRO
       snippet: Co-expression of the main effector HSP70 or master regulator HSF1 rescued steady-state levels of CBS I278T
@@ -4738,12 +4956,14 @@ genetic:
     &#39;
   evidence:
   - reference: PMID:39041895
+    reference_title: &#34;Cellular turnover and degradation of the most common missense cystathionine beta-synthase variants causing homocystinuria.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: Recent work suggests that missense pathogenic mutations-regardless of their topology-cause instability of the
       C-terminal regulatory domain, which likely translates into CBS misfolding, impaired assembly, and loss of function.
     explanation: Directly supports the conformational disorder model for CBS-deficient HCU.
   - reference: PMID:36417581
+    reference_title: &#34;Recent therapeutic approaches to cystathionine beta-synthase-deficient homocystinuria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Cystathionine beta-synthase (CBS)-deficient homocystinuria (HCU) is the most common inborn error of sulfur amino
@@ -4754,6 +4974,7 @@ genetic:
   - name: Autosomal recessive
     evidence:
     - reference: PMID:38201964
+      reference_title: &#34;Hyperhomocysteinemia in Adult Patients: A Treatable Metabolic Condition.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: The diagnosis of disorders afffecting homocysteine (Hcy) metabolism faces delays due to insufficient awareness
@@ -4766,6 +4987,7 @@ genetic:
     &#39;
   evidence:
   - reference: PMID:38201964
+    reference_title: &#34;Hyperhomocysteinemia in Adult Patients: A Treatable Metabolic Condition.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The diagnosis of disorders afffecting homocysteine (Hcy) metabolism faces delays due to insufficient awareness
@@ -4785,6 +5007,7 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:36417581
+    reference_title: &#34;Recent therapeutic approaches to cystathionine beta-synthase-deficient homocystinuria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The pyridoxine non-responsive form of the disease manifests itself by massively increasing plasma and tissue
@@ -4792,6 +5015,7 @@ treatments:
     explanation: Defines pyridoxine responsiveness as a key clinical stratifier, implying pyridoxine is a primary therapeutic
       intervention.
   - reference: PMID:37994477
+    reference_title: &#34;Inborn errors of amino acid metabolism - from underlying pathophysiology to therapeutic advances.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Understanding the biochemical perturbations caused by defects in amino acid metabolism will contribute to ongoing
@@ -4811,12 +5035,14 @@ treatments:
       label: dietary intervention
   evidence:
   - reference: PMID:35791106
+    reference_title: &#34;Homocystinuria and ocular complications - A review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The timely recognition of this rare metabolic disorder and prompt methionine-restricted diet are crucial in lessening
       the systemic consequences.
     explanation: Directly supports methionine-restricted diet as crucial for reducing systemic consequences.
   - reference: PMID:36417581
+    reference_title: &#34;Recent therapeutic approaches to cystathionine beta-synthase-deficient homocystinuria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The current standard of care involves significant dietary interventions that, despite being effective, often
@@ -4835,6 +5061,7 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:38201964
+    reference_title: &#34;Hyperhomocysteinemia in Adult Patients: A Treatable Metabolic Condition.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Adequate intake of these vitamins, along with betaine supplementation, supports Hcy remethylation.
@@ -4851,6 +5078,7 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:38201964
+    reference_title: &#34;Hyperhomocysteinemia in Adult Patients: A Treatable Metabolic Condition.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: A nutritional approach to HHcy management involves implementing dietary strategies and targeted supplementation,
@@ -4869,6 +5097,7 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:39366068
+    reference_title: &#34;Mechanism of action and impact of thiol homeostasis on efficacy of an enzyme replacement therapy for classical homocystinuria.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: Enzyme replacement therapy (ERT) based on human CBS has been developed and has shown significant efficacy correcting
@@ -4887,6 +5116,7 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:36417581
+    reference_title: &#34;Recent therapeutic approaches to cystathionine beta-synthase-deficient homocystinuria.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: the major cause of clinical complications including skeletal deformities, connective tissue defects, thromboembolism
@@ -4905,6 +5135,7 @@ treatments:
       label: supportive care
   evidence:
   - reference: PMID:39567721
+    reference_title: &#34;Oxidative damage and mitochondrial dysfunction in cystathionine beta-synthase deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Assessment of oxidative damage and addition of anti-oxidant therapy together with mitochondrial support may have
@@ -4923,6 +5154,7 @@ treatments:
       label: genetic counseling
   evidence:
   - reference: PMID:37994477
+    reference_title: &#34;Inborn errors of amino acid metabolism - from underlying pathophysiology to therapeutic advances.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Genetic defects in the synthesis, catabolism or transport of amino acids underlie a diverse class of diseases

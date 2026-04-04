@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 14</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Musculoskeletal Disease</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Ophthalmological Disease</span>
@@ -1934,6 +2107,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1991,6 +2167,14 @@
             <div class="stat-item">
                 <div class="stat-value">10</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">14</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2143,7 +2327,7 @@
                 <span class="card-count">3</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-lemd3-man1-loss-of-function-and-dysregulated-tgf-beta-bmp-signaling">
                 <div class="item-name">LEMD3/MAN1 Loss-of-Function and Dysregulated TGF-beta/BMP Signaling</div>
                 
                 <div class="item-desc">Osteopoikilosis is caused by heterozygous loss-of-function mutations in LEMD3 (also called MAN1), which encodes an inner nuclear membrane protein. The C-terminal domain of LEMD3 binds receptor-activated SMADs and antagonizes both BMP and TGF-beta/activin signaling pathways. Loss of this antagonism leads to excessive SMAD-mediated signaling, perturbing bone formation and remodeling and producing focal osteosclerotic lesions.
@@ -2226,6 +2410,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2300,7 +2485,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-focal-osteosclerosis-osteopoikilosis">
                 <div class="item-name">Focal Osteosclerosis (Osteopoikilosis)</div>
                 
                 <div class="item-desc">Multiple small, discrete, symmetric periarticular osteosclerotic bone lesions (2-10mm diameter) distributed in the epiphyses and metaphyses of long bones, carpal and tarsal bones, and pelvis. These lesions represent areas of focal defective endochondral bone maturation with osteosclerotic trabeculae.
@@ -2363,6 +2548,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2417,7 +2603,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-lacrimal-canal-stenosis">
                 <div class="item-name">Lacrimal Canal Stenosis</div>
                 
                 <div class="item-desc">Stenosis of the lacrimal sac or nasolacrimal canal leads to impaired tear drainage and chronic dacryocystitis. The stenosis is hypothesized to arise from fibroproliferative connective tissue changes related to the underlying LEMD3-associated connective tissue disorder, analogous to stenosing lesions seen at other sites in the osteopoikilosis spectrum.
@@ -2461,6 +2647,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
     
@@ -2510,18 +2697,19 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Dacryocystitis-Osteopoikilosis Syndrome</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arthralgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint pain reported in 15-20% of osteopoikilosis patients, sometimes accompanied by joint swelling or effusion.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002829\"}}, {\"id\": \"Dacryocystitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic inflammation of the lacrimal sac due to nasolacrimal duct or lacrimal canal stenosis. Confirmed in the original family by lacrimal lavage and dacryocystography.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0000620\"}}, {\"id\": \"Digital Flexor Tenosynovitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Stenosing tenosynovitis (trigger finger) reported in the Gunal family as part of the fibroproliferative spectrum of osteopoikilosis.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0012276\"}}, {\"id\": \"Dupuytren Contracture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Palmar fibromatosis leading to digital flexion contracture, reported in the same family with osteopoikilosis as part of a generalized fibroproliferative tendency.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0005679\"}}, {\"id\": \"Epiphora\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Overflow of tears due to impaired drainage through the stenosed nasolacrimal duct, a direct consequence of the lacrimal canal obstruction that characterizes this syndrome.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0009926\"}}, {\"id\": \"Focal Osteosclerosis (Osteopoikilosis)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Multiple small, discrete, symmetric periarticular osteosclerotic bone lesions (2-10mm diameter) distributed in the epiphyses and metaphyses of long bones, carpal and tarsal bones, and pelvis. These lesions represent areas of focal defective endochondral bone maturation with osteosclerotic trabeculae.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"osteoblast\"], \"biological_processes\": [\"endochondral ossification\", \"BMP signaling pathway\"], \"locations\": [\"bone element\"]}}, {\"id\": \"Increased Bone Mineral Density\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Osteosclerotic lesions characteristic of osteopoikilosis, representing focal areas of increased bone density visible on plain radiographs.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0011001\"}}, {\"id\": \"Joint Swelling\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint swelling or effusion occasionally reported in osteopoikilosis patients, of unclear pathogenic significance.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001386\"}}, {\"id\": \"Keloids\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tendency toward keloid scar formation, consistent with the fibroproliferative connective tissue phenotype observed in osteopoikilosis-associated conditions.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0010562\"}}, {\"id\": \"LEMD3/MAN1 Loss-of-Function and Dysregulated TGF-beta/BMP Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Osteopoikilosis is caused by heterozygous loss-of-function mutations in LEMD3 (also called MAN1), which encodes an inner nuclear membrane protein. The C-terminal domain of LEMD3 binds receptor-activated SMADs and antagonizes both BMP and TGF-beta/activin signaling pathways. Loss of this antagonism leads to excessive SMAD-mediated signaling, perturbing bone formation and remodeling and producing focal osteosclerotic lesions.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"osteoblast\", \"fibroblast\"], \"biological_processes\": [\"negative regulation of BMP signaling pathway\", \"negative regulation of TGF-beta receptor signaling pathway\", \"endochondral ossification\"], \"genes\": [\"LEMD3\"]}}, {\"id\": \"Lacrimal Canal Stenosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Stenosis of the lacrimal sac or nasolacrimal canal leads to impaired tear drainage and chronic dacryocystitis. The stenosis is hypothesized to arise from fibroproliferative connective tissue changes related to the underlying LEMD3-associated connective tissue disorder, analogous to stenosing lesions seen at other sites in the osteopoikilosis spectrum.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"locations\": [\"lacrimal sac\", \"nasolacrimal duct\"]}}, {\"id\": \"Lacrimal Duct Stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Narrowing of the nasolacrimal duct or lacrimal canal, which is the prerequisite for the development of dacryocystitis in this syndrome.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007678\"}}, {\"id\": \"Osteopoikilosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Multiple discrete spherical osteosclerotic bone islands (2-10mm diameter) visible on radiographic examination, distributed symmetrically in periarticular locations, particularly the epiphyses and metaphyses of long bones.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0010739\"}}], \"edges\": [{\"source\": \"LEMD3/MAN1 Loss-of-Function and Dysregulated TGF-beta/BMP Signaling\", \"target\": \"Focal Osteosclerosis (Osteopoikilosis)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"LEMD3/MAN1 Loss-of-Function and Dysregulated TGF-beta/BMP Signaling\", \"target\": \"Lacrimal Canal Stenosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"LEMD3/MAN1 Loss-of-Function and Dysregulated TGF-beta/BMP Signaling\", \"target\": \"Dupuytren Contracture\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"LEMD3/MAN1 Loss-of-Function and Dysregulated TGF-beta/BMP Signaling\", \"target\": \"Keloids\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"LEMD3/MAN1 Loss-of-Function and Dysregulated TGF-beta/BMP Signaling\", \"target\": \"Digital Flexor Tenosynovitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Focal Osteosclerosis (Osteopoikilosis)\", \"target\": \"Increased Bone Mineral Density\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Focal Osteosclerosis (Osteopoikilosis)\", \"target\": \"Arthralgia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Focal Osteosclerosis (Osteopoikilosis)\", \"target\": \"Joint Swelling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dacryocystitis\", \"target\": \"Epiphora\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Osteopoikilosis\", \"target\": \"Arthralgia\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Osteopoikilosis\", \"target\": \"Joint Swelling\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Lacrimal Duct Stenosis\", \"target\": \"Dacryocystitis\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Lacrimal Duct Stenosis\", \"target\": \"Epiphora\", \"predicate\": \"leads_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arthralgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint pain reported in 15-20% of osteopoikilosis patients, sometimes accompanied by joint swelling or effusion.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002829\"}}, {\"id\": \"Dacryocystitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic inflammation of the lacrimal sac due to nasolacrimal duct or lacrimal canal stenosis. Confirmed in the original family by lacrimal lavage and dacryocystography.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0000620\"}}, {\"id\": \"Digital Flexor Tenosynovitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Stenosing tenosynovitis (trigger finger) reported in the Gunal family as part of the fibroproliferative spectrum of osteopoikilosis.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0012276\"}}, {\"id\": \"Dupuytren Contracture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Palmar fibromatosis leading to digital flexion contracture, reported in the same family with osteopoikilosis as part of a generalized fibroproliferative tendency.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0005679\"}}, {\"id\": \"Epiphora\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Overflow of tears due to impaired drainage through the stenosed nasolacrimal duct, a direct consequence of the lacrimal canal obstruction that characterizes this syndrome.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0009926\"}}, {\"id\": \"Focal Osteosclerosis (Osteopoikilosis)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Multiple small, discrete, symmetric periarticular osteosclerotic bone lesions (2-10mm diameter) distributed in the epiphyses and metaphyses of long bones, carpal and tarsal bones, and pelvis. These lesions represent areas of focal defective endochondral bone maturation with osteosclerotic trabeculae.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"osteoblast\"], \"biological_processes\": [\"endochondral ossification\", \"BMP signaling pathway\"], \"locations\": [\"bone element\"]}}, {\"id\": \"Increased Bone Mineral Density\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Osteosclerotic lesions characteristic of osteopoikilosis, representing focal areas of increased bone density visible on plain radiographs.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0011001\"}}, {\"id\": \"Joint Swelling\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint swelling or effusion occasionally reported in osteopoikilosis patients, of unclear pathogenic significance.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001386\"}}, {\"id\": \"Keloids\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tendency toward keloid scar formation, consistent with the fibroproliferative connective tissue phenotype observed in osteopoikilosis-associated conditions.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0010562\"}}, {\"id\": \"LEMD3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"association\": \"Causative\"}}, {\"id\": \"LEMD3/MAN1 Loss-of-Function and Dysregulated TGF-beta/BMP Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Osteopoikilosis is caused by heterozygous loss-of-function mutations in LEMD3 (also called MAN1), which encodes an inner nuclear membrane protein. The C-terminal domain of LEMD3 binds receptor-activated SMADs and antagonizes both BMP and TGF-beta/activin signaling pathways. Loss of this antagonism leads to excessive SMAD-mediated signaling, perturbing bone formation and remodeling and producing focal osteosclerotic lesions.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"osteoblast\", \"fibroblast\"], \"biological_processes\": [\"negative regulation of BMP signaling pathway\", \"negative regulation of TGF-beta receptor signaling pathway\", \"endochondral ossification\"], \"genes\": [\"LEMD3\"]}}, {\"id\": \"Lacrimal Canal Stenosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Stenosis of the lacrimal sac or nasolacrimal canal leads to impaired tear drainage and chronic dacryocystitis. The stenosis is hypothesized to arise from fibroproliferative connective tissue changes related to the underlying LEMD3-associated connective tissue disorder, analogous to stenosing lesions seen at other sites in the osteopoikilosis spectrum.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"locations\": [\"lacrimal sac\", \"nasolacrimal duct\"]}}, {\"id\": \"Lacrimal Duct Stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Narrowing of the nasolacrimal duct or lacrimal canal, which is the prerequisite for the development of dacryocystitis in this syndrome.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007678\"}}, {\"id\": \"Osteopoikilosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Multiple discrete spherical osteosclerotic bone islands (2-10mm diameter) visible on radiographic examination, distributed symmetrically in periarticular locations, particularly the epiphyses and metaphyses of long bones.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0010739\"}}], \"edges\": [{\"source\": \"LEMD3/MAN1 Loss-of-Function and Dysregulated TGF-beta/BMP Signaling\", \"target\": \"Focal Osteosclerosis (Osteopoikilosis)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"LEMD3/MAN1 Loss-of-Function and Dysregulated TGF-beta/BMP Signaling\", \"target\": \"Lacrimal Canal Stenosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"LEMD3/MAN1 Loss-of-Function and Dysregulated TGF-beta/BMP Signaling\", \"target\": \"Dupuytren Contracture\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"LEMD3/MAN1 Loss-of-Function and Dysregulated TGF-beta/BMP Signaling\", \"target\": \"Keloids\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"LEMD3/MAN1 Loss-of-Function and Dysregulated TGF-beta/BMP Signaling\", \"target\": \"Digital Flexor Tenosynovitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Focal Osteosclerosis (Osteopoikilosis)\", \"target\": \"Increased Bone Mineral Density\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Focal Osteosclerosis (Osteopoikilosis)\", \"target\": \"Arthralgia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Focal Osteosclerosis (Osteopoikilosis)\", \"target\": \"Joint Swelling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dacryocystitis\", \"target\": \"Epiphora\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Osteopoikilosis\", \"target\": \"Arthralgia\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Osteopoikilosis\", \"target\": \"Joint Swelling\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Lacrimal Duct Stenosis\", \"target\": \"Dacryocystitis\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Lacrimal Duct Stenosis\", \"target\": \"Epiphora\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"LEMD3\", \"target\": \"LEMD3/MAN1 Loss-of-Function and Dysregulated TGF-beta/BMP Signaling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3389,6 +3577,7 @@ inheritance:
         label: Autosomal dominant inheritance
     evidence:
       - reference: PMID:8261652
+        reference_title: &#34;Dacryocystitis associated with osteopoikilosis.&#34;
         supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &#34;We report five members of a family with dacryocystitis associated with osteopoikilosis. The inheritance is autosomal dominant.&#34;
@@ -3466,16 +3655,19 @@ pathophysiology:
           thickening of tendon sheaths driven by dysregulated TGF-beta signaling.
     evidence:
       - reference: PMID:15489854
+        reference_title: &#34;Loss-of-function mutations in LEMD3 result in osteopoikilosis, Buschke-Ollendorff syndrome and melorheostosis.&#34;
         supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &#34;All the affected individuals that we investigated were heterozygous with respect to a loss-of-function mutation in LEMD3 (also called MAN1), which encodes an inner nuclear membrane protein.&#34;
         explanation: Landmark genetic study identifying LEMD3 loss-of-function mutations as the cause of osteopoikilosis.
       - reference: PMID:15489854
+        reference_title: &#34;Loss-of-function mutations in LEMD3 result in osteopoikilosis, Buschke-Ollendorff syndrome and melorheostosis.&#34;
         supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &#34;LEMD3 interacted with BMP and activin-TGFbeta receptor-activated Smads and antagonized both signaling pathways in human cells.&#34;
         explanation: Demonstrates that LEMD3 normally antagonizes BMP and TGF-beta signaling through SMAD interaction.
       - reference: PMID:17087626
+        reference_title: &#34;Deactivating germline mutations in LEMD3 cause osteopoikilosis and Buschke-Ollendorff syndrome, but not sporadic melorheostosis.&#34;
         supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &#34;In 2004, others discovered that heterozygous, loss-of-function, germline mutations in the LEMD3 gene (LEMD3 or MAN1) cause both osteopoikilosis (OPK) and Buschke-Ollendorff syndrome (BOS).&#34;
@@ -3519,11 +3711,13 @@ pathophysiology:
           Joint effusion occasionally accompanies osteopoikilosis lesions.
     evidence:
       - reference: PMID:17087626
+        reference_title: &#34;Deactivating germline mutations in LEMD3 cause osteopoikilosis and Buschke-Ollendorff syndrome, but not sporadic melorheostosis.&#34;
         supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &#34;OPK is an autosomal dominant, usually benign, skeletal dysplasia featuring multiple, small, especially metaphyseal, oval or round, dense trabecular foci distributed symmetrically throughout the skeleton.&#34;
         explanation: Describes the characteristic radiographic features of osteopoikilosis lesions.
       - reference: PMID:25352085
+        reference_title: &#34;Osteopoikilosis: report of a familial case and review of the literature.&#34;
         supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &#34;Osteopoikilosis (OPK) is a benign, rare, asymptomatic osteosclerotic bone dysplasia which is inherited as an autosomal dominant trait.&#34;
@@ -3551,6 +3745,7 @@ pathophysiology:
           label: fibroblast
     evidence:
       - reference: PMID:8261652
+        reference_title: &#34;Dacryocystitis associated with osteopoikilosis.&#34;
         supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &#34;We report five members of a family with dacryocystitis associated with osteopoikilosis. The inheritance is autosomal dominant.&#34;
@@ -3573,6 +3768,7 @@ phenotypes:
         label: Dacryocystitis
     evidence:
       - reference: PMID:8261652
+        reference_title: &#34;Dacryocystitis associated with osteopoikilosis.&#34;
         supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &#34;We report five members of a family with dacryocystitis associated with osteopoikilosis. The inheritance is autosomal dominant.&#34;
@@ -3595,11 +3791,13 @@ phenotypes:
         label: Osteopoikilosis
     evidence:
       - reference: PMID:8261652
+        reference_title: &#34;Dacryocystitis associated with osteopoikilosis.&#34;
         supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &#34;We report five members of a family with dacryocystitis associated with osteopoikilosis. The inheritance is autosomal dominant.&#34;
         explanation: All five affected members in the original pedigree had osteopoikilosis demonstrated radiologically.
       - reference: PMID:17087626
+        reference_title: &#34;Deactivating germline mutations in LEMD3 cause osteopoikilosis and Buschke-Ollendorff syndrome, but not sporadic melorheostosis.&#34;
         supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &#34;OPK is an autosomal dominant, usually benign, skeletal dysplasia featuring multiple, small, especially metaphyseal, oval or round, dense trabecular foci distributed symmetrically throughout the skeleton.&#34;
@@ -3623,6 +3821,7 @@ phenotypes:
         label: Lacrimal duct stenosis
     evidence:
       - reference: PMID:8261652
+        reference_title: &#34;Dacryocystitis associated with osteopoikilosis.&#34;
         supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &#34;We report five members of a family with dacryocystitis associated with osteopoikilosis. The inheritance is autosomal dominant.&#34;
@@ -3641,6 +3840,7 @@ phenotypes:
         label: Increased bone mineral density
     evidence:
       - reference: PMID:25352085
+        reference_title: &#34;Osteopoikilosis: report of a familial case and review of the literature.&#34;
         supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &#34;Osteopoikilosis (OPK) is a benign, rare, asymptomatic osteosclerotic bone dysplasia which is inherited as an autosomal dominant trait.&#34;
@@ -3660,6 +3860,7 @@ phenotypes:
         label: Epiphora
     evidence:
       - reference: PMID:34986808
+        reference_title: &#34;Acquired nasolacrimal duct obstruction: clinical and histological findings of 275 cases.&#34;
         supports: PARTIAL
         evidence_source: HUMAN_CLINICAL
         snippet: &#34;Epiphora with continuous purulent discharge was the most common clinical sign reported by 144 (52.4%) patients&#34;
@@ -3679,6 +3880,7 @@ phenotypes:
         label: Dupuytren contracture
     evidence:
       - reference: PMID:14521305
+        reference_title: &#34;Disorders associated with osteopoikilosis: 5 different lesions in a family.&#34;
         supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &#34;We report a family in whom various members had osteopoikilosis with 5 different associated lesions. We suggest that osteopoikilosis is a bone manifestation of a generalized fibroproliferative or stenosing disease.&#34;
@@ -3698,6 +3900,7 @@ phenotypes:
         label: Keloids
     evidence:
       - reference: PMID:14521305
+        reference_title: &#34;Disorders associated with osteopoikilosis: 5 different lesions in a family.&#34;
         supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &#34;We report a family in whom various members had osteopoikilosis with 5 different associated lesions. We suggest that osteopoikilosis is a bone manifestation of a generalized fibroproliferative or stenosing disease.&#34;
@@ -3716,6 +3919,7 @@ phenotypes:
         label: Arthralgia
     evidence:
       - reference: PMID:25352085
+        reference_title: &#34;Osteopoikilosis: report of a familial case and review of the literature.&#34;
         supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &#34;Although it is usually asymptomatic, effusion and joint pain can be found in 15-20 % of patients.&#34;
@@ -3734,6 +3938,7 @@ phenotypes:
         label: Joint swelling
     evidence:
       - reference: PMID:25352085
+        reference_title: &#34;Osteopoikilosis: report of a familial case and review of the literature.&#34;
         supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &#34;Although it is usually asymptomatic, effusion and joint pain can be found in 15-20 % of patients.&#34;
@@ -3752,6 +3957,7 @@ phenotypes:
         label: Digital flexor tenosynovitis
     evidence:
       - reference: PMID:14521305
+        reference_title: &#34;Disorders associated with osteopoikilosis: 5 different lesions in a family.&#34;
         supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &#34;We report a family in whom various members had osteopoikilosis with 5 different associated lesions. We suggest that osteopoikilosis is a bone manifestation of a generalized fibroproliferative or stenosing disease.&#34;
@@ -3767,11 +3973,13 @@ genetic:
       Buschke-Ollendorff syndrome.
     evidence:
       - reference: PMID:15489854
+        reference_title: &#34;Loss-of-function mutations in LEMD3 result in osteopoikilosis, Buschke-Ollendorff syndrome and melorheostosis.&#34;
         supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &#34;All the affected individuals that we investigated were heterozygous with respect to a loss-of-function mutation in LEMD3 (also called MAN1), which encodes an inner nuclear membrane protein.&#34;
         explanation: Identifies LEMD3 as the causative gene for osteopoikilosis.
       - reference: PMID:17087626
+        reference_title: &#34;Deactivating germline mutations in LEMD3 cause osteopoikilosis and Buschke-Ollendorff syndrome, but not sporadic melorheostosis.&#34;
         supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &#34;We confirm that OPK and BOS individuals, including those with MEL-like lesions, have heterozygous, deactivating, germline LEMD3 mutations.&#34;

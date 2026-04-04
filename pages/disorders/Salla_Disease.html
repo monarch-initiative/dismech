@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 2</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Free Sialic Acid Storage Disease</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Lysosomal Storage Disease</span>
@@ -1932,6 +2105,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1989,6 +2165,14 @@
             <div class="stat-item">
                 <div class="stat-value">13</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">2</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2231,10 +2415,11 @@
                 <span class="card-count">6</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-slc17a5-gene-mutation">
                 <div class="item-name">SLC17A5 Gene Mutation</div>
                 
                 <div class="item-desc">Biallelic pathogenic variants in SLC17A5 disrupt the coding or regulatory regions necessary for sialin protein function. The c.115C&gt;T (p.Arg39Cys) Finnish founder mutation is the most common variant in Salla disease.</div>
+                
                 
                 
                 
@@ -2278,7 +2463,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-sialin-protein-function">
                 <div class="item-name">Loss of Sialin Protein Function</div>
                 
                 <div class="item-desc">SLC17A5 mutations result in loss or substantial reduction of sialin protein expression or function. Sialin is a 12-transmembrane transporter required for proton-coupled export of free sialic acid (Neu5Ac) from lysosomes to cytosol. Mutations can occur as de novo, inherited biallelic variants, or in mosaic patterns affecting specific tissues.</div>
@@ -2304,6 +2489,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2363,10 +2549,11 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-lysosomal-free-sialic-acid-accumulation">
                 <div class="item-name">Lysosomal Free Sialic Acid Accumulation</div>
                 
                 <div class="item-desc">Loss of sialin function impairs export of free N-acetylneuraminic acid (Neu5Ac) from lysosomes. Neu5Ac accumulates in lysosomes, leading to lysosomal enlargement, dysfunction, and cellular stress. This is the hallmark biochemical feature of FSASD including Salla disease. Cellular imaging shows prominent cytoplasmic vacuolation in fibroblasts from affected individuals.</div>
+                
                 
                 
                 
@@ -2430,7 +2617,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-glycosphingolipid-metabolic-dysregulation">
                 <div class="item-name">Glycosphingolipid Metabolic Dysregulation</div>
                 
                 <div class="item-desc">Impaired sialic acid export triggers secondary alterations in glycosphingolipid (GSL) metabolism in neural cells. Elevated lysosomal glycohydrolase activities and altered GSL composition observed in patient-derived iPSC neural models and in CSF and plasma of patients. Mature astrocytes show the most pronounced alterations.</div>
@@ -2501,6 +2688,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2535,7 +2723,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-oligodendroglial-dysfunction-and-hypomyelination">
                 <div class="item-name">Oligodendroglial Dysfunction and Hypomyelination</div>
                 
                 <div class="item-desc">Oligodendrocytes vulnerable to sialic acid accumulation and GSL dysregulation. This leads to impaired myelin formation and white matter hypomyelination, reflected in corpus callosum hypoplasia and white matter abnormalities on MRI.</div>
@@ -2586,6 +2774,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2620,7 +2809,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuronal-dysfunction-and-neurodegeneration">
                 <div class="item-name">Neuronal Dysfunction and Neurodegeneration</div>
                 
                 <div class="item-desc">Neurons accumulate free sialic acid and display altered GSL composition. Biochemical changes contribute to progressive neurodegeneration, manifesting as developmental delay, cognitive impairment, and progressive neurological regression.</div>
@@ -2656,6 +2845,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2702,6 +2892,29 @@
         
 
         <!-- Causal Graph (Pathograph) -->
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
+                <h2 class="card-title">Pathograph</h2>
+            </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
+            
+            <div class="pathograph-container" id="pathograph">
+                <div class="pathograph-legend" id="pathograph-legend"></div>
+                <svg id="pathograph-svg" role="img">
+                    <title>Pathograph: causal mechanism network for Salla Disease</title>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
+                </svg>
+                <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
+            </div>
+            <script>
+            (function() {
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"SLC17A5\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SLC17A5\"], \"association\": \"Causative\"}}, {\"id\": \"SLC17A5 Gene Mutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in SLC17A5 disrupt the coding or regulatory regions necessary for sialin protein function. The c.115C\u003eT (p.Arg39Cys) Finnish founder mutation is the most common variant in Salla disease.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"SLC17A5\"]}}], \"edges\": [{\"source\": \"SLC17A5\", \"target\": \"SLC17A5 Gene Mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                renderPathograph("pathograph", graphData);
+            })();
+            </script>
+        </div>
         
 
         <!-- Phenotypes -->
@@ -3962,7 +4175,7 @@
     
                 
                 <div style="margin-top: 8px; font-size: 0.85rem;">
-                    <a href="#" target="_blank" style="color: var(--secondary);">40804080</a>
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/40804080" target="_blank" style="color: var(--secondary);">PMID:40804080</a>
                 </div>
                 
                 
@@ -4072,11 +4285,13 @@ has_subtypes:
   description: Intermediate severity variant with onset in infancy, developmental plateau in childhood, followed by progressive neurological regression in adolescence. More severe than classic Salla disease with progressive neurological regression in adolescence. Typically carries different SLC17A5 variants (e.g., splice site mutations). Lifespan extends into adolescence/adulthood but with continued neurological decline.
   evidence:
   - reference: PMID:37713976
+    reference_title: &#34;Longitudinal Characterization of the Clinical Course of Intermediate-Severe Salla Disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Disease onset occurred within the first six months of life in both patients. Early childhood development was delayed with achievement of some milestones followed by a developmental plateau in late childhood. After this, both patients began a slow and progressive neurological regression in adolescence.&#34;
     explanation: Longitudinal study characterizes clinical course of intermediate-severe Salla disease as distinct from classic form with progressive regression.
   - reference: PMID:28662915
+    reference_title: &#34;A New Patient With Intermediate Severe Salla Disease With Hypomyelination: A Literature Review for Salla Disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Likely pathogenic variants in SLC17A5 results in allelic disorders of free sialic acid metabolism including (1) infantile free sialic acid storage disease with severe global developmental delay, coarse facial features, hepatosplenomegaly, and cardiomegaly; (2) intermediate severe Salla disease with moderate to severe global developmental delay, hypotonia, and hypomyelination with or without coarse facial features, and (3) Salla disease with normal appearance, mild cognitive dysfunction, and spasticity.&#34;
@@ -4093,11 +4308,13 @@ prevalence:
     Diagnostic delay is a significant clinical challenge: median age at disease onset is 0.17 years (approximately 2 months), but median age at diagnosis is 3 years, resulting in a median diagnostic delay of 2.5 years. Median survival across all FSASD phenotypes is 11 years, though this varies substantially based on biochemical severity and clinical phenotype. Patient distribution is panethnic.
   evidence:
   - reference: PMID:33862140
+    reference_title: &#34;Free sialic acid storage disorder: Progress and promise.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Around 200 FSASD cases are reported worldwide, with the clinical spectrum ranging from a severe infantile onset form, often lethal in early childhood, to a mild, less severe form with subjects living into adulthood, also called Salla disease.&#34;
     explanation: Comprehensive NIH-led consortium review of FSASD epidemiology documents global case numbers and the clinical spectrum with Salla disease as the milder end of the spectrum.
   - reference: PMID:29875421
+    reference_title: &#34;A cross-sectional quantitative analysis of the natural history of free sialic acid storage disease-an ultra-orphan multisystemic lysosomal storage disorder.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Median age at disease onset was 0.17 years. Median age at diagnosis was 3 years with a median diagnostic delay of 2.5 years. Median survival was 11 years.&#34;
@@ -4112,6 +4329,7 @@ prevalence:
     reflecting the high founder mutation carrier frequency in these populations.
   evidence:
   - reference: PMID:33862140
+    reference_title: &#34;Free sialic acid storage disorder: Progress and promise.&#34;
     supports: NO_EVIDENCE
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Around 200 FSASD cases are reported worldwide, with the clinical spectrum ranging from a severe infantile onset form, often lethal in early childhood, to a mild, less severe form with subjects living into adulthood, also called Salla disease. The pathobiology of FSASD remains poorly understood and FSASD is likely underdiagnosed.&#34;
@@ -4121,6 +4339,7 @@ inheritance:
   description: Salla disease is inherited in an autosomal recessive manner, requiring biallelic pathogenic variants in SLC17A5. The c.115C&gt;T (p.Arg39Cys) Finnish founder mutation is the most common variant.
   evidence:
   - reference: PMID:37727271
+    reference_title: &#34;Base editing corrects the common Salla disease SLC17A5 c.115C&gt;T variant.&#34;
     supports: PARTIAL
     evidence_source: IN_VITRO
     snippet: &#34;Free sialic acid storage disorders (FSASDs) result from pathogenic variations in the SLC17A5 gene, which encodes the lysosomal transmembrane protein sialin.&#34;
@@ -4135,6 +4354,7 @@ pathophysiology:
       label: SLC17A5
   evidence:
   - reference: PMID:37727271
+    reference_title: &#34;Base editing corrects the common Salla disease SLC17A5 c.115C&gt;T variant.&#34;
     supports: PARTIAL
     evidence_source: IN_VITRO
     snippet: &#34;Here, we evaluated the efficacy of CRISPR-Cas9-mediated homology directed repair (HDR) and adenine base editing (ABE) targeting the founder variant, SLC17A5 c.115C&gt;T (p.Arg39Cys)&#34;
@@ -4154,6 +4374,7 @@ pathophysiology:
     snippet: &#34;Our analysis reveals two unique features in Sialin: (i) The H+ coupling/sensing requires two highly conserved Glu residues (E171 and E175) instead of one&#34;
     explanation: 2023 Science Advances cryo-EM structure and functional assays demonstrate molecular mechanism of sialin transport and mutation effects.
   - reference: PMID:39742826
+    reference_title: &#34;Atypical free sialic acid storage disorder associated with tissue specific mosaicism of SLC17A5.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;Functional studies, including SLC17A5 knockout cells and transient transfections of mutated SLC17A5 demonstrated pathogenicity of the identified variants.&#34;
@@ -4162,11 +4383,13 @@ pathophysiology:
   description: Loss of sialin function impairs export of free N-acetylneuraminic acid (Neu5Ac) from lysosomes. Neu5Ac accumulates in lysosomes, leading to lysosomal enlargement, dysfunction, and cellular stress. This is the hallmark biochemical feature of FSASD including Salla disease. Cellular imaging shows prominent cytoplasmic vacuolation in fibroblasts from affected individuals.
   evidence:
   - reference: PMID:40529477
+    reference_title: &#34;Investigating the Utility of Leukocyte Sialic Acid Measurements in Lysosomal Free Sialic Acid Storage Disorder.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Individuals with FSASD exhibited significantly higher levels of free Neu5Ac compared to their unaffected biological parents (36-fold), LSD-negative subjects (22-fold), and individuals with other LSDs (49-fold).&#34;
     explanation: Diagnostic study demonstrates profound accumulation of free sialic acid in FSASD patients, confirming primary biochemical defect.
   - reference: PMID:39257666
+    reference_title: &#34;Soft X-ray spectromicroscopy of human fibroblasts with impaired sialin function.&#34;
     supports: PARTIAL
     evidence_source: IN_VITRO
     snippet: &#34;Both cell lines were also cultured with N-acetyl-d-mannosamine monohydrate (ManNAc) to see if it increased SA concentration in the cells. The STXM technique was chosen to simultaneously observe the morphological and chemical changes in cells. It was observed that free SA did not remain in the lysosomes during the sample processing, leaving empty vacuoles to the fibroblasts.&#34;
@@ -4197,6 +4420,7 @@ pathophysiology:
       label: myelination
   evidence:
   - reference: PMID:39991440
+    reference_title: &#34;Changes in glycosphingolipid levels in plasma and cerebrospinal fluid of individuals with Lysosomal Free Sialic Acid Storage Disorder.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In CSF, total GSLs, GM1a, GM3, GD3, GD1a, and GD1b were significantly elevated compared to comparison samples. These results reveal dysregulated GSL metabolism and suggest the potential of gangliosides as biomarkers.&#34;
@@ -4237,6 +4461,7 @@ pathophysiology:
       label: glycosphingolipid metabolic process
   evidence:
   - reference: PMID:37713976
+    reference_title: &#34;Longitudinal Characterization of the Clinical Course of Intermediate-Severe Salla Disease.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Disease onset occurred within the first six months of life in both patients. Early childhood development was delayed with achievement of some milestones followed by a developmental plateau in late childhood. After this, both patients began a slow and progressive neurological regression in adolescence.&#34;
@@ -4251,6 +4476,7 @@ phenotypes:
       label: Intellectual disability
   evidence:
   - reference: PMID:37713976
+    reference_title: &#34;Longitudinal Characterization of the Clinical Course of Intermediate-Severe Salla Disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Early childhood development was delayed with achievement of some milestones followed by a developmental plateau in late childhood.&#34;
@@ -4264,6 +4490,7 @@ phenotypes:
       label: Global developmental delay
   evidence:
   - reference: PMID:37713976
+    reference_title: &#34;Longitudinal Characterization of the Clinical Course of Intermediate-Severe Salla Disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Disease onset occurred within the first six months of life in both patients. Early childhood development was delayed&#34;
@@ -4277,6 +4504,7 @@ phenotypes:
       label: Nonimmune hydrops fetalis
   evidence:
   - reference: PMID:34667062
+    reference_title: &#34;Prenatal hydrops fetalis associated with infantile free sialic acid storage disease due to a novel homozygous deletion in the SLC17A5 gene.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Nonimmune hydrops fetalis, the excessive accumulation of serous fluid in the subcutaneous tissues and serous cavities of the fetus, has many possible etiologies, providing a diagnostic challenge for the physician. Lysosomal storage diseases have been reported in up to 5%-16% of nonimmune hydrops fetalis pregnancies. Infantile free sialic acid storage disease (ISSD) (OMIM #269920) is a severe form of autosomal recessive sialic acid storage disease.&#34;
@@ -4290,6 +4518,7 @@ phenotypes:
       label: Hypotonia
   evidence:
   - reference: PMID:37713976
+    reference_title: &#34;Longitudinal Characterization of the Clinical Course of Intermediate-Severe Salla Disease.&#34;
     supports: NO_EVIDENCE
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Disease onset occurred within the first six months of life&#34;
@@ -4375,6 +4604,7 @@ phenotypes:
       label: Psychosis
   evidence:
   - reference: PMID:35796883
+    reference_title: &#34;Psychiatric symptoms in Salla disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Psychiatric symptoms were frequently associated with SD (10/24, 42%), and two patients were described as developing psychosis as adolescents.&#34;
@@ -4388,6 +4618,7 @@ phenotypes:
       label: Sleep disturbance
   evidence:
   - reference: PMID:35796883
+    reference_title: &#34;Psychiatric symptoms in Salla disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Other psychiatric factors associated with SD were sleeping disorders (8/24, 32%)&#34;
@@ -4401,6 +4632,7 @@ phenotypes:
       label: Aggressive behavior
   evidence:
   - reference: PMID:35796883
+    reference_title: &#34;Psychiatric symptoms in Salla disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;aggressive behaviour disorders or restlessness (6/24, 25%)&#34;
@@ -4415,11 +4647,13 @@ genetic:
   association: Causative
   evidence:
   - reference: PMID:37727271
+    reference_title: &#34;Base editing corrects the common Salla disease SLC17A5 c.115C&gt;T variant.&#34;
     supports: PARTIAL
     evidence_source: IN_VITRO
     snippet: &#34;Free sialic acid storage disorders (FSASDs) result from pathogenic variations in the SLC17A5 gene, which encodes the lysosomal transmembrane protein sialin.&#34;
     explanation: Studies of patient-derived cells demonstrate SLC17A5 biallelic mutations as causative for FSASD including Salla disease.
   - reference: PMID:34667062
+    reference_title: &#34;Prenatal hydrops fetalis associated with infantile free sialic acid storage disease due to a novel homozygous deletion in the SLC17A5 gene.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;SLC17A5 gene sequencing was initiated with no sequence variants identified; however, the assay failed to amplify exons 8 and 9, prompting an exon-level copy-number analysis that revealed a novel homozygous deletion of exons 8 and 9, inherited from heterozygous carrier parents.&#34;
@@ -4434,16 +4668,19 @@ biochemical:
       label: N-acetylneuraminic acid
   evidence:
   - reference: PMID:40529477
+    reference_title: &#34;Investigating the Utility of Leukocyte Sialic Acid Measurements in Lysosomal Free Sialic Acid Storage Disorder.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Individuals with FSASD exhibited significantly higher levels of free Neu5Ac compared to their unaffected biological parents (36-fold)&#34;
     explanation: Free sialic acid accumulation is the pathognomonic biochemical feature and a diagnostic biomarker in FSASD.
   - reference: PMID:24993898
+    reference_title: &#34;The early detection of Salla disease through second-tier tests in newborn screening: how to face incidental findings.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We describe here a 34 months child, practically asymptomatic which presented with high levels of free sialic acid in urine by biochemical detection in second-tier tests newborn screening&#34;
     explanation: Newborn screening case report demonstrates early detection of elevated urinary free sialic acid as a diagnostic marker, enabling early identification of asymptomatic FSASD before clinical manifestations.
   - reference: PMID:29875421
+    reference_title: &#34;A cross-sectional quantitative analysis of the natural history of free sialic acid storage disease-an ultra-orphan multisystemic lysosomal storage disorder.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The biochemical phenotype clearly predicted the disease course: patients with a urinary free sialic acid excretion below 6.37-fold or an intracellular free sialic acid storage in fibroblasts below 7.37-fold of the mean of normal survived longer than patients with biochemical values above these thresholds.&#34;
@@ -4469,6 +4706,7 @@ treatments:
   description: Management of symptoms and prevention of complications through multidisciplinary approach including physical therapy, occupational therapy, speech therapy, and educational support. Treatment is primarily symptomatic as no causal therapies are currently available.
   evidence:
   - reference: PMID:37727271
+    reference_title: &#34;Base editing corrects the common Salla disease SLC17A5 c.115C&gt;T variant.&#34;
     supports: PARTIAL
     evidence_source: IN_VITRO
     snippet: &#34;There are currently no therapies for FSASDs.&#34;
@@ -4477,6 +4715,7 @@ treatments:
   description: Emerging therapeutic approach using CRISPR-mediated adenine base editing to correct the common SLC17A5 c.115C&gt;T (p.Arg39Cys) founder variant. In vitro and animal models show significant reduction in free sialic acid levels.
   evidence:
   - reference: PMID:37727271
+    reference_title: &#34;Base editing corrects the common Salla disease SLC17A5 c.115C&gt;T variant.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;ABE treatment of either homozygous or compound heterozygous SLC17A5 c.115C&gt;T human dermal fibroblasts demonstrated significant FSA reduction, supporting amelioration of disease pathology.&#34;
@@ -4492,6 +4731,7 @@ differential_diagnoses:
   notes: Infantile FSASD presents earlier than classic Salla disease (typically first weeks vs first year) with more severe phenotype and faster disease progression. Caused by biallelic SLC17A5 mutations but typically with more deleterious variants. Related to Salla disease within the free sialic acid storage disease spectrum but represents the severe end of the clinical continuum.
   evidence:
   - reference: PMID:37713976
+    reference_title: &#34;Longitudinal Characterization of the Clinical Course of Intermediate-Severe Salla Disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Biallelic pathogenic variants in SLC17A5 cause three forms of free sialic acid storage disease categorized based on severity from least to most severe: Salla disease, intermediate-severe Salla disease, and infantile free sialic acid storage disease.&#34;
@@ -4506,6 +4746,7 @@ differential_diagnoses:
   notes: Can mimic Salla disease clinically but caused by mutations in NPC1/NPC2 genes (not SLC17A5). Characterized by cholesterol accumulation in lysosomes rather than sialic acid. Biochemical testing shows elevated cholesterol instead of elevated free sialic acid. Different enzyme panel on lysosomal storage disease screening.
   evidence:
   - reference: PMID:40529477
+    reference_title: &#34;Investigating the Utility of Leukocyte Sialic Acid Measurements in Lysosomal Free Sialic Acid Storage Disorder.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Individuals with FSASD exhibited significantly higher levels of free Neu5Ac compared to their unaffected biological parents (36-fold), LSD-negative subjects (22-fold), and individuals with other LSDs (49-fold)&#34;
@@ -4544,7 +4785,7 @@ datasets:
       id: hgnc:10933
       label: SLC17A5
   platform: RNA sequencing (Illumina)
-  publication: &#34;40804080&#34;
+  publication: PMID:40804080
   findings:
   - statement: Dysregulated glycosphingolipid metabolism in FSASD patient-derived neural cells with elevated glycohydrolase activities
     supporting_text: Mature astrocytes derived from FSASD patients show pronounced alterations in GSL catabolism genes and significantly elevated lysosomal glycohydrolase enzyme activities

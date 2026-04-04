@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,7 @@
                 </span>
                 
                 
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Ciliopathies</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Short-Rib Dysplasias</span>
@@ -1937,6 +2108,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1996,6 +2170,12 @@
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
+            
+            
+            <div class="stat-item">
+                <div class="stat-value">0</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
             
             
             <a class="stat-link" href="#genetic">
@@ -2129,7 +2309,7 @@
                 <span class="card-count">2</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-intraflagellar-transport-and-ciliogenesis-defects">
                 <div class="item-name">Intraflagellar Transport and Ciliogenesis Defects</div>
                 
                 <div class="item-desc">SRPS are caused by mutations in genes encoding components of the intraflagellar transport (IFT) machinery, dynein motor complexes, and basal body proteins. These mutations disrupt primary cilium assembly and maintenance, producing structurally abnormal cilia (shortened, bulbous tips) or reduced cilia number.
@@ -2175,6 +2355,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
                 
@@ -2248,7 +2429,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-hedgehog-signaling-disruption-in-skeletal-development">
                 <div class="item-name">Hedgehog Signaling Disruption in Skeletal Development</div>
                 
                 <div class="item-desc">Primary cilia are essential for transduction of Hedgehog signaling, which is critical for endochondral ossification and limb patterning. Ciliary dysfunction from IFT/dynein defects disrupts Hedgehog-dependent chondrocyte proliferation and differentiation, leading to severe skeletal shortening and polydactyly. The skeletal and organ phenotypes in SRPS are more severe than in Jeune syndrome, reflecting a greater degree of ciliary dysfunction.
@@ -2285,6 +2466,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3132,6 +3314,7 @@ inheritance:
     in multiple ciliary transport genes.
   evidence:
   - reference: PMID:24183449
+    reference_title: &#34;WDR34 mutations that cause short-rib polydactyly syndrome type III/severe asphyxiating thoracic dysplasia reveal a role for the NF-κB pathway in cilia.&#34;
     supports: PARTIAL
     snippet: &gt;-
       Short-rib polydactyly (SRP) syndrome type III, or Verma-Naumoff syndrome, is an
@@ -3181,6 +3364,7 @@ pathophysiology:
       label: cilium
   evidence:
   - reference: PMID:22791528
+    reference_title: &#34;Ciliary disorder of the skeleton.&#34;
     supports: SUPPORT
     snippet: &gt;-
       10 different genes have been identified as responsible for seven &#34;skeletal&#34;
@@ -3190,18 +3374,21 @@ pathophysiology:
       EVC2)
     explanation: &#34;Comprehensive overview showing mutations across dynein, IFT, and basal body genes.&#34;
   - reference: PMID:21211617
+    reference_title: &#34;NEK1 mutations cause short-rib polydactyly syndrome type majewski.&#34;
     supports: SUPPORT
     snippet: &gt;-
       absence of functional full-length NEK1 severely reduces cilia number and
       alters ciliar morphology in vivo
     explanation: &#34;Demonstrates that NEK1 loss-of-function directly impairs ciliogenesis.&#34;
   - reference: PMID:24183449
+    reference_title: &#34;WDR34 mutations that cause short-rib polydactyly syndrome type III/severe asphyxiating thoracic dysplasia reveal a role for the NF-κB pathway in cilia.&#34;
     supports: SUPPORT
     snippet: &gt;-
       primary cilia in WDR34 mutant fibroblasts were significantly shorter than
       normal and had a bulbous tip
     explanation: &#34;Shows direct ciliary structural abnormalities in WDR34-mutant cells.&#34;
   - reference: PMID:19442771
+    reference_title: &#34;DYNC2H1 mutations cause asphyxiating thoracic dystrophy and short rib-polydactyly syndrome, type III.&#34;
     supports: SUPPORT
     snippet: &gt;-
       DYNC2H1 is a component of a cytoplasmic dynein complex and is directly
@@ -3228,6 +3415,7 @@ pathophysiology:
       label: chondrocyte
   evidence:
   - reference: PMID:22791528
+    reference_title: &#34;Ciliary disorder of the skeleton.&#34;
     supports: PARTIAL
     snippet: &gt;-
       primary cilia play a vital role in transduction of signals in the hedgehog
@@ -3245,6 +3433,7 @@ phenotypes:
       label: Short ribs
   evidence:
   - reference: PMID:24183449
+    reference_title: &#34;WDR34 mutations that cause short-rib polydactyly syndrome type III/severe asphyxiating thoracic dysplasia reveal a role for the NF-κB pathway in cilia.&#34;
     supports: SUPPORT
     snippet: &gt;-
       characterized by short ribs, a narrow thorax, short long bones, an abnormal
@@ -3252,6 +3441,7 @@ phenotypes:
       perinatal period
     explanation: &#34;Describes the cardinal skeletal features of SRP type III including short ribs and perinatal lethality.&#34;
   - reference: PMID:19442771
+    reference_title: &#34;DYNC2H1 mutations cause asphyxiating thoracic dystrophy and short rib-polydactyly syndrome, type III.&#34;
     supports: PARTIAL
     snippet: &gt;-
       Jeune asphyxiating thoracic dystrophy (ATD) is an autosomal-recessive
@@ -3269,6 +3459,7 @@ phenotypes:
       label: Narrow chest
   evidence:
   - reference: PMID:24183449
+    reference_title: &#34;WDR34 mutations that cause short-rib polydactyly syndrome type III/severe asphyxiating thoracic dysplasia reveal a role for the NF-κB pathway in cilia.&#34;
     supports: SUPPORT
     snippet: &gt;-
       characterized by short ribs, a narrow thorax, short long bones
@@ -3284,6 +3475,7 @@ phenotypes:
       label: Polydactyly
   evidence:
   - reference: PMID:19442771
+    reference_title: &#34;DYNC2H1 mutations cause asphyxiating thoracic dystrophy and short rib-polydactyly syndrome, type III.&#34;
     supports: PARTIAL
     snippet: &gt;-
       short ribs and a narrow thorax, short long bones, inconstant polydactyly
@@ -3299,6 +3491,7 @@ phenotypes:
       label: Limb undergrowth
   evidence:
   - reference: PMID:24183449
+    reference_title: &#34;WDR34 mutations that cause short-rib polydactyly syndrome type III/severe asphyxiating thoracic dysplasia reveal a role for the NF-κB pathway in cilia.&#34;
     supports: SUPPORT
     snippet: &gt;-
       characterized by short ribs, a narrow thorax, short long bones
@@ -3314,6 +3507,7 @@ phenotypes:
       label: Renal cyst
   evidence:
   - reference: PMID:24183449
+    reference_title: &#34;WDR34 mutations that cause short-rib polydactyly syndrome type III/severe asphyxiating thoracic dysplasia reveal a role for the NF-κB pathway in cilia.&#34;
     supports: NO_EVIDENCE
     snippet: &gt;-
       numerous extraskeletal malformations
@@ -3346,12 +3540,14 @@ genetic:
     representing the severe end.
   evidence:
   - reference: PMID:19442771
+    reference_title: &#34;DYNC2H1 mutations cause asphyxiating thoracic dystrophy and short rib-polydactyly syndrome, type III.&#34;
     supports: PARTIAL
     snippet: &gt;-
       we conclude that ATD and SRP type III are variants of a single disorder
       belonging to the ciliopathy group
     explanation: &#34;Landmark paper establishing that DYNC2H1 mutations cause both ATD and SRP type III, proving they are a single spectrum.&#34;
   - reference: PMID:19442771
+    reference_title: &#34;DYNC2H1 mutations cause asphyxiating thoracic dystrophy and short rib-polydactyly syndrome, type III.&#34;
     supports: SUPPORT
     snippet: &gt;-
       identified homozygous mutations in the cytoplasmic dynein 2 heavy chain 1
@@ -3367,6 +3563,7 @@ genetic:
     preaxial/postaxial polydactyly.
   evidence:
   - reference: PMID:21211617
+    reference_title: &#34;NEK1 mutations cause short-rib polydactyly syndrome type majewski.&#34;
     supports: SUPPORT
     snippet: &gt;-
       We used homozygosity mapping in two families with autosomal-recessive short-rib
@@ -3374,6 +3571,7 @@ genetic:
       underlying cause of this lethal osteochondrodysplasia
     explanation: &#34;Discovery paper identifying NEK1 as the cause of SRP Majewski type.&#34;
   - reference: PMID:21211617
+    reference_title: &#34;NEK1 mutations cause short-rib polydactyly syndrome type majewski.&#34;
     supports: SUPPORT
     snippet: &gt;-
       NEK1 encodes a serine/threonine kinase with proposed function in DNA
@@ -3381,6 +3579,7 @@ genetic:
       cell-cycle-associated ciliogenesis
     explanation: &#34;Characterizes NEK1 function including its role in ciliogenesis.&#34;
   - reference: PMID:21211617
+    reference_title: &#34;NEK1 mutations cause short-rib polydactyly syndrome type majewski.&#34;
     supports: PARTIAL
     snippet: &gt;-
       We further substantiate a proposed digenic diallelic inheritance of
@@ -3394,6 +3593,7 @@ genetic:
     involved in ciliary function and NF-kappaB pathway regulation.
   evidence:
   - reference: PMID:24183449
+    reference_title: &#34;WDR34 mutations that cause short-rib polydactyly syndrome type III/severe asphyxiating thoracic dysplasia reveal a role for the NF-κB pathway in cilia.&#34;
     supports: SUPPORT
     snippet: &gt;-
       homozygosity for three missense mutations in WDR34 were found in three
@@ -3401,6 +3601,7 @@ genetic:
       family
     explanation: &#34;Identifies WDR34 mutations in multiple SRP type III families.&#34;
   - reference: PMID:24183449
+    reference_title: &#34;WDR34 mutations that cause short-rib polydactyly syndrome type III/severe asphyxiating thoracic dysplasia reveal a role for the NF-κB pathway in cilia.&#34;
     supports: SUPPORT
     snippet: &gt;-
       This report expands on the pathogenesis of SRP type III and demonstrates that a
@@ -3414,12 +3615,14 @@ genetic:
     Can cause both JATD and SRP phenotypes.
   evidence:
   - reference: PMID:19648123
+    reference_title: &#34;Mutation in IFT80 in a fetus with the phenotype of Verma-Naumoff provides molecular evidence for Jeune-Verma-Naumoff dysplasia spectrum.&#34;
     supports: SUPPORT
     snippet: &gt;-
       mutations in IFT80 can also be responsible for a lethal form of SRP and provide
       the molecular basis for the Jeune-Verma-Naumoff dysplasia spectrum
     explanation: &#34;Demonstrates that IFT80 mutations can cause both lethal SRP and milder JATD, establishing the Jeune-Verma-Naumoff spectrum.&#34;
   - reference: PMID:19648123
+    reference_title: &#34;Mutation in IFT80 in a fetus with the phenotype of Verma-Naumoff provides molecular evidence for Jeune-Verma-Naumoff dysplasia spectrum.&#34;
     supports: SUPPORT
     snippet: &gt;-
       Direct sequencing of IFT80 in the other 13 cases showed a G-to-C transversion
@@ -3432,6 +3635,7 @@ treatments:
     is primarily supportive with palliative care.
   evidence:
   - reference: PMID:24183449
+    reference_title: &#34;WDR34 mutations that cause short-rib polydactyly syndrome type III/severe asphyxiating thoracic dysplasia reveal a role for the NF-κB pathway in cilia.&#34;
     supports: SUPPORT
     snippet: &gt;-
       lethal in the perinatal period

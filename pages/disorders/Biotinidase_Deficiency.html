@@ -118,6 +118,17 @@
             text-decoration: underline;
         }
 
+        .badge-pathograph {
+            background: rgba(255,255,255,0.14);
+            color: white;
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: rgba(255,255,255,0.22);
+            text-decoration: underline;
+        }
+
         /* Navigation */
         .breadcrumb {
             margin-bottom: 16px;
@@ -551,6 +562,59 @@
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .crosslink-item a:hover {
+            text-decoration: underline;
+        }
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
         }
 
         /* Definitions */
@@ -1428,12 +1492,23 @@
             opacity: 0.35;
         }
 
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
         .pathograph-legend-swatch {
             width: 14px;
             height: 14px;
             border-radius: 3px;
             border: 1px solid rgba(0,0,0,0.15);
             flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
         }
 
         .pathograph-tooltip {
@@ -1516,6 +1591,7 @@
         genetic: "hexagon",
         treatment: "rect",
         biochemical: "circle",
+        experimental_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1523,9 +1599,10 @@
         pathophysiology: "Pathophysiology",
         phenotype: "Phenotype",
         environmental: "Environmental",
-        genetic: "Genetic",
-        treatment: "Treatment",
+        genetic: "Genetics / Variants",
+        treatment: "Treatments",
         biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1535,8 +1612,43 @@
         genetic: "#c4b5fd",
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
         orphan: "#dc2626"
     };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+    var EXPERIMENTAL_MODEL_TYPE_ICONS = {
+        CELL_LINE: "🧫",
+        PRIMARY_CELL_CULTURE: "🧫",
+        IPSC_DERIVED_MODEL: "🧫",
+        ORGANOID: "◍",
+        ORGAN_ON_CHIP: "▣",
+        CO_CULTURE: "⇄"
+    };
+
+    function humanizeEnum(value) {
+        return value ? String(value).replace(/_/g, " ") : "";
+    }
+
+    function getModelTypeIcon(modelType) {
+        return EXPERIMENTAL_MODEL_TYPE_ICONS[modelType] || NODE_TYPE_ICONS.experimental_model;
+    }
+
+    function getNodeIcon(nodeData) {
+        if (nodeData && nodeData.node_type === "experimental_model") {
+            var modelType = nodeData.meta && nodeData.meta.model_type;
+            return getModelTypeIcon(modelType);
+        }
+        return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
+    }
 
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
@@ -1683,6 +1795,26 @@
 
             drawNodeShape(nodeG, n, nw, nh);
 
+            /* Node-type icon badge */
+            var nodeIcon = getNodeIcon(n);
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
             /* Label text */
             var label = n.id;
             var maxChars = Math.floor(nw / 7);
@@ -1769,7 +1901,8 @@
         /* -- Tooltip -- */
         function showTooltip(event, n) {
             var html = [];
-            html.push('<div class="tt-title">' + escapeHtml(n.id) + '</div>');
+            var nodeIcon = getNodeIcon(n);
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
             html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
             if (n.description) {
                 var desc = n.description;
@@ -1783,11 +1916,42 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
+            if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
+            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            /* Linked experimental models */
+            if (meta.experimental_models && meta.experimental_models.length) {
+                var modelHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                modelHtml += '<div style="font-size:11px; font-weight:600; color:#0f766e; margin-bottom:4px;">Experimental models</div>';
+                meta.experimental_models.forEach(function(model) {
+                    modelHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    modelHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((getModelTypeIcon(model.model_type) || NODE_TYPE_ICONS.experimental_model) + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        modelHtml += ' <span style="color:#0f766e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.description) {
+                        modelHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    modelHtml += '</div>';
+                });
+                modelHtml += '</div>';
+                html.push(modelHtml);
+            }
 
             /* PDB structures in tooltip */
             if (meta.pdb_structures && meta.pdb_structures.length) {
@@ -1838,24 +2002,30 @@
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
-            var item = document.createElement("div");
+            var item = document.createElement("label");
             item.className = "pathograph-legend-item";
             item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
             var swatch = document.createElement("div");
             swatch.className = "pathograph-legend-swatch";
             swatch.style.background = typesInGraph[type];
             swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
             item.appendChild(swatch);
             var label = document.createElement("span");
-            label.textContent = NODE_TYPE_LABELS[type] || type;
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
             item.appendChild(label);
-            item.addEventListener("click", function() {
-                if (activeTypes.has(type)) {
-                    activeTypes.delete(type);
-                    item.classList.add("dimmed");
-                } else {
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
                     activeTypes.add(type);
                     item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
                 }
                 filterByType();
             });
@@ -1923,6 +2093,9 @@
                 </span>
                 
                 
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Metabolic Disease</span>
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Inborn Error of Metabolism</span>
@@ -1937,6 +2110,9 @@
         </header>
 
         <!-- Stats bar -->
+        
+        
+        
         
         
         
@@ -1992,6 +2168,14 @@
             <div class="stat-item">
                 <div class="stat-value">13</div>
                 <div class="stat-label">Phenotypes</div>
+            </div>
+            </a>
+            
+            
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-value">8</div>
+                <div class="stat-label">Pathograph</div>
             </div>
             </a>
             
@@ -2071,7 +2255,7 @@
                 <span class="card-count">4</span>
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-biotin-recycling-and-secondary-multiple-carboxylase-deficiency">
                 <div class="item-name">Impaired biotin recycling and secondary multiple carboxylase deficiency</div>
                 
                 <div class="item-desc">Loss of biotinidase activity prevents efficient recycling of biotin from biocytin and biotinyl-peptides. This leads to depletion of free biotin and impaired biotinylation of apocarboxylases by holocarboxylase synthetase, resulting in functional deficiency of all four biotin-dependent carboxylases.
@@ -2121,6 +2305,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
                 
@@ -2178,7 +2363,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-intermediary-metabolism-and-organic-aciduria">
                 <div class="item-name">Disrupted intermediary metabolism and organic aciduria</div>
                 
                 <div class="item-desc">Functional loss of biotin-dependent carboxylases causes characteristic biochemical derangements including lactic acidosis (pyruvate carboxylase impairment), propionate and methylcitrate accumulation (propionyl-CoA carboxylase impairment), and 3-hydroxyisovalerate accumulation (3-methylcrotonyl-CoA carboxylase impairment).
@@ -2240,6 +2425,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2274,7 +2460,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-central-nervous-system-vulnerability-and-white-matter-injury">
                 <div class="item-name">Central nervous system vulnerability and white matter injury</div>
                 
                 <div class="item-desc">The CNS is particularly vulnerable in biotinidase deficiency. Neuropathologic changes include defective myelination, spongy white-matter changes, and involvement of specific neuroanatomical structures including fornices, brainstem, optic pathways, and spinal cord. Biotinidase localization to cerebellar Purkinje cells and auditory brainstem nuclei is consistent with frequent neurologic and auditory phenotypes.
@@ -2344,6 +2530,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2398,7 +2585,7 @@
     
             </div>
             
-            <div class="item-box pathophys-box">
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-dermatologic-manifestations-from-systemic-biotin-depletion">
                 <div class="item-name">Dermatologic manifestations from systemic biotin depletion</div>
                 
                 <div class="item-desc">Skin rash and alopecia result from disrupted biotin-dependent metabolism affecting rapidly dividing cutaneous tissues. Dermatologic features are among the most common presenting signs of biotinidase deficiency.
@@ -2451,6 +2638,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2498,18 +2686,19 @@
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
             
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
                     <title>Pathograph: causal mechanism network for Biotinidase Deficiency</title>
-                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors, environmental triggers, and treatments relate through causal edges.</desc>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
                 </svg>
                 <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Central nervous system vulnerability and white matter injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The CNS is particularly vulnerable in biotinidase deficiency. Neuropathologic changes include defective myelination, spongy white-matter changes, and involvement of specific neuroanatomical structures including fornices, brainstem, optic pathways, and spinal cord. Biotinidase localization to cerebellar Purkinje cells and auditory brainstem nuclei is consistent with frequent neurologic and auditory phenotypes.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Purkinje cell\", \"oligodendrocyte\"], \"biological_processes\": [\"myelination\"], \"locations\": [\"brain white matter\", \"cerebellum\"]}}, {\"id\": \"Dermatologic manifestations from systemic biotin depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Skin rash and alopecia result from disrupted biotin-dependent metabolism affecting rapidly dividing cutaneous tissues. Dermatologic features are among the most common presenting signs of biotinidase deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"fatty acid biosynthetic process\"], \"locations\": [\"skin of body\"]}}, {\"id\": \"Disrupted intermediary metabolism and organic aciduria\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Functional loss of biotin-dependent carboxylases causes characteristic biochemical derangements including lactic acidosis (pyruvate carboxylase impairment), propionate and methylcitrate accumulation (propionyl-CoA carboxylase impairment), and 3-hydroxyisovalerate accumulation (3-methylcrotonyl-CoA carboxylase impairment).\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"gluconeogenesis\", \"propionate catabolic process\", \"leucine catabolic process\"]}}, {\"id\": \"Impaired biotin recycling and secondary multiple carboxylase deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of biotinidase activity prevents efficient recycling of biotin from biocytin and biotinyl-peptides. This leads to depletion of free biotin and impaired biotinylation of apocarboxylases by holocarboxylase synthetase, resulting in functional deficiency of all four biotin-dependent carboxylases.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"biotin metabolic process\"]}}], \"edges\": [{\"source\": \"Impaired biotin recycling and secondary multiple carboxylase deficiency\", \"target\": \"Disrupted intermediary metabolism and organic aciduria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted intermediary metabolism and organic aciduria\", \"target\": \"Central nervous system vulnerability and white matter injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted intermediary metabolism and organic aciduria\", \"target\": \"Dermatologic manifestations from systemic biotin depletion\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"BTD gene variants causing biotinidase deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"variant_count\": 3}}, {\"id\": \"Central nervous system vulnerability and white matter injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The CNS is particularly vulnerable in biotinidase deficiency. Neuropathologic changes include defective myelination, spongy white-matter changes, and involvement of specific neuroanatomical structures including fornices, brainstem, optic pathways, and spinal cord. Biotinidase localization to cerebellar Purkinje cells and auditory brainstem nuclei is consistent with frequent neurologic and auditory phenotypes.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Purkinje cell\", \"oligodendrocyte\"], \"biological_processes\": [\"myelination\"], \"locations\": [\"brain white matter\", \"cerebellum\"]}}, {\"id\": \"Dermatologic manifestations from systemic biotin depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Skin rash and alopecia result from disrupted biotin-dependent metabolism affecting rapidly dividing cutaneous tissues. Dermatologic features are among the most common presenting signs of biotinidase deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"fatty acid biosynthetic process\"], \"locations\": [\"skin of body\"]}}, {\"id\": \"Disrupted intermediary metabolism and organic aciduria\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Functional loss of biotin-dependent carboxylases causes characteristic biochemical derangements including lactic acidosis (pyruvate carboxylase impairment), propionate and methylcitrate accumulation (propionyl-CoA carboxylase impairment), and 3-hydroxyisovalerate accumulation (3-methylcrotonyl-CoA carboxylase impairment).\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"gluconeogenesis\", \"propionate catabolic process\", \"leucine catabolic process\"]}}, {\"id\": \"Impaired biotin recycling and secondary multiple carboxylase deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of biotinidase activity prevents efficient recycling of biotin from biocytin and biotinyl-peptides. This leads to depletion of free biotin and impaired biotinylation of apocarboxylases by holocarboxylase synthetase, resulting in functional deficiency of all four biotin-dependent carboxylases.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"biotin metabolic process\"]}}, {\"id\": \"c.1270G\u003eC (p.Asp424His)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The most common BTD variant worldwide. Associated predominantly with partial biotinidase deficiency when homozygous. This variant is often also written as p.Asp444His when full-length protein numbering is used. Biotinidase enzyme activity is above 30% in 97.3% of patients with homozygous p.Asp424His.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"c.38_44delGCGCTGinsTCC (p.Cys13Phefs*36)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Frameshift variant associated with profound enzyme deficiency and severe phenotype including hearing loss and optic atrophy.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"c.410G\u003eA (p.Arg137His)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Associated with profound enzyme deficiency. More commonly observed in patients with neurological symptoms.\\n\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"Impaired biotin recycling and secondary multiple carboxylase deficiency\", \"target\": \"Disrupted intermediary metabolism and organic aciduria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted intermediary metabolism and organic aciduria\", \"target\": \"Central nervous system vulnerability and white matter injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted intermediary metabolism and organic aciduria\", \"target\": \"Dermatologic manifestations from systemic biotin depletion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"c.1270G\u003eC (p.Asp424His)\", \"target\": \"BTD gene variants causing biotinidase deficiency\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.410G\u003eA (p.Arg137His)\", \"target\": \"BTD gene variants causing biotinidase deficiency\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.38_44delGCGCTGinsTCC (p.Cys13Phefs*36)\", \"target\": \"BTD gene variants causing biotinidase deficiency\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4380,12 +4569,14 @@ pathophysiology:
       label: mitochondrion
   evidence:
   - reference: PMID:38928282
+    reference_title: &#34;Biotin Homeostasis and Human Disorders: Recent Findings and Perspectives.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Biotin status/homeostasis in human individuals depends on several factors, including efficiency/deficiency of
       the enzymes involved in biotin recycling within the human organism (biotinidase, holocarboxylase synthetase)
     explanation: Directly supports the role of biotinidase in biotin recycling and its link to carboxylase function.
   - reference: PMID:37373384
+    reference_title: &#34;Delayed Biotin Therapy in a Child with Atypical Profound Biotinidase Deficiency: Late Arrival of the Truth and a Lesson Worth Thinking.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: BTD deficiency may impair the activity of biotin-dependent carboxylases, and thus bring about a buildup of potentially
@@ -4419,6 +4610,7 @@ pathophysiology:
       label: hepatocyte
   evidence:
   - reference: PMID:37373384
+    reference_title: &#34;Delayed Biotin Therapy in a Child with Atypical Profound Biotinidase Deficiency: Late Arrival of the Truth and a Lesson Worth Thinking.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: BTD deficiency may impair the activity of biotin-dependent carboxylases, and thus bring about a buildup of potentially
@@ -4460,12 +4652,14 @@ pathophysiology:
       label: cerebellum
   evidence:
   - reference: PMID:36759144
+    reference_title: &#34;Neuroimaging Features of Biotinidase Deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Resultant deficiency of free biotin leads to impaired activity of the enzyme carboxylase and related neurologic,
       dermatologic, and ocular symptoms
     explanation: Multicenter neuroimaging study documenting CNS involvement patterns in biotinidase deficiency.
   - reference: PMID:37373384
+    reference_title: &#34;Delayed Biotin Therapy in a Child with Atypical Profound Biotinidase Deficiency: Late Arrival of the Truth and a Lesson Worth Thinking.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The brain MRI at 12 months showed cerebellar hypoplasia and multiple foci of leukodystrophy
@@ -4492,6 +4686,7 @@ pathophysiology:
       label: skin of body
   evidence:
   - reference: PMID:37027963
+    reference_title: &#34;Biotinidase deficiency: What have we learned in forty years?&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#39;BD affected five main organ systems: nervous system (67.2%), skin (53.7%), eye (34.4%), auditory (26.9%) and
@@ -4511,6 +4706,7 @@ phenotypes:
       label: Seizure
   evidence:
   - reference: PMID:37027963
+    reference_title: &#34;Biotinidase deficiency: What have we learned in forty years?&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#39;BD affected five main organ systems: nervous system (67.2%), skin (53.7%), eye (34.4%), auditory (26.9%) and
@@ -4529,6 +4725,7 @@ phenotypes:
       label: Global developmental delay
   evidence:
   - reference: PMID:37373384
+    reference_title: &#34;Delayed Biotin Therapy in a Child with Atypical Profound Biotinidase Deficiency: Late Arrival of the Truth and a Lesson Worth Thinking.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Detailed clinical features included severe psychomotor retardation, hypotonia, as well as failure to thrive
@@ -4546,11 +4743,13 @@ phenotypes:
       label: Hypotonia
   evidence:
   - reference: PMID:37373384
+    reference_title: &#34;Delayed Biotin Therapy in a Child with Atypical Profound Biotinidase Deficiency: Late Arrival of the Truth and a Lesson Worth Thinking.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Detailed clinical features included severe psychomotor retardation, hypotonia, as well as failure to thrive
     explanation: Case report documents hypotonia as a prominent feature in biotinidase deficiency.
   - reference: PMID:37027963
+    reference_title: &#34;Biotinidase deficiency: What have we learned in forty years?&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#39;BD affected five main organ systems: nervous system (67.2%)&#39;
@@ -4569,6 +4768,7 @@ phenotypes:
       label: Alopecia
   evidence:
   - reference: PMID:37027963
+    reference_title: &#34;Biotinidase deficiency: What have we learned in forty years?&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#39;BD affected five main organ systems: nervous system (67.2%), skin (53.7%), eye (34.4%), auditory (26.9%) and
@@ -4587,6 +4787,7 @@ phenotypes:
       label: Skin rash
   evidence:
   - reference: PMID:37027963
+    reference_title: &#34;Biotinidase deficiency: What have we learned in forty years?&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#39;BD affected five main organ systems: nervous system (67.2%), skin (53.7%)&#39;
@@ -4604,12 +4805,14 @@ phenotypes:
       label: Hearing impairment
   evidence:
   - reference: PMID:37027963
+    reference_title: &#34;Biotinidase deficiency: What have we learned in forty years?&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#39;BD affected five main organ systems: nervous system (67.2%), skin (53.7%), eye (34.4%), auditory (26.9%) and
       respiratory system (17.8%)&#39;
     explanation: Auditory involvement at 26.9% supports hearing impairment as an occasional phenotype.
   - reference: PMID:39451125
+    reference_title: &#34;A retrospective study on biotinidase deficiency: analysis of the Eastern Anatolia region patient cohort.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Hearing loss (4 patients) and optic atrophy (1 patient) were mainly observed in patients with the c.38_delinsTCC
@@ -4628,11 +4831,13 @@ phenotypes:
       label: Optic atrophy
   evidence:
   - reference: PMID:37027963
+    reference_title: &#34;Biotinidase deficiency: What have we learned in forty years?&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#39;BD affected five main organ systems: nervous system (67.2%), skin (53.7%), eye (34.4%), auditory (26.9%)&#39;
     explanation: Eye involvement at 34.4% supports optic atrophy as a frequent phenotype.
   - reference: PMID:40190376
+    reference_title: &#34;Biotinidase Deficiency Induced Optic Neuropathy: A Case Report and Literature Review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Comprehensive ophthalmic examination revealed bilateral optic neuropathy. Laboratory testing showed a biotinidase
@@ -4651,6 +4856,7 @@ phenotypes:
       label: Ataxia
   evidence:
   - reference: PMID:36759144
+    reference_title: &#34;Neuroimaging Features of Biotinidase Deficiency.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: Resultant deficiency of free biotin leads to impaired activity of the enzyme carboxylase and related neurologic,
@@ -4669,6 +4875,7 @@ phenotypes:
       label: Metabolic acidosis
   evidence:
   - reference: PMID:37027963
+    reference_title: &#34;Biotinidase deficiency: What have we learned in forty years?&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: metabolic acidosis was present in 42.4% of symptomatic individuals
@@ -4686,6 +4893,7 @@ phenotypes:
       label: Respiratory insufficiency
   evidence:
   - reference: PMID:37027963
+    reference_title: &#34;Biotinidase deficiency: What have we learned in forty years?&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#39;BD affected five main organ systems: nervous system (67.2%), skin (53.7%), eye (34.4%), auditory (26.9%) and
@@ -4704,6 +4912,7 @@ phenotypes:
       label: Intellectual disability
   evidence:
   - reference: PMID:37373384
+    reference_title: &#34;Delayed Biotin Therapy in a Child with Atypical Profound Biotinidase Deficiency: Late Arrival of the Truth and a Lesson Worth Thinking.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: the therapy failed to show any evident effects on poor feeding and intellectual disability
@@ -4721,6 +4930,7 @@ phenotypes:
       label: Failure to thrive
   evidence:
   - reference: PMID:37373384
+    reference_title: &#34;Delayed Biotin Therapy in a Child with Atypical Profound Biotinidase Deficiency: Late Arrival of the Truth and a Lesson Worth Thinking.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Detailed clinical features included severe psychomotor retardation, hypotonia, as well as failure to thrive
@@ -4738,6 +4948,7 @@ phenotypes:
       label: Spastic paraplegia
   evidence:
   - reference: PMID:36759144
+    reference_title: &#34;Neuroimaging Features of Biotinidase Deficiency.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: In this report comprising 14 patients from multiple centers, we demonstrate the MR imaging patterns of this disorder
@@ -4752,6 +4963,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:37373384
+    reference_title: &#34;Delayed Biotin Therapy in a Child with Atypical Profound Biotinidase Deficiency: Late Arrival of the Truth and a Lesson Worth Thinking.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: BTD deficiency may impair the activity of biotin-dependent carboxylases, and thus bring about a buildup of potentially
@@ -4765,11 +4977,13 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:37373384
+    reference_title: &#34;Delayed Biotin Therapy in a Child with Atypical Profound Biotinidase Deficiency: Late Arrival of the Truth and a Lesson Worth Thinking.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: primarily 3-hydroxyisovaleryl-carnitine in plasma as well as 3-hydroxyisovaleric acid in urine
     explanation: Directly identifies elevated urinary 3-hydroxyisovaleric acid as a characteristic marker.
   - reference: PMID:37027963
+    reference_title: &#34;Biotinidase deficiency: What have we learned in forty years?&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: characteristic abnormal organic acid metabolites were found in 57.1%
@@ -4782,6 +4996,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:38928282
+    reference_title: &#34;Biotin Homeostasis and Human Disorders: Recent Findings and Perspectives.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: Biotin status/homeostasis in human individuals depends on several factors, including efficiency/deficiency of
@@ -4795,6 +5010,7 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:37027963
+    reference_title: &#34;Biotinidase deficiency: What have we learned in forty years?&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: metabolic acidosis was present in 42.4% of symptomatic individuals
@@ -4807,11 +5023,13 @@ biochemical:
     &#39;
   evidence:
   - reference: PMID:40190376
+    reference_title: &#34;Biotinidase Deficiency Induced Optic Neuropathy: A Case Report and Literature Review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Laboratory testing showed a biotinidase level of &lt;0.1 (normal, 5.5-10 nmol/min/ml)
     explanation: Case report documents severely reduced biotinidase activity confirming the diagnosis.
   - reference: PMID:38141137
+    reference_title: &#34;Evaluation of clinical, laboratory, and molecular genetic features of patients with biotinidase deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Complete enzyme deficiency was identified in 19.8%, partial enzyme deficiency in 55.1%, and heterogenous enzyme
@@ -4823,11 +5041,13 @@ genetic:
   - name: Autosomal recessive
     evidence:
     - reference: PMID:37027963
+      reference_title: &#34;Biotinidase deficiency: What have we learned in forty years?&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: Biotinidase deficiency (BD) is an autosomal recessively inherited disorder that was first described in 1982
       explanation: Definitive statement of autosomal recessive inheritance in the landmark systematic review.
     - reference: PMID:37373384
+      reference_title: &#34;Delayed Biotin Therapy in a Child with Atypical Profound Biotinidase Deficiency: Late Arrival of the Truth and a Lesson Worth Thinking.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: Biotinidase (BTD) deficiency (OMIM 253260) is an autosomal recessively inherited metabolic disorder
@@ -4841,12 +5061,14 @@ genetic:
       &#39;
     evidence:
     - reference: PMID:39451125
+      reference_title: &#34;A retrospective study on biotinidase deficiency: analysis of the Eastern Anatolia region patient cohort.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: the most frequent variant was c.1270G &gt; C | p.Asp424His. Biotinidase enzyme activity was above 30% in 97.3%
         of patients with a homozygous p.D424His mutation
       explanation: Identifies D424H as the most frequent variant with characterization of enzyme activity levels.
     - reference: PMID:38141137
+      reference_title: &#34;Evaluation of clinical, laboratory, and molecular genetic features of patients with biotinidase deficiency.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: The most common pathogenic variants were c.1270G &gt; C (p.Asp424His), c.410G &gt; A (p.Arg137His), and c.38_44delGCGCTGinsTCC
@@ -4858,12 +5080,14 @@ genetic:
       &#39;
     evidence:
     - reference: PMID:39451125
+      reference_title: &#34;A retrospective study on biotinidase deficiency: analysis of the Eastern Anatolia region patient cohort.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: The mutations that caused the most significant decrease in enzyme activity were c.410G &gt; A p.Arg137His, c.38_delinsTCC
         p.Cys13phefs*36, and c.1535C &gt; T p.Thr512Met
       explanation: Identifies R137H as causing significant enzyme activity reduction.
     - reference: PMID:38141137
+      reference_title: &#34;Evaluation of clinical, laboratory, and molecular genetic features of patients with biotinidase deficiency.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: The c.410G &gt; A and c.38_44delGCGCTGinsTCC variants were more common in the patients with neurological symptoms
@@ -4875,12 +5099,14 @@ genetic:
       &#39;
     evidence:
     - reference: PMID:39451125
+      reference_title: &#34;A retrospective study on biotinidase deficiency: analysis of the Eastern Anatolia region patient cohort.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: Hearing loss (4 patients) and optic atrophy (1 patient) were mainly observed in patients with the c.38_delinsTCC
         mutation (homozygous or heterozygous)
       explanation: Links this frameshift variant to severe sensory complications.
     - reference: PMID:38141137
+      reference_title: &#34;Evaluation of clinical, laboratory, and molecular genetic features of patients with biotinidase deficiency.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: The c.410G &gt; A and c.38_44delGCGCTGinsTCC variants were more common in the patients with neurological symptoms
@@ -4894,11 +5120,13 @@ genetic:
     &#39;
   evidence:
   - reference: PMID:38141137
+    reference_title: &#34;Evaluation of clinical, laboratory, and molecular genetic features of patients with biotinidase deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Two hundred forty-seven cases were included in the study who were admitted to the Department of Pediatric Metabolism
     explanation: Large cohort study providing comprehensive genotype-phenotype correlations in biotinidase deficiency.
   - reference: PMID:39451125
+    reference_title: &#34;A retrospective study on biotinidase deficiency: analysis of the Eastern Anatolia region patient cohort.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: This study provides a detailed analysis of genetic diversity and clinical presentation in biotinidase deficiency
@@ -4918,12 +5146,14 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:37027963
+    reference_title: &#34;Biotinidase deficiency: What have we learned in forty years?&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Biotin treatment led to clinical stability or improvement in 89.2% of individuals. 1.6% of reported individuals
       with BD died due to non-availability of treatment or late diagnosis
     explanation: Systematic review of 1113 cases demonstrating high efficacy of biotin treatment.
   - reference: PMID:40190376
+    reference_title: &#34;Biotinidase Deficiency Induced Optic Neuropathy: A Case Report and Literature Review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The patient was treated with oral biotin supplementation with improvement in her visual function
@@ -4941,11 +5171,13 @@ treatments:
       label: disease screening
   evidence:
   - reference: PMID:37027963
+    reference_title: &#34;Biotinidase deficiency: What have we learned in forty years?&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Newborn screening has had a major positive impact on the outcome of many individuals with BD
     explanation: Systematic review confirms the positive impact of newborn screening on outcomes.
   - reference: PMID:38141137
+    reference_title: &#34;Evaluation of clinical, laboratory, and molecular genetic features of patients with biotinidase deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: An analysis of the admission routes of all cases to our clinic revealed 89.5% NBS, 5.7% family screening, and
@@ -4963,6 +5195,7 @@ treatments:
       label: dietary intervention
   evidence:
   - reference: PMID:38928282
+    reference_title: &#34;Biotin Homeostasis and Human Disorders: Recent Findings and Perspectives.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: administration of biotin at high/&#34;pharmacological&#34; doses has been proposed to treat specific defects/deficiencies
@@ -4980,6 +5213,7 @@ treatments:
       label: pharmacotherapy
   evidence:
   - reference: PMID:37373384
+    reference_title: &#34;Delayed Biotin Therapy in a Child with Atypical Profound Biotinidase Deficiency: Late Arrival of the Truth and a Lesson Worth Thinking.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The result of antiepileptic therapy was not satisfying
@@ -4996,11 +5230,13 @@ treatments:
       label: genetic counseling
   evidence:
   - reference: PMID:37027963
+    reference_title: &#34;Biotinidase deficiency: What have we learned in forty years?&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Biotinidase deficiency (BD) is an autosomal recessively inherited disorder
     explanation: Autosomal recessive inheritance pattern supports the role of genetic counseling.
   - reference: PMID:38141137
+    reference_title: &#34;Evaluation of clinical, laboratory, and molecular genetic features of patients with biotinidase deficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Biotinidase deficiency (BD) is an autosomal recessive inherited metabolic disorder
@@ -5017,6 +5253,7 @@ treatments:
       label: supportive care
   evidence:
   - reference: PMID:37027963
+    reference_title: &#34;Biotinidase deficiency: What have we learned in forty years?&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: a trial of biotin should be considered in undiagnosed infants and adults exhibiting suspected clinical signs.
@@ -5034,11 +5271,13 @@ treatments:
       label: supportive care
   evidence:
   - reference: PMID:37027963
+    reference_title: &#34;Biotinidase deficiency: What have we learned in forty years?&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#39;BD affected five main organ systems: nervous system (67.2%), skin (53.7%), eye (34.4%), auditory (26.9%)&#39;
     explanation: Auditory involvement at 26.9% supports the need for audiological monitoring and management.
   - reference: PMID:39451125
+    reference_title: &#34;A retrospective study on biotinidase deficiency: analysis of the Eastern Anatolia region patient cohort.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Hearing loss (4 patients) and optic atrophy (1 patient) were mainly observed in patients with the c.38_delinsTCC
