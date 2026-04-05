@@ -1,5 +1,11 @@
 # Epilepsy Granularity and Mechanism Curation Project
 
+## Active Artifacts
+
+- [Epilepsy project brief](epilepsy/README.md)
+- [Mechanism landscape and literature map](epilepsy/mechanism-landscape.md)
+- [Initial candidate disorder scope](epilepsy/scope.md)
+
 ## Overview
 
 This project records a practical curation plan for representing epilepsy in dismech at a level where mechanisms are coherent and clinically useful.
