@@ -135,6 +135,30 @@ def test_schema_validity(validator):
     assert validator is not None
 
 
+def test_environmental_food_source_slot_validates(validator):
+    """Environmental entries may annotate a specific food or beverage with FOODON."""
+    data = {
+        "name": "Test Disease",
+        "environmental": [
+            {
+                "name": "Coffee-triggered flushing",
+                "food_source": {
+                    "preferred_term": "coffee beverage",
+                    "term": {
+                        "id": "FOODON:00001244",
+                        "label": "coffee beverage",
+                    },
+                },
+            }
+        ],
+    }
+
+    report = validator.validate(data, target_class="Disease")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+
+    assert not errors, f"Validation errors: {[str(e) for e in errors]}"
+
+
 def test_all_disorders_have_unique_names():
     """Test that all disorder names are unique."""
     names = []
