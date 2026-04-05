@@ -28,6 +28,7 @@ PUBMED_URL_RE = re.compile(
 DOI_URL_RE = re.compile(r"https?://(?:dx\.)?doi\.org/([^\s\],)]+)", re.IGNORECASE)
 DOI_PREFIX_RE = re.compile(r"\bDOI\s*:\s*([^\s\],)]+)", re.IGNORECASE)
 DOI_TOKEN_RE = re.compile(r"\b10\.\d{4,9}/[^\s\],;]+", re.IGNORECASE)
+SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+(?=[A-Z0-9(])")
 
 HOLDER_NAME = "Deep research literature mapping"
 
@@ -87,6 +88,14 @@ def parse_args() -> argparse.Namespace:
         "--apply",
         action="store_true",
         help="Write changes to files. Without this flag, run as dry-run.",
+    )
+    parser.add_argument(
+        "--add-findings",
+        action="store_true",
+        help=(
+            "Create a top-level references[].findings[].evidence item for deep-research "
+            "references that do not already have one."
+        ),
     )
     return parser.parse_args()
 
@@ -210,8 +219,28 @@ def cache_path_for_ref(reference: str, references_cache_dir: str) -> Path:
 
 
 def parse_cache_title(cache_path: Path) -> str | None:
+    meta, _ = parse_cache_metadata_and_body(cache_path)
+    title = meta.get("title")
+    if isinstance(title, str) and title.strip():
+        return title.strip()
+
     if not cache_path.exists():
         return None
+
+    text = cache_path.read_text(encoding="utf-8", errors="ignore")
+    lines = text.splitlines()
+    for line in lines:
+        if line.startswith("# "):
+            title = line[2:].strip()
+            if title:
+                return title
+
+    return None
+
+
+def parse_cache_metadata_and_body(cache_path: Path) -> tuple[dict[str, Any], str]:
+    if not cache_path.exists():
+        return {}, ""
 
     text = cache_path.read_text(encoding="utf-8", errors="ignore")
     lines = text.splitlines()
@@ -225,19 +254,149 @@ def parse_cache_title(cache_path: Path) -> str | None:
             frontmatter = "\n".join(lines[1:end_idx])
             try:
                 meta = yaml.safe_load(frontmatter) or {}
-                title = meta.get("title")
-                if isinstance(title, str) and title.strip():
-                    return title.strip()
+                body = "\n".join(lines[end_idx + 1 :]).strip()
+                return meta, body
             except Exception:
-                pass
+                return {}, text
 
-    for line in lines:
-        if line.startswith("# "):
-            title = line[2:].strip()
-            if title:
-                return title
+    return {}, text
 
-    return None
+
+def normalize_title(title: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", title.lower()).strip()
+
+
+def collect_existing_titles(node: Any, out: Set[str]) -> None:
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key in {"title", "reference_title"} and isinstance(value, str):
+                normalized = normalize_title(value)
+                if normalized:
+                    out.add(normalized)
+            else:
+                collect_existing_titles(value, out)
+    elif isinstance(node, list):
+        for item in node:
+            collect_existing_titles(item, out)
+
+
+def normalize_cache_body(body: str) -> str:
+    text = body
+    if "## Content" in text:
+        text = text.split("## Content", 1)[1]
+    text = text.replace("\r", "\n")
+    text = text.replace("&lt;", "<").replace("&gt;", ">")
+    text = re.sub(r"\n{2,}", "\n\n", text)
+    if "BACKGROUND:" in text:
+        text = text.split("BACKGROUND:", 1)[1]
+    elif "\nBackground:" in text:
+        text = text.split("\nBackground:", 1)[1]
+    text = re.sub(
+        r"\b(BACKGROUND|OBJECTIVES|METHODS(?: AND MAIN RESULTS)?|RESULTS|CONCLUSION|DISCUSSION|INTRODUCTION|AIMS?)\s*:\s*",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    )
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def extract_supporting_text(cache_path: Path, title: str) -> str:
+    _, body = parse_cache_metadata_and_body(cache_path)
+    normalized = normalize_cache_body(body)
+    if normalized:
+        for sentence in SENTENCE_SPLIT_RE.split(normalized):
+            candidate = sentence.strip(" \"'")
+            if len(candidate) < 40:
+                continue
+            if candidate.lower().startswith(("author information", "copyright")):
+                continue
+            return candidate
+    return title
+
+
+def guess_evidence_source(title: str, supporting_text: str) -> str:
+    haystack = f"{title} {supporting_text}".lower()
+
+    def has(pattern: str) -> bool:
+        return re.search(pattern, haystack) is not None
+
+    if has(r"\b(systematic review|meta-analysis|consensus|guideline|statement)\b"):
+        return "OTHER"
+    if has(
+        r"\b(mouse|mice|murine|rat|rats|zebrafish|drosophila|canine|dog|dogs|porcine|pig|rabbit|rabbits)\b"
+    ):
+        return "MODEL_ORGANISM"
+    if has(
+        r"\b(in vitro|cell line|cell-based|cell culture|organoid|ex vivo|fibroblast|keratinocyte)\b"
+    ):
+        return "IN_VITRO"
+    if has(
+        r"\b(in silico|simulation|docking|machine learning|network analysis|computational|algorithm|predict(?:ion)?)\b"
+    ):
+        return "COMPUTATIONAL"
+    if has(
+        r"\b(patient|patients|cohort|trial|participants|adult|adults|children|case report|case series|prospective|retrospective|clinical)\b"
+    ):
+        return "HUMAN_CLINICAL"
+    return "OTHER"
+
+
+def ensure_findings_list(ref_item: MutableMapping[str, Any]) -> CommentedSeq:
+    findings = ref_item.get("findings")
+    if findings is None:
+        findings = CommentedSeq()
+        ref_item["findings"] = findings
+        return findings
+    if isinstance(findings, CommentedSeq):
+        return findings
+    if isinstance(findings, list):
+        out = CommentedSeq()
+        out.extend(findings)
+        ref_item["findings"] = out
+        return out
+    out = CommentedSeq()
+    ref_item["findings"] = out
+    return out
+
+
+def has_findings(ref_item: Mapping[str, Any]) -> bool:
+    findings = ref_item.get("findings")
+    return isinstance(findings, list) and len(findings) > 0
+
+
+def append_auto_finding(
+    ref_item: MutableMapping[str, Any],
+    reference: str,
+    title: str,
+    disorder: str,
+    cache_path: Path,
+) -> bool:
+    if has_findings(ref_item):
+        return False
+
+    supporting_text = extract_supporting_text(cache_path, title)
+    statement = supporting_text if len(supporting_text) <= 240 else title.rstrip(".")
+    evidence_source = guess_evidence_source(title, supporting_text)
+
+    evidence_item = CommentedMap()
+    evidence_item["reference"] = reference
+    evidence_item["reference_title"] = title
+    evidence_item["supports"] = "SUPPORT"
+    evidence_item["evidence_source"] = evidence_source
+    evidence_item["snippet"] = supporting_text
+    evidence_item["explanation"] = (
+        f"Deep research cited this publication as relevant literature for "
+        f"{disorder.replace('_', ' ')}."
+    )
+
+    finding = CommentedMap()
+    finding["statement"] = statement
+    finding["supporting_text"] = supporting_text
+    finding["evidence"] = CommentedSeq([evidence_item])
+
+    findings = ensure_findings_list(ref_item)
+    findings.append(finding)
+    return True
 
 
 def fetch_reference(reference: str, timeout_seconds: int) -> bool:
@@ -411,8 +570,23 @@ def main() -> int:
 
         existing_refs: Set[str] = set()
         collect_existing_refs(data, existing_refs)
+        existing_titles: Set[str] = set()
+        collect_existing_titles(data, existing_titles)
 
-        missing_refs = sorted(ref for ref in cited_refs if ref not in existing_refs)
+        preloaded_titles: Dict[str, str] = {}
+        missing_refs = []
+        for ref in sorted(cited_refs):
+            if ref in existing_refs:
+                continue
+            cache_path = cache_path_for_ref(ref, args.references_cache_dir)
+            if not cache_path.exists() and args.fetch_missing_cache:
+                fetch_reference(ref, args.fetch_timeout_seconds)
+            title = parse_cache_title(cache_path)
+            if title:
+                preloaded_titles[ref] = title
+                if normalize_title(title) in existing_titles:
+                    continue
+            missing_refs.append(ref)
         if args.max_new_refs_per_disorder is not None:
             missing_refs = missing_refs[: args.max_new_refs_per_disorder]
 
@@ -435,6 +609,7 @@ def main() -> int:
         if missing_refs:
             refs = ensure_references_list(data)
             top_ref_items: Dict[str, MutableMapping[str, Any]] = {}
+            top_ref_titles: Dict[str, MutableMapping[str, Any]] = {}
             for item in refs:
                 if (
                     isinstance(item, MutableMapping)
@@ -442,11 +617,42 @@ def main() -> int:
                     and (canon := canonical_ref(item.get("reference", "")))
                 ):
                     top_ref_items[canon] = item
+                    item_title = item.get("title")
+                    if isinstance(item_title, str):
+                        normalized = normalize_title(item_title)
+                        if normalized:
+                            top_ref_titles[normalized] = item
 
             for reference, found_in in cited_ref_to_files.items():
                 existing_item = top_ref_items.get(reference)
+                if existing_item is None:
+                    title = preloaded_titles.get(reference)
+                    if title:
+                        existing_item = top_ref_titles.get(normalize_title(title))
                 if existing_item and merge_found_in(existing_item, found_in):
                     changed = True
+                if (
+                    existing_item
+                    and args.add_findings
+                    and isinstance(existing_item.get("reference"), str)
+                ):
+                    canon = canonical_ref(existing_item["reference"])
+                    if canon:
+                        cache_path = cache_path_for_ref(
+                            canon, args.references_cache_dir
+                        )
+                        if not cache_path.exists() and args.fetch_missing_cache:
+                            fetch_reference(canon, args.fetch_timeout_seconds)
+                        title = existing_item.get("title")
+                        if isinstance(title, str) and title.strip():
+                            if append_auto_finding(
+                                existing_item,
+                                canon,
+                                title.strip(),
+                                disorder,
+                                cache_path,
+                            ):
+                                changed = True
 
             for reference in missing_refs:
                 if reference in top_ref_items:
@@ -456,12 +662,44 @@ def main() -> int:
                 if not cache_path.exists() and args.fetch_missing_cache:
                     fetch_reference(reference, args.fetch_timeout_seconds)
 
-                title = parse_cache_title(cache_path)
+                title = preloaded_titles.get(reference) or parse_cache_title(cache_path)
                 if not title:
                     unresolved += 1
                     unresolved_rows.append(
                         (disorder, reference, "cache_not_found_or_no_title")
                     )
+                    continue
+
+                existing_by_title = top_ref_titles.get(normalize_title(title))
+                if existing_by_title is not None:
+                    if merge_found_in(
+                        existing_by_title, cited_ref_to_files.get(reference, set())
+                    ):
+                        changed = True
+                    existing_ref_value = existing_by_title.get("reference")
+                    existing_title = existing_by_title.get("title")
+                    if (
+                        args.add_findings
+                        and isinstance(existing_ref_value, str)
+                        and isinstance(existing_title, str)
+                        and (canon := canonical_ref(existing_ref_value))
+                    ):
+                        existing_cache_path = cache_path_for_ref(
+                            canon, args.references_cache_dir
+                        )
+                        if (
+                            not existing_cache_path.exists()
+                            and args.fetch_missing_cache
+                        ):
+                            fetch_reference(canon, args.fetch_timeout_seconds)
+                        if append_auto_finding(
+                            existing_by_title,
+                            canon,
+                            existing_title,
+                            disorder,
+                            existing_cache_path,
+                        ):
+                            changed = True
                     continue
 
                 append_publication_reference(
@@ -473,6 +711,15 @@ def main() -> int:
                 new_item = refs[-1]
                 if isinstance(new_item, MutableMapping):
                     top_ref_items[reference] = new_item
+                    top_ref_titles[normalize_title(title)] = new_item
+                    if args.add_findings and append_auto_finding(
+                        new_item,
+                        reference,
+                        title,
+                        disorder,
+                        cache_path,
+                    ):
+                        changed = True
                 added += 1
                 changed = True
         else:
@@ -486,6 +733,26 @@ def main() -> int:
                     and merge_found_in(item, cited_ref_to_files[canon])
                 ):
                     changed = True
+                if (
+                    args.add_findings
+                    and isinstance(item, MutableMapping)
+                    and isinstance(item.get("reference"), str)
+                    and (canon := canonical_ref(item.get("reference", "")))
+                    and canon in cited_ref_to_files
+                ):
+                    cache_path = cache_path_for_ref(canon, args.references_cache_dir)
+                    if not cache_path.exists() and args.fetch_missing_cache:
+                        fetch_reference(canon, args.fetch_timeout_seconds)
+                    title = item.get("title")
+                    if isinstance(title, str) and title.strip():
+                        if append_auto_finding(
+                            item,
+                            canon,
+                            title.strip(),
+                            disorder,
+                            cache_path,
+                        ):
+                            changed = True
 
         if changed and args.apply:
             if "updated_date" in data:
