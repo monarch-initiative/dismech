@@ -38,6 +38,32 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Close stale regen PRs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          mapfile -t stale_prs < <(
+            gh pr list \
+              --repo "$GITHUB_REPOSITORY" \
+              --search 'is:open author:app/github-actions Regenerate pages' \
+              --json number,createdAt \
+              --limit 100 \
+              --jq '.[] | select((now - (.createdAt | fromdateiso8601)) >= 3600) | .number'
+          )
+
+          if [ "${#stale_prs[@]}" -eq 0 ]; then
+            echo "No stale regen PRs to close."
+            exit 0
+          fi
+
+          for pr_number in "${stale_prs[@]}"; do
+            echo "Closing stale regen PR #$pr_number"
+            gh pr close "$pr_number" \
+              --repo "$GITHUB_REPOSITORY" \
+              --comment "Superseded by a newer automated pages regeneration run."
+          done
+
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
@@ -77,16 +103,17 @@ jobs:
             git diff --stat pages/ app/data.js dashboard/ elements/
           fi
 
-      - name: Create Pull Request
+      - name: Create or update Pull Request
         if: steps.check-changes.outputs.has_changes == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          BRANCH_NAME="generate-pages-$(date +%Y%m%d-%H%M%S)"
-          git checkout -b "$BRANCH_NAME"
+          BRANCH_NAME="auto/generate-pages"
+          git checkout -B "$BRANCH_NAME"
 
           git add pages/ app/data.js dashboard/ elements/
 
@@ -108,9 +135,38 @@ jobs:
           EOF
           )"
 
-          git push origin "$BRANCH_NAME"
+          git push --force-with-lease origin "$BRANCH_NAME"
+
+          EXISTING_BRANCH_PR_NUMBER="$(gh pr list \
+            --repo "$GITHUB_REPOSITORY" \
+            --head "$BRANCH_NAME" \
+            --state open \
+            --json number \
+            --limit 1 \
+            --jq '.[0].number // empty')"
+
+          if [ -n "$EXISTING_BRANCH_PR_NUMBER" ]; then
+            echo "Updated existing regen PR #$EXISTING_BRANCH_PR_NUMBER."
+            exit 0
+          fi
+
+          RECENT_REGEN_PR_NUMBER="$(gh pr list \
+            --repo "$GITHUB_REPOSITORY" \
+            --search 'is:open author:app/github-actions Regenerate pages' \
+            --json number,createdAt,headRefName \
+            --limit 100 \
+            --jq '[.[] | select(.headRefName != "'"$BRANCH_NAME"'" and (now - (.createdAt | fromdateiso8601)) < 3600)][0].number // empty')"
+
+          if [ -n "$RECENT_REGEN_PR_NUMBER" ]; then
+            echo "Recent regen PR #$RECENT_REGEN_PR_NUMBER already exists; skipping PR creation for $BRANCH_NAME."
+            exit 0
+          fi
 
           gh pr create \
+            --repo "$GITHUB_REPOSITORY" \
+            --base main \
+            --head "$BRANCH_NAME" \
+            --draft \
             --title "📄 Regenerate pages, dashboard, and schema docs ($(date +%Y-%m-%d))" \
             --body "$(cat <<EOF
           ## Summary

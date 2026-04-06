@@ -506,16 +506,22 @@ deploy-browser: gen-browser-data
     @echo "Browser app ready at app/index.html"
     @echo "Data generated with $(find {{kb_dir}} -maxdepth 1 -type f -name '*.yaml' ! -name '*.history.yaml' | wc -l | tr -d ' ') disorders"
 
-# Generate individual HTML pages for all disorders and comorbidities
+# Generate individual HTML pages for all disorders, comorbidities, and modules
 [group('Pages')]
 gen-pages:
     uv run python -m dismech.render --all
-    @echo "Generated $(ls -1 pages/disorders/*.html 2>/dev/null | wc -l | tr -d ' ') disorder pages and $(ls -1 pages/comorbidities/*.html 2>/dev/null | wc -l | tr -d ' ') comorbidity pages"
+    @echo "Generated $(ls -1 pages/disorders/*.html 2>/dev/null | wc -l | tr -d ' ') disorder pages, $(ls -1 pages/comorbidities/*.html 2>/dev/null | wc -l | tr -d ' ') comorbidity pages, and $(ls -1 pages/modules/*.html 2>/dev/null | wc -l | tr -d ' ') module pages"
 
 # Generate a single disorder page
 [group('Pages')]
 gen-page file:
     uv run python -m dismech.render {{file}}
+
+# Generate all shared module pages
+[group('Pages')]
+gen-module-pages:
+    uv run python -m dismech.render --module {{modules_dir}}
+    @echo "Generated $(ls -1 pages/modules/*.html 2>/dev/null | wc -l | tr -d ' ') module pages"
 
 # Generate a single comorbidity page
 [group('Pages')]
@@ -544,11 +550,134 @@ gen-all: gen-browser-data gen-pages gen-schema-docs
 
 # ============== KGX Export ==============
 
+# Generate derived disease-to-ontology context score tables
+[group('Export')]
+export-context-scores output_dir="output/context_scores":
+    mkdir -p {{output_dir}}
+    uv run dismech-context-scores -i {{kb_dir}} -o {{output_dir}}
+
 # Generate KGX edges from disorder knowledge base
 [group('Export')]
 export-kgx:
     mkdir -p output/kgx
     uv run koza transform src/dismech/export/kgx_export.py -o output/kgx -f jsonl kb/disorders/*.yaml
+
+# ============== CX2 Export ==============
+
+cx2_output_dir := "output/cx2"
+ndex_test_host := "https://test.ndexbio.org"
+
+# Export a single disorder pathograph to CX2 JSON for spot-checking.
+# Examples:
+#   just export-cx2 kb/disorders/Stargardt_Disease.yaml
+#   just export-cx2 kb/disorders/Stargardt_Disease.yaml --dot-layout
+[group('Export')]
+export-cx2 file *args="":
+    uv run dismech-cx2 {{file}} {{args}}
+
+# Export all disorder pathographs to CX2 JSON files under output/cx2/.
+# Examples:
+#   just export-cx2-all
+#   just export-cx2-all -o /tmp/cx2
+#   just export-cx2-all --output /tmp/cx2 --dot-layout
+[group('Export')]
+export-cx2-all *args="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    out_dir="{{cx2_output_dir}}"
+    passthrough_args=()
+    set -- {{args}}
+    while (($#)); do
+        case "$1" in
+            -o|--output)
+                if (($# < 2)); then
+                    echo "Missing value for $1" >&2
+                    exit 2
+                fi
+                out_dir="$2"
+                shift 2
+                ;;
+            *)
+                passthrough_args+=("$1")
+                shift
+                ;;
+        esac
+    done
+    mkdir -p "$out_dir"
+    shopt -s nullglob
+    count=0
+    skipped=0
+    for f in {{kb_dir}}/*.yaml; do
+        if [[ "$f" == *.history.yaml ]]; then
+            continue
+        fi
+        stem="$(basename "$f" .yaml)"
+        out="$out_dir/${stem}.cx2.json"
+        echo "Exporting: $f -> $out"
+        if [[ ${#passthrough_args[@]} -gt 0 ]]; then
+            output=$(uv run dismech-cx2 "$f" -o "$out" --skip-empty "${passthrough_args[@]}" 2>&1) && status=0 || status=$?
+        else
+            output=$(uv run dismech-cx2 "$f" -o "$out" --skip-empty 2>&1) && status=0 || status=$?
+        fi
+        echo "$output"
+        if [[ $status -ne 0 ]]; then
+            exit $status
+        fi
+        if [[ "$output" == Skipping* ]]; then
+            skipped=$((skipped + 1))
+            continue
+        fi
+        count=$((count + 1))
+    done
+    echo "Exported $count CX2 network(s) to $out_dir/"
+    if [[ $skipped -gt 0 ]]; then
+        echo "Skipped $skipped disorder(s) with no pathograph edges"
+    fi
+
+# Upload a single disorder pathograph to the NDEx test server as a public network.
+# Requires NDEX_USERNAME and NDEX_PASSWORD to be set.
+# Examples:
+#   just upload-cx2-test kb/disorders/Stargardt_Disease.yaml
+#   just upload-cx2-test kb/disorders/Stargardt_Disease.yaml --dot-layout
+[group('Export')]
+upload-cx2-test file *args="":
+    NDEX_HOST="${NDEX_TEST_HOST:-{{ndex_test_host}}}" uv run dismech-cx2 {{file}} --ndex-upload --ndex-replace-existing {{args}}
+
+# Upload all disorder pathographs to the NDEx test server as public networks.
+# Requires NDEX_USERNAME and NDEX_PASSWORD to be set.
+# Examples:
+#   just upload-cx2-test-all
+#   just upload-cx2-test-all --dot-layout
+[group('Export')]
+upload-cx2-test-all *args="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    : "${NDEX_USERNAME:?Set NDEX_USERNAME before running upload-cx2-test-all}"
+    : "${NDEX_PASSWORD:?Set NDEX_PASSWORD before running upload-cx2-test-all}"
+    export NDEX_HOST="${NDEX_TEST_HOST:-{{ndex_test_host}}}"
+    shopt -s nullglob
+    count=0
+    skipped=0
+    for f in {{kb_dir}}/*.yaml; do
+        if [[ "$f" == *.history.yaml ]]; then
+            continue
+        fi
+        echo "Uploading: $f -> $NDEX_HOST"
+        output=$(uv run dismech-cx2 "$f" --ndex-upload --ndex-replace-existing --skip-empty {{args}} 2>&1) && status=0 || status=$?
+        echo "$output"
+        if [[ $status -ne 0 ]]; then
+            exit $status
+        fi
+        if [[ "$output" == Skipping* ]]; then
+            skipped=$((skipped + 1))
+            continue
+        fi
+        count=$((count + 1))
+    done
+    echo "Uploaded $count CX2 network(s) to $NDEX_HOST"
+    if [[ $skipped -gt 0 ]]; then
+        echo "Skipped $skipped disorder(s) with no pathograph edges"
+    fi
 
 # ============== Deep Research ==============
 
@@ -1007,7 +1136,7 @@ normalize-cache:
     echo "Normalizing enum caches..."
     for f in cache/enums/*.csv; do
         header=$(head -1 "$f")
-        tail -n+2 "$f" | sort > /tmp/_sorted_enum.csv
+        tail -n+2 "$f" | sort -u > /tmp/_sorted_enum.csv
         echo "$header" > "$f"
         cat /tmp/_sorted_enum.csv >> "$f"
     done

@@ -35,6 +35,7 @@ prefixes:
   ExO: http://purl.obolibrary.org/obo/ExO_
   ENVO: http://purl.obolibrary.org/obo/ENVO_
   XCO: http://purl.obolibrary.org/obo/XCO_
+  FOODON: http://purl.obolibrary.org/obo/FOODON_
   skos: http://www.w3.org/2004/02/skos/core#
   xsd: http://www.w3.org/2001/XMLSchema#
   PMID: http://www.ncbi.nlm.nih.gov/pubmed/
@@ -92,6 +93,8 @@ enums:
           The annotated claim contains a demonstrable factual error (e.g., an incorrect
           statistic or assertion); the cited evidence documents the correct information.
           Use this when the claim is outright wrong, not merely contested.
+          If the cited reference simply does not mention the claim, use NO_EVIDENCE instead.
+          If the reference contradicts the claim but does not prove it factually wrong, use REFUTE.
       SUPPORT:
         title: Supports
         description: The cited evidence directly supports the claim
@@ -294,6 +297,21 @@ enums:
       ABSENT:
         title: Absent
         description: Not occurring or not present
+  DietaryModificationActionEnum:
+    description: Action applied to a food or beverage as part of a dietary treatment
+    permissible_values:
+      ADD:
+        title: Add
+        description: Increase intake or deliberately include the specified food or beverage
+      RESTRICT:
+        title: Restrict
+        description: Limit intake of the specified food or beverage without full elimination
+      AVOID:
+        title: Avoid
+        description: Eliminate or strictly avoid the specified food or beverage
+      SUBSTITUTE:
+        title: Substitute
+        description: Use the specified food or beverage as a replacement within a dietary regimen
   PenetranceEnum:
     description: Penetrance classification for inheritance
     permissible_values:
@@ -330,6 +348,27 @@ enums:
       BILATERAL:
         title: Bilateral
         description: Both sides of the body
+  SpatialExtentEnum:
+    description: Qualifiers for the spatial extent or distribution of a phenotype or process
+    permissible_values:
+      FOCAL:
+        title: Focal
+        description: Confined to a single location or region
+      MULTIFOCAL:
+        title: Multifocal
+        description: Affecting multiple discrete locations
+      DIFFUSE:
+        title: Diffuse
+        description: Widespread, continuous distribution
+      EXTENSIVE:
+        title: Extensive
+        description: Large extent, typically involving multiple segments or regions
+      PATCHY:
+        title: Patchy
+        description: Irregular, discontinuous distribution
+      SEGMENTAL:
+        title: Segmental
+        description: Affecting a specific segment or dermatome
   AssayTerm:
     description: A term representing an assay
     reachable_from:
@@ -556,6 +595,18 @@ enums:
         - ENVO:01000254  ## environmental system (ecosystems, biomes)
         - ENVO:00010483  ## environmental material (water, soil, air, etc.)
         - ENVO:01001886  ## landform (mountains, valleys, etc.)
+      is_direct: false
+      relationship_types:
+        - rdfs:subClassOf
+  FoodTerm:
+    description: A term representing a food, beverage, nutrient, mineral, or supplement source (from FOODON or CHEBI)
+    comments:
+      - FOODON is used for specific foods, beverages, and food products
+      - CHEBI is used when the relevant dietary entity is an exact nutrient, mineral, vitamin, or supplement
+    reachable_from:
+      source_nodes:
+        - FOODON:00001002  ## food product
+        - CHEBI:33284  ## nutrient
       is_direct: false
       relationship_types:
         - rdfs:subClassOf
@@ -902,6 +953,18 @@ enums:
         description: Natural-log observed-to-expected co-occurrence ratio
       OTHER:
         description: Other or unspecified metric
+  MechanismConfidenceEnum:
+    description: Level of confidence in a pathophysiology mechanism
+    permissible_values:
+      ESTABLISHED:
+        title: Established
+        description: Well-established mechanism with strong evidence from multiple independent studies
+      HYPOTHETICAL:
+        title: Hypothetical
+        description: Hypothetical mechanism with limited or indirect evidence; plausible but not yet validated
+      PROVISIONAL:
+        title: Provisional
+        description: Provisional mechanism under active investigation with emerging but incomplete evidence
 
 slots:
   name:
@@ -944,6 +1007,9 @@ slots:
   laterality:
     description: Laterality qualifier (left, right, or bilateral)
     range: LateralityEnum
+  spatial_extent:
+    description: The spatial extent or distribution pattern of this phenotype or process (e.g., focal, diffuse, extensive)
+    range: SpatialExtentEnum
   therapeutic_agent:
     description: >-
       The drug, chemical, or therapeutic agent used in a treatment. Use when the MAXO term
@@ -954,6 +1020,16 @@ slots:
     comments:
       - Bind to CHEBI for specific chemicals/drugs
       - Can also use NCIT for drug classes when CHEBI term unavailable
+  dietary_modifications:
+    description: >-
+      Structured dietary additions, restrictions, avoidances, or substitutions associated
+      with a treatment descriptor.
+    range: DietaryModification
+    multivalued: true
+    inlined_as_list: true
+    comments:
+      - Use only for intentional prescribed dietary manipulations within a treatment entry
+      - Do not mirror environmental risk factors here unless the treatment explicitly prescribes avoidance, restriction, or addition
   qualifiers:
     description: >-
       List of predicate-value pairs for formal post-composition. Allows OWL-like
@@ -969,6 +1045,13 @@ slots:
   value:
     description: The value/filler in a qualifier
     range: Descriptor
+    inlined: true
+  action:
+    description: The dietary action being applied
+    range: DietaryModificationActionEnum
+  food:
+    description: The FOODON-bound food or beverage targeted by a dietary modification
+    range: FoodDescriptor
     inlined: true
   id:
     description: Ontology term identifier (CURIE)
@@ -1322,6 +1405,10 @@ slots:
   environment_context:
     description: The ENVO term for the environmental context/setting
     range: EnvironmentDescriptor
+    inlined: true
+  food_source:
+    description: The FOODON or CHEBI term for a specific food, beverage, nutrient, mineral, or supplement source or vehicle relevant to an exposure
+    range: FoodDescriptor
     inlined: true
   mechanisms:
     examples:
@@ -1713,6 +1800,9 @@ slots:
     multivalued: true
     range: ProteinStructure
     inlined_as_list: true
+  mechanism_confidence:
+    description: Level of confidence in this pathophysiology mechanism. If not specified, the mechanism is assumed to be established.
+    range: MechanismConfidenceEnum
   # Dataset-related slots
   accession:
     description: Dataset accession identifier as a CURIE (e.g., geo:GSE67472)
@@ -2232,6 +2322,7 @@ classes:
       - modifier
       - located_in
       - laterality
+      - spatial_extent
       - qualifiers
     slot_usage:
       description:
@@ -2255,6 +2346,18 @@ classes:
     slots:
       - predicate
       - value
+
+  DietaryModification:
+    description: >-
+      A structured dietary addition, restriction, avoidance, or substitution used to
+      post-compose a treatment descriptor with FOODON foods or beverages.
+    comments:
+      - Use for bona fide dietary or nutritional treatments, not to restate harmful exposures outside treatment context
+      - Represent substitutions as paired AVOID and ADD entries when a single replacement target is insufficient
+    slots:
+      - action
+      - food
+      - description
 
   CellTypeDescriptor:
     is_a: Descriptor
@@ -2457,6 +2560,7 @@ classes:
     description: A descriptor for treatments/medical actions, bindable to Medical Action Ontology (MAXO)
     slots:
       - therapeutic_agent
+      - dietary_modifications
     slot_usage:
       term:
         description: Optional MAXO treatment term reference
@@ -2471,6 +2575,13 @@ classes:
         comments:
           - Prefer CHEBI terms for specific drugs (e.g., CHEBI:15365 for aspirin)
           - Use NCIT for drug classes when specific CHEBI term unavailable
+      dietary_modifications:
+        description: >-
+          The food or beverage additions, restrictions, avoidances, or substitutions that
+          define a dietary intervention.
+        comments:
+          - Best used when treatment_term is a dietary or nutritional intervention (for example MAXO:0000088 dietary intervention)
+          - Use FOODON-backed foods or beverages rather than abstract nutrients where possible
 
   RegimenDescriptor:
     is_a: Descriptor
@@ -2508,6 +2619,20 @@ classes:
         bindings:
           - binds_value_of: id
             range: EnvironmentTerm
+            obligation_level: REQUIRED
+
+  FoodDescriptor:
+    is_a: Descriptor
+    description: A descriptor for foods, beverages, nutrients, minerals, and supplements, bindable to FOODON or CHEBI
+    comments:
+      - Use FOODON for specific foods, beverages, food products, and dietary sources
+      - Use CHEBI when the dietary target is an exact nutrient, mineral, vitamin, or supplement
+    slot_usage:
+      term:
+        description: Optional FOODON or CHEBI dietary entity term reference
+        bindings:
+          - binds_value_of: id
+            range: FoodTerm
             obligation_level: REQUIRED
 
   OrganismDescriptor:
@@ -2992,6 +3117,7 @@ classes:
       - frequency
       - genetic_context
       - pdb_structures
+      - mechanism_confidence
   Phenotype:
     slots:
       - category
@@ -3087,6 +3213,7 @@ classes:
       - review_notes
       - exposure_term
       - environment_context
+      - food_source
   Disease:
     slots:
       - name
@@ -3206,6 +3333,7 @@ classes:
     slots:
       - name
       - infectious_agent_term
+      - food_source
       - evidence
       - description
       - has_subtypes

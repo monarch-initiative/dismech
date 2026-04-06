@@ -561,6 +561,16 @@ class TabularExporter:
             elif relation_type == "therapeutic_agent":
                 self._append_if_value(aggregated, "postcomp_therapeutic_agent", value_text)
                 self._append_if_value(aggregated, "postcomp_therapeutic_agent_ids", value_id)
+            elif relation_type == "dietary_modification":
+                action = str(row.get("predicate_preferred_term", "") or "")
+                combined = f"{action} {value_text}".strip()
+                self._append_if_value(
+                    aggregated,
+                    "postcomp_dietary_modification",
+                    combined or value_text,
+                )
+                self._append_if_value(aggregated, "postcomp_dietary_modification_ids", value_id)
+                self._append_if_value(aggregated, "postcomp_dietary_modification_actions", action)
             elif relation_type == "qualifier":
                 predicate_label = str(row.get("predicate_term_label", "") or row.get("predicate_preferred_term", "") or "")
                 predicate_id = str(row.get("predicate_term_id", "") or "")
@@ -782,6 +792,28 @@ class TabularExporter:
                 raw_value=therapeutic_value,
             )
 
+        dietary_modifications = descriptor.get("dietary_modifications")
+        if isinstance(dietary_modifications, dict):
+            dietary_items = [dietary_modifications]
+        elif isinstance(dietary_modifications, list):
+            dietary_items = [value for value in dietary_modifications if isinstance(value, dict)]
+        else:
+            dietary_items = []
+        for index, dietary_value in enumerate(dietary_items):
+            action = str(dietary_value.get("action", "") or "")
+            food = dietary_value.get("food")
+            food_pref, food_id, food_label = descriptor_fields(food)
+            add_row(
+                relation_type="dietary_modification",
+                relation_index=index,
+                relation_path=f"{descriptor_path}.dietary_modifications[{index}]",
+                predicate_preferred_term=action,
+                value_preferred_term=food_pref,
+                value_term_id=food_id,
+                value_term_label=food_label,
+                raw_value=dietary_value,
+            )
+
         qualifiers = descriptor.get("qualifiers")
         if isinstance(qualifiers, list):
             for index, qualifier in enumerate(qualifiers):
@@ -835,7 +867,17 @@ class TabularExporter:
             return False
         if "preferred_term" in value:
             return True
-        if any(key in value for key in ("modifier", "located_in", "laterality", "qualifiers", "therapeutic_agent")):
+        if any(
+            key in value
+            for key in (
+                "modifier",
+                "located_in",
+                "laterality",
+                "qualifiers",
+                "therapeutic_agent",
+                "dietary_modifications",
+            )
+        ):
             return True
         if key_hint and key_hint.endswith("_term"):
             term = value.get("term")
