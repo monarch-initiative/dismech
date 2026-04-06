@@ -50,12 +50,16 @@ def test_disorder_to_cx2_exports_stargardt_with_layout_and_metadata() -> None:
 
     network_attributes = aspects["networkAttributes"][0]
     assert network_attributes["name"] == "Stargardt Disease"
+    assert "Stargardt disease" in network_attributes["disease"]
     assert network_attributes["disease_term_id"] == "MONDO:0019353"
     assert network_attributes["node_count"] == len(aspects["nodes"])
     assert network_attributes["edge_count"] == len(aspects["edges"])
+    assert "PMID:" in network_attributes["reference"]
     assert network_attributes["source_file"].endswith(
         "kb/disorders/Stargardt_Disease.yaml"
     )
+    assert "photoreceptor cell" in network_attributes["tissue"]
+    assert "retinal pigment epithelial cell" in network_attributes["tissue"]
     assert (
         "github.com/monarch-initiative/dismech/blob/main/kb/disorders/Stargardt_Disease.yaml"
         in network_attributes["prov:wasDerivedFrom"]
@@ -136,6 +140,23 @@ def test_disorder_to_cx2_exports_event_location_links() -> None:
     assert "UBERON:0002371" in event_node["v"]["location_links"]
     assert event_node["v"]["cell_type_ids"] == ["CL:0000836"]
     assert "CL:0000836" in event_node["v"]["cell_type_links"]
+
+
+def test_disorder_to_cx2_uses_top_level_references_for_network_header() -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    disorder_path = repo_root / "kb" / "disorders" / "Spinal_Muscular_Atrophy.yaml"
+
+    cx2 = disorder_to_cx2(
+        load_disorder(disorder_path),
+        source_path=disorder_path,
+    )
+    aspects = _aspect_map(cx2)
+
+    reference_html = aspects["networkAttributes"][0]["reference"]
+    assert "DOI:10.1007/s00415-024-12724-3" in reference_html
+    assert "Cytoskeleton dysfunction of motor neuron in spinal muscular atrophy" in (
+        reference_html
+    )
 
 
 def test_cx2_export_cli_writes_json_file(tmp_path: Path) -> None:

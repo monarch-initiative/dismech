@@ -450,6 +450,48 @@ def _descriptor_entries(descriptors: Any) -> list[dict[str, str]]:
     return entries
 
 
+def _iter_nested_dicts(obj: Any) -> Any:
+    """Yield nested mapping objects from disorder content."""
+    if isinstance(obj, dict):
+        yield obj
+        for value in obj.values():
+            yield from _iter_nested_dicts(value)
+    elif isinstance(obj, list):
+        for item in obj:
+            yield from _iter_nested_dicts(item)
+
+
+def _unique_entries(entries: list[dict[str, str]]) -> list[dict[str, str]]:
+    unique: list[dict[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for entry in entries:
+        label = str(entry.get("label") or "").strip()
+        term_id = str(entry.get("id") or "").strip()
+        if not label and not term_id:
+            continue
+        key = (label, term_id)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(
+            {"label": label or term_id, **({"id": term_id} if term_id else {})}
+        )
+    return unique
+
+
+def _collect_disorder_descriptor_entries(
+    disorder: dict[str, Any],
+    *,
+    field_names: tuple[str, ...],
+) -> list[dict[str, str]]:
+    entries: list[dict[str, str]] = []
+    nested_dicts = list(_iter_nested_dicts(disorder))
+    for field_name in field_names:
+        for item in nested_dicts:
+            entries.extend(_descriptor_entries(item.get(field_name)))
+    return _unique_entries(entries)
+
+
 def _format_descriptor_links(entries: list[dict[str, str]]) -> str:
     if not entries:
         return ""
@@ -463,6 +505,57 @@ def _format_descriptor_links(entries: list[dict[str, str]]) -> str:
         else:
             formatted.append(html.escape(label))
     return "<br>".join(formatted)
+
+
+def _format_network_term_links(entries: list[dict[str, str]]) -> str:
+    if not entries:
+        return ""
+
+    formatted: list[str] = []
+    for entry in entries:
+        label = entry["label"]
+        term_id = entry.get("id")
+        if term_id:
+            formatted.append(_format_curie_link(term_id, label=label))
+        else:
+            formatted.append(html.escape(label))
+    return "<br>".join(formatted)
+
+
+def _format_reference_entries(entries: list[dict[str, str]]) -> str:
+    if not entries:
+        return ""
+
+    formatted: list[str] = []
+    for entry in entries:
+        reference = entry.get("reference")
+        title = entry.get("title")
+        parts: list[str] = []
+        if reference:
+            parts.append(_format_curie_link(reference))
+        if title:
+            parts.append(f"<em>{html.escape(title)}</em>")
+        if parts:
+            formatted.append(f"<li>{': '.join(parts)}</li>")
+    if not formatted:
+        return ""
+    return f"<ul>{''.join(formatted)}</ul>"
+
+
+def _extract_disorder_term_entry(disorder: dict[str, Any]) -> dict[str, str] | None:
+    disease_term = disorder.get("disease_term")
+    if not isinstance(disease_term, dict):
+        return None
+    term = disease_term.get("term")
+    if not isinstance(term, dict):
+        return None
+
+    term_id = term.get("id")
+    if not term_id:
+        return None
+
+    label_value = disease_term.get("preferred_term") or term.get("label") or term_id
+    return {"id": str(term_id), "label": str(label_value)}
 
 
 def _format_evidence_list(evidence_items: list[dict[str, Any]] | None) -> str:
@@ -509,14 +602,66 @@ def _format_evidence_list(evidence_items: list[dict[str, Any]] | None) -> str:
 
 
 def _extract_disorder_term_id(disorder: dict[str, Any]) -> str | None:
-    disease_term = disorder.get("disease_term")
-    if not isinstance(disease_term, dict):
-        return None
-    term = disease_term.get("term")
-    if not isinstance(term, dict):
-        return None
-    term_id = term.get("id")
-    return str(term_id) if term_id else None
+    entry = _extract_disorder_term_entry(disorder)
+    return entry["id"] if entry else None
+
+
+def _collect_reference_entries(
+    disorder: dict[str, Any],
+    *,
+    limit: int = 3,
+) -> list[dict[str, str]]:
+    entries: list[dict[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+
+    def add_entry(reference: Any, title: Any) -> None:
+        if len(entries) >= limit:
+            return
+        reference_text = str(reference).strip() if reference else ""
+        title_text = str(title).strip() if title else ""
+        if not reference_text and not title_text:
+            return
+        key = (reference_text, title_text)
+        if key in seen:
+            return
+        seen.add(key)
+        entry: dict[str, str] = {}
+        if reference_text:
+            entry["reference"] = reference_text
+        if title_text:
+            entry["title"] = title_text
+        entries.append(entry)
+
+    for reference_entry in disorder.get("references", []) or []:
+        if not isinstance(reference_entry, dict):
+            continue
+        add_entry(reference_entry.get("reference"), reference_entry.get("title"))
+
+    if len(entries) >= limit:
+        return entries
+
+    for item in _iter_nested_dicts(disorder):
+        evidence_items = item.get("evidence")
+        if not isinstance(evidence_items, list):
+            continue
+        for evidence_item in evidence_items:
+            if not isinstance(evidence_item, dict):
+                continue
+            add_entry(
+                evidence_item.get("reference"),
+                evidence_item.get("reference_title"),
+            )
+            if len(entries) >= limit:
+                return entries
+
+    return entries
+
+
+def _collect_network_tissue_entries(disorder: dict[str, Any]) -> list[dict[str, str]]:
+    return _collect_disorder_descriptor_entries(
+        disorder,
+        field_names=("locations", "cell_types"),
+    )
 
 
 def _extract_node_represents(
@@ -1279,8 +1424,11 @@ def disorder_to_cx2(
     graph_payload = json.loads(graph_to_json(graph, disorder))
     edge_detail_lookup = _build_edge_detail_lookup(disorder)
 
+    disease_term_entry = _extract_disorder_term_entry(disorder)
     disease_term_id = _extract_disorder_term_id(disorder)
     source_url = _guess_source_url(source_path)
+    reference_html = _format_reference_entries(_collect_reference_entries(disorder))
+    tissue_html = _format_network_term_links(_collect_network_tissue_entries(disorder))
 
     cx2_network = CX2Network()
     network_name = str(
@@ -1296,8 +1444,14 @@ def disorder_to_cx2(
     }
     if source_path:
         network_attributes["source_file"] = str(source_path)
+    if disease_term_entry:
+        network_attributes["disease"] = _format_network_term_links([disease_term_entry])
     if disease_term_id:
         network_attributes["disease_term_id"] = disease_term_id
+    if reference_html:
+        network_attributes["reference"] = reference_html
+    if tissue_html:
+        network_attributes["tissue"] = tissue_html
     if disorder.get("category"):
         network_attributes["category"] = disorder["category"]
     if disorder.get("creation_date"):

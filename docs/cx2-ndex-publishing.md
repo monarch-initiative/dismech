@@ -16,6 +16,7 @@ The CX2 export is built from the same pathograph graph used in the HTML disorder
 The exporter also adds NDEx-oriented metadata:
 
 - disease-level `MONDO` label on the network
+- NDEx-style top-level `disease`, `reference`, and `tissue` network attributes
 - NDEx/iQuery-friendly typing for gene-referencing nodes
 - ontology links on event nodes for `CL`, `GO`, `UBERON`, and related terms when present in the source YAML
 
@@ -113,6 +114,16 @@ If `test.ndexbio.org` says your user does not exist, that usually means either:
 - or you do not have an account on the test server yet
 
 ## What the CX2 Export Adds for NDEx
+
+### Network header attributes
+
+The exporter now populates several NDEx-indexed network attributes that show up prominently in the NDEx info panel:
+
+- `disease`: built from the disorder-level `disease_term`, using the MONDO label as a link target
+- `reference`: built from top-level `references` when present, with fallback to evidence-level `reference` plus `reference_title`
+- `tissue`: built from ontology-backed `locations` and `cell_types` found across the disorder content
+
+These are ordinary CX2 `networkAttributes`, not special NDEx-only aspects, but NDEx indexes and surfaces them by name.
 
 ### Gene-aware iQuery typing
 
