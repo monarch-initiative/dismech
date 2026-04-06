@@ -900,6 +900,28 @@ class ModifierEnum(str, Enum):
     """
 
 
+class DietaryModificationActionEnum(str, Enum):
+    """
+    Action applied to a food or beverage as part of a dietary treatment
+    """
+    Add = "ADD"
+    """
+    Increase intake or deliberately include the specified food or beverage
+    """
+    Restrict = "RESTRICT"
+    """
+    Limit intake of the specified food or beverage without full elimination
+    """
+    Avoid = "AVOID"
+    """
+    Eliminate or strictly avoid the specified food or beverage
+    """
+    Substitute = "SUBSTITUTE"
+    """
+    Use the specified food or beverage as a replacement within a dietary regimen
+    """
+
+
 class PenetranceEnum(str, Enum):
     """
     Penetrance classification for inheritance
@@ -1161,7 +1183,7 @@ class EnvironmentTerm(str):
 
 class FoodTerm(str):
     """
-    A term representing a food or beverage source (from FOODON)
+    A term representing a food, beverage, nutrient, mineral, or supplement source (from FOODON or CHEBI)
     """
     pass
 
@@ -1838,6 +1860,7 @@ class Descriptor(ConfiguredBaseModel):
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -1913,6 +1936,63 @@ class Qualifier(ConfiguredBaseModel):
     value: Optional[Descriptor] = Field(default=None, description="""The value/filler in a qualifier""", json_schema_extra = { "linkml_meta": {'alias': 'value', 'domain_of': ['Qualifier']} })
 
 
+class DietaryModification(ConfiguredBaseModel):
+    """
+    A structured dietary addition, restriction, avoidance, or substitution used to post-compose a treatment descriptor with FOODON foods or beverages.
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'comments': ['Use for bona fide dietary or nutritional treatments, not to '
+                      'restate harmful exposures outside treatment context',
+                      'Represent substitutions as paired AVOID and ADD entries when a '
+                      'single replacement target is insufficient'],
+         'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
+
+    action: Optional[DietaryModificationActionEnum] = Field(default=None, description="""The dietary action being applied""", json_schema_extra = { "linkml_meta": {'alias': 'action', 'domain_of': ['DietaryModification']} })
+    food: Optional[FoodDescriptor] = Field(default=None, description="""The FOODON-bound food or beverage targeted by a dietary modification""", json_schema_extra = { "linkml_meta": {'alias': 'food', 'domain_of': ['DietaryModification']} })
+    description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
+         'domain_of': ['Descriptor',
+                       'DietaryModification',
+                       'GeneticContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
+                       'ProteinStructure',
+                       'ExternalAssertion',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'HistopathologyFinding',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'FunctionalEffect',
+                       'Mechanism',
+                       'ModelingConsideration',
+                       'Definition',
+                       'CriteriaSet',
+                       'ConditionDescriptor',
+                       'GOEnrichment',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis']} })
+
+
 class CellTypeDescriptor(Descriptor):
     """
     A descriptor for cell types, bindable to Cell Ontology (CL)
@@ -1927,6 +2007,7 @@ class CellTypeDescriptor(Descriptor):
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -2002,6 +2083,7 @@ class BiologicalProcessDescriptor(Descriptor):
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -2077,6 +2159,7 @@ class MolecularFunctionDescriptor(Descriptor):
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -2152,6 +2235,7 @@ class AnatomicalEntityDescriptor(Descriptor):
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -2227,6 +2311,7 @@ class ChemicalEntityDescriptor(Descriptor):
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -2302,6 +2387,7 @@ class GeneDescriptor(Descriptor):
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -2377,6 +2463,7 @@ class CellularComponentDescriptor(Descriptor):
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -2452,6 +2539,7 @@ class ProteinComplexDescriptor(Descriptor):
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -2526,6 +2614,7 @@ class AssayDescriptor(Descriptor):
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -2600,6 +2689,7 @@ class TriggerDescriptor(Descriptor):
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -2674,6 +2764,7 @@ class DiseaseDescriptor(Descriptor):
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -2748,6 +2839,7 @@ class BiomarkerDescriptor(Descriptor):
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -2822,6 +2914,7 @@ class GeneProductDescriptor(Descriptor):
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -2903,6 +2996,7 @@ class HistopathologyFindingDescriptor(Descriptor):
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -2977,6 +3071,7 @@ class LifeCycleStageDescriptor(Descriptor):
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -3051,6 +3146,7 @@ class PhenotypeDescriptor(Descriptor):
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -3126,6 +3222,7 @@ class InheritanceDescriptor(Descriptor):
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -3191,7 +3288,26 @@ class TreatmentDescriptor(Descriptor):
     A descriptor for treatments/medical actions, bindable to Medical Action Ontology (MAXO)
     """
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
-         'slot_usage': {'term': {'bindings': [{'binds_value_of': 'id',
+         'slot_usage': {'dietary_modifications': {'comments': ['Best used when '
+                                                               'treatment_term is a '
+                                                               'dietary or nutritional '
+                                                               'intervention (for '
+                                                               'example MAXO:0000088 '
+                                                               'dietary intervention)',
+                                                               'Use FOODON-backed '
+                                                               'foods or beverages '
+                                                               'rather than abstract '
+                                                               'nutrients where '
+                                                               'possible'],
+                                                  'description': 'The food or beverage '
+                                                                 'additions, '
+                                                                 'restrictions, '
+                                                                 'avoidances, or '
+                                                                 'substitutions that '
+                                                                 'define a dietary '
+                                                                 'intervention.',
+                                                  'name': 'dietary_modifications'},
+                        'term': {'bindings': [{'binds_value_of': 'id',
                                                'obligation_level': 'REQUIRED',
                                                'range': 'TreatmentActionTerm'}],
                                  'description': 'Optional MAXO treatment term '
@@ -3218,9 +3334,16 @@ class TreatmentDescriptor(Descriptor):
                       'aspirin)',
                       'Use NCIT for drug classes when specific CHEBI term unavailable'],
          'domain_of': ['TreatmentDescriptor']} })
+    dietary_modifications: Optional[list[DietaryModification]] = Field(default=None, description="""The food or beverage additions, restrictions, avoidances, or substitutions that define a dietary intervention.""", json_schema_extra = { "linkml_meta": {'alias': 'dietary_modifications',
+         'comments': ['Best used when treatment_term is a dietary or nutritional '
+                      'intervention (for example MAXO:0000088 dietary intervention)',
+                      'Use FOODON-backed foods or beverages rather than abstract '
+                      'nutrients where possible'],
+         'domain_of': ['TreatmentDescriptor']} })
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -3295,6 +3418,7 @@ class RegimenDescriptor(Descriptor):
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -3374,6 +3498,7 @@ class ExposureDescriptor(Descriptor):
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -3451,6 +3576,7 @@ class EnvironmentDescriptor(Descriptor):
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -3513,21 +3639,24 @@ class EnvironmentDescriptor(Descriptor):
 
 class FoodDescriptor(Descriptor):
     """
-    A descriptor for foods and beverages, bindable to FOODON
+    A descriptor for foods, beverages, nutrients, minerals, and supplements, bindable to FOODON or CHEBI
     """
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'comments': ['Use FOODON for specific foods, beverages, food products, and '
-                      'dietary sources'],
+                      'dietary sources',
+                      'Use CHEBI when the dietary target is an exact nutrient, '
+                      'mineral, vitamin, or supplement'],
          'from_schema': 'https://w3id.org/monarch-initiative/dismech',
          'slot_usage': {'term': {'bindings': [{'binds_value_of': 'id',
                                                'obligation_level': 'REQUIRED',
                                                'range': 'FoodTerm'}],
-                                 'description': 'Optional FOODON food or beverage term '
-                                                'reference',
+                                 'description': 'Optional FOODON or CHEBI dietary '
+                                                'entity term reference',
                                  'name': 'term'}}})
 
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -3569,7 +3698,7 @@ class FoodDescriptor(Descriptor):
                        'UpstreamConditionHypothesis',
                        'MechanisticHypothesis'],
          'recommended': False} })
-    term: Optional[Term] = Field(default=None, description="""Optional FOODON food or beverage term reference""", json_schema_extra = { "linkml_meta": {'alias': 'term',
+    term: Optional[Term] = Field(default=None, description="""Optional FOODON or CHEBI dietary entity term reference""", json_schema_extra = { "linkml_meta": {'alias': 'term',
          'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
                        'range': 'FoodTerm'}],
@@ -3602,6 +3731,7 @@ class OrganismDescriptor(Descriptor):
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -3676,6 +3806,7 @@ class HostDescriptor(OrganismDescriptor):
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -3748,6 +3879,7 @@ class SampleTypeDescriptor(Descriptor):
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -3827,6 +3959,7 @@ class GeneticContext(ConfiguredBaseModel):
     complementation_group: Optional[str] = Field(default=None, description="""Complementation group designation (e.g., FA-A, FA-D1, BBS1). Used for genetically heterogeneous diseases where subtypes are historically named by complementation analysis.""", json_schema_extra = { "linkml_meta": {'alias': 'complementation_group', 'domain_of': ['GeneticContext']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -4114,6 +4247,7 @@ class Dataset(ConfiguredBaseModel):
          'implements': ['linkml:title']} })
     description: Optional[str] = Field(default=None, description="""A description of the dataset. This may typically be redundant with the `title` slot, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the title slot.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -4308,6 +4442,7 @@ class ExperimentalModel(ConfiguredBaseModel):
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -4528,6 +4663,7 @@ class ClinicalTrial(ConfiguredBaseModel):
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, description="""Brief summary or key details of the clinical trial""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -4728,6 +4864,7 @@ class ComputationalModel(ConfiguredBaseModel):
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -4920,6 +5057,7 @@ class ModelVariable(ConfiguredBaseModel):
          'examples': [{'value': 'ECCPhos'}, {'value': 'Qbone'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -5079,6 +5217,7 @@ class ModelVariableDescriptor(Descriptor):
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -5199,6 +5338,7 @@ class DifferentialDiagnosis(ConfiguredBaseModel):
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, description="""Clinical or mechanistic overlaps, shared presentations, and diagnostic considerations with the focal disease""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -5365,6 +5505,7 @@ class Subtype(ConfiguredBaseModel):
     subtype_term: Optional[DiseaseDescriptor] = Field(default=None, description="""The MONDO term for a disease subtype""", json_schema_extra = { "linkml_meta": {'alias': 'subtype_term', 'domain_of': ['Subtype']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -5542,6 +5683,7 @@ class CausalEdge(ConfiguredBaseModel):
          'domain_of': ['CausalEdge', 'TreatmentMechanismTarget', 'ModelMechanismLink']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -5648,6 +5790,7 @@ class TreatmentMechanismTarget(ConfiguredBaseModel):
     treatment_effect: Optional[TreatmentEffectEnum] = Field(default=None, description="""How the treatment affects the targeted mechanism""", json_schema_extra = { "linkml_meta": {'alias': 'treatment_effect', 'domain_of': ['TreatmentMechanismTarget']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -5756,6 +5899,7 @@ class ModelMechanismLink(ConfiguredBaseModel):
          'domain_of': ['CausalEdge', 'TreatmentMechanismTarget', 'ModelMechanismLink']} })
     description: Optional[str] = Field(default=None, description="""Brief assertion-level note describing what facet of the linked mechanism the model captures or assays.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -5849,6 +5993,7 @@ class ProteinStructure(ConfiguredBaseModel):
     pdb_id: str = Field(default=..., description="""PDB accession code (e.g., 3TCT) or AlphaFold identifier (e.g., AF-P02766-F1). Used to construct viewer URLs and fetch structure data.""", json_schema_extra = { "linkml_meta": {'alias': 'pdb_id', 'domain_of': ['ProteinStructure']} })
     description: Optional[str] = Field(default=None, description="""Brief description of what the structure shows (e.g., drug-target co-crystal)""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -5971,6 +6116,7 @@ class ExternalAssertion(ConfiguredBaseModel):
     url: Optional[str] = Field(default=None, description="""URL for the external assertion or registry record""", json_schema_extra = { "linkml_meta": {'alias': 'url', 'domain_of': ['ExternalAssertion']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -6413,6 +6559,7 @@ class EpidemiologyInfo(ConfiguredBaseModel):
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -6584,6 +6731,7 @@ class Pathophysiology(ConfiguredBaseModel):
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -6852,6 +7000,7 @@ class Phenotype(ConfiguredBaseModel):
          'examples': [{'value': 'Occasional'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -7261,6 +7410,7 @@ class HistopathologyFinding(ConfiguredBaseModel):
          'domain_of': ['HistopathologyFinding']} })
     description: Optional[str] = Field(default=None, description="""Detailed description of the finding and its clinical significance""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -7709,6 +7859,7 @@ class Environmental(ConfiguredBaseModel):
                                 'bacteria can be spread to others.'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -7784,7 +7935,7 @@ class Environmental(ConfiguredBaseModel):
          'examples': [{'value': 'Added an additional clinically relevant subtype.'}]} })
     exposure_term: Optional[ExposureDescriptor] = Field(default=None, description="""The ECTO/XCO term for this exposure event""", json_schema_extra = { "linkml_meta": {'alias': 'exposure_term', 'domain_of': ['Environmental']} })
     environment_context: Optional[EnvironmentDescriptor] = Field(default=None, description="""The ENVO term for the environmental context/setting""", json_schema_extra = { "linkml_meta": {'alias': 'environment_context', 'domain_of': ['Environmental']} })
-    food_source: Optional[FoodDescriptor] = Field(default=None, description="""The FOODON term for a specific food or beverage source""", json_schema_extra = { "linkml_meta": {'alias': 'food_source', 'domain_of': ['Environmental']} })
+    food_source: Optional[FoodDescriptor] = Field(default=None, description="""The FOODON or CHEBI term for a specific food, beverage, nutrient, mineral, or supplement source or vehicle relevant to an exposure""", json_schema_extra = { "linkml_meta": {'alias': 'food_source', 'domain_of': ['Environmental', 'InfectiousAgent']} })
 
 
 class Disease(ConfiguredBaseModel):
@@ -7845,6 +7996,7 @@ class Disease(ConfiguredBaseModel):
          'recommended': True} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -8068,6 +8220,7 @@ class Stage(ConfiguredBaseModel):
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -8231,6 +8384,7 @@ class AgentLifeCycle(ConfiguredBaseModel):
 
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -8421,6 +8575,7 @@ class AgentLifeCycleStage(ConfiguredBaseModel):
     life_cycle_stage_term: Optional[LifeCycleStageDescriptor] = Field(default=None, description="""The OPL term for this agent life cycle stage""", json_schema_extra = { "linkml_meta": {'alias': 'life_cycle_stage_term', 'domain_of': ['AgentLifeCycleStage']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -8589,6 +8744,7 @@ class AnimalModel(ConfiguredBaseModel):
     alleles: Optional[list[str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'alleles', 'domain_of': ['AnimalModel']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -8714,6 +8870,7 @@ class Treatment(ConfiguredBaseModel):
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -8924,6 +9081,7 @@ class InfectiousAgent(ConfiguredBaseModel):
                        'ComorbidityAssociation'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     infectious_agent_term: Optional[OrganismDescriptor] = Field(default=None, description="""The NCBITaxon term for this infectious agent""", json_schema_extra = { "linkml_meta": {'alias': 'infectious_agent_term', 'domain_of': ['InfectiousAgent']} })
+    food_source: Optional[FoodDescriptor] = Field(default=None, description="""The FOODON or CHEBI term for a specific food, beverage, nutrient, mineral, or supplement source or vehicle relevant to an exposure""", json_schema_extra = { "linkml_meta": {'alias': 'food_source', 'domain_of': ['Environmental', 'InfectiousAgent']} })
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
@@ -8968,6 +9126,7 @@ class InfectiousAgent(ConfiguredBaseModel):
          'recommended': True} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -9048,6 +9207,7 @@ class Transmission(ConfiguredBaseModel):
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -9211,6 +9371,7 @@ class Assay(ConfiguredBaseModel):
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -9385,6 +9546,7 @@ class Diagnosis(ConfiguredBaseModel):
          'examples': [{'value': 'CRP, ESR, SAA'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -9512,6 +9674,7 @@ class Inheritance(ConfiguredBaseModel):
          'recommended': True} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -9594,6 +9757,7 @@ class Variant(ConfiguredBaseModel):
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -9704,6 +9868,7 @@ class FunctionalEffect(ConfiguredBaseModel):
     function: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'function', 'domain_of': ['FunctionalEffect']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -9789,6 +9954,7 @@ class Mechanism(ConfiguredBaseModel):
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -9868,6 +10034,7 @@ class ModelingConsideration(ConfiguredBaseModel):
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -10693,6 +10860,7 @@ class Definition(ConfiguredBaseModel):
     definition_type: DefinitionTypeEnum = Field(default=..., description="""The type of definition or criteria set""", json_schema_extra = { "linkml_meta": {'alias': 'definition_type', 'domain_of': ['Definition']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -10861,6 +11029,7 @@ class CriteriaSet(ConfiguredBaseModel):
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -11001,6 +11170,7 @@ class CriteriaItem(Descriptor):
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -11399,6 +11569,7 @@ class ConditionDescriptor(Descriptor):
     preferred_term: Optional[str] = Field(default=None, description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -11878,6 +12049,7 @@ class GOEnrichment(ConfiguredBaseModel):
          'domain_of': ['ProteinStructure', 'AssociationSignal', 'GOEnrichment']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -11947,6 +12119,7 @@ class ComorbidityHypothesis(ConfiguredBaseModel):
 
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -12042,6 +12215,7 @@ class UpstreamConditionHypothesis(ConfiguredBaseModel):
     upstream_disorder: Optional[ConditionDescriptor] = Field(default=None, description="""Upstream disorder referenced in a hypothesis""", json_schema_extra = { "linkml_meta": {'alias': 'upstream_disorder', 'domain_of': ['UpstreamConditionHypothesis']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -12145,6 +12319,7 @@ class MechanisticHypothesis(ConfiguredBaseModel):
                       {'value': 'Terminated'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
+                       'DietaryModification',
                        'GeneticContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -12282,6 +12457,7 @@ CurationEvent.model_rebuild()
 Term.model_rebuild()
 Descriptor.model_rebuild()
 Qualifier.model_rebuild()
+DietaryModification.model_rebuild()
 CellTypeDescriptor.model_rebuild()
 BiologicalProcessDescriptor.model_rebuild()
 MolecularFunctionDescriptor.model_rebuild()

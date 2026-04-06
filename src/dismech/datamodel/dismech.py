@@ -1,5 +1,5 @@
 # Auto generated from dismech.yaml by pythongen.py version: 0.0.1
-# Generation date: 2026-04-05T16:18:17
+# Generation date: 2026-04-06T12:41:14
 # Schema: dismech
 #
 # id: https://w3id.org/monarch-initiative/dismech
@@ -403,6 +403,36 @@ class Qualifier(YAMLRoot):
 
 
 @dataclass(repr=False)
+class DietaryModification(YAMLRoot):
+    """
+    A structured dietary addition, restriction, avoidance, or substitution used to post-compose a treatment descriptor
+    with FOODON foods or beverages.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["DietaryModification"]
+    class_class_curie: ClassVar[str] = "dismech:DietaryModification"
+    class_name: ClassVar[str] = "DietaryModification"
+    class_model_uri: ClassVar[URIRef] = DISMECH.DietaryModification
+
+    action: Optional[Union[str, "DietaryModificationActionEnum"]] = None
+    food: Optional[Union[dict, "FoodDescriptor"]] = None
+    description: Optional[str] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self.action is not None and not isinstance(self.action, DietaryModificationActionEnum):
+            self.action = DietaryModificationActionEnum(self.action)
+
+        if self.food is not None and not isinstance(self.food, FoodDescriptor):
+            self.food = FoodDescriptor(**as_dict(self.food))
+
+        if self.description is not None and not isinstance(self.description, str):
+            self.description = str(self.description)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
 class CellTypeDescriptor(Descriptor):
     """
     A descriptor for cell types, bindable to Cell Ontology (CL)
@@ -792,10 +822,15 @@ class TreatmentDescriptor(Descriptor):
 
     preferred_term: str = None
     therapeutic_agent: Optional[Union[Union[dict, ChemicalEntityDescriptor], list[Union[dict, ChemicalEntityDescriptor]]]] = empty_list()
+    dietary_modifications: Optional[Union[Union[dict, DietaryModification], list[Union[dict, DietaryModification]]]] = empty_list()
     term: Optional[Union[dict, Term]] = None
 
     def __post_init__(self, *_: str, **kwargs: Any):
         self._normalize_inlined_as_dict(slot_name="therapeutic_agent", slot_type=ChemicalEntityDescriptor, key_name="preferred_term", keyed=False)
+
+        if not isinstance(self.dietary_modifications, list):
+            self.dietary_modifications = [self.dietary_modifications] if self.dietary_modifications is not None else []
+        self.dietary_modifications = [v if isinstance(v, DietaryModification) else DietaryModification(**as_dict(v)) for v in self.dietary_modifications]
 
         if self.term is not None and not isinstance(self.term, Term):
             self.term = Term(**as_dict(self.term))
@@ -872,7 +907,7 @@ class EnvironmentDescriptor(Descriptor):
 @dataclass(repr=False)
 class FoodDescriptor(Descriptor):
     """
-    A descriptor for foods and beverages, bindable to FOODON
+    A descriptor for foods, beverages, nutrients, minerals, and supplements, bindable to FOODON or CHEBI
     """
     _inherited_slots: ClassVar[list[str]] = []
 
@@ -3056,6 +3091,7 @@ class InfectiousAgent(YAMLRoot):
 
     name: Union[str, InfectiousAgentName] = None
     infectious_agent_term: Optional[Union[dict, OrganismDescriptor]] = None
+    food_source: Optional[Union[dict, FoodDescriptor]] = None
     evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
     description: Optional[str] = None
     has_subtypes: Optional[Union[dict[Union[str, SubtypeName], Union[dict, Subtype]], list[Union[dict, Subtype]]]] = empty_dict()
@@ -3068,6 +3104,9 @@ class InfectiousAgent(YAMLRoot):
 
         if self.infectious_agent_term is not None and not isinstance(self.infectious_agent_term, OrganismDescriptor):
             self.infectious_agent_term = OrganismDescriptor(**as_dict(self.infectious_agent_term))
+
+        if self.food_source is not None and not isinstance(self.food_source, FoodDescriptor):
+            self.food_source = FoodDescriptor(**as_dict(self.food_source))
 
         if not isinstance(self.evidence, list):
             self.evidence = [self.evidence] if self.evidence is not None else []
@@ -4745,6 +4784,32 @@ class ModifierEnum(EnumDefinitionImpl):
         description="Qualifiers for direction, intensity, or pathological state of a descriptor",
     )
 
+class DietaryModificationActionEnum(EnumDefinitionImpl):
+    """
+    Action applied to a food or beverage as part of a dietary treatment
+    """
+    ADD = PermissibleValue(
+        text="ADD",
+        title="Add",
+        description="Increase intake or deliberately include the specified food or beverage")
+    RESTRICT = PermissibleValue(
+        text="RESTRICT",
+        title="Restrict",
+        description="Limit intake of the specified food or beverage without full elimination")
+    AVOID = PermissibleValue(
+        text="AVOID",
+        title="Avoid",
+        description="Eliminate or strictly avoid the specified food or beverage")
+    SUBSTITUTE = PermissibleValue(
+        text="SUBSTITUTE",
+        title="Substitute",
+        description="Use the specified food or beverage as a replacement within a dietary regimen")
+
+    _defn = EnumDefinition(
+        name="DietaryModificationActionEnum",
+        description="Action applied to a food or beverage as part of a dietary treatment",
+    )
+
 class PenetranceEnum(EnumDefinitionImpl):
     """
     Penetrance classification for inheritance
@@ -5076,11 +5141,11 @@ class EnvironmentTerm(EnumDefinitionImpl):
 
 class FoodTerm(EnumDefinitionImpl):
     """
-    A term representing a food or beverage source (from FOODON)
+    A term representing a food, beverage, nutrient, mineral, or supplement source (from FOODON or CHEBI)
     """
     _defn = EnumDefinition(
         name="FoodTerm",
-        description="A term representing a food or beverage source (from FOODON)",
+        description="A term representing a food, beverage, nutrient, mineral, or supplement source (from FOODON or CHEBI)",
     )
 
 class OrganismTerm(EnumDefinitionImpl):
@@ -6391,6 +6456,9 @@ slots.spatial_extent = Slot(uri=DISMECH.spatial_extent, name="spatial_extent", c
 slots.therapeutic_agent = Slot(uri=DISMECH.therapeutic_agent, name="therapeutic_agent", curie=DISMECH.curie('therapeutic_agent'),
                    model_uri=DISMECH.therapeutic_agent, domain=None, range=Optional[Union[Union[dict, ChemicalEntityDescriptor], list[Union[dict, ChemicalEntityDescriptor]]]])
 
+slots.dietary_modifications = Slot(uri=DISMECH.dietary_modifications, name="dietary_modifications", curie=DISMECH.curie('dietary_modifications'),
+                   model_uri=DISMECH.dietary_modifications, domain=None, range=Optional[Union[Union[dict, DietaryModification], list[Union[dict, DietaryModification]]]])
+
 slots.qualifiers = Slot(uri=DISMECH.qualifiers, name="qualifiers", curie=DISMECH.curie('qualifiers'),
                    model_uri=DISMECH.qualifiers, domain=None, range=Optional[Union[Union[dict, Qualifier], list[Union[dict, Qualifier]]]])
 
@@ -6399,6 +6467,12 @@ slots.predicate = Slot(uri=DISMECH.predicate, name="predicate", curie=DISMECH.cu
 
 slots.value = Slot(uri=DISMECH.value, name="value", curie=DISMECH.curie('value'),
                    model_uri=DISMECH.value, domain=None, range=Optional[Union[dict, Descriptor]])
+
+slots.action = Slot(uri=DISMECH.action, name="action", curie=DISMECH.curie('action'),
+                   model_uri=DISMECH.action, domain=None, range=Optional[Union[str, "DietaryModificationActionEnum"]])
+
+slots.food = Slot(uri=DISMECH.food, name="food", curie=DISMECH.curie('food'),
+                   model_uri=DISMECH.food, domain=None, range=Optional[Union[dict, FoodDescriptor]])
 
 slots.id = Slot(uri=DISMECH.id, name="id", curie=DISMECH.curie('id'),
                    model_uri=DISMECH.id, domain=None, range=URIRef)
@@ -7307,6 +7381,9 @@ slots.TreatmentDescriptor_term = Slot(uri=DISMECH.term, name="TreatmentDescripto
 
 slots.TreatmentDescriptor_therapeutic_agent = Slot(uri=DISMECH.therapeutic_agent, name="TreatmentDescriptor_therapeutic_agent", curie=DISMECH.curie('therapeutic_agent'),
                    model_uri=DISMECH.TreatmentDescriptor_therapeutic_agent, domain=TreatmentDescriptor, range=Optional[Union[Union[dict, ChemicalEntityDescriptor], list[Union[dict, ChemicalEntityDescriptor]]]])
+
+slots.TreatmentDescriptor_dietary_modifications = Slot(uri=DISMECH.dietary_modifications, name="TreatmentDescriptor_dietary_modifications", curie=DISMECH.curie('dietary_modifications'),
+                   model_uri=DISMECH.TreatmentDescriptor_dietary_modifications, domain=TreatmentDescriptor, range=Optional[Union[Union[dict, DietaryModification], list[Union[dict, DietaryModification]]]])
 
 slots.RegimenDescriptor_term = Slot(uri=DISMECH.term, name="RegimenDescriptor_term", curie=DISMECH.curie('term'),
                    model_uri=DISMECH.RegimenDescriptor_term, domain=RegimenDescriptor, range=Optional[Union[dict, Term]])

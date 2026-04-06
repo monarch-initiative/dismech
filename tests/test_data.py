@@ -136,7 +136,7 @@ def test_schema_validity(validator):
 
 
 def test_environmental_food_source_slot_validates(validator):
-    """Environmental entries may annotate a specific food or beverage with FOODON."""
+    """Environmental entries may annotate a specific food, beverage, or nutrient source."""
     data = {
         "name": "Test Disease",
         "environmental": [
@@ -148,6 +148,133 @@ def test_environmental_food_source_slot_validates(validator):
                         "id": "FOODON:00001244",
                         "label": "coffee beverage",
                     },
+                },
+            }
+        ],
+    }
+
+    report = validator.validate(data, target_class="Disease")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+
+    assert not errors, f"Validation errors: {[str(e) for e in errors]}"
+
+
+def test_environmental_food_source_slot_accepts_chebi_nutrient(validator):
+    """Environmental food_source also accepts CHEBI nutrients/minerals/supplements."""
+    data = {
+        "name": "Test Disease",
+        "environmental": [
+            {
+                "name": "Vitamin trigger",
+                "food_source": {
+                    "preferred_term": "vitamin C",
+                    "term": {
+                        "id": "CHEBI:176783",
+                        "label": "vitamin C",
+                    },
+                },
+            }
+        ],
+    }
+
+    report = validator.validate(data, target_class="Disease")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+
+    assert not errors, f"Validation errors: {[str(e) for e in errors]}"
+
+
+def test_infectious_agent_food_source_slot_validates(validator):
+    """Infectious agents may annotate a food or beverage vehicle of exposure."""
+    data = {
+        "name": "Test Disease",
+        "infectious_agent": [
+            {
+                "name": "Vibrio vulnificus",
+                "infectious_agent_term": {
+                    "preferred_term": "Vibrio vulnificus",
+                    "term": {
+                        "id": "NCBITaxon:6725",
+                        "label": "Vibrio vulnificus",
+                    },
+                },
+                "food_source": {
+                    "preferred_term": "shellfish food product",
+                    "term": {
+                        "id": "FOODON:00001293",
+                        "label": "shellfish food product",
+                    },
+                },
+            }
+        ],
+    }
+
+    report = validator.validate(data, target_class="Disease")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+
+    assert not errors, f"Validation errors: {[str(e) for e in errors]}"
+
+
+def test_treatment_dietary_modifications_validate(validator):
+    """Treatment descriptors may specify FOODON- or CHEBI-backed dietary additions or restrictions."""
+    data = {
+        "name": "Test Disease",
+        "treatments": [
+            {
+                "name": "Dietary restriction",
+                "treatment_term": {
+                    "preferred_term": "dietary intervention",
+                    "term": {
+                        "id": "MAXO:0000088",
+                        "label": "dietary intervention",
+                    },
+                    "dietary_modifications": [
+                        {
+                            "action": "AVOID",
+                            "food": {
+                                "preferred_term": "wheat food product",
+                                "term": {
+                                    "id": "FOODON:00001141",
+                                    "label": "wheat food product",
+                                },
+                            },
+                        }
+                    ],
+                },
+            }
+        ],
+    }
+
+    report = validator.validate(data, target_class="Disease")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+
+    assert not errors, f"Validation errors: {[str(e) for e in errors]}"
+
+
+def test_treatment_dietary_modifications_accept_chebi_nutrient(validator):
+    """Dietary modifications may target CHEBI nutrients or supplements."""
+    data = {
+        "name": "Test Disease",
+        "treatments": [
+            {
+                "name": "Vitamin supplementation",
+                "treatment_term": {
+                    "preferred_term": "dietary intervention",
+                    "term": {
+                        "id": "MAXO:0000088",
+                        "label": "dietary intervention",
+                    },
+                    "dietary_modifications": [
+                        {
+                            "action": "ADD",
+                            "food": {
+                                "preferred_term": "vitamin C",
+                                "term": {
+                                    "id": "CHEBI:176783",
+                                    "label": "vitamin C",
+                                },
+                            },
+                        }
+                    ],
                 },
             }
         ],
