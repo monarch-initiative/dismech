@@ -13,6 +13,8 @@ separate, coherent entries.
 - [Project brief and repo context](README.md)
 - [Mechanism landscape and literature map](mechanism-landscape.md)
 - [Initial candidate disorder scope](scope.md)
+- [Temporal lobe epilepsy deep research note](temporal-lobe-epilepsy.md)
+- [MTLE-HS deep research note](mesial-temporal-lobe-epilepsy-with-hippocampal-sclerosis.md)
 
 ## Why This Project Exists
 

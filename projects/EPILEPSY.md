@@ -5,6 +5,8 @@
 - [Epilepsy project brief](epilepsy/README.md)
 - [Mechanism landscape and literature map](epilepsy/mechanism-landscape.md)
 - [Initial candidate disorder scope](epilepsy/scope.md)
+- [Temporal lobe epilepsy deep research note](epilepsy/temporal-lobe-epilepsy.md)
+- [MTLE-HS deep research note](epilepsy/mesial-temporal-lobe-epilepsy-with-hippocampal-sclerosis.md)
 
 ## Overview
 
