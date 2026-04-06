@@ -1,0 +1,152 @@
+name: phenoagent_explanation_completion
+description: Fill non-match explanations in a deterministic matching file.
+requires_workdir: true
+agent_lifecycle: refresh
+
+params:
+  matching_file:
+    range: string
+    required: true
+    examples:
+      - output/matching/example_case__Example_Disease.yaml
+
+instructions: |
+  Edit exactly one file: {{ matching_file }}.
+
+  Goal: assign concrete, shared explanations for all non-match rows and compute
+  a consistent pr_is_diagnosis value.
+
+  Keep deterministic matching content unchanged:
+  - case/model IDs and labels
+  - frequency fields
+  - exact/broader/narrower/close flags
+  - similarity_percent when present
+
+  Rows requiring explanation are all rows where:
+  - exact is false
+  This includes broader/narrower/close relationships and model-only/case-only rows.
+
+  For every row with exact=false:
+  1) Set explanation_for_no_match to a non-default explanation id.
+  2) Add or reuse explanation entries under top-level explanations:
+     - explanation_id
+     - estimated_probability (0..1)
+     - description
+  3) Reuse the same explanation_id when the same reason applies to multiple rows.
+  4) Keep NO_EXPLANATION in the explanations list, but do not leave any exact=false row pointing to it.
+  5) If you need a provisional explanation/probability, use an id prefixed with TEMP_ and print NOT_COMPLETE.
+
+  Recalculate pr_is_diagnosis after edits:
+  ```python
+  from pathlib import Path
+  import yaml
+  from phenoagent.matching import calculate_pr_is_diagnosis
+  path = Path("{{ matching_file }}")
+  data = yaml.safe_load(path.read_text())
+  data["pr_is_diagnosis"] = calculate_pr_is_diagnosis(data)
+  path.write_text(yaml.safe_dump(data, sort_keys=False))
+  ```
+
+  End your response with:
+  - EXPLANATIONS_COMPLETE only when every exact=false row has a non-default, non-temporary explanation pointer
+  - NOT_COMPLETE otherwise
+
+loop_until:
+  status: EXPLANATIONS_COMPLETE
+  message: |
+    Continue until every exact=false row has a non-default, non-temporary explanation.
+    Print NOT_COMPLETE while still provisional; print EXPLANATIONS_COMPLETE only when finished.
+
+success_criteria:
+  max_retries: 2
+  retry_message: |
+    Validation failed: {{error}}
+    Re-open {{ matching_file }}, repair the file, and continue.
+  python: |
+    import math
+    from pathlib import Path
+    import yaml
+    from phenoagent.matching import calculate_pr_is_diagnosis
+
+    def is_dict(value):
+        return value is not None and value.__class__ is dict
+
+    def is_list(value):
+        return value is not None and value.__class__ is list
+
+    def is_str(value):
+        return value is not None and value.__class__ is str
+
+    def parse_float(value):
+        try:
+            return float(value)
+        except Exception:
+            return None
+
+    path = Path("{{ matching_file }}")
+    data = yaml.safe_load(path.read_text())
+    result = True
+
+    if not is_dict(data):
+        result = False
+    else:
+        explanations = data.get("explanations")
+        matches = data.get("matches")
+
+        if not is_list(explanations) or not is_list(matches):
+            result = False
+
+    if result:
+        probs = {}
+        for explanation in explanations:
+            if not is_dict(explanation):
+                result = False
+                break
+            explanation_id = explanation.get("explanation_id")
+            estimated_probability = explanation.get("estimated_probability")
+            if not is_str(explanation_id) or not explanation_id:
+                result = False
+                break
+            estimated_probability = parse_float(estimated_probability)
+            if estimated_probability is None:
+                result = False
+                break
+            if estimated_probability < 0.0 or estimated_probability > 1.0:
+                result = False
+                break
+            probs[explanation_id] = estimated_probability
+
+        if result and "NO_EXPLANATION" not in probs:
+            result = False
+
+    if result:
+        for row in matches:
+            if not is_dict(row):
+                result = False
+                break
+
+            non_match = row.get("exact") is False
+
+            if non_match:
+                pointer = row.get("explanation_for_no_match")
+                if not is_str(pointer) or not pointer:
+                    result = False
+                    break
+                if pointer == "NO_EXPLANATION":
+                    result = False
+                    break
+                if pointer.startswith("TEMP_"):
+                    result = False
+                    break
+                if pointer not in probs:
+                    result = False
+                    break
+
+    if result:
+        expected = calculate_pr_is_diagnosis(data)
+        observed = data.get("pr_is_diagnosis")
+        observed = parse_float(observed)
+        if observed is None:
+            result = False
+        else:
+            result = math.isclose(float(observed), float(expected), rel_tol=1e-9, abs_tol=1e-12)

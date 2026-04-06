@@ -1,0 +1,11 @@
+---
+reference_id: "GEO:GSE55148"
+title: Mildly compromised tetrahydrobiopterin biosynthesis mouse mutants exhibit abnormal body fat distribution and abdominal obesity
+content_type: summary
+---
+
+# Mildly compromised tetrahydrobiopterin biosynthesis mouse mutants exhibit abnormal body fat distribution and abdominal obesity
+
+## Content
+
+Tetrahydrobiopterin (BH4) is an essential cofactor for several metabolic enzymes, including the aromatic amino acid hydroxylases, alkylglycerol mono-oxygenase and NO synthases. BH4 deficiency due to an autosomal recessive defect in its biosynthetic enzyme 6-pyruvoyltetrahydropterin synthase (PTPS, encoded by the PTS gene) leads to a variant form of hyperphenylalaninemia concomitant with severe deficiency of brain monoamine neurotransmitters. In contrast, augmentation of BH4 by pharmacological supplementation or stimulation of its biosynthesis is thought to correct eNOS dysfunction, to protect from (cardio) vascular disease and/or to prevent from abdominal obesity and development of the metabolic syndrome. We have previously reported that complete Pts knock-out (ko) mice die after birth (Elzaouk et al JBC 2003). Here we generated a murine Pts-knock-in (ki) allele expressing a PTPS-p.Arg15Cys mutant enzyme with low residual activity (12% of wild-type in vitro) and investigated heterozygous Pts-ko/wt, homozygous Pts-ki/ki and compound heterozygous Pts-ki/ko mutant mice. All mice were viable and, depending on the severity of the Pts alleles, exhibited up to 90% reduction of PTPS activity in liver and brain tissues concomitant with high neopterin, but neither an elevation of blood L-Phe, nor a decrease in brain monoamine neurotransmitters dopamine or serotonin. Upon a standard systemic and comprehensive phenotyping of Pts-ki/ki mice, we found alterations in energy metabolites with reduced body mass, higher fat content, lower lean mass, and increased blood glucose and cholesterol in mutant animals. Furthermore, heterozygous Pts-ko/wt and/or homozygous Pts-ki/ki mice exhibited increased body weight and elevated intra-abdominal fat tissue when fed with normal chow or high fat diet. We conclude that a reduced BH4-biosynthetic activity in mice leads to abnormal body fat distribution and abdominal obesity potentially through a mildly compromised eNOS function.

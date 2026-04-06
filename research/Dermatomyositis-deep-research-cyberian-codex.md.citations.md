@@ -1,0 +1,19 @@
+# Citations for Research Query
+
+**Query:** Codex secondary synthesis for Dermatomyositis
+**Provider:** cyberian-codex
+**Generated:** 2026-02-17T08:39:52Z
+
+1. DOI:10.1007/s00281-025-01054-9
+2. DOI:10.1007/s00296-024-05551-2
+3. DOI:10.1007/s11926-024-01164-7
+4. DOI:10.1007/s40272-024-00658-2
+5. DOI:10.1080/14656566.2024.2392021
+6. DOI:10.1080/1744666x.2024.2312819
+7. DOI:10.3233/jnd-230168
+8. DOI:10.3389/fimmu.2023.1151695
+9. DOI:10.3389/fimmu.2024.1382728
+10. DOI:10.3389/fmed.2023.1158768
+11. DOI:10.3390/children11091046
+12. DOI:10.55563/clinexprheumatol/eeglsa
+13. DOI:10.7759/cureus.88601

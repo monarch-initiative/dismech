@@ -1,14 +1,12 @@
 """Data validation tests for dismech KB."""
 
 import glob
-import os
 from pathlib import Path
 
 import pytest
 import yaml
 
 from linkml.validator import Validator
-from linkml_runtime.loaders import yaml_loader
 
 # Paths
 ROOT_DIR = Path(__file__).parent.parent
@@ -18,8 +16,7 @@ COMORBIDITY_DIR = ROOT_DIR / "kb" / "comorbidities"
 
 # Get all disorder YAML files (exclude history snapshots)
 DISORDER_FILES = [
-    f for f in glob.glob(str(KB_DIR / "*.yaml"))
-    if not f.endswith(".history.yaml")
+    f for f in glob.glob(str(KB_DIR / "*.yaml")) if not f.endswith(".history.yaml")
 ]
 COMORBIDITY_FILES = glob.glob(str(COMORBIDITY_DIR / "*.yaml"))
 
@@ -81,31 +78,53 @@ def test_evidence_items_have_references(filepath):
         for i, item in enumerate(evidence_list):
             if not item.get("reference"):
                 errors.append(f"{path}[{i}]: missing reference")
-            elif not (item["reference"].startswith("PMID:") or item["reference"].startswith("DOI:")):
-                errors.append(f"{path}[{i}]: reference should start with PMID: or DOI: got {item['reference']}")
+            elif not any(
+                item["reference"].startswith(prefix)
+                for prefix in (
+                    "PMID:",
+                    "DOI:",
+                    "clinicaltrials:",
+                    "file:",
+                    "url:",
+                    "GEO:",
+                )
+            ):
+                errors.append(
+                    f"{path}[{i}]: reference should start with PMID:, DOI:, clinicaltrials:, file:, url:, or GEO: got {item['reference']}"
+                )
         return errors
 
     all_errors = []
 
     # Check evidence in pathophysiology
     for i, patho in enumerate(data.get("pathophysiology", [])):
-        all_errors.extend(check_evidence(patho.get("evidence", []), f"pathophysiology[{i}].evidence"))
+        all_errors.extend(
+            check_evidence(patho.get("evidence", []), f"pathophysiology[{i}].evidence")
+        )
 
     # Check evidence in phenotypes
     for i, pheno in enumerate(data.get("phenotypes", [])):
-        all_errors.extend(check_evidence(pheno.get("evidence", []), f"phenotypes[{i}].evidence"))
+        all_errors.extend(
+            check_evidence(pheno.get("evidence", []), f"phenotypes[{i}].evidence")
+        )
 
     # Check evidence in subtypes
     for i, subtype in enumerate(data.get("has_subtypes", [])):
-        all_errors.extend(check_evidence(subtype.get("evidence", []), f"has_subtypes[{i}].evidence"))
+        all_errors.extend(
+            check_evidence(subtype.get("evidence", []), f"has_subtypes[{i}].evidence")
+        )
 
     # Check evidence in prevalence
     for i, prev in enumerate(data.get("prevalence", [])):
-        all_errors.extend(check_evidence(prev.get("evidence", []), f"prevalence[{i}].evidence"))
+        all_errors.extend(
+            check_evidence(prev.get("evidence", []), f"prevalence[{i}].evidence")
+        )
 
     # Check evidence in progression
     for i, prog in enumerate(data.get("progression", [])):
-        all_errors.extend(check_evidence(prog.get("evidence", []), f"progression[{i}].evidence"))
+        all_errors.extend(
+            check_evidence(prog.get("evidence", []), f"progression[{i}].evidence")
+        )
 
     assert not all_errors, f"Evidence errors in {Path(filepath).name}: {all_errors}"
 
@@ -114,6 +133,157 @@ def test_schema_validity(validator):
     """Test that the schema itself is valid LinkML."""
     # If we got here without errors, schema is valid
     assert validator is not None
+
+
+def test_environmental_food_source_slot_validates(validator):
+    """Environmental entries may annotate a specific food, beverage, or nutrient source."""
+    data = {
+        "name": "Test Disease",
+        "environmental": [
+            {
+                "name": "Coffee-triggered flushing",
+                "food_source": {
+                    "preferred_term": "coffee beverage",
+                    "term": {
+                        "id": "FOODON:00001244",
+                        "label": "coffee beverage",
+                    },
+                },
+            }
+        ],
+    }
+
+    report = validator.validate(data, target_class="Disease")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+
+    assert not errors, f"Validation errors: {[str(e) for e in errors]}"
+
+
+def test_environmental_food_source_slot_accepts_chebi_nutrient(validator):
+    """Environmental food_source also accepts CHEBI nutrients/minerals/supplements."""
+    data = {
+        "name": "Test Disease",
+        "environmental": [
+            {
+                "name": "Vitamin trigger",
+                "food_source": {
+                    "preferred_term": "vitamin C",
+                    "term": {
+                        "id": "CHEBI:176783",
+                        "label": "vitamin C",
+                    },
+                },
+            }
+        ],
+    }
+
+    report = validator.validate(data, target_class="Disease")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+
+    assert not errors, f"Validation errors: {[str(e) for e in errors]}"
+
+
+def test_infectious_agent_food_source_slot_validates(validator):
+    """Infectious agents may annotate a food or beverage vehicle of exposure."""
+    data = {
+        "name": "Test Disease",
+        "infectious_agent": [
+            {
+                "name": "Vibrio vulnificus",
+                "infectious_agent_term": {
+                    "preferred_term": "Vibrio vulnificus",
+                    "term": {
+                        "id": "NCBITaxon:6725",
+                        "label": "Vibrio vulnificus",
+                    },
+                },
+                "food_source": {
+                    "preferred_term": "shellfish food product",
+                    "term": {
+                        "id": "FOODON:00001293",
+                        "label": "shellfish food product",
+                    },
+                },
+            }
+        ],
+    }
+
+    report = validator.validate(data, target_class="Disease")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+
+    assert not errors, f"Validation errors: {[str(e) for e in errors]}"
+
+
+def test_treatment_dietary_modifications_validate(validator):
+    """Treatment descriptors may specify FOODON- or CHEBI-backed dietary additions or restrictions."""
+    data = {
+        "name": "Test Disease",
+        "treatments": [
+            {
+                "name": "Dietary restriction",
+                "treatment_term": {
+                    "preferred_term": "dietary intervention",
+                    "term": {
+                        "id": "MAXO:0000088",
+                        "label": "dietary intervention",
+                    },
+                    "dietary_modifications": [
+                        {
+                            "action": "AVOID",
+                            "food": {
+                                "preferred_term": "wheat food product",
+                                "term": {
+                                    "id": "FOODON:00001141",
+                                    "label": "wheat food product",
+                                },
+                            },
+                        }
+                    ],
+                },
+            }
+        ],
+    }
+
+    report = validator.validate(data, target_class="Disease")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+
+    assert not errors, f"Validation errors: {[str(e) for e in errors]}"
+
+
+def test_treatment_dietary_modifications_accept_chebi_nutrient(validator):
+    """Dietary modifications may target CHEBI nutrients or supplements."""
+    data = {
+        "name": "Test Disease",
+        "treatments": [
+            {
+                "name": "Vitamin supplementation",
+                "treatment_term": {
+                    "preferred_term": "dietary intervention",
+                    "term": {
+                        "id": "MAXO:0000088",
+                        "label": "dietary intervention",
+                    },
+                    "dietary_modifications": [
+                        {
+                            "action": "ADD",
+                            "food": {
+                                "preferred_term": "vitamin C",
+                                "term": {
+                                    "id": "CHEBI:176783",
+                                    "label": "vitamin C",
+                                },
+                            },
+                        }
+                    ],
+                },
+            }
+        ],
+    }
+
+    report = validator.validate(data, target_class="Disease")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+
+    assert not errors, f"Validation errors: {[str(e) for e in errors]}"
 
 
 def test_all_disorders_have_unique_names():
@@ -128,6 +298,83 @@ def test_all_disorders_have_unique_names():
     assert not duplicates, f"Duplicate disorder names: {set(duplicates)}"
 
 
+@pytest.mark.parametrize("filepath", DISORDER_FILES)
+def test_subtype_foreign_keys(filepath):
+    """Test that subtype references match has_subtypes names."""
+    with open(filepath) as f:
+        data = yaml.safe_load(f)
+
+    valid_subtypes = {s["name"] for s in data.get("has_subtypes", [])}
+    if not valid_subtypes:
+        return
+
+    errors = []
+    # Sections with a top-level subtype field
+    for section in (
+        "phenotypes",
+        "biochemical",
+        "genetic",
+        "prevalence",
+        "progression",
+        "histopathology",
+    ):
+        for i, item in enumerate(data.get(section, [])):
+            val = item.get("subtype")
+            if val and val not in valid_subtypes:
+                errors.append(f"{section}[{i}].subtype={val!r}")
+            # Also check phenotype_contexts
+            for j, ctx in enumerate(item.get("phenotype_contexts", [])):
+                val = ctx.get("subtype")
+                if val and val not in valid_subtypes:
+                    errors.append(
+                        f"{section}[{i}].phenotype_contexts[{j}].subtype={val!r}"
+                    )
+
+    # mechanistic_hypotheses.applies_to_subtypes
+    for i, hyp in enumerate(data.get("mechanistic_hypotheses", [])):
+        for val in hyp.get("applies_to_subtypes", []):
+            if val not in valid_subtypes:
+                errors.append(
+                    f"mechanistic_hypotheses[{i}].applies_to_subtypes={val!r}"
+                )
+
+    assert not errors, (
+        f"Subtype FK mismatches in {Path(filepath).name}. "
+        f"Valid subtypes: {valid_subtypes}. Bad refs: {errors}"
+    )
+
+
+@pytest.mark.parametrize("filepath", DISORDER_FILES)
+def test_experimental_model_mechanism_targets(filepath):
+    """Experimental model links should reference declared pathophysiology nodes."""
+    with open(filepath) as f:
+        data = yaml.safe_load(f)
+
+    valid_targets = {
+        item["name"]
+        for item in data.get("pathophysiology", [])
+        if isinstance(item, dict) and item.get("name")
+    }
+    if not valid_targets:
+        return
+
+    errors = []
+    for i, model in enumerate(data.get("experimental_models", [])):
+        for j, link in enumerate(model.get("modeled_mechanisms", [])):
+            target = link.get("target")
+            if target and target not in valid_targets:
+                errors.append(
+                    f"experimental_models[{i}].modeled_mechanisms[{j}].target={target!r}"
+                )
+
+    assert not errors, (
+        f"Experimental model mechanism mismatches in {Path(filepath).name}. "
+        f"Valid targets: {valid_targets}. Bad refs: {errors}"
+    )
+
+
 def test_disorder_count():
     """Test that we have the expected number of disorders."""
-    assert len(DISORDER_FILES) >= 50, f"Expected at least 50 disorders, got {len(DISORDER_FILES)}"
+    assert len(DISORDER_FILES) >= 50, (
+        f"Expected at least 50 disorders, got {len(DISORDER_FILES)}"
+    )

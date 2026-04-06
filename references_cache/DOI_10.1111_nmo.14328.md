@@ -1,0 +1,19 @@
+---
+reference_id: "DOI:10.1111/nmo.14328"
+title: Retrograde upper esophageal sphincter function… and dysfunction
+authors:
+- Peter J. Kahrilas
+journal: "Neurogastroenterology &amp; Motility"
+year: '2022'
+doi: 10.1111/nmo.14328
+content_type: abstract_only
+---
+
+# Retrograde upper esophageal sphincter function… and dysfunction
+**Authors:** Peter J. Kahrilas
+**Journal:** Neurogastroenterology &amp; Motility (2022)
+**DOI:** [10.1111/nmo.14328](https://doi.org/10.1111/nmo.14328)
+
+## Content
+
+AbstractUpper esophageal sphincter (UES) function has been extensively studied in the context of swallowing and antegrade bolus transit, but relatively little attention has been paid to its retrograde function to facilitate belching. Indeed, prior to 2019, there were only three case reports in the world literature of individuals with a physiologically demonstrated inability to belch due to failure of the UES to relax after gas venting from the stomach and ensuing low‐pressure esophageal distention. In this minireview, that disorder is termed retrograde UES dysfunction (R‐UESD). The associated symptom complex includes some combination of chest pain, gurgling noises in the chest, bloating, nausea, hiccups, and flatulence. The obscurity of R‐UESD has recently been challenged by two large series published in the ENT literature of circumstantially demonstrated R‐UESD that was resolved by botulinum toxin (BT) injection to the cricopharyngeus. The field has now further advanced with the publication in this issue of the Journal by Oude Nijhuis et al. of 8 cases of R‐UESD demonstrated by high‐resolution impedance manometry (HRIM) with a provocative challenge of carbonated water. These individuals were also treated with BT and at 3‐month follow‐up had both an encouraging symptomatic response and HRIM demonstrated resolution of R‐UESD.

@@ -12,4 +12,4 @@ This study will examine rare congenital disorders that involve malformations and
 
 Patients with Proteus syndrome may be eligible for this study. Study candidates will have a medical history and physical examination, including X-rays and possibly other imaging tests, such as computerized tomography (CT), magnetic resonance imaging (MRI) and ultrasound. Other tests and examinations may be done if needed.
 
-Those enrolled in the study may be interviewed or complete questionnaires, or both, about how their disease affects them. Patients will provide a small blood sample for research....
+Those enrolled in the study may be interviewed or complete questionnaires, or both, about how their disease affects them. Patients will provide a small blood sample for research.

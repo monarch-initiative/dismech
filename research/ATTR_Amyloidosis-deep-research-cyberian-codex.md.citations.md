@@ -1,0 +1,16 @@
+# Citations for Research Query
+
+**Query:** Codex secondary synthesis for ATTR_Amyloidosis
+**Provider:** cyberian-codex
+**Generated:** 2026-02-17T08:39:51Z
+
+1. DOI:10.1007/s10741-022-10237-7
+2. DOI:10.1007/s10741-023-10380-9
+3. DOI:10.1007/s40119-025-00423-7
+4. DOI:10.1007/s40259-023-00577-7
+5. DOI:10.1038/s41569-022-00683-z
+6. DOI:10.1136/heartjnl-2024-325184
+7. DOI:10.1186/s13287-025-04464-6
+8. DOI:10.3389/fneur.2024.1465747
+9. DOI:10.3390/jcm14134785
+10. DOI:10.3390/jmp5020016

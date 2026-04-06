@@ -16,7 +16,6 @@ import sys
 import json
 import subprocess
 import tempfile
-import shutil
 from pathlib import Path
 
 
@@ -30,7 +29,7 @@ def simulate_edit(file_path: Path, old_string: str, new_string: str) -> str:
 
     # Check if old_string exists in file
     if old_string not in content:
-        print(f"Error: old_string not found in file", file=sys.stderr)
+        print("Error: old_string not found in file", file=sys.stderr)
         sys.exit(0)  # Let Claude Code handle this error
 
     # Perform the replacement
@@ -59,7 +58,9 @@ def simulate_multi_edit(file_path: Path, edits: list) -> str:
     return content
 
 
-def validate_content(content: str, original_path: Path, project_root: Path) -> tuple[bool, str]:
+def validate_content(
+    content: str, original_path: Path, project_root: Path
+) -> tuple[bool, str]:
     """
     Validate content by writing to temp file and running validation.
     Returns (success, output_message).

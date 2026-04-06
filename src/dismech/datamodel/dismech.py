@@ -1,5 +1,5 @@
 # Auto generated from dismech.yaml by pythongen.py version: 0.0.1
-# Generation date: 2026-02-01T21:16:40
+# Generation date: 2026-04-06T12:41:14
 # Schema: dismech
 #
 # id: https://w3id.org/monarch-initiative/dismech
@@ -68,11 +68,13 @@ CL = CurieNamespace('CL', 'http://purl.obolibrary.org/obo/CL_')
 ECTO = CurieNamespace('ECTO', 'http://purl.obolibrary.org/obo/ECTO_')
 ENVO = CurieNamespace('ENVO', 'http://purl.obolibrary.org/obo/ENVO_')
 EXO = CurieNamespace('ExO', 'http://purl.obolibrary.org/obo/ExO_')
+FOODON = CurieNamespace('FOODON', 'http://purl.obolibrary.org/obo/FOODON_')
 GENO = CurieNamespace('GENO', 'http://purl.obolibrary.org/obo/GENO_')
 GO = CurieNamespace('GO', 'http://purl.obolibrary.org/obo/GO_')
 HGNC = CurieNamespace('HGNC', 'https://www.genenames.org/data/gene-symbol-report/#!/hgnc_id/')
 HP = CurieNamespace('HP', 'http://purl.obolibrary.org/obo/HP_')
 ICD10CM = CurieNamespace('ICD10CM', 'http://purl.obolibrary.org/obo/ICD10CM_')
+LOINC = CurieNamespace('LOINC', 'https://loinc.org/')
 MONDO = CurieNamespace('MONDO', 'http://purl.obolibrary.org/obo/MONDO_')
 NCBITAXON = CurieNamespace('NCBITaxon', 'http://purl.obolibrary.org/obo/NCBITaxon_')
 NCIT = CurieNamespace('NCIT', 'http://purl.obolibrary.org/obo/NCIT_')
@@ -84,6 +86,7 @@ XCO = CurieNamespace('XCO', 'http://purl.obolibrary.org/obo/XCO_')
 ARRAYEXPRESS = CurieNamespace('arrayexpress', 'https://www.ebi.ac.uk/biostudies/arrayexpress/studies/')
 BIGG = CurieNamespace('bigg', 'https://bigg.ucsd.edu/models/')
 BIOMODELS = CurieNamespace('biomodels', 'https://www.ebi.ac.uk/biomodels/')
+CELLXGENE = CurieNamespace('cellxgene', 'https://cellxgene.cziscience.com/collections/')
 CLINICALTRIALS = CurieNamespace('clinicaltrials', 'https://clinicaltrials.gov/study/')
 CLINVAR = CurieNamespace('clinvar', 'https://www.ncbi.nlm.nih.gov/clinvar/variation/')
 DBGAP = CurieNamespace('dbgap', 'https://www.ncbi.nlm.nih.gov/projects/gap/cgi-bin/study.cgi?study_id=')
@@ -95,6 +98,9 @@ HCA = CurieNamespace('hca', 'https://data.humancellatlas.org/explore/projects/')
 ICD11F = CurieNamespace('icd11f', 'http://purl.obolibrary.org/obo/icd11f_')
 LINKML = CurieNamespace('linkml', 'https://w3id.org/linkml/')
 METABOLIGHTS = CurieNamespace('metabolights', 'https://www.ebi.ac.uk/metabolights/')
+MORPHIC = CurieNamespace('morphic', 'https://data.morphic.bio/')
+NAMO = CurieNamespace('namo', 'https://w3id.org/monarch-initiative/namo/')
+OSDR = CurieNamespace('osdr', 'https://osdr.nasa.gov/bio/repo/data/studies/OSD-')
 PHENOPACKET_STORE = CurieNamespace('phenopacket-store', 'https://github.com/monarch-initiative/phenopacket-store/tree/main/notebooks/')
 PRIDE = CurieNamespace('pride', 'https://www.ebi.ac.uk/pride/archive/projects/')
 SKOS = CurieNamespace('skos', 'http://www.w3.org/2004/02/skos/core#')
@@ -129,11 +135,23 @@ class DatasetAccession(URIorCURIE):
     pass
 
 
+class ExperimentalModelName(extended_str):
+    pass
+
+
 class ClinicalTrialName(extended_str):
     pass
 
 
 class ComputationalModelName(extended_str):
+    pass
+
+
+class ModelVariableName(extended_str):
+    pass
+
+
+class SeverityTierName(extended_str):
     pass
 
 
@@ -146,6 +164,10 @@ class SubtypeName(extended_str):
 
 
 class PublicationReferenceReference(extended_str):
+    pass
+
+
+class ExternalAssertionName(extended_str):
     pass
 
 
@@ -320,6 +342,7 @@ class Descriptor(YAMLRoot):
     modifier: Optional[Union[str, "ModifierEnum"]] = None
     located_in: Optional[Union[dict, "AnatomicalEntityDescriptor"]] = None
     laterality: Optional[Union[str, "LateralityEnum"]] = None
+    spatial_extent: Optional[Union[str, "SpatialExtentEnum"]] = None
     qualifiers: Optional[Union[Union[dict, "Qualifier"], list[Union[dict, "Qualifier"]]]] = empty_list()
 
     def __post_init__(self, *_: str, **kwargs: Any):
@@ -342,6 +365,9 @@ class Descriptor(YAMLRoot):
 
         if self.laterality is not None and not isinstance(self.laterality, LateralityEnum):
             self.laterality = LateralityEnum(self.laterality)
+
+        if self.spatial_extent is not None and not isinstance(self.spatial_extent, SpatialExtentEnum):
+            self.spatial_extent = SpatialExtentEnum(self.spatial_extent)
 
         if not isinstance(self.qualifiers, list):
             self.qualifiers = [self.qualifiers] if self.qualifiers is not None else []
@@ -372,6 +398,36 @@ class Qualifier(YAMLRoot):
 
         if self.value is not None and not isinstance(self.value, Descriptor):
             self.value = Descriptor(**as_dict(self.value))
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class DietaryModification(YAMLRoot):
+    """
+    A structured dietary addition, restriction, avoidance, or substitution used to post-compose a treatment descriptor
+    with FOODON foods or beverages.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["DietaryModification"]
+    class_class_curie: ClassVar[str] = "dismech:DietaryModification"
+    class_name: ClassVar[str] = "DietaryModification"
+    class_model_uri: ClassVar[URIRef] = DISMECH.DietaryModification
+
+    action: Optional[Union[str, "DietaryModificationActionEnum"]] = None
+    food: Optional[Union[dict, "FoodDescriptor"]] = None
+    description: Optional[str] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self.action is not None and not isinstance(self.action, DietaryModificationActionEnum):
+            self.action = DietaryModificationActionEnum(self.action)
+
+        if self.food is not None and not isinstance(self.food, FoodDescriptor):
+            self.food = FoodDescriptor(**as_dict(self.food))
+
+        if self.description is not None and not isinstance(self.description, str):
+            self.description = str(self.description)
 
         super().__post_init__(**kwargs)
 
@@ -409,6 +465,28 @@ class BiologicalProcessDescriptor(Descriptor):
     class_class_curie: ClassVar[str] = "dismech:BiologicalProcessDescriptor"
     class_name: ClassVar[str] = "BiologicalProcessDescriptor"
     class_model_uri: ClassVar[URIRef] = DISMECH.BiologicalProcessDescriptor
+
+    preferred_term: str = None
+    term: Optional[Union[dict, Term]] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self.term is not None and not isinstance(self.term, Term):
+            self.term = Term(**as_dict(self.term))
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class MolecularFunctionDescriptor(Descriptor):
+    """
+    A descriptor for molecular functions, bindable to Gene Ontology (GO)
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["MolecularFunctionDescriptor"]
+    class_class_curie: ClassVar[str] = "dismech:MolecularFunctionDescriptor"
+    class_name: ClassVar[str] = "MolecularFunctionDescriptor"
+    class_model_uri: ClassVar[URIRef] = DISMECH.MolecularFunctionDescriptor
 
     preferred_term: str = None
     term: Optional[Union[dict, Term]] = None
@@ -497,6 +575,28 @@ class CellularComponentDescriptor(Descriptor):
     class_class_curie: ClassVar[str] = "dismech:CellularComponentDescriptor"
     class_name: ClassVar[str] = "CellularComponentDescriptor"
     class_model_uri: ClassVar[URIRef] = DISMECH.CellularComponentDescriptor
+
+    preferred_term: str = None
+    term: Optional[Union[dict, Term]] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self.term is not None and not isinstance(self.term, Term):
+            self.term = Term(**as_dict(self.term))
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class ProteinComplexDescriptor(Descriptor):
+    """
+    A descriptor for protein complexes that gene products participate in, bindable to GO protein complex terms
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["ProteinComplexDescriptor"]
+    class_class_curie: ClassVar[str] = "dismech:ProteinComplexDescriptor"
+    class_name: ClassVar[str] = "ProteinComplexDescriptor"
+    class_model_uri: ClassVar[URIRef] = DISMECH.ProteinComplexDescriptor
 
     preferred_term: str = None
     term: Optional[Union[dict, Term]] = None
@@ -687,6 +787,28 @@ class PhenotypeDescriptor(Descriptor):
 
 
 @dataclass(repr=False)
+class InheritanceDescriptor(Descriptor):
+    """
+    A descriptor for inheritance patterns, bindable to HPO mode of inheritance terms
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["InheritanceDescriptor"]
+    class_class_curie: ClassVar[str] = "dismech:InheritanceDescriptor"
+    class_name: ClassVar[str] = "InheritanceDescriptor"
+    class_model_uri: ClassVar[URIRef] = DISMECH.InheritanceDescriptor
+
+    preferred_term: str = None
+    term: Optional[Union[dict, Term]] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self.term is not None and not isinstance(self.term, Term):
+            self.term = Term(**as_dict(self.term))
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
 class TreatmentDescriptor(Descriptor):
     """
     A descriptor for treatments/medical actions, bindable to Medical Action Ontology (MAXO)
@@ -700,10 +822,15 @@ class TreatmentDescriptor(Descriptor):
 
     preferred_term: str = None
     therapeutic_agent: Optional[Union[Union[dict, ChemicalEntityDescriptor], list[Union[dict, ChemicalEntityDescriptor]]]] = empty_list()
+    dietary_modifications: Optional[Union[Union[dict, DietaryModification], list[Union[dict, DietaryModification]]]] = empty_list()
     term: Optional[Union[dict, Term]] = None
 
     def __post_init__(self, *_: str, **kwargs: Any):
         self._normalize_inlined_as_dict(slot_name="therapeutic_agent", slot_type=ChemicalEntityDescriptor, key_name="preferred_term", keyed=False)
+
+        if not isinstance(self.dietary_modifications, list):
+            self.dietary_modifications = [self.dietary_modifications] if self.dietary_modifications is not None else []
+        self.dietary_modifications = [v if isinstance(v, DietaryModification) else DietaryModification(**as_dict(v)) for v in self.dietary_modifications]
 
         if self.term is not None and not isinstance(self.term, Term):
             self.term = Term(**as_dict(self.term))
@@ -766,6 +893,28 @@ class EnvironmentDescriptor(Descriptor):
     class_class_curie: ClassVar[str] = "dismech:EnvironmentDescriptor"
     class_name: ClassVar[str] = "EnvironmentDescriptor"
     class_model_uri: ClassVar[URIRef] = DISMECH.EnvironmentDescriptor
+
+    preferred_term: str = None
+    term: Optional[Union[dict, Term]] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self.term is not None and not isinstance(self.term, Term):
+            self.term = Term(**as_dict(self.term))
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class FoodDescriptor(Descriptor):
+    """
+    A descriptor for foods, beverages, nutrients, minerals, and supplements, bindable to FOODON or CHEBI
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["FoodDescriptor"]
+    class_class_curie: ClassVar[str] = "dismech:FoodDescriptor"
+    class_name: ClassVar[str] = "FoodDescriptor"
+    class_model_uri: ClassVar[URIRef] = DISMECH.FoodDescriptor
 
     preferred_term: str = None
     term: Optional[Union[dict, Term]] = None
@@ -843,6 +992,157 @@ class SampleTypeDescriptor(Descriptor):
 
         if self.cell_type_term is not None and not isinstance(self.cell_type_term, CellTypeDescriptor):
             self.cell_type_term = CellTypeDescriptor(**as_dict(self.cell_type_term))
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class GeneticContext(YAMLRoot):
+    """
+    A structured description of a genetic context that modifies phenotype frequency, severity, or presentation.
+    Flexible enough to capture single genes, multiple genes, mutation types, zygosity, complementation groups, and
+    complex genotypes. The description slot accommodates contexts that don't fit neatly into the structured fields
+    (e.g., structural variants, complex rearrangements).
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["GeneticContext"]
+    class_class_curie: ClassVar[str] = "dismech:GeneticContext"
+    class_name: ClassVar[str] = "GeneticContext"
+    class_model_uri: ClassVar[URIRef] = DISMECH.GeneticContext
+
+    gene: Optional[Union[dict, GeneDescriptor]] = None
+    genes: Optional[Union[Union[dict, GeneDescriptor], list[Union[dict, GeneDescriptor]]]] = empty_list()
+    allele_type: Optional[str] = None
+    zygosity: Optional[Union[str, "ZygosityEnum"]] = None
+    functional_impact: Optional[str] = None
+    complementation_group: Optional[str] = None
+    description: Optional[str] = None
+    notes: Optional[str] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self.gene is not None and not isinstance(self.gene, GeneDescriptor):
+            self.gene = GeneDescriptor(**as_dict(self.gene))
+
+        if not isinstance(self.genes, list):
+            self.genes = [self.genes] if self.genes is not None else []
+        self.genes = [v if isinstance(v, GeneDescriptor) else GeneDescriptor(**as_dict(v)) for v in self.genes]
+
+        if self.allele_type is not None and not isinstance(self.allele_type, str):
+            self.allele_type = str(self.allele_type)
+
+        if self.zygosity is not None and not isinstance(self.zygosity, ZygosityEnum):
+            self.zygosity = ZygosityEnum(self.zygosity)
+
+        if self.functional_impact is not None and not isinstance(self.functional_impact, str):
+            self.functional_impact = str(self.functional_impact)
+
+        if self.complementation_group is not None and not isinstance(self.complementation_group, str):
+            self.complementation_group = str(self.complementation_group)
+
+        if self.description is not None and not isinstance(self.description, str):
+            self.description = str(self.description)
+
+        if self.notes is not None and not isinstance(self.notes, str):
+            self.notes = str(self.notes)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class OnsetDescriptor(YAMLRoot):
+    """
+    Structured description of age of onset. Combines an HPO onset category with optional quantitative age data and
+    notes.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["OnsetDescriptor"]
+    class_class_curie: ClassVar[str] = "dismech:OnsetDescriptor"
+    class_name: ClassVar[str] = "OnsetDescriptor"
+    class_model_uri: ClassVar[URIRef] = DISMECH.OnsetDescriptor
+
+    onset_category: Optional[Union[str, "OnsetEnum"]] = None
+    mean_age_years: Optional[float] = None
+    min_age_years: Optional[float] = None
+    max_age_years: Optional[float] = None
+    notes: Optional[str] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self.onset_category is not None and not isinstance(self.onset_category, OnsetEnum):
+            self.onset_category = OnsetEnum(self.onset_category)
+
+        if self.mean_age_years is not None and not isinstance(self.mean_age_years, float):
+            self.mean_age_years = float(self.mean_age_years)
+
+        if self.min_age_years is not None and not isinstance(self.min_age_years, float):
+            self.min_age_years = float(self.min_age_years)
+
+        if self.max_age_years is not None and not isinstance(self.max_age_years, float):
+            self.max_age_years = float(self.max_age_years)
+
+        if self.notes is not None and not isinstance(self.notes, str):
+            self.notes = str(self.notes)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class PhenotypeContext(YAMLRoot):
+    """
+    A context-specific annotation qualifying how a phenotype manifests under particular conditions. Each context can
+    specify a genetic context, demographic stratum, or disease subtype, along with frequency, severity, onset, and
+    supporting evidence specific to that context.
+    When no context qualifier slots are set (no genetic_context, sex, population, age_range, or subtype), the context
+    provides evidence for the overall/default frequency claim, addressing the evidence separation problem (issue
+    #112).
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["PhenotypeContext"]
+    class_class_curie: ClassVar[str] = "dismech:PhenotypeContext"
+    class_name: ClassVar[str] = "PhenotypeContext"
+    class_model_uri: ClassVar[URIRef] = DISMECH.PhenotypeContext
+
+    frequency: Optional[Union[dict, Any]] = None
+    severity: Optional[str] = None
+    onset: Optional[Union[dict, OnsetDescriptor]] = None
+    notes: Optional[str] = None
+    evidence: Optional[Union[Union[dict, "EvidenceItem"], list[Union[dict, "EvidenceItem"]]]] = empty_list()
+    genetic_context: Optional[Union[dict, GeneticContext]] = None
+    sex: Optional[Union[str, "SexEnum"]] = None
+    population: Optional[str] = None
+    age_range: Optional[str] = None
+    subtype: Optional[str] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self.severity is not None and not isinstance(self.severity, str):
+            self.severity = str(self.severity)
+
+        if self.onset is not None and not isinstance(self.onset, OnsetDescriptor):
+            self.onset = OnsetDescriptor(**as_dict(self.onset))
+
+        if self.notes is not None and not isinstance(self.notes, str):
+            self.notes = str(self.notes)
+
+        if not isinstance(self.evidence, list):
+            self.evidence = [self.evidence] if self.evidence is not None else []
+        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+
+        if self.genetic_context is not None and not isinstance(self.genetic_context, GeneticContext):
+            self.genetic_context = GeneticContext(**as_dict(self.genetic_context))
+
+        if self.sex is not None and not isinstance(self.sex, SexEnum):
+            self.sex = SexEnum(self.sex)
+
+        if self.population is not None and not isinstance(self.population, str):
+            self.population = str(self.population)
+
+        if self.age_range is not None and not isinstance(self.age_range, str):
+            self.age_range = str(self.age_range)
+
+        if self.subtype is not None and not isinstance(self.subtype, str):
+            self.subtype = str(self.subtype)
 
         super().__post_init__(**kwargs)
 
@@ -933,6 +1233,92 @@ class Dataset(YAMLRoot):
 
 
 @dataclass(repr=False)
+class ExperimentalModel(YAMLRoot):
+    """
+    A disease-relevant non-animal experimental model system. This is a disease-centric bridge class inspired by NAMO,
+    intended to capture the model itself while keeping dismech focused on disease mechanisms rather than study-level
+    model registries.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["ExperimentalModel"]
+    class_class_curie: ClassVar[str] = "dismech:ExperimentalModel"
+    class_name: ClassVar[str] = "ExperimentalModel"
+    class_model_uri: ClassVar[URIRef] = DISMECH.ExperimentalModel
+
+    name: Union[str, ExperimentalModelName] = None
+    description: Optional[str] = None
+    experimental_model_type: Optional[Union[str, "ExperimentalModelTypeEnum"]] = None
+    namo_type: Optional[Union[str, URIorCURIE]] = None
+    organism: Optional[Union[dict, OrganismDescriptor]] = None
+    tissue_term: Optional[Union[dict, AnatomicalEntityDescriptor]] = None
+    cell_types: Optional[Union[Union[dict, CellTypeDescriptor], list[Union[dict, CellTypeDescriptor]]]] = empty_list()
+    conditions: Optional[Union[str, list[str]]] = empty_list()
+    cell_source: Optional[str] = None
+    culture_system: Optional[str] = None
+    publication: Optional[str] = None
+    modeled_mechanisms: Optional[Union[Union[dict, "ModelMechanismLink"], list[Union[dict, "ModelMechanismLink"]]]] = empty_list()
+    findings: Optional[Union[Union[dict, "Finding"], list[Union[dict, "Finding"]]]] = empty_list()
+    evidence: Optional[Union[Union[dict, "EvidenceItem"], list[Union[dict, "EvidenceItem"]]]] = empty_list()
+    notes: Optional[str] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.name):
+            self.MissingRequiredField("name")
+        if not isinstance(self.name, ExperimentalModelName):
+            self.name = ExperimentalModelName(self.name)
+
+        if self.description is not None and not isinstance(self.description, str):
+            self.description = str(self.description)
+
+        if self.experimental_model_type is not None and not isinstance(self.experimental_model_type, ExperimentalModelTypeEnum):
+            self.experimental_model_type = ExperimentalModelTypeEnum(self.experimental_model_type)
+
+        if self.namo_type is not None and not isinstance(self.namo_type, URIorCURIE):
+            self.namo_type = URIorCURIE(self.namo_type)
+
+        if self.organism is not None and not isinstance(self.organism, OrganismDescriptor):
+            self.organism = OrganismDescriptor(**as_dict(self.organism))
+
+        if self.tissue_term is not None and not isinstance(self.tissue_term, AnatomicalEntityDescriptor):
+            self.tissue_term = AnatomicalEntityDescriptor(**as_dict(self.tissue_term))
+
+        if not isinstance(self.cell_types, list):
+            self.cell_types = [self.cell_types] if self.cell_types is not None else []
+        self.cell_types = [v if isinstance(v, CellTypeDescriptor) else CellTypeDescriptor(**as_dict(v)) for v in self.cell_types]
+
+        if not isinstance(self.conditions, list):
+            self.conditions = [self.conditions] if self.conditions is not None else []
+        self.conditions = [v if isinstance(v, str) else str(v) for v in self.conditions]
+
+        if self.cell_source is not None and not isinstance(self.cell_source, str):
+            self.cell_source = str(self.cell_source)
+
+        if self.culture_system is not None and not isinstance(self.culture_system, str):
+            self.culture_system = str(self.culture_system)
+
+        if self.publication is not None and not isinstance(self.publication, str):
+            self.publication = str(self.publication)
+
+        if not isinstance(self.modeled_mechanisms, list):
+            self.modeled_mechanisms = [self.modeled_mechanisms] if self.modeled_mechanisms is not None else []
+        self.modeled_mechanisms = [v if isinstance(v, ModelMechanismLink) else ModelMechanismLink(**as_dict(v)) for v in self.modeled_mechanisms]
+
+        if not isinstance(self.findings, list):
+            self.findings = [self.findings] if self.findings is not None else []
+        self.findings = [v if isinstance(v, Finding) else Finding(**as_dict(v)) for v in self.findings]
+
+        if not isinstance(self.evidence, list):
+            self.evidence = [self.evidence] if self.evidence is not None else []
+        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+
+        if self.notes is not None and not isinstance(self.notes, str):
+            self.notes = str(self.notes)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
 class ClinicalTrial(YAMLRoot):
     """
     A clinical trial relevant to treatment or research of a disease
@@ -1004,6 +1390,7 @@ class ComputationalModel(YAMLRoot):
     model_id: Optional[str] = None
     base_model: Optional[str] = None
     perturbations: Optional[Union[Union[dict, GeneDescriptor], list[Union[dict, GeneDescriptor]]]] = empty_list()
+    variables: Optional[Union[dict[Union[str, ModelVariableName], Union[dict, "ModelVariable"]], list[Union[dict, "ModelVariable"]]]] = empty_dict()
     model_software: Optional[str] = None
     model_format: Optional[str] = None
     publication: Optional[str] = None
@@ -1036,6 +1423,8 @@ class ComputationalModel(YAMLRoot):
             self.perturbations = [self.perturbations] if self.perturbations is not None else []
         self.perturbations = [v if isinstance(v, GeneDescriptor) else GeneDescriptor(**as_dict(v)) for v in self.perturbations]
 
+        self._normalize_inlined_as_list(slot_name="variables", slot_type=ModelVariable, key_name="name", keyed=True)
+
         if self.model_software is not None and not isinstance(self.model_software, str):
             self.model_software = str(self.model_software)
 
@@ -1055,6 +1444,116 @@ class ComputationalModel(YAMLRoot):
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class ModelVariable(YAMLRoot):
+    """
+    A variable in a computational model, identified by a human-readable name, with an optional dataset_identifier for
+    the native name in the model file and ontology term mappings (e.g., LOINC for clinical observables, CHEBI for
+    metabolites, HP for phenotypic readouts).
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["ModelVariable"]
+    class_class_curie: ClassVar[str] = "dismech:ModelVariable"
+    class_name: ClassVar[str] = "ModelVariable"
+    class_model_uri: ClassVar[URIRef] = DISMECH.ModelVariable
+
+    name: Union[str, ModelVariableName] = None
+    dataset_identifier: Optional[str] = None
+    description: Optional[str] = None
+    unit: Optional[str] = None
+    mappings_list: Optional[Union[Union[dict, "ModelVariableDescriptor"], list[Union[dict, "ModelVariableDescriptor"]]]] = empty_list()
+    notes: Optional[str] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.name):
+            self.MissingRequiredField("name")
+        if not isinstance(self.name, ModelVariableName):
+            self.name = ModelVariableName(self.name)
+
+        if self.dataset_identifier is not None and not isinstance(self.dataset_identifier, str):
+            self.dataset_identifier = str(self.dataset_identifier)
+
+        if self.description is not None and not isinstance(self.description, str):
+            self.description = str(self.description)
+
+        if self.unit is not None and not isinstance(self.unit, str):
+            self.unit = str(self.unit)
+
+        if not isinstance(self.mappings_list, list):
+            self.mappings_list = [self.mappings_list] if self.mappings_list is not None else []
+        self.mappings_list = [v if isinstance(v, ModelVariableDescriptor) else ModelVariableDescriptor(**as_dict(v)) for v in self.mappings_list]
+
+        if self.notes is not None and not isinstance(self.notes, str):
+            self.notes = str(self.notes)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class SeverityTier(YAMLRoot):
+    """
+    A threshold-severity pair defining one tier in a severity scale
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["SeverityTier"]
+    class_class_curie: ClassVar[str] = "dismech:SeverityTier"
+    class_name: ClassVar[str] = "SeverityTier"
+    class_model_uri: ClassVar[URIRef] = DISMECH.SeverityTier
+
+    name: Union[str, SeverityTierName] = None
+    threshold: float = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.name):
+            self.MissingRequiredField("name")
+        if not isinstance(self.name, SeverityTierName):
+            self.name = SeverityTierName(self.name)
+
+        if self._is_empty(self.threshold):
+            self.MissingRequiredField("threshold")
+        if not isinstance(self.threshold, float):
+            self.threshold = float(self.threshold)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class ModelVariableDescriptor(Descriptor):
+    """
+    A descriptor mapping a model variable to an ontology term (LOINC, CHEBI, HP, etc.). When the mapped term is an HP
+    phenotype, optional threshold fields specify when the variable value activates that phenotype and at what
+    severity.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["ModelVariableDescriptor"]
+    class_class_curie: ClassVar[str] = "dismech:ModelVariableDescriptor"
+    class_name: ClassVar[str] = "ModelVariableDescriptor"
+    class_model_uri: ClassVar[URIRef] = DISMECH.ModelVariableDescriptor
+
+    preferred_term: str = None
+    threshold: Optional[float] = None
+    threshold_direction: Optional[Union[str, "ThresholdDirectionEnum"]] = None
+    severity_scale: Optional[Union[dict[Union[str, SeverityTierName], Union[dict, SeverityTier]], list[Union[dict, SeverityTier]]]] = empty_dict()
+    term: Optional[Union[dict, Term]] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self.threshold is not None and not isinstance(self.threshold, float):
+            self.threshold = float(self.threshold)
+
+        if self.threshold_direction is not None and not isinstance(self.threshold_direction, ThresholdDirectionEnum):
+            self.threshold_direction = ThresholdDirectionEnum(self.threshold_direction)
+
+        self._normalize_inlined_as_list(slot_name="severity_scale", slot_type=SeverityTier, key_name="name", keyed=True)
+
+        if self.term is not None and not isinstance(self.term, Term):
+            self.term = Term(**as_dict(self.term))
 
         super().__post_init__(**kwargs)
 
@@ -1117,18 +1616,27 @@ class Subtype(YAMLRoot):
     class_model_uri: ClassVar[URIRef] = DISMECH.Subtype
 
     name: Union[str, SubtypeName] = None
+    display_name: Optional[str] = None
     subtype_term: Optional[Union[dict, DiseaseDescriptor]] = None
     description: Optional[str] = None
     evidence: Optional[Union[Union[dict, "EvidenceItem"], list[Union[dict, "EvidenceItem"]]]] = empty_list()
     review_notes: Optional[str] = None
     locations: Optional[Union[Union[dict, AnatomicalEntityDescriptor], list[Union[dict, AnatomicalEntityDescriptor]]]] = empty_list()
     geography: Optional[Union[Union[str, "GeographyTerm"], list[Union[str, "GeographyTerm"]]]] = empty_list()
+    classification: Optional[str] = None
+    children: Optional[Union[str, list[str]]] = empty_list()
+    genes: Optional[Union[Union[dict, GeneDescriptor], list[Union[dict, GeneDescriptor]]]] = empty_list()
+    subtype_frequency: Optional[str] = None
+    inheritance: Optional[Union[dict[Union[str, InheritanceName], Union[dict, "Inheritance"]], list[Union[dict, "Inheritance"]]]] = empty_dict()
 
     def __post_init__(self, *_: str, **kwargs: Any):
         if self._is_empty(self.name):
             self.MissingRequiredField("name")
         if not isinstance(self.name, SubtypeName):
             self.name = SubtypeName(self.name)
+
+        if self.display_name is not None and not isinstance(self.display_name, str):
+            self.display_name = str(self.display_name)
 
         if self.subtype_term is not None and not isinstance(self.subtype_term, DiseaseDescriptor):
             self.subtype_term = DiseaseDescriptor(**as_dict(self.subtype_term))
@@ -1147,6 +1655,22 @@ class Subtype(YAMLRoot):
             self.locations = [self.locations] if self.locations is not None else []
         self.locations = [v if isinstance(v, AnatomicalEntityDescriptor) else AnatomicalEntityDescriptor(**as_dict(v)) for v in self.locations]
 
+        if self.classification is not None and not isinstance(self.classification, str):
+            self.classification = str(self.classification)
+
+        if not isinstance(self.children, list):
+            self.children = [self.children] if self.children is not None else []
+        self.children = [v if isinstance(v, str) else str(v) for v in self.children]
+
+        if not isinstance(self.genes, list):
+            self.genes = [self.genes] if self.genes is not None else []
+        self.genes = [v if isinstance(v, GeneDescriptor) else GeneDescriptor(**as_dict(v)) for v in self.genes]
+
+        if self.subtype_frequency is not None and not isinstance(self.subtype_frequency, str):
+            self.subtype_frequency = str(self.subtype_frequency)
+
+        self._normalize_inlined_as_list(slot_name="inheritance", slot_type=Inheritance, key_name="name", keyed=True)
+
         super().__post_init__(**kwargs)
 
 
@@ -1160,6 +1684,7 @@ class EvidenceItem(YAMLRoot):
     class_model_uri: ClassVar[URIRef] = DISMECH.EvidenceItem
 
     reference: Optional[str] = None
+    reference_title: Optional[str] = None
     supports: Optional[Union[str, "EvidenceItemSupportEnum"]] = None
     evidence_source: Optional[Union[str, "EvidenceSourceEnum"]] = None
     snippet: Optional[str] = None
@@ -1168,6 +1693,9 @@ class EvidenceItem(YAMLRoot):
     def __post_init__(self, *_: str, **kwargs: Any):
         if self.reference is not None and not isinstance(self.reference, str):
             self.reference = str(self.reference)
+
+        if self.reference_title is not None and not isinstance(self.reference_title, str):
+            self.reference_title = str(self.reference_title)
 
         if self.supports is not None and not isinstance(self.supports, EvidenceItemSupportEnum):
             self.supports = EvidenceItemSupportEnum(self.supports)
@@ -1199,6 +1727,90 @@ class CausalEdge(YAMLRoot):
     target: str = None
     description: Optional[str] = None
     evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
+    hypothesis_groups: Optional[Union[str, list[str]]] = empty_list()
+    causal_link_type: Optional[Union[str, "CausalLinkTypeEnum"]] = None
+    intermediate_mechanisms: Optional[Union[str, list[str]]] = empty_list()
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.target):
+            self.MissingRequiredField("target")
+        if not isinstance(self.target, str):
+            self.target = str(self.target)
+
+        if self.description is not None and not isinstance(self.description, str):
+            self.description = str(self.description)
+
+        if not isinstance(self.evidence, list):
+            self.evidence = [self.evidence] if self.evidence is not None else []
+        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+
+        if not isinstance(self.hypothesis_groups, list):
+            self.hypothesis_groups = [self.hypothesis_groups] if self.hypothesis_groups is not None else []
+        self.hypothesis_groups = [v if isinstance(v, str) else str(v) for v in self.hypothesis_groups]
+
+        if self.causal_link_type is not None and not isinstance(self.causal_link_type, CausalLinkTypeEnum):
+            self.causal_link_type = CausalLinkTypeEnum(self.causal_link_type)
+
+        if not isinstance(self.intermediate_mechanisms, list):
+            self.intermediate_mechanisms = [self.intermediate_mechanisms] if self.intermediate_mechanisms is not None else []
+        self.intermediate_mechanisms = [v if isinstance(v, str) else str(v) for v in self.intermediate_mechanisms]
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class TreatmentMechanismTarget(YAMLRoot):
+    """
+    Links a treatment to a specific pathophysiology mechanism node it targets. Enables reasoning about which
+    downstream phenotypes should respond to therapy and why resistance may emerge when the causal chain shifts.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["TreatmentMechanismTarget"]
+    class_class_curie: ClassVar[str] = "dismech:TreatmentMechanismTarget"
+    class_name: ClassVar[str] = "TreatmentMechanismTarget"
+    class_model_uri: ClassVar[URIRef] = DISMECH.TreatmentMechanismTarget
+
+    target: str = None
+    treatment_effect: Optional[Union[str, "TreatmentEffectEnum"]] = None
+    description: Optional[str] = None
+    evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.target):
+            self.MissingRequiredField("target")
+        if not isinstance(self.target, str):
+            self.target = str(self.target)
+
+        if self.treatment_effect is not None and not isinstance(self.treatment_effect, TreatmentEffectEnum):
+            self.treatment_effect = TreatmentEffectEnum(self.treatment_effect)
+
+        if self.description is not None and not isinstance(self.description, str):
+            self.description = str(self.description)
+
+        if not isinstance(self.evidence, list):
+            self.evidence = [self.evidence] if self.evidence is not None else []
+        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class ModelMechanismLink(YAMLRoot):
+    """
+    Links an experimental model to a specific pathophysiology mechanism node, with optional assertion text describing
+    the aspect of the mechanism that the model recapitulates, perturbs, or reads out.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["ModelMechanismLink"]
+    class_class_curie: ClassVar[str] = "dismech:ModelMechanismLink"
+    class_name: ClassVar[str] = "ModelMechanismLink"
+    class_model_uri: ClassVar[URIRef] = DISMECH.ModelMechanismLink
+
+    target: str = None
+    description: Optional[str] = None
+    evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
 
     def __post_init__(self, *_: str, **kwargs: Any):
         if self._is_empty(self.target):
@@ -1217,6 +1829,54 @@ class CausalEdge(YAMLRoot):
 
 
 @dataclass(repr=False)
+class ProteinStructure(YAMLRoot):
+    """
+    A 3D protein structure from PDB or AlphaFold relevant to understanding a treatment's mechanism of action. Enables
+    embedded 3D visualization of drug-target interactions via Mol* viewer.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["ProteinStructure"]
+    class_class_curie: ClassVar[str] = "dismech:ProteinStructure"
+    class_name: ClassVar[str] = "ProteinStructure"
+    class_model_uri: ClassVar[URIRef] = DISMECH.ProteinStructure
+
+    pdb_id: str = None
+    description: Optional[str] = None
+    resolution_angstrom: Optional[float] = None
+    method: Optional[str] = None
+    ligand: Optional[str] = None
+    target_protein: Optional[str] = None
+    publication: Optional[str] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.pdb_id):
+            self.MissingRequiredField("pdb_id")
+        if not isinstance(self.pdb_id, str):
+            self.pdb_id = str(self.pdb_id)
+
+        if self.description is not None and not isinstance(self.description, str):
+            self.description = str(self.description)
+
+        if self.resolution_angstrom is not None and not isinstance(self.resolution_angstrom, float):
+            self.resolution_angstrom = float(self.resolution_angstrom)
+
+        if self.method is not None and not isinstance(self.method, str):
+            self.method = str(self.method)
+
+        if self.ligand is not None and not isinstance(self.ligand, str):
+            self.ligand = str(self.ligand)
+
+        if self.target_protein is not None and not isinstance(self.target_protein, str):
+            self.target_protein = str(self.target_protein)
+
+        if self.publication is not None and not isinstance(self.publication, str):
+            self.publication = str(self.publication)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
 class PublicationReference(YAMLRoot):
     """
     A reference to a publication with associated findings
@@ -1230,6 +1890,7 @@ class PublicationReference(YAMLRoot):
 
     reference: Union[str, PublicationReferenceReference] = None
     title: Optional[str] = None
+    found_in: Optional[Union[str, list[str]]] = empty_list()
     findings: Optional[Union[Union[dict, "Finding"], list[Union[dict, "Finding"]]]] = empty_list()
 
     def __post_init__(self, *_: str, **kwargs: Any):
@@ -1241,9 +1902,70 @@ class PublicationReference(YAMLRoot):
         if self.title is not None and not isinstance(self.title, str):
             self.title = str(self.title)
 
+        if not isinstance(self.found_in, list):
+            self.found_in = [self.found_in] if self.found_in is not None else []
+        self.found_in = [v if isinstance(v, str) else str(v) for v in self.found_in]
+
         if not isinstance(self.findings, list):
             self.findings = [self.findings] if self.findings is not None else []
         self.findings = [v if isinstance(v, Finding) else Finding(**as_dict(v)) for v in self.findings]
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class ExternalAssertion(YAMLRoot):
+    """
+    An externally curated assertion or registry record relevant to a disease or variant, such as a ClinGen
+    gene-disease validity assertion or a ClinGen Allele Registry record.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["ExternalAssertion"]
+    class_class_curie: ClassVar[str] = "dismech:ExternalAssertion"
+    class_name: ClassVar[str] = "ExternalAssertion"
+    class_model_uri: ClassVar[URIRef] = DISMECH.ExternalAssertion
+
+    name: Union[str, ExternalAssertionName] = None
+    source: str = None
+    external_id: str = None
+    assertion_type: Optional[str] = None
+    url: Optional[Union[str, URI]] = None
+    description: Optional[str] = None
+    evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
+    notes: Optional[str] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.name):
+            self.MissingRequiredField("name")
+        if not isinstance(self.name, ExternalAssertionName):
+            self.name = ExternalAssertionName(self.name)
+
+        if self._is_empty(self.source):
+            self.MissingRequiredField("source")
+        if not isinstance(self.source, str):
+            self.source = str(self.source)
+
+        if self._is_empty(self.external_id):
+            self.MissingRequiredField("external_id")
+        if not isinstance(self.external_id, str):
+            self.external_id = str(self.external_id)
+
+        if self.assertion_type is not None and not isinstance(self.assertion_type, str):
+            self.assertion_type = str(self.assertion_type)
+
+        if self.url is not None and not isinstance(self.url, URI):
+            self.url = URI(self.url)
+
+        if self.description is not None and not isinstance(self.description, str):
+            self.description = str(self.description)
+
+        if not isinstance(self.evidence, list):
+            self.evidence = [self.evidence] if self.evidence is not None else []
+        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+
+        if self.notes is not None and not isinstance(self.notes, str):
+            self.notes = str(self.notes)
 
         super().__post_init__(**kwargs)
 
@@ -1432,9 +2154,11 @@ class Pathophysiology(YAMLRoot):
     cell_types: Optional[Union[Union[dict, CellTypeDescriptor], list[Union[dict, CellTypeDescriptor]]]] = empty_list()
     evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
     biological_processes: Optional[Union[Union[dict, BiologicalProcessDescriptor], list[Union[dict, BiologicalProcessDescriptor]]]] = empty_list()
+    molecular_functions: Optional[Union[Union[dict, MolecularFunctionDescriptor], list[Union[dict, MolecularFunctionDescriptor]]]] = empty_list()
     locations: Optional[Union[Union[dict, AnatomicalEntityDescriptor], list[Union[dict, AnatomicalEntityDescriptor]]]] = empty_list()
     examples: Optional[Union[str, list[str]]] = empty_list()
     role: Optional[str] = None
+    conforms_to: Optional[str] = None
     synonyms: Optional[Union[str, list[str]]] = empty_list()
     consequence: Optional[str] = None
     consequences: Optional[Union[str, list[str]]] = empty_list()
@@ -1444,6 +2168,7 @@ class Pathophysiology(YAMLRoot):
     genes: Optional[Union[Union[dict, GeneDescriptor], list[Union[dict, GeneDescriptor]]]] = empty_list()
     subtypes: Optional[Union[str, list[str]]] = empty_list()
     cellular_components: Optional[Union[Union[dict, CellularComponentDescriptor], list[Union[dict, CellularComponentDescriptor]]]] = empty_list()
+    protein_complexes: Optional[Union[Union[dict, ProteinComplexDescriptor], list[Union[dict, ProteinComplexDescriptor]]]] = empty_list()
     chemical_entities: Optional[Union[Union[dict, ChemicalEntityDescriptor], list[Union[dict, ChemicalEntityDescriptor]]]] = empty_list()
     gene_products: Optional[Union[Union[dict, GeneProductDescriptor], list[Union[dict, GeneProductDescriptor]]]] = empty_list()
     triggers: Optional[Union[Union[dict, TriggerDescriptor], list[Union[dict, TriggerDescriptor]]]] = empty_list()
@@ -1451,6 +2176,9 @@ class Pathophysiology(YAMLRoot):
     mechanisms: Optional[Union[str, list[str]]] = empty_list()
     notes: Optional[str] = None
     frequency: Optional[Union[dict, Any]] = None
+    genetic_context: Optional[Union[dict, GeneticContext]] = None
+    pdb_structures: Optional[Union[Union[dict, ProteinStructure], list[Union[dict, ProteinStructure]]]] = empty_list()
+    mechanism_confidence: Optional[Union[str, "MechanismConfidenceEnum"]] = None
 
     def __post_init__(self, *_: str, **kwargs: Any):
         if self._is_empty(self.name):
@@ -1473,6 +2201,10 @@ class Pathophysiology(YAMLRoot):
             self.biological_processes = [self.biological_processes] if self.biological_processes is not None else []
         self.biological_processes = [v if isinstance(v, BiologicalProcessDescriptor) else BiologicalProcessDescriptor(**as_dict(v)) for v in self.biological_processes]
 
+        if not isinstance(self.molecular_functions, list):
+            self.molecular_functions = [self.molecular_functions] if self.molecular_functions is not None else []
+        self.molecular_functions = [v if isinstance(v, MolecularFunctionDescriptor) else MolecularFunctionDescriptor(**as_dict(v)) for v in self.molecular_functions]
+
         if not isinstance(self.locations, list):
             self.locations = [self.locations] if self.locations is not None else []
         self.locations = [v if isinstance(v, AnatomicalEntityDescriptor) else AnatomicalEntityDescriptor(**as_dict(v)) for v in self.locations]
@@ -1483,6 +2215,9 @@ class Pathophysiology(YAMLRoot):
 
         if self.role is not None and not isinstance(self.role, str):
             self.role = str(self.role)
+
+        if self.conforms_to is not None and not isinstance(self.conforms_to, str):
+            self.conforms_to = str(self.conforms_to)
 
         if not isinstance(self.synonyms, list):
             self.synonyms = [self.synonyms] if self.synonyms is not None else []
@@ -1518,6 +2253,10 @@ class Pathophysiology(YAMLRoot):
             self.cellular_components = [self.cellular_components] if self.cellular_components is not None else []
         self.cellular_components = [v if isinstance(v, CellularComponentDescriptor) else CellularComponentDescriptor(**as_dict(v)) for v in self.cellular_components]
 
+        if not isinstance(self.protein_complexes, list):
+            self.protein_complexes = [self.protein_complexes] if self.protein_complexes is not None else []
+        self.protein_complexes = [v if isinstance(v, ProteinComplexDescriptor) else ProteinComplexDescriptor(**as_dict(v)) for v in self.protein_complexes]
+
         if not isinstance(self.chemical_entities, list):
             self.chemical_entities = [self.chemical_entities] if self.chemical_entities is not None else []
         self.chemical_entities = [v if isinstance(v, ChemicalEntityDescriptor) else ChemicalEntityDescriptor(**as_dict(v)) for v in self.chemical_entities]
@@ -1540,6 +2279,16 @@ class Pathophysiology(YAMLRoot):
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
+
+        if self.genetic_context is not None and not isinstance(self.genetic_context, GeneticContext):
+            self.genetic_context = GeneticContext(**as_dict(self.genetic_context))
+
+        if not isinstance(self.pdb_structures, list):
+            self.pdb_structures = [self.pdb_structures] if self.pdb_structures is not None else []
+        self.pdb_structures = [v if isinstance(v, ProteinStructure) else ProteinStructure(**as_dict(v)) for v in self.pdb_structures]
+
+        if self.mechanism_confidence is not None and not isinstance(self.mechanism_confidence, MechanismConfidenceEnum):
+            self.mechanism_confidence = MechanismConfidenceEnum(self.mechanism_confidence)
 
         super().__post_init__(**kwargs)
 
@@ -1566,6 +2315,7 @@ class Phenotype(YAMLRoot):
     severity: Optional[str] = None
     notes: Optional[str] = None
     subtype: Optional[str] = None
+    phenotype_contexts: Optional[Union[Union[dict, PhenotypeContext], list[Union[dict, PhenotypeContext]]]] = empty_list()
 
     def __post_init__(self, *_: str, **kwargs: Any):
         if self._is_empty(self.name):
@@ -1608,6 +2358,10 @@ class Phenotype(YAMLRoot):
         if self.subtype is not None and not isinstance(self.subtype, str):
             self.subtype = str(self.subtype)
 
+        if not isinstance(self.phenotype_contexts, list):
+            self.phenotype_contexts = [self.phenotype_contexts] if self.phenotype_contexts is not None else []
+        self.phenotype_contexts = [v if isinstance(v, PhenotypeContext) else PhenotypeContext(**as_dict(v)) for v in self.phenotype_contexts]
+
         super().__post_init__(**kwargs)
 
 
@@ -1631,6 +2385,7 @@ class Biochemical(YAMLRoot):
     subtype: Optional[str] = None
     cell_types: Optional[Union[Union[dict, CellTypeDescriptor], list[Union[dict, CellTypeDescriptor]]]] = empty_list()
     assays: Optional[Union[Union[dict, AssayDescriptor], list[Union[dict, AssayDescriptor]]]] = empty_list()
+    mappings_list: Optional[Union[Union[dict, ModelVariableDescriptor], list[Union[dict, ModelVariableDescriptor]]]] = empty_list()
     synonyms: Optional[Union[str, list[str]]] = empty_list()
 
     def __post_init__(self, *_: str, **kwargs: Any):
@@ -1668,6 +2423,10 @@ class Biochemical(YAMLRoot):
         if not isinstance(self.assays, list):
             self.assays = [self.assays] if self.assays is not None else []
         self.assays = [v if isinstance(v, AssayDescriptor) else AssayDescriptor(**as_dict(v)) for v in self.assays]
+
+        if not isinstance(self.mappings_list, list):
+            self.mappings_list = [self.mappings_list] if self.mappings_list is not None else []
+        self.mappings_list = [v if isinstance(v, ModelVariableDescriptor) else ModelVariableDescriptor(**as_dict(v)) for v in self.mappings_list]
 
         if not isinstance(self.synonyms, list):
             self.synonyms = [self.synonyms] if self.synonyms is not None else []
@@ -1819,6 +2578,7 @@ class Environmental(YAMLRoot):
     review_notes: Optional[str] = None
     exposure_term: Optional[Union[dict, ExposureDescriptor]] = None
     environment_context: Optional[Union[dict, EnvironmentDescriptor]] = None
+    food_source: Optional[Union[dict, FoodDescriptor]] = None
 
     def __post_init__(self, *_: str, **kwargs: Any):
         if self._is_empty(self.name):
@@ -1863,6 +2623,9 @@ class Environmental(YAMLRoot):
         if self.environment_context is not None and not isinstance(self.environment_context, EnvironmentDescriptor):
             self.environment_context = EnvironmentDescriptor(**as_dict(self.environment_context))
 
+        if self.food_source is not None and not isinstance(self.food_source, FoodDescriptor):
+            self.food_source = FoodDescriptor(**as_dict(self.food_source))
+
         super().__post_init__(**kwargs)
 
 
@@ -1877,6 +2640,8 @@ class Disease(YAMLRoot):
 
     name: Union[str, DiseaseName] = None
     disease_term: Optional[Union[dict, DiseaseDescriptor]] = None
+    creation_date: Optional[str] = None
+    updated_date: Optional[str] = None
     description: Optional[str] = None
     references: Optional[Union[dict[Union[str, PublicationReferenceReference], Union[dict, PublicationReference]], list[Union[dict, PublicationReference]]]] = empty_dict()
     category: Optional[str] = None
@@ -1885,6 +2650,7 @@ class Disease(YAMLRoot):
     prevalence: Optional[Union[Union[dict, Prevalence], list[Union[dict, Prevalence]]]] = empty_list()
     progression: Optional[Union[Union[dict, ProgressionInfo], list[Union[dict, ProgressionInfo]]]] = empty_list()
     pathophysiology: Optional[Union[dict[Union[str, PathophysiologyName], Union[dict, Pathophysiology]], list[Union[dict, Pathophysiology]]]] = empty_dict()
+    mechanistic_hypotheses: Optional[Union[Union[dict, "MechanisticHypothesis"], list[Union[dict, "MechanisticHypothesis"]]]] = empty_list()
     phenotypes: Optional[Union[dict[Union[str, PhenotypeName], Union[dict, Phenotype]], list[Union[dict, Phenotype]]]] = empty_dict()
     histopathology: Optional[Union[dict[Union[str, HistopathologyFindingName], Union[dict, HistopathologyFinding]], list[Union[dict, HistopathologyFinding]]]] = empty_dict()
     biochemical: Optional[Union[dict[Union[str, BiochemicalName], Union[dict, Biochemical]], list[Union[dict, Biochemical]]]] = empty_dict()
@@ -1904,12 +2670,14 @@ class Disease(YAMLRoot):
     synonyms: Optional[Union[str, list[str]]] = empty_list()
     inheritance: Optional[Union[dict[Union[str, InheritanceName], Union[dict, "Inheritance"]], list[Union[dict, "Inheritance"]]]] = empty_dict()
     animal_models: Optional[Union[Union[dict, "AnimalModel"], list[Union[dict, "AnimalModel"]]]] = empty_list()
+    experimental_models: Optional[Union[dict[Union[str, ExperimentalModelName], Union[dict, ExperimentalModel]], list[Union[dict, ExperimentalModel]]]] = empty_dict()
     datasets: Optional[Union[dict[Union[str, DatasetAccession], Union[dict, Dataset]], list[Union[dict, Dataset]]]] = empty_dict()
     clinical_trials: Optional[Union[dict[Union[str, ClinicalTrialName], Union[dict, ClinicalTrial]], list[Union[dict, ClinicalTrial]]]] = empty_dict()
     computational_models: Optional[Union[dict[Union[str, ComputationalModelName], Union[dict, ComputationalModel]], list[Union[dict, ComputationalModel]]]] = empty_dict()
     classifications: Optional[Union[dict, "DiseaseClassifications"]] = None
     definitions: Optional[Union[dict[Union[str, DefinitionName], Union[dict, "Definition"]], list[Union[dict, "Definition"]]]] = empty_dict()
     mappings: Optional[Union[dict, "DiseaseMappings"]] = None
+    external_assertions: Optional[Union[dict[Union[str, ExternalAssertionName], Union[dict, ExternalAssertion]], list[Union[dict, ExternalAssertion]]]] = empty_dict()
     notes: Optional[str] = None
     review_notes: Optional[str] = None
     curation_history: Optional[Union[Union[dict, CurationEvent], list[Union[dict, CurationEvent]]]] = empty_list()
@@ -1922,6 +2690,12 @@ class Disease(YAMLRoot):
 
         if self.disease_term is not None and not isinstance(self.disease_term, DiseaseDescriptor):
             self.disease_term = DiseaseDescriptor(**as_dict(self.disease_term))
+
+        if self.creation_date is not None and not isinstance(self.creation_date, str):
+            self.creation_date = str(self.creation_date)
+
+        if self.updated_date is not None and not isinstance(self.updated_date, str):
+            self.updated_date = str(self.updated_date)
 
         if self.description is not None and not isinstance(self.description, str):
             self.description = str(self.description)
@@ -1946,6 +2720,10 @@ class Disease(YAMLRoot):
         self.progression = [v if isinstance(v, ProgressionInfo) else ProgressionInfo(**as_dict(v)) for v in self.progression]
 
         self._normalize_inlined_as_list(slot_name="pathophysiology", slot_type=Pathophysiology, key_name="name", keyed=True)
+
+        if not isinstance(self.mechanistic_hypotheses, list):
+            self.mechanistic_hypotheses = [self.mechanistic_hypotheses] if self.mechanistic_hypotheses is not None else []
+        self.mechanistic_hypotheses = [v if isinstance(v, MechanisticHypothesis) else MechanisticHypothesis(**as_dict(v)) for v in self.mechanistic_hypotheses]
 
         self._normalize_inlined_as_list(slot_name="phenotypes", slot_type=Phenotype, key_name="name", keyed=True)
 
@@ -1992,6 +2770,8 @@ class Disease(YAMLRoot):
             self.animal_models = [self.animal_models] if self.animal_models is not None else []
         self.animal_models = [v if isinstance(v, AnimalModel) else AnimalModel(**as_dict(v)) for v in self.animal_models]
 
+        self._normalize_inlined_as_list(slot_name="experimental_models", slot_type=ExperimentalModel, key_name="name", keyed=True)
+
         self._normalize_inlined_as_list(slot_name="datasets", slot_type=Dataset, key_name="accession", keyed=True)
 
         self._normalize_inlined_as_list(slot_name="clinical_trials", slot_type=ClinicalTrial, key_name="name", keyed=True)
@@ -2005,6 +2785,8 @@ class Disease(YAMLRoot):
 
         if self.mappings is not None and not isinstance(self.mappings, DiseaseMappings):
             self.mappings = DiseaseMappings(**as_dict(self.mappings))
+
+        self._normalize_inlined_as_list(slot_name="external_assertions", slot_type=ExternalAssertion, key_name="name", keyed=True)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -2236,6 +3018,8 @@ class Treatment(YAMLRoot):
     treatment_term: Optional[Union[dict, TreatmentDescriptor]] = None
     regimen_term: Optional[Union[dict, RegimenDescriptor]] = None
     target_phenotypes: Optional[Union[Union[dict, PhenotypeDescriptor], list[Union[dict, PhenotypeDescriptor]]]] = empty_list()
+    target_mechanisms: Optional[Union[Union[dict, TreatmentMechanismTarget], list[Union[dict, TreatmentMechanismTarget]]]] = empty_list()
+    pdb_structures: Optional[Union[Union[dict, ProteinStructure], list[Union[dict, ProteinStructure]]]] = empty_list()
     evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
     notes: Optional[str] = None
     context: Optional[str] = None
@@ -2262,6 +3046,14 @@ class Treatment(YAMLRoot):
         if not isinstance(self.target_phenotypes, list):
             self.target_phenotypes = [self.target_phenotypes] if self.target_phenotypes is not None else []
         self.target_phenotypes = [v if isinstance(v, PhenotypeDescriptor) else PhenotypeDescriptor(**as_dict(v)) for v in self.target_phenotypes]
+
+        if not isinstance(self.target_mechanisms, list):
+            self.target_mechanisms = [self.target_mechanisms] if self.target_mechanisms is not None else []
+        self.target_mechanisms = [v if isinstance(v, TreatmentMechanismTarget) else TreatmentMechanismTarget(**as_dict(v)) for v in self.target_mechanisms]
+
+        if not isinstance(self.pdb_structures, list):
+            self.pdb_structures = [self.pdb_structures] if self.pdb_structures is not None else []
+        self.pdb_structures = [v if isinstance(v, ProteinStructure) else ProteinStructure(**as_dict(v)) for v in self.pdb_structures]
 
         if not isinstance(self.evidence, list):
             self.evidence = [self.evidence] if self.evidence is not None else []
@@ -2299,6 +3091,7 @@ class InfectiousAgent(YAMLRoot):
 
     name: Union[str, InfectiousAgentName] = None
     infectious_agent_term: Optional[Union[dict, OrganismDescriptor]] = None
+    food_source: Optional[Union[dict, FoodDescriptor]] = None
     evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
     description: Optional[str] = None
     has_subtypes: Optional[Union[dict[Union[str, SubtypeName], Union[dict, Subtype]], list[Union[dict, Subtype]]]] = empty_dict()
@@ -2311,6 +3104,9 @@ class InfectiousAgent(YAMLRoot):
 
         if self.infectious_agent_term is not None and not isinstance(self.infectious_agent_term, OrganismDescriptor):
             self.infectious_agent_term = OrganismDescriptor(**as_dict(self.infectious_agent_term))
+
+        if self.food_source is not None and not isinstance(self.food_source, FoodDescriptor):
+            self.food_source = FoodDescriptor(**as_dict(self.food_source))
 
         if not isinstance(self.evidence, list):
             self.evidence = [self.evidence] if self.evidence is not None else []
@@ -2444,6 +3240,12 @@ class Inheritance(YAMLRoot):
     class_model_uri: ClassVar[URIRef] = DISMECH.Inheritance
 
     name: Union[str, InheritanceName] = None
+    inheritance_term: Optional[Union[dict, InheritanceDescriptor]] = None
+    penetrance: Optional[Union[str, "PenetranceEnum"]] = None
+    penetrance_percentage: Optional[str] = None
+    expressivity: Optional[Union[str, "ExpressivityEnum"]] = None
+    de_novo_rate: Optional[str] = None
+    parent_of_origin_effect: Optional[str] = None
     evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
     description: Optional[str] = None
 
@@ -2452,6 +3254,24 @@ class Inheritance(YAMLRoot):
             self.MissingRequiredField("name")
         if not isinstance(self.name, InheritanceName):
             self.name = InheritanceName(self.name)
+
+        if self.inheritance_term is not None and not isinstance(self.inheritance_term, InheritanceDescriptor):
+            self.inheritance_term = InheritanceDescriptor(**as_dict(self.inheritance_term))
+
+        if self.penetrance is not None and not isinstance(self.penetrance, PenetranceEnum):
+            self.penetrance = PenetranceEnum(self.penetrance)
+
+        if self.penetrance_percentage is not None and not isinstance(self.penetrance_percentage, str):
+            self.penetrance_percentage = str(self.penetrance_percentage)
+
+        if self.expressivity is not None and not isinstance(self.expressivity, ExpressivityEnum):
+            self.expressivity = ExpressivityEnum(self.expressivity)
+
+        if self.de_novo_rate is not None and not isinstance(self.de_novo_rate, str):
+            self.de_novo_rate = str(self.de_novo_rate)
+
+        if self.parent_of_origin_effect is not None and not isinstance(self.parent_of_origin_effect, str):
+            self.parent_of_origin_effect = str(self.parent_of_origin_effect)
 
         if not isinstance(self.evidence, list):
             self.evidence = [self.evidence] if self.evidence is not None else []
@@ -2465,6 +3285,11 @@ class Inheritance(YAMLRoot):
 
 @dataclass(repr=False)
 class Variant(YAMLRoot):
+    """
+    A genetic variant associated with a disease, including coding and non-coding regulatory variants. For regulatory
+    variants, use regulatory_category to classify the variant's impact on gene expression (LOE/mLOE/GOE per Cheng et
+    al. 2024).
+    """
     _inherited_slots: ClassVar[list[str]] = []
 
     class_class_uri: ClassVar[URIRef] = DISMECH["Variant"]
@@ -2479,9 +3304,11 @@ class Variant(YAMLRoot):
     functional_effects: Optional[Union[Union[dict, "FunctionalEffect"], list[Union[dict, "FunctionalEffect"]]]] = empty_list()
     synonyms: Optional[Union[str, list[str]]] = empty_list()
     identifiers: Optional[Union[Union[str, URIorCURIE], list[Union[str, URIorCURIE]]]] = empty_list()
+    external_assertions: Optional[Union[dict[Union[str, ExternalAssertionName], Union[dict, ExternalAssertion]], list[Union[dict, ExternalAssertion]]]] = empty_dict()
     sequence_length: Optional[int] = None
     clinical_significance: Optional[Union[str, "ClinicalSignificanceEnum"]] = None
     type: Optional[str] = None
+    regulatory_category: Optional[Union[str, "RegulatoryVariantCategoryEnum"]] = None
 
     def __post_init__(self, *_: str, **kwargs: Any):
         if self._is_empty(self.name):
@@ -2511,6 +3338,8 @@ class Variant(YAMLRoot):
             self.identifiers = [self.identifiers] if self.identifiers is not None else []
         self.identifiers = [v if isinstance(v, URIorCURIE) else URIorCURIE(v) for v in self.identifiers]
 
+        self._normalize_inlined_as_list(slot_name="external_assertions", slot_type=ExternalAssertion, key_name="name", keyed=True)
+
         if self.sequence_length is not None and not isinstance(self.sequence_length, int):
             self.sequence_length = int(self.sequence_length)
 
@@ -2520,11 +3349,18 @@ class Variant(YAMLRoot):
         if self.type is not None and not isinstance(self.type, str):
             self.type = str(self.type)
 
+        if self.regulatory_category is not None and not isinstance(self.regulatory_category, RegulatoryVariantCategoryEnum):
+            self.regulatory_category = RegulatoryVariantCategoryEnum(self.regulatory_category)
+
         super().__post_init__(**kwargs)
 
 
 @dataclass(repr=False)
 class FunctionalEffect(YAMLRoot):
+    """
+    Describes the functional consequence of a genetic variant, including regulatory impact classification
+    (LOE/mLOE/GOE) for non-coding variants and the type of regulatory element affected.
+    """
     _inherited_slots: ClassVar[list[str]] = []
 
     class_class_uri: ClassVar[URIRef] = DISMECH["FunctionalEffect"]
@@ -2535,6 +3371,11 @@ class FunctionalEffect(YAMLRoot):
     function: Optional[str] = None
     description: Optional[str] = None
     type: Optional[str] = None
+    regulatory_category: Optional[Union[str, "RegulatoryVariantCategoryEnum"]] = None
+    regulatory_element_type: Optional[Union[str, "RegulatoryElementTypeEnum"]] = None
+    affected_cell_types: Optional[Union[Union[dict, CellTypeDescriptor], list[Union[dict, CellTypeDescriptor]]]] = empty_list()
+    affected_developmental_stage: Optional[str] = None
+    regulatory_mechanism: Optional[str] = None
 
     def __post_init__(self, *_: str, **kwargs: Any):
         if self.function is not None and not isinstance(self.function, str):
@@ -2545,6 +3386,22 @@ class FunctionalEffect(YAMLRoot):
 
         if self.type is not None and not isinstance(self.type, str):
             self.type = str(self.type)
+
+        if self.regulatory_category is not None and not isinstance(self.regulatory_category, RegulatoryVariantCategoryEnum):
+            self.regulatory_category = RegulatoryVariantCategoryEnum(self.regulatory_category)
+
+        if self.regulatory_element_type is not None and not isinstance(self.regulatory_element_type, RegulatoryElementTypeEnum):
+            self.regulatory_element_type = RegulatoryElementTypeEnum(self.regulatory_element_type)
+
+        if not isinstance(self.affected_cell_types, list):
+            self.affected_cell_types = [self.affected_cell_types] if self.affected_cell_types is not None else []
+        self.affected_cell_types = [v if isinstance(v, CellTypeDescriptor) else CellTypeDescriptor(**as_dict(v)) for v in self.affected_cell_types]
+
+        if self.affected_developmental_stage is not None and not isinstance(self.affected_developmental_stage, str):
+            self.affected_developmental_stage = str(self.affected_developmental_stage)
+
+        if self.regulatory_mechanism is not None and not isinstance(self.regulatory_mechanism, str):
+            self.regulatory_mechanism = str(self.regulatory_mechanism)
 
         super().__post_init__(**kwargs)
 
@@ -3193,6 +4050,8 @@ class ComorbidityAssociation(YAMLRoot):
     class_model_uri: ClassVar[URIRef] = DISMECH.ComorbidityAssociation
 
     name: Union[str, ComorbidityAssociationName] = None
+    creation_date: Optional[str] = None
+    updated_date: Optional[str] = None
     disease_a: Optional[Union[dict, ConditionDescriptor]] = None
     disease_b: Optional[Union[dict, ConditionDescriptor]] = None
     directionality: Optional[Union[str, "ComorbidityDirectionEnum"]] = None
@@ -3209,6 +4068,12 @@ class ComorbidityAssociation(YAMLRoot):
             self.MissingRequiredField("name")
         if not isinstance(self.name, ComorbidityAssociationName):
             self.name = ComorbidityAssociationName(self.name)
+
+        if self.creation_date is not None and not isinstance(self.creation_date, str):
+            self.creation_date = str(self.creation_date)
+
+        if self.updated_date is not None and not isinstance(self.updated_date, str):
+            self.updated_date = str(self.updated_date)
 
         if self.disease_a is not None and not isinstance(self.disease_a, ConditionDescriptor):
             self.disease_a = ConditionDescriptor(**as_dict(self.disease_a))
@@ -3265,6 +4130,11 @@ class AssociationSignal(YAMLRoot):
     population: Optional[str] = None
     demographics: Optional[Union[dict, "Demographics"]] = None
     mapping_notes: Optional[str] = None
+    disorder_a_count: Optional[int] = None
+    disorder_b_count: Optional[int] = None
+    pair_count: Optional[int] = None
+    limited_precision: Optional[Union[bool, Bool]] = None
+    precision_count_threshold: Optional[int] = None
     directionality: Optional[Union[str, "ComorbidityDirectionEnum"]] = None
     a_before_b: Optional[float] = None
     b_before_a: Optional[float] = None
@@ -3296,6 +4166,21 @@ class AssociationSignal(YAMLRoot):
 
         if self.mapping_notes is not None and not isinstance(self.mapping_notes, str):
             self.mapping_notes = str(self.mapping_notes)
+
+        if self.disorder_a_count is not None and not isinstance(self.disorder_a_count, int):
+            self.disorder_a_count = int(self.disorder_a_count)
+
+        if self.disorder_b_count is not None and not isinstance(self.disorder_b_count, int):
+            self.disorder_b_count = int(self.disorder_b_count)
+
+        if self.pair_count is not None and not isinstance(self.pair_count, int):
+            self.pair_count = int(self.pair_count)
+
+        if self.limited_precision is not None and not isinstance(self.limited_precision, Bool):
+            self.limited_precision = Bool(self.limited_precision)
+
+        if self.precision_count_threshold is not None and not isinstance(self.precision_count_threshold, int):
+            self.precision_count_threshold = int(self.precision_count_threshold)
 
         if self.directionality is not None and not isinstance(self.directionality, ComorbidityDirectionEnum):
             self.directionality = ComorbidityDirectionEnum(self.directionality)
@@ -3558,6 +4443,56 @@ class UpstreamConditionHypothesis(YAMLRoot):
 
 
 @dataclass(repr=False)
+class MechanisticHypothesis(YAMLRoot):
+    """
+    Disease-level hypothesis metadata used to organize downstream causal edges into canonical or alternative
+    explanatory models.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["MechanisticHypothesis"]
+    class_class_curie: ClassVar[str] = "dismech:MechanisticHypothesis"
+    class_name: ClassVar[str] = "MechanisticHypothesis"
+    class_model_uri: ClassVar[URIRef] = DISMECH.MechanisticHypothesis
+
+    hypothesis_group_id: str = None
+    hypothesis_label: Optional[str] = None
+    status: Optional[Union[str, "MechanisticHypothesisStatusEnum"]] = None
+    description: Optional[str] = None
+    applies_to_subtypes: Optional[Union[str, list[str]]] = empty_list()
+    evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
+    notes: Optional[str] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.hypothesis_group_id):
+            self.MissingRequiredField("hypothesis_group_id")
+        if not isinstance(self.hypothesis_group_id, str):
+            self.hypothesis_group_id = str(self.hypothesis_group_id)
+
+        if self.hypothesis_label is not None and not isinstance(self.hypothesis_label, str):
+            self.hypothesis_label = str(self.hypothesis_label)
+
+        if self.status is not None and not isinstance(self.status, MechanisticHypothesisStatusEnum):
+            self.status = MechanisticHypothesisStatusEnum(self.status)
+
+        if self.description is not None and not isinstance(self.description, str):
+            self.description = str(self.description)
+
+        if not isinstance(self.applies_to_subtypes, list):
+            self.applies_to_subtypes = [self.applies_to_subtypes] if self.applies_to_subtypes is not None else []
+        self.applies_to_subtypes = [v if isinstance(v, str) else str(v) for v in self.applies_to_subtypes]
+
+        if not isinstance(self.evidence, list):
+            self.evidence = [self.evidence] if self.evidence is not None else []
+        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+
+        if self.notes is not None and not isinstance(self.notes, str):
+            self.notes = str(self.notes)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
 class DiseaseCollection(YAMLRoot):
     _inherited_slots: ClassVar[list[str]] = []
 
@@ -3581,19 +4516,24 @@ class EvidenceItemSupportEnum(EnumDefinitionImpl):
     """
     WRONG_STATEMENT = PermissibleValue(
         text="WRONG_STATEMENT",
-        description="WRONG_STATEMENT")
+        title="Wrong statement",
+        description="""The annotated claim contains a demonstrable factual error (e.g., an incorrect statistic or assertion); the cited evidence documents the correct information. Use this when the claim is outright wrong, not merely contested. If the cited reference simply does not mention the claim, use NO_EVIDENCE instead. If the reference contradicts the claim but does not prove it factually wrong, use REFUTE.""")
     SUPPORT = PermissibleValue(
         text="SUPPORT",
-        description="SUPPORT")
+        title="Supports",
+        description="The cited evidence directly supports the claim")
     REFUTE = PermissibleValue(
         text="REFUTE",
-        description="REFUTE")
+        title="Refutes",
+        description="The cited evidence directly contradicts the claim")
     NO_EVIDENCE = PermissibleValue(
         text="NO_EVIDENCE",
-        description="NO_EVIDENCE")
+        title="No evidence",
+        description="The cited reference does not contain evidence relevant to the claim")
     PARTIAL = PermissibleValue(
         text="PARTIAL",
-        description="PARTIAL")
+        title="Partially supports",
+        description="The cited evidence partially or indirectly supports the claim")
 
     _defn = EnumDefinition(
         name="EvidenceItemSupportEnum",
@@ -3606,18 +4546,23 @@ class EvidenceSourceEnum(EnumDefinitionImpl):
     """
     HUMAN_CLINICAL = PermissibleValue(
         text="HUMAN_CLINICAL",
+        title="Human clinical",
         description="Human clinical observations (patients, cohorts, case reports, clinical trials, epidemiology)")
     MODEL_ORGANISM = PermissibleValue(
         text="MODEL_ORGANISM",
+        title="Model organism",
         description="""In vivo animal evidence (mouse, zebrafish, primate, veterinary case series including dog/cat/horse, other non-human animal models etc.)""")
     IN_VITRO = PermissibleValue(
         text="IN_VITRO",
+        title="In vitro / ex vivo",
         description="In vitro or ex vivo assays (cell culture, organoids, tissue slices, biochemical assays)")
     COMPUTATIONAL = PermissibleValue(
         text="COMPUTATIONAL",
+        title="Computational",
         description="""In silico/modeling studies (simulation, docking, ML predictions, network inference) even when using clinical data inputs""")
     OTHER = PermissibleValue(
         text="OTHER",
+        title="Other",
         description="""Evidence not fitting the above (e.g., expert consensus without data, image atlases without cohort context)""")
 
     _defn = EnumDefinition(
@@ -3673,26 +4618,31 @@ class FrequencyEnum(EnumDefinitionImpl):
     """
     The frequency of an event or phenomenon
     """
+    OBLIGATE = PermissibleValue(
+        text="OBLIGATE",
+        title="Obligate (100%)",
+        description="Present in all cases (100% of patients)",
+        meaning=HP["0040280"])
+    VERY_FREQUENT = PermissibleValue(
+        text="VERY_FREQUENT",
+        title="Very frequent (80-99%)",
+        description="Present in most cases (80-99% of patients)",
+        meaning=HP["0040281"])
     FREQUENT = PermissibleValue(
         text="FREQUENT",
-        description="Frequent",
+        title="Frequent (30-79%)",
+        description="Present in many cases (30-79% of patients)",
         meaning=HP["0040282"])
     OCCASIONAL = PermissibleValue(
         text="OCCASIONAL",
-        description="Occasional",
+        title="Occasional (5-29%)",
+        description="Present in some cases (5-29% of patients)",
         meaning=HP["0040283"])
-    VERY_FREQUENT = PermissibleValue(
-        text="VERY_FREQUENT",
-        description="Very frequent",
-        meaning=HP["0040281"])
     VERY_RARE = PermissibleValue(
         text="VERY_RARE",
-        description="Very rare",
+        title="Very rare (<5%)",
+        description="Present in rare cases (<5% of patients)",
         meaning=HP["0040284"])
-    OBLIGATE = PermissibleValue(
-        text="OBLIGATE",
-        description="Obligate",
-        meaning=HP["0040280"])
 
     _defn = EnumDefinition(
         name="FrequencyEnum",
@@ -3705,28 +4655,103 @@ class ClinicalSignificanceEnum(EnumDefinitionImpl):
     """
     PATHOGENIC = PermissibleValue(
         text="PATHOGENIC",
-        description="pathogenic_for_condition",
+        title="Pathogenic",
+        description="Variant is pathogenic for the condition (ACMG class 5)",
         meaning=GENO["0000840"])
     LIKELY_PATHOGENIC = PermissibleValue(
         text="LIKELY_PATHOGENIC",
-        description="likely_pathogenic_for_condition",
+        title="Likely pathogenic",
+        description="Variant is likely pathogenic for the condition (ACMG class 4)",
         meaning=GENO["0000841"])
     BENIGN = PermissibleValue(
         text="BENIGN",
-        description="benign_for_condition",
+        title="Benign",
+        description="Variant is benign for the condition (ACMG class 1)",
         meaning=GENO["0000843"])
     LIKELY_BENIGN = PermissibleValue(
         text="LIKELY_BENIGN",
-        description="likely_benign_for_condition",
+        title="Likely benign",
+        description="Variant is likely benign for the condition (ACMG class 2)",
         meaning=GENO["0000844"])
     UNCERTAIN_SIGNIFICANCE = PermissibleValue(
         text="UNCERTAIN_SIGNIFICANCE",
-        description="has_uncertain_significance_for_condition",
+        title="Uncertain significance",
+        description="Clinical significance of the variant is uncertain (ACMG class 3)",
         meaning=GENO["0000845"])
 
     _defn = EnumDefinition(
         name="ClinicalSignificanceEnum",
         description="The clinical significance of a variant for a condition (ACMG guidelines)",
+    )
+
+class RegulatoryVariantCategoryEnum(EnumDefinitionImpl):
+    """
+    Functional classification of non-coding gene regulatory variants based on their impact on gene expression
+    patterns. Adapted from Cheng et al. 2024 (PMID:38436667). Includes traditional coding variant categories for
+    completeness.
+    """
+    LOE = PermissibleValue(
+        text="LOE",
+        title="Loss of expression",
+        description="""Non-modular loss-of-expression. Diminishes or abolishes gene expression across all cell types that intrinsically express the gene. Analogous to coding amorphic or hypomorphic loss-of-function.""")
+    mLOE = PermissibleValue(
+        text="mLOE",
+        title="Modular loss of expression",
+        description="""Modular loss-of-expression. Diminishes or abolishes gene expression in only a subset of cell types or developmental windows. Represents a disease mechanism largely unique to non-coding regulatory variants.""")
+    GOE = PermissibleValue(
+        text="GOE",
+        title="Gain of ectopic expression",
+        description="""Gain-of-ectopic-expression. Results in ectopic spatial and/or temporal expression of a gene. Can arise from enhancer adoption, novel TFBS creation, promoter switching, or repressor site disruption.""")
+    LOF = PermissibleValue(
+        text="LOF",
+        title="Loss of function",
+        description="""Coding loss-of-function. Loss of normal biological function via complete (amorphic) or partial (hypomorphic) loss of protein activity.""")
+    GOF = PermissibleValue(
+        text="GOF",
+        title="Gain of function",
+        description="""Coding gain-of-function. Creates a protein with increased activity (hypermorphic) or entirely new function (neomorphic).""")
+    DN = PermissibleValue(
+        text="DN",
+        title="Dominant negative",
+        description="""Dominant-negative. Creates a protein that blocks the normal function of the remaining wild-type protein (antimorphic).""")
+
+    _defn = EnumDefinition(
+        name="RegulatoryVariantCategoryEnum",
+        description="""Functional classification of non-coding gene regulatory variants based on their impact on gene expression patterns. Adapted from Cheng et al. 2024 (PMID:38436667). Includes traditional coding variant categories for completeness.""",
+    )
+
+class RegulatoryElementTypeEnum(EnumDefinitionImpl):
+    """
+    Type of gene regulatory element disrupted by a non-coding variant.
+    """
+    PROMOTER = PermissibleValue(
+        text="PROMOTER",
+        title="Promoter",
+        description="""Promoter-proximal element overlapping the transcription start site, containing core TF binding elements (TATA, CAAT, GC, CACCC boxes).""")
+    ENHANCER = PermissibleValue(
+        text="ENHANCER",
+        title="Enhancer",
+        description="""Distal regulatory element that upregulates transcriptional activity. May be cell-type-specific or shared across cell types.""")
+    SILENCER = PermissibleValue(
+        text="SILENCER",
+        title="Silencer",
+        description="Regulatory element that represses or silences gene transcription.")
+    INSULATOR = PermissibleValue(
+        text="INSULATOR",
+        title="Insulator",
+        description="""Boundary element (often CTCF-bound) that compartmentalizes adjacent gene regulatory domains and limits enhancer-promoter interactions.""")
+    TAD_BOUNDARY = PermissibleValue(
+        text="TAD_BOUNDARY",
+        title="TAD boundary",
+        description="""Topologically associating domain boundary. Structural element maintaining chromatin loop domains; disruption can cause enhancer adoption or ectopic regulatory interactions.""")
+    LOCUS_CONTROL_REGION = PermissibleValue(
+        text="LOCUS_CONTROL_REGION",
+        title="Locus control region",
+        description="""A cluster of regulatory elements that controls expression of a gene cluster (e.g., the beta-globin LCR).""")
+
+    _defn = EnumDefinition(
+        name="RegulatoryElementTypeEnum",
+        description="Type of gene regulatory element disrupted by a non-coding variant.",
     )
 
 class ModifierEnum(EnumDefinitionImpl):
@@ -3735,23 +4760,98 @@ class ModifierEnum(EnumDefinitionImpl):
     """
     INCREASED = PermissibleValue(
         text="INCREASED",
+        title="Increased",
         description="Upregulated, hyperactive, elevated, or excessive")
     DECREASED = PermissibleValue(
         text="DECREASED",
+        title="Decreased",
         description="Downregulated, hypoactive, reduced, or deficient")
     ABNORMAL = PermissibleValue(
         text="ABNORMAL",
+        title="Abnormal",
         description="Qualitatively abnormal (e.g., misfolding, mislocalization, malformed)")
     DYSREGULATED = PermissibleValue(
         text="DYSREGULATED",
+        title="Dysregulated",
         description="Regulation is impaired (may be increased or decreased)")
     ABSENT = PermissibleValue(
         text="ABSENT",
+        title="Absent",
         description="Not occurring or not present")
 
     _defn = EnumDefinition(
         name="ModifierEnum",
         description="Qualifiers for direction, intensity, or pathological state of a descriptor",
+    )
+
+class DietaryModificationActionEnum(EnumDefinitionImpl):
+    """
+    Action applied to a food or beverage as part of a dietary treatment
+    """
+    ADD = PermissibleValue(
+        text="ADD",
+        title="Add",
+        description="Increase intake or deliberately include the specified food or beverage")
+    RESTRICT = PermissibleValue(
+        text="RESTRICT",
+        title="Restrict",
+        description="Limit intake of the specified food or beverage without full elimination")
+    AVOID = PermissibleValue(
+        text="AVOID",
+        title="Avoid",
+        description="Eliminate or strictly avoid the specified food or beverage")
+    SUBSTITUTE = PermissibleValue(
+        text="SUBSTITUTE",
+        title="Substitute",
+        description="Use the specified food or beverage as a replacement within a dietary regimen")
+
+    _defn = EnumDefinition(
+        name="DietaryModificationActionEnum",
+        description="Action applied to a food or beverage as part of a dietary treatment",
+    )
+
+class PenetranceEnum(EnumDefinitionImpl):
+    """
+    Penetrance classification for inheritance
+    """
+    COMPLETE = PermissibleValue(
+        text="COMPLETE",
+        title="Complete",
+        description="All individuals with the variant express the phenotype")
+    INCOMPLETE = PermissibleValue(
+        text="INCOMPLETE",
+        title="Incomplete",
+        description="Not all individuals with the variant express the phenotype")
+    UNKNOWN = PermissibleValue(
+        text="UNKNOWN",
+        title="Unknown",
+        description="Penetrance has not been determined")
+
+    _defn = EnumDefinition(
+        name="PenetranceEnum",
+        description="Penetrance classification for inheritance",
+    )
+
+class ExpressivityEnum(EnumDefinitionImpl):
+    """
+    Expressivity classification for inheritance
+    """
+    VARIABLE = PermissibleValue(
+        text="VARIABLE",
+        title="Variable",
+        description="Phenotype severity or features vary among individuals with the same variant")
+    CONSISTENT = PermissibleValue(
+        text="CONSISTENT",
+        title="Consistent",
+        description="Phenotype is uniform among individuals with the same variant")
+    UNKNOWN = PermissibleValue(
+        text="UNKNOWN",
+        title="Unknown",
+        description="Expressivity has not been determined")
+
+    _defn = EnumDefinition(
+        name="ExpressivityEnum",
+        description="Expressivity classification for inheritance",
     )
 
 class LateralityEnum(EnumDefinitionImpl):
@@ -3760,17 +4860,54 @@ class LateralityEnum(EnumDefinitionImpl):
     """
     LEFT = PermissibleValue(
         text="LEFT",
+        title="Left",
         description="Left side of the body")
     RIGHT = PermissibleValue(
         text="RIGHT",
+        title="Right",
         description="Right side of the body")
     BILATERAL = PermissibleValue(
         text="BILATERAL",
+        title="Bilateral",
         description="Both sides of the body")
 
     _defn = EnumDefinition(
         name="LateralityEnum",
         description="Laterality qualifier for anatomical structures or procedures",
+    )
+
+class SpatialExtentEnum(EnumDefinitionImpl):
+    """
+    Qualifiers for the spatial extent or distribution of a phenotype or process
+    """
+    FOCAL = PermissibleValue(
+        text="FOCAL",
+        title="Focal",
+        description="Confined to a single location or region")
+    MULTIFOCAL = PermissibleValue(
+        text="MULTIFOCAL",
+        title="Multifocal",
+        description="Affecting multiple discrete locations")
+    DIFFUSE = PermissibleValue(
+        text="DIFFUSE",
+        title="Diffuse",
+        description="Widespread, continuous distribution")
+    EXTENSIVE = PermissibleValue(
+        text="EXTENSIVE",
+        title="Extensive",
+        description="Large extent, typically involving multiple segments or regions")
+    PATCHY = PermissibleValue(
+        text="PATCHY",
+        title="Patchy",
+        description="Irregular, discontinuous distribution")
+    SEGMENTAL = PermissibleValue(
+        text="SEGMENTAL",
+        title="Segmental",
+        description="Affecting a specific segment or dermatome")
+
+    _defn = EnumDefinition(
+        name="SpatialExtentEnum",
+        description="Qualifiers for the spatial extent or distribution of a phenotype or process",
     )
 
 class AssayTerm(EnumDefinitionImpl):
@@ -3791,6 +4928,15 @@ class CellularComponentTerm(EnumDefinitionImpl):
         description="A term representing a cellular component",
     )
 
+class ProteinComplexTerm(EnumDefinitionImpl):
+    """
+    A term representing a protein complex
+    """
+    _defn = EnumDefinition(
+        name="ProteinComplexTerm",
+        description="A term representing a protein complex",
+    )
+
 class BiologicalProcessTerm(EnumDefinitionImpl):
     """
     A term representing a biological process or pathway
@@ -3798,6 +4944,15 @@ class BiologicalProcessTerm(EnumDefinitionImpl):
     _defn = EnumDefinition(
         name="BiologicalProcessTerm",
         description="A term representing a biological process or pathway",
+    )
+
+class MolecularFunctionTerm(EnumDefinitionImpl):
+    """
+    A term representing a molecular function
+    """
+    _defn = EnumDefinition(
+        name="MolecularFunctionTerm",
+        description="A term representing a molecular function",
     )
 
 class ChemicalEntityTerm(EnumDefinitionImpl):
@@ -3816,6 +4971,15 @@ class PhenotypeTerm(EnumDefinitionImpl):
     _defn = EnumDefinition(
         name="PhenotypeTerm",
         description="A term representing a phenotype or disease manifestation",
+    )
+
+class InheritanceTerm(EnumDefinitionImpl):
+    """
+    A term representing mode of inheritance
+    """
+    _defn = EnumDefinition(
+        name="InheritanceTerm",
+        description="A term representing mode of inheritance",
     )
 
 class AnatomicalEntityTerm(EnumDefinitionImpl):
@@ -3931,11 +5095,12 @@ class HistopathologyFindingTerm(EnumDefinitionImpl):
 
 class DiseaseTerm(EnumDefinitionImpl):
     """
-    A disease or medical condition
+    A MONDO disease, inherited disease susceptibility, or related medical condition term used to anchor a curated
+    disorder entry
     """
     _defn = EnumDefinition(
         name="DiseaseTerm",
-        description="A disease or medical condition",
+        description="""A MONDO disease, inherited disease susceptibility, or related medical condition term used to anchor a curated disorder entry""",
     )
 
 class ICD10CMTerm(EnumDefinitionImpl):
@@ -3974,6 +5139,15 @@ class EnvironmentTerm(EnumDefinitionImpl):
         description="A term representing an environmental context, material, or feature (from ENVO)",
     )
 
+class FoodTerm(EnumDefinitionImpl):
+    """
+    A term representing a food, beverage, nutrient, mineral, or supplement source (from FOODON or CHEBI)
+    """
+    _defn = EnumDefinition(
+        name="FoodTerm",
+        description="A term representing a food, beverage, nutrient, mineral, or supplement source (from FOODON or CHEBI)",
+    )
+
 class OrganismTerm(EnumDefinitionImpl):
     """
     A term representing an organism from NCBITaxon
@@ -3981,6 +5155,94 @@ class OrganismTerm(EnumDefinitionImpl):
     _defn = EnumDefinition(
         name="OrganismTerm",
         description="A term representing an organism from NCBITaxon",
+    )
+
+class OnsetEnum(EnumDefinitionImpl):
+    """
+    Age of onset categories from HPO
+    """
+    ANTENATAL = PermissibleValue(
+        text="ANTENATAL",
+        description="Antenatal onset",
+        meaning=HP["0030674"])
+    EMBRYONAL = PermissibleValue(
+        text="EMBRYONAL",
+        description="Embryonal onset",
+        meaning=HP["0011460"])
+    FETAL = PermissibleValue(
+        text="FETAL",
+        description="Fetal onset",
+        meaning=HP["0011461"])
+    CONGENITAL = PermissibleValue(
+        text="CONGENITAL",
+        description="Congenital onset",
+        meaning=HP["0003577"])
+    NEONATAL = PermissibleValue(
+        text="NEONATAL",
+        description="Neonatal onset",
+        meaning=HP["0003623"])
+    INFANTILE = PermissibleValue(
+        text="INFANTILE",
+        description="Infantile onset",
+        meaning=HP["0003593"])
+    CHILDHOOD = PermissibleValue(
+        text="CHILDHOOD",
+        description="Childhood onset",
+        meaning=HP["0011463"])
+    JUVENILE = PermissibleValue(
+        text="JUVENILE",
+        description="Juvenile onset",
+        meaning=HP["0003621"])
+    YOUNG_ADULT = PermissibleValue(
+        text="YOUNG_ADULT",
+        description="Young adult onset",
+        meaning=HP["0011462"])
+    MIDDLE_AGE = PermissibleValue(
+        text="MIDDLE_AGE",
+        description="Middle age onset",
+        meaning=HP["0003596"])
+    LATE = PermissibleValue(
+        text="LATE",
+        description="Late onset",
+        meaning=HP["0003584"])
+    PUERPERAL = PermissibleValue(
+        text="PUERPERAL",
+        description="Puerperal onset",
+        meaning=HP["4000040"])
+
+    _defn = EnumDefinition(
+        name="OnsetEnum",
+        description="Age of onset categories from HPO",
+    )
+
+class ZygosityEnum(EnumDefinitionImpl):
+    """
+    Zygosity categories from GENO
+    """
+    HETEROZYGOUS = PermissibleValue(
+        text="HETEROZYGOUS",
+        description="Heterozygous",
+        meaning=GENO["0000135"])
+    SIMPLE_HETEROZYGOUS = PermissibleValue(
+        text="SIMPLE_HETEROZYGOUS",
+        description="Simple heterozygous",
+        meaning=GENO["0000458"])
+    COMPOUND_HETEROZYGOUS = PermissibleValue(
+        text="COMPOUND_HETEROZYGOUS",
+        description="Compound heterozygous",
+        meaning=GENO["0000402"])
+    HOMOZYGOUS = PermissibleValue(
+        text="HOMOZYGOUS",
+        description="Homozygous",
+        meaning=GENO["0000136"])
+    HEMIZYGOUS = PermissibleValue(
+        text="HEMIZYGOUS",
+        description="Hemizygous",
+        meaning=GENO["0000134"])
+
+    _defn = EnumDefinition(
+        name="ZygosityEnum",
+        description="Zygosity categories from GENO",
     )
 
 class DatasetTypeEnum(EnumDefinitionImpl):
@@ -4029,10 +5291,48 @@ class DatasetTypeEnum(EnumDefinitionImpl):
     VARIANT_DATABASE = PermissibleValue(
         text="VARIANT_DATABASE",
         description="Curated genetic variant collection")
+    MULTI_OMICS = PermissibleValue(
+        text="MULTI_OMICS",
+        description="Integrated multi-omics profiling (e.g., combined transcriptomics, proteomics, metabolomics)")
+    MULTI_OMICS_PERTURBATION = PermissibleValue(
+        text="MULTI_OMICS_PERTURBATION",
+        description="""Multi-omics profiling of genetic perturbations (e.g., CRISPR knockout combined with transcriptomic, chromatin accessibility, and cellular phenotyping)""")
 
     _defn = EnumDefinition(
         name="DatasetTypeEnum",
         description="Type of dataset or data resource",
+    )
+
+class ExperimentalModelTypeEnum(EnumDefinitionImpl):
+    """
+    Broad disease-centric categories for experimental model systems, primarily non-animal systems curated in this
+    section
+    """
+    ORGANOID = PermissibleValue(
+        text="ORGANOID",
+        description="Self-organizing three-dimensional tissue model, often stem-cell-derived")
+    ORGAN_ON_CHIP = PermissibleValue(
+        text="ORGAN_ON_CHIP",
+        description="Microfluidic organ- or tissue-on-chip model")
+    CELL_LINE = PermissibleValue(
+        text="CELL_LINE",
+        description="Immortalized cell line-based disease model")
+    IPSC_DERIVED_MODEL = PermissibleValue(
+        text="IPSC_DERIVED_MODEL",
+        description="Differentiated model derived from induced pluripotent stem cells")
+    PRIMARY_CELL_CULTURE = PermissibleValue(
+        text="PRIMARY_CELL_CULTURE",
+        description="Primary-cell or biopsy-derived culture system, including monolayers")
+    CO_CULTURE = PermissibleValue(
+        text="CO_CULTURE",
+        description="Host-microbe or multi-cell-type coculture system")
+    OTHER = PermissibleValue(
+        text="OTHER",
+        description="Other experimental model type not covered above")
+
+    _defn = EnumDefinition(
+        name="ExperimentalModelTypeEnum",
+        description="""Broad disease-centric categories for experimental model systems, primarily non-animal systems curated in this section""",
     )
 
 class CurationActionEnum(EnumDefinitionImpl):
@@ -4147,10 +5447,101 @@ class ComputationalModelTypeEnum(EnumDefinitionImpl):
     FOUNDATION_MODEL = PermissibleValue(
         text="FOUNDATION_MODEL",
         description="""Pre-trained single-cell foundation models (scGPT, Geneformer, scGenePT) for perturbation response prediction""")
+    STRUCTURAL_PREDICTION = PermissibleValue(
+        text="STRUCTURAL_PREDICTION",
+        description="""Protein structure prediction (AlphaFold, RoseTTAFold) or experimental structure (PDB X-ray, cryo-EM) used to understand disease mechanisms""")
+    MOLECULAR_DOCKING = PermissibleValue(
+        text="MOLECULAR_DOCKING",
+        description="""Computational docking or molecular dynamics simulation of drug candidates to protein targets, typically informed by PDB/AlphaFold structures""")
 
     _defn = EnumDefinition(
         name="ComputationalModelTypeEnum",
         description="Type of computational or in-silico model",
+    )
+
+class ThresholdDirectionEnum(EnumDefinitionImpl):
+    """
+    Whether a threshold activates when the variable goes above or below the value
+    """
+    above = PermissibleValue(
+        text="above",
+        description="Activates when the variable exceeds the threshold")
+    below = PermissibleValue(
+        text="below",
+        description="Activates when the variable falls below the threshold")
+
+    _defn = EnumDefinition(
+        name="ThresholdDirectionEnum",
+        description="Whether a threshold activates when the variable goes above or below the value",
+    )
+
+class CausalLinkTypeEnum(EnumDefinitionImpl):
+    """
+    Degree of mechanistic directness represented by a causal edge
+    """
+    DIRECT = PermissibleValue(
+        text="DIRECT",
+        description="Direct causal influence at the current graph granularity")
+    INDIRECT_KNOWN_INTERMEDIATES = PermissibleValue(
+        text="INDIRECT_KNOWN_INTERMEDIATES",
+        description="Indirect relationship where one or more intermediates are known but omitted from the graph")
+    INDIRECT_UNKNOWN_INTERMEDIATES = PermissibleValue(
+        text="INDIRECT_UNKNOWN_INTERMEDIATES",
+        description="Indirect relationship where at least one required intermediate mechanism is currently unknown")
+    UNKNOWN = PermissibleValue(
+        text="UNKNOWN",
+        description="Directness has not yet been determined")
+
+    _defn = EnumDefinition(
+        name="CausalLinkTypeEnum",
+        description="Degree of mechanistic directness represented by a causal edge",
+    )
+
+class TreatmentEffectEnum(EnumDefinitionImpl):
+    """
+    How a treatment affects a pathophysiology mechanism node
+    """
+    INHIBITS = PermissibleValue(
+        text="INHIBITS",
+        description="Blocks or decreases the mechanism (e.g., TKI inhibiting constitutive kinase activity)")
+    ACTIVATES = PermissibleValue(
+        text="ACTIVATES",
+        description="Promotes or increases the mechanism (e.g., enzyme replacement restoring a deficient pathway)")
+    MODULATES = PermissibleValue(
+        text="MODULATES",
+        description="Alters the mechanism without clear unidirectional effect")
+    BYPASSES = PermissibleValue(
+        text="BYPASSES",
+        description="Works around the disrupted mechanism via an alternative pathway")
+    RESTORES = PermissibleValue(
+        text="RESTORES",
+        description="Restores normal function of a disrupted mechanism (e.g., gene therapy, enzyme replacement)")
+
+    _defn = EnumDefinition(
+        name="TreatmentEffectEnum",
+        description="How a treatment affects a pathophysiology mechanism node",
+    )
+
+class MechanisticHypothesisStatusEnum(EnumDefinitionImpl):
+    """
+    Curation/maturity status for a disease-level mechanistic hypothesis
+    """
+    CANONICAL = PermissibleValue(
+        text="CANONICAL",
+        description="Widely accepted explanatory model used as the default disease mechanism")
+    ALTERNATIVE = PermissibleValue(
+        text="ALTERNATIVE",
+        description="Plausible competing or superimposed hypothesis with supporting evidence")
+    EMERGING = PermissibleValue(
+        text="EMERGING",
+        description="Early-stage hypothesis with limited or recently reported evidence")
+    DEPRECATED = PermissibleValue(
+        text="DEPRECATED",
+        description="Historical hypothesis no longer supported as the current model")
+
+    _defn = EnumDefinition(
+        name="MechanisticHypothesisStatusEnum",
+        description="Curation/maturity status for a disease-level mechanistic hypothesis",
     )
 
 class ComorbidityDirectionEnum(EnumDefinitionImpl):
@@ -4322,6 +5713,12 @@ class AssociationMetricTypeEnum(EnumDefinitionImpl):
     IRR = PermissibleValue(
         text="IRR",
         description="Incidence rate ratio")
+    CHI_SQUARE = PermissibleValue(
+        text="CHI_SQUARE",
+        description="Chi-square association statistic")
+    LOG_OBS_EXP_RATIO = PermissibleValue(
+        text="LOG_OBS_EXP_RATIO",
+        description="Natural-log observed-to-expected co-occurrence ratio")
     OTHER = PermissibleValue(
         text="OTHER",
         description="Other or unspecified metric")
@@ -4329,6 +5726,28 @@ class AssociationMetricTypeEnum(EnumDefinitionImpl):
     _defn = EnumDefinition(
         name="AssociationMetricTypeEnum",
         description="Type of association metric",
+    )
+
+class MechanismConfidenceEnum(EnumDefinitionImpl):
+    """
+    Level of confidence in a pathophysiology mechanism
+    """
+    ESTABLISHED = PermissibleValue(
+        text="ESTABLISHED",
+        title="Established",
+        description="Well-established mechanism with strong evidence from multiple independent studies")
+    HYPOTHETICAL = PermissibleValue(
+        text="HYPOTHETICAL",
+        title="Hypothetical",
+        description="Hypothetical mechanism with limited or indirect evidence; plausible but not yet validated")
+    PROVISIONAL = PermissibleValue(
+        text="PROVISIONAL",
+        title="Provisional",
+        description="Provisional mechanism under active investigation with emerging but incomplete evidence")
+
+    _defn = EnumDefinition(
+        name="MechanismConfidenceEnum",
+        description="Level of confidence in a pathophysiology mechanism",
     )
 
 class ICDOMorphologyEnum(EnumDefinitionImpl):
@@ -4675,6 +6094,18 @@ class HarrisonsChapterEnum(EnumDefinitionImpl):
                 title="Mental and behavioral disorders",
                 description="Mental and behavioral disorders affecting mood, thought, or behavior.",
                 meaning=MONDO["0002025"]))
+        setattr(cls, "otorhinolaryngologic disease",
+            PermissibleValue(
+                text="otorhinolaryngologic disease",
+                title="Diseases of the ear, nose, and throat",
+                description="""Pathological processes of the ear, the nose, and the throat, also known as ENT diseases.""",
+                meaning=MONDO["0024623"]))
+        setattr(cls, "disorder of ear",
+            PermissibleValue(
+                text="disorder of ear",
+                title="Diseases of the ear (otitis, hearing loss, cholesteatoma)",
+                description="""Diseases involving the external, middle, or inner ear, including infections, structural lesions, and hearing disorders.""",
+                meaning=MONDO["0021205"]))
         setattr(cls, "hereditary disease",
             PermissibleValue(
                 text="hereditary disease",
@@ -4738,6 +6169,9 @@ class MechanisticNosologyEnum(EnumDefinitionImpl):
         text="collagenopathy",
         description="Collagen synthesis/structure disorders (OI, EDS, Alport)",
         meaning=MONDO["0004603"])
+    amyloidopathy = PermissibleValue(
+        text="amyloidopathy",
+        description="""Amyloid protein aggregation disorders (Alzheimer's, CAA, hereditary cerebral amyloid angiopathy)""")
     tauopathy = PermissibleValue(
         text="tauopathy",
         description="Tau protein aggregation disorders (Alzheimer's, PSP, CBD)",
@@ -4759,6 +6193,14 @@ class MechanisticNosologyEnum(EnumDefinitionImpl):
                 text="mitochondrial disease",
                 description="Mitochondrial function/genome disorders (MELAS, MERRF, Leigh)",
                 meaning=MONDO["0044970"]))
+        setattr(cls, "intermediate filament disease",
+            PermissibleValue(
+                text="intermediate filament disease",
+                description="""Intermediate filament structure/aggregation disorders (Alexander disease/GFAP, epidermolysis bullosa simplex/keratins)"""))
+        setattr(cls, "proteotoxic disease",
+            PermissibleValue(
+                text="proteotoxic disease",
+                description="""Diseases driven by toxic protein misfolding/aggregation and proteostasis failure (Alexander disease, polyQ disorders)"""))
 
 class IUISCategoryEnum(EnumDefinitionImpl):
     """
@@ -4844,12 +6286,148 @@ class ChannelopathyOrganSystemEnum(EnumDefinitionImpl):
                 text="epithelial channelopathy",
                 description="Ion channel disorders affecting epithelial transport (cystic fibrosis)"))
 
+class PhenotypeCategoryEnum(EnumDefinitionImpl):
+    """
+    Broad phenotype categories from the Human Phenotype Ontology. Each value corresponds to a direct child of
+    HP:0000118 (Phenotypic abnormality).
+    """
+    Blood = PermissibleValue(
+        text="Blood",
+        title="Abnormality of blood and blood-forming tissues",
+        description="""Abnormalities of the hematopoietic system including anemias, coagulopathies, and leukocyte disorders""",
+        meaning=HP["0001871"])
+    Breast = PermissibleValue(
+        text="Breast",
+        title="Abnormality of the breast",
+        description="Abnormalities of breast development, morphology, or function",
+        meaning=HP["0000769"])
+    Cardiovascular = PermissibleValue(
+        text="Cardiovascular",
+        title="Abnormality of the cardiovascular system",
+        description="Abnormalities of the heart and vasculature",
+        meaning=HP["0001626"])
+    Digestive = PermissibleValue(
+        text="Digestive",
+        title="Abnormality of the digestive system",
+        description="Abnormalities of the gastrointestinal tract, liver, and pancreas",
+        meaning=HP["0025031"])
+    Ear = PermissibleValue(
+        text="Ear",
+        title="Abnormality of the ear",
+        description="Abnormalities of ear morphology or hearing",
+        meaning=HP["0000598"])
+    Endocrine = PermissibleValue(
+        text="Endocrine",
+        title="Abnormality of the endocrine system",
+        description="Abnormalities of hormone-producing glands and endocrine regulation",
+        meaning=HP["0000818"])
+    Eye = PermissibleValue(
+        text="Eye",
+        title="Abnormality of the eye",
+        description="Abnormalities of the eye and visual system",
+        meaning=HP["0000478"])
+    Genitourinary = PermissibleValue(
+        text="Genitourinary",
+        title="Abnormality of the genitourinary system",
+        description="Abnormalities of the kidneys, urinary tract, and reproductive organs",
+        meaning=HP["0000119"])
+    Immune = PermissibleValue(
+        text="Immune",
+        title="Abnormality of the immune system",
+        description="Abnormalities of innate or adaptive immunity",
+        meaning=HP["0002715"])
+    Integument = PermissibleValue(
+        text="Integument",
+        title="Abnormality of the integument",
+        description="Abnormalities of skin, hair, nails, and sweat glands",
+        meaning=HP["0001574"])
+    Limbs = PermissibleValue(
+        text="Limbs",
+        title="Abnormality of limbs",
+        description="Abnormalities of upper or lower limb structure",
+        meaning=HP["0040064"])
+    Metabolism = PermissibleValue(
+        text="Metabolism",
+        title="Abnormality of metabolism/homeostasis",
+        description="Abnormalities of metabolic processes and biochemical homeostasis",
+        meaning=HP["0001939"])
+    Musculoskeletal = PermissibleValue(
+        text="Musculoskeletal",
+        title="Abnormality of the musculoskeletal system",
+        description="Abnormalities of bones, joints, muscles, and connective tissue",
+        meaning=HP["0033127"])
+    Respiratory = PermissibleValue(
+        text="Respiratory",
+        title="Abnormality of the respiratory system",
+        description="Abnormalities of the airways, lungs, and respiratory function",
+        meaning=HP["0002086"])
+    Voice = PermissibleValue(
+        text="Voice",
+        title="Abnormality of the voice",
+        description="Abnormalities of voice production and quality",
+        meaning=HP["0001608"])
+    Cellular = PermissibleValue(
+        text="Cellular",
+        title="Abnormal cellular phenotype",
+        description="Abnormalities at the cellular level including cell morphology and behavior",
+        meaning=HP["0025354"])
+    Constitutional = PermissibleValue(
+        text="Constitutional",
+        title="Constitutional symptom",
+        description="Systemic symptoms such as fever, fatigue, and weight loss",
+        meaning=HP["0025142"])
+    Growth = PermissibleValue(
+        text="Growth",
+        title="Growth abnormality",
+        description="Abnormalities of growth including short stature, tall stature, and growth delay",
+        meaning=HP["0001507"])
+    Neoplasm = PermissibleValue(
+        text="Neoplasm",
+        title="Neoplasm",
+        description="Benign or malignant neoplasms (tumors)",
+        meaning=HP["0002664"])
+
+    _defn = EnumDefinition(
+        name="PhenotypeCategoryEnum",
+        description="""Broad phenotype categories from the Human Phenotype Ontology. Each value corresponds to a direct child of HP:0000118 (Phenotypic abnormality).""",
+    )
+
+    @classmethod
+    def _addvals(cls):
+        setattr(cls, "Head and Neck",
+            PermissibleValue(
+                text="Head and Neck",
+                title="Abnormality of head or neck",
+                description="Abnormalities of craniofacial structures and the neck",
+                meaning=HP["0000152"]))
+        setattr(cls, "Nervous System",
+            PermissibleValue(
+                text="Nervous System",
+                title="Abnormality of the nervous system",
+                description="Abnormalities of the central and peripheral nervous system",
+                meaning=HP["0000707"]))
+        setattr(cls, "Prenatal and Birth",
+            PermissibleValue(
+                text="Prenatal and Birth",
+                title="Abnormality of prenatal development or birth",
+                description="Abnormalities arising during prenatal development or at birth",
+                meaning=HP["0001197"]))
+        setattr(cls, "Thoracic Cavity",
+            PermissibleValue(
+                text="Thoracic Cavity",
+                title="Abnormality of the thoracic cavity",
+                description="Abnormalities of thoracic structures (pleura, mediastinum, diaphragm)",
+                meaning=HP["0045027"]))
+
 # Slots
 class slots:
     pass
 
 slots.name = Slot(uri=DISMECH.name, name="name", curie=DISMECH.curie('name'),
                    model_uri=DISMECH.name, domain=None, range=URIRef)
+
+slots.display_name = Slot(uri=DISMECH.display_name, name="display_name", curie=DISMECH.curie('display_name'),
+                   model_uri=DISMECH.display_name, domain=None, range=Optional[str])
 
 slots.slug = Slot(uri=DISMECH.slug, name="slug", curie=DISMECH.curie('slug'),
                    model_uri=DISMECH.slug, domain=None, range=Optional[str])
@@ -4872,8 +6450,14 @@ slots.located_in = Slot(uri=DISMECH.located_in, name="located_in", curie=DISMECH
 slots.laterality = Slot(uri=DISMECH.laterality, name="laterality", curie=DISMECH.curie('laterality'),
                    model_uri=DISMECH.laterality, domain=None, range=Optional[Union[str, "LateralityEnum"]])
 
+slots.spatial_extent = Slot(uri=DISMECH.spatial_extent, name="spatial_extent", curie=DISMECH.curie('spatial_extent'),
+                   model_uri=DISMECH.spatial_extent, domain=None, range=Optional[Union[str, "SpatialExtentEnum"]])
+
 slots.therapeutic_agent = Slot(uri=DISMECH.therapeutic_agent, name="therapeutic_agent", curie=DISMECH.curie('therapeutic_agent'),
                    model_uri=DISMECH.therapeutic_agent, domain=None, range=Optional[Union[Union[dict, ChemicalEntityDescriptor], list[Union[dict, ChemicalEntityDescriptor]]]])
+
+slots.dietary_modifications = Slot(uri=DISMECH.dietary_modifications, name="dietary_modifications", curie=DISMECH.curie('dietary_modifications'),
+                   model_uri=DISMECH.dietary_modifications, domain=None, range=Optional[Union[Union[dict, DietaryModification], list[Union[dict, DietaryModification]]]])
 
 slots.qualifiers = Slot(uri=DISMECH.qualifiers, name="qualifiers", curie=DISMECH.curie('qualifiers'),
                    model_uri=DISMECH.qualifiers, domain=None, range=Optional[Union[Union[dict, Qualifier], list[Union[dict, Qualifier]]]])
@@ -4883,6 +6467,12 @@ slots.predicate = Slot(uri=DISMECH.predicate, name="predicate", curie=DISMECH.cu
 
 slots.value = Slot(uri=DISMECH.value, name="value", curie=DISMECH.curie('value'),
                    model_uri=DISMECH.value, domain=None, range=Optional[Union[dict, Descriptor]])
+
+slots.action = Slot(uri=DISMECH.action, name="action", curie=DISMECH.curie('action'),
+                   model_uri=DISMECH.action, domain=None, range=Optional[Union[str, "DietaryModificationActionEnum"]])
+
+slots.food = Slot(uri=DISMECH.food, name="food", curie=DISMECH.curie('food'),
+                   model_uri=DISMECH.food, domain=None, range=Optional[Union[dict, FoodDescriptor]])
 
 slots.id = Slot(uri=DISMECH.id, name="id", curie=DISMECH.curie('id'),
                    model_uri=DISMECH.id, domain=None, range=URIRef)
@@ -4917,6 +6507,9 @@ slots.evidence_source = Slot(uri=DISMECH.evidence_source, name="evidence_source"
 slots.snippet = Slot(uri=DISMECH.snippet, name="snippet", curie=DISMECH.curie('snippet'),
                    model_uri=DISMECH.snippet, domain=None, range=Optional[str])
 
+slots.reference_title = Slot(uri=DISMECH.reference_title, name="reference_title", curie=DISMECH.curie('reference_title'),
+                   model_uri=DISMECH.reference_title, domain=None, range=Optional[str])
+
 slots.explanation = Slot(uri=DISMECH.explanation, name="explanation", curie=DISMECH.curie('explanation'),
                    model_uri=DISMECH.explanation, domain=None, range=Optional[str])
 
@@ -4934,6 +6527,9 @@ slots.supporting_text = Slot(uri=DISMECH.supporting_text, name="supporting_text"
 
 slots.title = Slot(uri=DISMECH.title, name="title", curie=DISMECH.curie('title'),
                    model_uri=DISMECH.title, domain=None, range=Optional[str])
+
+slots.found_in = Slot(uri=DISMECH.found_in, name="found_in", curie=DISMECH.curie('found_in'),
+                   model_uri=DISMECH.found_in, domain=None, range=Optional[Union[str, list[str]]])
 
 slots.subtype = Slot(uri=DISMECH.subtype, name="subtype", curie=DISMECH.curie('subtype'),
                    model_uri=DISMECH.subtype, domain=None, range=Optional[str])
@@ -4974,6 +6570,9 @@ slots.cell_types = Slot(uri=DISMECH.cell_types, name="cell_types", curie=DISMECH
 slots.biological_processes = Slot(uri=DISMECH.biological_processes, name="biological_processes", curie=DISMECH.curie('biological_processes'),
                    model_uri=DISMECH.biological_processes, domain=None, range=Optional[Union[Union[dict, BiologicalProcessDescriptor], list[Union[dict, BiologicalProcessDescriptor]]]])
 
+slots.molecular_functions = Slot(uri=DISMECH.molecular_functions, name="molecular_functions", curie=DISMECH.curie('molecular_functions'),
+                   model_uri=DISMECH.molecular_functions, domain=None, range=Optional[Union[Union[dict, MolecularFunctionDescriptor], list[Union[dict, MolecularFunctionDescriptor]]]])
+
 slots.epidemiology = Slot(uri=DISMECH.epidemiology, name="epidemiology", curie=DISMECH.curie('epidemiology'),
                    model_uri=DISMECH.epidemiology, domain=None, range=Optional[Union[dict[Union[str, EpidemiologyInfoName], Union[dict, EpidemiologyInfo]], list[Union[dict, EpidemiologyInfo]]]])
 
@@ -4982,6 +6581,9 @@ slots.examples = Slot(uri=DISMECH.examples, name="examples", curie=DISMECH.curie
 
 slots.role = Slot(uri=DISMECH.role, name="role", curie=DISMECH.curie('role'),
                    model_uri=DISMECH.role, domain=None, range=Optional[str])
+
+slots.conforms_to = Slot(uri=DISMECH.conforms_to, name="conforms_to", curie=DISMECH.curie('conforms_to'),
+                   model_uri=DISMECH.conforms_to, domain=None, range=Optional[str])
 
 slots.consequence = Slot(uri=DISMECH.consequence, name="consequence", curie=DISMECH.curie('consequence'),
                    model_uri=DISMECH.consequence, domain=None, range=Optional[str])
@@ -5007,8 +6609,20 @@ slots.subtypes = Slot(uri=DISMECH.subtypes, name="subtypes", curie=DISMECH.curie
 slots.has_subtypes = Slot(uri=DISMECH.has_subtypes, name="has_subtypes", curie=DISMECH.curie('has_subtypes'),
                    model_uri=DISMECH.has_subtypes, domain=None, range=Optional[Union[dict[Union[str, SubtypeName], Union[dict, Subtype]], list[Union[dict, Subtype]]]])
 
+slots.classification = Slot(uri=DISMECH.classification, name="classification", curie=DISMECH.curie('classification'),
+                   model_uri=DISMECH.classification, domain=None, range=Optional[str])
+
+slots.children = Slot(uri=DISMECH.children, name="children", curie=DISMECH.curie('children'),
+                   model_uri=DISMECH.children, domain=None, range=Optional[Union[str, list[str]]])
+
+slots.subtype_frequency = Slot(uri=DISMECH.subtype_frequency, name="subtype_frequency", curie=DISMECH.curie('subtype_frequency'),
+                   model_uri=DISMECH.subtype_frequency, domain=None, range=Optional[str])
+
 slots.cellular_components = Slot(uri=DISMECH.cellular_components, name="cellular_components", curie=DISMECH.curie('cellular_components'),
                    model_uri=DISMECH.cellular_components, domain=None, range=Optional[Union[Union[dict, CellularComponentDescriptor], list[Union[dict, CellularComponentDescriptor]]]])
+
+slots.protein_complexes = Slot(uri=DISMECH.protein_complexes, name="protein_complexes", curie=DISMECH.curie('protein_complexes'),
+                   model_uri=DISMECH.protein_complexes, domain=None, range=Optional[Union[Union[dict, ProteinComplexDescriptor], list[Union[dict, ProteinComplexDescriptor]]]])
 
 slots.chemical_entities = Slot(uri=DISMECH.chemical_entities, name="chemical_entities", curie=DISMECH.curie('chemical_entities'),
                    model_uri=DISMECH.chemical_entities, domain=None, range=Optional[Union[Union[dict, ChemicalEntityDescriptor], list[Union[dict, ChemicalEntityDescriptor]]]])
@@ -5027,6 +6641,9 @@ slots.disease_term = Slot(uri=DISMECH.disease_term, name="disease_term", curie=D
 
 slots.phenotype_term = Slot(uri=DISMECH.phenotype_term, name="phenotype_term", curie=DISMECH.curie('phenotype_term'),
                    model_uri=DISMECH.phenotype_term, domain=None, range=Optional[Union[dict, PhenotypeDescriptor]])
+
+slots.inheritance_term = Slot(uri=DISMECH.inheritance_term, name="inheritance_term", curie=DISMECH.curie('inheritance_term'),
+                   model_uri=DISMECH.inheritance_term, domain=None, range=Optional[Union[dict, InheritanceDescriptor]])
 
 slots.gene_term = Slot(uri=DISMECH.gene_term, name="gene_term", curie=DISMECH.curie('gene_term'),
                    model_uri=DISMECH.gene_term, domain=None, range=Optional[Union[dict, GeneDescriptor]])
@@ -5060,6 +6677,9 @@ slots.life_cycle_stage_term = Slot(uri=DISMECH.life_cycle_stage_term, name="life
 
 slots.environment_context = Slot(uri=DISMECH.environment_context, name="environment_context", curie=DISMECH.curie('environment_context'),
                    model_uri=DISMECH.environment_context, domain=None, range=Optional[Union[dict, EnvironmentDescriptor]])
+
+slots.food_source = Slot(uri=DISMECH.food_source, name="food_source", curie=DISMECH.curie('food_source'),
+                   model_uri=DISMECH.food_source, domain=None, range=Optional[Union[dict, FoodDescriptor]])
 
 slots.mechanisms = Slot(uri=DISMECH.mechanisms, name="mechanisms", curie=DISMECH.curie('mechanisms'),
                    model_uri=DISMECH.mechanisms, domain=None, range=Optional[Union[str, list[str]]])
@@ -5096,6 +6716,21 @@ slots.association = Slot(uri=DISMECH.association, name="association", curie=DISM
 
 slots.inheritance = Slot(uri=DISMECH.inheritance, name="inheritance", curie=DISMECH.curie('inheritance'),
                    model_uri=DISMECH.inheritance, domain=None, range=Optional[Union[dict[Union[str, InheritanceName], Union[dict, Inheritance]], list[Union[dict, Inheritance]]]])
+
+slots.penetrance = Slot(uri=DISMECH.penetrance, name="penetrance", curie=DISMECH.curie('penetrance'),
+                   model_uri=DISMECH.penetrance, domain=None, range=Optional[Union[str, "PenetranceEnum"]])
+
+slots.penetrance_percentage = Slot(uri=DISMECH.penetrance_percentage, name="penetrance_percentage", curie=DISMECH.curie('penetrance_percentage'),
+                   model_uri=DISMECH.penetrance_percentage, domain=None, range=Optional[str])
+
+slots.expressivity = Slot(uri=DISMECH.expressivity, name="expressivity", curie=DISMECH.curie('expressivity'),
+                   model_uri=DISMECH.expressivity, domain=None, range=Optional[Union[str, "ExpressivityEnum"]])
+
+slots.de_novo_rate = Slot(uri=DISMECH.de_novo_rate, name="de_novo_rate", curie=DISMECH.curie('de_novo_rate'),
+                   model_uri=DISMECH.de_novo_rate, domain=None, range=Optional[str])
+
+slots.parent_of_origin_effect = Slot(uri=DISMECH.parent_of_origin_effect, name="parent_of_origin_effect", curie=DISMECH.curie('parent_of_origin_effect'),
+                   model_uri=DISMECH.parent_of_origin_effect, domain=None, range=Optional[str])
 
 slots.variants = Slot(uri=DISMECH.variants, name="variants", curie=DISMECH.curie('variants'),
                    model_uri=DISMECH.variants, domain=None, range=Optional[Union[dict[Union[str, VariantName], Union[dict, Variant]], list[Union[dict, Variant]]]])
@@ -5214,6 +6849,18 @@ slots.sequence_length = Slot(uri=DISMECH.sequence_length, name="sequence_length"
 slots.identifiers = Slot(uri=DISMECH.identifiers, name="identifiers", curie=DISMECH.curie('identifiers'),
                    model_uri=DISMECH.identifiers, domain=None, range=Optional[Union[Union[str, URIorCURIE], list[Union[str, URIorCURIE]]]])
 
+slots.external_assertions = Slot(uri=DISMECH.external_assertions, name="external_assertions", curie=DISMECH.curie('external_assertions'),
+                   model_uri=DISMECH.external_assertions, domain=None, range=Optional[Union[dict[Union[str, ExternalAssertionName], Union[dict, ExternalAssertion]], list[Union[dict, ExternalAssertion]]]])
+
+slots.external_id = Slot(uri=DISMECH.external_id, name="external_id", curie=DISMECH.curie('external_id'),
+                   model_uri=DISMECH.external_id, domain=None, range=Optional[str])
+
+slots.assertion_type = Slot(uri=DISMECH.assertion_type, name="assertion_type", curie=DISMECH.curie('assertion_type'),
+                   model_uri=DISMECH.assertion_type, domain=None, range=Optional[str])
+
+slots.url = Slot(uri=DISMECH.url, name="url", curie=DISMECH.curie('url'),
+                   model_uri=DISMECH.url, domain=None, range=Optional[Union[str, URI]])
+
 slots.associated_phenotypes = Slot(uri=DISMECH.associated_phenotypes, name="associated_phenotypes", curie=DISMECH.curie('associated_phenotypes'),
                    model_uri=DISMECH.associated_phenotypes, domain=None, range=Optional[Union[str, list[str]]])
 
@@ -5229,17 +6876,77 @@ slots.mean_range = Slot(uri=DISMECH.mean_range, name="mean_range", curie=DISMECH
 slots.factors = Slot(uri=DISMECH.factors, name="factors", curie=DISMECH.curie('factors'),
                    model_uri=DISMECH.factors, domain=None, range=Optional[Union[str, list[str]]])
 
+slots.dataset_identifier = Slot(uri=DISMECH.dataset_identifier, name="dataset_identifier", curie=DISMECH.curie('dataset_identifier'),
+                   model_uri=DISMECH.dataset_identifier, domain=None, range=Optional[str])
+
+slots.threshold = Slot(uri=DISMECH.threshold, name="threshold", curie=DISMECH.curie('threshold'),
+                   model_uri=DISMECH.threshold, domain=None, range=Optional[float])
+
+slots.threshold_direction = Slot(uri=DISMECH.threshold_direction, name="threshold_direction", curie=DISMECH.curie('threshold_direction'),
+                   model_uri=DISMECH.threshold_direction, domain=None, range=Optional[Union[str, "ThresholdDirectionEnum"]])
+
+slots.severity_scale = Slot(uri=DISMECH.severity_scale, name="severity_scale", curie=DISMECH.curie('severity_scale'),
+                   model_uri=DISMECH.severity_scale, domain=None, range=Optional[Union[dict[Union[str, SeverityTierName], Union[dict, SeverityTier]], list[Union[dict, SeverityTier]]]])
+
 slots.unit = Slot(uri=DISMECH.unit, name="unit", curie=DISMECH.curie('unit'),
                    model_uri=DISMECH.unit, domain=None, range=Optional[str])
 
 slots.function = Slot(uri=DISMECH.function, name="function", curie=DISMECH.curie('function'),
                    model_uri=DISMECH.function, domain=None, range=Optional[str])
 
+slots.regulatory_category = Slot(uri=DISMECH.regulatory_category, name="regulatory_category", curie=DISMECH.curie('regulatory_category'),
+                   model_uri=DISMECH.regulatory_category, domain=None, range=Optional[Union[str, "RegulatoryVariantCategoryEnum"]])
+
+slots.regulatory_element_type = Slot(uri=DISMECH.regulatory_element_type, name="regulatory_element_type", curie=DISMECH.curie('regulatory_element_type'),
+                   model_uri=DISMECH.regulatory_element_type, domain=None, range=Optional[Union[str, "RegulatoryElementTypeEnum"]])
+
+slots.affected_cell_types = Slot(uri=DISMECH.affected_cell_types, name="affected_cell_types", curie=DISMECH.curie('affected_cell_types'),
+                   model_uri=DISMECH.affected_cell_types, domain=None, range=Optional[Union[Union[dict, CellTypeDescriptor], list[Union[dict, CellTypeDescriptor]]]])
+
+slots.affected_developmental_stage = Slot(uri=DISMECH.affected_developmental_stage, name="affected_developmental_stage", curie=DISMECH.curie('affected_developmental_stage'),
+                   model_uri=DISMECH.affected_developmental_stage, domain=None, range=Optional[str])
+
+slots.regulatory_mechanism = Slot(uri=DISMECH.regulatory_mechanism, name="regulatory_mechanism", curie=DISMECH.curie('regulatory_mechanism'),
+                   model_uri=DISMECH.regulatory_mechanism, domain=None, range=Optional[str])
+
 slots.target = Slot(uri=DISMECH.target, name="target", curie=DISMECH.curie('target'),
                    model_uri=DISMECH.target, domain=None, range=str)
 
+slots.hypothesis_groups = Slot(uri=DISMECH.hypothesis_groups, name="hypothesis_groups", curie=DISMECH.curie('hypothesis_groups'),
+                   model_uri=DISMECH.hypothesis_groups, domain=None, range=Optional[Union[str, list[str]]])
+
+slots.causal_link_type = Slot(uri=DISMECH.causal_link_type, name="causal_link_type", curie=DISMECH.curie('causal_link_type'),
+                   model_uri=DISMECH.causal_link_type, domain=None, range=Optional[Union[str, "CausalLinkTypeEnum"]])
+
+slots.intermediate_mechanisms = Slot(uri=DISMECH.intermediate_mechanisms, name="intermediate_mechanisms", curie=DISMECH.curie('intermediate_mechanisms'),
+                   model_uri=DISMECH.intermediate_mechanisms, domain=None, range=Optional[Union[str, list[str]]])
+
+slots.hypothesis_group_id = Slot(uri=DISMECH.hypothesis_group_id, name="hypothesis_group_id", curie=DISMECH.curie('hypothesis_group_id'),
+                   model_uri=DISMECH.hypothesis_group_id, domain=None, range=Optional[str])
+
+slots.hypothesis_label = Slot(uri=DISMECH.hypothesis_label, name="hypothesis_label", curie=DISMECH.curie('hypothesis_label'),
+                   model_uri=DISMECH.hypothesis_label, domain=None, range=Optional[str])
+
+slots.applies_to_subtypes = Slot(uri=DISMECH.applies_to_subtypes, name="applies_to_subtypes", curie=DISMECH.curie('applies_to_subtypes'),
+                   model_uri=DISMECH.applies_to_subtypes, domain=None, range=Optional[Union[str, list[str]]])
+
 slots.target_phenotypes = Slot(uri=DISMECH.target_phenotypes, name="target_phenotypes", curie=DISMECH.curie('target_phenotypes'),
                    model_uri=DISMECH.target_phenotypes, domain=None, range=Optional[Union[Union[dict, PhenotypeDescriptor], list[Union[dict, PhenotypeDescriptor]]]])
+
+slots.target_mechanisms = Slot(uri=DISMECH.target_mechanisms, name="target_mechanisms", curie=DISMECH.curie('target_mechanisms'),
+                   model_uri=DISMECH.target_mechanisms, domain=None, range=Optional[Union[Union[dict, TreatmentMechanismTarget], list[Union[dict, TreatmentMechanismTarget]]]])
+
+slots.modeled_mechanisms = Slot(uri=DISMECH.modeled_mechanisms, name="modeled_mechanisms", curie=DISMECH.curie('modeled_mechanisms'),
+                   model_uri=DISMECH.modeled_mechanisms, domain=None, range=Optional[Union[Union[dict, ModelMechanismLink], list[Union[dict, ModelMechanismLink]]]])
+
+slots.treatment_effect = Slot(uri=DISMECH.treatment_effect, name="treatment_effect", curie=DISMECH.curie('treatment_effect'),
+                   model_uri=DISMECH.treatment_effect, domain=None, range=Optional[Union[str, "TreatmentEffectEnum"]])
+
+slots.pdb_structures = Slot(uri=DISMECH.pdb_structures, name="pdb_structures", curie=DISMECH.curie('pdb_structures'),
+                   model_uri=DISMECH.pdb_structures, domain=None, range=Optional[Union[Union[dict, ProteinStructure], list[Union[dict, ProteinStructure]]]])
+
+slots.mechanism_confidence = Slot(uri=DISMECH.mechanism_confidence, name="mechanism_confidence", curie=DISMECH.curie('mechanism_confidence'),
+                   model_uri=DISMECH.mechanism_confidence, domain=None, range=Optional[Union[str, "MechanismConfidenceEnum"]])
 
 slots.accession = Slot(uri=DISMECH.accession, name="accession", curie=DISMECH.curie('accession'),
                    model_uri=DISMECH.accession, domain=None, range=URIRef)
@@ -5256,8 +6963,20 @@ slots.sample_types = Slot(uri=DISMECH.sample_types, name="sample_types", curie=D
 slots.sample_count = Slot(uri=DISMECH.sample_count, name="sample_count", curie=DISMECH.curie('sample_count'),
                    model_uri=DISMECH.sample_count, domain=None, range=Optional[int])
 
+slots.experimental_model_type = Slot(uri=DISMECH.experimental_model_type, name="experimental_model_type", curie=DISMECH.curie('experimental_model_type'),
+                   model_uri=DISMECH.experimental_model_type, domain=None, range=Optional[Union[str, "ExperimentalModelTypeEnum"]])
+
+slots.namo_type = Slot(uri=DISMECH.namo_type, name="namo_type", curie=DISMECH.curie('namo_type'),
+                   model_uri=DISMECH.namo_type, domain=None, range=Optional[Union[str, URIorCURIE]])
+
 slots.conditions = Slot(uri=DISMECH.conditions, name="conditions", curie=DISMECH.curie('conditions'),
                    model_uri=DISMECH.conditions, domain=None, range=Optional[Union[str, list[str]]])
+
+slots.cell_source = Slot(uri=DISMECH.cell_source, name="cell_source", curie=DISMECH.curie('cell_source'),
+                   model_uri=DISMECH.cell_source, domain=None, range=Optional[str])
+
+slots.culture_system = Slot(uri=DISMECH.culture_system, name="culture_system", curie=DISMECH.curie('culture_system'),
+                   model_uri=DISMECH.culture_system, domain=None, range=Optional[str])
 
 slots.exposures = Slot(uri=DISMECH.exposures, name="exposures", curie=DISMECH.curie('exposures'),
                    model_uri=DISMECH.exposures, domain=None, range=Optional[Union[Union[dict, ExposureDescriptor], list[Union[dict, ExposureDescriptor]]]])
@@ -5274,11 +6993,22 @@ slots.tissue_term = Slot(uri=DISMECH.tissue_term, name="tissue_term", curie=DISM
 slots.cell_type_term = Slot(uri=DISMECH.cell_type_term, name="cell_type_term", curie=DISMECH.curie('cell_type_term'),
                    model_uri=DISMECH.cell_type_term, domain=None, range=Optional[Union[dict, CellTypeDescriptor]])
 
+slots.experimental_models = Slot(uri=DISMECH.experimental_models, name="experimental_models", curie=DISMECH.curie('experimental_models'),
+                   model_uri=DISMECH.experimental_models, domain=None, range=Optional[Union[dict[Union[str, ExperimentalModelName], Union[dict, ExperimentalModel]], list[Union[dict, ExperimentalModel]]]])
+
 slots.datasets = Slot(uri=DISMECH.datasets, name="datasets", curie=DISMECH.curie('datasets'),
                    model_uri=DISMECH.datasets, domain=None, range=Optional[Union[dict[Union[str, DatasetAccession], Union[dict, Dataset]], list[Union[dict, Dataset]]]])
 
 slots.clinical_trials = Slot(uri=DISMECH.clinical_trials, name="clinical_trials", curie=DISMECH.curie('clinical_trials'),
                    model_uri=DISMECH.clinical_trials, domain=None, range=Optional[Union[dict[Union[str, ClinicalTrialName], Union[dict, ClinicalTrial]], list[Union[dict, ClinicalTrial]]]])
+
+slots.creation_date = Slot(uri=DISMECH.creation_date, name="creation_date", curie=DISMECH.curie('creation_date'),
+                   model_uri=DISMECH.creation_date, domain=None, range=Optional[str],
+                   pattern=re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$'))
+
+slots.updated_date = Slot(uri=DISMECH.updated_date, name="updated_date", curie=DISMECH.curie('updated_date'),
+                   model_uri=DISMECH.updated_date, domain=None, range=Optional[str],
+                   pattern=re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$'))
 
 slots.curation_history = Slot(uri=DISMECH.curation_history, name="curation_history", curie=DISMECH.curie('curation_history'),
                    model_uri=DISMECH.curation_history, domain=None, range=Optional[Union[Union[dict, CurationEvent], list[Union[dict, CurationEvent]]]])
@@ -5315,6 +7045,12 @@ slots.model_format = Slot(uri=DISMECH.model_format, name="model_format", curie=D
 
 slots.perturbations = Slot(uri=DISMECH.perturbations, name="perturbations", curie=DISMECH.curie('perturbations'),
                    model_uri=DISMECH.perturbations, domain=None, range=Optional[Union[Union[dict, GeneDescriptor], list[Union[dict, GeneDescriptor]]]])
+
+slots.variables = Slot(uri=DISMECH.variables, name="variables", curie=DISMECH.curie('variables'),
+                   model_uri=DISMECH.variables, domain=None, range=Optional[Union[dict[Union[str, ModelVariableName], Union[dict, ModelVariable]], list[Union[dict, ModelVariable]]]])
+
+slots.mappings_list = Slot(uri=DISMECH.mappings_list, name="mappings_list", curie=DISMECH.curie('mappings_list'),
+                   model_uri=DISMECH.mappings_list, domain=None, range=Optional[Union[Union[dict, ModelVariableDescriptor], list[Union[dict, ModelVariableDescriptor]]]])
 
 slots.computational_models = Slot(uri=DISMECH.computational_models, name="computational_models", curie=DISMECH.curie('computational_models'),
                    model_uri=DISMECH.computational_models, domain=None, range=Optional[Union[dict[Union[str, ComputationalModelName], Union[dict, ComputationalModel]], list[Union[dict, ComputationalModel]]]])
@@ -5448,6 +7184,9 @@ slots.literature_evidence = Slot(uri=DISMECH.literature_evidence, name="literatu
 slots.hypotheses = Slot(uri=DISMECH.hypotheses, name="hypotheses", curie=DISMECH.curie('hypotheses'),
                    model_uri=DISMECH.hypotheses, domain=None, range=Optional[Union[Union[dict, ComorbidityHypothesis], list[Union[dict, ComorbidityHypothesis]]]])
 
+slots.mechanistic_hypotheses = Slot(uri=DISMECH.mechanistic_hypotheses, name="mechanistic_hypotheses", curie=DISMECH.curie('mechanistic_hypotheses'),
+                   model_uri=DISMECH.mechanistic_hypotheses, domain=None, range=Optional[Union[Union[dict, MechanisticHypothesis], list[Union[dict, MechanisticHypothesis]]]])
+
 slots.shared_upstream_hypotheses = Slot(uri=DISMECH.shared_upstream_hypotheses, name="shared_upstream_hypotheses", curie=DISMECH.curie('shared_upstream_hypotheses'),
                    model_uri=DISMECH.shared_upstream_hypotheses, domain=None, range=Optional[Union[Union[dict, UpstreamConditionHypothesis], list[Union[dict, UpstreamConditionHypothesis]]]])
 
@@ -5459,6 +7198,21 @@ slots.demographics = Slot(uri=DISMECH.demographics, name="demographics", curie=D
 
 slots.mapping_notes = Slot(uri=DISMECH.mapping_notes, name="mapping_notes", curie=DISMECH.curie('mapping_notes'),
                    model_uri=DISMECH.mapping_notes, domain=None, range=Optional[str])
+
+slots.disorder_a_count = Slot(uri=DISMECH.disorder_a_count, name="disorder_a_count", curie=DISMECH.curie('disorder_a_count'),
+                   model_uri=DISMECH.disorder_a_count, domain=None, range=Optional[int])
+
+slots.disorder_b_count = Slot(uri=DISMECH.disorder_b_count, name="disorder_b_count", curie=DISMECH.curie('disorder_b_count'),
+                   model_uri=DISMECH.disorder_b_count, domain=None, range=Optional[int])
+
+slots.pair_count = Slot(uri=DISMECH.pair_count, name="pair_count", curie=DISMECH.curie('pair_count'),
+                   model_uri=DISMECH.pair_count, domain=None, range=Optional[int])
+
+slots.limited_precision = Slot(uri=DISMECH.limited_precision, name="limited_precision", curie=DISMECH.curie('limited_precision'),
+                   model_uri=DISMECH.limited_precision, domain=None, range=Optional[Union[bool, Bool]])
+
+slots.precision_count_threshold = Slot(uri=DISMECH.precision_count_threshold, name="precision_count_threshold", curie=DISMECH.curie('precision_count_threshold'),
+                   model_uri=DISMECH.precision_count_threshold, domain=None, range=Optional[int])
 
 slots.sex = Slot(uri=DISMECH.sex, name="sex", curie=DISMECH.curie('sex'),
                    model_uri=DISMECH.sex, domain=None, range=Optional[str])
@@ -5511,6 +7265,60 @@ slots.overlap = Slot(uri=DISMECH.overlap, name="overlap", curie=DISMECH.curie('o
 slots.method = Slot(uri=DISMECH.method, name="method", curie=DISMECH.curie('method'),
                    model_uri=DISMECH.method, domain=None, range=Optional[str])
 
+slots.phenotype_contexts = Slot(uri=DISMECH.phenotype_contexts, name="phenotype_contexts", curie=DISMECH.curie('phenotype_contexts'),
+                   model_uri=DISMECH.phenotype_contexts, domain=None, range=Optional[Union[Union[dict, PhenotypeContext], list[Union[dict, PhenotypeContext]]]])
+
+slots.genetic_context = Slot(uri=DISMECH.genetic_context, name="genetic_context", curie=DISMECH.curie('genetic_context'),
+                   model_uri=DISMECH.genetic_context, domain=None, range=Optional[Union[dict, GeneticContext]])
+
+slots.allele_type = Slot(uri=DISMECH.allele_type, name="allele_type", curie=DISMECH.curie('allele_type'),
+                   model_uri=DISMECH.allele_type, domain=None, range=Optional[str])
+
+slots.zygosity = Slot(uri=DISMECH.zygosity, name="zygosity", curie=DISMECH.curie('zygosity'),
+                   model_uri=DISMECH.zygosity, domain=None, range=Optional[Union[str, "ZygosityEnum"]])
+
+slots.functional_impact = Slot(uri=DISMECH.functional_impact, name="functional_impact", curie=DISMECH.curie('functional_impact'),
+                   model_uri=DISMECH.functional_impact, domain=None, range=Optional[str])
+
+slots.complementation_group = Slot(uri=DISMECH.complementation_group, name="complementation_group", curie=DISMECH.curie('complementation_group'),
+                   model_uri=DISMECH.complementation_group, domain=None, range=Optional[str])
+
+slots.onset = Slot(uri=DISMECH.onset, name="onset", curie=DISMECH.curie('onset'),
+                   model_uri=DISMECH.onset, domain=None, range=Optional[Union[dict, OnsetDescriptor]])
+
+slots.onset_category = Slot(uri=DISMECH.onset_category, name="onset_category", curie=DISMECH.curie('onset_category'),
+                   model_uri=DISMECH.onset_category, domain=None, range=Optional[Union[str, "OnsetEnum"]])
+
+slots.mean_age_years = Slot(uri=DISMECH.mean_age_years, name="mean_age_years", curie=DISMECH.curie('mean_age_years'),
+                   model_uri=DISMECH.mean_age_years, domain=None, range=Optional[float])
+
+slots.min_age_years = Slot(uri=DISMECH.min_age_years, name="min_age_years", curie=DISMECH.curie('min_age_years'),
+                   model_uri=DISMECH.min_age_years, domain=None, range=Optional[float])
+
+slots.max_age_years = Slot(uri=DISMECH.max_age_years, name="max_age_years", curie=DISMECH.curie('max_age_years'),
+                   model_uri=DISMECH.max_age_years, domain=None, range=Optional[float])
+
+slots.proteinStructure__pdb_id = Slot(uri=DISMECH.pdb_id, name="proteinStructure__pdb_id", curie=DISMECH.curie('pdb_id'),
+                   model_uri=DISMECH.proteinStructure__pdb_id, domain=None, range=str)
+
+slots.proteinStructure__description = Slot(uri=DISMECH.description, name="proteinStructure__description", curie=DISMECH.curie('description'),
+                   model_uri=DISMECH.proteinStructure__description, domain=None, range=Optional[str])
+
+slots.proteinStructure__resolution_angstrom = Slot(uri=DISMECH.resolution_angstrom, name="proteinStructure__resolution_angstrom", curie=DISMECH.curie('resolution_angstrom'),
+                   model_uri=DISMECH.proteinStructure__resolution_angstrom, domain=None, range=Optional[float])
+
+slots.proteinStructure__method = Slot(uri=DISMECH.method, name="proteinStructure__method", curie=DISMECH.curie('method'),
+                   model_uri=DISMECH.proteinStructure__method, domain=None, range=Optional[str])
+
+slots.proteinStructure__ligand = Slot(uri=DISMECH.ligand, name="proteinStructure__ligand", curie=DISMECH.curie('ligand'),
+                   model_uri=DISMECH.proteinStructure__ligand, domain=None, range=Optional[str])
+
+slots.proteinStructure__target_protein = Slot(uri=DISMECH.target_protein, name="proteinStructure__target_protein", curie=DISMECH.curie('target_protein'),
+                   model_uri=DISMECH.proteinStructure__target_protein, domain=None, range=Optional[str])
+
+slots.proteinStructure__publication = Slot(uri=DISMECH.publication, name="proteinStructure__publication", curie=DISMECH.curie('publication'),
+                   model_uri=DISMECH.proteinStructure__publication, domain=None, range=Optional[str])
+
 slots.CurationEvent_curation_timestamp = Slot(uri=DISMECH.curation_timestamp, name="CurationEvent_curation_timestamp", curie=DISMECH.curie('curation_timestamp'),
                    model_uri=DISMECH.CurationEvent_curation_timestamp, domain=CurationEvent, range=Union[str, XSDDateTime])
 
@@ -5523,6 +7331,9 @@ slots.CellTypeDescriptor_term = Slot(uri=DISMECH.term, name="CellTypeDescriptor_
 slots.BiologicalProcessDescriptor_term = Slot(uri=DISMECH.term, name="BiologicalProcessDescriptor_term", curie=DISMECH.curie('term'),
                    model_uri=DISMECH.BiologicalProcessDescriptor_term, domain=BiologicalProcessDescriptor, range=Optional[Union[dict, Term]])
 
+slots.MolecularFunctionDescriptor_term = Slot(uri=DISMECH.term, name="MolecularFunctionDescriptor_term", curie=DISMECH.curie('term'),
+                   model_uri=DISMECH.MolecularFunctionDescriptor_term, domain=MolecularFunctionDescriptor, range=Optional[Union[dict, Term]])
+
 slots.AnatomicalEntityDescriptor_term = Slot(uri=DISMECH.term, name="AnatomicalEntityDescriptor_term", curie=DISMECH.curie('term'),
                    model_uri=DISMECH.AnatomicalEntityDescriptor_term, domain=AnatomicalEntityDescriptor, range=Optional[Union[dict, Term]])
 
@@ -5534,6 +7345,9 @@ slots.GeneDescriptor_term = Slot(uri=DISMECH.term, name="GeneDescriptor_term", c
 
 slots.CellularComponentDescriptor_term = Slot(uri=DISMECH.term, name="CellularComponentDescriptor_term", curie=DISMECH.curie('term'),
                    model_uri=DISMECH.CellularComponentDescriptor_term, domain=CellularComponentDescriptor, range=Optional[Union[dict, Term]])
+
+slots.ProteinComplexDescriptor_term = Slot(uri=DISMECH.term, name="ProteinComplexDescriptor_term", curie=DISMECH.curie('term'),
+                   model_uri=DISMECH.ProteinComplexDescriptor_term, domain=ProteinComplexDescriptor, range=Optional[Union[dict, Term]])
 
 slots.AssayDescriptor_term = Slot(uri=DISMECH.term, name="AssayDescriptor_term", curie=DISMECH.curie('term'),
                    model_uri=DISMECH.AssayDescriptor_term, domain=AssayDescriptor, range=Optional[Union[dict, Term]])
@@ -5559,11 +7373,17 @@ slots.LifeCycleStageDescriptor_term = Slot(uri=DISMECH.term, name="LifeCycleStag
 slots.PhenotypeDescriptor_term = Slot(uri=DISMECH.term, name="PhenotypeDescriptor_term", curie=DISMECH.curie('term'),
                    model_uri=DISMECH.PhenotypeDescriptor_term, domain=PhenotypeDescriptor, range=Optional[Union[dict, Term]])
 
+slots.InheritanceDescriptor_term = Slot(uri=DISMECH.term, name="InheritanceDescriptor_term", curie=DISMECH.curie('term'),
+                   model_uri=DISMECH.InheritanceDescriptor_term, domain=InheritanceDescriptor, range=Optional[Union[dict, Term]])
+
 slots.TreatmentDescriptor_term = Slot(uri=DISMECH.term, name="TreatmentDescriptor_term", curie=DISMECH.curie('term'),
                    model_uri=DISMECH.TreatmentDescriptor_term, domain=TreatmentDescriptor, range=Optional[Union[dict, Term]])
 
 slots.TreatmentDescriptor_therapeutic_agent = Slot(uri=DISMECH.therapeutic_agent, name="TreatmentDescriptor_therapeutic_agent", curie=DISMECH.curie('therapeutic_agent'),
                    model_uri=DISMECH.TreatmentDescriptor_therapeutic_agent, domain=TreatmentDescriptor, range=Optional[Union[Union[dict, ChemicalEntityDescriptor], list[Union[dict, ChemicalEntityDescriptor]]]])
+
+slots.TreatmentDescriptor_dietary_modifications = Slot(uri=DISMECH.dietary_modifications, name="TreatmentDescriptor_dietary_modifications", curie=DISMECH.curie('dietary_modifications'),
+                   model_uri=DISMECH.TreatmentDescriptor_dietary_modifications, domain=TreatmentDescriptor, range=Optional[Union[Union[dict, DietaryModification], list[Union[dict, DietaryModification]]]])
 
 slots.RegimenDescriptor_term = Slot(uri=DISMECH.term, name="RegimenDescriptor_term", curie=DISMECH.curie('term'),
                    model_uri=DISMECH.RegimenDescriptor_term, domain=RegimenDescriptor, range=Optional[Union[dict, Term]])
@@ -5574,8 +7394,17 @@ slots.ExposureDescriptor_term = Slot(uri=DISMECH.term, name="ExposureDescriptor_
 slots.EnvironmentDescriptor_term = Slot(uri=DISMECH.term, name="EnvironmentDescriptor_term", curie=DISMECH.curie('term'),
                    model_uri=DISMECH.EnvironmentDescriptor_term, domain=EnvironmentDescriptor, range=Optional[Union[dict, Term]])
 
+slots.FoodDescriptor_term = Slot(uri=DISMECH.term, name="FoodDescriptor_term", curie=DISMECH.curie('term'),
+                   model_uri=DISMECH.FoodDescriptor_term, domain=FoodDescriptor, range=Optional[Union[dict, Term]])
+
 slots.OrganismDescriptor_term = Slot(uri=DISMECH.term, name="OrganismDescriptor_term", curie=DISMECH.curie('term'),
                    model_uri=DISMECH.OrganismDescriptor_term, domain=OrganismDescriptor, range=Optional[Union[dict, Term]])
+
+slots.PhenotypeContext_sex = Slot(uri=DISMECH.sex, name="PhenotypeContext_sex", curie=DISMECH.curie('sex'),
+                   model_uri=DISMECH.PhenotypeContext_sex, domain=PhenotypeContext, range=Optional[Union[str, "SexEnum"]])
+
+slots.PhenotypeContext_evidence = Slot(uri=DISMECH.evidence, name="PhenotypeContext_evidence", curie=DISMECH.curie('evidence'),
+                   model_uri=DISMECH.PhenotypeContext_evidence, domain=PhenotypeContext, range=Optional[Union[Union[dict, "EvidenceItem"], list[Union[dict, "EvidenceItem"]]]])
 
 slots.Dataset_description = Slot(uri=DISMECH.description, name="Dataset_description", curie=DISMECH.curie('description'),
                    model_uri=DISMECH.Dataset_description, domain=Dataset, range=Optional[str])
@@ -5595,6 +7424,24 @@ slots.ClinicalTrial_status = Slot(uri=DISMECH.status, name="ClinicalTrial_status
 slots.ClinicalTrial_evidence = Slot(uri=DISMECH.evidence, name="ClinicalTrial_evidence", curie=DISMECH.curie('evidence'),
                    model_uri=DISMECH.ClinicalTrial_evidence, domain=ClinicalTrial, range=Optional[Union[Union[dict, "EvidenceItem"], list[Union[dict, "EvidenceItem"]]]])
 
+slots.SeverityTier_threshold = Slot(uri=DISMECH.threshold, name="SeverityTier_threshold", curie=DISMECH.curie('threshold'),
+                   model_uri=DISMECH.SeverityTier_threshold, domain=SeverityTier, range=float)
+
+slots.SeverityTier_name = Slot(uri=DISMECH.name, name="SeverityTier_name", curie=DISMECH.curie('name'),
+                   model_uri=DISMECH.SeverityTier_name, domain=SeverityTier, range=Union[str, SeverityTierName])
+
+slots.ModelVariableDescriptor_term = Slot(uri=DISMECH.term, name="ModelVariableDescriptor_term", curie=DISMECH.curie('term'),
+                   model_uri=DISMECH.ModelVariableDescriptor_term, domain=ModelVariableDescriptor, range=Optional[Union[dict, Term]])
+
+slots.ModelVariableDescriptor_threshold = Slot(uri=DISMECH.threshold, name="ModelVariableDescriptor_threshold", curie=DISMECH.curie('threshold'),
+                   model_uri=DISMECH.ModelVariableDescriptor_threshold, domain=ModelVariableDescriptor, range=Optional[float])
+
+slots.ModelVariableDescriptor_threshold_direction = Slot(uri=DISMECH.threshold_direction, name="ModelVariableDescriptor_threshold_direction", curie=DISMECH.curie('threshold_direction'),
+                   model_uri=DISMECH.ModelVariableDescriptor_threshold_direction, domain=ModelVariableDescriptor, range=Optional[Union[str, "ThresholdDirectionEnum"]])
+
+slots.ModelVariableDescriptor_severity_scale = Slot(uri=DISMECH.severity_scale, name="ModelVariableDescriptor_severity_scale", curie=DISMECH.curie('severity_scale'),
+                   model_uri=DISMECH.ModelVariableDescriptor_severity_scale, domain=ModelVariableDescriptor, range=Optional[Union[dict[Union[str, SeverityTierName], Union[dict, SeverityTier]], list[Union[dict, SeverityTier]]]])
+
 slots.DifferentialDiagnosis_description = Slot(uri=DISMECH.description, name="DifferentialDiagnosis_description", curie=DISMECH.curie('description'),
                    model_uri=DISMECH.DifferentialDiagnosis_description, domain=DifferentialDiagnosis, range=Optional[str])
 
@@ -5604,8 +7451,41 @@ slots.DifferentialDiagnosis_distinguishing_features = Slot(uri=DISMECH.distingui
 slots.DifferentialDiagnosis_notes = Slot(uri=DISMECH.notes, name="DifferentialDiagnosis_notes", curie=DISMECH.curie('notes'),
                    model_uri=DISMECH.DifferentialDiagnosis_notes, domain=DifferentialDiagnosis, range=Optional[str])
 
+slots.CausalEdge_evidence = Slot(uri=DISMECH.evidence, name="CausalEdge_evidence", curie=DISMECH.curie('evidence'),
+                   model_uri=DISMECH.CausalEdge_evidence, domain=CausalEdge, range=Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]])
+
+slots.CausalEdge_hypothesis_groups = Slot(uri=DISMECH.hypothesis_groups, name="CausalEdge_hypothesis_groups", curie=DISMECH.curie('hypothesis_groups'),
+                   model_uri=DISMECH.CausalEdge_hypothesis_groups, domain=CausalEdge, range=Optional[Union[str, list[str]]])
+
+slots.CausalEdge_causal_link_type = Slot(uri=DISMECH.causal_link_type, name="CausalEdge_causal_link_type", curie=DISMECH.curie('causal_link_type'),
+                   model_uri=DISMECH.CausalEdge_causal_link_type, domain=CausalEdge, range=Optional[Union[str, "CausalLinkTypeEnum"]])
+
+slots.CausalEdge_intermediate_mechanisms = Slot(uri=DISMECH.intermediate_mechanisms, name="CausalEdge_intermediate_mechanisms", curie=DISMECH.curie('intermediate_mechanisms'),
+                   model_uri=DISMECH.CausalEdge_intermediate_mechanisms, domain=CausalEdge, range=Optional[Union[str, list[str]]])
+
+slots.TreatmentMechanismTarget_target = Slot(uri=DISMECH.target, name="TreatmentMechanismTarget_target", curie=DISMECH.curie('target'),
+                   model_uri=DISMECH.TreatmentMechanismTarget_target, domain=TreatmentMechanismTarget, range=str)
+
+slots.TreatmentMechanismTarget_evidence = Slot(uri=DISMECH.evidence, name="TreatmentMechanismTarget_evidence", curie=DISMECH.curie('evidence'),
+                   model_uri=DISMECH.TreatmentMechanismTarget_evidence, domain=TreatmentMechanismTarget, range=Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]])
+
+slots.ModelMechanismLink_target = Slot(uri=DISMECH.target, name="ModelMechanismLink_target", curie=DISMECH.curie('target'),
+                   model_uri=DISMECH.ModelMechanismLink_target, domain=ModelMechanismLink, range=str)
+
+slots.ModelMechanismLink_description = Slot(uri=DISMECH.description, name="ModelMechanismLink_description", curie=DISMECH.curie('description'),
+                   model_uri=DISMECH.ModelMechanismLink_description, domain=ModelMechanismLink, range=Optional[str])
+
+slots.ModelMechanismLink_evidence = Slot(uri=DISMECH.evidence, name="ModelMechanismLink_evidence", curie=DISMECH.curie('evidence'),
+                   model_uri=DISMECH.ModelMechanismLink_evidence, domain=ModelMechanismLink, range=Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]])
+
 slots.PublicationReference_reference = Slot(uri=DISMECH.reference, name="PublicationReference_reference", curie=DISMECH.curie('reference'),
                    model_uri=DISMECH.PublicationReference_reference, domain=PublicationReference, range=Union[str, PublicationReferenceReference])
+
+slots.ExternalAssertion_source = Slot(uri=DISMECH.source, name="ExternalAssertion_source", curie=DISMECH.curie('source'),
+                   model_uri=DISMECH.ExternalAssertion_source, domain=ExternalAssertion, range=str)
+
+slots.ExternalAssertion_external_id = Slot(uri=DISMECH.external_id, name="ExternalAssertion_external_id", curie=DISMECH.curie('external_id'),
+                   model_uri=DISMECH.ExternalAssertion_external_id, domain=ExternalAssertion, range=str)
 
 slots.HistopathologyFinding_name = Slot(uri=DISMECH.name, name="HistopathologyFinding_name", curie=DISMECH.curie('name'),
                    model_uri=DISMECH.HistopathologyFinding_name, domain=HistopathologyFinding, range=Union[str, HistopathologyFindingName])
@@ -5621,6 +7501,17 @@ slots.HistopathologyFinding_diagnostic = Slot(uri=DISMECH.diagnostic, name="Hist
 
 slots.HistopathologyFinding_context = Slot(uri=DISMECH.context, name="HistopathologyFinding_context", curie=DISMECH.curie('context'),
                    model_uri=DISMECH.HistopathologyFinding_context, domain=HistopathologyFinding, range=Optional[str])
+
+slots.Disease_name = Slot(uri=DISMECH.name, name="Disease_name", curie=DISMECH.curie('name'),
+                   model_uri=DISMECH.Disease_name, domain=Disease, range=Union[str, DiseaseName])
+
+slots.Disease_creation_date = Slot(uri=DISMECH.creation_date, name="Disease_creation_date", curie=DISMECH.curie('creation_date'),
+                   model_uri=DISMECH.Disease_creation_date, domain=Disease, range=Optional[str],
+                   pattern=re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$'))
+
+slots.Disease_updated_date = Slot(uri=DISMECH.updated_date, name="Disease_updated_date", curie=DISMECH.curie('updated_date'),
+                   model_uri=DISMECH.Disease_updated_date, domain=Disease, range=Optional[str],
+                   pattern=re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$'))
 
 slots.ICDOMorphologyAssignment_classification_value = Slot(uri=DISMECH.classification_value, name="ICDOMorphologyAssignment_classification_value", curie=DISMECH.curie('classification_value'),
                    model_uri=DISMECH.ICDOMorphologyAssignment_classification_value, domain=ICDOMorphologyAssignment, range=Union[str, "ICDOMorphologyEnum"])
@@ -5679,6 +7570,14 @@ slots.ConditionDescriptor_term = Slot(uri=DISMECH.term, name="ConditionDescripto
 slots.ConditionDescriptor_preferred_term = Slot(uri=DISMECH.preferred_term, name="ConditionDescriptor_preferred_term", curie=DISMECH.curie('preferred_term'),
                    model_uri=DISMECH.ConditionDescriptor_preferred_term, domain=ConditionDescriptor, range=str)
 
+slots.ComorbidityAssociation_creation_date = Slot(uri=DISMECH.creation_date, name="ComorbidityAssociation_creation_date", curie=DISMECH.curie('creation_date'),
+                   model_uri=DISMECH.ComorbidityAssociation_creation_date, domain=ComorbidityAssociation, range=Optional[str],
+                   pattern=re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$'))
+
+slots.ComorbidityAssociation_updated_date = Slot(uri=DISMECH.updated_date, name="ComorbidityAssociation_updated_date", curie=DISMECH.curie('updated_date'),
+                   model_uri=DISMECH.ComorbidityAssociation_updated_date, domain=ComorbidityAssociation, range=Optional[str],
+                   pattern=re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$'))
+
 slots.AssociationSignal_source = Slot(uri=DISMECH.source, name="AssociationSignal_source", curie=DISMECH.curie('source'),
                    model_uri=DISMECH.AssociationSignal_source, domain=AssociationSignal, range=Optional[Union[str, "AssociationSignalSourceEnum"]])
 
@@ -5687,3 +7586,9 @@ slots.AssociationSignal_method = Slot(uri=DISMECH.method, name="AssociationSigna
 
 slots.Demographics_sex = Slot(uri=DISMECH.sex, name="Demographics_sex", curie=DISMECH.curie('sex'),
                    model_uri=DISMECH.Demographics_sex, domain=Demographics, range=Optional[Union[str, "SexEnum"]])
+
+slots.MechanisticHypothesis_hypothesis_group_id = Slot(uri=DISMECH.hypothesis_group_id, name="MechanisticHypothesis_hypothesis_group_id", curie=DISMECH.curie('hypothesis_group_id'),
+                   model_uri=DISMECH.MechanisticHypothesis_hypothesis_group_id, domain=MechanisticHypothesis, range=str)
+
+slots.MechanisticHypothesis_status = Slot(uri=DISMECH.status, name="MechanisticHypothesis_status", curie=DISMECH.curie('status'),
+                   model_uri=DISMECH.MechanisticHypothesis_status, domain=MechanisticHypothesis, range=Optional[Union[str, "MechanisticHypothesisStatusEnum"]])

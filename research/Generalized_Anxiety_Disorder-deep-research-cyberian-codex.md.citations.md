@@ -1,0 +1,16 @@
+# Citations for Research Query
+
+**Query:** Codex secondary synthesis for Generalized Anxiety Disorder
+**Provider:** cyberian-codex
+**Generated:** 2026-02-17T08:39:53Z
+
+1. DOI:10.1002/wps.21078
+2. DOI:10.1038/s41380-023-02205-w
+3. DOI:10.1038/s41588-024-01908-2
+4. DOI:10.1038/s41598-025-90362-z
+5. DOI:10.1101/2024.07.03.24309466
+6. DOI:10.1101/2024.09.07.24313247
+7. DOI:10.3390/ijms26115417
+8. DOI:10.3390/nu16203564
+9. DOI:10.3758/s13415-024-01162-3
+10. DOI:10.4236/psych.2023.141003

@@ -2,21 +2,21 @@
 provider: falcon
 model: Edison Scientific Literature
 cached: false
-start_time: '2025-12-05T16:09:09.271034'
-end_time: '2025-12-05T16:17:16.628767'
-duration_seconds: 487.36
+start_time: '2026-03-17T18:36:36.769363'
+end_time: '2026-03-17T18:47:43.481902'
+duration_seconds: 666.71
 template_file: templates/disease_pathophysiology_research.md
 template_variables:
   disease_name: Myalgic Encephalomyelitis/Chronic Fatigue Syndrome
-  mondo_id: MONDO:0005404
+  mondo_id: ''
   category: Complex
 provider_config:
-  timeout: 600
+  timeout: null
   max_retries: 3
   parameters:
     allowed_domains: []
     temperature: 0.1
-citation_count: 11
+citation_count: 29
 ---
 
 ## Question
@@ -25,7 +25,7 @@ citation_count: 11
 
 ## Target Disease
 - **Disease Name:** Myalgic Encephalomyelitis/Chronic Fatigue Syndrome
-- **MONDO ID:** MONDO:0005404 (if available)
+- **MONDO ID:**  (if available)
 - **Category:** Complex
 
 ## Research Objectives
@@ -98,7 +98,7 @@ Always prioritize recent, authoritative sources and provide specific citations f
 
 ## Target Disease
 - **Disease Name:** Myalgic Encephalomyelitis/Chronic Fatigue Syndrome
-- **MONDO ID:** MONDO:0005404 (if available)
+- **MONDO ID:**  (if available)
 - **Category:** Complex
 
 ## Research Objectives
@@ -153,139 +153,234 @@ Structure your response as a narrative that could be used to populate a disease 
 - Evidence items with PMIDs
 
 
-Disease Pathophysiology Research Report
+## Research report: Pathophysiology of Myalgic Encephalomyelitis/Chronic Fatigue Syndrome (ME/CFS)
 
-Target Disease
-- Disease Name: Myalgic Encephalomyelitis/Chronic Fatigue Syndrome (ME/CFS)
-- MONDO ID: MONDO:0005404
-- Category: Complex, multisystem, post-infectious syndrome
+### Disease entity and scope
+**Disease:** Myalgic Encephalomyelitis/Chronic Fatigue Syndrome (ME/CFS).  
+**Category:** Complex, multisystem disorder characterized clinically by post-exertional symptom exacerbation (often termed post-exertional malaise; PEM) and heterogeneous neurological, autonomic, immune, and metabolic manifestations. Recent syntheses emphasize a *multifactorial, network-like* pathophysiology arising from genetic vulnerability plus environmental triggers (commonly infections) that converge on persistent immune dysregulation, autonomic dysfunction, metabolic disturbances, and (in some cohorts) vascular/endothelial and coagulation abnormalities. (arron2024myalgicencephalomyelitischronicfatigue pages 1-2, walitt2024deepphenotypingof pages 1-2)
 
-Pathophysiology description (current understanding)
-ME/CFS is characterized by a network of immune, vascular, neuroimmune, and metabolic abnormalities that likely initiate after an infectious trigger and are sustained by maladaptive immune–neurovascular crosstalk. Convergent 2023–2025 evidence indicates: persistent innate immune hyperreactivity; reproducible natural killer (NK) cell dysfunction and altered T‑cell immunometabolism; endothelial dysfunction with coagulopathy and microcirculatory impairment; complement/coagulation pathway remodeling; possible autoantibody contributions in subsets (e.g., G‑protein–coupled receptor GPCR targets), though with conflicting evidence across platforms; TRPM3 ion-channel dysfunction in NK cells with impaired Ca2+ flux; neurovascular changes involving brainstem and reduced cerebral perfusion; and metabolic inflexibility/mitochondrial stress that worsen with exertion and underlie post‑exertional malaise (PEM). Multi-omics and proteomic studies document exercise-provoked shifts in inflammatory and metabolic mediators, supporting PEM as a biologically measurable exacerbation rather than a purely symptomatic phenomenon (DOI: 10.1101/2025.07.23.25332049, 2025-07-24; DOI: 10.1101/2025.05.28.25328245, 2025-05-28). (che2025heightenedinnateimmunity pages 9-11, hoel2025chartingthecirculating pages 21-25)
+**MONDO ID:** Not retrieved in the current evidence set.
 
-Direct quotes supporting key concepts
-- “Heightened innate immunity may trigger chronic inflammation, fatigue and post-exertional malaise in ME/CFS,” with exercise provoking increases in inflammatory and oxidative stress signals and complement activation (medRxiv, DOI: 10.1101/2025.07.23.25332049). (che2025heightenedinnateimmunity pages 9-11)
-- Senescent/exhausted immune cells “secrete high levels of pro-inflammatory cytokines… resulting in chronic sterile inflammation (inflammaging)” and drive muscle catabolism (Comprehensive Physiology, DOI: 10.1002/cph4.70056). (luo2025understandingmyalgicencephalomyelitischronic pages 9-10)
+---
 
-Recent developments and latest research (2023–2024 priority; 2025 where essential)
-- Biomarkers review (BMC Medicine, 2023) synthesized 101 studies and concluded immune dysfunction—especially reduced NK cell cytotoxicity—is the most consistent biological signature across cohorts; it also emphasized methodological rigor and careful control selection to avoid false inferences (DOI: 10.1186/s12916-023-02893-9, 2023-05). (maksoud2023biomarkersformyalgic pages 10-11)
-- Exercise-challenge multi-omics (medRxiv 2025) showed innate hyper-responsiveness (e.g., IL‑6 responses to LPS/poly I:C), ECM disruption (e.g., reduced tetranectin/CLEC3B), oxidative stress surrogates, and a rise in GDF15 correlating with fatigue after exertion—integrating immune, redox, peroxisomal/mitochondrial and lipid pathway derangements that flare during PEM (DOI: 10.1101/2025.07.23.25332049, 2025-07-24). (che2025heightenedinnateimmunity pages 9-11)
-- Circulating proteome profiling (preprint, 2025) reported increased secreted proteins from brain, intestine, liver, skeletal muscle and lymphoid tissue; elevations in coagulation/complement proteins; reductions in enzyme classes and neutrophil-released proteins; and higher triglycerides (TAG 1.35±0.89 vs 0.87±0.31 mM, p≈0.025) and non-esterified fatty acids (NEFA 0.40±0.28 vs 0.21±0.13 mM, p≈0.026) in ME/CFS versus controls (DOI: 10.1101/2025.05.28.25328245, 2025-05-28). (hoel2025chartingthecirculating pages 21-25)
-- Immunosenescence perspective (Comprehensive Physiology, 2025) integrates immune aging/exhaustion, chronic cytokine signaling (SASP), mitochondrial dysfunction, dysautonomia, and PEM-related bioenergetics, proposing testable axes (PD‑1/PD‑L1, TRPM3/PIP2, mTOR/AMPK) for stratified trials (DOI: 10.1002/cph4.70056, 2025-09). (luo2025understandingmyalgicencephalomyelitischronic pages 9-10, luo2025understandingmyalgicencephalomyelitischronic pages 13-13)
-- Synthesis papers (2024–2025) emphasize a unifying system-level model with endothelial dysfunction, coagulation anomalies, and hypoperfusion, coupled to immune/metabolic changes and neurovascular dysregulation (URLs/DOIs in artifact table). (hoel2025chartingthecirculating pages 21-25, pavlovichUnknownyearcomparisonofclinical pages 41-44)
+## 1) Core pathophysiology (current understanding)
 
-Current applications and real-world implementations
-- Immunoadsorption/plasmapheresis and immunomodulatory strategies are being trialed in subsets (e.g., patients with GPCR autoantibodies), with preliminary improvements reported alongside antibody titer reductions; however, heterogeneity, rebounds, and need for randomized replication remain (trial overviews and clinical discussions, 2023–2025). (pavlovichUnknownyearcomparisonofclinical pages 41-44, kavyani2024…ofa pages 35-36)
-- TRPM3 restoration by naltrexone (LDN) has been demonstrated in vitro/ex vivo for NK cells, positioning TRPM3 as a potential treatment biomarker; translation to controlled clinical efficacy in ME/CFS requires definitive trials (reviewed in 2024–2025 translational work). (renzpolsterUnknownyearguardianangelsoff pages 17-20, luo2025understandingmyalgicencephalomyelitischronic pages 13-13)
+### 1.1 Immune dysregulation and chronic antigenic stimulation
+A consistent theme across recent high-quality studies is chronic immune perturbation compatible with persistent antigenic stimulation.
 
-Expert opinions and analysis from authoritative sources
-- The BMC Medicine systematic review (2023) concludes that immune dysfunction—particularly NK cytotoxicity deficits—represents the most reproducible biological signal; it also cautions about case definition heterogeneity and technical biases in immune assays, underscoring the need for standardized protocols (DOI: 10.1186/s12916-023-02893-9). (maksoud2023biomarkersformyalgic pages 10-11)
-- Immunosenescence framing (Comprehensive Physiology, 2025) provides a mechanistic link between chronic low-grade inflammation, immune exhaustion, mitochondrial impairment, skeletal muscle atrophy pathways, and dysautonomia, aligning with observed PEM exacerbation after exertion (DOI: 10.1002/cph4.70056). (luo2025understandingmyalgicencephalomyelitischronic pages 9-10, luo2025understandingmyalgicencephalomyelitischronic pages 13-13)
+* **B-cell compartment shifts (post-infectious ME/CFS):** Deep phenotyping of a rigorously adjudicated post-infectious cohort reported an “increase in naïve and decrease in switched memory B-cells,” interpreted as evidence consistent with chronic antigenic stimulation. (walitt2024deepphenotypingof pages 1-2)
+* **Natural killer (NK) cell dysfunction (most reproducible immune phenotype):** A 2024 registered meta-analysis of NK cytotoxicity across 28 papers (55 effector:target datapoints) found NK cytotoxicity in ME/CFS was reduced to about half of healthy control levels, with an overall effect size **Hedges’ g = 0.96 (95% CI 0.75–1.18)**. (baraniuk2024metaanalysisofnatural pages 1-2)
+* **T-cell exhaustion programs (emerging 2024 theme):** Multi-omic analyses of CD8+ T cells support epigenetic/transcriptional priming toward exhaustion, with exhaustion markers reportedly upregulated after exercise provocation, consistent with chronic antigen exposure models (e.g., persistent/latent viral drivers as one plausible upstream contributor). (iu2024transcriptionalreprogrammingprimes pages 1-2)
 
-Relevant statistics and data from recent studies
-- Exercise-challenge multi-omics: post-exertional increases in GDF15 correlated with fatigue; innate responses to microbial ligands were exaggerated; complement activation increased after exercise; ECM proteins (e.g., CLEC3B) reduced; lipid abnormalities and oxidative stress signatures were present (medRxiv, 2025; DOI: 10.1101/2025.07.23.25332049). (che2025heightenedinnateimmunity pages 9-11)
-- Serum proteome/biochemistry: triglycerides (TAG) 1.35±0.89 vs 0.87±0.31 mM (p≈0.025) and NEFA 0.40±0.28 vs 0.21±0.13 mM (p≈0.026) were higher in ME/CFS; secretome skewed toward coagulation/complement and inflammatory mediators (medRxiv, 2025; DOI: 10.1101/2025.05.28.25328245). (hoel2025chartingthecirculating pages 21-25)
-- Immune cell bioenergetics: ME/CFS CD8+ T cells exhibit reduced mitochondrial membrane potential and both CD4+/CD8+ T cells show reduced glycolysis (JCI-linked synthesis cited in 2023 review) (BMC Medicine 2023). (maksoud2023biomarkersformyalgic pages 10-11)
+**Interpretation:** Immune phenotypes span innate cytotoxic impairment (NK), adaptive exhaustion-like programs (CD8), and altered memory differentiation (B-cells). Together, these can plausibly reduce pathogen control (or promote antigen persistence), while also sustaining inflammatory signaling that couples to autonomic and metabolic dysfunction. (baraniuk2024metaanalysisofnatural pages 1-2, walitt2024deepphenotypingof pages 1-2, iu2024transcriptionalreprogrammingprimes pages 1-2)
 
-Core Pathophysiology (mechanisms, pathways, processes)
-- Innate immune hyperreactivity and PEM: Evidence of exaggerated cytokine responses to microbial ligands and exercise-triggered complement activation, ECM disruption, lipid/oxidative stress shifts; GDF15 rises correlate with fatigue, indicating a stress-responsive mitochondrial signal (DOI: 10.1101/2025.07.23.25332049). (che2025heightenedinnateimmunity pages 9-11)
-- Adaptive immune dysfunction and immunometabolism: Reproducible deficits in NK function; T‑cell metabolic remodeling deficits (reduced glycolysis and mitochondrial potential), consistent with chronic immune stress/exhaustion (BMC Medicine 2023). (maksoud2023biomarkersformyalgic pages 10-11)
-- Endothelial dysfunction, coagulation anomalies, microcirculatory impairment: Proteomic and clinical data indicate dysregulated coagulation/complement signatures and lipid perturbations that align with impaired endothelial function and hypoperfusion in tissues (DOI: 10.1101/2025.05.28.25328245). (hoel2025chartingthecirculating pages 21-25, pavlovichUnknownyearcomparisonofclinical pages 41-44)
-- Complement/coagulation remodeling: Reports include downregulation of terminal complement (e.g., C9) with increased clotting-related proteins and inflammatory S100A8/A9; patterns may vary by cohort and platform but converge on immune–coagulation crosstalk. (che2025heightenedinnateimmunity pages 9-11, hoel2025chartingthecirculating pages 21-25)
-- Autoantibodies to GPCRs: Evidence heterogeneous—some cohorts and interventional reports suggest pathogenic ß‑adrenergic/muscarinic antibodies in subsets; large-scale antigen profiling has yielded mixed or null findings, emphasizing careful phenotyping and assay selection. (kavyani2024…ofa pages 35-36, pavlovichUnknownyearcomparisonofclinical pages 41-44)
-- Ion-channel dysfunction (TRPM3): Documented impaired Ca2+ flux in NK cells; restoration by naltrexone in vitro/ex vivo supports a modifiable channelopathy impacting immune and sensory/autonomic pathways. (renzpolsterUnknownyearguardianangelsoff pages 17-20, luo2025understandingmyalgicencephalomyelitischronic pages 13-13)
-- Neurovascular/neuroinflammatory changes: Imaging/physiological syntheses describe brainstem involvement and reduced cerebral blood flow, consistent with dysautonomia and cognitive symptoms; a CNS stress‑response regulatory defect may sustain PEM and symptom relapses. (renzpolsterUnknownyearguardianangelsoff pages 17-20, hoel2025chartingthecirculating pages 21-25)
-- Immunosenescence and chronic inflammation: SASP cytokines, NFκB/JAK‑STAT/FoxO signaling, and muscle atrophy gene programs (MuRF1/Atrogin1) provide a framework for persistent fatigue and exercise intolerance. (luo2025understandingmyalgicencephalomyelitischronic pages 9-10)
+### 1.2 Autonomic nervous system (ANS) dysregulation and neurovascular consequences
+Autonomic abnormalities are prominent in recent physiologic profiling.
 
-Key Molecular Players (with ontology-style labels)
-- Genes/Proteins (HGNC): TRPM3 (TRPM3; Ca2+ channel); ADRB2 (β2‑adrenergic receptor); CHRM3 (M3 muscarinic receptor); THBS1 (thrombospondin‑1); PF4 (platelet factor 4); PROS1 (Protein S); C9 (Complement C9; MAC component); S100A8/S100A9 (calgranulins); GDF15 (stress-response cytokine) (examples reported across proteomic/multi-omic studies). (che2025heightenedinnateimmunity pages 9-11, hoel2025chartingthecirculating pages 21-25, renzpolsterUnknownyearguardianangelsoff pages 17-20)
-- Chemical entities (CHEBI): triglycerides (triacylglycerols), non‑esterified fatty acids, lactate; redox mediators and prostaglandins implicated post-exertion; steroidal neuroactive ligand Pregnenolone sulfate (TRPM3 agonist) used experimentally. (che2025heightenedinnateimmunity pages 9-11, renzpolsterUnknownyearguardianangelsoff pages 17-20, hoel2025chartingthecirculating pages 21-25)
-- Cell types (CL): natural killer cell (CL:0000623); CD8+ T cell (CL:0000625); CD4+ T cell (CL:0000624); endothelial cell (CL:0000115); platelet (CL:0000233); monocyte (CL:0000576); glial cells (microglia/astroglia implicated by neuroinflammatory frameworks). (maksoud2023biomarkersformyalgic pages 10-11, hoel2025chartingthecirculating pages 21-25, renzpolsterUnknownyearguardianangelsoff pages 17-20)
-- Anatomical locations (UBERON): blood/plasma (UBERON:0001969); microvasculature/capillary (UBERON:0001982); brain (UBERON:0000955) and brainstem (UBERON:0002298); skeletal muscle (UBERON:0001134); small intestine/gut (UBERON:0002108). (hoel2025chartingthecirculating pages 21-25, renzpolsterUnknownyearguardianangelsoff pages 17-20)
+* In post-infectious ME/CFS deep phenotyping, autonomic testing supported altered sympathetic/parasympathetic features, including prolonged blood pressure recovery after Valsalva (**4.1 ± 0.4 s vs 3.0 ± 0.2 s in controls; p = 0.014**). (walitt2024deepphenotypingof pages 1-2)
+* Orthostatic intolerance and cerebral blood flow (CBF) abnormalities are described as common, with one synthesis reporting that **90% (384/429) exceeded a 13% CBF reduction cutoff**, with **mean CBF reduction 26% vs 7%** in controls, and substantial rates of orthostatic symptoms (e.g., **72% [32/39] light-headedness on standing**). (nunes2024assessingthecoagulation pages 33-36)
+* In a 2024 prospective pilot cohort that compared ME/CFS, long COVID, and controls, **POTS** was identified during a 10-min NASA lean test in **13% (4/31)** of ME/CFS participants. (graves2024chronicfatiguesyndrome pages 5-7)
 
-Biological Processes (GO) disrupted
-- Innate immune response (GO:0045087); complement activation (GO:0006956); blood coagulation/platelet activation (GO:0007596/GO:0030168); regulation of blood vessel diameter (GO:0097746); extracellular matrix organization (GO:0030198); calcium ion transmembrane transport (GO:0070588); T‑cell activation/metabolic reprogramming (GO:0042110/GO:0006096 glycolysis; GO:0005759 mitochondrial matrix involvement); fatty‑acid β‑oxidation (GO:0006635); response to oxidative stress (GO:0006979). (che2025heightenedinnateimmunity pages 9-11, hoel2025chartingthecirculating pages 21-25, maksoud2023biomarkersformyalgic pages 10-11, renzpolsterUnknownyearguardianangelsoff pages 17-20)
+**Interpretation:** ANS dysregulation provides a mechanistic bridge from immune/inflammatory signaling to impaired perfusion regulation, symptom flares with orthostatic or exertional stress, and downstream energy limitation. (walitt2024deepphenotypingof pages 1-2, nunes2024assessingthecoagulation pages 33-36, graves2024chronicfatiguesyndrome pages 5-7)
 
-Cellular Components (GO-CC)
-- Plasma membrane (GO:0005886; GPCRs, TRPM3); extracellular space (GO:0005615; secreted proteome shifts); platelet alpha granule (GO:0031091; PF4/THBS1 release); complement membrane attack complex (GO:0005579; C9); mitochondrion (GO:0005739; membrane potential); vascular endothelium (GO:0005930/CL term). (hoel2025chartingthecirculating pages 21-25, maksoud2023biomarkersformyalgic pages 10-11)
+### 1.3 Endothelial dysfunction, coagulation pathway disturbance, and complement downregulation
+Multiple recent datasets implicate vascular/endothelial and coagulation biology.
 
-Disease Progression (sequence from trigger to clinical manifestation)
-- Trigger: Often post-infectious. Early phase of innate hyperreactivity with dysregulated cytokine responses and complement activation. (che2025heightenedinnateimmunity pages 9-11)
-- Establishment: Endothelial dysfunction and coagulation abnormalities with microcirculatory hypoperfusion, coupled with metabolic inflexibility and immune-cell bioenergetic impairment (T‑cell glycolysis↓, mitochondrial potential↓). (hoel2025chartingthecirculating pages 21-25, maksoud2023biomarkersformyalgic pages 10-11)
-- Maintenance/Sustaining factors: Chronic low-grade inflammation (SASP), possible autoantibody networks in subsets, TRPM3 channelopathy impacting immune/autonomic signaling, and gut dysbiosis with microbial translocation; a CNS stress‑response regulatory defect may perpetuate PEM cycles. (luo2025understandingmyalgicencephalomyelitischronic pages 9-10, kavyani2024…ofa pages 35-36, renzpolsterUnknownyearguardianangelsoff pages 17-20, che2025heightenedinnateimmunity pages 9-11)
-- PEM episodes: Exertion triggers coordinated increases in inflammatory/oxidative pathways, complement activity, ECM perturbations, lipid utilization shifts, and stress signals like GDF15, worsening hypoperfusion and mitochondrial stress—manifesting as delayed multi-symptom relapses. (che2025heightenedinnateimmunity pages 9-11)
+* **Endothelial biomarkers and inflammation:** ME/CFS and long COVID groups showed higher ET-1 and VCAM-1 and lower nitrite/nitrate (NOx) than controls; ME/CFS additionally showed higher PAI-1 and E-selectin than both long COVID and controls (p-values reported in the study abstract). (graves2024chronicfatiguesyndrome pages 5-7)
+* **Plasma proteomics (DIA LC-MS/MS):** In platelet-poor plasma from **15 ME/CFS vs 10 controls**, 45 proteins were differentially expressed (**24 up, 21 down; p < 0.05**). Large-magnitude examples include **lactotransferrin up to 8.38-fold (p = 0.00009)**, **thrombospondin-1 ~3.48–3.75-fold (p ≤ 0.0002)**, **platelet factor 4 3.11-fold (p = 0.00009)**, **protein S 0.48-fold (p = 0.0006)**, and **complement C9 0.17-fold (p = 0.0001)**. (nunes2024dataindependentlcmsmsanalysis pages 5-7)
 
-Phenotypic Manifestations (HP) and links to mechanisms
-- Post-exertional malaise (HP:0033630): Biologically tied to post-exercise innate activation, complement increase, oxidative stress, ECM/lipid shifts, and GDF15 rise (multi-omics). (che2025heightenedinnateimmunity pages 9-11)
-- Orthostatic intolerance (HP:0001278) and dysautonomia (HP:0002271): Consistent with endothelial dysfunction, cerebral hypoperfusion, GPCR/autonomic signaling alterations, and brainstem involvement. (renzpolsterUnknownyearguardianangelsoff pages 17-20, pavlovichUnknownyearcomparisonofclinical pages 41-44)
-- Cognitive impairment (“brain fog,” HP:0100543): Linked to neuroinflammation and reduced cerebral blood flow; stress‑response dysregulation in CNS/brainstem circuits. (renzpolsterUnknownyearguardianangelsoff pages 17-20)
-- Fatigue (HP:0012378) and myalgia (HP:0003326): Correlate with immune exhaustion, mitochondrial dysfunction, muscle catabolic signaling (MuRF1/Atrogin1), and hypoperfusion. (luo2025understandingmyalgicencephalomyelitischronic pages 9-10, hoel2025chartingthecirculating pages 21-25)
+**Interpretation:** These patterns support a model in which endothelial activation/dysfunction and platelet/coagulation signaling contribute to impaired oxygen/nutrient delivery under stress and may interact with inflammatory tone and autonomic dysregulation. Complement downregulation (e.g., C9) may reflect altered innate effector pathways or chronic immune modulation. (nunes2024dataindependentlcmsmsanalysis pages 5-7, graves2024chronicfatiguesyndrome pages 5-7)
 
-Evidence items with PMIDs/DOIs/URLs and dates
-- Maksoud R, et al. Biomarkers for ME/CFS: Immune dysfunction, NK deficits most consistent; BMC Medicine; DOI: 10.1186/s12916-023-02893-9; 2023-05-17. (maksoud2023biomarkersformyalgic pages 10-11)
-- Che X, et al. Heightened innate immunity may trigger chronic inflammation, fatigue and PEM; medRxiv; DOI: 10.1101/2025.07.23.25332049; 2025-07-24. (che2025heightenedinnateimmunity pages 9-11)
-- Hoel A, et al. Charting the circulating proteome in ME/CFS; medRxiv; DOI: 10.1101/2025.05.28.25328245; 2025-05-28. (hoel2025chartingthecirculating pages 21-25)
-- Luo Y, et al. Immunosenescence perspective on ME/CFS; Comprehensive Physiology; DOI: 10.1002/cph4.70056; 2025-09. (luo2025understandingmyalgicencephalomyelitischronic pages 9-10, luo2025understandingmyalgicencephalomyelitischronic pages 13-13)
-- Kavyani B. Multi-platform overview (immune, autoantibodies, metabolism); 2024 (preprint/compendium). (kavyani2024…ofa pages 35-36)
-- Renz‑Polster H. CNS stress-response dysregulation hypothesis; year n/a (post‑2022 synthesis). (renzpolsterUnknownyearguardianangelsoff pages 17-20)
-- Pavlovich CL, Yehuda S. Mechanistic synthesis (immune/vascular/metabolic); year n/a (refers to 2023–2024 sources). (pavlovichUnknownyearcomparisonofclinical pages 41-44)
+### 1.4 Neurological dysfunction and neuroaxonal injury signals
+Neurological impairment is core to patient experience (“brain fog,” cognitive dysfunction) and is increasingly probed using blood biomarkers.
 
-Ontology-style annotations for knowledge base
-- Genes/Proteins (HGNC): TRPM3; ADRB2; CHRM3; THBS1; PF4; PROS1; C9; S100A8; S100A9; GDF15. (che2025heightenedinnateimmunity pages 9-11, hoel2025chartingthecirculating pages 21-25, renzpolsterUnknownyearguardianangelsoff pages 17-20)
-- Biological Processes (GO): GO:0045087; GO:0006956; GO:0007596; GO:0030168; GO:0097746; GO:0030198; GO:0070588; GO:0042110; GO:0006096; GO:0006635; GO:0006979. (che2025heightenedinnateimmunity pages 9-11, hoel2025chartingthecirculating pages 21-25, maksoud2023biomarkersformyalgic pages 10-11)
-- Cellular Components (GO-CC): GO:0005886; GO:0005615; GO:0031091; GO:0005579; GO:0005739. (hoel2025chartingthecirculating pages 21-25, maksoud2023biomarkersformyalgic pages 10-11)
-- Cell Types (CL): CL:0000623; CL:0000625; CL:0000624; CL:0000115; CL:0000233; CL:0000576. (maksoud2023biomarkersformyalgic pages 10-11, hoel2025chartingthecirculating pages 21-25)
-- Anatomical Locations (UBERON): UBERON:0001969; UBERON:0001982; UBERON:0000955; UBERON:0002298; UBERON:0001134; UBERON:0002108. (renzpolsterUnknownyearguardianangelsoff pages 17-20, hoel2025chartingthecirculating pages 21-25)
-- Chemical Entities (CHEBI): triacylglycerol; non‑esterified fatty acid; lactate; prostaglandin; pregnenolone sulfate. (che2025heightenedinnateimmunity pages 9-11, hoel2025chartingthecirculating pages 21-25, renzpolsterUnknownyearguardianangelsoff pages 17-20)
+* **Plasma neurofilament light chain (NfL):** In **67 ME/CFS vs 43 controls**, NfL was higher in ME/CFS (**F = 4.30, p < 0.05**) and correlated with worse cognition (visuospatial perception **r = −0.42, p ≤ 0.001**; verbal memory **r = −0.35, p ≤ 0.005**; visual memory **r = −0.26, p < 0.05**). NfL explained up to **17.2%** of variance in cognitive tests and associated with parasympathetic dysfunction (**F = 9.48, p ≤ 0.003**). (azcue2024plasmaneurofilamentlight pages 1-2)
+* **Central catechol pathway dysregulation hypothesis (deep phenotyping):** Behavioral findings (altered effort preference) were linked to dysfunction of integrative brain regions and “central catechol pathway dysregulation,” consistent with a brain–autonomic–immune interface model. (walitt2024deepphenotypingof pages 1-2)
 
-Mechanism-to-evidence summary
-| Mechanism | Molecular / Cellular details | Key quantitative / quoted findings | Source (DOI / URL, date) |
-|---|---|---:|---|
-| Innate immune hyperreactivity / PEM | Exaggerated innate responses to microbial ligands (PBMC hyper-responsiveness), exercise-triggered increases in proinflammatory signals, complement activation, ECM disruption (tetranectin/CLEC3B down), lipid abnormalities and GDF15 rise after exertion | "Heightened innate immunity may trigger chronic inflammation, fatigue and post-exertional malaise in ME/CFS"; exercise-provoked proteomic/metabolomic shifts (GDF15 ↑ correlates with fatigue); complement activation after exercise (proteomic signal) (quote/paraphrase). | https://doi.org/10.1101/2025.07.23.25332049 (medRxiv, Jul 24 2025) (che2025heightenedinnateimmunity pages 9-11) |
-| NK / T-cell immunometabolism | Reduced NK cytotoxicity and dysfunctional NK phenotype; CD8+ T cells with reduced mitochondrial membrane potential and impaired glycolysis at rest/after activation; altered immunometabolic cytokine associations | Reproducible NK abnormalities and impaired T-cell bioenergetics reported across cohorts; impaired mitochondrial membrane potential in CD8+ cells and reduced glycolysis in CD4+/CD8+ (Mandarano et al. syntheses). | BMC Med review DOI: 10.1186/s12916-023-02893-9 (May 2023); review/meta syntheses (maksoud2023biomarkersformyalgic pages 10-11, kavyani2024…ofa pages 35-36, luo2025understandingmyalgicencephalomyelitischronic pages 13-13) |
-| Endothelial dysfunction & coagulation / microclots | Endothelial dysregulation, platelet hyperactivation, fibrinaloid (amyloid) microclots and impaired microcirculatory perfusion; dysregulated clotting proteins (eg TSP‑1/THBS1, PF4, Protein S/PROS1) | Clinical/proteomic biochemistry: higher triglycerides TAG 1.35±0.89 vs 0.87±0.31 mM and NEFA 0.40±0.28 vs 0.21±0.13 mM in ME/CFS vs controls (p≈0.025), supporting metabolic/vascular perturbation linked to endothelial pathology. | Proteome/secretion profiling (preprint) https://doi.org/10.1101/2025.05.28.25328245 (May 2025) (hoel2025chartingthecirculating pages 21-25); endothelial reviews (pavlovichUnknownyearcomparisonofclinical pages 41-44) |
-| Complement / coagulation proteomics | Circulating proteomics show dysregulated coagulation proteins and altered complement components (e.g., reduced C9 in some data), upregulation of inflammatory S100 proteins (S100A9/A8) | Proteomics identify coherent shifts: complement machinery downregulation (C9 noted) alongside upregulated clotting-related proteins and inflammatory protein S100A8/A9 after profiling. | Nunes et al. proteomic signals summarized in Me/CFS proteome reviews and multi-omics (che2025heightenedinnateimmunity pages 9-11, hoel2025chartingthecirculating pages 21-25) |
-| Autoantibodies to GPCRs (adrenergic / muscarinic) — conflicting evidence | Reports of autoantibodies to β‑adrenergic and muscarinic receptors in subsets; passive-transfer and apheresis/immunomodulation interventions explored, but large antigen‑profiling studies show mixed/null signals depending on platform | "Evidence for an autoimmune disease" discussed in reviews; autoantibody removal (immunoadsorption/plasmapheresis) produced preliminary clinical signals in subsets but findings are heterogeneous and assay-dependent. | Biomarker/systematic reviews and autoantibody analyses (BMC Med 2023; multi-platform reviews) (maksoud2023biomarkersformyalgic pages 10-11, kavyani2024…ofa pages 35-36, pavlovichUnknownyearcomparisonofclinical pages 41-44) |
-| TRPM3 ion‑channel dysfunction & low‑dose naltrexone (LDN) | TRPM3 (Ca2+-permeable) dysfunction reported in NK cells → reduced Ca2+ flux; in vitro/ex vivo restoration of TRPM3 function by naltrexone/LDN suggests a modifiable ion‑channel deficit | TRPM3 dysfunction implicated in impaired pathogen clearance and immune signaling; TRPM3 function has been reported to be restored by naltrexone in cellular studies (proposed as therapeutic biomarker). | Reviews and translational studies emphasizing TRPM3 and treatment signal (luo2025understandingmyalgicencephalomyelitischronic pages 13-13, renzpolsterUnknownyearguardianangelsoff pages 17-20) |
-| Neurovascular / neuroinflammation (brainstem & cerebral blood flow) | Brainstem volumetric changes, altered connectivity and reduced cerebral perfusion reported; neuroinflammatory signalling and impaired interoceptive/stress regulation implicated | Hypothesis: impaired CNS stress‑response and brainstem dysfunction sustain dysautonomia and impaired cerebral perfusion, contributing to cognitive dysfunction and PEM (conceptual and imaging evidence). | Conceptual and imaging syntheses (Renz‑Polster narrative; Hoel proteomics linking secreted brain proteins) (renzpolsterUnknownyearguardianangelsoff pages 17-20, hoel2025chartingthecirculating pages 21-25) |
-| Gut dysbiosis, barrier disruption & ECM signalling | Reduced butyrate-producing taxa, microbial translocation/endotoxemia, extracellular matrix alterations (reduced tetranectin/CLEC3B, COMP) linked to systemic innate activation | Gut dysbiosis associated with reduced SCFA producers; ECM protein changes and translocation of microbial products may sustain innate immune hyperreactivity and systemic inflammation after exertion. | Multi-omics and proteome reports linking gut → immune signals (che2025heightenedinnateimmunity pages 9-11, hoel2025chartingthecirculating pages 21-25) |
-| Immunosenescence framework | Chronic immune aging/exhaustion (senescent T/NK cells, SASP secretion) drives low‑grade sterile inflammation, mitochondrial impairment and muscle catabolism (MuRF1/Atrogin1 activation pathways) | Quote: "secrete high levels of pro‑inflammatory cytokines... resulting in chronic sterile inflammation (inflammaging)." Senescence model links persistent inflammation to metabolic/mitochondrial dysfunction and fatigue. | Immunosenescence perspective and integrative reviews (Comprehensive Physiology review DOI: 10.1002/cph4.70056; multi-platform summaries) (luo2025understandingmyalgicencephalomyelitischronic pages 9-10, kavyani2024…ofa pages 35-36) |
-| Clinical trials / real‑world implementations (immunoadsorption overview) | Immunoadsorption/plasmapheresis and other immunomodulatory interventions (B‑cell depletion, IVIG) trialed in subsets with elevated GPCR autoantibodies; ongoing exploratory randomized and cohort studies | Preliminary controlled exploratory trials of immunoadsorption and cohort reports show autoantibody titre reduction and some functional improvements in subsets, but rebound and heterogeneity reported; further RCTs recommended. | Clinical-trial overviews and trial discussions in ME/CFS literature and reviews (pavlovichUnknownyearcomparisonofclinical pages 41-44, kavyani2024…ofa pages 35-36, hoel2025chartingthecirculating pages 21-25) |
+**Interpretation:** NfL provides convergent evidence for measurable neuroaxonal injury/stress in a subset and supports integrating central nervous system involvement into mechanistic models alongside ANS and immune alterations. (azcue2024plasmaneurofilamentlight pages 1-2, walitt2024deepphenotypingof pages 1-2)
+
+### 1.5 Metabolic/mitochondrial dysfunction and the “energy limitation” phenotype
+Recent reviews and multi-omic studies consistently emphasize metabolic disturbance as a contributor to exertion intolerance.
+
+* A 2024 synthesis frames ME/CFS as involving metabolic disturbances alongside immune dysregulation, inflammation, and gut dysbiosis, supporting an integrated “systems” model rather than single-pathway causation. (arron2024myalgicencephalomyelitischronicfatigue pages 1-2)
+* Deep phenotyping reported alterations in PBMC gene expression and metabolic pathways (with sex-specific differences), consistent with immune–metabolic coupling. (walitt2024deepphenotypingof pages 1-2)
+
+**Interpretation:** While the mechanistic target is not yet unified, metabolic reprogramming appears to be a downstream integrator of immune and neurovascular stressors—particularly relevant to PEM. (walitt2024deepphenotypingof pages 1-2, arron2024myalgicencephalomyelitischronicfatigue pages 1-2)
+
+### 1.6 Microbiome and gut–immune interactions
+Several contemporary reviews highlight gut dysbiosis and reduced short-chain fatty acid (SCFA) production as plausible amplifiers of systemic inflammation and metabolic dysfunction, though cohort-specific causality remains unresolved in the evidence excerpts available here. (graves2024chronicfatiguesyndrome pages 4-5, graves2024chronicfatiguesyndrome pages 5-7)
+
+---
+
+## 2) Recent developments (prioritizing 2023–2024)
+
+### 2.1 Deep phenotyping defines candidate mechanistic axes (2024)
+A major 2024 advance is the use of rigorous case adjudication plus broad deep phenotyping to link clinical signatures (including effort preference/behavioral changes) to autonomic function, immune profiles, and multi-omic differences in post-infectious ME/CFS. Key quantitative signals include Valsalva recovery differences (p = 0.014) and an effort-choice odds ratio (OR 1.65, p = 0.04). (walitt2024deepphenotypingof pages 1-2)
+
+### 2.2 Endothelium–inflammation biomarker panels differentiate ME/CFS from long COVID (2024)
+The prospective pilot cohort approach combining endothelial and inflammatory markers with symptom severity measures provides a step toward stratification and differential diagnosis, including a measurable POTS proportion under standardized orthostatic testing (13% in ME/CFS). (graves2024chronicfatiguesyndrome pages 5-7)
+
+### 2.3 Plasma proteomics strengthens coagulation/endothelial/complement hypotheses (2024)
+The 2024 DIA LC-MS/MS study provides explicit protein-level effect sizes supporting platelet activation (PF4), endothelial/coagulation regulation (THBS1, PROS1), and complement attenuation (C9), generating tractable biomarkers for replication and mechanistic follow-up. (nunes2024dataindependentlcmsmsanalysis pages 5-7)
+
+### 2.4 Immune exhaustion and cytotoxic impairment are converging mechanistic themes (2024)
+The NK cytotoxicity meta-analysis quantifies a robust innate defect across decades of literature (Hedges’ g 0.96), while multi-omic T-cell work is converging on exhaustion-like programs, especially in relation to symptom provocation (exercise). (baraniuk2024metaanalysisofnatural pages 1-2, iu2024transcriptionalreprogrammingprimes pages 1-2)
+
+### 2.5 Neurological biomarker development: NfL as a candidate (2024)
+NfL elevations and correlations with cognition and parasympathetic dysfunction nominate a measurable neurological axis and a potential stratification biomarker for clinical studies. (azcue2024plasmaneurofilamentlight pages 1-2)
+
+---
+
+## 3) Current applications and real-world implementations
+
+### 3.1 Biomarker candidates under active investigation
+* **Neuroaxonal injury marker:** plasma **NfL** for neurological dysfunction and cognitive/autonomic correlation. (azcue2024plasmaneurofilamentlight pages 1-2)
+* **Endothelial and inflammatory panels:** ET-1, VCAM-1, NOx, cytokines/chemokines (e.g., TNF-α, IL-1β, IL-6) to support subtype differentiation and severity associations. (graves2024chronicfatiguesyndrome pages 5-7)
+* **Proteomic biomarker set:** THBS1, PF4, PROS1, C9, FCN3, LTF, S100A9 and others as candidate signatures of coagulation/endothelial/complement dysregulation. (nunes2024dataindependentlcmsmsanalysis pages 5-7)
+* **Functional immune assay:** NK cytotoxicity (and related degranulation pathways) remains a reproducible immune functional abnormality, useful as a mechanistic readout in trials. (baraniuk2024metaanalysisofnatural pages 1-2)
+
+### 3.2 Mechanistically motivated interventions being tested
+A randomized, placebo-controlled trial of intranasal mechanical stimulation (targeting a proposed brainstem neuro-immune interface) reported an approximately **30% reduction in overall symptom scores after 8 weeks**, with immunologic correlates suggestive of reduced inflammation and increased disease tolerance programs. (rodriguez2023achievingsymptomrelief pages 1-2)
+
+**Caution:** This intervention represents an experimental approach; the evidence excerpt does not establish long-term efficacy or generalizability. (rodriguez2023achievingsymptomrelief pages 1-2)
+
+---
+
+## 4) Expert synthesis and analysis (authoritative perspectives in the retrieved evidence)
+
+### 4.1 “Multifactorial network” model
+A 2024 immunology review argues for moving beyond fragmented single-mechanism explanations toward a cohesive model in which genetic predisposition plus environmental triggers (notably infections) lead to interconnected immune dysregulation, chronic inflammation, gut dysbiosis, and metabolic disturbance. (arron2024myalgicencephalomyelitischronicfatigue pages 1-2)
+
+### 4.2 Disease burden and heterogeneity as a pathophysiology constraint
+The same review compiles prevalence and socioeconomic burden estimates (e.g., global prevalence 0.1–0.8%; women affected 2–3×; up to 75% unable to work), reinforcing that heterogeneous phenotypes likely reflect multiple biological subtypes and/or phases—an important premise for interpreting inconsistent biomarker literature and for designing stratified studies. (arron2024myalgicencephalomyelitischronicfatigue pages 1-2)
+
+### 4.3 Autoimmunity and post-transcriptional regulation: plausible but not definitive
+Recent syntheses highlight potential roles for autoantibodies and miRNA dysregulation, but the evidence base remains heterogeneous and requires careful replication and phenotype definition; miRNAs repeatedly implicated across studies include miR-29c, miR-99b, miR-128, miR-374b, miR-766, and others linked to immune and mitochondrial/oxidative pathways. (tsamou2024identifyingmicrornaspossibly pages 1-2)
+
+---
+
+## 5) Key statistics and quantitative data points from recent studies
+
+* **Deep phenotyping recruitment yield:** 484 inquiries → 27 in-person evaluation → **17** adjudicated PI-ME/CFS cases. (walitt2024deepphenotypingof pages 1-2)
+* **Autonomic physiology:** Valsalva BP recovery **4.1 ± 0.4 s vs 3.0 ± 0.2 s**, **p = 0.014**. (walitt2024deepphenotypingof pages 1-2)
+* **Orthostatic cerebral blood flow synthesis:** **90% (384/429)** exceeded a 13% CBF reduction cutoff; mean reduction **26% vs 7%** in controls (as reported in synthesis). (nunes2024assessingthecoagulation pages 33-36)
+* **POTS rate under standardized test:** ME/CFS **13% (4/31)**. (graves2024chronicfatiguesyndrome pages 5-7)
+* **Proteomics:** **45 proteins** differential (24 up/21 down, p < 0.05); examples include THBS1 ~3.5–3.8× up; PF4 3.11× up; LTF 8.38× up; PROS1 0.48×; C9 0.17×. (nunes2024dataindependentlcmsmsanalysis pages 5-7)
+* **NfL biomarker:** higher in ME/CFS (F = 4.30, p < 0.05); cognitive correlations up to |r| = 0.42; variance explained up to **17.2%**; autonomic parasympathetic association F = 9.48, p ≤ 0.003. (azcue2024plasmaneurofilamentlight pages 1-2)
+* **NK cytotoxicity meta-analysis:** Hedges’ g **0.96 (0.75–1.18)**; ~50% of control cytotoxicity level. (baraniuk2024metaanalysisofnatural pages 1-2)
+* **INMEST trial:** **~30% symptom reduction after 8 weeks** (N = 31). (rodriguez2023achievingsymptomrelief pages 1-2)
+
+---
+
+## Evidence map (recent, 2023–2024)
+The following table provides a compact evidence map of recent mechanistic work and quantitative results.
+
+| Mechanistic domain | Key finding | Study (first author, year, journal) | Cohort/sample size | Quantitative results (stats) | Molecular/cellular entities (genes/proteins/metabolites/cell types) | URL/DOI | PMID |
+|---|---|---|---|---|---|---|---|
+| Multisystem deep phenotyping: immune, autonomic, central catechol/neurobehavioral | Post-infectious ME/CFS showed chronic antigenic stimulation with increased naïve and decreased switched-memory B cells, autonomic abnormalities, and altered effort preference consistent with dysfunction of integrative brain regions and central catechol pathway dysregulation | Walitt, 2024, *Nature Communications* | 17 adjudicated PI-ME/CFS; 21 healthy volunteers; recruited from 484 inquiries and 27 in-person evaluations | Valsalva blood-pressure recovery time 4.1 ± 0.4 s vs 3.0 ± 0.2 s in controls, *p* = 0.014; altered effort choice OR 1.65 (95% CI 1.03–2.65), *p* = 0.04 | Naïve B cells, switched memory B cells, catechol pathways, PBMC gene-expression/metabolic pathways | https://doi.org/10.1038/s41467-024-45107-3 |  |
+| Endothelial dysfunction + inflammatory signaling | ME/CFS showed a biomarker pattern consistent with endothelial dysfunction and systemic inflammation, distinct from long COVID but overlapping in ET-1/VCAM-1 elevation and NO metabolite reduction | Domingo, 2024, *Journal of Translational Medicine* | 31 ME/CFS; 23 long COVID; 31 sedentary healthy controls | POTS on NASA lean test: 4/31 ME/CFS (13%), 1/23 long COVID (4%), 1/31 controls (3%); ME/CFS and long COVID had higher ET-1 (*p* < 0.05) and VCAM-1 (*p* < 0.001), lower NOx (*p* < 0.01); ME/CFS had higher PAI-1 and E-selectin than both comparison groups (*p* < 0.01); PCA PC1 82.7%, PC2 6.1%; combined biomarker classification ME/CFS vs long COVID 59% | ET-1/EDN1, VCAM1, ICAM1, SELE/E-selectin, SERPINE1/PAI-1, TNF, IL1B, IL4, IL6, IL10, CXCL10/IP-10, leptin | https://doi.org/10.1186/s12967-024-05148-0 |  |
+| Coagulation/endothelial/complement proteomics | Plasma proteomics implicated dysregulated coagulation, endothelial dysfunction, and complement downregulation in ME/CFS | Nunes, 2024, *Cardiovascular Diabetology* | 15 ME/CFS; 10 controls | 45 proteins significant at *p* < 0.05: 24 up, 21 down; thrombospondin-1 3.48–3.75-fold up (*p* ≤ 0.0002); PF4 3.11-fold up (*p* = 0.00009); lactotransferrin up to 8.38-fold up (*p* = 0.00009); protein S 0.48-fold (*p* = 0.0006); C9 0.17-fold (*p* = 0.0001); ficolin-3 ~0.45–0.65-fold (*p* = 0.0006–0.0348) | THBS1, PF4, PROS1, C9, FCN3, LTF, S100A9, IGHG1; platelet-poor plasma proteins | https://doi.org/10.1186/s12933-024-02315-x |  |
+| Neurological dysfunction / neuroaxonal injury biomarker | Elevated plasma neurofilament light chain suggested neuroaxonal injury associated with cognitive impairment and autonomic dysfunction in ME/CFS | Azcue, 2024, *Biomedicines* | 67 ME/CFS; 43 healthy controls | Higher plasma NfL in ME/CFS: F = 4.30, *p* < 0.05; correlations with visuospatial perception *r* = -0.42, *p* ≤ 0.001; verbal memory *r* = -0.35, *p* ≤ 0.005; visual memory *r* = -0.26, *p* < 0.05; parasympathetic dysfunction F = 9.48, *p* ≤ 0.003; NfL explained up to 17.2% of cognitive-test variance | NfL/NEFL, cognitive domains, parasympathetic/autonomic function | https://doi.org/10.3390/biomedicines12071539 |  |
+| Innate immune dysfunction | NK-cell cytotoxicity is one of the most reproducible immune abnormalities in ME/CFS | Baraniuk, 2024, *Frontiers in Immunology* | Meta-analysis of 28 papers; 55 effector:target data points | Overall Hedges’ *g* = 0.96 (95% CI 0.75–1.18); NK cytotoxicity reduced to about half of healthy-control levels; literature search yielded 522 records | NK cells, cytotoxicity assays, K562 target cells, lytic granule pathways | https://doi.org/10.3389/fimmu.2024.1440643 |  |
+| Neuro-immune interface / disease tolerance | Targeting the neuro-immune interface via intranasal mechanical stimulation was associated with symptom improvement and immunologic changes consistent with reduced inflammation and increased disease tolerance | Rodriguez, 2023, *Oxford Open Immunology* | 31 ME patients (17 enrolled in 2018; 14 in 2019) | ~30% reduction in overall symptom scores after 8 weeks; randomized, placebo-controlled treatment: 20 min twice weekly for 1 month | Brainstem, vagus nerve, trigeminal-related nasal nerve endings, T-cell subsets, gut-homing immune cells, inflammatory programs | https://doi.org/10.1093/oxfimm/iqad003 |  |
+| Integrative pathophysiology review | ME/CFS is framed as a multifactorial disease emerging from genetic vulnerabilities plus environmental triggers, especially infections, producing immune dysregulation, chronic inflammation, gut dysbiosis, autonomic abnormalities, and metabolic disturbance | Arron, 2024, *Frontiers in Immunology* | Review; epidemiologic synthesis | Global prevalence estimated 0.1–0.8%; women affected 2–3× more than men; up to 75% unable to work; estimated annual cost US $18–24B and UK £3.3B | Immune dysregulation, gut microbiome, metabolic pathways, autonomic nervous system, inflammatory networks | https://doi.org/10.3389/fimmu.2024.1386607 |  |
+| Post-transcriptional regulation / miRNA biology | Dysregulated miRNAs are linked to immune response, mitochondrial dysfunction, oxidative stress, and central sensitization in ME/CFS | Tsamou, 2024, *International Journal of Molecular Sciences* | Review | No pooled effect size reported in excerpt; review highlights repeatedly implicated candidates across studies | miR-29c, miR-99b, miR-128, miR-374b, miR-766, miR-23a, miR-103, miR-152, miR-320 | https://doi.org/10.3390/ijms25179551 |  |
 
 
-*Table: Table summarizing core molecular and cellular mechanisms in ME/CFS (2023–2025), key findings/quotes, quantitative signals (where available) and primary sources (context IDs). Useful as a compact evidence map linking mechanism → biomarkers → citations for a disease knowledge base.*
+*Table: This table summarizes key 2023-2024 mechanistic studies and reviews on ME/CFS pathophysiology, emphasizing quantitative findings, implicated molecular/cellular entities, and ontology-relevant domains. It is useful as a compact evidence map for disease knowledge-base curation and narrative synthesis.*
 
-Plan status
-- Evidence gathered, synthesized, and organized into ontology-aligned annotations and an evidence table. Remaining uncertainties chiefly involve heterogeneity in autoantibody findings and the need for randomized, mechanism-enriched clinical trials. (maksoud2023biomarkersformyalgic pages 10-11, che2025heightenedinnateimmunity pages 9-11, hoel2025chartingthecirculating pages 21-25, kavyani2024…ofa pages 35-36)
+---
+
+## Ontology-oriented annotations (knowledge-base ready)
+*These mappings reflect the mechanisms supported by the cited evidence above; they are intended as starting points for formal curation.*
+
+### A) Genes/proteins (HGNC symbols; examples with evidence)
+* **THBS1** (thrombospondin-1): upregulated in ME/CFS plasma proteomics; implicated in platelet activation/coagulation biology. (nunes2024dataindependentlcmsmsanalysis pages 5-7)
+* **PF4** (platelet factor 4): upregulated in plasma proteomics; platelet/coagulation biology. (nunes2024dataindependentlcmsmsanalysis pages 5-7)
+* **PROS1** (protein S): downregulated; anticoagulant pathway regulation. (nunes2024dataindependentlcmsmsanalysis pages 5-7)
+* **C9** (complement component 9): downregulated; membrane attack complex component. (nunes2024dataindependentlcmsmsanalysis pages 5-7)
+* **FCN3** (ficolin-3): downregulated; lectin pathway innate immunity. (nunes2024dataindependentlcmsmsanalysis pages 5-7)
+* **LTF** (lactotransferrin): strongly upregulated; innate immune signaling/iron-binding protein. (nunes2024dataindependentlcmsmsanalysis pages 5-7)
+* **S100A9**: upregulated; inflammatory/myeloid-associated alarmin. (nunes2024dataindependentlcmsmsanalysis pages 5-7)
+* **NEFL / NfL (protein biomarker):** elevated plasma marker consistent with neuroaxonal injury. (azcue2024plasmaneurofilamentlight pages 1-2)
+
+### B) Biological processes (GO-like terms; not exhaustive)
+* Immune effector process / cytotoxicity (e.g., NK cytotoxicity). (baraniuk2024metaanalysisofnatural pages 1-2)
+* Regulation of T cell activation / T cell exhaustion-like programs. (iu2024transcriptionalreprogrammingprimes pages 1-2)
+* Platelet activation and coagulation-related processes. (nunes2024dataindependentlcmsmsanalysis pages 5-7)
+* Complement activation (notably terminal complement complex components altered). (nunes2024dataindependentlcmsmsanalysis pages 5-7)
+* Regulation of blood pressure and autonomic reflexes (baroreflex/cardiovagal and Valsalva recovery). (walitt2024deepphenotypingof pages 1-2)
+* Response to exertion / post-exertional symptom exacerbation as a systems stress response (conceptual, supported by provocation paradigms and symptom-linked biomarker changes). (iu2024transcriptionalreprogrammingprimes pages 1-2, walitt2024deepphenotypingof pages 1-2)
+
+### C) Cellular components (cellular locations where key processes occur)
+* **Blood plasma / extracellular space:** proteomic and endothelial biomarker evidence. (nunes2024dataindependentlcmsmsanalysis pages 5-7, graves2024chronicfatiguesyndrome pages 5-7)
+* **Peripheral blood mononuclear cells (PBMCs):** multi-omic immune signatures and metabolic pathway alterations. (walitt2024deepphenotypingof pages 1-2, rodriguez2023achievingsymptomrelief pages 1-2)
+* **Axonal cytoskeleton (neurofilament):** implicated by elevated NfL. (azcue2024plasmaneurofilamentlight pages 1-2)
+
+### D) Cell types (Cell Ontology-like)
+* **Natural killer cell** (CL:0000623) – reduced cytotoxicity. (baraniuk2024metaanalysisofnatural pages 1-2)
+* **CD8-positive, alpha-beta T cell** (CL:0000625) – exhaustion-like reprogramming. (iu2024transcriptionalreprogrammingprimes pages 1-2)
+* **Naïve B cell** and **class-switched memory B cell** – altered proportions suggesting chronic antigenic stimulation. (walitt2024deepphenotypingof pages 1-2)
+* **Endothelial cell** – implicated by ET-1/VCAM-1/E-selectin/PAI-1 patterns and by proteomic signatures interpreted as endotheliopathy. (graves2024chronicfatiguesyndrome pages 5-7, nunes2024dataindependentlcmsmsanalysis pages 5-7)
+* **Platelet** – PF4/THBS1 and platelet dysregulation signaling. (nunes2024dataindependentlcmsmsanalysis pages 5-7)
+
+### E) Anatomical locations (UBERON-like)
+* **Peripheral blood** (UBERON:0000178) – dominant source of current biomarker evidence. (azcue2024plasmaneurofilamentlight pages 1-2, nunes2024dataindependentlcmsmsanalysis pages 5-7, graves2024chronicfatiguesyndrome pages 5-7)
+* **Brain/central nervous system** (UBERON:0000955) – implicated by central catechol pathway dysregulation hypothesis and neuroaxonal injury markers. (walitt2024deepphenotypingof pages 1-2, azcue2024plasmaneurofilamentlight pages 1-2)
+* **Autonomic nervous system** (UBERON:0002410) – physiological abnormalities and orthostatic intolerance. (walitt2024deepphenotypingof pages 1-2, nunes2024assessingthecoagulation pages 33-36)
+
+### F) Chemical entities (CHEBI-like; representative)
+* **Nitrite/nitrate (NOx)** as nitric oxide metabolites: reduced in ME/CFS and long COVID vs controls in the prospective cohort. (graves2024chronicfatiguesyndrome pages 5-7)
+
+### G) Phenotypes (Human Phenotype Ontology-like)
+* **Post-exertional malaise / post-exertional symptom exacerbation** (concept aligns with HP:0025406 “Post-exertional malaise”). (arron2024myalgicencephalomyelitischronicfatigue pages 1-2, rodriguez2023achievingsymptomrelief pages 1-2)
+* **Orthostatic intolerance** (HP:0001278-like) and **postural orthostatic tachycardia** (POTS; HP:0012431). (graves2024chronicfatiguesyndrome pages 5-7, nunes2024assessingthecoagulation pages 33-36)
+* **Cognitive impairment** (HP:0100543) with correlations to NfL. (azcue2024plasmaneurofilamentlight pages 1-2)
+
+---
+
+## Disease progression model (mechanistic sequence; integrative)
+1. **Triggering event (often infection) in genetically/biologically predisposed host** → initiates immune activation and, in some, incomplete immune resolution. (arron2024myalgicencephalomyelitischronicfatigue pages 1-2, walitt2024deepphenotypingof pages 1-2)
+2. **Persistent immune remodeling** (e.g., NK cytotoxic impairment; exhaustion-like T-cell programs; B-cell memory shifts) → chronic antigenic stimulation phenotype and immune–metabolic coupling. (baraniuk2024metaanalysisofnatural pages 1-2, iu2024transcriptionalreprogrammingprimes pages 1-2, walitt2024deepphenotypingof pages 1-2)
+3. **Coupled vascular/endothelial and autonomic dysfunction** → impaired perfusion regulation, orthostatic intolerance, and susceptibility to symptom exacerbation with orthostatic or exertional stress. (graves2024chronicfatiguesyndrome pages 5-7, nunes2024dataindependentlcmsmsanalysis pages 5-7, nunes2024assessingthecoagulation pages 33-36)
+4. **Metabolic limitation state** (downstream integrator) → reduced tolerance to exertional stress and PEM episodes. (arron2024myalgicencephalomyelitischronicfatigue pages 1-2, walitt2024deepphenotypingof pages 1-2)
+5. **Neurological impact** (central catechol pathway dysregulation hypothesis; measurable neuroaxonal injury signals in subsets) → cognitive/autonomic symptom coupling and potentially sustained disability. (walitt2024deepphenotypingof pages 1-2, azcue2024plasmaneurofilamentlight pages 1-2)
+
+---
+
+## Figures supporting the report
+* Walitt et al. 2024 *Nature Communications* cohort selection and deep-phenotyping schematic (Figure 1a) provides the recruitment and adjudication counts (17 PI-ME/CFS; 21 controls). (walitt2024deepphenotypingof media 4ea86a03)
+* Walitt et al. 2024 summary schematic (Figure 10) integrates infection-triggered mechanisms with immune, autonomic, and central catechol pathways as a proposed explanatory framework. (walitt2024deepphenotypingof media c5d66364)
+
+---
+
+## Notes on evidence completeness and PMIDs
+PMIDs were not available in the retrieved text excerpts for the key 2023–2024 papers used here; therefore, this report provides DOIs/URLs and publication month/year from the sources as retrieved. (walitt2024deepphenotypingof pages 1-2, nunes2024dataindependentlcmsmsanalysis pages 5-7, azcue2024plasmaneurofilamentlight pages 1-2, baraniuk2024metaanalysisofnatural pages 1-2, graves2024chronicfatiguesyndrome pages 5-7, arron2024myalgicencephalomyelitischronicfatigue pages 1-2, rodriguez2023achievingsymptomrelief pages 1-2, tsamou2024identifyingmicrornaspossibly pages 1-2)
 
 References
 
-1. (che2025heightenedinnateimmunity pages 9-11): Xiaoyu Che, Amit Ranjan, Cheng Guo, Keming Zhang, Rochelle Goldsmith, Susan Levine, Kegan J. Moneghetti, Yali Zhai, Liner Ge, Nischay Mishra, Mady Hornig, Lucinda Bateman, Nancy G. Klimas, Jose G. Montoya, Daniel L. Peterson, Sabra L. Klein, Oliver Fiehn, Anthony L. Komaroff, and W. Ian Lipkin. Heightened innate immunity may trigger chronic inflammation, fatigue and post-exertional malaise in me/cfs. medRxiv, Jul 2025. URL: https://doi.org/10.1101/2025.07.23.25332049, doi:10.1101/2025.07.23.25332049. This article has 3 citations.
+1. (arron2024myalgicencephalomyelitischronicfatigue pages 1-2): H. E. Arron, Benjamin D. Marsh, D. Kell, M. A. Khan, Beate R. Jaeger, and E. Pretorius. Myalgic encephalomyelitis/chronic fatigue syndrome: the biology of a neglected disease. Frontiers in Immunology, Jun 2024. URL: https://doi.org/10.3389/fimmu.2024.1386607, doi:10.3389/fimmu.2024.1386607. This article has 83 citations and is from a peer-reviewed journal.
 
-2. (hoel2025chartingthecirculating pages 21-25): August Hoel, Fredrik Hoel, Sissel Elisabeth Furesund Dyrstad, Henrique Chapola, Ingrid Gurvin Rekeland, Kristin Risa, Kine Alme, Kari Sørland, Karl Albert Brokstad, Hans-Peter Marti, Olav Mella, Øystein Fluge, and Karl Johan Tronstad. Charting the circulating proteome in me/cfs: cross system profiling and mechanistic insights. MedRxiv, May 2025. URL: https://doi.org/10.1101/2025.05.28.25328245, doi:10.1101/2025.05.28.25328245. This article has 0 citations.
+2. (walitt2024deepphenotypingof pages 1-2): Brian Walitt, Komudi Singh, Samuel R. LaMunion, Mark Hallett, Steve Jacobson, Kong Chen, Yoshimi Enose-Akahata, Richard Apps, Jennifer J. Barb, Patrick Bedard, Robert J. Brychta, Ashura Williams Buckley, Peter D. Burbelo, Brice Calco, Brianna Cathay, Li Chen, Snigdha Chigurupati, Jinguo Chen, Foo Cheung, Lisa M. K. Chin, Benjamin W. Coleman, Amber B. Courville, Madeleine S. Deming, Bart Drinkard, Li Rebekah Feng, Luigi Ferrucci, Scott A. Gabel, Angelique Gavin, David S. Goldstein, Shahin Hassanzadeh, Sean C. Horan, Silvina G. Horovitz, Kory R. Johnson, Anita Jones Govan, Kristine M. Knutson, Joy D. Kreskow, Mark Levin, Jonathan J. Lyons, Nicholas Madian, Nasir Malik, Andrew L. Mammen, John A. McCulloch, Patrick M. McGurrin, Joshua D. Milner, Ruin Moaddel, Geoffrey A. Mueller, Amrita Mukherjee, Sandra Muñoz-Braceras, Gina Norato, Katherine Pak, Iago Pinal-Fernandez, Traian Popa, Lauren B. Reoma, Michael N. Sack, Farinaz Safavi, Leorey N. Saligan, Brian A. Sellers, Stephen Sinclair, Bryan Smith, Joseph Snow, Stacey Solin, Barbara J. Stussman, Giorgio Trinchieri, Sara A. Turner, C. Stephenie Vetter, Felipe Vial, Carlotta Vizioli, Ashley Williams, Shanna B. Yang, and Avindra Nath. Deep phenotyping of post-infectious myalgic encephalomyelitis/chronic fatigue syndrome. Nature Communications, Feb 2024. URL: https://doi.org/10.1038/s41467-024-45107-3, doi:10.1038/s41467-024-45107-3. This article has 137 citations and is from a highest quality peer-reviewed journal.
 
-3. (luo2025understandingmyalgicencephalomyelitischronic pages 9-10): Yingzhe Luo, Huimin Xu, Shaoquan Xiong, and Jianlong Ke. Understanding myalgic encephalomyelitis/chronic fatigue syndrome physical fatigue through the perspective of immunosenescence. Comprehensive Physiology, Sep 2025. URL: https://doi.org/10.1002/cph4.70056, doi:10.1002/cph4.70056. This article has 1 citations and is from a peer-reviewed journal.
+3. (baraniuk2024metaanalysisofnatural pages 1-2): James N. Baraniuk, Natalie Eaton-Fitch, and Sonya Marshall-Gradisnik. Meta-analysis of natural killer cell cytotoxicity in myalgic encephalomyelitis/chronic fatigue syndrome. Frontiers in Immunology, Oct 2024. URL: https://doi.org/10.3389/fimmu.2024.1440643, doi:10.3389/fimmu.2024.1440643. This article has 9 citations and is from a peer-reviewed journal.
 
-4. (maksoud2023biomarkersformyalgic pages 10-11): Rebekah Maksoud, Chandi Magawa, Natalie Eaton-Fitch, Kiran Thapaliya, and Sonya Marshall-Gradisnik. Biomarkers for myalgic encephalomyelitis/chronic fatigue syndrome (me/cfs): a systematic review. BMC Medicine, May 2023. URL: https://doi.org/10.1186/s12916-023-02893-9, doi:10.1186/s12916-023-02893-9. This article has 48 citations and is from a domain leading peer-reviewed journal.
+4. (iu2024transcriptionalreprogrammingprimes pages 1-2): David S. Iu, Jessica Maya, Luyen T. Vu, Elizabeth A. Fogarty, Adrian J. McNairn, Faraz Ahmed, Carl J. Franconi, Paul R. Munn, Jennifer K. Grenier, Maureen R. Hanson, and Andrew Grimson. Transcriptional reprogramming primes cd8+ t cells toward exhaustion in myalgic encephalomyelitis/chronic fatigue syndrome. Proceedings of the National Academy of Sciences of the United States of America, Dec 2024. URL: https://doi.org/10.1073/pnas.2415119121, doi:10.1073/pnas.2415119121. This article has 21 citations and is from a highest quality peer-reviewed journal.
 
-5. (luo2025understandingmyalgicencephalomyelitischronic pages 13-13): Yingzhe Luo, Huimin Xu, Shaoquan Xiong, and Jianlong Ke. Understanding myalgic encephalomyelitis/chronic fatigue syndrome physical fatigue through the perspective of immunosenescence. Comprehensive Physiology, Sep 2025. URL: https://doi.org/10.1002/cph4.70056, doi:10.1002/cph4.70056. This article has 1 citations and is from a peer-reviewed journal.
+5. (nunes2024assessingthecoagulation pages 33-36): JM Nunes. Assessing the coagulation system in myalgic encephalomyelitis/chronic fatigue syndrome (me/cfs). Unknown journal, 2024.
 
-6. (pavlovichUnknownyearcomparisonofclinical pages 41-44): CL Pavlovich and S Yehuda. Comparison of clinical and pathophysiological characteristics of myalgic encephalomyelitis/chronic fatigue syndrome …. Unknown journal, Unknown year.
+6. (graves2024chronicfatiguesyndrome pages 5-7): B. Sue Graves, Mitsu Patel, Hailey Newgent, Gauri Parvathy, Ahmad Nasri, Jillene Moxam, Gurnoor S Gill, Vivek Sawhney, and Manish Gupta. Chronic fatigue syndrome: diagnosis, treatment, and future direction. Cureus, Oct 2024. URL: https://doi.org/10.7759/cureus.70616, doi:10.7759/cureus.70616. This article has 34 citations.
 
-7. (kavyani2024…ofa pages 35-36): B Kavyani. … of a multi-platform approach to identify new biomarkers of disease severity and progression in myalgic encephalomyelitis/chronic fatigue syndrome (me/cfs). Unknown journal, 2024.
+7. (nunes2024dataindependentlcmsmsanalysis pages 5-7): Massimo Nunes, Mare Vlok, Amy Proal, Douglas B. Kell, and Etheresia Pretorius. Data-independent lc-ms/ms analysis of me/cfs plasma reveals a dysregulated coagulation system, endothelial dysfunction, downregulation of complement machinery. Cardiovascular Diabetology, Jul 2024. URL: https://doi.org/10.1186/s12933-024-02315-x, doi:10.1186/s12933-024-02315-x. This article has 25 citations and is from a peer-reviewed journal.
 
-8. (renzpolsterUnknownyearguardianangelsoff pages 17-20): H Renz-Polster. Guardian angels off duty? me/cfs is sustained by an impaired stress response in the central nervous system. Unknown journal, Unknown year.
+8. (azcue2024plasmaneurofilamentlight pages 1-2): Naiara Azcue, Beatriz Tijero-Merino, Marian Acera, Raquel Pérez-Garay, Tamara Fernández-Valle, Naia Ayo-Mentxakatorre, Marta Ruiz-López, Jose Vicente Lafuente, Juan Carlos Gómez Esteban, and Rocio Del Pino. Plasma neurofilament light chain: a potential biomarker for neurological dysfunction in myalgic encephalomyelitis/chronic fatigue syndrome. Biomedicines, 12:1539, Jul 2024. URL: https://doi.org/10.3390/biomedicines12071539, doi:10.3390/biomedicines12071539. This article has 9 citations.
 
-## Citations
+9. (graves2024chronicfatiguesyndrome pages 4-5): B. Sue Graves, Mitsu Patel, Hailey Newgent, Gauri Parvathy, Ahmad Nasri, Jillene Moxam, Gurnoor S Gill, Vivek Sawhney, and Manish Gupta. Chronic fatigue syndrome: diagnosis, treatment, and future direction. Cureus, Oct 2024. URL: https://doi.org/10.7759/cureus.70616, doi:10.7759/cureus.70616. This article has 34 citations.
 
-1. che2025heightenedinnateimmunity pages 9-11
-2. luo2025understandingmyalgicencephalomyelitischronic pages 9-10
-3. maksoud2023biomarkersformyalgic pages 10-11
-4. hoel2025chartingthecirculating pages 21-25
-5. luo2025understandingmyalgicencephalomyelitischronic pages 13-13
-6. https://doi.org/10.1101/2025.07.23.25332049
-7. https://doi.org/10.1101/2025.05.28.25328245
-8. https://doi.org/10.1101/2025.07.23.25332049,
-9. https://doi.org/10.1101/2025.05.28.25328245,
-10. https://doi.org/10.1002/cph4.70056,
-11. https://doi.org/10.1186/s12916-023-02893-9,
+10. (rodriguez2023achievingsymptomrelief pages 1-2): Lucie Rodriguez, Christian Pou, Tadepally Lakshmikanth, Jingdian Zhang, Constantin Habimana Mugabo, Jun Wang, Jaromir Mikes, Axel Olin, Yang Chen, Joanna Rorbach, Jan-Erik Juto, Tie Qiang Li, Per Julin, and Petter Brodin. Achieving symptom relief in patients with myalgic encephalomyelitis by targeting the neuro-immune interface and optimizing disease tolerance. Oxford Open Immunology, Apr 2023. URL: https://doi.org/10.1093/oxfimm/iqad003, doi:10.1093/oxfimm/iqad003. This article has 12 citations.
+
+11. (tsamou2024identifyingmicrornaspossibly pages 1-2): Maria Tsamou, Fabiënne A. C. Kremers, Keano A. Samaritakis, and Erwin L. Roggen. Identifying micrornas possibly implicated in myalgic encephalomyelitis/chronic fatigue syndrome and fibromyalgia: a review. International Journal of Molecular Sciences, 25:9551, Sep 2024. URL: https://doi.org/10.3390/ijms25179551, doi:10.3390/ijms25179551. This article has 11 citations.
+
+12. (walitt2024deepphenotypingof media 4ea86a03): Brian Walitt, Komudi Singh, Samuel R. LaMunion, Mark Hallett, Steve Jacobson, Kong Chen, Yoshimi Enose-Akahata, Richard Apps, Jennifer J. Barb, Patrick Bedard, Robert J. Brychta, Ashura Williams Buckley, Peter D. Burbelo, Brice Calco, Brianna Cathay, Li Chen, Snigdha Chigurupati, Jinguo Chen, Foo Cheung, Lisa M. K. Chin, Benjamin W. Coleman, Amber B. Courville, Madeleine S. Deming, Bart Drinkard, Li Rebekah Feng, Luigi Ferrucci, Scott A. Gabel, Angelique Gavin, David S. Goldstein, Shahin Hassanzadeh, Sean C. Horan, Silvina G. Horovitz, Kory R. Johnson, Anita Jones Govan, Kristine M. Knutson, Joy D. Kreskow, Mark Levin, Jonathan J. Lyons, Nicholas Madian, Nasir Malik, Andrew L. Mammen, John A. McCulloch, Patrick M. McGurrin, Joshua D. Milner, Ruin Moaddel, Geoffrey A. Mueller, Amrita Mukherjee, Sandra Muñoz-Braceras, Gina Norato, Katherine Pak, Iago Pinal-Fernandez, Traian Popa, Lauren B. Reoma, Michael N. Sack, Farinaz Safavi, Leorey N. Saligan, Brian A. Sellers, Stephen Sinclair, Bryan Smith, Joseph Snow, Stacey Solin, Barbara J. Stussman, Giorgio Trinchieri, Sara A. Turner, C. Stephenie Vetter, Felipe Vial, Carlotta Vizioli, Ashley Williams, Shanna B. Yang, and Avindra Nath. Deep phenotyping of post-infectious myalgic encephalomyelitis/chronic fatigue syndrome. Nature Communications, Feb 2024. URL: https://doi.org/10.1038/s41467-024-45107-3, doi:10.1038/s41467-024-45107-3. This article has 137 citations and is from a highest quality peer-reviewed journal.
+
+13. (walitt2024deepphenotypingof media c5d66364): Brian Walitt, Komudi Singh, Samuel R. LaMunion, Mark Hallett, Steve Jacobson, Kong Chen, Yoshimi Enose-Akahata, Richard Apps, Jennifer J. Barb, Patrick Bedard, Robert J. Brychta, Ashura Williams Buckley, Peter D. Burbelo, Brice Calco, Brianna Cathay, Li Chen, Snigdha Chigurupati, Jinguo Chen, Foo Cheung, Lisa M. K. Chin, Benjamin W. Coleman, Amber B. Courville, Madeleine S. Deming, Bart Drinkard, Li Rebekah Feng, Luigi Ferrucci, Scott A. Gabel, Angelique Gavin, David S. Goldstein, Shahin Hassanzadeh, Sean C. Horan, Silvina G. Horovitz, Kory R. Johnson, Anita Jones Govan, Kristine M. Knutson, Joy D. Kreskow, Mark Levin, Jonathan J. Lyons, Nicholas Madian, Nasir Malik, Andrew L. Mammen, John A. McCulloch, Patrick M. McGurrin, Joshua D. Milner, Ruin Moaddel, Geoffrey A. Mueller, Amrita Mukherjee, Sandra Muñoz-Braceras, Gina Norato, Katherine Pak, Iago Pinal-Fernandez, Traian Popa, Lauren B. Reoma, Michael N. Sack, Farinaz Safavi, Leorey N. Saligan, Brian A. Sellers, Stephen Sinclair, Bryan Smith, Joseph Snow, Stacey Solin, Barbara J. Stussman, Giorgio Trinchieri, Sara A. Turner, C. Stephenie Vetter, Felipe Vial, Carlotta Vizioli, Ashley Williams, Shanna B. Yang, and Avindra Nath. Deep phenotyping of post-infectious myalgic encephalomyelitis/chronic fatigue syndrome. Nature Communications, Feb 2024. URL: https://doi.org/10.1038/s41467-024-45107-3, doi:10.1038/s41467-024-45107-3. This article has 137 citations and is from a highest quality peer-reviewed journal.

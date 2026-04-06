@@ -1,0 +1,20 @@
+# Citations for Research Query
+
+**Query:** Codex secondary synthesis for Hypertensive Heart Disease
+**Provider:** cyberian-codex
+**Generated:** 2026-02-17T08:39:53Z
+
+1. DOI:10.1007/s10741-022-10224-y
+2. DOI:10.1038/s41569-023-00946-3
+3. DOI:10.1126/sciadv.adk8501
+4. DOI:10.31083/j.rcm2503093
+5. DOI:10.3390/antiox14010038
+6. DOI:10.3390/ijms25105372
+7. DOI:10.3390/ijms25126661
+8. DOI:10.3390/ijms252413294
+9. DOI:10.3390/ijms26094022
+10. DOI:10.3390/jcm13020505
+11. DOI:10.3390/jcm13092708
+12. DOI:10.3390/medicina60050760
+13. DOI:10.3390/ph17030267
+14. DOI:10.3390/ph18030313
