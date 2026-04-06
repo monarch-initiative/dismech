@@ -175,13 +175,18 @@ This lane is important because it prevents the KB from flattening all DEEs into
 "severe seizures plus developmental delay." The developmental lesion often
 explains why the epilepsy phenotype is broad, early, and accompanied by
 persistent cognitive or behavioral impairment even when seizures later improve.
+Some genes in this lane, such as ARID1B, are better treated as developmental
+mechanism exemplars than as primary epilepsy anchors: seizures can occur, but
+they are a feature of a broader neurodevelopmental syndrome rather than the
+defining disease phenotype.
 
 Primary literature anchors:
 
 - [PMID:29184203](../../references_cache/PMID_29184203.md): ARID1B
   haploinsufficiency reduces cortical GABAergic interneurons and shifts
   excitatory-inhibitory balance during development, illustrating a
-  development-first mechanism that can plausibly feed into epilepsy risk.
+  development-first mechanism that can plausibly feed into epilepsy risk in a
+  broader neurodevelopmental syndrome.
 - [PMID:20493745](../../references_cache/PMID_20493745.md): CDKL5 mutations
   causing early-onset epileptic encephalopathy with staged epilepsy phenotypes.
 - [PMID:30455226](../../references_cache/PMID_30455226.md): PPP3CA mutation in

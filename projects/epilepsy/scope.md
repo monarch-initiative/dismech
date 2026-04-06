@@ -50,8 +50,8 @@ place.
 | STXBP1 encephalopathy | MONDO:0012812 from [`rare_without_any_icd.csv`](../RARE_DISEASE_NO_ICD_CODE/rare_without_any_icd.csv) | Synaptic dysfunction | Best first synaptic DEE after Dravet-style channelopathy anchors. |
 | CDKL5 disorder | MONDO:0100039 from [`rare_without_any_icd.csv`](../RARE_DISEASE_NO_ICD_CODE/rare_without_any_icd.csv) | Transcriptional / developmental | Strong early-onset DEE and a useful developmental-mechanism exemplar. |
 | Female-restricted epilepsy with intellectual disability (PCDH19-related spectrum) | MONDO:0010246 from [`rare_without_any_icd.csv`](../RARE_DISEASE_NO_ICD_CODE/rare_without_any_icd.csv) | Developmental / mosaic cellular interference | Important X-linked epilepsy mechanism family not captured by simple channelopathy logic. |
-| SYNGAP1 encephalopathy | MONDO lookup still needed | Synaptic dysfunction | Strong candidate because of generalized DEE, reflex seizure features, and overlap with eyelid-myoclonia phenotypes. |
-| CHD2-related photosensitive generalized epilepsy / DEE | MONDO lookup still needed | Developmental / chromatin | Good bridge between DEE and photosensitive generalized epilepsy. |
+| SYNGAP1 encephalopathy | MONDO:0012960 from repo G2P triage (`intellectual disability, autosomal dominant 5`; exact synonym `SYNGAP1-related developmental and epileptic encephalopathy`) | Synaptic dysfunction | Strong candidate because of generalized DEE, reflex seizure features, and overlap with eyelid-myoclonia phenotypes. |
+| CHD2-related photosensitive generalized epilepsy / DEE | MONDO:0014150 from repo G2P triage (`developmental and epileptic encephalopathy 94`; CHD2-linked) | Developmental / chromatin | Good bridge between DEE and photosensitive generalized epilepsy. |
 
 ## Wave 3: Metabolic and Multisystem Epilepsy Families
 
