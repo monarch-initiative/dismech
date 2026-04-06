@@ -621,6 +621,20 @@ def _extract_node_metadata(item: dict[str, Any]) -> dict[str, Any]:
                     or (agent.get("term", {}) or {}).get("label", "")
                 )
             ]
+        dietary_modifications = treatment_term.get("dietary_modifications", []) or []
+        if dietary_modifications:
+            meta["dietary_modifications"] = [
+                f"{action} {label}".strip()
+                for dietary_item in dietary_modifications
+                if isinstance(dietary_item, dict)
+                if (
+                    label := (
+                        (dietary_item.get("food", {}) or {}).get("preferred_term")
+                        or (((dietary_item.get("food", {}) or {}).get("term", {}) or {}).get("label", ""))
+                    )
+                )
+                if (action := str(dietary_item.get("action") or ""))
+            ]
 
     # Experimental model metadata
     if item.get("experimental_model_type"):

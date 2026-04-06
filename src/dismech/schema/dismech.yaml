@@ -35,6 +35,7 @@ prefixes:
   ExO: http://purl.obolibrary.org/obo/ExO_
   ENVO: http://purl.obolibrary.org/obo/ENVO_
   XCO: http://purl.obolibrary.org/obo/XCO_
+  FOODON: http://purl.obolibrary.org/obo/FOODON_
   skos: http://www.w3.org/2004/02/skos/core#
   xsd: http://www.w3.org/2001/XMLSchema#
   PMID: http://www.ncbi.nlm.nih.gov/pubmed/
@@ -296,6 +297,21 @@ enums:
       ABSENT:
         title: Absent
         description: Not occurring or not present
+  DietaryModificationActionEnum:
+    description: Action applied to a food or beverage as part of a dietary treatment
+    permissible_values:
+      ADD:
+        title: Add
+        description: Increase intake or deliberately include the specified food or beverage
+      RESTRICT:
+        title: Restrict
+        description: Limit intake of the specified food or beverage without full elimination
+      AVOID:
+        title: Avoid
+        description: Eliminate or strictly avoid the specified food or beverage
+      SUBSTITUTE:
+        title: Substitute
+        description: Use the specified food or beverage as a replacement within a dietary regimen
   PenetranceEnum:
     description: Penetrance classification for inheritance
     permissible_values:
@@ -579,6 +595,18 @@ enums:
         - ENVO:01000254  ## environmental system (ecosystems, biomes)
         - ENVO:00010483  ## environmental material (water, soil, air, etc.)
         - ENVO:01001886  ## landform (mountains, valleys, etc.)
+      is_direct: false
+      relationship_types:
+        - rdfs:subClassOf
+  FoodTerm:
+    description: A term representing a food, beverage, nutrient, mineral, or supplement source (from FOODON or CHEBI)
+    comments:
+      - FOODON is used for specific foods, beverages, and food products
+      - CHEBI is used when the relevant dietary entity is an exact nutrient, mineral, vitamin, or supplement
+    reachable_from:
+      source_nodes:
+        - FOODON:00001002  ## food product
+        - CHEBI:33284  ## nutrient
       is_direct: false
       relationship_types:
         - rdfs:subClassOf
@@ -992,6 +1020,16 @@ slots:
     comments:
       - Bind to CHEBI for specific chemicals/drugs
       - Can also use NCIT for drug classes when CHEBI term unavailable
+  dietary_modifications:
+    description: >-
+      Structured dietary additions, restrictions, avoidances, or substitutions associated
+      with a treatment descriptor.
+    range: DietaryModification
+    multivalued: true
+    inlined_as_list: true
+    comments:
+      - Use only for intentional prescribed dietary manipulations within a treatment entry
+      - Do not mirror environmental risk factors here unless the treatment explicitly prescribes avoidance, restriction, or addition
   qualifiers:
     description: >-
       List of predicate-value pairs for formal post-composition. Allows OWL-like
@@ -1007,6 +1045,13 @@ slots:
   value:
     description: The value/filler in a qualifier
     range: Descriptor
+    inlined: true
+  action:
+    description: The dietary action being applied
+    range: DietaryModificationActionEnum
+  food:
+    description: The FOODON-bound food or beverage targeted by a dietary modification
+    range: FoodDescriptor
     inlined: true
   id:
     description: Ontology term identifier (CURIE)
@@ -1360,6 +1405,10 @@ slots:
   environment_context:
     description: The ENVO term for the environmental context/setting
     range: EnvironmentDescriptor
+    inlined: true
+  food_source:
+    description: The FOODON or CHEBI term for a specific food, beverage, nutrient, mineral, or supplement source or vehicle relevant to an exposure
+    range: FoodDescriptor
     inlined: true
   mechanisms:
     examples:
@@ -2298,6 +2347,18 @@ classes:
       - predicate
       - value
 
+  DietaryModification:
+    description: >-
+      A structured dietary addition, restriction, avoidance, or substitution used to
+      post-compose a treatment descriptor with FOODON foods or beverages.
+    comments:
+      - Use for bona fide dietary or nutritional treatments, not to restate harmful exposures outside treatment context
+      - Represent substitutions as paired AVOID and ADD entries when a single replacement target is insufficient
+    slots:
+      - action
+      - food
+      - description
+
   CellTypeDescriptor:
     is_a: Descriptor
     description: A descriptor for cell types, bindable to Cell Ontology (CL)
@@ -2499,6 +2560,7 @@ classes:
     description: A descriptor for treatments/medical actions, bindable to Medical Action Ontology (MAXO)
     slots:
       - therapeutic_agent
+      - dietary_modifications
     slot_usage:
       term:
         description: Optional MAXO treatment term reference
@@ -2513,6 +2575,13 @@ classes:
         comments:
           - Prefer CHEBI terms for specific drugs (e.g., CHEBI:15365 for aspirin)
           - Use NCIT for drug classes when specific CHEBI term unavailable
+      dietary_modifications:
+        description: >-
+          The food or beverage additions, restrictions, avoidances, or substitutions that
+          define a dietary intervention.
+        comments:
+          - Best used when treatment_term is a dietary or nutritional intervention (for example MAXO:0000088 dietary intervention)
+          - Use FOODON-backed foods or beverages rather than abstract nutrients where possible
 
   RegimenDescriptor:
     is_a: Descriptor
@@ -2550,6 +2619,20 @@ classes:
         bindings:
           - binds_value_of: id
             range: EnvironmentTerm
+            obligation_level: REQUIRED
+
+  FoodDescriptor:
+    is_a: Descriptor
+    description: A descriptor for foods, beverages, nutrients, minerals, and supplements, bindable to FOODON or CHEBI
+    comments:
+      - Use FOODON for specific foods, beverages, food products, and dietary sources
+      - Use CHEBI when the dietary target is an exact nutrient, mineral, vitamin, or supplement
+    slot_usage:
+      term:
+        description: Optional FOODON or CHEBI dietary entity term reference
+        bindings:
+          - binds_value_of: id
+            range: FoodTerm
             obligation_level: REQUIRED
 
   OrganismDescriptor:
@@ -3130,6 +3213,7 @@ classes:
       - review_notes
       - exposure_term
       - environment_context
+      - food_source
   Disease:
     slots:
       - name
@@ -3249,6 +3333,7 @@ classes:
     slots:
       - name
       - infectious_agent_term
+      - food_source
       - evidence
       - description
       - has_subtypes
