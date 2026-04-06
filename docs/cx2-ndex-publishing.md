@@ -50,6 +50,8 @@ just upload-cx2-test-all
 
 `just upload-cx2-test` and `just upload-cx2-test-all` do not read previously exported JSON files. They re-run the exporter from the disorder YAML files and upload directly from that fresh CX2 output.
 
+The test-server upload targets also pass `--ndex-replace-existing` by default. That means they look for existing networks on the same NDEx account with the same network name, update the newest match in place, and delete older same-name duplicates.
+
 This means:
 
 - run `just export-cx2-all -o /tmp/cx2` only when you want local JSON files for spot-checking
@@ -171,5 +173,7 @@ just upload-cx2-test kb/disorders/Stargardt_Disease.yaml
 ## Notes on Re-runs
 
 Uploads create new networks. Re-running the same bulk upload will create duplicates unless you manually delete or replace the previous networks on NDEx.
+
+The `just upload-cx2-test` and `just upload-cx2-test-all` wrappers now default to replacement mode, so this duplicate-creation behavior mainly applies when you invoke `dismech-cx2 --ndex-upload` directly without `--ndex-replace-existing`.
 
 The uploader makes a best-effort attempt to set NDEx `index_level=META` after upload. If that post-upload call fails on the test server, the network upload itself is still treated as successful.

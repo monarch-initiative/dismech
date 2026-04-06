@@ -237,3 +237,68 @@ def test_upload_cx2_to_ndex_tolerates_index_level_failure(monkeypatch) -> None:
     )
 
     assert url == "https://test.ndexbio.org/viewer/networks/1234-uuid"
+
+
+def test_upload_cx2_to_ndex_replaces_existing_networks_by_name(monkeypatch) -> None:
+    calls: dict[str, list] = {
+        "updated": [],
+        "deleted": [],
+        "visibility": [],
+    }
+
+    class FakeNdex2:
+        def __init__(self, *, host=None, username=None, password=None, **kwargs):
+            self.host = host
+            self.username = username
+            self.password = password
+
+        def get_user_network_summaries(self, username, offset=0, limit=1000):
+            assert username == "monarch-agent"
+            assert offset == 0
+            return [
+                {
+                    "externalId": "older-uuid",
+                    "name": "Stargardt Disease",
+                    "modificationTime": 10,
+                },
+                {
+                    "externalId": "newer-uuid",
+                    "name": "Stargardt Disease",
+                    "modificationTime": 20,
+                },
+                {
+                    "externalId": "other-uuid",
+                    "name": "Other Network",
+                    "modificationTime": 30,
+                },
+            ]
+
+        def update_cx2_network(self, cx_stream, network_id):
+            calls["updated"].append((network_id, cx_stream.read().decode("utf-8")))
+
+        def make_network_public(self, network_id):
+            calls["visibility"].append(("PUBLIC", network_id))
+
+        def delete_network(self, network_id):
+            calls["deleted"].append(network_id)
+
+        def set_network_system_properties(self, network_id, properties):
+            assert network_id == "newer-uuid"
+            assert properties == {"index_level": "META"}
+
+    monkeypatch.setattr(cx2_export, "Ndex2", FakeNdex2)
+
+    url = cx2_export.upload_cx2_to_ndex(
+        [{"CXVersion": "2.0"}],
+        network_name="Stargardt Disease",
+        host="test.ndexbio.org",
+        username="monarch-agent",
+        password="secret",
+        visibility="PUBLIC",
+        replace_existing=True,
+    )
+
+    assert calls["updated"] == [("newer-uuid", '[{"CXVersion": "2.0"}]')]
+    assert calls["deleted"] == ["older-uuid"]
+    assert calls["visibility"] == [("PUBLIC", "newer-uuid")]
+    assert url == "https://test.ndexbio.org/viewer/networks/newer-uuid"

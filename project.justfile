@@ -629,7 +629,7 @@ export-cx2-all *args="":
 #   just upload-cx2-test kb/disorders/Stargardt_Disease.yaml --dot-layout
 [group('Export')]
 upload-cx2-test file *args="":
-    NDEX_HOST="${NDEX_TEST_HOST:-{{ndex_test_host}}}" uv run dismech-cx2 {{file}} --ndex-upload {{args}}
+    NDEX_HOST="${NDEX_TEST_HOST:-{{ndex_test_host}}}" uv run dismech-cx2 {{file}} --ndex-upload --ndex-replace-existing {{args}}
 
 # Upload all disorder pathographs to the NDEx test server as public networks.
 # Requires NDEX_USERNAME and NDEX_PASSWORD to be set.
@@ -651,7 +651,7 @@ upload-cx2-test-all *args="":
             continue
         fi
         echo "Uploading: $f -> $NDEX_HOST"
-        output=$(uv run dismech-cx2 "$f" --ndex-upload --skip-empty {{args}} 2>&1) && status=0 || status=$?
+        output=$(uv run dismech-cx2 "$f" --ndex-upload --ndex-replace-existing --skip-empty {{args}} 2>&1) && status=0 || status=$?
         echo "$output"
         if [[ $status -ne 0 ]]; then
             exit $status

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import argparse
 import html
+import io
 import json
 import logging
 import os
@@ -1408,6 +1409,71 @@ def _apply_layout(cx2_network: CX2Network, *, apply_dot_layout: bool) -> None:
     _apply_layered_layout(cx2_network)
 
 
+def _network_summary_id(summary: dict[str, Any]) -> str | None:
+    for key in ("externalId", "uuid", "id"):
+        value = summary.get(key)
+        if value:
+            return str(value)
+    return None
+
+
+def _network_summary_sort_key(summary: dict[str, Any]) -> tuple[int, int]:
+    modification_time = int(summary.get("modificationTime") or 0)
+    creation_time = int(summary.get("creationTime") or 0)
+    return (modification_time, creation_time)
+
+
+def _iter_user_network_summaries(
+    client: Ndex2,
+    *,
+    username: str,
+    page_size: int = 1000,
+) -> list[dict[str, Any]]:
+    summaries: list[dict[str, Any]] = []
+    offset = 0
+    while True:
+        page = client.get_user_network_summaries(
+            username, offset=offset, limit=page_size
+        )
+        if not page:
+            break
+        page_items = [item for item in page if isinstance(item, dict)]
+        summaries.extend(page_items)
+        if len(page_items) < page_size:
+            break
+        offset += page_size
+    return summaries
+
+
+def _find_matching_network_summaries(
+    client: Ndex2,
+    *,
+    username: str,
+    network_name: str,
+) -> list[dict[str, Any]]:
+    matches = [
+        summary
+        for summary in _iter_user_network_summaries(client, username=username)
+        if str(summary.get("name") or "") == network_name
+        and _network_summary_id(summary)
+    ]
+    matches.sort(key=_network_summary_sort_key, reverse=True)
+    return matches
+
+
+def _set_network_visibility(
+    client: Ndex2,
+    *,
+    network_id: str,
+    visibility: str,
+) -> None:
+    normalized = str(visibility).upper()
+    if normalized == "PUBLIC":
+        client.make_network_public(network_id)
+    elif normalized == "PRIVATE":
+        client.make_network_private(network_id)
+
+
 def disorder_to_cx2(
     disorder: dict[str, Any],
     *,
@@ -1545,20 +1611,49 @@ def dump_cx2(
 def upload_cx2_to_ndex(
     cx2: list[dict[str, Any]],
     *,
+    network_name: str | None = None,
     host: str | None = None,
     username: str | None = None,
     password: str | None = None,
     visibility: str = DEFAULT_NDEX_VISIBILITY,
+    replace_existing: bool = False,
 ) -> str:
     """Upload a CX2 network to NDEx and return the network URL."""
     resolved_host = _normalize_ndex_host(host or os.getenv("NDEX_HOST"))
+    resolved_username = username or os.getenv("NDEX_USERNAME")
     client = Ndex2(
         host=resolved_host,
-        username=username or os.getenv("NDEX_USERNAME"),
+        username=resolved_username,
         password=password or os.getenv("NDEX_PASSWORD"),
     )
-    url = client.save_new_cx2_network(cx2, visibility=visibility)
-    network_id = url.rsplit("/", 1)[-1]
+
+    network_id: str | None = None
+    if replace_existing and resolved_username and network_name:
+        matches = _find_matching_network_summaries(
+            client,
+            username=resolved_username,
+            network_name=network_name,
+        )
+        if matches:
+            keeper = matches[0]
+            network_id = _network_summary_id(keeper)
+            if network_id:
+                cx2_stream = io.BytesIO(json.dumps(cx2).encode("utf-8"))
+                client.update_cx2_network(cx2_stream, network_id)
+                _set_network_visibility(
+                    client,
+                    network_id=network_id,
+                    visibility=visibility,
+                )
+                for duplicate in matches[1:]:
+                    duplicate_id = _network_summary_id(duplicate)
+                    if duplicate_id:
+                        client.delete_network(duplicate_id)
+
+    if network_id is None:
+        url = client.save_new_cx2_network(cx2, visibility=visibility)
+        network_id = url.rsplit("/", 1)[-1]
+
     try:
         client.set_network_system_properties(network_id, {"index_level": "META"})
     except Exception as error:
@@ -1567,7 +1662,22 @@ def upload_cx2_to_ndex(
             network_id,
             error,
         )
-    return _viewer_url_for_network(resolved_host, network_id, url)
+    return _viewer_url_for_network(resolved_host, network_id, None)
+
+
+def _cx2_network_name(cx2: list[dict[str, Any]]) -> str | None:
+    for aspect in cx2:
+        if not isinstance(aspect, dict):
+            continue
+        network_attributes = aspect.get("networkAttributes")
+        if (
+            isinstance(network_attributes, list)
+            and network_attributes
+            and isinstance(network_attributes[0], dict)
+            and network_attributes[0].get("name")
+        ):
+            return str(network_attributes[0]["name"])
+    return None
 
 
 def main() -> None:
@@ -1595,6 +1705,11 @@ def main() -> None:
         "--ndex-upload",
         action="store_true",
         help="Upload the converted CX2 network to NDEx.",
+    )
+    parser.add_argument(
+        "--ndex-replace-existing",
+        action="store_true",
+        help="Replace existing NDEx networks with the same name on this account and delete older duplicates.",
     )
     parser.add_argument(
         "--visibility",
@@ -1626,10 +1741,12 @@ def main() -> None:
     if args.ndex_upload:
         url = upload_cx2_to_ndex(
             cx2,
+            network_name=_cx2_network_name(cx2) or disorder_path.stem.replace("_", " "),
             host=args.ndex_host,
             username=args.ndex_username,
             password=args.ndex_password,
             visibility=args.visibility,
+            replace_existing=args.ndex_replace_existing,
         )
         print(url)
         return
