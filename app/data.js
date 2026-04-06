@@ -723,7 +723,7 @@ window.searchData = [
       "Cardiomyopathy"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-04-03T20:00:00Z",
+    "updated_date": "2026-04-06T00:00:00Z",
     "subtypes": [
       "ATTRm (hereditary)",
       "ATTRwt (wild-type/senile)"
