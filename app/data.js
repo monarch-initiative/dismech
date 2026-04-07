@@ -723,7 +723,7 @@ window.searchData = [
       "Cardiomyopathy"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-04-03T20:00:00Z",
+    "updated_date": "2026-04-06T00:00:00Z",
     "subtypes": [
       "ATTRm (hereditary)",
       "ATTRwt (wild-type/senile)"
@@ -7678,7 +7678,7 @@ window.searchData = [
       "Metabolic Bone Disease"
     ],
     "creation_date": "2026-03-05T15:32:43Z",
-    "updated_date": "2026-03-07T20:30:00Z",
+    "updated_date": "2026-04-06T00:00:00Z",
     "subtypes": [
       "High-Turnover Bone Disease (Osteitis Fibrosa)",
       "Low-Turnover Bone Disease (Adynamic Bone Disease)",
@@ -13146,7 +13146,7 @@ window.searchData = [
       "Autoimmune Disease"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-04-03T20:00:00Z",
+    "updated_date": "2026-04-06T00:00:00Z",
     "subtypes": [
       "Ileal Crohn's Disease",
       "Colonic Crohn's Disease",
@@ -13245,7 +13245,8 @@ window.searchData = [
       "HP:0001824",
       "HP:0004395",
       "HP:0001944",
-      "HP:0009789"
+      "HP:0009789",
+      "HP:4000055"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -42838,6 +42839,92 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Phelan-McDermid Syndrome",
+    "disease_id": "MONDO:0011652",
+    "category": "Mendelian",
+    "parents": [
+      "22q13.3 microdeletion syndrome",
+      "SHANK3-related neurodevelopmental disorder"
+    ],
+    "creation_date": null,
+    "updated_date": null,
+    "subtypes": [
+      "22q13.3 deletion",
+      "SHANK3 point mutation",
+      "Ring chromosome 22"
+    ],
+    "description": "Phelan-McDermid syndrome (PMS), also known as 22q13.3 deletion syndrome, is a neurodevelopmental disorder caused by haploinsufficiency of the SHANK3 gene on chromosome 22q13.3. It can result from terminal deletions, ring chromosome 22, unbalanced translocations, or intragenic SHANK3 mutations. PMS is characterized by neonatal hypotonia, global developmental delay, absent or severely delayed speech, intellectual disability, and autism spectrum features. SHANK3 encodes a postsynaptic scaffolding protein critical for glutamatergic synapse formation and function. Additional features may include renal anomalies, lymphedema, seizures, and neuropsychiatric decompensation in adolescence and adulthood. Over 600 cases have been documented, though the condition is likely underdiagnosed.\n",
+    "pathophysiology": [
+      "SHANK3 haploinsufficiency and synaptic dysfunction",
+      "Excitatory-inhibitory imbalance",
+      "Neuropsychiatric decompensation in adolescence and adulthood"
+    ],
+    "cell_types": [
+      "Glutamatergic neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000679"
+    ],
+    "biological_processes": [
+      "Synapse assembly",
+      "Glutamate receptor signaling pathway",
+      "Synaptic transmission, glutamatergic"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Absent speech",
+      "Intellectual disability",
+      "Neonatal hypotonia",
+      "Autism spectrum disorder",
+      "Seizures",
+      "Renal anomalies",
+      "Lymphedema",
+      "Regression and loss of skills"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001344",
+      "HP:0001249",
+      "HP:0001319",
+      "HP:0000729",
+      "HP:0001250",
+      "HP:0000077",
+      "HP:0001004",
+      "HP:0002376"
+    ],
+    "frequencies": [
+      "HP_0040281",
+      "HP_0040282",
+      "HP_0040283"
+    ],
+    "genes": [
+      "SHANK3"
+    ],
+    "treatments": [
+      "Speech and language therapy",
+      "Behavioral therapy",
+      "Antiepileptic medication",
+      "Insulin-like growth factor 1 (IGF-1) therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Phelan-McDermid_Syndrome.yaml",
+    "page_url": "../pages/disorders/Phelan-McDermid_Syndrome.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
     "name": "Phenylketonuria",
     "disease_id": "MONDO:0009861",
     "category": "Genetic",
@@ -44005,6 +44092,115 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 0,
     "num_treatments": 4,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Prader-Willi Syndrome",
+    "disease_id": "MONDO:0008300",
+    "category": "Mendelian",
+    "parents": [
+      "Genomic Imprinting Disorders",
+      "Neurodevelopmental Disorders",
+      "Obesity Syndromes"
+    ],
+    "creation_date": "2026-04-06T23:00:00Z",
+    "updated_date": "2026-04-06T23:00:00Z",
+    "subtypes": [],
+    "description": "Prader-Willi syndrome results from loss of function of paternally expressed imprinted genes in the 15q11.2-q13 region. The critical genes include SNRPN, SNORD116 cluster, MAGEL2, MKRN3, and NDN. These genes are normally expressed only from the paternal allele due to genomic imprinting; the maternal copies are silenced by methylation. Loss occurs through paternal deletion (~65-75%), maternal uniparental disomy (~20-30%), or imprinting center defects (~1-3%).\n",
+    "pathophysiology": [
+      "Loss of Paternally Expressed Genes at 15q11.2-q13",
+      "SNORD116 as Minimal Critical Region",
+      "Hypothalamic Dysfunction",
+      "Circadian and Epigenetic Dysregulation"
+    ],
+    "cell_types": [
+      "Neuron",
+      "Neuroendocrine Cell",
+      "Oxytocin-Secreting Magnocellular Cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000165",
+      "CL:4023108"
+    ],
+    "biological_processes": [
+      "Genomic Imprinting",
+      "Neuropeptide Signaling Pathway",
+      "Regulation of Appetite",
+      "Regulation of Growth Hormone Secretion",
+      "Circadian Rhythm"
+    ],
+    "phenotypes": [
+      "Neonatal Hypotonia",
+      "Hyperphagia",
+      "Obesity",
+      "Intellectual Disability",
+      "Short Stature",
+      "Hypogonadotropic Hypogonadism",
+      "Behavioral Abnormalities",
+      "Cryptorchidism",
+      "Scoliosis",
+      "Obstructive Sleep Apnea"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Metabolic",
+      "Growth",
+      "Endocrine",
+      "Behavioral",
+      "Genitourinary",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Endocrine",
+      "Genitourinary",
+      "Growth",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001319",
+      "HP:0002591",
+      "HP:0001513",
+      "HP:0001249",
+      "HP:0004322",
+      "HP:0000044",
+      "HP:0000708",
+      "HP:0000028",
+      "HP:0002650",
+      "HP:0002870"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "SNRPN",
+      "SNORD116",
+      "MAGEL2",
+      "NDN",
+      "MKRN3"
+    ],
+    "treatments": [
+      "Growth Hormone Therapy",
+      "Dietary Management",
+      "Hormone Replacement Therapy",
+      "Diazoxide Choline Extended-Release",
+      "Intranasal Oxytocin",
+      "GLP-1 Receptor Agonists",
+      "Gene Reactivation Strategies",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Prader-Willi_Syndrome.yaml",
+    "page_url": "../pages/disorders/Prader-Willi_Syndrome.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 4,
+    "num_genes": 5,
+    "num_treatments": 8,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
   },
@@ -52471,7 +52667,7 @@ window.searchData = [
       "Endocrine Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-02-27T21:53:05Z",
+    "updated_date": "2026-04-06T00:00:00Z",
     "subtypes": [],
     "description": "Peripheral tissues (muscle, liver, adipose) become resistant to insulin action, requiring higher insulin levels to maintain glucose homeostasis. This leads to compensatory hyperinsulinemia and eventually beta cell exhaustion.\n",
     "pathophysiology": [
@@ -52851,7 +53047,7 @@ window.searchData = [
       "Autoimmune Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-03-31T04:23:13Z",
+    "updated_date": "2026-04-06T00:00:00Z",
     "subtypes": [],
     "description": "Continuous inflammation limited to the colonic mucosa, starting at the rectum and extending proximally. Crypt abscesses, goblet cell depletion, and mucosal ulceration are characteristic.\n",
     "pathophysiology": [
