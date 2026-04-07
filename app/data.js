@@ -723,7 +723,7 @@ window.searchData = [
       "Cardiomyopathy"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-04-03T20:00:00Z",
+    "updated_date": "2026-04-06T00:00:00Z",
     "subtypes": [
       "ATTRm (hereditary)",
       "ATTRwt (wild-type/senile)"
@@ -7678,7 +7678,7 @@ window.searchData = [
       "Metabolic Bone Disease"
     ],
     "creation_date": "2026-03-05T15:32:43Z",
-    "updated_date": "2026-03-07T20:30:00Z",
+    "updated_date": "2026-04-06T00:00:00Z",
     "subtypes": [
       "High-Turnover Bone Disease (Osteitis Fibrosa)",
       "Low-Turnover Bone Disease (Adynamic Bone Disease)",
@@ -42836,6 +42836,92 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "4",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Phelan-McDermid Syndrome",
+    "disease_id": "MONDO:0011652",
+    "category": "Mendelian",
+    "parents": [
+      "22q13.3 microdeletion syndrome",
+      "SHANK3-related neurodevelopmental disorder"
+    ],
+    "creation_date": null,
+    "updated_date": null,
+    "subtypes": [
+      "22q13.3 deletion",
+      "SHANK3 point mutation",
+      "Ring chromosome 22"
+    ],
+    "description": "Phelan-McDermid syndrome (PMS), also known as 22q13.3 deletion syndrome, is a neurodevelopmental disorder caused by haploinsufficiency of the SHANK3 gene on chromosome 22q13.3. It can result from terminal deletions, ring chromosome 22, unbalanced translocations, or intragenic SHANK3 mutations. PMS is characterized by neonatal hypotonia, global developmental delay, absent or severely delayed speech, intellectual disability, and autism spectrum features. SHANK3 encodes a postsynaptic scaffolding protein critical for glutamatergic synapse formation and function. Additional features may include renal anomalies, lymphedema, seizures, and neuropsychiatric decompensation in adolescence and adulthood. Over 600 cases have been documented, though the condition is likely underdiagnosed.\n",
+    "pathophysiology": [
+      "SHANK3 haploinsufficiency and synaptic dysfunction",
+      "Excitatory-inhibitory imbalance",
+      "Neuropsychiatric decompensation in adolescence and adulthood"
+    ],
+    "cell_types": [
+      "Glutamatergic neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000679"
+    ],
+    "biological_processes": [
+      "Synapse assembly",
+      "Glutamate receptor signaling pathway",
+      "Synaptic transmission, glutamatergic"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Absent speech",
+      "Intellectual disability",
+      "Neonatal hypotonia",
+      "Autism spectrum disorder",
+      "Seizures",
+      "Renal anomalies",
+      "Lymphedema",
+      "Regression and loss of skills"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001344",
+      "HP:0001249",
+      "HP:0001319",
+      "HP:0000729",
+      "HP:0001250",
+      "HP:0000077",
+      "HP:0001004",
+      "HP:0002376"
+    ],
+    "frequencies": [
+      "HP_0040281",
+      "HP_0040282",
+      "HP_0040283"
+    ],
+    "genes": [
+      "SHANK3"
+    ],
+    "treatments": [
+      "Speech and language therapy",
+      "Behavioral therapy",
+      "Antiepileptic medication",
+      "Insulin-like growth factor 1 (IGF-1) therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Phelan-McDermid_Syndrome.yaml",
+    "page_url": "../pages/disorders/Phelan-McDermid_Syndrome.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
   },
   {
     "name": "Phenylketonuria",
