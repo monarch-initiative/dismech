@@ -531,6 +531,106 @@ def test_rendered_stargardt_pathograph_payload_includes_treatments_and_genetics(
                 ]
             },
         ),
+        (
+            "Infantile_Myofibromatosis.yaml",
+            {("PDGFRB Gain-of-Function Mutations", "Constitutive PDGFRB Signaling")},
+            {"PDGFRB Gain-of-Function Mutations": "genetic"},
+            {
+                "Constitutive PDGFRB Signaling": [
+                    "platelet-derived growth factor beta-receptor activity"
+                ]
+            },
+        ),
+        (
+            "Penttinen_Premature_Aging_Syndrome.yaml",
+            {("PDGFRB Gain-of-Function Mutations", "Constitutive PDGFRB Activation")},
+            {"PDGFRB Gain-of-Function Mutations": "genetic"},
+            {
+                "Constitutive PDGFRB Activation": [
+                    "platelet-derived growth factor beta-receptor activity"
+                ]
+            },
+        ),
+        (
+            "Metatropic_Dysplasia.yaml",
+            {
+                (
+                    "TRPV4 Pathogenic Variants",
+                    "TRPV4 Channel Hyperactivity in Growth Plate Chondrocytes",
+                )
+            },
+            {"TRPV4 Pathogenic Variants": "genetic"},
+            {
+                "TRPV4 Channel Hyperactivity in Growth Plate Chondrocytes": [
+                    "calcium channel activity"
+                ]
+            },
+        ),
+        (
+            "Otopalatodigital_Spectrum_Disorders.yaml",
+            {
+                (
+                    "FLNA Gain-of-Function Missense Variants",
+                    "FLNA Gain-of-Function and Cytoskeletal Signaling Dysregulation",
+                )
+            },
+            {"FLNA Gain-of-Function Missense Variants": "genetic"},
+            {
+                "FLNA Gain-of-Function and Cytoskeletal Signaling Dysregulation": [
+                    "actin filament binding"
+                ]
+            },
+        ),
+        (
+            "Larsen_Syndrome.yaml",
+            {
+                (
+                    "FLNB Pathogenic Variants",
+                    "Gain-of-Function Actin-Binding Dysregulation",
+                )
+            },
+            {"FLNB Pathogenic Variants": "genetic"},
+            {
+                "Gain-of-Function Actin-Binding Dysregulation": [
+                    "actin filament binding"
+                ]
+            },
+        ),
+        (
+            "Spondyloepimetaphyseal_Dysplasia_Strudwick_Type.yaml",
+            {("COL2A1", "Collagen Triple Helix Disruption")},
+            {"COL2A1": "genetic"},
+            {
+                "Collagen Triple Helix Disruption": [
+                    "extracellular matrix structural constituent"
+                ]
+            },
+        ),
+        (
+            "Spondyloepiphyseal_Dysplasia_Congenita.yaml",
+            {("COL2A1 Mutations", "Dominant-Negative Collagen Misfolding")},
+            {"COL2A1 Mutations": "genetic"},
+            {
+                "Dominant-Negative Collagen Misfolding": [
+                    "extracellular matrix structural constituent"
+                ]
+            },
+        ),
+        (
+            "TP63_Ectodermal_Dysplasia_Spectrum.yaml",
+            {
+                (
+                    "TP63 Heterozygous Mutations",
+                    "TP63 Mutations and p63 Transcription Factor Dysfunction",
+                )
+            },
+            {"TP63 Heterozygous Mutations": "genetic"},
+            {
+                "TP63 Mutations and p63 Transcription Factor Dysfunction": [
+                    "DNA-binding transcription factor activity, RNA polymerase II-specific"
+                ]
+            },
+        ),
     ],
 )
 def test_rendered_pathograph_payload_includes_expected_rare_disease_gene_edges(
