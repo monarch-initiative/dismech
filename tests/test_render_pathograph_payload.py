@@ -388,7 +388,7 @@ def test_rendered_stargardt_pathograph_payload_includes_treatments_and_genetics(
             {"ATM": "genetic"},
             {
                 "ATM kinase deficiency and defective DNA damage signaling": [
-                    "DNA-dependent protein kinase activity"
+                    "protein serine/threonine kinase activity"
                 ]
             },
         ),
@@ -517,7 +517,7 @@ def test_rendered_stargardt_pathograph_payload_includes_treatments_and_genetics(
             {"MYO6 pathogenic variants": "genetic"},
             {
                 "Stereocilia Dysfunction in Cochlear Hair Cells": [
-                    "actin filament binding"
+                    "microfilament motor activity"
                 ]
             },
         ),
