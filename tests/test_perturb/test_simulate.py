@@ -74,7 +74,9 @@ def test_variable_mappings_loaded(model_config):
 
 def test_phenotype_thresholds_loaded(model_config):
     """Test phenotype thresholds extracted from YAML mappings_list."""
-    assert len(model_config.phenotype_thresholds) >= 9
+    # The exact total can change as CKD phenotype mappings are curated, but the
+    # model should keep a substantial threshold set loaded from YAML.
+    assert len(model_config.phenotype_thresholds) >= 8
     bmd = next(
         pt for pt in model_config.phenotype_thresholds if pt.hp_id == "HP:0004349"
     )

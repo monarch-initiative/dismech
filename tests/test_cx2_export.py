@@ -7,6 +7,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import yaml
+
 from dismech.export import cx2_export
 from dismech.export.cx2_export import disorder_to_cx2, load_disorder
 
@@ -30,6 +32,10 @@ def _edges_by_endpoints(aspects: dict) -> dict[tuple[str, str], dict]:
         (id_to_name[edge["s"]], id_to_name[edge["t"]]): edge
         for edge in aspects["edges"]
     }
+
+
+def _write_yaml(path: Path, data: dict) -> None:
+    path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
 
 
 def test_disorder_to_cx2_exports_stargardt_with_layout_and_metadata() -> None:
@@ -186,9 +192,9 @@ def test_cx2_export_cli_writes_json_file(tmp_path: Path) -> None:
 
 
 def test_cx2_export_cli_can_skip_empty_pathograph(tmp_path: Path) -> None:
-    repo_root = Path(__file__).resolve().parents[1]
-    disorder_path = repo_root / "kb" / "disorders" / "Achondrogenesis_Type_II.yaml"
+    disorder_path = tmp_path / "Empty_Disorder.yaml"
     output_path = tmp_path / "empty.cx2.json"
+    _write_yaml(disorder_path, {"name": "Empty Disorder"})
 
     result = subprocess.run(
         [
