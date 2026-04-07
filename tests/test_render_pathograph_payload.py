@@ -486,6 +486,51 @@ def test_rendered_stargardt_pathograph_payload_includes_treatments_and_genetics(
                 ]
             },
         ),
+        (
+            "Metaphyseal_Chondrodysplasia_Schmid_Type.yaml",
+            {("COL10A1 Pathogenic Variants", "Collagen X Misfolding and ER Stress")},
+            {"COL10A1 Pathogenic Variants": "genetic"},
+            {
+                "Collagen X Misfolding and ER Stress": [
+                    "extracellular matrix structural constituent conferring tensile strength"
+                ]
+            },
+        ),
+        (
+            "RYR2_CPVT.yaml",
+            {("RYR2 gain-of-function variants", "RYR2 Gain-of-Function Calcium Leak")},
+            {"RYR2 gain-of-function variants": "genetic"},
+            {
+                "RYR2 Gain-of-Function Calcium Leak": [
+                    "ryanodine-sensitive calcium-release channel activity"
+                ]
+            },
+        ),
+        (
+            "MYO6_Hearing_Loss.yaml",
+            {
+                (
+                    "MYO6 pathogenic variants",
+                    "Stereocilia Dysfunction in Cochlear Hair Cells",
+                )
+            },
+            {"MYO6 pathogenic variants": "genetic"},
+            {
+                "Stereocilia Dysfunction in Cochlear Hair Cells": [
+                    "actin filament binding"
+                ]
+            },
+        ),
+        (
+            "Kosaki_Overgrowth_Syndrome.yaml",
+            {("PDGFRB Gain-of-Function Mutations", "Constitutive PDGFRB Activation")},
+            {"PDGFRB Gain-of-Function Mutations": "genetic"},
+            {
+                "Constitutive PDGFRB Activation": [
+                    "platelet-derived growth factor beta-receptor activity"
+                ]
+            },
+        ),
     ],
 )
 def test_rendered_pathograph_payload_includes_expected_rare_disease_gene_edges(
