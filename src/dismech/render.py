@@ -17,6 +17,18 @@ from dismech.export.browser_export import HPO_TOP_LEVEL_CATEGORIES
 from dismech.graph import build_causal_graph, generate_mermaid, graph_to_json
 
 _HPO_CATEGORY_CACHE_PATH = Path("app/hpo_category_cache.json")
+_LITERATURE_START_PATTERNS = (
+    re.compile(r"(?m)^# .+\bReport\s*$"),
+    re.compile(r"(?m)^Disease (?:Pathophysiology|Characteristics) Research Report\s*$"),
+    re.compile(r"(?m)^## Executive Summary\s*$"),
+    re.compile(r"(?m)^## Key Findings\s*$"),
+    re.compile(r"(?m)^## Pathophysiology [Dd]escription\b.*$"),
+    re.compile(r"(?m)^Pathophysiology [Dd]escription\b.*$"),
+    re.compile(r"(?m)^## \d+\. Core Pathophysiology\b.*$"),
+    re.compile(r"(?m)^## \d+\. Disease Information\b.*$"),
+    re.compile(r"(?m)^## Disease Information\b.*$"),
+    re.compile(r"(?m)^### Disorder\s*$"),
+)
 
 # Canonical display order for phenotype categories (matches HPO_TOP_LEVEL_CATEGORIES)
 _CATEGORY_ORDER = list(HPO_TOP_LEVEL_CATEGORIES.values())
@@ -701,6 +713,102 @@ def _collect_comorbidity_links(
     return links
 
 
+def _resolve_nearby_dir(start: Path, dirname: str) -> Path:
+    """Find the nearest sibling directory named dirname by walking upward."""
+    for parent in (start, *start.parents):
+        candidate = parent / dirname
+        if candidate.exists():
+            return candidate
+    return Path(dirname)
+
+
+def _split_front_matter(text: str) -> tuple[dict, str]:
+    """Split YAML front matter from markdown content when present."""
+    normalized = text.replace("\r\n", "\n")
+    lines = normalized.split("\n")
+    if not lines or lines[0].strip() != "---":
+        return {}, normalized
+    for index in range(1, len(lines)):
+        if lines[index].strip() == "---":
+            metadata = yaml.safe_load("\n".join(lines[1:index])) or {}
+            if not isinstance(metadata, dict):
+                metadata = {}
+            return metadata, "\n".join(lines[index + 1 :])
+    return {}, normalized
+
+
+def _normalize_embedded_markdown(text: str) -> str:
+    """Remove wrapper indentation commonly found in embedded agent transcripts."""
+    normalized = text.strip("\n")
+    indented_lines = [
+        line
+        for line in normalized.splitlines()
+        if line.strip() and line.startswith("        ")
+    ]
+    if len(indented_lines) >= 3:
+        normalized = re.sub(r"(?m)^ {8}", "", normalized)
+    return normalized.strip()
+
+
+def _extract_literature_body(text: str) -> tuple[dict, str]:
+    """Extract the summary portion from a deep-research markdown artifact."""
+    metadata, body = _split_front_matter(text)
+    output_chunks = re.split(r"(?m)^## Output\s*$", body)
+    if len(output_chunks) > 1:
+        body = output_chunks[-1]
+    body = _normalize_embedded_markdown(body)
+    starts = [
+        match.start()
+        for pattern in _LITERATURE_START_PATTERNS
+        for match in [pattern.search(body)]
+        if match
+    ]
+    if starts:
+        body = body[min(starts) :]
+    return metadata, _normalize_embedded_markdown(body)
+
+
+def _extract_display_title(text: str, fallback: str) -> str:
+    """Extract a short display title from markdown content."""
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("# "):
+            return stripped[2:].strip()
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("## "):
+            return stripped[3:].strip()
+        if stripped.startswith("### "):
+            return stripped[4:].strip()
+        if (
+            stripped
+            and len(stripped) <= 120
+            and not stripped.startswith(("-", "|", "```"))
+        ):
+            return stripped
+    return fallback
+
+
+def _humanize_provider(value: str | None) -> str | None:
+    """Convert a provider slug into a readable label."""
+    if not value:
+        return None
+    special_cases = {
+        "asta": "Asta",
+        "cyberian-codex": "Cyberian Codex",
+        "falcon": "Falcon",
+        "openai": "OpenAI",
+        "openscientist": "OpenScientist",
+        "perplexity": "Perplexity",
+    }
+    normalized = str(value).strip().lower()
+    if normalized in special_cases:
+        return special_cases[normalized]
+    return " ".join(
+        part.capitalize() for part in re.split(r"[-_]+", normalized) if part
+    )
+
+
 def collect_reports(
     disorder_slug: str, reports_root: Path = Path("reports")
 ) -> list[dict]:
@@ -729,6 +837,44 @@ def collect_reports(
                 title = stripped[2:].strip()
                 break
         results.append({"title": title, "html": html, "filename": md_path.name})
+    return results
+
+
+def collect_literature_summaries(
+    disorder_slug: str,
+    research_root: Path = Path("research"),
+) -> list[dict]:
+    """Collect deep-research markdown summaries for a disorder and convert to HTML."""
+    if not research_root.is_dir():
+        return []
+    md = markdown_lib.Markdown(extensions=["tables", "fenced_code"])
+    results = []
+    for md_path in sorted(research_root.glob(f"{disorder_slug}-deep-research-*.md")):
+        if md_path.name.endswith(".citations.md"):
+            continue
+        metadata, body = _extract_literature_body(md_path.read_text())
+        if not body:
+            continue
+        md.reset()
+        html = md.convert(body)
+        title = _humanize_provider(metadata.get("provider")) or _extract_display_title(
+            body, md_path.stem
+        )
+        subtitle = _extract_display_title(body, "")
+        if subtitle.casefold() in {"", "disorder", title.casefold()}:
+            subtitle = None
+        results.append(
+            {
+                "title": title,
+                "subtitle": subtitle,
+                "html": html,
+                "filename": md_path.name,
+                "provider": metadata.get("provider"),
+                "model": metadata.get("model"),
+                "citation_count": metadata.get("citation_count"),
+                "end_time": metadata.get("end_time") or metadata.get("start_time"),
+            }
+        )
     return results
 
 
@@ -807,7 +953,14 @@ def render_disorder(
         {node_name for edge in graph.edges for node_name in (edge.source, edge.target)}
     )
     comorbidity_links = _collect_comorbidity_links(yaml_path.stem)
-    report_sections = collect_reports(slugify(disorder.get("name") or yaml_path.stem))
+    reports_root = _resolve_nearby_dir(yaml_path.parent, "reports")
+    research_root = _resolve_nearby_dir(yaml_path.parent, "research")
+    disorder_slug = slugify(disorder.get("name") or yaml_path.stem)
+    report_sections = collect_reports(disorder_slug, reports_root=reports_root)
+    literature_sections = collect_literature_summaries(
+        disorder_slug,
+        research_root=research_root,
+    )
 
     # Group phenotypes by HPO broad category
     phenotype_groups = _group_phenotypes_by_category(disorder.get("phenotypes") or [])
@@ -823,6 +976,7 @@ def render_disorder(
         comorbidity_links=comorbidity_links,
         phenotype_groups=phenotype_groups,
         report_sections=report_sections,
+        literature_sections=literature_sections,
     )
 
     # Write output
