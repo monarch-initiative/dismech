@@ -65,6 +65,16 @@ window.searchData = [
       "VERY_RARE",
       "VERY_FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:12837870",
+      "PMID:15615815",
+      "PMID:16950638",
+      "PMID:20547083",
+      "PMID:30730842",
+      "PMID:31555323",
+      "PMID:37309295",
+      "PMID:38784038"
+    ],
     "genes": [
       "ACADSB pathogenic variants"
     ],
@@ -169,6 +179,12 @@ window.searchData = [
     "frequencies": [
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:11242110",
+      "PMID:20301696",
+      "PMID:29906080",
+      "PMID:32207823"
     ],
     "genes": [
       "22q11.2 microdeletion",
@@ -275,6 +291,14 @@ window.searchData = [
       "OCCASIONAL",
       "VERY_RARE"
     ],
+    "evidence_references": [
+      "PMID:23861731",
+      "PMID:3099065",
+      "PMID:32059735",
+      "PMID:35646072",
+      "PMID:36771238",
+      "PMID:39062136"
+    ],
     "genes": [
       "HMGCL pathogenic variants"
     ],
@@ -355,6 +379,11 @@ window.searchData = [
       "HP:0001249"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:25077174",
+      "PMID:26320891",
+      "PMID:28228640"
+    ],
     "genes": [
       "ALDH18A1"
     ],
@@ -435,6 +464,14 @@ window.searchData = [
       "HP:0000252"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:24767728",
+      "PMID:25077174",
+      "PMID:26026163",
+      "PMID:29754261",
+      "PMID:31402623",
+      "PMID:36067040"
+    ],
     "genes": [
       "ALDH18A1"
     ],
@@ -512,6 +549,16 @@ window.searchData = [
     ],
     "frequencies": [
       "VERY_FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.1177/03008916231202149",
+      "DOI:10.3389/fimmu.2025.1515748",
+      "DOI:10.3390/biomedicines12020297",
+      "DOI:10.3390/ijms26010308",
+      "PMID:23805942",
+      "PMID:27637426",
+      "PMID:28676215",
+      "PMID:32657049"
     ],
     "genes": [
       "ALK",
@@ -608,6 +655,15 @@ window.searchData = [
       "OCCASIONAL",
       "VERY_FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:12571597",
+      "PMID:15178757",
+      "PMID:17242276",
+      "PMID:31285321",
+      "PMID:35990955",
+      "PMID:37195288",
+      "PMID:39631164"
+    ],
     "genes": [
       "ANK2 loss-of-function variants (cardiac)",
       "ANK2 loss-of-function variants (neurodevelopmental)"
@@ -687,6 +743,10 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:397771",
+      "PMID:41580016"
     ],
     "genes": [
       "PML-RARA Fusion",
@@ -805,6 +865,93 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:12394612",
+      "PMID:15126690",
+      "PMID:16493520",
+      "PMID:21463231",
+      "PMID:22094129",
+      "PMID:22471982",
+      "PMID:22537653",
+      "PMID:23239211",
+      "PMID:23797140",
+      "PMID:24555660",
+      "PMID:25482846",
+      "PMID:25586652",
+      "PMID:25604431",
+      "PMID:25656502",
+      "PMID:25872787",
+      "PMID:25908211",
+      "PMID:26048914",
+      "PMID:26800456",
+      "PMID:28085522",
+      "PMID:28329248",
+      "PMID:28598015",
+      "PMID:28625364",
+      "PMID:28728692",
+      "PMID:29770800",
+      "PMID:29962408",
+      "PMID:30199915",
+      "PMID:30404120",
+      "PMID:30480471",
+      "PMID:30486687",
+      "PMID:30561247",
+      "PMID:30836973",
+      "PMID:31098895",
+      "PMID:31131842",
+      "PMID:31343345",
+      "PMID:31445300",
+      "PMID:31452023",
+      "PMID:31520266",
+      "PMID:31731233",
+      "PMID:32176096",
+      "PMID:32304420",
+      "PMID:32356182",
+      "PMID:32441155",
+      "PMID:32566742",
+      "PMID:33099432",
+      "PMID:33433320",
+      "PMID:33443391",
+      "PMID:33609196",
+      "PMID:33621542",
+      "PMID:34018852",
+      "PMID:34076545",
+      "PMID:34361762",
+      "PMID:34390072",
+      "PMID:34518987",
+      "PMID:34609369",
+      "PMID:34637570",
+      "PMID:34694575",
+      "PMID:34884963",
+      "PMID:34922822",
+      "PMID:35104443",
+      "PMID:35128833",
+      "PMID:35144512",
+      "PMID:35235819",
+      "PMID:35297258",
+      "PMID:35717381",
+      "PMID:35830843",
+      "PMID:36129270",
+      "PMID:36504143",
+      "PMID:36517414",
+      "PMID:36830740",
+      "PMID:36941075",
+      "PMID:37553542",
+      "PMID:37599395",
+      "PMID:37658177",
+      "PMID:37725003",
+      "PMID:37844979",
+      "PMID:37907148",
+      "PMID:37997196",
+      "PMID:38044190",
+      "PMID:38844297",
+      "PMID:38844302",
+      "PMID:39312653",
+      "PMID:40649158",
+      "PMID:6402969",
+      "PMID:7588042",
+      "PMID:8115892"
+    ],
     "genes": [
       "TTR",
       "APCS",
@@ -895,6 +1042,31 @@ window.searchData = [
       "HP:0002089"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "DOI:10.1002/ar.24086",
+      "DOI:10.1002/dvdy.24131",
+      "DOI:10.1002/jemt.1070280505",
+      "DOI:10.1073/pnas.070050097",
+      "DOI:10.1111/dgd.12203",
+      "DOI:10.3389/fcell.2021.664168",
+      "DOI:10.3389/fmolb.2021.593310",
+      "PMID:10745044",
+      "PMID:11698112",
+      "PMID:1374906",
+      "PMID:15054848",
+      "PMID:1515761",
+      "PMID:15365990",
+      "PMID:15895462",
+      "PMID:17437277",
+      "PMID:17638425",
+      "PMID:18773462",
+      "PMID:30854241",
+      "PMID:31523626",
+      "PMID:3309860",
+      "PMID:41373627",
+      "PMID:7036745",
+      "PMID:7829510"
+    ],
     "genes": [
       "COL2A1 Mutations"
     ],
@@ -1003,6 +1175,28 @@ window.searchData = [
       "HP_0040282",
       "HP_0040283"
     ],
+    "evidence_references": [
+      "DOI:10.1093/hmg/ddn339",
+      "DOI:10.1172/jci.insight.168796",
+      "DOI:10.1172/jci.insight.189307",
+      "DOI:10.1177/00368504211003782",
+      "PMID:14702637",
+      "PMID:14751560",
+      "PMID:14871928",
+      "PMID:18923003",
+      "PMID:28679403",
+      "PMID:29959505",
+      "PMID:31269546",
+      "PMID:31294928",
+      "PMID:32795681",
+      "PMID:32803853",
+      "PMID:35028714",
+      "PMID:35698202",
+      "PMID:39740666",
+      "PMID:7847369",
+      "PMID:7913883",
+      "PMID:8078586"
+    ],
     "genes": [
       "FGFR3 G380R mutation"
     ],
@@ -1083,6 +1277,25 @@ window.searchData = [
       "OBLIGATE",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "DOI:10.1002/npr2.12067",
+      "DOI:10.1007/s00221-024-06988-4",
+      "DOI:10.1038/s41598-019-41551-0",
+      "DOI:10.1111/j.2042-3306.1995.tb03082.x",
+      "DOI:10.1111/jvim.12191",
+      "DOI:10.1371/journal.pgen.1000993",
+      "DOI:10.3389/fncir.2016.00060",
+      "DOI:10.3389/fnins.2025.1598027",
+      "PMID:20169159",
+      "PMID:24107198",
+      "PMID:27559310",
+      "PMID:30899065",
+      "PMID:31287245",
+      "PMID:34133943",
+      "PMID:39893297",
+      "PMID:40415887",
+      "PMID:8536668"
     ],
     "genes": [
       "rs10427255",
@@ -1168,6 +1381,47 @@ window.searchData = [
       "HP:0001075"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "DOI:10.3389/fimmu.2023.1075834",
+      "PMID:12113648",
+      "PMID:16086756",
+      "PMID:19761357",
+      "PMID:20861605",
+      "PMID:20871834",
+      "PMID:21062102",
+      "PMID:23210645",
+      "PMID:24062871",
+      "PMID:28492054",
+      "PMID:28542914",
+      "PMID:28707712",
+      "PMID:28871928",
+      "PMID:29344322",
+      "PMID:30674002",
+      "PMID:31455112",
+      "PMID:32748305",
+      "PMID:33085149",
+      "PMID:34468934",
+      "PMID:34696155",
+      "PMID:35084634",
+      "PMID:35279931",
+      "PMID:36568833",
+      "PMID:36927117",
+      "PMID:37662507",
+      "PMID:37894698",
+      "PMID:38271552",
+      "PMID:39056372",
+      "PMID:39226531",
+      "PMID:39271178",
+      "PMID:39483653",
+      "PMID:40689430",
+      "PMID:41464454",
+      "PMID:41465543",
+      "PMID:41499625",
+      "PMID:41521693",
+      "PMID:41552868",
+      "clinicaltrials:NCT00421993",
+      "clinicaltrials:NCT02249767"
+    ],
     "genes": [
       "Polygenic susceptibility",
       "Candidate gene families",
@@ -1284,6 +1538,95 @@ window.searchData = [
       "OCCASIONAL",
       "VERY_FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:11218297",
+      "PMID:11363911",
+      "PMID:11424971",
+      "PMID:11868686",
+      "PMID:12525676",
+      "PMID:1283669",
+      "PMID:1346152",
+      "PMID:1384311",
+      "PMID:1396037",
+      "PMID:1493145",
+      "PMID:15119284",
+      "PMID:15543571",
+      "PMID:15627906",
+      "PMID:16182595",
+      "PMID:17691934",
+      "PMID:17944709",
+      "PMID:18366449",
+      "PMID:19273357",
+      "PMID:19584497",
+      "PMID:1979021",
+      "PMID:1981824",
+      "PMID:2004869",
+      "PMID:2135639",
+      "PMID:21722892",
+      "PMID:22258501",
+      "PMID:2252248",
+      "PMID:23259425",
+      "PMID:23772614",
+      "PMID:2435201",
+      "PMID:25093312",
+      "PMID:2548429",
+      "PMID:2550525",
+      "PMID:25604237",
+      "PMID:25711462",
+      "PMID:2659680",
+      "PMID:2661499",
+      "PMID:26676359",
+      "PMID:2672903",
+      "PMID:2680057",
+      "PMID:26861193",
+      "PMID:2720234",
+      "PMID:2729337",
+      "PMID:28365729",
+      "PMID:2922052",
+      "PMID:29402983",
+      "PMID:29641941",
+      "PMID:29660143",
+      "PMID:2996395",
+      "PMID:2996829",
+      "PMID:2999090",
+      "PMID:31237209",
+      "PMID:31243634",
+      "PMID:3146367",
+      "PMID:32216642",
+      "PMID:3329446",
+      "PMID:33475545",
+      "PMID:33612763",
+      "PMID:33843468",
+      "PMID:34481993",
+      "PMID:35227156",
+      "PMID:3539811",
+      "PMID:3608570",
+      "PMID:36355599",
+      "PMID:3650679",
+      "PMID:36577167",
+      "PMID:37317962",
+      "PMID:37661622",
+      "PMID:38110260",
+      "PMID:38474196",
+      "PMID:3945272",
+      "PMID:6132270",
+      "PMID:6465173",
+      "PMID:6496525",
+      "PMID:7851311",
+      "PMID:7910884",
+      "PMID:7915731",
+      "PMID:9023448",
+      "PMID:9067788",
+      "PMID:9144008",
+      "PMID:9211414",
+      "PMID:9218066",
+      "PMID:9336601",
+      "PMID:9389311",
+      "PMID:9671334",
+      "PMID:9730930",
+      "PMID:9735117",
+      "PMID:9764363"
+    ],
     "genes": [
       "CD4",
       "CCR5",
@@ -1373,6 +1716,17 @@ window.searchData = [
     ],
     "frequencies": [
       "OBLIGATE"
+    ],
+    "evidence_references": [
+      "PMID:15146390",
+      "PMID:17728275",
+      "PMID:23065701",
+      "PMID:25319082",
+      "PMID:29199951",
+      "PMID:30359775",
+      "PMID:32694885",
+      "PMID:33238275",
+      "PMID:34178199"
     ],
     "genes": [
       "NPR2 Loss-of-Function Mutations"
@@ -1483,6 +1837,83 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:12072049",
+      "PMID:12392510",
+      "PMID:13280719",
+      "PMID:13851580",
+      "PMID:14433865",
+      "PMID:15251839",
+      "PMID:16828409",
+      "PMID:18301444",
+      "PMID:18363515",
+      "PMID:18393745",
+      "PMID:18471672",
+      "PMID:18954859",
+      "PMID:19414006",
+      "PMID:1946105",
+      "PMID:19500760",
+      "PMID:19776201",
+      "PMID:2008821",
+      "PMID:20357943",
+      "PMID:20400889",
+      "PMID:20964584",
+      "PMID:21219212",
+      "PMID:21365946",
+      "PMID:22066755",
+      "PMID:22344197",
+      "PMID:22695777",
+      "PMID:22975403",
+      "PMID:23308244",
+      "PMID:23322510",
+      "PMID:23624135",
+      "PMID:23893277",
+      "PMID:23897142",
+      "PMID:24014553",
+      "PMID:24170102",
+      "PMID:24428320",
+      "PMID:24755997",
+      "PMID:24988226",
+      "PMID:25138826",
+      "PMID:25247653",
+      "PMID:25647239",
+      "PMID:25667374",
+      "PMID:26204230",
+      "PMID:27210825",
+      "PMID:27992012",
+      "PMID:2801683",
+      "PMID:28132947",
+      "PMID:28717080",
+      "PMID:29544234",
+      "PMID:29572711",
+      "PMID:29631795",
+      "PMID:30120786",
+      "PMID:30144040",
+      "PMID:3044463",
+      "PMID:30855285",
+      "PMID:31321757",
+      "PMID:31791082",
+      "PMID:32086340",
+      "PMID:32101828",
+      "PMID:33143829",
+      "PMID:33717087",
+      "PMID:33951364",
+      "PMID:33993277",
+      "PMID:34665570",
+      "PMID:34932395",
+      "PMID:34996091",
+      "PMID:35100642",
+      "PMID:35345086",
+      "PMID:36210660",
+      "PMID:36274124",
+      "PMID:36709280",
+      "PMID:38562931",
+      "PMID:476980",
+      "PMID:5797781",
+      "PMID:6091953",
+      "PMID:8325289",
+      "PMID:8680923"
     ],
     "genes": [
       "CYP21A2 (21-hydroxylase)",
@@ -1595,6 +2026,15 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:15129647",
+      "PMID:1751370",
+      "PMID:22042945",
+      "PMID:24714244",
+      "PMID:28796966",
+      "PMID:30573506",
+      "PMID:41553980"
+    ],
     "genes": [
       "HTLV-1 Tax",
       "HTLV-1 HBZ",
@@ -1686,6 +2126,13 @@ window.searchData = [
       "VERY_FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:14986813",
+      "PMID:18650514",
+      "PMID:19376640",
+      "PMID:27785449",
+      "PMID:40863326"
+    ],
     "genes": [
       "TP53",
       "CTNNB1",
@@ -1769,6 +2216,20 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "DOI:10.1016/j.ajo.2024.02.021",
+      "DOI:10.1096/fj.202401160rr",
+      "DOI:10.1172/jci178296",
+      "DOI:10.3389/fphar.2024.1410172",
+      "DOI:10.3390/antiox13050568",
+      "DOI:10.3390/biomedicines12071479",
+      "DOI:10.3390/ijms26083463",
+      "DOI:10.3390/jcm13092608",
+      "DOI:10.3390/medicina60101647",
+      "PMID:38193957",
+      "PMID:38690727",
+      "PMID:38731137"
+    ],
     "genes": [
       "CFH",
       "ARMS2/HTRA1",
@@ -1848,6 +2309,21 @@ window.searchData = [
       "HP:0200042"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "DOI:10.1111/j.1742-481x.2007.00297.x",
+      "DOI:10.1177/2050313x231204197",
+      "DOI:10.1186/s12895-019-0092-6",
+      "PMID:12500788",
+      "PMID:1539609",
+      "PMID:17344790",
+      "PMID:17924881",
+      "PMID:25624138",
+      "PMID:25657437",
+      "PMID:27011582",
+      "PMID:27190888",
+      "PMID:31401977",
+      "PMID:41017837"
+    ],
     "genes": [],
     "treatments": [
       "Surgical excision of constriction band with disarticulation"
@@ -1913,6 +2389,17 @@ window.searchData = [
       "HP:0001123"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:23206528",
+      "PMID:25667833",
+      "PMID:27193360",
+      "PMID:31036340",
+      "PMID:34617361",
+      "PMID:37938052",
+      "PMID:38357623",
+      "PMID:39996018",
+      "PMID:40605075"
+    ],
     "genes": [],
     "treatments": [
       "Treat underlying condition",
@@ -1973,6 +2460,13 @@ window.searchData = [
       "HP:0001395"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:33675874",
+      "PMID:37143126",
+      "PMID:39349248",
+      "PMID:39362713",
+      "PMID:39679853"
+    ],
     "genes": [],
     "treatments": [],
     "environmental": [],
@@ -2064,6 +2558,18 @@ window.searchData = [
       "HP:0000639"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:11138011",
+      "PMID:11567214",
+      "PMID:17065456",
+      "PMID:17498694",
+      "PMID:21414908",
+      "PMID:21917775",
+      "PMID:28359321",
+      "PMID:29226998",
+      "PMID:34788075",
+      "PMID:38782207"
+    ],
     "genes": [
       "GFAP Gain-of-Function Mutations"
     ],
@@ -2128,6 +2634,20 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "DOI:10.1073/pnas.2305764120",
+      "DOI:10.3389/fimmu.2024.1444777",
+      "DOI:10.3389/fimmu.2025.1621492",
+      "DOI:10.3389/fimmu.2025.1681163",
+      "DOI:10.3390/ijms25084409",
+      "DOI:10.3390/ijms25115652",
+      "DOI:10.53582/amj255170s",
+      "PMID:32682334",
+      "PMID:37326792",
+      "PMID:37365384",
+      "PMID:38338982",
+      "PMID:38673994"
     ],
     "genes": [
       "HLA-DRB1",
@@ -2222,6 +2742,22 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "RARE"
+    ],
+    "evidence_references": [
+      "PMID:18565211",
+      "PMID:20301692",
+      "PMID:22500781",
+      "PMID:27824593",
+      "PMID:33516773",
+      "PMID:33824927",
+      "PMID:34356027",
+      "PMID:35361631",
+      "PMID:35715315",
+      "PMID:35868681",
+      "PMID:36808684",
+      "PMID:36896570",
+      "PMID:37144533",
+      "PMID:38958623"
     ],
     "genes": [],
     "treatments": [
@@ -2343,6 +2879,24 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1177/1753495x231207676",
+      "DOI:10.1182/hematology.2023000468",
+      "DOI:10.1186/s12884-023-06232-x",
+      "DOI:10.1371/journal.pone.0306043",
+      "DOI:10.18535/cmhrj.v4i2.325",
+      "DOI:10.3389/fgene.2024.1356068",
+      "DOI:10.3389/fgene.2024.1422462",
+      "DOI:10.3389/fmed.2022.1015306",
+      "DOI:10.3389/fped.2024.1467760",
+      "DOI:10.3390/ijms24065658",
+      "DOI:10.3390/ijms25063400",
+      "DOI:10.3390/ijms252011246",
+      "DOI:10.3390/thalassrep14040010",
+      "PMID:20301608",
+      "PMID:25390741",
+      "PMID:38182489"
+    ],
     "genes": [
       "HBA1",
       "HBA2"
@@ -2430,6 +2984,10 @@ window.searchData = [
       "VERY_FREQUENT",
       "OCCASIONAL",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:10337369",
+      "PMID:39686893"
     ],
     "genes": [
       "PAX3-FOXO1 Fusion",
@@ -2539,6 +3097,119 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "DOI:10.3390/cimb47080580",
+      "DOI:10.3390/ijms25136901",
+      "DOI:10.3390/ijms252212311",
+      "PMID:10702374",
+      "PMID:10911965",
+      "PMID:12768511",
+      "PMID:12859672",
+      "PMID:12973746",
+      "PMID:12975285",
+      "PMID:1365885",
+      "PMID:16443487",
+      "PMID:16611586",
+      "PMID:18667359",
+      "PMID:18694837",
+      "PMID:19542604",
+      "PMID:19661632",
+      "PMID:20943326",
+      "PMID:2135393",
+      "PMID:21509508",
+      "PMID:21546088",
+      "PMID:21643921",
+      "PMID:22173295",
+      "PMID:22351073",
+      "PMID:22727994",
+      "PMID:23072720",
+      "PMID:23930978",
+      "PMID:23948895",
+      "PMID:24011643",
+      "PMID:24035593",
+      "PMID:24429902",
+      "PMID:24807367",
+      "PMID:25772897",
+      "PMID:25941885",
+      "PMID:25998117",
+      "PMID:26243569",
+      "PMID:26322584",
+      "PMID:26898552",
+      "PMID:27159433",
+      "PMID:27163751",
+      "PMID:27651009",
+      "PMID:27662312",
+      "PMID:27662322",
+      "PMID:27888001",
+      "PMID:28019679",
+      "PMID:28100644",
+      "PMID:28320296",
+      "PMID:28413709",
+      "PMID:28671413",
+      "PMID:28809650",
+      "PMID:28902142",
+      "PMID:29361068",
+      "PMID:29672553",
+      "PMID:29851873",
+      "PMID:30549411",
+      "PMID:30707186",
+      "PMID:31072403",
+      "PMID:31296348",
+      "PMID:31623876",
+      "PMID:31724515",
+      "PMID:31903881",
+      "PMID:31930617",
+      "PMID:31958088",
+      "PMID:32061803",
+      "PMID:32579499",
+      "PMID:32741831",
+      "PMID:32929646",
+      "PMID:33080124",
+      "PMID:33164705",
+      "PMID:33232936",
+      "PMID:33640881",
+      "PMID:33789815",
+      "PMID:34120901",
+      "PMID:34127752",
+      "PMID:34416493",
+      "PMID:34580191",
+      "PMID:34755541",
+      "PMID:34998485",
+      "PMID:35289012",
+      "PMID:35308911",
+      "PMID:35406803",
+      "PMID:35430993",
+      "PMID:35487021",
+      "PMID:35491795",
+      "PMID:35503939",
+      "PMID:35608903",
+      "PMID:35621327",
+      "PMID:35841250",
+      "PMID:36001963",
+      "PMID:36279224",
+      "PMID:36293539",
+      "PMID:36306459",
+      "PMID:36357946",
+      "PMID:36375032",
+      "PMID:36412156",
+      "PMID:36510321",
+      "PMID:36555791",
+      "PMID:36641620",
+      "PMID:36701017",
+      "PMID:36951251",
+      "PMID:37244373",
+      "PMID:37266762",
+      "PMID:37321363",
+      "PMID:37428401",
+      "PMID:37924152",
+      "PMID:38129775",
+      "PMID:38157881",
+      "PMID:38431278",
+      "PMID:38883339",
+      "PMID:38987603",
+      "PMID:9024330",
+      "PMID:9108896"
     ],
     "genes": [
       "APP",
@@ -2652,6 +3323,38 @@ window.searchData = [
       "OBLIGATE",
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:14504315",
+      "PMID:16426990",
+      "PMID:16736722",
+      "PMID:20639382",
+      "PMID:21944778",
+      "PMID:22312314",
+      "PMID:22521219",
+      "PMID:24510737",
+      "PMID:27117334",
+      "PMID:27455347",
+      "PMID:28148298",
+      "PMID:28522181",
+      "PMID:31578652",
+      "PMID:31871139",
+      "PMID:32640130",
+      "PMID:33085325",
+      "PMID:34440810",
+      "PMID:34874625",
+      "PMID:35006266",
+      "PMID:35269543",
+      "PMID:35805149",
+      "PMID:36116464",
+      "PMID:36543887",
+      "PMID:37024676",
+      "PMID:38521060",
+      "PMID:38891021",
+      "PMID:39207520",
+      "PMID:40508048",
+      "PMID:8302340",
+      "PMID:8446170"
     ],
     "genes": [
       "C9orf72 Repeat Expansion",
@@ -2774,6 +3477,34 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "GEO:GSE120225",
+      "GEO:GSE146640",
+      "GEO:GSE160747",
+      "GEO:GSE284678",
+      "GEO:GSE32563",
+      "PMID:14510623",
+      "PMID:20301323",
+      "PMID:20398390",
+      "PMID:24876791",
+      "PMID:25428759",
+      "PMID:27206232",
+      "PMID:28816003",
+      "PMID:31235867",
+      "PMID:33543479",
+      "PMID:35150089",
+      "PMID:35862628",
+      "PMID:36237484",
+      "PMID:39914145",
+      "PMID:40310720",
+      "PMID:40555839",
+      "PMID:40671377",
+      "PMID:40776598",
+      "PMID:41121232",
+      "clinicaltrials:NCT04106557",
+      "clinicaltrials:NCT04259281",
+      "clinicaltrials:NCT04428281"
+    ],
     "genes": [
       "UBE3A",
       "15q11.2-q13 maternal deletion and imprinting-region abnormalities"
@@ -2856,6 +3587,15 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.3389/fimmu.2025.1633318",
+      "DOI:10.3390/cimb46110762",
+      "DOI:10.3390/ijms25116081",
+      "DOI:10.3390/jcm14113677",
+      "PMID:23999006",
+      "PMID:33692806",
+      "PMID:38371049"
     ],
     "genes": [
       "HLA-B27",
@@ -2990,6 +3730,98 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:10483019",
+      "PMID:10763209",
+      "PMID:10852159",
+      "PMID:10866096",
+      "PMID:10961585",
+      "PMID:10977230",
+      "PMID:11014973",
+      "PMID:12402416",
+      "PMID:12627666",
+      "PMID:1442504",
+      "PMID:15290736",
+      "PMID:15507265",
+      "PMID:15658543",
+      "PMID:15804703",
+      "PMID:16338214",
+      "PMID:16394638",
+      "PMID:16420554",
+      "PMID:17145604",
+      "PMID:17165009",
+      "PMID:1733383",
+      "PMID:17426356",
+      "PMID:17531174",
+      "PMID:17916990",
+      "PMID:18303659",
+      "PMID:18417261",
+      "PMID:19557318",
+      "PMID:19593144",
+      "PMID:19665761",
+      "PMID:20822807",
+      "PMID:20848817",
+      "PMID:21046294",
+      "PMID:21303834",
+      "PMID:22055541",
+      "PMID:22247356",
+      "PMID:22341691",
+      "PMID:22617823",
+      "PMID:23073594",
+      "PMID:23219767",
+      "PMID:23456852",
+      "PMID:24321419",
+      "PMID:24420722",
+      "PMID:24461539",
+      "PMID:24618261",
+      "PMID:24741580",
+      "PMID:25292011",
+      "PMID:25879992",
+      "PMID:26125104",
+      "PMID:26223086",
+      "PMID:26307097",
+      "PMID:26753212",
+      "PMID:26815583",
+      "PMID:26939208",
+      "PMID:27198137",
+      "PMID:27423434",
+      "PMID:27550302",
+      "PMID:27658514",
+      "PMID:28262233",
+      "PMID:28347805",
+      "PMID:29316193",
+      "PMID:29756580",
+      "PMID:29867951",
+      "PMID:30005859",
+      "PMID:30614053",
+      "PMID:30957430",
+      "PMID:31951187",
+      "PMID:32413497",
+      "PMID:33722752",
+      "PMID:33878780",
+      "PMID:34280554",
+      "PMID:34489952",
+      "PMID:34634966",
+      "PMID:35536236",
+      "PMID:35697016",
+      "PMID:35728601",
+      "PMID:35896399",
+      "PMID:36032074",
+      "PMID:36112747",
+      "PMID:36575066",
+      "PMID:36756665",
+      "PMID:38368768",
+      "PMID:38973605",
+      "PMID:7795615",
+      "PMID:8712801",
+      "PMID:8792513",
+      "PMID:8952756",
+      "PMID:9204065",
+      "clinicaltrials:NCT02157272",
+      "clinicaltrials:NCT04275778",
+      "clinicaltrials:NCT05199909",
+      "clinicaltrials:NCT05671757"
+    ],
     "genes": [
       "HLA-DR7",
       "HLA-DR4"
@@ -3048,6 +3880,14 @@ window.searchData = [
       "HP:0001647"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:10655064",
+      "PMID:22275001",
+      "PMID:25383261",
+      "PMID:28659821",
+      "PMID:30848080",
+      "PMID:36414630"
+    ],
     "genes": [
       "SMAD6"
     ],
@@ -3128,6 +3968,31 @@ window.searchData = [
       "HP:0001249"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:10666902",
+      "PMID:11390973",
+      "PMID:1303629",
+      "PMID:15389579",
+      "PMID:15622262",
+      "PMID:1648464",
+      "PMID:16740155",
+      "PMID:19117954",
+      "PMID:20301368",
+      "PMID:2061407",
+      "PMID:2065494",
+      "PMID:23358017",
+      "PMID:24259495",
+      "PMID:25206244",
+      "PMID:26330906",
+      "PMID:2732824",
+      "PMID:29994846",
+      "PMID:31895846",
+      "PMID:3351902",
+      "PMID:34051898",
+      "PMID:7719344",
+      "PMID:9375719",
+      "clinicaltrials:NCT00340964"
+    ],
     "genes": [
       "FGFR2 Mutations"
     ],
@@ -3227,6 +4092,14 @@ window.searchData = [
       "VERY_FREQUENT",
       "OCCASIONAL",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:22633632",
+      "PMID:26467175",
+      "PMID:28659245",
+      "PMID:38292042",
+      "PMID:39449289",
+      "PMID:39669610"
     ],
     "genes": [
       "ARG1 pathogenic variants"
@@ -3336,6 +4209,17 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:22241104",
+      "PMID:25135652",
+      "PMID:30075114",
+      "PMID:30723942",
+      "PMID:31990680",
+      "PMID:37490345",
+      "PMID:38044746",
+      "PMID:38054409",
+      "PMID:38198573"
     ],
     "genes": [
       "ASL (argininosuccinate lyase) variants"
@@ -3451,6 +4335,47 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:10418977",
+      "PMID:11305285",
+      "PMID:14968547",
+      "PMID:15815567",
+      "PMID:16670151",
+      "PMID:17581673",
+      "PMID:18448329",
+      "PMID:18567553",
+      "PMID:19707181",
+      "PMID:19844120",
+      "PMID:21874760",
+      "PMID:23748068",
+      "PMID:24311795",
+      "PMID:24482950",
+      "PMID:24612204",
+      "PMID:24705274",
+      "PMID:25415177",
+      "PMID:26680580",
+      "PMID:27032764",
+      "PMID:27824615",
+      "PMID:29230619",
+      "PMID:30173221",
+      "PMID:30213483",
+      "PMID:30550360",
+      "PMID:32623730",
+      "PMID:32990485",
+      "PMID:33159679",
+      "PMID:34348419",
+      "PMID:34494333",
+      "PMID:34718183",
+      "PMID:35366614",
+      "PMID:35837780",
+      "PMID:36268624",
+      "PMID:36686446",
+      "PMID:37348676",
+      "PMID:40321354",
+      "PMID:7051848",
+      "PMID:9300203",
+      "PMID:9922100"
     ],
     "genes": [
       "CYP19A1",
@@ -3585,6 +4510,56 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:10641134",
+      "PMID:11218669",
+      "PMID:11484904",
+      "PMID:11869818",
+      "PMID:12378292",
+      "PMID:12505313",
+      "PMID:12718695",
+      "PMID:14580687",
+      "PMID:14761355",
+      "PMID:16353154",
+      "PMID:16545696",
+      "PMID:17284320",
+      "PMID:19015167",
+      "PMID:19079717",
+      "PMID:196051",
+      "PMID:20077223",
+      "PMID:20078116",
+      "PMID:20514360",
+      "PMID:21134390",
+      "PMID:21554949",
+      "PMID:21622483",
+      "PMID:21740555",
+      "PMID:21914528",
+      "PMID:22208756",
+      "PMID:22214486",
+      "PMID:22541879",
+      "PMID:22843016",
+      "PMID:24275069",
+      "PMID:24833621",
+      "PMID:25703706",
+      "PMID:25764338",
+      "PMID:25788710",
+      "PMID:26586021",
+      "PMID:28005215",
+      "PMID:30223072",
+      "PMID:31336801",
+      "PMID:31986875",
+      "PMID:32033229",
+      "PMID:32809405",
+      "PMID:33075355",
+      "PMID:36858772",
+      "PMID:435641",
+      "PMID:7631493",
+      "PMID:9806419",
+      "clinicaltrials:NCT01050556",
+      "clinicaltrials:NCT01442727",
+      "clinicaltrials:NCT01748669",
+      "clinicaltrials:NCT02377635"
+    ],
     "genes": [
       "AS3MT Polymorphisms",
       "GSTT1/GSTM1 Polymorphisms",
@@ -3687,6 +4662,10 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:16807664",
+      "PMID:26411935"
     ],
     "genes": [
       "AS3MT",
@@ -3823,6 +4802,142 @@ window.searchData = [
     "frequencies": [
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:10073323",
+      "PMID:10518814",
+      "PMID:10868701",
+      "PMID:10907591",
+      "PMID:11085767",
+      "PMID:11253864",
+      "PMID:11678516",
+      "PMID:11990234",
+      "PMID:12405265",
+      "PMID:14720013",
+      "PMID:15579371",
+      "PMID:1571812",
+      "PMID:15896192",
+      "PMID:16101538",
+      "PMID:16462678",
+      "PMID:16543052",
+      "PMID:1788358",
+      "PMID:18503727",
+      "PMID:18669785",
+      "PMID:18754760",
+      "PMID:19180262",
+      "PMID:19463209",
+      "PMID:19481925",
+      "PMID:19689269",
+      "PMID:19823913",
+      "PMID:20176257",
+      "PMID:20406590",
+      "PMID:20406591",
+      "PMID:20472861",
+      "PMID:20500603",
+      "PMID:20545704",
+      "PMID:20799475",
+      "PMID:21114196",
+      "PMID:21276132",
+      "PMID:21277508",
+      "PMID:21325943",
+      "PMID:21681015",
+      "PMID:21722845",
+      "PMID:22011234",
+      "PMID:22157157",
+      "PMID:22559870",
+      "PMID:22794682",
+      "PMID:23070918",
+      "PMID:23181788",
+      "PMID:23234454",
+      "PMID:23380221",
+      "PMID:23574397",
+      "PMID:23638644",
+      "PMID:23996716",
+      "PMID:24507842",
+      "PMID:24914235",
+      "PMID:24925403",
+      "PMID:25167772",
+      "PMID:25439356",
+      "PMID:25584912",
+      "PMID:26398072",
+      "PMID:26606077",
+      "PMID:26666372",
+      "PMID:26774954",
+      "PMID:26788835",
+      "PMID:27264001",
+      "PMID:27401626",
+      "PMID:27576231",
+      "PMID:27588581",
+      "PMID:27603525",
+      "PMID:28163052",
+      "PMID:28526251",
+      "PMID:28635659",
+      "PMID:28687463",
+      "PMID:29292313",
+      "PMID:29310764",
+      "PMID:29345235",
+      "PMID:29427981",
+      "PMID:29427989",
+      "PMID:29601558",
+      "PMID:29713158",
+      "PMID:29732974",
+      "PMID:30240884",
+      "PMID:30297688",
+      "PMID:30303258",
+      "PMID:30342581",
+      "PMID:30539779",
+      "PMID:30725285",
+      "PMID:31187658",
+      "PMID:31239087",
+      "PMID:31541769",
+      "PMID:31662445",
+      "PMID:31765853",
+      "PMID:31944632",
+      "PMID:32037107",
+      "PMID:32280032",
+      "PMID:32306788",
+      "PMID:32482150",
+      "PMID:32493146",
+      "PMID:32589303",
+      "PMID:32720730",
+      "PMID:32868307",
+      "PMID:33104273",
+      "PMID:33479910",
+      "PMID:33783133",
+      "PMID:33830849",
+      "PMID:33963941",
+      "PMID:34369231",
+      "PMID:34536613",
+      "PMID:34610625",
+      "PMID:34753370",
+      "PMID:35236762",
+      "PMID:35278300",
+      "PMID:35307034",
+      "PMID:3595047",
+      "PMID:36096782",
+      "PMID:36115752",
+      "PMID:36292755",
+      "PMID:36543577",
+      "PMID:36833767",
+      "PMID:36871881",
+      "PMID:36938642",
+      "PMID:37086818",
+      "PMID:37182593",
+      "PMID:37480203",
+      "PMID:37489386",
+      "PMID:37520564",
+      "PMID:37971937",
+      "PMID:37973258",
+      "PMID:38395082",
+      "PMID:38716537",
+      "PMID:5002114",
+      "PMID:6101920",
+      "PMID:8088098",
+      "PMID:8324396",
+      "PMID:8620967",
+      "PMID:9753516",
+      "PMID:9817746",
+      "clinicaltrials:NCT05813288"
     ],
     "genes": [
       "IL4",
@@ -3980,6 +5095,23 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:11280737",
+      "PMID:24568663",
+      "PMID:27884168",
+      "PMID:30420857",
+      "PMID:30685876",
+      "PMID:30796268",
+      "PMID:30888062",
+      "PMID:34107524",
+      "PMID:34477998",
+      "PMID:3788973",
+      "PMID:38159274",
+      "PMID:38834764",
+      "PMID:39152028",
+      "PMID:39165363",
+      "PMID:39521281"
+    ],
     "genes": [
       "ATM"
     ],
@@ -4048,6 +5180,12 @@ window.searchData = [
       "HP:0002089"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:12454961",
+      "PMID:16752402",
+      "PMID:24624349",
+      "PMID:9133349"
+    ],
     "genes": [
       "FLNB Pathogenic Variants"
     ],
@@ -4124,6 +5262,13 @@ window.searchData = [
       "HP:0002786"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:11448940",
+      "PMID:1279661",
+      "PMID:20301493",
+      "PMID:8571951",
+      "PMID:9133349"
+    ],
     "genes": [
       "SLC26A2 Pathogenic Variants"
     ],
@@ -4201,6 +5346,12 @@ window.searchData = [
       "HP:0002779"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:10076882",
+      "PMID:1442028",
+      "PMID:14991055",
+      "PMID:2368807"
+    ],
     "genes": [
       "FLNB Pathogenic Variants"
     ],
@@ -4299,6 +5450,23 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.1007/s13555-025-01352-y",
+      "DOI:10.1038/s41467-023-41857-8",
+      "DOI:10.1126/sciimmunol.abi6887",
+      "DOI:10.1186/s43556-025-00313-3",
+      "DOI:10.14789/ejmj.jmj24-0036-r",
+      "DOI:10.3390/jcm12041538",
+      "DOI:10.3390/jcm14145053",
+      "DOI:10.64898/2026.01.10.26343854",
+      "DOI:10.7759/cureus.86937",
+      "PMID:16550169",
+      "PMID:20207111",
+      "PMID:21388665",
+      "PMID:28846349",
+      "PMID:30819278",
+      "PMID:39659858"
     ],
     "genes": [
       "FLG",
@@ -4406,6 +5574,30 @@ window.searchData = [
       "VERY_FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1038/s41467-024-54296-w",
+      "DOI:10.1038/s41569-022-00759-w",
+      "DOI:10.1038/s42003-024-07308-w",
+      "DOI:10.1093/cvr/cvad175",
+      "DOI:10.1093/eurheartj/ehac460",
+      "DOI:10.1172/jci175447",
+      "DOI:10.21037/jtd-23-1981",
+      "DOI:10.3389/fcvm.2023.1327387",
+      "DOI:10.3390/ijms25010535",
+      "DOI:10.3390/ijms25020758",
+      "DOI:10.3390/ijms26135954",
+      "DOI:10.3390/jcm14030882",
+      "DOI:10.3390/jcm14093250",
+      "DOI:10.7150/thno.89520",
+      "PMID:26318825",
+      "PMID:27057292",
+      "PMID:29657903",
+      "PMID:35873859",
+      "PMID:35980763",
+      "PMID:37573616",
+      "PMID:38255832",
+      "PMID:39146015"
+    ],
     "genes": [
       "KCNQ1",
       "KCNE2",
@@ -4501,6 +5693,14 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:30020718",
+      "PMID:31423320",
+      "PMID:31543403",
+      "PMID:33887125",
+      "PMID:34682761",
+      "PMID:37060744"
+    ],
     "genes": [],
     "treatments": [
       "Antifungal Therapy",
@@ -4586,6 +5786,10 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:23290630",
+      "PMID:31326280"
+    ],
     "genes": [],
     "treatments": [
       "First-Line Immunotherapy",
@@ -4663,6 +5867,24 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.1016/j.eclinm.2024.102733",
+      "DOI:10.1038/s41392-025-02348-y",
+      "DOI:10.1159/000540475",
+      "DOI:10.1182/bloodadvances.2024012585",
+      "DOI:10.3389/fimmu.2025.1624667",
+      "DOI:10.3390/ijms25084296",
+      "DOI:10.3390/jcm9123859",
+      "DOI:10.5633/amm.2024.0108",
+      "DOI:10.6004/jadpro.2024.15.6.4",
+      "PMID:25271314",
+      "PMID:29692344",
+      "PMID:30559259",
+      "PMID:32176765",
+      "PMID:33826820",
+      "PMID:38673882",
+      "PMID:39371250"
     ],
     "genes": [],
     "treatments": [
@@ -4748,6 +5970,21 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "DOI:10.1007/s12072-024-10695-1",
+      "DOI:10.1016/j.jhepr.2023.100926",
+      "DOI:10.1055/s-0039-1688751",
+      "DOI:10.1172/jci183776",
+      "DOI:10.1186/s12967-024-05173-z",
+      "DOI:10.1371/journal.pone.0335605",
+      "DOI:10.3389/fcimb.2024.1337223",
+      "DOI:10.3389/fimmu.2022.984083",
+      "DOI:10.3389/fimmu.2023.1326078",
+      "DOI:10.3389/fphar.2022.1077468",
+      "PMID:31226726",
+      "PMID:38089552",
+      "PMID:39817450"
+    ],
     "genes": [
       "HLA-DR3",
       "HLA-DR4",
@@ -4825,6 +6062,13 @@ window.searchData = [
       "16%",
       "19%"
     ],
+    "evidence_references": [
+      "PMID:11741829",
+      "PMID:12929941",
+      "PMID:17164308",
+      "PMID:27990310",
+      "PMID:37465191"
+    ],
     "genes": [
       "CLCN7 Mutations"
     ],
@@ -4888,6 +6132,11 @@ window.searchData = [
       "HP:0001293"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:10888887",
+      "PMID:19232111",
+      "PMID:22231430"
+    ],
     "genes": [
       "TCIRG1 Mutations"
     ],
@@ -4975,6 +6224,71 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:10713890",
+      "PMID:11004268",
+      "PMID:11092457",
+      "PMID:11740218",
+      "PMID:11821690",
+      "PMID:12015278",
+      "PMID:12130547",
+      "PMID:12210347",
+      "PMID:12381896",
+      "PMID:15492748",
+      "PMID:15509533",
+      "PMID:15654696",
+      "PMID:16302606",
+      "PMID:18599376",
+      "PMID:18929112",
+      "PMID:19218601",
+      "PMID:21666320",
+      "PMID:21837767",
+      "PMID:22009788",
+      "PMID:22104715",
+      "PMID:22199394",
+      "PMID:25893250",
+      "PMID:26281856",
+      "PMID:27055677",
+      "PMID:27070436",
+      "PMID:28513611",
+      "PMID:28549150",
+      "PMID:28611552",
+      "PMID:28730073",
+      "PMID:29793789",
+      "PMID:30860739",
+      "PMID:3104560",
+      "PMID:31341655",
+      "PMID:31560925",
+      "PMID:32045938",
+      "PMID:32357855",
+      "PMID:32741584",
+      "PMID:32905845",
+      "PMID:33231930",
+      "PMID:33367186",
+      "PMID:33487449",
+      "PMID:33530637",
+      "PMID:33762894",
+      "PMID:33881269",
+      "PMID:34229749",
+      "PMID:34269512",
+      "PMID:34809627",
+      "PMID:34937757",
+      "PMID:35327965",
+      "PMID:35733478",
+      "PMID:35836351",
+      "PMID:36255854",
+      "PMID:36442680",
+      "PMID:36543336",
+      "PMID:36926528",
+      "PMID:37539177",
+      "PMID:37684520",
+      "PMID:37822332",
+      "PMID:38006999",
+      "PMID:5467709",
+      "PMID:808872",
+      "PMID:9618168",
+      "PMID:9685346"
     ],
     "genes": [
       "PITX2",
@@ -5073,6 +6387,12 @@ window.searchData = [
       "OCCASIONAL",
       "VERY_RARE"
     ],
+    "evidence_references": [
+      "PMID:29507198",
+      "PMID:30578502",
+      "PMID:34015078",
+      "PMID:34612806"
+    ],
     "genes": [
       "BEST1"
     ],
@@ -5149,6 +6469,10 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:21221869",
+      "PMID:39502057"
     ],
     "genes": [
       "BRAF"
@@ -5235,6 +6559,11 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:30739887",
+      "PMID:32674932",
+      "PMID:35613396"
+    ],
     "genes": [
       "BRAF V600E",
       "PIK3CA",
@@ -5316,6 +6645,11 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:32657049",
+      "PMID:34844291",
+      "PMID:41158045"
+    ],
     "genes": [
       "BRAF"
     ],
@@ -5391,6 +6725,11 @@ window.searchData = [
       "OBLIGATE",
       "VERY_FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:27268913",
+      "PMID:33256089",
+      "PMID:40023845"
+    ],
     "genes": [
       "BRAF V600E",
       "BRAF V600K"
@@ -5464,6 +6803,10 @@ window.searchData = [
     ],
     "frequencies": [
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:36081403",
+      "PMID:36434163"
     ],
     "genes": [
       "BRCA2",
@@ -5571,6 +6914,109 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:10470562",
+      "PMID:10470563",
+      "PMID:10830026",
+      "PMID:11008113",
+      "PMID:11032188",
+      "PMID:11301494",
+      "PMID:13904618",
+      "PMID:15301673",
+      "PMID:15802609",
+      "PMID:15907145",
+      "PMID:16034949",
+      "PMID:1610138",
+      "PMID:16342836",
+      "PMID:16785556",
+      "PMID:17696042",
+      "PMID:18181445",
+      "PMID:18254060",
+      "PMID:18528447",
+      "PMID:18820360",
+      "PMID:1994692",
+      "PMID:20109674",
+      "PMID:20407316",
+      "PMID:20453662",
+      "PMID:20485712",
+      "PMID:22029523",
+      "PMID:22667193",
+      "PMID:22906940",
+      "PMID:23830646",
+      "PMID:23981452",
+      "PMID:24073921",
+      "PMID:24412248",
+      "PMID:24413408",
+      "PMID:24568594",
+      "PMID:2498090",
+      "PMID:25442861",
+      "PMID:25822235",
+      "PMID:26453240",
+      "PMID:26804733",
+      "PMID:26904695",
+      "PMID:27055168",
+      "PMID:27056850",
+      "PMID:27345176",
+      "PMID:27367319",
+      "PMID:27741995",
+      "PMID:28301990",
+      "PMID:28536811",
+      "PMID:28652113",
+      "PMID:29088943",
+      "PMID:29206991",
+      "PMID:29889417",
+      "PMID:30468130",
+      "PMID:30496558",
+      "PMID:30873934",
+      "PMID:3130424",
+      "PMID:31378869",
+      "PMID:31495596",
+      "PMID:31640619",
+      "PMID:31668194",
+      "PMID:31671441",
+      "PMID:31805229",
+      "PMID:31830496",
+      "PMID:31981610",
+      "PMID:3287565",
+      "PMID:33330135",
+      "PMID:33583696",
+      "PMID:34343128",
+      "PMID:34390335",
+      "PMID:34432172",
+      "PMID:34469553",
+      "PMID:34718466",
+      "PMID:34749918",
+      "PMID:34861467",
+      "PMID:35436245",
+      "PMID:36117004",
+      "PMID:36190396",
+      "PMID:36404039",
+      "PMID:36472590",
+      "PMID:36574323",
+      "PMID:36720125",
+      "PMID:36769171",
+      "PMID:37001294",
+      "PMID:37392600",
+      "PMID:37466696",
+      "PMID:37544134",
+      "PMID:37603152",
+      "PMID:37867184",
+      "PMID:38084680",
+      "PMID:38307149",
+      "PMID:38524112",
+      "PMID:39116800",
+      "PMID:6349348",
+      "PMID:6372470",
+      "PMID:6466018",
+      "PMID:6473134",
+      "PMID:8196986",
+      "PMID:8333768",
+      "PMID:8449848",
+      "PMID:8859061",
+      "PMID:9519033",
+      "clinicaltrials:NCT02591290",
+      "clinicaltrials:NCT07062445"
     ],
     "genes": [],
     "treatments": [
@@ -5682,6 +7128,84 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:11096143",
+      "PMID:12118255",
+      "PMID:12365916",
+      "PMID:12524598",
+      "PMID:12677556",
+      "PMID:12876834",
+      "PMID:14993910",
+      "PMID:15539463",
+      "PMID:15690372",
+      "PMID:15852167",
+      "PMID:16794820",
+      "PMID:18032602",
+      "PMID:18381349",
+      "PMID:19150989",
+      "PMID:19327768",
+      "PMID:19701229",
+      "PMID:19778711",
+      "PMID:20301537",
+      "PMID:20876674",
+      "PMID:21514177",
+      "PMID:22109794",
+      "PMID:22139371",
+      "PMID:22940089",
+      "PMID:23001136",
+      "PMID:23776152",
+      "PMID:24194441",
+      "PMID:25313840",
+      "PMID:26076793",
+      "PMID:26231314",
+      "PMID:27170093",
+      "PMID:27245600",
+      "PMID:27356116",
+      "PMID:27625843",
+      "PMID:27984625",
+      "PMID:28533336",
+      "PMID:28662344",
+      "PMID:29127258",
+      "PMID:29161709",
+      "PMID:29409041",
+      "PMID:29534263",
+      "PMID:29653013",
+      "PMID:29754569",
+      "PMID:30901771",
+      "PMID:31419725",
+      "PMID:31696011",
+      "PMID:31864384",
+      "PMID:32165602",
+      "PMID:32361989",
+      "PMID:32700463",
+      "PMID:32759308",
+      "PMID:32835378",
+      "PMID:32962042",
+      "PMID:33040131",
+      "PMID:33433911",
+      "PMID:33560420",
+      "PMID:33777945",
+      "PMID:34262361",
+      "PMID:34364070",
+      "PMID:35791150",
+      "PMID:36325687",
+      "PMID:36374067",
+      "PMID:36481880",
+      "PMID:36647077",
+      "PMID:36658040",
+      "PMID:36672825",
+      "PMID:36700052",
+      "PMID:36833331",
+      "PMID:37137806",
+      "PMID:37239474",
+      "PMID:37612261",
+      "PMID:37919024",
+      "PMID:38302651",
+      "PMID:38407766",
+      "PMID:6487184",
+      "PMID:7726222",
+      "PMID:7802002"
+    ],
     "genes": [
       "BBS1",
       "BBS2",
@@ -5760,6 +7284,10 @@ window.searchData = [
     ],
     "frequencies": [
       "OBLIGATE"
+    ],
+    "evidence_references": [
+      "PMID:19082818",
+      "PMID:36921301"
     ],
     "genes": [
       "PTCH1",
@@ -5846,6 +7374,16 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "DOI:10.1038/s41598-025-87130-4",
+      "DOI:10.1056/nejmra2305712",
+      "DOI:10.1186/s12974-024-03123-6",
+      "DOI:10.3389/fimmu.2023.1206959",
+      "DOI:10.3389/fmed.2023.1055753",
+      "DOI:10.3390/medicina60040562",
+      "PMID:37435539",
+      "PMID:38778397"
+    ],
     "genes": [
       "HLA-B51",
       "ERAP1",
@@ -5905,6 +7443,11 @@ window.searchData = [
     ],
     "frequencies": [
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:16615610",
+      "PMID:2771355",
+      "PMID:35687593"
     ],
     "genes": [],
     "treatments": [
@@ -5981,6 +7524,23 @@ window.searchData = [
       "OBLIGATE",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:27689547",
+      "PMID:31124964",
+      "PMID:33088514",
+      "PMID:33602968",
+      "PMID:34640384",
+      "PMID:35160337",
+      "PMID:36397921",
+      "PMID:37752723",
+      "PMID:38517799",
+      "PMID:39939082",
+      "PMID:40255708",
+      "PMID:40299566",
+      "clinicaltrials:NCT02328079",
+      "clinicaltrials:NCT03508440",
+      "clinicaltrials:NCT05846217"
     ],
     "genes": [
       "Common susceptibility locus at 6p21.1"
@@ -6064,6 +7624,21 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "DOI:10.1016/j.ajpath.2023.09.010",
+      "DOI:10.1101/2025.08.12.669857",
+      "DOI:10.1172/jci.insight.176479",
+      "DOI:10.1186/s12964-024-01644-4",
+      "DOI:10.1186/s12967-024-05212-9",
+      "DOI:10.1186/s13062-024-00504-y",
+      "DOI:10.1186/s40779-024-00533-8",
+      "DOI:10.1186/s43556-024-00216-9",
+      "PMID:37827216",
+      "PMID:38654277",
+      "PMID:38711089",
+      "PMID:38764065",
+      "PMID:39455522"
     ],
     "genes": [
       "SRD5A2",
@@ -6183,6 +7758,15 @@ window.searchData = [
       "OCCASIONAL",
       "VERY_RARE"
     ],
+    "evidence_references": [
+      "PMID:23958592",
+      "PMID:30026775",
+      "PMID:31268215",
+      "PMID:35850931",
+      "PMID:38535123",
+      "PMID:38853254",
+      "PMID:40598206"
+    ],
     "genes": [
       "ACAT1 pathogenic variants"
     ],
@@ -6262,6 +7846,11 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:32847582",
+      "PMID:41235131",
+      "PMID:9097826"
     ],
     "genes": [
       "MANBA gene mutations"
@@ -6399,6 +7988,27 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1038/s41467-023-41961-9",
+      "DOI:10.1182/bloodadvances.2022007655",
+      "DOI:10.1182/bloodadvances.2023012010",
+      "DOI:10.14218/ge.2023.00128",
+      "DOI:10.3324/haematol.2023.283057",
+      "DOI:10.3389/fmolb.2023.1248742",
+      "DOI:10.3389/fphys.2024.1346173",
+      "DOI:10.3390/cells13110918",
+      "DOI:10.3390/ijms24043995",
+      "DOI:10.3390/ijms25063400",
+      "DOI:10.3390/thalassrep13030017",
+      "DOI:10.3390/thalassrep14040010",
+      "PMID:18691915",
+      "PMID:20492708",
+      "PMID:21705976",
+      "PMID:22631035",
+      "PMID:28293406",
+      "PMID:32212518",
+      "PMID:34891223"
+    ],
     "genes": [
       "HBB",
       "BCL11A",
@@ -6518,6 +8128,17 @@ window.searchData = [
       "OCCASIONAL",
       "VERY_RARE"
     ],
+    "evidence_references": [
+      "PMID:2314964",
+      "PMID:36759144",
+      "PMID:37027963",
+      "PMID:37373384",
+      "PMID:38141137",
+      "PMID:38928282",
+      "PMID:39451125",
+      "PMID:40190376",
+      "PMID:9713119"
+    ],
     "genes": [
       "BTD gene variants causing biotinidase deficiency"
     ],
@@ -6617,6 +8238,19 @@ window.searchData = [
       "VERY_FREQUENT",
       "OCCASIONAL",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.1503/jpn.230112",
+      "DOI:10.3389/fnins.2023.1228455",
+      "DOI:10.3389/fpsyt.2024.1414776",
+      "DOI:10.3390/biology13100787",
+      "DOI:10.3390/brainsci14121199",
+      "PMID:18711365",
+      "PMID:21057379",
+      "PMID:22363263",
+      "PMID:23846857",
+      "PMID:30285728",
+      "PMID:33958577"
     ],
     "genes": [
       "CACNA1C",
@@ -6733,6 +8367,36 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.29262/ram.v72i4.1462",
+      "DOI:10.3390/ijms24032884",
+      "PMID:1053441",
+      "PMID:11131880",
+      "PMID:12839317",
+      "PMID:14503346",
+      "PMID:21870048",
+      "PMID:23101639",
+      "PMID:24480143",
+      "PMID:27816444",
+      "PMID:32145830",
+      "PMID:32602730",
+      "PMID:33041192",
+      "PMID:33318919",
+      "PMID:35779842",
+      "PMID:37028940",
+      "PMID:38218353",
+      "PMID:38309995",
+      "PMID:38762468",
+      "PMID:38924775",
+      "PMID:39844643",
+      "PMID:39958101",
+      "PMID:40049235",
+      "PMID:40338891",
+      "PMID:6761066",
+      "clinicaltrials:NCT02496182",
+      "clinicaltrials:NCT02958917",
+      "clinicaltrials:NCT04844359"
+    ],
     "genes": [
       "MUC5B",
       "TOLLIP"
@@ -6791,6 +8455,30 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT"
     ],
+    "evidence_references": [
+      "DOI:10.1002/1873-3468.12969",
+      "DOI:10.1007/s44197-024-00255-z",
+      "DOI:10.1021/cb700020v",
+      "DOI:10.1038/s41467-023-37860-8",
+      "DOI:10.1038/s41467-024-47322-4",
+      "DOI:10.1073/pnas.1008302107",
+      "DOI:10.1073/pnas.1908051116",
+      "DOI:10.1073/pnas.96.6.3200",
+      "DOI:10.1101/2023.10.17.562749",
+      "DOI:10.1111/jnc.70187",
+      "DOI:10.1128/aem.02838-14",
+      "DOI:10.14573/altex.2312071",
+      "DOI:10.15252/embj.2022112095",
+      "DOI:10.31646/gbio.292",
+      "DOI:10.3389/fphar.2021.763950",
+      "DOI:10.3390/ijms26020777",
+      "PMID:10601338",
+      "PMID:17666397",
+      "PMID:23621114",
+      "PMID:23643538",
+      "PMID:31157190",
+      "PMID:8331029"
+    ],
     "genes": [],
     "treatments": [
       "Botulinum Antitoxin"
@@ -6846,6 +8534,11 @@ window.searchData = [
       "HP:0005819"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:11455389",
+      "PMID:19464397",
+      "PMID:21537345"
+    ],
     "genes": [
       "IHH Missense Mutations"
     ],
@@ -6948,6 +8641,17 @@ window.searchData = [
       "HP:0000705"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:18587396",
+      "PMID:19369399",
+      "PMID:20605796",
+      "PMID:22791835",
+      "PMID:23824674",
+      "PMID:24677493",
+      "PMID:25669657",
+      "PMID:31313512",
+      "PMID:31387748"
+    ],
     "genes": [
       "TRPV4 gain-of-function mutations",
       "PAPSS2 loss-of-function mutations",
@@ -6998,6 +8702,21 @@ window.searchData = [
     ],
     "frequencies": [
       "COMMON"
+    ],
+    "evidence_references": [
+      "DOI:10.1111/his.13258",
+      "DOI:10.1136/jclinpath-2017-204838",
+      "DOI:10.1136/jclinpath-2019-206208",
+      "DOI:10.1590/acb386823",
+      "DOI:10.2214/ajr.07.2330",
+      "DOI:10.3389/fonc.2025.1609832",
+      "PMID:10417687",
+      "PMID:11270760",
+      "PMID:15677540",
+      "PMID:16554735",
+      "PMID:24088064",
+      "PMID:25855048",
+      "PMID:6290045"
     ],
     "genes": [
       "MED12"
@@ -7090,6 +8809,17 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "DOI:10.1055/s-0041-1730891",
+      "DOI:10.1164/rccm.202306-1059oc",
+      "DOI:10.1183/13993003.01689-2023",
+      "DOI:10.1183/13993003.01966-2023",
+      "DOI:10.1183/16000617.0038-2024",
+      "DOI:10.1183/16000617.0055-2024",
+      "DOI:10.1183/16000617.0179-2024",
+      "DOI:10.1183/16000617.0234-2023",
+      "DOI:10.1186/s12931-024-02931-x"
     ],
     "genes": [
       "CFTR",
@@ -7193,6 +8923,12 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:1301171",
+      "PMID:36522349",
+      "PMID:40893393",
+      "PMID:7797201"
+    ],
     "genes": [
       "MYC",
       "TP53",
@@ -7250,6 +8986,11 @@ window.searchData = [
     ],
     "frequencies": [
       "VERY_FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:19362692",
+      "PMID:21240839",
+      "PMID:30429139"
     ],
     "genes": [],
     "treatments": [
@@ -7352,6 +9093,15 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:17395137",
+      "PMID:34484942",
+      "PMID:36592223",
+      "PMID:37555011",
+      "PMID:38286873",
+      "PMID:38681799",
+      "PMID:39110218"
+    ],
     "genes": [
       "CACNA1A"
     ],
@@ -7439,6 +9189,16 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.3389/fneur.2025.1573052",
+      "DOI:10.3389/fneur.2025.1662012",
+      "DOI:10.3389/fnmol.2024.1391040",
+      "DOI:10.3390/biom14010127",
+      "DOI:10.3390/jcm13113138",
+      "PMID:30855338",
+      "PMID:36606642",
+      "PMID:38386425"
     ],
     "genes": [
       "NOTCH3"
@@ -7532,6 +9292,23 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.1002/humu.23219",
+      "DOI:10.1007/s00018-024-05284-2",
+      "DOI:10.1016/j.ymgmr.2018.01.007",
+      "DOI:10.1093/brain/awae056",
+      "DOI:10.1186/s13023-020-01401-z",
+      "DOI:10.1590/1678-4685-gmb-2017-0172",
+      "DOI:10.3390/ijms24108632",
+      "DOI:10.5114/polp.2024.146394",
+      "PMID:22444671",
+      "PMID:28371479",
+      "PMID:29473937",
+      "PMID:35258128",
+      "PMID:38773877",
+      "PMID:7666399",
+      "PMID:9295069"
     ],
     "genes": [
       "PIGL"
@@ -7643,6 +9420,31 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "DOI:10.1007/s10875-019-00638-z",
+      "DOI:10.1101/2024.12.15.24318703",
+      "DOI:10.1111/imr.13292",
+      "DOI:10.3389/fimmu.2023.1267933",
+      "GEO:GSE38626",
+      "GEO:GSE43553",
+      "PMID:11687797",
+      "PMID:16899778",
+      "PMID:31077002",
+      "PMID:34059097",
+      "PMID:37548074",
+      "PMID:37809096",
+      "PMID:38481988",
+      "PMID:38720945",
+      "PMID:38808101",
+      "PMID:39816134",
+      "PMID:40538939",
+      "PMID:41026232",
+      "clinicaltrials:NCT00069329",
+      "clinicaltrials:NCT00685373",
+      "clinicaltrials:NCT00770601",
+      "clinicaltrials:NCT01302860",
+      "clinicaltrials:NCT02974595"
+    ],
     "genes": [
       "NLRP3"
     ],
@@ -7749,6 +9551,32 @@ window.searchData = [
       "FREQUENT",
       "VERY_FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:19732857",
+      "PMID:22232752",
+      "PMID:23121374",
+      "PMID:26303319",
+      "PMID:27125746",
+      "PMID:28097356",
+      "PMID:28540603",
+      "PMID:28646995",
+      "PMID:29523679",
+      "PMID:32961953",
+      "PMID:33301619",
+      "PMID:33765230",
+      "PMID:33784965",
+      "PMID:34137924",
+      "PMID:35587600",
+      "PMID:36107466",
+      "PMID:36510335",
+      "PMID:36776982",
+      "PMID:36821389",
+      "PMID:37258233",
+      "PMID:38541742",
+      "PMID:38573243",
+      "PMID:38785509",
+      "PMID:39684805"
     ],
     "genes": [
       "CASR",
@@ -7919,6 +9747,19 @@ window.searchData = [
       "OCCASIONAL",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:21310861",
+      "PMID:22658544",
+      "PMID:24782230",
+      "PMID:27426476",
+      "PMID:28627003",
+      "PMID:29899452",
+      "PMID:31334068",
+      "PMID:34074347",
+      "PMID:34568242",
+      "PMID:36804444",
+      "PMID:38025143"
+    ],
     "genes": [
       "PIK3CA Somatic Mutations"
     ],
@@ -8015,6 +9856,17 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:28942967",
+      "PMID:29432562",
+      "PMID:30254215",
+      "PMID:30455226",
+      "PMID:32593294",
+      "PMID:33963760",
+      "PMID:36158964",
+      "PMID:39305655",
+      "PMID:40548073"
+    ],
     "genes": [
       "PPP3CA variants"
     ],
@@ -8077,6 +9929,12 @@ window.searchData = [
       "HP:0000407"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:10581026",
+      "PMID:16033917",
+      "PMID:23110709",
+      "PMID:25633957"
+    ],
     "genes": [
       "COL11A2 Mutations"
     ],
@@ -8164,6 +10022,13 @@ window.searchData = [
       "HP:0002829"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:10677296",
+      "PMID:18381781",
+      "PMID:23110709",
+      "PMID:37347055",
+      "PMID:7859284"
+    ],
     "genes": [
       "COL11A2 Mutations"
     ],
@@ -8258,6 +10123,13 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:12915475",
+      "PMID:22065545",
+      "PMID:28341475",
+      "PMID:34320374",
+      "PMID:36099972"
     ],
     "genes": [
       "CRB1"
@@ -8360,6 +10232,20 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "DOI:10.1002/jdn.10242",
+      "DOI:10.1073/pnas.1219280110",
+      "DOI:10.1073/pnas.1317788111",
+      "DOI:10.3389/fgene.2021.732033",
+      "DOI:10.3389/fimmu.2025.1667851",
+      "DOI:10.3389/fnmol.2023.1185796",
+      "PMID:11743158",
+      "PMID:22854024",
+      "PMID:23746550",
+      "PMID:31239556",
+      "PMID:32049433",
+      "PMID:38951485"
     ],
     "genes": [
       "CTCF"
@@ -8479,6 +10365,37 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:16933734",
+      "PMID:18072106",
+      "PMID:19106433",
+      "PMID:19341754",
+      "PMID:19364190",
+      "PMID:20204475",
+      "PMID:20354761",
+      "PMID:20576581",
+      "PMID:22349354",
+      "PMID:23800513",
+      "PMID:25042840",
+      "PMID:31704329",
+      "PMID:31974582",
+      "PMID:32244724",
+      "PMID:34298880",
+      "PMID:39111871",
+      "PMID:39381600",
+      "PMID:40164036",
+      "PMID:40191670",
+      "PMID:41000307",
+      "PMID:41188353",
+      "PMID:41297938",
+      "PMID:41412331",
+      "PMID:41453694",
+      "PMID:7426480",
+      "clinicaltrials:NCT00376987",
+      "clinicaltrials:NCT05908383",
+      "clinicaltrials:NCT06199349",
+      "clinicaltrials:NCT07057414"
+    ],
     "genes": [],
     "treatments": [
       "Chelation Therapy",
@@ -8566,6 +10483,14 @@ window.searchData = [
       "HP:0002650"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:17185244",
+      "PMID:24800790",
+      "PMID:36741086",
+      "PMID:39854231",
+      "PMID:7485151",
+      "PMID:8482284"
+    ],
     "genes": [
       "SOX9 Pathogenic Variants"
     ],
@@ -8641,6 +10566,19 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "DOI:10.1016/j.xhgg.2023.100213",
+      "DOI:10.1186/s12891-025-09069-x",
+      "DOI:10.1186/s12969-023-00793-z",
+      "DOI:10.3389/fgene.2023.1035887",
+      "DOI:10.3389/fneur.2024.1343025",
+      "DOI:10.3390/children11070861",
+      "PMID:21531865",
+      "PMID:25337069",
+      "PMID:29397575",
+      "PMID:30897950",
+      "PMID:3693837"
     ],
     "genes": [
       "PRG4",
@@ -8734,6 +10672,28 @@ window.searchData = [
       "MONDO:0005052"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "DOI:10.1007/s00253-023-12456-w",
+      "DOI:10.3390/antibiotics13090904",
+      "DOI:10.3390/biom13010135",
+      "DOI:10.3390/cells13030224",
+      "DOI:10.3390/microorganisms12010132",
+      "DOI:10.3390/microorganisms12122669",
+      "PMID:20856114",
+      "PMID:26962088",
+      "PMID:28613708",
+      "PMID:28669361",
+      "PMID:30725718",
+      "PMID:33530940",
+      "PMID:36430700",
+      "PMID:36635328",
+      "PMID:37910310",
+      "PMID:40395728",
+      "PMID:41280732",
+      "PMID:41566887",
+      "clinicaltrials:NCT02280044",
+      "clinicaltrials:NCT06122870"
+    ],
     "genes": [],
     "treatments": [
       "Targeted antibiotic therapy for severe intestinal infection",
@@ -8818,6 +10778,23 @@ window.searchData = [
       "HP:0003717"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "DOI:10.1007/s00223-019-00532-1",
+      "DOI:10.1016/j.beem.2018.06.003",
+      "DOI:10.1159/000479859",
+      "DOI:10.1186/1687-9856-2013-s1-o42",
+      "DOI:10.1530/joe-20-0285",
+      "DOI:10.3389/fendo.2022.1041061",
+      "DOI:10.3389/fendo.2022.913979",
+      "DOI:10.4055/cios.2017.9.1.109",
+      "DOI:10.5152/eurjrheum.2023.21115",
+      "PMID:10973241",
+      "PMID:11062463",
+      "PMID:11278244",
+      "PMID:15326622",
+      "PMID:15894597",
+      "PMID:25140400"
+    ],
     "genes": [
       "TGFB1 Mutations"
     ],
@@ -8908,6 +10885,15 @@ window.searchData = [
       "OBLIGATE",
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:22150623",
+      "PMID:28000146",
+      "PMID:28370228",
+      "PMID:28730896",
+      "PMID:29310960",
+      "PMID:31104487",
+      "PMID:32656345"
     ],
     "genes": [],
     "treatments": [
@@ -9001,6 +10987,19 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:36937980",
+      "PMID:37164630",
+      "PMID:37365635",
+      "PMID:37480106",
+      "PMID:37717413",
+      "PMID:38201843",
+      "PMID:39174957",
+      "PMID:39469307",
+      "PMID:40125546",
+      "PMID:40218931",
+      "PMID:40710547"
     ],
     "genes": [
       "CPS1 pathogenic variants"
@@ -9098,6 +11097,12 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:16439621",
+      "PMID:22495831",
+      "PMID:36308388",
+      "PMID:38136934"
     ],
     "genes": [
       "BRAF Mutations",
@@ -9200,6 +11205,19 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:21542954",
+      "PMID:25614308",
+      "PMID:28862145",
+      "PMID:29502916",
+      "PMID:33024728",
+      "PMID:35862567",
+      "PMID:36835358",
+      "PMID:37305732",
+      "PMID:38628283",
+      "PMID:39203843",
+      "PMID:39375714"
+    ],
     "genes": [
       "SLC25A20 pathogenic variants"
     ],
@@ -9299,6 +11317,16 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:28054946",
+      "PMID:37933340",
+      "PMID:38650450",
+      "PMID:39182841",
+      "PMID:39429887",
+      "clinicaltrials:NCT00983788",
+      "clinicaltrials:NCT01379625",
+      "clinicaltrials:NCT01886378"
+    ],
     "genes": [
       "CPT2 gene variants"
     ],
@@ -9390,6 +11418,11 @@ window.searchData = [
       "Very frequent",
       "Occasional"
     ],
+    "evidence_references": [
+      "PMID:11063735",
+      "PMID:25516398",
+      "PMID:37799505"
+    ],
     "genes": [
       "DSP Biallelic Loss-of-Function Variants"
     ],
@@ -9479,6 +11512,20 @@ window.searchData = [
     "frequencies": [
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "DOI:10.1038/s41590-024-01867-0",
+      "DOI:10.1136/bmj-2024-081353",
+      "DOI:10.20944/preprints202504.1947.v1",
+      "DOI:10.3390/ijms25179412",
+      "PMID:10071918",
+      "PMID:10684852",
+      "PMID:15357947",
+      "PMID:24942692",
+      "PMID:28722929",
+      "PMID:29757210",
+      "PMID:38914866",
+      "PMID:39273359"
     ],
     "genes": [
       "HLA-DQ2",
@@ -9596,6 +11643,15 @@ window.searchData = [
       "HP_0040283",
       "HP_0040284"
     ],
+    "evidence_references": [
+      "PMID:16917943",
+      "PMID:17504518",
+      "PMID:22473935",
+      "PMID:29391587",
+      "PMID:34795634",
+      "PMID:8220422",
+      "PMID:8220423"
+    ],
     "genes": [
       "RYR1 mutations"
     ],
@@ -9679,6 +11735,10 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:14690308",
+      "PMID:41503346"
+    ],
     "genes": [
       "TP53",
       "PIK3CA"
@@ -9738,6 +11798,13 @@ window.searchData = [
     ],
     "frequencies": [
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:18512345",
+      "PMID:28284779",
+      "PMID:28919885",
+      "PMID:30111183",
+      "PMID:34207491"
     ],
     "genes": [],
     "treatments": [
@@ -9799,6 +11866,19 @@ window.searchData = [
       "HP:0002014"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:23072534",
+      "PMID:24316664",
+      "PMID:25186048",
+      "PMID:29094594",
+      "PMID:30739515",
+      "PMID:32028590",
+      "PMID:32170007",
+      "PMID:34017262",
+      "PMID:35170355",
+      "PMID:37231829",
+      "PMID:39226257"
+    ],
     "genes": [],
     "treatments": [
       "Loperamide",
@@ -9879,6 +11959,14 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:1387926",
+      "PMID:17208005",
+      "PMID:18095921",
+      "PMID:28235999",
+      "PMID:29057666",
+      "PMID:30328690"
+    ],
     "genes": [],
     "treatments": [
       "5-HT3 Receptor Antagonists",
@@ -9953,6 +12041,40 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:14726820",
+      "PMID:16188994",
+      "PMID:19449259",
+      "PMID:20874010",
+      "PMID:21835786",
+      "PMID:23675304",
+      "PMID:25453570",
+      "PMID:26963841",
+      "PMID:27188665",
+      "PMID:27584717",
+      "PMID:28826422",
+      "PMID:28846365",
+      "PMID:29219259",
+      "PMID:29505590",
+      "PMID:3016110",
+      "PMID:30704406",
+      "PMID:33733653",
+      "PMID:33829948",
+      "PMID:36265857",
+      "PMID:36552964",
+      "PMID:37632006",
+      "PMID:38184594",
+      "PMID:38416279",
+      "PMID:38814821",
+      "PMID:38858365",
+      "PMID:39051773",
+      "PMID:39110717",
+      "PMID:39503781",
+      "PMID:8827537",
+      "clinicaltrials:NCT06806137",
+      "clinicaltrials:NCT06855160",
+      "clinicaltrials:NCT07415252"
+    ],
     "genes": [],
     "treatments": [
       "Varicella vaccination",
@@ -10017,6 +12139,10 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:17448935",
+      "PMID:29533749"
     ],
     "genes": [],
     "treatments": [
@@ -10121,6 +12247,159 @@ window.searchData = [
       "VERY_FREQUENT",
       "OCCASIONAL",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.1007/978-1-60327-265-0_15",
+      "DOI:10.1016/j.mib.2023.102421",
+      "DOI:10.1371/journal.ppat.1006862",
+      "DOI:10.3389/fmed.2023.1155751",
+      "DOI:10.3390/toxins2030310",
+      "PMID:10414380",
+      "PMID:10652843",
+      "PMID:10892490",
+      "PMID:11378428",
+      "PMID:11880057",
+      "PMID:11883125",
+      "PMID:12220086",
+      "PMID:12562304",
+      "PMID:13356145",
+      "PMID:14215188",
+      "PMID:1465231",
+      "PMID:14738797",
+      "PMID:15015922",
+      "PMID:15193408",
+      "PMID:15226199",
+      "PMID:15367740",
+      "PMID:17582575",
+      "PMID:17716938",
+      "PMID:18024592",
+      "PMID:18091420",
+      "PMID:18184631",
+      "PMID:18704085",
+      "PMID:19171080",
+      "PMID:19174284",
+      "PMID:20074356",
+      "PMID:20135270",
+      "PMID:20562706",
+      "PMID:21150867",
+      "PMID:21415490",
+      "PMID:21540075",
+      "PMID:21675806",
+      "PMID:21704640",
+      "PMID:21860658",
+      "PMID:21880975",
+      "PMID:22355581",
+      "PMID:22461716",
+      "PMID:22634452",
+      "PMID:22781421",
+      "PMID:22937199",
+      "PMID:23201968",
+      "PMID:23301694",
+      "PMID:2341728",
+      "PMID:23622872",
+      "PMID:23651092",
+      "PMID:23886437",
+      "PMID:24047241",
+      "PMID:24101648",
+      "PMID:24245619",
+      "PMID:24827501",
+      "PMID:24845800",
+      "PMID:24944120",
+      "PMID:24952048",
+      "PMID:25114012",
+      "PMID:25140600",
+      "PMID:25411971",
+      "PMID:26488620",
+      "PMID:26494426",
+      "PMID:27222028",
+      "PMID:27412979",
+      "PMID:28253325",
+      "PMID:28448489",
+      "PMID:28483382",
+      "PMID:28608260",
+      "PMID:28642796",
+      "PMID:28748506",
+      "PMID:28957470",
+      "PMID:29165706",
+      "PMID:29174695",
+      "PMID:29488455",
+      "PMID:29857264",
+      "PMID:29903037",
+      "PMID:29949592",
+      "PMID:30114215",
+      "PMID:30184102",
+      "PMID:30269306",
+      "PMID:30512613",
+      "PMID:30594260",
+      "PMID:30624615",
+      "PMID:30861666",
+      "PMID:31226251",
+      "PMID:31285087",
+      "PMID:31345641",
+      "PMID:31668817",
+      "PMID:3171790",
+      "PMID:32054785",
+      "PMID:32319946",
+      "PMID:32529415",
+      "PMID:32663235",
+      "PMID:32678037",
+      "PMID:32987576",
+      "PMID:33252133",
+      "PMID:33333823",
+      "PMID:33350917",
+      "PMID:33705444",
+      "PMID:33753586",
+      "PMID:33830353",
+      "PMID:33844507",
+      "PMID:34453539",
+      "PMID:34523840",
+      "PMID:34550373",
+      "PMID:34550374",
+      "PMID:34586051",
+      "PMID:34633491",
+      "PMID:34670655",
+      "PMID:34695790",
+      "PMID:34961483",
+      "PMID:34995131",
+      "PMID:35123444",
+      "PMID:35130995",
+      "PMID:35259956",
+      "PMID:35381862",
+      "PMID:35465904",
+      "PMID:35605949",
+      "PMID:36123095",
+      "PMID:36255170",
+      "PMID:36376441",
+      "PMID:36573576",
+      "PMID:36573678",
+      "PMID:36634024",
+      "PMID:36639850",
+      "PMID:36654005",
+      "PMID:37580033",
+      "PMID:37610182",
+      "PMID:37735743",
+      "PMID:37769103",
+      "PMID:37842003",
+      "PMID:37930488",
+      "PMID:37961651",
+      "PMID:38702080",
+      "PMID:4364505",
+      "PMID:4869291",
+      "PMID:49561",
+      "PMID:5300876",
+      "PMID:5300879",
+      "PMID:5697815",
+      "PMID:6680124",
+      "PMID:80378",
+      "PMID:820813",
+      "PMID:8373550",
+      "PMID:8548982",
+      "PMID:8736618",
+      "PMID:8783505",
+      "PMID:8783513",
+      "PMID:8817767",
+      "PMID:9260522",
+      "PMID:9694423"
     ],
     "genes": [],
     "treatments": [
@@ -10229,6 +12508,36 @@ window.searchData = [
       "OCCASIONAL",
       "RARE"
     ],
+    "evidence_references": [
+      "PMID:22312921",
+      "PMID:27236633",
+      "PMID:28244845",
+      "PMID:31933930",
+      "PMID:33627146",
+      "PMID:34860720",
+      "PMID:36774407",
+      "PMID:36837507",
+      "PMID:36883320",
+      "PMID:36929420",
+      "PMID:37537159",
+      "PMID:37623440",
+      "PMID:37675676",
+      "PMID:38334859",
+      "PMID:38337530",
+      "PMID:38517544",
+      "PMID:38662954",
+      "PMID:38890701",
+      "PMID:39130256",
+      "PMID:39327289",
+      "PMID:40096720",
+      "PMID:40411260",
+      "PMID:40805865",
+      "PMID:41552209",
+      "PMID:41767763",
+      "clinicaltrials:NCT03954288",
+      "clinicaltrials:NCT04672187",
+      "clinicaltrials:NCT05921643"
+    ],
     "genes": [],
     "treatments": [
       "Tympanomastoidectomy-based surgical excision",
@@ -10281,6 +12590,9 @@ window.searchData = [
     ],
     "frequencies": [
       "COMMON"
+    ],
+    "evidence_references": [
+      "PMID:20711281"
     ],
     "genes": [],
     "treatments": [],
@@ -10353,6 +12665,17 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.1111/bpa.13184",
+      "DOI:10.3389/fimmu.2024.1475478",
+      "DOI:10.3389/fimmu.2025.1575464",
+      "DOI:10.69622/28457924.v1",
+      "PMID:35378684",
+      "PMID:36346134",
+      "PMID:36645654",
+      "PMID:37356965",
+      "PMID:38330421"
     ],
     "genes": [],
     "treatments": [
@@ -10447,6 +12770,22 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.1038/s41581-023-00775-0",
+      "DOI:10.1080/0886022x.2024.2313864",
+      "DOI:10.1093/ckj/sfad143",
+      "DOI:10.1182/hematology.2024000655",
+      "DOI:10.3349/ymj.2023.0306",
+      "DOI:10.3390/biomedicines13061424",
+      "DOI:10.3390/ijms25031518",
+      "DOI:10.3390/ijms25031755",
+      "DOI:10.3390/jcm13071881",
+      "DOI:10.34067/kid.0000000000000425",
+      "PMID:37857763",
+      "PMID:38339031",
+      "PMID:38610646",
+      "PMID:38653563"
     ],
     "genes": [
       "PKD1",
@@ -10559,6 +12898,14 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:1139039",
+      "PMID:18755702",
+      "PMID:26639149",
+      "PMID:29670635",
+      "PMID:30523712",
+      "PMID:41572562"
+    ],
     "genes": [
       "TP53 Mutation/del(17p)",
       "del(11q)/ATM",
@@ -10665,6 +13012,11 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:11287972",
+      "PMID:11423618",
+      "PMID:33440869"
     ],
     "genes": [
       "BCR-ABL1"
@@ -10793,6 +13145,108 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1136/thorax-2023-220455",
+      "DOI:10.1164/rccm.202306-1060oc",
+      "DOI:10.1183/23120541.00177-2024",
+      "DOI:10.3389/fimmu.2024.1404615",
+      "DOI:10.3390/ijms25147780",
+      "DOI:10.3390/ijms26052184",
+      "PMID:11935838",
+      "PMID:11963614",
+      "PMID:11964759",
+      "PMID:11993785",
+      "PMID:12406664",
+      "PMID:14621114",
+      "PMID:15347849",
+      "PMID:15699784",
+      "PMID:16916323",
+      "PMID:17240617",
+      "PMID:17305517",
+      "PMID:18044093",
+      "PMID:18303418",
+      "PMID:18415812",
+      "PMID:19462352",
+      "PMID:19811377",
+      "PMID:19934351",
+      "PMID:20102305",
+      "PMID:20500603",
+      "PMID:20535848",
+      "PMID:20649375",
+      "PMID:21178627",
+      "PMID:21812941",
+      "PMID:22189668",
+      "PMID:22753831",
+      "PMID:23204254",
+      "PMID:23206444",
+      "PMID:23248802",
+      "PMID:23361196",
+      "PMID:2404712",
+      "PMID:24102428",
+      "PMID:24278358",
+      "PMID:24313775",
+      "PMID:24461631",
+      "PMID:24507838",
+      "PMID:24507849",
+      "PMID:24707174",
+      "PMID:24874124",
+      "PMID:25119324",
+      "PMID:25159007",
+      "PMID:25496790",
+      "PMID:25673984",
+      "PMID:26154786",
+      "PMID:26595735",
+      "PMID:27264777",
+      "PMID:27576232",
+      "PMID:27751401",
+      "PMID:28277858",
+      "PMID:28757318",
+      "PMID:28933915",
+      "PMID:29433833",
+      "PMID:29526182",
+      "PMID:29794201",
+      "PMID:29881269",
+      "PMID:29938633",
+      "PMID:30257694",
+      "PMID:30810540",
+      "PMID:30846476",
+      "PMID:31145187",
+      "PMID:31375190",
+      "PMID:31729154",
+      "PMID:31740261",
+      "PMID:31759959",
+      "PMID:32361678",
+      "PMID:32493486",
+      "PMID:32800189",
+      "PMID:33302722",
+      "PMID:33542053",
+      "PMID:33926668",
+      "PMID:33998496",
+      "PMID:34338012",
+      "PMID:34731461",
+      "PMID:34756790",
+      "PMID:34955635",
+      "PMID:34972922",
+      "PMID:35104244",
+      "PMID:35261410",
+      "PMID:35409627",
+      "PMID:35698999",
+      "PMID:36050206",
+      "PMID:36108172",
+      "PMID:36630963",
+      "PMID:36922031",
+      "PMID:37068517",
+      "PMID:37082823",
+      "PMID:37348121",
+      "PMID:37353334",
+      "PMID:37429033",
+      "PMID:37461046",
+      "PMID:38035712",
+      "PMID:38625125",
+      "PMID:38692758",
+      "PMID:38891820",
+      "PMID:39046133"
+    ],
     "genes": [
       "SERPINA1",
       "MMP12",
@@ -10894,6 +13348,25 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.1002/cphy.c230008",
+      "DOI:10.1101/2024.10.30.620903",
+      "DOI:10.3390/cancers15030761",
+      "DOI:10.3390/gastroent15020022",
+      "DOI:10.69734/f83fbc79",
+      "PMID:15753536",
+      "PMID:17048055",
+      "PMID:18471517",
+      "PMID:18554234",
+      "PMID:23622130",
+      "PMID:27941156",
+      "PMID:28404095",
+      "PMID:30074926",
+      "PMID:30654394",
+      "PMID:37389024",
+      "PMID:38013125",
+      "PMID:38680261"
     ],
     "genes": [
       "PRSS1",
@@ -11018,6 +13491,14 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:20301360",
+      "PMID:35142380",
+      "PMID:37063661",
+      "PMID:37254569",
+      "PMID:37952953",
+      "PMID:38535123"
+    ],
     "genes": [
       "SLC25A13 pathogenic variants"
     ],
@@ -11123,6 +13604,15 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:20301631",
+      "PMID:37485339",
+      "PMID:38054409",
+      "PMID:38927689",
+      "PMID:39449289",
+      "PMID:39649700",
+      "PMID:40218931"
     ],
     "genes": [
       "ASS1 pathogenic variants"
@@ -11231,6 +13721,33 @@ window.searchData = [
       "FREQUENT",
       "VERY_FREQUENT"
     ],
+    "evidence_references": [
+      "DOI:10.1038/s43018-024-00831-z",
+      "DOI:10.1055/s-0043-1767707",
+      "DOI:10.1055/s-0043-1770384",
+      "DOI:10.1186/s12967-024-05305-5",
+      "DOI:10.1186/s13023-024-03064-6",
+      "DOI:10.3389/fgene.2024.1391851",
+      "DOI:10.3390/cimb46070385",
+      "DOI:10.3390/ijms25158189",
+      "PMID:1314763",
+      "PMID:16411234",
+      "PMID:19822006",
+      "PMID:28668823",
+      "PMID:31525261",
+      "PMID:32905675",
+      "PMID:33509804",
+      "PMID:34775416",
+      "PMID:35321042",
+      "PMID:35636921",
+      "PMID:37119510",
+      "PMID:39046601",
+      "PMID:39729982",
+      "clinicaltrials:NCT01483144",
+      "clinicaltrials:NCT01725490",
+      "clinicaltrials:NCT02961374",
+      "clinicaltrials:NCT06545526"
+    ],
     "genes": [
       "APC",
       "TP53 and cooperating progression drivers"
@@ -11328,6 +13845,23 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1007/s12672-024-01175-x",
+      "DOI:10.1016/j.eururo.2023.04.003",
+      "DOI:10.1038/s41581-023-00800-2",
+      "DOI:10.1038/s42003-024-06478-x",
+      "DOI:10.1158/1078-0432.ccr-23-3029",
+      "DOI:10.1186/s12967-024-04848-x",
+      "DOI:10.3389/fgene.2023.1207233",
+      "DOI:10.3390/curroncol30100670",
+      "DOI:10.3390/ijms25126730",
+      "DOI:10.3390/ijms26010265",
+      "PMID:37085424",
+      "PMID:37175653",
+      "PMID:38762484",
+      "PMID:39014460",
+      "PMID:39196544"
+    ],
     "genes": [
       "VHL",
       "PBRM1",
@@ -11406,6 +13940,10 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:11211309",
+      "PMID:9793401"
+    ],
     "genes": [
       "EWSR1-ATF1 Fusion"
     ],
@@ -11478,6 +14016,12 @@ window.searchData = [
       "HP:0004322"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:10204840",
+      "PMID:19063717",
+      "PMID:25206109",
+      "PMID:34946295"
+    ],
     "genes": [
       "RUNX2 Pathogenic Variants"
     ],
@@ -11564,6 +14108,34 @@ window.searchData = [
       "HP:0031273"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "DOI:10.1177/20503121241274192",
+      "DOI:10.3390/microorganisms12051004",
+      "PMID:15831824",
+      "PMID:26185088",
+      "PMID:28066726",
+      "PMID:28613708",
+      "PMID:29462280",
+      "PMID:32179626",
+      "PMID:33402156",
+      "PMID:34837014",
+      "PMID:35181536",
+      "PMID:37004449",
+      "PMID:37126691",
+      "PMID:38313897",
+      "PMID:38335423",
+      "PMID:38508330",
+      "PMID:38726585",
+      "PMID:39204246",
+      "PMID:39282548",
+      "PMID:39298531",
+      "PMID:39377587",
+      "PMID:39650985",
+      "PMID:40366862",
+      "clinicaltrials:NCT01241552",
+      "clinicaltrials:NCT03183128",
+      "clinicaltrials:NCT03244644"
+    ],
     "genes": [],
     "treatments": [
       "Vancomycin",
@@ -11684,6 +14256,30 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:11074900",
+      "PMID:18418396",
+      "PMID:21258095",
+      "PMID:21791226",
+      "PMID:24613568",
+      "PMID:26904326",
+      "PMID:28857979",
+      "PMID:32358020",
+      "PMID:33262956",
+      "PMID:35071044",
+      "PMID:35149520",
+      "PMID:37233271",
+      "PMID:37367586",
+      "PMID:38196429",
+      "PMID:38535182",
+      "PMID:38667927",
+      "PMID:39189034",
+      "PMID:39365073",
+      "PMID:39452676",
+      "PMID:39710556",
+      "clinicaltrials:NCT02663674",
+      "clinicaltrials:NCT07385638"
     ],
     "genes": [
       "CLEC7A",
@@ -11822,6 +14418,16 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:30988227",
+      "PMID:36190439",
+      "PMID:38674442",
+      "PMID:39179905",
+      "PMID:39473441",
+      "PMID:39611850",
+      "PMID:40332372",
+      "PMID:40723898"
+    ],
     "genes": [
       "ERCC6",
       "ERCC8"
@@ -11926,6 +14532,20 @@ window.searchData = [
       "HP:0000077"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:22426308",
+      "PMID:23815551",
+      "PMID:24674232",
+      "PMID:29184203",
+      "PMID:29429572",
+      "PMID:30276971",
+      "PMID:38182156",
+      "PMID:38243407",
+      "PMID:38790056",
+      "PMID:39028335",
+      "PMID:39501269",
+      "PMID:41291750"
+    ],
     "genes": [
       "ARID1B",
       "SMARCA4",
@@ -12048,6 +14668,27 @@ window.searchData = [
       "OCCASIONAL",
       "RARE"
     ],
+    "evidence_references": [
+      "PMID:12354474",
+      "PMID:22846458",
+      "PMID:24979832",
+      "PMID:27330475",
+      "PMID:28583785",
+      "PMID:29489984",
+      "PMID:36502531",
+      "PMID:38973571",
+      "PMID:39007044",
+      "PMID:39268327",
+      "PMID:39280458",
+      "PMID:39328241",
+      "PMID:39455380",
+      "PMID:39543746",
+      "PMID:39999281",
+      "PMID:40054904",
+      "PMID:40843044",
+      "PMID:40866103",
+      "PMID:41473897"
+    ],
     "genes": [],
     "treatments": [
       "Corticosteroid therapy",
@@ -12140,6 +14781,25 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "DOI:10.1016/j.humpath.2015.12.001",
+      "DOI:10.1016/j.mayocp.2012.06.003",
+      "DOI:10.1093/ecco-jcc/jjab123",
+      "DOI:10.20524/aog.2017.0146",
+      "DOI:10.3748/wjg.15.4446",
+      "DOI:10.3748/wjg.v16.i3.296",
+      "DOI:10.52787/agl.v54i3.383",
+      "DOI:10.7759/cureus.72571",
+      "PMID:19855376",
+      "PMID:34272945",
+      "PMID:35945664",
+      "PMID:37070112",
+      "PMID:37554741",
+      "PMID:39046809",
+      "PMID:39606500",
+      "PMID:40911031",
+      "PMID:41341547"
+    ],
     "genes": [
       "HLA-DQA1",
       "TGFB1",
@@ -12215,6 +14875,23 @@ window.searchData = [
     ],
     "frequencies": [
       "COMMON"
+    ],
+    "evidence_references": [
+      "DOI:10.1007/s00428-024-03746-3",
+      "DOI:10.1007/s12254-023-00893-2",
+      "DOI:10.1038/s43018-024-00841-x",
+      "DOI:10.1186/s13053-024-00279-3",
+      "DOI:10.2147/cmar.s481656",
+      "DOI:10.3389/fimmu.2025.1735873",
+      "DOI:10.3390/cancers16081551",
+      "DOI:10.3390/cancers16172967",
+      "PMID:11455558",
+      "PMID:14685678",
+      "PMID:19092804",
+      "PMID:29334918",
+      "PMID:35613396",
+      "PMID:37499275",
+      "PMID:8055224"
     ],
     "genes": [],
     "treatments": [
@@ -12311,6 +14988,16 @@ window.searchData = [
     ],
     "frequencies": [
       "VERY_FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.1007/s10875-023-01618-0",
+      "DOI:10.1097/aci.0000000000001032",
+      "DOI:10.3390/jcm13061717",
+      "PMID:12577056",
+      "PMID:16007086",
+      "PMID:25213377",
+      "PMID:26279205",
+      "PMID:29477724"
     ],
     "genes": [
       "TNFRSF13B (TACI) Mutations",
@@ -12414,6 +15101,22 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "DOI:10.1007/s10741-024-10418-6",
+      "DOI:10.1159/000507346",
+      "DOI:10.1272/jnms.jnms.2023_90-104",
+      "DOI:10.1371/journal.pone.0301416",
+      "DOI:10.3390/gastroent14030024",
+      "PMID:11926560",
+      "PMID:24679494",
+      "PMID:27860293",
+      "PMID:28535799",
+      "PMID:32408299",
+      "PMID:32945524",
+      "PMID:36908126",
+      "PMID:41306370",
+      "PMID:8170720"
     ],
     "genes": [],
     "treatments": [
@@ -12528,6 +15231,41 @@ window.searchData = [
       "OBLIGATE",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "DOI:10.1073/pnas.2009192117",
+      "DOI:10.1111/all.16642",
+      "DOI:10.1155/2013/916497",
+      "DOI:10.3389/fmed.2023.1184289",
+      "GEO:GSE153007",
+      "GEO:GSE215457",
+      "PMID:14700441",
+      "PMID:16781290",
+      "PMID:19580930",
+      "PMID:19839974",
+      "PMID:23039796",
+      "PMID:23343419",
+      "PMID:25102574",
+      "PMID:25274939",
+      "PMID:26370659",
+      "PMID:27548435",
+      "PMID:29247509",
+      "PMID:30465037",
+      "PMID:31757238",
+      "PMID:34417985",
+      "PMID:37700557",
+      "PMID:38713001",
+      "PMID:39213029",
+      "PMID:39403761",
+      "PMID:39709083",
+      "PMID:39941494",
+      "PMID:40921440",
+      "PMID:41064302",
+      "PMID:41784277",
+      "PMID:41804652",
+      "PMID:9590995",
+      "clinicaltrials:NCT02778711",
+      "clinicaltrials:NCT05535738"
+    ],
     "genes": [
       "FLG loss-of-function variants and allergic sensitization susceptibility",
       "FLG loss-of-function variants and irritant contact dermatitis susceptibility"
@@ -12629,6 +15367,11 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:22032582",
+      "PMID:23590662",
+      "PMID:41152985"
+    ],
     "genes": [
       "RUNX1-RUNX1T1 Fusion",
       "CBFB-MYH11 Fusion",
@@ -12723,6 +15466,19 @@ window.searchData = [
       "HP_0040281",
       "HP_0040282"
     ],
+    "evidence_references": [
+      "PMID:11378828",
+      "PMID:11949933",
+      "PMID:20301788",
+      "PMID:2403059",
+      "PMID:25308556",
+      "PMID:27106217",
+      "PMID:31263214",
+      "PMID:33368379",
+      "PMID:34820282",
+      "PMID:38196773",
+      "PMID:9412782"
+    ],
     "genes": [],
     "treatments": [
       "Dietary management",
@@ -12797,6 +15553,17 @@ window.searchData = [
     "frequencies": [
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "DOI:10.1038/s41598-025-07395-7",
+      "DOI:10.1101/2024.09.11.612431",
+      "DOI:10.1161/circresaha.123.323184",
+      "DOI:10.3390/cells14110770",
+      "DOI:10.3390/jcm13216352",
+      "PMID:38639096",
+      "PMID:39518492",
+      "PMID:40594772",
+      "clinicaltrials:NCT05018247"
     ],
     "genes": [
       "APOE",
@@ -12916,6 +15683,26 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1161/circep.123.012022",
+      "DOI:10.3390/genes15081015",
+      "PMID:10712202",
+      "PMID:12210337",
+      "PMID:16443854",
+      "PMID:20301680",
+      "PMID:21438134",
+      "PMID:22495831",
+      "PMID:25947161",
+      "PMID:31250618",
+      "PMID:34508588",
+      "PMID:34553752",
+      "PMID:35230976",
+      "PMID:36268718",
+      "PMID:38415356",
+      "clinicaltrials:NCT04888936",
+      "clinicaltrials:NCT05761314",
+      "clinicaltrials:NCT06355622"
+    ],
     "genes": [
       "HRAS Mutations"
     ],
@@ -12996,6 +15783,15 @@ window.searchData = [
       "OBLIGATE",
       "VERY_FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:17941915",
+      "PMID:34164212",
+      "PMID:35095550",
+      "PMID:35127763",
+      "PMID:37969279",
+      "PMID:38566832",
+      "PMID:39534772"
     ],
     "genes": [],
     "treatments": [
@@ -13092,6 +15888,21 @@ window.searchData = [
       "HP:0004390"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:17526800",
+      "PMID:18678321",
+      "PMID:18781191",
+      "PMID:21177507",
+      "PMID:21194675",
+      "PMID:23246288",
+      "PMID:23335809",
+      "PMID:24136893",
+      "PMID:29469739",
+      "PMID:30614812",
+      "PMID:31433956",
+      "PMID:32533092",
+      "PMID:37810307"
+    ],
     "genes": [
       "PTEN",
       "KLLN",
@@ -13231,6 +16042,113 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:11271896",
+      "PMID:11385577",
+      "PMID:12786608",
+      "PMID:12840668",
+      "PMID:12851870",
+      "PMID:15227686",
+      "PMID:15288007",
+      "PMID:15711045",
+      "PMID:16143688",
+      "PMID:16245637",
+      "PMID:16773683",
+      "PMID:16987083",
+      "PMID:17068223",
+      "PMID:17105689",
+      "PMID:17206682",
+      "PMID:17339853",
+      "PMID:17560419",
+      "PMID:18034589",
+      "PMID:18239408",
+      "PMID:18810765",
+      "PMID:18849966",
+      "PMID:19244154",
+      "PMID:20456309",
+      "PMID:2052301",
+      "PMID:21122514",
+      "PMID:21543977",
+      "PMID:21901520",
+      "PMID:21975159",
+      "PMID:22230271",
+      "PMID:22410431",
+      "PMID:22868800",
+      "PMID:23111414",
+      "PMID:23352252",
+      "PMID:23971750",
+      "PMID:24532122",
+      "PMID:24635486",
+      "PMID:24746312",
+      "PMID:24913384",
+      "PMID:24989722",
+      "PMID:25906181",
+      "PMID:26195652",
+      "PMID:26616476",
+      "PMID:26906301",
+      "PMID:27016849",
+      "PMID:27076762",
+      "PMID:27698206",
+      "PMID:27743896",
+      "PMID:28051217",
+      "PMID:28379745",
+      "PMID:28838409",
+      "PMID:29043578",
+      "PMID:29094594",
+      "PMID:29102673",
+      "PMID:29246562",
+      "PMID:29358789",
+      "PMID:29462390",
+      "PMID:29795570",
+      "PMID:30244270",
+      "PMID:30882291",
+      "PMID:31014995",
+      "PMID:31088326",
+      "PMID:31347993",
+      "PMID:31574072",
+      "PMID:31960900",
+      "PMID:31964767",
+      "PMID:32242028",
+      "PMID:32279173",
+      "PMID:32476786",
+      "PMID:32653651",
+      "PMID:33159156",
+      "PMID:33278326",
+      "PMID:33280851",
+      "PMID:33574618",
+      "PMID:33587489",
+      "PMID:33712743",
+      "PMID:33836648",
+      "PMID:33946069",
+      "PMID:34010595",
+      "PMID:34014617",
+      "PMID:34313550",
+      "PMID:34797442",
+      "PMID:35115294",
+      "PMID:35380673",
+      "PMID:35595414",
+      "PMID:35595417",
+      "PMID:35930087",
+      "PMID:36550821",
+      "PMID:36558412",
+      "PMID:36720220",
+      "PMID:36730654",
+      "PMID:36926950",
+      "PMID:37137806",
+      "PMID:37266570",
+      "PMID:37377591",
+      "PMID:37384664",
+      "PMID:37569413",
+      "PMID:37973225",
+      "PMID:38036713",
+      "PMID:38238335",
+      "PMID:38276922",
+      "PMID:38294885",
+      "PMID:38437854",
+      "PMID:39701210",
+      "PMID:40095977",
+      "PMID:921308"
+    ],
     "genes": [
       "NOD2",
       "ATG16L1",
@@ -13339,6 +16257,22 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "DOI:10.1093/gastro/goaa058",
+      "DOI:10.1186/s12876-016-0436-1",
+      "DOI:10.1186/s12959-023-00473-8",
+      "DOI:10.1186/s40360-024-00825-8",
+      "DOI:10.3389/fped.2024.1451472",
+      "PMID:32459145",
+      "PMID:32669505",
+      "PMID:33163187",
+      "PMID:34002159",
+      "PMID:36781513",
+      "PMID:37674882",
+      "PMID:38297356",
+      "PMID:39470508",
+      "PMID:40709433"
+    ],
     "genes": [],
     "treatments": [
       "Corticosteroids",
@@ -13411,6 +16345,13 @@ window.searchData = [
       "HP:0000405"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "DOI:10.1002/dvdy.22314",
+      "PMID:1633640",
+      "PMID:29085273",
+      "PMID:7493034",
+      "PMID:8528214"
+    ],
     "genes": [
       "FGFR2 Mutations"
     ],
@@ -13479,6 +16420,11 @@ window.searchData = [
       "HP:0000316"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:10696568",
+      "PMID:23986840",
+      "PMID:7493034"
+    ],
     "genes": [
       "FGFR3 A391E Mutation"
     ],
@@ -13555,6 +16501,9 @@ window.searchData = [
       "HP:0000978"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:37432427"
+    ],
     "genes": [],
     "treatments": [
       "Surgical Resection",
@@ -13642,6 +16591,17 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1038/s41467-023-40822-9",
+      "DOI:10.3390/cancers15092453",
+      "DOI:10.3390/cancers16101800",
+      "DOI:10.3390/cancers16162904",
+      "DOI:10.3390/ijms25115775",
+      "DOI:10.3390/ijms25137056",
+      "PMID:29863979",
+      "PMID:30968759",
+      "PMID:32065978"
+    ],
     "genes": [
       "TP53",
       "NOTCH1/NOTCH2",
@@ -13702,6 +16662,10 @@ window.searchData = [
     ],
     "frequencies": [
       "COMMON"
+    ],
+    "evidence_references": [
+      "PMID:27047771",
+      "PMID:40944955"
     ],
     "genes": [],
     "treatments": [
@@ -13887,6 +16851,40 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:12676769",
+      "PMID:22047557",
+      "PMID:22711878",
+      "PMID:23878362",
+      "PMID:23974870",
+      "PMID:27053340",
+      "PMID:27140670",
+      "PMID:28129811",
+      "PMID:28576637",
+      "PMID:28855057",
+      "PMID:29258516",
+      "PMID:30986316",
+      "PMID:31697873",
+      "PMID:33178516",
+      "PMID:33526571",
+      "PMID:33560464",
+      "PMID:33958799",
+      "PMID:34413153",
+      "PMID:34799298",
+      "PMID:35163362",
+      "PMID:35820705",
+      "PMID:35922154",
+      "PMID:36828173",
+      "PMID:37024122",
+      "PMID:37699417",
+      "PMID:38847551",
+      "PMID:39003323",
+      "PMID:40074868",
+      "PMID:40293759",
+      "PMID:40943780",
+      "PMID:8874241",
+      "PMID:9922375"
+    ],
     "genes": [
       "CFTR"
     ],
@@ -14007,6 +17005,17 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:15609246",
+      "PMID:20020533",
+      "PMID:20847235",
+      "PMID:22391998",
+      "PMID:24049096",
+      "PMID:27469509",
+      "PMID:37248298",
+      "PMID:8981317",
+      "PMID:9894884"
+    ],
     "genes": [
       "D2HGDH deficiency (type I)",
       "IDH2 gain-of-function mutations (type II)"
@@ -14090,6 +17099,11 @@ window.searchData = [
       "Very frequent",
       "Frequent",
       "Occasional"
+    ],
+    "evidence_references": [
+      "PMID:17372169",
+      "PMID:36154167",
+      "PMID:40600431"
     ],
     "genes": [
       "DSP Heterozygous Truncating Variants"
@@ -14188,6 +17202,14 @@ window.searchData = [
       "OCCASIONAL",
       "VERY_RARE"
     ],
+    "evidence_references": [
+      "PMID:14521305",
+      "PMID:15489854",
+      "PMID:17087626",
+      "PMID:25352085",
+      "PMID:34986808",
+      "PMID:8261652"
+    ],
     "genes": [
       "LEMD3"
     ],
@@ -14263,6 +17285,15 @@ window.searchData = [
       "HP:0000556"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "DOI:10.1038/cddis.2016.475",
+      "DOI:10.1111/nan.12587",
+      "DOI:10.1146/annurev-pathmechdis-012419-032618",
+      "DOI:10.3390/biom14101272",
+      "DOI:10.3390/genes14081539",
+      "PMID:30857840",
+      "PMID:30929317"
+    ],
     "genes": [
       "LAMP2 mutations",
       "Sex-specific phenotypic differences"
@@ -14345,6 +17376,21 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "DOI:10.3389/fnins.2023.1287514",
+      "PMID:12841365",
+      "PMID:26414986",
+      "PMID:28388406",
+      "PMID:29445534",
+      "PMID:31527662",
+      "PMID:32538895",
+      "PMID:34942585",
+      "PMID:36028773",
+      "PMID:37275982",
+      "PMID:40273170",
+      "clinicaltrials:NCT04652882",
+      "clinicaltrials:NCT06701396"
+    ],
     "genes": [
       "CRY1",
       "PER3",
@@ -14417,6 +17463,15 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:28734699",
+      "PMID:29222591",
+      "PMID:30097731",
+      "PMID:35332438",
+      "PMID:37461299",
+      "PMID:39107446",
+      "PMID:40598239"
+    ],
     "genes": [
       "APOE",
       "GBA",
@@ -14475,6 +17530,12 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:17448935",
+      "PMID:23817881",
+      "PMID:32265181",
+      "PMID:34171205"
     ],
     "genes": [],
     "treatments": [],
@@ -14537,6 +17598,11 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:17397592",
+      "PMID:17950782",
+      "PMID:38841035"
     ],
     "genes": [
       "COL1A1-PDGFB Fusion"
@@ -14627,6 +17693,25 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "DOI:10.1007/s00281-025-01054-9",
+      "DOI:10.1007/s00296-024-05551-2",
+      "DOI:10.1007/s11926-024-01164-7",
+      "DOI:10.1007/s40272-024-00658-2",
+      "DOI:10.1080/14656566.2024.2392021",
+      "DOI:10.1080/1744666x.2024.2312819",
+      "DOI:10.3233/jnd-230168",
+      "DOI:10.3389/fimmu.2023.1151695",
+      "DOI:10.3389/fimmu.2024.1382728",
+      "DOI:10.3389/fmed.2023.1158768",
+      "DOI:10.3390/children11091046",
+      "DOI:10.55563/clinexprheumatol/eeglsa",
+      "DOI:10.7759/cureus.88601",
+      "PMID:38143369",
+      "PMID:38456909",
+      "PMID:38576610",
+      "PMID:39334579"
+    ],
     "genes": [
       "HLA-DRB1*0301"
     ],
@@ -14709,6 +17794,10 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:20066421",
+      "PMID:22550424"
     ],
     "genes": [
       "EWSR1-WT1 Fusion"
@@ -14913,6 +18002,83 @@ window.searchData = [
       "OCCASIONAL",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:10522815",
+      "PMID:11554771",
+      "PMID:15832489",
+      "PMID:16085737",
+      "PMID:17463248",
+      "PMID:22184118",
+      "PMID:22847316",
+      "PMID:23023125",
+      "PMID:26404926",
+      "PMID:26621825",
+      "PMID:27156759",
+      "PMID:27980006",
+      "PMID:28432734",
+      "PMID:28460155",
+      "PMID:28530702",
+      "PMID:29556093",
+      "PMID:29931562",
+      "PMID:29939616",
+      "PMID:30150719",
+      "PMID:31264968",
+      "PMID:31345518",
+      "PMID:31891582",
+      "PMID:31964767",
+      "PMID:32158702",
+      "PMID:32256447",
+      "PMID:32463598",
+      "PMID:32679915",
+      "PMID:32872570",
+      "PMID:33046911",
+      "PMID:33068776",
+      "PMID:33409956",
+      "PMID:33441402",
+      "PMID:33550962",
+      "PMID:33825933",
+      "PMID:33970586",
+      "PMID:34035041",
+      "PMID:34073737",
+      "PMID:34122344",
+      "PMID:34427594",
+      "PMID:34515603",
+      "PMID:34599655",
+      "PMID:34872983",
+      "PMID:35276551",
+      "PMID:35299962",
+      "PMID:35309606",
+      "PMID:35487478",
+      "PMID:36106423",
+      "PMID:36178555",
+      "PMID:36585034",
+      "PMID:36619566",
+      "PMID:36658342",
+      "PMID:36877454",
+      "PMID:36882643",
+      "PMID:37035220",
+      "PMID:37432427",
+      "PMID:37960733",
+      "PMID:38243953",
+      "PMID:38338783",
+      "PMID:38409439",
+      "PMID:38831203",
+      "PMID:39158206",
+      "PMID:39344692",
+      "PMID:39556629",
+      "PMID:39742220",
+      "PMID:40657327",
+      "PMID:41180768",
+      "PMID:41456634",
+      "PMID:41595732",
+      "PMID:41632731",
+      "PMID:41675641",
+      "PMID:6378696",
+      "PMID:6409465",
+      "clinicaltrials:NCT01030861",
+      "clinicaltrials:NCT01131676",
+      "clinicaltrials:NCT03987919"
+    ],
     "genes": [
       "HLA-DQA1",
       "HLA-DQB1",
@@ -15045,6 +18211,22 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1016/j.isci.2024.109172",
+      "DOI:10.1016/j.jbc.2024.107542",
+      "DOI:10.1038/s41375-023-02082-w",
+      "DOI:10.1038/s41392-024-02033-6",
+      "DOI:10.1172/jci.insight.171650",
+      "DOI:10.1172/jci.insight.172475",
+      "DOI:10.3390/cells13110920",
+      "DOI:10.3390/children10111812",
+      "PMID:18671700",
+      "PMID:19773262",
+      "PMID:20301769",
+      "PMID:22706301",
+      "PMID:37973818",
+      "PMID:9988267"
+    ],
     "genes": [
       "RPS19",
       "RPL5",
@@ -15160,6 +18342,26 @@ window.searchData = [
       "FREQUENT",
       "VERY_FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:10482955",
+      "PMID:10528373",
+      "PMID:14630837",
+      "PMID:15703192",
+      "PMID:16719839",
+      "PMID:22556422",
+      "PMID:23369989",
+      "PMID:23657516",
+      "PMID:24598000",
+      "PMID:26206888",
+      "PMID:3065771",
+      "PMID:30685387",
+      "PMID:34064542",
+      "PMID:37454964",
+      "PMID:38282752",
+      "PMID:8702490",
+      "PMID:9108864",
+      "PMID:9546468"
+    ],
     "genes": [
       "SLC26A2 Pathogenic Variants"
     ],
@@ -15259,6 +18461,32 @@ window.searchData = [
       "OCCASIONAL",
       "VERY_RARE"
     ],
+    "evidence_references": [
+      "DOI:10.1007/s12144-021-01700-z",
+      "PMID:10795375",
+      "PMID:17070814",
+      "PMID:21349214",
+      "PMID:21637013",
+      "PMID:23759351",
+      "PMID:23893951",
+      "PMID:24492020",
+      "PMID:24647023",
+      "PMID:27170141",
+      "PMID:28668983",
+      "PMID:29404747",
+      "PMID:30165915",
+      "PMID:31050625",
+      "PMID:32155096",
+      "PMID:33137500",
+      "PMID:38250789",
+      "PMID:39052010",
+      "PMID:39481610",
+      "PMID:39540993",
+      "PMID:40153748",
+      "PMID:8794799",
+      "clinicaltrials:NCT01314976",
+      "clinicaltrials:NCT06907498"
+    ],
     "genes": [],
     "treatments": [
       "Paromomycin therapy",
@@ -15315,6 +18543,17 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:35243119",
+      "PMID:35746982",
+      "PMID:36636361",
+      "PMID:37065413",
+      "PMID:37425531",
+      "PMID:37620810",
+      "PMID:38113567",
+      "PMID:39298100",
+      "PMID:39839160"
     ],
     "genes": [],
     "treatments": [
@@ -15410,6 +18649,13 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:11807147",
+      "PMID:16613685",
+      "PMID:29167021",
+      "PMID:33002134",
+      "PMID:40753559"
     ],
     "genes": [
       "BCL2 Translocation",
@@ -15515,6 +18761,23 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:33250269",
+      "PMID:35418250",
+      "PMID:37254024",
+      "PMID:37788487",
+      "PMID:37962957",
+      "PMID:38288598",
+      "PMID:38321374",
+      "PMID:38966492",
+      "PMID:39298146",
+      "PMID:39348083",
+      "PMID:39494569",
+      "PMID:39519012",
+      "PMID:39572783",
+      "PMID:39572784",
+      "PMID:39959626"
+    ],
     "genes": [
       "TTN Truncating Variants",
       "LMNA Mutations",
@@ -15570,6 +18833,10 @@ window.searchData = [
       "HP:0003418"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:35110524",
+      "PMID:39374801"
+    ],
     "genes": [],
     "treatments": [],
     "environmental": [],
@@ -15683,6 +18950,25 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:11853334",
+      "PMID:14746382",
+      "PMID:1671712",
+      "PMID:18812473",
+      "PMID:2149963",
+      "PMID:26504441",
+      "PMID:26924435",
+      "PMID:27472900",
+      "PMID:30733618",
+      "PMID:3159974",
+      "PMID:31699819",
+      "PMID:32029743",
+      "PMID:33684394",
+      "PMID:35483417",
+      "PMID:35803230",
+      "PMID:37360690",
+      "PMID:39768129"
+    ],
     "genes": [
       "Trisomy 21",
       "APP",
@@ -15738,6 +19024,9 @@ window.searchData = [
     "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:27162746"
+    ],
     "genes": [],
     "treatments": [],
     "environmental": [],
@@ -15819,6 +19108,13 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "DOI:10.1007/s10309-025-00785-x",
+      "DOI:10.1038/s41398-025-03304-8",
+      "DOI:10.3389/fnins.2025.1634718",
+      "DOI:10.3390/jcm12072532",
+      "PMID:21463282"
     ],
     "genes": [
       "SCN1A",
@@ -15919,6 +19215,22 @@ window.searchData = [
     ],
     "frequencies": [
       "VERY_FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:15106215",
+      "PMID:19074574",
+      "PMID:19167641",
+      "PMID:22463839",
+      "PMID:22581531",
+      "PMID:28590761",
+      "PMID:29752304",
+      "PMID:32503598",
+      "PMID:32900939",
+      "PMID:33242417",
+      "PMID:34626608",
+      "PMID:34769190",
+      "PMID:37435300",
+      "PMID:38839773"
     ],
     "genes": [
       "DMD"
@@ -16040,6 +19352,17 @@ window.searchData = [
       "OBLIGATE",
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.3233/jnd-230205",
+      "DOI:10.3389/fmolb.2023.1325284",
+      "DOI:10.7554/eLife.82811",
+      "DOI:10.7554/eLife.87965",
+      "PMID:28688748",
+      "PMID:29081423",
+      "PMID:31066047",
+      "PMID:31311558",
+      "PMID:34884967"
     ],
     "genes": [
       "POMT1",
@@ -16185,6 +19508,25 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "GEO:GSE108849",
+      "PMID:19026465",
+      "PMID:19700011",
+      "PMID:20301481",
+      "PMID:20818854",
+      "PMID:27463098",
+      "PMID:31920360",
+      "PMID:32973163",
+      "PMID:34606885",
+      "PMID:35779740",
+      "PMID:36516090",
+      "PMID:38366625",
+      "PMID:39539991",
+      "PMID:40439508",
+      "PMID:40570869",
+      "clinicaltrials:NCT03536143",
+      "clinicaltrials:NCT04491604"
+    ],
     "genes": [
       "COL7A1"
     ],
@@ -16282,6 +19624,10 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:40647518",
+      "PMID:41280003"
+    ],
     "genes": [
       "PIK3CA",
       "ARID1A",
@@ -16366,6 +19712,11 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:15118073",
+      "PMID:26490356",
+      "PMID:32657049"
+    ],
     "genes": [
       "EGFR"
     ],
@@ -16441,6 +19792,15 @@ window.searchData = [
     "frequencies": [
       "OBLIGATE",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:15894097",
+      "PMID:19436038",
+      "PMID:22291085",
+      "PMID:26947331",
+      "PMID:30054636",
+      "PMID:39806949",
+      "PMID:41549581"
     ],
     "genes": [
       "ESR1",
@@ -16568,6 +19928,61 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:11766882",
+      "PMID:17848072",
+      "PMID:21122234",
+      "PMID:21987747",
+      "PMID:23327370",
+      "PMID:24040779",
+      "PMID:24795448",
+      "PMID:25457751",
+      "PMID:25679971",
+      "PMID:25698835",
+      "PMID:25763588",
+      "PMID:25780982",
+      "PMID:25972150",
+      "PMID:26147380",
+      "PMID:26465681",
+      "PMID:26757869",
+      "PMID:26874083",
+      "PMID:26983037",
+      "PMID:27337455",
+      "PMID:27717513",
+      "PMID:28017403",
+      "PMID:2822180",
+      "PMID:28457350",
+      "PMID:28484180",
+      "PMID:28573636",
+      "PMID:28643203",
+      "PMID:28646340",
+      "PMID:28887479",
+      "PMID:29020340",
+      "PMID:29054555",
+      "PMID:30893774",
+      "PMID:30943399",
+      "PMID:31002071",
+      "PMID:31806422",
+      "PMID:31874716",
+      "PMID:32080199",
+      "PMID:32243796",
+      "PMID:32487785",
+      "PMID:33493959",
+      "PMID:33734027",
+      "PMID:33873076",
+      "PMID:34077889",
+      "PMID:34420499",
+      "PMID:34467242",
+      "PMID:34749265",
+      "PMID:34986351",
+      "PMID:35446128",
+      "PMID:35657325",
+      "PMID:37170900",
+      "PMID:37355146",
+      "PMID:37750724",
+      "PMID:38840082",
+      "PMID:8800808"
+    ],
     "genes": [
       "NPC1",
       "HAVCR1",
@@ -16689,6 +20104,88 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:12646579",
+      "PMID:1448",
+      "PMID:14679583",
+      "PMID:15979919",
+      "PMID:16278879",
+      "PMID:17067502",
+      "PMID:18155911",
+      "PMID:19055167",
+      "PMID:19462862",
+      "PMID:19592142",
+      "PMID:2010058",
+      "PMID:20301456",
+      "PMID:20301635",
+      "PMID:20587693",
+      "PMID:20847697",
+      "PMID:21193204",
+      "PMID:23095510",
+      "PMID:23645670",
+      "PMID:23657781",
+      "PMID:24443025",
+      "PMID:24499752",
+      "PMID:26376608",
+      "PMID:26452443",
+      "PMID:2728341",
+      "PMID:27349123",
+      "PMID:28077691",
+      "PMID:28145611",
+      "PMID:28186390",
+      "PMID:28192633",
+      "PMID:28757364",
+      "PMID:29709596",
+      "PMID:29915965",
+      "PMID:29982180",
+      "PMID:30246406",
+      "PMID:30534875",
+      "PMID:30668708",
+      "PMID:30837697",
+      "PMID:30999998",
+      "PMID:31328377",
+      "PMID:31329366",
+      "PMID:31582002",
+      "PMID:31904772",
+      "PMID:32174067",
+      "PMID:32175940",
+      "PMID:32333004",
+      "PMID:32709178",
+      "PMID:32904109",
+      "PMID:32941194",
+      "PMID:33641388",
+      "PMID:33650410",
+      "PMID:34145717",
+      "PMID:34226255",
+      "PMID:34501218",
+      "PMID:34560710",
+      "PMID:34776077",
+      "PMID:34807421",
+      "PMID:34811894",
+      "PMID:35000503",
+      "PMID:35245290",
+      "PMID:35627182",
+      "PMID:35699227",
+      "PMID:35756986",
+      "PMID:358109",
+      "PMID:36000988",
+      "PMID:36054293",
+      "PMID:36108117",
+      "PMID:36237549",
+      "PMID:36896471",
+      "PMID:36960056",
+      "PMID:37074408",
+      "PMID:37187299",
+      "PMID:37261967",
+      "PMID:37726791",
+      "PMID:38189943",
+      "PMID:434850",
+      "PMID:6733946",
+      "PMID:6993166",
+      "PMID:7086195",
+      "PMID:7455751",
+      "PMID:9493273"
+    ],
     "genes": [
       "COL1A1",
       "COL3A1",
@@ -16799,6 +20296,48 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:10906878",
+      "PMID:12836217",
+      "PMID:15095409",
+      "PMID:15566352",
+      "PMID:15607555",
+      "PMID:17067502",
+      "PMID:19055167",
+      "PMID:19370768",
+      "PMID:19592142",
+      "PMID:20697718",
+      "PMID:20847697",
+      "PMID:20979576",
+      "PMID:21193204",
+      "PMID:21697718",
+      "PMID:22616833",
+      "PMID:26376608",
+      "PMID:26452443",
+      "PMID:2683783",
+      "PMID:2728341",
+      "PMID:27905128",
+      "PMID:28387435",
+      "PMID:30246406",
+      "PMID:30858776",
+      "PMID:32899328",
+      "PMID:32941194",
+      "PMID:33189937",
+      "PMID:33656776",
+      "PMID:33741806",
+      "PMID:34740257",
+      "PMID:34776077",
+      "PMID:34807421",
+      "PMID:35162892",
+      "PMID:35241120",
+      "PMID:35964930",
+      "PMID:36237549",
+      "PMID:36405827",
+      "PMID:36764582",
+      "PMID:37594181",
+      "PMID:8274350",
+      "PMID:9042913"
+    ],
     "genes": [
       "COL5A1"
     ],
@@ -16885,6 +20424,15 @@ window.searchData = [
       "HP:0002857"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:10700184",
+      "PMID:12571802",
+      "PMID:17547743",
+      "PMID:21533779",
+      "PMID:22232726",
+      "PMID:23026747",
+      "PMID:24582806"
+    ],
     "genes": [
       "EVC Mutations",
       "EVC2 Mutations"
@@ -16966,6 +20514,10 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:10095436",
+      "PMID:10337369"
     ],
     "genes": [
       "Loss of Heterozygosity at 11p15",
@@ -17069,6 +20621,30 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1002/alr.22350",
+      "DOI:10.1002/lary.26530",
+      "DOI:10.1002/lary.28586",
+      "DOI:10.1016/j.fsc.2019.07.005",
+      "DOI:10.1097/moo.0000000000000544",
+      "DOI:10.54905/disssi.v29i156.e26ms3504",
+      "PMID:19328896",
+      "PMID:24978195",
+      "PMID:25430954",
+      "PMID:26692010",
+      "PMID:31116142",
+      "PMID:31272211",
+      "PMID:32125703",
+      "PMID:34630863",
+      "PMID:34665687",
+      "PMID:35155779",
+      "PMID:36306524",
+      "PMID:36630732",
+      "PMID:37750541",
+      "PMID:38520707",
+      "PMID:40461852",
+      "PMID:40617870"
+    ],
     "genes": [],
     "treatments": [
       "Turbinate implant surgery",
@@ -17131,6 +20707,10 @@ window.searchData = [
       "VERY_FREQUENT",
       "OBLIGATE",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:34547955",
+      "PMID:37486073"
     ],
     "genes": [
       "Somatic FGFR1 gain-of-function mutations"
@@ -17215,6 +20795,17 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "DOI:10.3389/fphar.2023.1155558",
+      "DOI:10.3390/ijms25147624",
+      "DOI:10.69622/28227977",
+      "DOI:10.7759/cureus.87091",
+      "PMID:10731122",
+      "PMID:16166933",
+      "PMID:26408396",
+      "PMID:28971893",
+      "PMID:30074218"
     ],
     "genes": [
       "WNT4",
@@ -17330,6 +20921,36 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:17012912",
+      "PMID:19945616",
+      "PMID:20301304",
+      "PMID:20301481",
+      "PMID:20301543",
+      "PMID:20507631",
+      "PMID:22277943",
+      "PMID:22512697",
+      "PMID:25279494",
+      "PMID:26937547",
+      "PMID:27463098",
+      "PMID:28670357",
+      "PMID:31578311",
+      "PMID:31920360",
+      "PMID:32017015",
+      "PMID:32973163",
+      "PMID:33095945",
+      "PMID:34036913",
+      "PMID:34927719",
+      "PMID:36196047",
+      "PMID:36516090",
+      "PMID:36689495",
+      "PMID:37432558",
+      "PMID:39090514",
+      "PMID:39748581",
+      "PMID:40875177",
+      "clinicaltrials:NCT02014376",
+      "clinicaltrials:NCT04908215"
+    ],
     "genes": [
       "KRT5",
       "KRT14",
@@ -17438,6 +21059,26 @@ window.searchData = [
       "FREQUENT",
       "OBLIGATE"
     ],
+    "evidence_references": [
+      "GEO:GSE179508",
+      "PMID:16098032",
+      "PMID:17724334",
+      "PMID:20301543",
+      "PMID:22277943",
+      "PMID:25530118",
+      "PMID:27463098",
+      "PMID:27798626",
+      "PMID:27889062",
+      "PMID:29410318",
+      "PMID:30078200",
+      "PMID:32973163",
+      "PMID:34572129",
+      "PMID:34830328",
+      "PMID:37276163",
+      "PMID:8586658",
+      "clinicaltrials:NCT03154333",
+      "clinicaltrials:NCT06073132"
+    ],
     "genes": [
       "KRT5",
       "KRT14",
@@ -17544,6 +21185,34 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1002/ctm2.70072",
+      "DOI:10.1002/hsr2.1896",
+      "DOI:10.1038/s41467-022-29657-y",
+      "DOI:10.1038/s41593-024-01634-2",
+      "DOI:10.1093/brain/awad349",
+      "DOI:10.1093/hmg/ddz123",
+      "DOI:10.3389/fneur.2024.1413023",
+      "DOI:10.3389/fneur.2024.1466075",
+      "DOI:10.3389/fneur.2025.1642299",
+      "DOI:10.3389/fnins.2025.1634718",
+      "DOI:10.3390/ijms25084161",
+      "DOI:10.7554/elife.91010.3",
+      "PMID:11484687",
+      "PMID:11992121",
+      "PMID:17675531",
+      "PMID:18456557",
+      "PMID:20493745",
+      "PMID:21838505",
+      "PMID:25663221",
+      "PMID:30587993",
+      "PMID:31174205",
+      "PMID:31205438",
+      "PMID:32690786",
+      "PMID:35422069",
+      "PMID:37812819",
+      "PMID:38710875"
+    ],
     "genes": [
       "SCN1A",
       "SCN2A",
@@ -17642,6 +21311,10 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:25422482",
+      "PMID:32107533"
+    ],
     "genes": [
       "BRAF V600E"
     ],
@@ -17727,6 +21400,19 @@ window.searchData = [
       "VERY_FREQUENT",
       "OCCASIONAL",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.1038/s41392-023-01430-7",
+      "DOI:10.1038/s41569-023-00964-1",
+      "DOI:10.1038/s41581-024-00838-w",
+      "DOI:10.1161/hypertensionaha.123.22031",
+      "DOI:10.3389/fimmu.2022.1098725",
+      "DOI:10.3390/antiox13121454",
+      "PMID:36703963",
+      "PMID:37080965",
+      "PMID:38164753",
+      "PMID:38172242",
+      "PMID:39765782"
     ],
     "genes": [
       "ACE",
@@ -17822,6 +21508,10 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:30969531",
+      "PMID:41577837"
+    ],
     "genes": [
       "JAK2",
       "CALR",
@@ -17908,6 +21598,10 @@ window.searchData = [
       "OCCASIONAL",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:33741715",
+      "PMID:35117540"
+    ],
     "genes": [
       "EWS-FLI1 Fusion"
     ],
@@ -17993,6 +21687,9 @@ window.searchData = [
       "FREQUENT",
       "VERY_FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:20301509"
+    ],
     "genes": [
       "FGFR1 loss-of-function mutations"
     ],
@@ -18071,6 +21768,11 @@ window.searchData = [
     "frequencies": [
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:12901270",
+      "PMID:35871236",
+      "PMID:36535760"
     ],
     "genes": [
       "FGFR2 Fusions",
@@ -18153,6 +21855,10 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:21566415",
+      "PMID:31264434"
+    ],
     "genes": [
       "FGFR3"
     ],
@@ -18231,6 +21937,21 @@ window.searchData = [
       "HP:0012531"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "DOI:10.1038/s41598-024-53968-3",
+      "DOI:10.1055/s-0043-1769933",
+      "DOI:10.1186/s13063-024-08351-y",
+      "DOI:10.1186/s13613-025-01420-8",
+      "PMID:29277171",
+      "PMID:30950647",
+      "PMID:35795400",
+      "PMID:39023049",
+      "PMID:40161896",
+      "clinicaltrials:NCT04316767",
+      "clinicaltrials:NCT04839406",
+      "clinicaltrials:NCT05280691",
+      "clinicaltrials:NCT07228299"
+    ],
     "genes": [],
     "treatments": [
       "Family support intervention"
@@ -18301,6 +22022,10 @@ window.searchData = [
       "Very frequent",
       "Frequent",
       "Occasional"
+    ],
+    "evidence_references": [
+      "PMID:17357080",
+      "PMID:18854860"
     ],
     "genes": [
       "FLNA Loss-of-Function Variants"
@@ -18385,6 +22110,10 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:23590662",
+      "PMID:41228209"
+    ],
     "genes": [
       "FLT3-ITD",
       "FLT3-TKD"
@@ -18463,6 +22192,16 @@ window.searchData = [
       "HP:0000501"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:10890982",
+      "PMID:11980846",
+      "PMID:16826526",
+      "PMID:17344231",
+      "PMID:19708017",
+      "PMID:20361012",
+      "PMID:20664696",
+      "PMID:20806047"
+    ],
     "genes": [
       "FOXE3"
     ],
@@ -18556,6 +22295,25 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:19621417",
+      "PMID:21092187",
+      "PMID:29530533",
+      "PMID:31939530",
+      "PMID:32183665",
+      "PMID:32723516",
+      "PMID:33602475",
+      "PMID:33922740",
+      "PMID:35652398",
+      "PMID:37014703",
+      "PMID:37207471",
+      "PMID:38304433",
+      "PMID:38932991",
+      "PMID:39100494",
+      "PMID:39609713",
+      "PMID:39978321",
+      "PMID:40310476"
+    ],
     "genes": [
       "GLA gene mutations"
     ],
@@ -18642,6 +22400,9 @@ window.searchData = [
       "OBLIGATE",
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:28668823"
     ],
     "genes": [
       "APC"
@@ -18754,6 +22515,29 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "DOI:10.1073/pnas.0409736102",
+      "DOI:10.1093/eurheartj/ehad197",
+      "DOI:10.1111/cts.13836",
+      "DOI:10.1111/joim.13577",
+      "DOI:10.1161/atvbaha.123.320609",
+      "DOI:10.1161/circulationaha.123.065529",
+      "DOI:10.3390/cells12121648",
+      "DOI:10.3390/ijms24043224",
+      "DOI:10.3390/ijms25031637",
+      "PMID:15554949",
+      "PMID:17054804",
+      "PMID:18243212",
+      "PMID:24404629",
+      "PMID:25458642",
+      "PMID:29219151",
+      "PMID:32197277",
+      "PMID:32205033",
+      "PMID:35471728",
+      "PMID:37543519",
+      "PMID:38125244",
+      "PMID:38341323"
     ],
     "genes": [
       "LDLR",
@@ -18876,6 +22660,66 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:11053071",
+      "PMID:11411958",
+      "PMID:12092043",
+      "PMID:12168253",
+      "PMID:12832747",
+      "PMID:15720245",
+      "PMID:16344627",
+      "PMID:17242135",
+      "PMID:19797919",
+      "PMID:21352275",
+      "PMID:21358337",
+      "PMID:21360109",
+      "PMID:22234484",
+      "PMID:23194659",
+      "PMID:23548761",
+      "PMID:23794006",
+      "PMID:23823268",
+      "PMID:25307949",
+      "PMID:25649364",
+      "PMID:25791871",
+      "PMID:25832989",
+      "PMID:26324575",
+      "PMID:27860460",
+      "PMID:28154935",
+      "PMID:28362189",
+      "PMID:29051974",
+      "PMID:29148036",
+      "PMID:29314663",
+      "PMID:30338514",
+      "PMID:30938266",
+      "PMID:31308342",
+      "PMID:31524848",
+      "PMID:31999206",
+      "PMID:32601469",
+      "PMID:32608308",
+      "PMID:32895731",
+      "PMID:33026080",
+      "PMID:33037005",
+      "PMID:33052444",
+      "PMID:3306755",
+      "PMID:33124556",
+      "PMID:34363075",
+      "PMID:34606655",
+      "PMID:35737103",
+      "PMID:36082189",
+      "PMID:36161616",
+      "PMID:36385047",
+      "PMID:36688581",
+      "PMID:36725780",
+      "PMID:36889987",
+      "PMID:36945975",
+      "PMID:37309906",
+      "PMID:37496356",
+      "PMID:37723615",
+      "PMID:37752496",
+      "PMID:38204312",
+      "PMID:38488998",
+      "PMID:9562837"
     ],
     "genes": [
       "MEFV",
@@ -19214,6 +23058,53 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1038/s41467-024-46159-1",
+      "DOI:10.1038/s41467-024-50861-5",
+      "DOI:10.1093/pnasnexus/pgae242",
+      "DOI:10.1146/annurev-pathmechdis-111523-023420",
+      "DOI:10.1182/blood-2013-06-507962",
+      "DOI:10.1182/blood-2014-04-526293",
+      "DOI:10.1186/s13023-025-03896-w",
+      "DOI:10.3390/cells13090733",
+      "DOI:10.3390/ijms252111619",
+      "PMID:16015582",
+      "PMID:17426088",
+      "PMID:20301575",
+      "PMID:22081012",
+      "PMID:22267503",
+      "PMID:24037726",
+      "PMID:25237197",
+      "PMID:25575015",
+      "PMID:26369989",
+      "PMID:26590883",
+      "PMID:31266445",
+      "PMID:31558676",
+      "PMID:32106311",
+      "PMID:32605631",
+      "PMID:32939280",
+      "PMID:32997960",
+      "PMID:33002135",
+      "PMID:33338401",
+      "PMID:33512438",
+      "PMID:35596788",
+      "PMID:36167633",
+      "PMID:36371486",
+      "PMID:36450981",
+      "PMID:36736290",
+      "PMID:36912284",
+      "PMID:37021532",
+      "PMID:37391485",
+      "PMID:37865086",
+      "PMID:38028610",
+      "PMID:38146508",
+      "PMID:38424108",
+      "PMID:38510973",
+      "PMID:39568270",
+      "clinicaltrials:NCT00243399",
+      "clinicaltrials:NCT00630253",
+      "clinicaltrials:NCT04069533"
+    ],
     "genes": [
       "FANCA",
       "FANCB",
@@ -19345,6 +23236,24 @@ window.searchData = [
       "HP:0001263"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:10327253",
+      "PMID:15150788",
+      "PMID:21035103",
+      "PMID:21668896",
+      "PMID:22246659",
+      "PMID:22439129",
+      "PMID:24127948",
+      "PMID:32578940",
+      "PMID:32872105",
+      "PMID:36397853",
+      "PMID:36972944",
+      "PMID:6507478",
+      "PMID:6507479",
+      "PMID:749746",
+      "PMID:9134297",
+      "PMID:9475607"
+    ],
     "genes": [
       "COL11A1 Mutations (Fibrochondrogenesis Type 1)",
       "COL11A2 Mutations (Fibrochondrogenesis Type 2)"
@@ -19430,6 +23339,29 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.1002/jbm4.10821",
+      "DOI:10.1073/pnas.1302703111",
+      "DOI:10.1073/pnas.2019152118",
+      "DOI:10.1186/s12874-023-02080-7",
+      "DOI:10.1631/jzus.b2300779",
+      "DOI:10.3389/fcell.2017.00047",
+      "DOI:10.3389/fcell.2021.637011",
+      "DOI:10.3390/biom14020147",
+      "DOI:10.3390/biom14030349",
+      "DOI:10.3390/biom14030357",
+      "DOI:10.3390/biomedicines12040779",
+      "PMID:17572636",
+      "PMID:20463014",
+      "PMID:24677724",
+      "PMID:25122769",
+      "PMID:26896819",
+      "PMID:28473268",
+      "PMID:28666455",
+      "PMID:29097342",
+      "PMID:33572801",
+      "PMID:34353327"
     ],
     "genes": [
       "ACVR1"
@@ -19527,6 +23459,23 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.1097/pr9.0000000000001220",
+      "DOI:10.1101/2024.09.13.24313599",
+      "DOI:10.1101/2025.09.18.25335914",
+      "DOI:10.3390/biomedicines11041119",
+      "DOI:10.3390/biomedicines13020503",
+      "DOI:10.3390/medicina60020272",
+      "PMID:15157948",
+      "PMID:21684692",
+      "PMID:21905019",
+      "PMID:22126705",
+      "PMID:29684996",
+      "PMID:33494476",
+      "PMID:39062116",
+      "PMID:7526868",
+      "PMID:7980669"
     ],
     "genes": [
       "COMT",
@@ -19651,6 +23600,40 @@ window.searchData = [
       "HP:0001596"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "DOI:10.1159/000499184",
+      "DOI:10.3390/antibiotics12030557",
+      "DOI:10.3390/jof11090662",
+      "GEO:GSE119376",
+      "GEO:GSE273571",
+      "GEO:GSE273572",
+      "GEO:GSE301280",
+      "PMID:10321942",
+      "PMID:11980459",
+      "PMID:12113648",
+      "PMID:15482221",
+      "PMID:1671328",
+      "PMID:18715292",
+      "PMID:22639852",
+      "PMID:2307901",
+      "PMID:27581777",
+      "PMID:29864465",
+      "PMID:35249719",
+      "PMID:35751534",
+      "PMID:36716709",
+      "PMID:36912427",
+      "PMID:39521937",
+      "PMID:3955486",
+      "PMID:41146582",
+      "PMID:6333214",
+      "PMID:6402527",
+      "PMID:6828809",
+      "PMID:8989930",
+      "clinicaltrials:NCT02157688",
+      "clinicaltrials:NCT06307223",
+      "clinicaltrials:NCT06818058",
+      "clinicaltrials:NCT07268534"
+    ],
     "genes": [],
     "treatments": [
       "Topical or systemic antibacterial therapy",
@@ -19693,6 +23676,9 @@ window.searchData = [
     "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:19597009"
+    ],
     "genes": [],
     "treatments": [],
     "environmental": [],
@@ -19770,6 +23756,13 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:22483044",
+      "PMID:24346713",
+      "PMID:24700618",
+      "PMID:8190590",
+      "PMID:9032640"
     ],
     "genes": [
       "FMR1"
@@ -19858,6 +23851,12 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:14653404",
+      "PMID:23859346",
+      "PMID:29053830",
+      "PMID:31456208"
+    ],
     "genes": [
       "FXN"
     ],
@@ -19922,6 +23921,16 @@ window.searchData = [
     ],
     "frequencies": [
       "VERY_FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.1093/brain/awae074",
+      "DOI:10.1101/2024.02.09.579529",
+      "DOI:10.1186/s12974-024-03039-1",
+      "DOI:10.1186/s40035-024-00429-6",
+      "DOI:10.21203/rs.3.rs-4103685/v1",
+      "PMID:19664364",
+      "PMID:26473392",
+      "PMID:30711676"
     ],
     "genes": [
       "MAPT",
@@ -20003,6 +24012,18 @@ window.searchData = [
       "HP:0100838"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "DOI:10.1159/000499184",
+      "DOI:10.3390/antibiotics12030557",
+      "DOI:10.3390/pathogens14090923",
+      "PMID:17479931",
+      "PMID:22803835",
+      "PMID:23973399",
+      "PMID:38518792",
+      "clinicaltrials:NCT00513799",
+      "clinicaltrials:NCT00731783",
+      "clinicaltrials:NCT01814371"
+    ],
     "genes": [],
     "treatments": [
       "Anti-staphylococcal antibiotic therapy",
@@ -20088,6 +24109,41 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL",
       "VERY_FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.1002/jcp.20820",
+      "DOI:10.1002/jimd.12202",
+      "DOI:10.1007/s10545-016-9993-2",
+      "DOI:10.3389/fgene.2024.1355962",
+      "DOI:10.3389/fpls.2020.00167",
+      "PMID:10570908",
+      "PMID:11113841",
+      "PMID:1150052",
+      "PMID:12626383",
+      "PMID:1561928",
+      "PMID:16301867",
+      "PMID:16782422",
+      "PMID:16838075",
+      "PMID:1706789",
+      "PMID:20301691",
+      "PMID:20978943",
+      "PMID:21347587",
+      "PMID:23400815",
+      "PMID:24718839",
+      "PMID:29409891",
+      "PMID:3043741",
+      "PMID:31213878",
+      "PMID:31774565",
+      "PMID:31808946",
+      "PMID:32748411",
+      "PMID:331112",
+      "PMID:33525536",
+      "PMID:34665663",
+      "PMID:35118398",
+      "PMID:38778342",
+      "PMID:39704415",
+      "PMID:41083920",
+      "PMID:7671968"
     ],
     "genes": [
       "GALT variants (Classic galactosemia)",
@@ -20187,6 +24243,17 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:11447189",
+      "PMID:12446738",
+      "PMID:14676300",
+      "PMID:26182300",
+      "PMID:26668499",
+      "PMID:32205420",
+      "PMID:36919950",
+      "PMID:39004993",
+      "PMID:40647518"
+    ],
     "genes": [
       "CDH1",
       "TP53",
@@ -20242,6 +24309,11 @@ window.searchData = [
       "HP:0002592"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:19575764",
+      "PMID:28242110",
+      "PMID:38467155"
+    ],
     "genes": [],
     "treatments": [],
     "environmental": [],
@@ -20313,6 +24385,20 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "DOI:10.1007/s00535-023-02065-9",
+      "DOI:10.1038/s41575-023-00883-z",
+      "DOI:10.1080/17474124.2023.2288156",
+      "DOI:10.1152/ajpgi.00158.2007",
+      "DOI:10.1186/s12967-024-05878-1",
+      "DOI:10.3389/fimmu.2024.1327503",
+      "DOI:10.3389/fimmu.2025.1629944",
+      "DOI:10.3390/biom14070877",
+      "DOI:10.3390/cancers16193305",
+      "PMID:17932229",
+      "PMID:38177402",
+      "PMID:38449873"
     ],
     "genes": [
       "FOXF1",
@@ -20409,6 +24495,15 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "DOI:10.1186/s12964-023-01411-x",
+      "DOI:10.3390/cancers15051498",
+      "DOI:10.3390/cancers15072074",
+      "DOI:10.5935/2526-8732.20240468",
+      "DOI:10.7759/cureus.101180",
+      "PMID:12181401",
+      "PMID:22937603"
     ],
     "genes": [
       "KIT",
@@ -20534,6 +24629,17 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:10464619",
+      "PMID:19047232",
+      "PMID:19846850",
+      "PMID:22010032",
+      "PMID:25688781",
+      "PMID:25755533",
+      "PMID:28218669",
+      "PMID:30315684",
+      "PMID:9497857"
+    ],
     "genes": [
       "GBA1",
       "GBA1",
@@ -20636,6 +24742,24 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "DOI:10.1002/wps.21078",
+      "DOI:10.1038/s41380-023-02205-w",
+      "DOI:10.1038/s41588-024-01908-2",
+      "DOI:10.1038/s41598-025-90362-z",
+      "DOI:10.1101/2024.07.03.24309466",
+      "DOI:10.1101/2024.09.07.24313247",
+      "DOI:10.3390/ijms26115417",
+      "DOI:10.3390/nu16203564",
+      "DOI:10.3758/s13415-024-01162-3",
+      "DOI:10.4236/psych.2023.141003",
+      "PMID:20808146",
+      "PMID:24936175",
+      "PMID:37542162",
+      "PMID:38204917",
+      "PMID:38865810",
+      "PMID:39294497"
+    ],
     "genes": [
       "SLC6A4",
       "COMT",
@@ -20731,6 +24855,25 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.1001/jamaneurol.2015.2101",
+      "DOI:10.1007/s40123-019-0171-0",
+      "DOI:10.1161/circresaha.122.322128",
+      "DOI:10.1186/s13075-024-03314-9",
+      "DOI:10.3389/fimmu.2020.587089",
+      "DOI:10.3389/fimmu.2023.1187584",
+      "DOI:10.3389/fmed.2022.1058600",
+      "DOI:10.3390/biom14070739",
+      "DOI:10.3390/cells13050430",
+      "DOI:10.3390/medicina60030400",
+      "DOI:10.3390/vaccines12030252",
+      "DOI:10.37349/eaa.2024.00054",
+      "DOI:10.3899/jrheum.2022-1214",
+      "PMID:35629030",
+      "PMID:36656970",
+      "PMID:37321636",
+      "PMID:38840219"
     ],
     "genes": [
       "HLA-DRB1*04"
@@ -20845,6 +24988,35 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1128/aac.00731-23",
+      "DOI:10.1128/iai.00065-24",
+      "DOI:10.1136/gutjnl-2023-331835",
+      "GEO:GSE158187",
+      "GEO:GSE168675",
+      "GEO:GSE36490",
+      "PMID:14501998",
+      "PMID:15625030",
+      "PMID:16935925",
+      "PMID:17070814",
+      "PMID:18348774",
+      "PMID:22924932",
+      "PMID:23555231",
+      "PMID:2674196",
+      "PMID:28452685",
+      "PMID:29225147",
+      "PMID:30020611",
+      "PMID:31630759",
+      "PMID:35110372",
+      "PMID:35250996",
+      "PMID:35868574",
+      "PMID:37764167",
+      "PMID:41280732",
+      "PMID:6750750",
+      "PMID:68190",
+      "clinicaltrials:NCT02736968",
+      "clinicaltrials:NCT06533696"
+    ],
     "genes": [],
     "treatments": [
       "Nitroimidazole pharmacotherapy (tinidazole or metronidazole)",
@@ -20919,6 +25091,20 @@ window.searchData = [
       "OBLIGATE",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:10353933",
+      "PMID:11990381",
+      "PMID:15304120",
+      "PMID:18343383",
+      "PMID:26250421",
+      "PMID:3029864",
+      "PMID:36443464",
+      "PMID:37390966",
+      "PMID:37456363",
+      "PMID:7565971",
+      "PMID:8596320",
+      "PMID:9435989"
     ],
     "genes": [
       "UGT1A1*28 Promoter Polymorphism",
@@ -21000,6 +25186,23 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "DOI:10.20944/preprints202512.0304.v1",
+      "DOI:10.3892/mmr.2025.13757",
+      "DOI:10.7759/cureus.91633",
+      "PMID:10617907",
+      "PMID:14660453",
+      "PMID:16750466",
+      "PMID:26302410",
+      "PMID:26497784",
+      "PMID:29199013",
+      "PMID:30862377",
+      "PMID:33166551",
+      "PMID:33980505",
+      "PMID:37217093",
+      "PMID:37542647",
+      "PMID:8942890"
     ],
     "genes": [
       "MYOC",
@@ -21098,6 +25301,11 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:17974913",
+      "PMID:30333046",
+      "PMID:41569770"
     ],
     "genes": [
       "TERT",
@@ -21204,6 +25412,70 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:10390262",
+      "PMID:11763298",
+      "PMID:1580603",
+      "PMID:16225031",
+      "PMID:16513531",
+      "PMID:17365988",
+      "PMID:17611006",
+      "PMID:17623517",
+      "PMID:18942156",
+      "PMID:19233695",
+      "PMID:1948276",
+      "PMID:19589177",
+      "PMID:19769422",
+      "PMID:20484601",
+      "PMID:20732351",
+      "PMID:23275194",
+      "PMID:23815264",
+      "PMID:24372186",
+      "PMID:24460025",
+      "PMID:27040960",
+      "PMID:27064064",
+      "PMID:27081765",
+      "PMID:27101632",
+      "PMID:27235212",
+      "PMID:27464020",
+      "PMID:27853304",
+      "PMID:27974910",
+      "PMID:28982343",
+      "PMID:29739104",
+      "PMID:30161219",
+      "PMID:30279493",
+      "PMID:30314477",
+      "PMID:30380124",
+      "PMID:31089417",
+      "PMID:31235029",
+      "PMID:31500396",
+      "PMID:31609781",
+      "PMID:31833391",
+      "PMID:31961822",
+      "PMID:32600868",
+      "PMID:32680472",
+      "PMID:32702756",
+      "PMID:32879043",
+      "PMID:33051526",
+      "PMID:33313989",
+      "PMID:33560519",
+      "PMID:34105166",
+      "PMID:34138756",
+      "PMID:34383774",
+      "PMID:34389161",
+      "PMID:34699526",
+      "PMID:35465846",
+      "PMID:35534916",
+      "PMID:35880537",
+      "PMID:36678214",
+      "PMID:36845240",
+      "PMID:4556779",
+      "PMID:508636",
+      "PMID:7602782",
+      "PMID:7949118",
+      "PMID:9158663",
+      "PMID:9827875"
+    ],
     "genes": [
       "G6PD"
     ],
@@ -21297,6 +25569,19 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL",
       "VERY_RARE"
+    ],
+    "evidence_references": [
+      "PMID:20732827",
+      "PMID:26219480",
+      "PMID:34588557",
+      "PMID:35639256",
+      "PMID:37075130",
+      "PMID:37474264",
+      "PMID:37685964",
+      "PMID:38983872",
+      "PMID:39185018",
+      "PMID:39728403",
+      "url:https://www.ncbi.nlm.nih.gov/books/NBK546575/?report=printable"
     ],
     "genes": [
       "GCDH variants causing glutaryl-CoA dehydrogenase deficiency"
@@ -21453,6 +25738,17 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:12373568",
+      "PMID:12373570",
+      "PMID:19741523",
+      "PMID:20301489",
+      "PMID:21599942",
+      "PMID:26001652",
+      "PMID:29663270",
+      "PMID:31705665",
+      "PMID:38277989"
+    ],
     "genes": [
       "G6PC1",
       "SLC37A4"
@@ -21567,6 +25863,15 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:19032739",
+      "PMID:22670904",
+      "PMID:25403219",
+      "PMID:28596197",
+      "PMID:29186568",
+      "PMID:32747535",
+      "PMID:6837723"
+    ],
     "genes": [
       "PTCH1",
       "SUFU"
@@ -21650,6 +25955,25 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "DOI:10.1007/s11606-024-08793-9",
+      "DOI:10.1016/j.heliyon.2024.e38288",
+      "DOI:10.1038/s41598-024-74154-5",
+      "DOI:10.1038/s42003-024-06534-6",
+      "DOI:10.1093/rheumatology/keae420",
+      "DOI:10.1136/bmj-2024-080035",
+      "DOI:10.3389/fendo.2023.1071630",
+      "DOI:10.3390/gucdd2020016",
+      "DOI:10.3390/ph17111507",
+      "DOI:10.3390/pharmaceutics17010102",
+      "DOI:10.55563/clinexprheumatol/ezzfbt",
+      "DOI:10.7326/m23-0724",
+      "PMID:32391934",
+      "PMID:38910565",
+      "PMID:38972919",
+      "PMID:39386881",
+      "PMID:39426967"
     ],
     "genes": [
       "SLC2A9",
@@ -21745,6 +26069,17 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:16691574",
+      "PMID:22987684",
+      "PMID:27939641",
+      "PMID:30556293",
+      "PMID:31270375",
+      "PMID:31633303",
+      "PMID:33971976",
+      "PMID:37323195",
+      "PMID:37698238"
+    ],
     "genes": [
       "YY1AP1"
     ],
@@ -21824,6 +26159,18 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "DOI:10.1007/s00296-022-05228-8",
+      "DOI:10.1016/j.autrev.2025.103824",
+      "DOI:10.1136/rmdopen-2023-004039",
+      "DOI:10.2147/jir.s284768",
+      "DOI:10.3389/fimmu.2023.1261151",
+      "DOI:10.3390/ijms25105278",
+      "DOI:10.3390/life15050756",
+      "PMID:35479831",
+      "PMID:37781373",
+      "PMID:38791316"
     ],
     "genes": [
       "HLA-DP",
@@ -21955,6 +26302,86 @@ window.searchData = [
       "OCCASIONAL",
       "VERY_RARE"
     ],
+    "evidence_references": [
+      "PMID:10206194",
+      "PMID:10404810",
+      "PMID:10633216",
+      "PMID:11444164",
+      "PMID:11453946",
+      "PMID:12593727",
+      "PMID:1356056",
+      "PMID:14605602",
+      "PMID:14654350",
+      "PMID:16640177",
+      "PMID:17154097",
+      "PMID:17380820",
+      "PMID:19631028",
+      "PMID:1987448",
+      "PMID:20181974",
+      "PMID:21850926",
+      "PMID:22112923",
+      "PMID:22632361",
+      "PMID:22632369",
+      "PMID:22632372",
+      "PMID:22938934",
+      "PMID:22975536",
+      "PMID:23276963",
+      "PMID:24126481",
+      "PMID:2451239",
+      "PMID:24802957",
+      "PMID:25103076",
+      "PMID:25257665",
+      "PMID:25864995",
+      "PMID:27231040",
+      "PMID:27936530",
+      "PMID:2816972",
+      "PMID:2888784",
+      "PMID:29923966",
+      "PMID:30180972",
+      "PMID:30484670",
+      "PMID:30487326",
+      "PMID:30834273",
+      "PMID:32107168",
+      "PMID:32402541",
+      "PMID:32493403",
+      "PMID:3279732",
+      "PMID:32976333",
+      "PMID:33069387",
+      "PMID:33103521",
+      "PMID:33749695",
+      "PMID:34047397",
+      "PMID:34122333",
+      "PMID:34243871",
+      "PMID:34331946",
+      "PMID:34951116",
+      "PMID:35315985",
+      "PMID:3558731",
+      "PMID:35728139",
+      "PMID:36272013",
+      "PMID:36468997",
+      "PMID:36518043",
+      "PMID:36740774",
+      "PMID:36853810",
+      "PMID:36940965",
+      "PMID:37047805",
+      "PMID:37152963",
+      "PMID:37193106",
+      "PMID:37224080",
+      "PMID:37515444",
+      "PMID:37594736",
+      "PMID:37725590",
+      "PMID:38215285",
+      "PMID:38644701",
+      "PMID:4886698",
+      "PMID:6129186",
+      "PMID:6894450",
+      "PMID:7527990",
+      "PMID:8309359",
+      "PMID:8565219",
+      "PMID:9292944",
+      "PMID:9534029",
+      "PMID:9972676"
+    ],
     "genes": [
       "HLA-DRB1",
       "CTLA4",
@@ -22066,6 +26493,16 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:11464390",
+      "PMID:12791526",
+      "PMID:16236669",
+      "PMID:18181197",
+      "PMID:24526387",
+      "PMID:29618907",
+      "PMID:30650314",
+      "PMID:8367763"
+    ],
     "genes": [],
     "treatments": [
       "Chemical Exposure Avoidance",
@@ -22133,6 +26570,14 @@ window.searchData = [
       "HP:0001273"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:10693759",
+      "PMID:15739154",
+      "PMID:20672375",
+      "PMID:24736735",
+      "PMID:28224613",
+      "PMID:34828280"
+    ],
     "genes": [
       "GLI3 Mutations (Haploinsufficiency)"
     ],
@@ -22219,6 +26664,15 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:19289269",
+      "PMID:24268530",
+      "PMID:35505663",
+      "PMID:36856349",
+      "PMID:37465909",
+      "PMID:38469086",
+      "PMID:39006040"
+    ],
     "genes": [
       "GAMT pathogenic variants"
     ],
@@ -22304,6 +26758,20 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "DOI:10.1007/s00415-024-12186-7",
+      "DOI:10.1038/s41598-024-74729-2",
+      "DOI:10.1093/brain/awac418",
+      "DOI:10.1111/jns.12625",
+      "DOI:10.1186/s43161-024-00258-8",
+      "DOI:10.3389/fimmu.2024.1415986",
+      "DOI:10.3390/ijms24087288",
+      "DOI:10.69622/28457924.v1",
+      "PMID:10355667",
+      "PMID:24000328",
+      "PMID:37108447",
+      "PMID:8619548"
+    ],
     "genes": [],
     "treatments": [
       "IVIG",
@@ -22387,6 +26855,12 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:22286061",
+      "PMID:24705254",
+      "PMID:35169084",
+      "PMID:41528563"
+    ],
     "genes": [
       "H3F3A",
       "HIST1H3B/HIST1H3C",
@@ -22463,6 +26937,11 @@ window.searchData = [
     "frequencies": [
       "OBLIGATE",
       "VERY_FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:23628726",
+      "PMID:39806949",
+      "PMID:40303293"
     ],
     "genes": [
       "ERBB2",
@@ -22548,6 +27027,10 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:35613396",
+      "PMID:41361014"
     ],
     "genes": [
       "ERBB2 (HER2)",
@@ -22639,6 +27122,10 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:40647518",
+      "PMID:41355925"
     ],
     "genes": [
       "ERBB2 (HER2)",
@@ -22756,6 +27243,16 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1007/s00424-024-02920-5",
+      "DOI:10.1038/s41431-021-00932-8",
+      "DOI:10.1038/s41436-019-0503-4",
+      "DOI:10.1523/eneuro.0253-20.2020",
+      "DOI:10.3389/fgene.2023.1137767",
+      "DOI:10.3389/fneur.2024.1428076",
+      "PMID:25078763",
+      "PMID:30940925"
+    ],
     "genes": [
       "P4HTM"
     ],
@@ -22848,6 +27345,11 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:25631445",
+      "PMID:36414699",
+      "PMID:39244563"
     ],
     "genes": [
       "TP53",
@@ -22947,6 +27449,10 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:36414699",
+      "PMID:37861207"
+    ],
     "genes": [
       "TP53",
       "PIK3CA",
@@ -23015,6 +27521,12 @@ window.searchData = [
       "HP:0000047"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:10839976",
+      "PMID:19591980",
+      "PMID:36702441",
+      "PMID:9020844"
+    ],
     "genes": [
       "HOXA13 Mutations"
     ],
@@ -23141,6 +27653,34 @@ window.searchData = [
       "OCCASIONAL",
       "VERY_RARE"
     ],
+    "evidence_references": [
+      "DOI:10.1002/pmic.202200362",
+      "DOI:10.1186/s12929-023-00908-4",
+      "DOI:10.1186/s12985-023-02169-x",
+      "DOI:10.1371/journal.ppat.1012022",
+      "DOI:10.17305/bb.2023.8948",
+      "DOI:10.2196/59604",
+      "DOI:10.3389/fimmu.2024.1374447",
+      "DOI:10.3390/ijms25115688",
+      "PMID:10029254",
+      "PMID:11826236",
+      "PMID:12831425",
+      "PMID:19681701",
+      "PMID:25528808",
+      "PMID:26252639",
+      "PMID:28647185",
+      "PMID:29184105",
+      "PMID:31573162",
+      "PMID:36226004",
+      "PMID:36284392",
+      "PMID:38836810",
+      "PMID:39017655",
+      "PMID:39599865",
+      "PMID:40229831",
+      "PMID:40918094",
+      "clinicaltrials:NCT01376479",
+      "clinicaltrials:NCT03281174"
+    ],
     "genes": [
       "SCARB2 polymorphisms and disease severity"
     ],
@@ -23218,6 +27758,9 @@ window.searchData = [
       "OBLIGATE",
       "FREQUENT",
       "VERY_FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:26937548"
     ],
     "genes": [
       "FGFR1 pathogenic variants"
@@ -23314,6 +27857,24 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1038/s41467-024-50192-5",
+      "DOI:10.3389/fendo.2025.1584675",
+      "DOI:10.48188/so.6.9",
+      "PMID:23744563",
+      "PMID:26235382",
+      "PMID:28290237",
+      "PMID:29174716",
+      "PMID:32107168",
+      "PMID:33103521",
+      "PMID:35235282",
+      "PMID:35789269",
+      "PMID:38243784",
+      "PMID:38731922",
+      "PMID:39003267",
+      "PMID:40535343",
+      "PMID:41498152"
+    ],
     "genes": [
       "HLA-DR3",
       "HLA-DR4",
@@ -23409,6 +27970,19 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.1038/s41569-020-00480-6",
+      "DOI:10.1038/s41569-024-01067-1",
+      "DOI:10.1101/2025.04.02.646923",
+      "DOI:10.1186/s12933-025-02774-w",
+      "DOI:10.3390/cells14050324",
+      "DOI:10.53846/goediss-10367",
+      "PMID:33432192",
+      "PMID:36769308",
+      "PMID:37895150",
+      "PMID:38636927",
+      "PMID:40892534"
     ],
     "genes": [
       "TTN",
@@ -23519,6 +28093,23 @@ window.searchData = [
       "HP:0012378"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:19727383",
+      "PMID:23985001",
+      "PMID:29620054",
+      "PMID:30244162",
+      "PMID:35449524",
+      "PMID:35662478",
+      "PMID:36644615",
+      "PMID:37121243",
+      "PMID:37168645",
+      "PMID:37763705",
+      "PMID:38361672",
+      "PMID:38886778",
+      "PMID:39337031",
+      "PMID:5339192",
+      "PMID:9867748"
+    ],
     "genes": [
       "HFE Mutations"
     ],
@@ -23595,6 +28186,19 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:11806995",
+      "PMID:12640572",
+      "PMID:26704192",
+      "PMID:27890816",
+      "PMID:30157389",
+      "PMID:3096583",
+      "PMID:31499529",
+      "PMID:32329553",
+      "PMID:34197690",
+      "PMID:35294811",
+      "PMID:36409923"
+    ],
     "genes": [
       "F8"
     ],
@@ -23652,6 +28256,21 @@ window.searchData = [
     ],
     "frequencies": [
       "VERY_FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.1002/14651858.cd014544.pub2",
+      "DOI:10.1007/s13353-025-00952-w",
+      "DOI:10.1007/s40140-024-00635-y",
+      "DOI:10.1056/nejmoa2302982",
+      "DOI:10.1111/j.1365-2516.2005.01123.x",
+      "DOI:10.1186/s13052-024-01819-2",
+      "DOI:10.14302/issn.2372-6601.jhor-24-5108",
+      "DOI:10.3389/fmed.2025.1618464",
+      "DOI:10.3390/biom14070854",
+      "DOI:10.57582/ijbf.250502.066",
+      "PMID:23430394",
+      "PMID:31499529",
+      "PMID:39950390"
     ],
     "genes": [],
     "treatments": [
@@ -23749,6 +28368,139 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL",
       "VERY_FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:10776195",
+      "PMID:10804945",
+      "PMID:10840606",
+      "PMID:11197043",
+      "PMID:1185334",
+      "PMID:12124405",
+      "PMID:12150847",
+      "PMID:12616451",
+      "PMID:12776281",
+      "PMID:1532114",
+      "PMID:15647702",
+      "PMID:16461223",
+      "PMID:16754644",
+      "PMID:17298912",
+      "PMID:17613355",
+      "PMID:17613356",
+      "PMID:17981234",
+      "PMID:18067957",
+      "PMID:18760074",
+      "PMID:19072424",
+      "PMID:19187625",
+      "PMID:19399792",
+      "PMID:19399811",
+      "PMID:19577114",
+      "PMID:19682192",
+      "PMID:20123446",
+      "PMID:20378277",
+      "PMID:20411413",
+      "PMID:20512987",
+      "PMID:21205143",
+      "PMID:21205148",
+      "PMID:21692954",
+      "PMID:21739440",
+      "PMID:2183516",
+      "PMID:22300111",
+      "PMID:22375524",
+      "PMID:22510145",
+      "PMID:22510637",
+      "PMID:22643598",
+      "PMID:23074317",
+      "PMID:23185500",
+      "PMID:23808910",
+      "PMID:24266913",
+      "PMID:24373083",
+      "PMID:24954675",
+      "PMID:24966613",
+      "PMID:24976703",
+      "PMID:25034484",
+      "PMID:25218700",
+      "PMID:25253946",
+      "PMID:26054819",
+      "PMID:26231459",
+      "PMID:26255971",
+      "PMID:26691189",
+      "PMID:26732483",
+      "PMID:26799653",
+      "PMID:27032097",
+      "PMID:270889",
+      "PMID:27364104",
+      "PMID:27742007",
+      "PMID:28223176",
+      "PMID:28350873",
+      "PMID:28468285",
+      "PMID:29064028",
+      "PMID:29125261",
+      "PMID:29170913",
+      "PMID:29202763",
+      "PMID:29260504",
+      "PMID:29551632",
+      "PMID:29869595",
+      "PMID:30415551",
+      "PMID:30418344",
+      "PMID:3050928",
+      "PMID:30518652",
+      "PMID:30811163",
+      "PMID:31021394",
+      "PMID:31367154",
+      "PMID:31450890",
+      "PMID:31528100",
+      "PMID:31692718",
+      "PMID:31741331",
+      "PMID:31769518",
+      "PMID:32050881",
+      "PMID:32147592",
+      "PMID:32151000",
+      "PMID:32338365",
+      "PMID:32360825",
+      "PMID:32866519",
+      "PMID:32931613",
+      "PMID:33029534",
+      "PMID:33200362",
+      "PMID:33268600",
+      "PMID:33418899",
+      "PMID:33453301",
+      "PMID:33467927",
+      "PMID:33528280",
+      "PMID:33545773",
+      "PMID:33573130",
+      "PMID:33574867",
+      "PMID:33945063",
+      "PMID:34071064",
+      "PMID:34543610",
+      "PMID:34593148",
+      "PMID:34806523",
+      "PMID:34835022",
+      "PMID:34913875",
+      "PMID:35122363",
+      "PMID:35240329",
+      "PMID:35395817",
+      "PMID:35499229",
+      "PMID:36458851",
+      "PMID:36906494",
+      "PMID:36936922",
+      "PMID:37001946",
+      "PMID:37041599",
+      "PMID:37179582",
+      "PMID:37322965",
+      "PMID:37778777",
+      "PMID:38000801",
+      "PMID:38163269",
+      "PMID:3967850",
+      "PMID:49464",
+      "PMID:6133886",
+      "PMID:6994954",
+      "PMID:7030903",
+      "PMID:7038074",
+      "PMID:7493307",
+      "PMID:7713188",
+      "PMID:8571172",
+      "PMID:9132977",
+      "PMID:9353819"
     ],
     "genes": [
       "HBV Genotype"
@@ -23849,6 +28601,11 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:16127453",
+      "PMID:24725239",
+      "PMID:26569658"
     ],
     "genes": [
       "IL28B Polymorphisms"
@@ -23956,6 +28713,13 @@ window.searchData = [
       "OCCASIONAL",
       "VERY_FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:19637355",
+      "PMID:27785449",
+      "PMID:32158599",
+      "PMID:39687036",
+      "PMID:41567639"
+    ],
     "genes": [
       "TERT Promoter",
       "TP53",
@@ -24042,6 +28806,10 @@ window.searchData = [
       "VERY_FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:22193408",
+      "PMID:34081848"
+    ],
     "genes": [
       "BRCA1",
       "BRCA2"
@@ -24126,6 +28894,12 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:20345718",
+      "PMID:28796572",
+      "PMID:33801690",
+      "PMID:39788978"
     ],
     "genes": [
       "ENG",
@@ -24219,6 +28993,16 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "DOI:10.1038/s41598-024-78622-w",
+      "DOI:10.1111/bjh.19692",
+      "DOI:10.1186/s12864-023-09364-8",
+      "DOI:10.3389/fped.2023.1269645",
+      "DOI:10.3390/biomedicines12071607",
+      "DOI:10.3390/ijms242317021",
+      "DOI:10.3390/ijms27020721",
+      "PMID:18940465"
+    ],
     "genes": [
       "ANK1",
       "SLC4A1",
@@ -24295,6 +29079,27 @@ window.searchData = [
     ],
     "frequencies": [
       "COMMON"
+    ],
+    "evidence_references": [
+      "DOI:10.1021/acs.jpcb.4c06575",
+      "DOI:10.1038/s41525-023-00375-8",
+      "DOI:10.1038/s41598-026-36145-6",
+      "DOI:10.1055/s-0042-1757183",
+      "DOI:10.1055/s-0044-1779485",
+      "DOI:10.1073/pnas.0402041101",
+      "DOI:10.1073/pnas.0608422104",
+      "DOI:10.1073/pnas.0710079105",
+      "DOI:10.1182/bloodadvances.2023012499",
+      "DOI:10.21203/rs.3.rs-6577209/v1",
+      "DOI:10.2147/jbm.s389241",
+      "PMID:11686098",
+      "PMID:15514009",
+      "PMID:16322474",
+      "PMID:19601990",
+      "PMID:21289515",
+      "PMID:22102186",
+      "PMID:32544272",
+      "PMID:33497541"
     ],
     "genes": [],
     "treatments": [
@@ -24398,6 +29203,38 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "DOI:10.3390/biomedicines12020338",
+      "PMID:11843212",
+      "PMID:20929727",
+      "PMID:22759192",
+      "PMID:23439959",
+      "PMID:27518661",
+      "PMID:28081767",
+      "PMID:29183082",
+      "PMID:33898701",
+      "PMID:34239882",
+      "PMID:34409324",
+      "PMID:37207067",
+      "PMID:37545826",
+      "PMID:37766657",
+      "PMID:37957373",
+      "PMID:38011564",
+      "PMID:38795716",
+      "PMID:39274425",
+      "PMID:39611771",
+      "PMID:39662091",
+      "PMID:40364202",
+      "PMID:40835292",
+      "PMID:41229081",
+      "PMID:41677500",
+      "PMID:41678402",
+      "PMID:41723775",
+      "PMID:41762022",
+      "PMID:41784795",
+      "clinicaltrials:NCT03713619",
+      "clinicaltrials:NCT04179175"
+    ],
     "genes": [
       "NCSTN",
       "PSEN1",
@@ -24499,6 +29336,84 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "DOI:10.1038/s41598-022-24077-w",
+      "DOI:10.1055/s-0042-1745780",
+      "DOI:10.1093/hmg/ddz149",
+      "DOI:10.1101/2024.03.14.24304192",
+      "DOI:10.1101/2025.05.23.655388",
+      "DOI:10.1136/wjps-2024-000903",
+      "DOI:10.3390/biom14020164",
+      "PMID:10745745",
+      "PMID:11075600",
+      "PMID:11329578",
+      "PMID:11434563",
+      "PMID:11955539",
+      "PMID:12048463",
+      "PMID:1514906",
+      "PMID:15278325",
+      "PMID:15770590",
+      "PMID:17164511",
+      "PMID:18959706",
+      "PMID:19782302",
+      "PMID:20130826",
+      "PMID:20301612",
+      "PMID:2039180",
+      "PMID:20610192",
+      "PMID:21253751",
+      "PMID:21789665",
+      "PMID:22985835",
+      "PMID:23001136",
+      "PMID:23043324",
+      "PMID:23342068",
+      "PMID:23615177",
+      "PMID:23917331",
+      "PMID:24168728",
+      "PMID:24972642",
+      "PMID:25066220",
+      "PMID:25367097",
+      "PMID:25803244",
+      "PMID:26181500",
+      "PMID:26527582",
+      "PMID:27307146",
+      "PMID:27426273",
+      "PMID:27526297",
+      "PMID:28328696",
+      "PMID:29212617",
+      "PMID:29300049",
+      "PMID:29607805",
+      "PMID:29722891",
+      "PMID:30594740",
+      "PMID:30602191",
+      "PMID:31759654",
+      "PMID:32942321",
+      "PMID:33202966",
+      "PMID:34398296",
+      "PMID:34422713",
+      "PMID:34882271",
+      "PMID:35343667",
+      "PMID:35690460",
+      "PMID:35690467",
+      "PMID:35975334",
+      "PMID:36417785",
+      "PMID:36564622",
+      "PMID:37403154",
+      "PMID:38169757",
+      "PMID:38253735",
+      "PMID:4032175",
+      "PMID:4060039",
+      "PMID:41253684",
+      "PMID:6481580",
+      "PMID:6666366",
+      "PMID:7845407",
+      "PMID:8660047",
+      "PMID:8852660",
+      "PMID:9269974",
+      "PMID:9359036",
+      "PMID:9425902",
+      "PMID:9473110",
+      "PMID:9718653"
     ],
     "genes": [
       "RET",
@@ -24617,6 +29532,15 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:26754537",
+      "PMID:32841162",
+      "PMID:36890565",
+      "PMID:38550975",
+      "PMID:39194177",
+      "PMID:39391064",
+      "PMID:39634276"
+    ],
     "genes": [
       "HLCS pathogenic variants"
     ],
@@ -24696,6 +29620,15 @@ window.searchData = [
       "HP:0002984"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:11572777",
+      "PMID:15096952",
+      "PMID:16183809",
+      "PMID:25344219",
+      "PMID:28246128",
+      "PMID:30552424",
+      "PMID:8988165"
+    ],
     "genes": [
       "TBX5 Mutations"
     ],
@@ -24772,6 +29705,23 @@ window.searchData = [
       "OBLIGATE",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "DOI:10.1038/s44161-023-00334-7",
+      "DOI:10.1101/2024.12.04.626894",
+      "DOI:10.1101/2025.01.09.632202",
+      "DOI:10.1161/circulationaha.123.066804",
+      "DOI:10.3389/fgene.2023.1063202",
+      "DOI:10.3390/biology13110911",
+      "PMID:25344219",
+      "PMID:36936432",
+      "PMID:38189150",
+      "PMID:38235884",
+      "PMID:38344303",
+      "PMID:39156428",
+      "PMID:39596866",
+      "PMID:39677667",
+      "PMID:39829922"
     ],
     "genes": [
       "TBX5"
@@ -24872,6 +29822,18 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:32232970",
+      "PMID:35791106",
+      "PMID:36417581",
+      "PMID:37994477",
+      "PMID:38051092",
+      "PMID:38201964",
+      "PMID:38962401",
+      "PMID:39041895",
+      "PMID:39366068",
+      "PMID:39567721"
     ],
     "genes": [
       "CBS (cystathionine beta-synthase) deficiency",
@@ -24974,6 +29936,33 @@ window.searchData = [
       "HP:0000093"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:19443624",
+      "PMID:20877177",
+      "PMID:23499048",
+      "PMID:24075024",
+      "PMID:25057935",
+      "PMID:25810494",
+      "PMID:25845505",
+      "PMID:26231194",
+      "PMID:26924060",
+      "PMID:28927644",
+      "PMID:29188454",
+      "PMID:29273917",
+      "PMID:29802583",
+      "PMID:31005270",
+      "PMID:32397637",
+      "PMID:32668114",
+      "PMID:33073587",
+      "PMID:33494815",
+      "PMID:33556265",
+      "PMID:34537763",
+      "PMID:35685550",
+      "PMID:37762322",
+      "PMID:38797326",
+      "PMID:39298548",
+      "PMID:39636799"
+    ],
     "genes": [
       "FTO",
       "SHROOM3",
@@ -25084,6 +30073,21 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:31250618",
+      "PMID:33482199",
+      "PMID:34625286",
+      "PMID:37572851",
+      "PMID:39030910",
+      "PMID:39201832",
+      "PMID:39728742",
+      "PMID:39806603",
+      "PMID:39978342",
+      "PMID:40340253",
+      "PMID:40555839",
+      "PMID:40781915",
+      "PMID:41465181"
+    ],
     "genes": [
       "PPP2R5D",
       "PPP2R1A",
@@ -25143,6 +30147,13 @@ window.searchData = [
     ],
     "frequencies": [
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:23829907",
+      "PMID:28232490",
+      "PMID:33972588",
+      "PMID:40089378",
+      "PMID:7581322"
     ],
     "genes": [],
     "treatments": [
@@ -25230,6 +30241,22 @@ window.searchData = [
       "HP:0002360"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:18992820",
+      "PMID:33579859",
+      "PMID:34350853",
+      "PMID:38427495",
+      "PMID:38861215",
+      "PMID:39519337",
+      "PMID:39891767",
+      "PMID:40874597",
+      "PMID:41069601",
+      "PMID:41081429",
+      "PMID:41090742",
+      "PMID:41130308",
+      "PMID:41233526",
+      "PMID:41722529"
+    ],
     "genes": [
       "HTT",
       "MSH3",
@@ -25332,6 +30359,103 @@ window.searchData = [
       "HP:0002015"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "DOI:10.21608/rpbs.2025.410003.1392",
+      "DOI:10.3389/fncel.2023.1094503",
+      "DOI:10.3390/biology14020129",
+      "DOI:10.3390/genes15060807",
+      "DOI:10.3390/ijms25073845",
+      "DOI:10.3390/ijms252111787",
+      "PMID:11264541",
+      "PMID:11839795",
+      "PMID:12657365",
+      "PMID:12881722",
+      "PMID:14584235",
+      "PMID:1464368",
+      "PMID:1535611",
+      "PMID:1535663",
+      "PMID:15525658",
+      "PMID:16383221",
+      "PMID:17188796",
+      "PMID:17390259",
+      "PMID:18394562",
+      "PMID:18414297",
+      "PMID:18638556",
+      "PMID:18846148",
+      "PMID:19172113",
+      "PMID:19279257",
+      "PMID:19622387",
+      "PMID:19805493",
+      "PMID:20442355",
+      "PMID:20591965",
+      "PMID:20869622",
+      "PMID:22119091",
+      "PMID:22180703",
+      "PMID:22200539",
+      "PMID:23390178",
+      "PMID:23423362",
+      "PMID:23602910",
+      "PMID:24048953",
+      "PMID:24176425",
+      "PMID:24366610",
+      "PMID:25062860",
+      "PMID:25164859",
+      "PMID:25336039",
+      "PMID:26439718",
+      "PMID:26557176",
+      "PMID:26569646",
+      "PMID:27188817",
+      "PMID:27529325",
+      "PMID:27534434",
+      "PMID:27819145",
+      "PMID:27886014",
+      "PMID:28087720",
+      "PMID:28671137",
+      "PMID:28803251",
+      "PMID:28832564",
+      "PMID:28947110",
+      "PMID:28947114",
+      "PMID:28983422",
+      "PMID:29278291",
+      "PMID:29325616",
+      "PMID:2942452",
+      "PMID:29737569",
+      "PMID:29856017",
+      "PMID:29856024",
+      "PMID:30012004",
+      "PMID:31177235",
+      "PMID:31263285",
+      "PMID:31398342",
+      "PMID:31491822",
+      "PMID:31707371",
+      "PMID:31813995",
+      "PMID:31820322",
+      "PMID:31868674",
+      "PMID:31907286",
+      "PMID:31922295",
+      "PMID:31989345",
+      "PMID:32179957",
+      "PMID:32699773",
+      "PMID:33577706",
+      "PMID:33579864",
+      "PMID:33579866",
+      "PMID:34842303",
+      "PMID:35007790",
+      "PMID:35319359",
+      "PMID:35395060",
+      "PMID:36049455",
+      "PMID:36055643",
+      "PMID:36318082",
+      "PMID:36352624",
+      "PMID:36450478",
+      "PMID:36496108",
+      "PMID:37863037",
+      "PMID:38776957",
+      "PMID:38810948",
+      "PMID:6446233",
+      "PMID:7590394",
+      "PMID:7620118"
+    ],
     "genes": [
       "HTT",
       "MSH3",
@@ -25453,6 +30577,29 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL",
       "VERY_FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.1007/s11883-023-01080-8",
+      "DOI:10.1038/s41467-024-46336-2",
+      "DOI:10.1186/s12944-023-01993-y",
+      "DOI:10.1186/s12944-024-02297-5",
+      "DOI:10.3390/ijms25126364",
+      "DOI:10.3390/nu16132156",
+      "DOI:10.5114/aoms/174743",
+      "PMID:20563664",
+      "PMID:22417841",
+      "PMID:28166253",
+      "PMID:28444290",
+      "PMID:28748993",
+      "PMID:30021845",
+      "PMID:30165986",
+      "PMID:32913098",
+      "PMID:37979064",
+      "PMID:40489011",
+      "clinicaltrials:NCT01663402",
+      "clinicaltrials:NCT01764633",
+      "clinicaltrials:NCT02993406",
+      "clinicaltrials:NCT05355402"
     ],
     "genes": [
       "LDLR",
@@ -25595,6 +30742,125 @@ window.searchData = [
       "OCCASIONAL",
       "VERY_FREQUENT"
     ],
+    "evidence_references": [
+      "DOI:10.1007/s10741-022-10224-y",
+      "DOI:10.1038/s41569-023-00946-3",
+      "DOI:10.1126/sciadv.adk8501",
+      "DOI:10.31083/j.rcm2503093",
+      "DOI:10.3390/antiox14010038",
+      "DOI:10.3390/ijms25105372",
+      "DOI:10.3390/ijms25126661",
+      "DOI:10.3390/ijms252413294",
+      "DOI:10.3390/ijms26094022",
+      "DOI:10.3390/jcm13020505",
+      "DOI:10.3390/jcm13092708",
+      "DOI:10.3390/medicina60050760",
+      "DOI:10.3390/ph17030267",
+      "DOI:10.3390/ph18030313",
+      "PMID:10645696",
+      "PMID:10652906",
+      "PMID:10829097",
+      "PMID:10904856",
+      "PMID:11062603",
+      "PMID:11419663",
+      "PMID:11711527",
+      "PMID:140280",
+      "PMID:15331316",
+      "PMID:15950133",
+      "PMID:16097361",
+      "PMID:16121315",
+      "PMID:1614065",
+      "PMID:17362671",
+      "PMID:17593316",
+      "PMID:18677585",
+      "PMID:19427497",
+      "PMID:19588327",
+      "PMID:19615493",
+      "PMID:19863866",
+      "PMID:19884691",
+      "PMID:20400279",
+      "PMID:20539841",
+      "PMID:20932116",
+      "PMID:20937450",
+      "PMID:21263005",
+      "PMID:23022303",
+      "PMID:23732143",
+      "PMID:23836799",
+      "PMID:23993245",
+      "PMID:24015598",
+      "PMID:24080990",
+      "PMID:24243991",
+      "PMID:2485024",
+      "PMID:25016402",
+      "PMID:25052897",
+      "PMID:2532916",
+      "PMID:25573747",
+      "PMID:25620633",
+      "PMID:26569571",
+      "PMID:26968600",
+      "PMID:27873227",
+      "PMID:27884237",
+      "PMID:28082430",
+      "PMID:28176630",
+      "PMID:28402023",
+      "PMID:28541499",
+      "PMID:29278556",
+      "PMID:2959621",
+      "PMID:29766272",
+      "PMID:29869130",
+      "PMID:29964160",
+      "PMID:30066227",
+      "PMID:31472880",
+      "PMID:31472888",
+      "PMID:31472889",
+      "PMID:31472890",
+      "PMID:31498767",
+      "PMID:31756356",
+      "PMID:32224751",
+      "PMID:32404601",
+      "PMID:32476157",
+      "PMID:32728994",
+      "PMID:33143256",
+      "PMID:33568808",
+      "PMID:33570899",
+      "PMID:34426850",
+      "PMID:34809918",
+      "PMID:35061769",
+      "PMID:35138872",
+      "PMID:35165832",
+      "PMID:35190215",
+      "PMID:35372212",
+      "PMID:35438025",
+      "PMID:35679365",
+      "PMID:35690315",
+      "PMID:36030347",
+      "PMID:36202538",
+      "PMID:36519436",
+      "PMID:36533535",
+      "PMID:36913785",
+      "PMID:36933415",
+      "PMID:36990309",
+      "PMID:37345800",
+      "PMID:37624446",
+      "PMID:37698022",
+      "PMID:37712339",
+      "PMID:37739329",
+      "PMID:37827810",
+      "PMID:37861255",
+      "PMID:37980821",
+      "PMID:37999643",
+      "PMID:38300391",
+      "PMID:38428029",
+      "PMID:38596912",
+      "PMID:38597067",
+      "PMID:3882040",
+      "PMID:7495217",
+      "PMID:7496052",
+      "PMID:7606639",
+      "PMID:8326666",
+      "PMID:8651834",
+      "PMID:9256850"
+    ],
     "genes": [],
     "treatments": [
       "Antihypertensive Therapy",
@@ -25701,6 +30967,99 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL",
       "OBLIGATE"
+    ],
+    "evidence_references": [
+      "DOI:10.1016/j.cell.2025.01.011",
+      "DOI:10.1038/s44161-024-00505-0",
+      "DOI:10.1093/eurheartj/ehae421",
+      "DOI:10.1186/s43044-024-00587-y",
+      "DOI:10.1186/s43044-025-00652-0",
+      "DOI:10.3390/biomedicines12030682",
+      "DOI:10.3390/biomedicines12122675",
+      "PMID:10980888",
+      "PMID:11040002",
+      "PMID:11174912",
+      "PMID:12510171",
+      "PMID:133253",
+      "PMID:1414892",
+      "PMID:15631686",
+      "PMID:16416046",
+      "PMID:17162264",
+      "PMID:20560010",
+      "PMID:20973822",
+      "PMID:21389910",
+      "PMID:21909825",
+      "PMID:22158452",
+      "PMID:22687587",
+      "PMID:22948303",
+      "PMID:23124402",
+      "PMID:23692943",
+      "PMID:23704850",
+      "PMID:23905887",
+      "PMID:24011925",
+      "PMID:24240729",
+      "PMID:25060129",
+      "PMID:25198737",
+      "PMID:25573453",
+      "PMID:25814232",
+      "PMID:25897040",
+      "PMID:26002383",
+      "PMID:28602671",
+      "PMID:28645928",
+      "PMID:29111210",
+      "PMID:29150126",
+      "PMID:29203161",
+      "PMID:29522370",
+      "PMID:29622585",
+      "PMID:29655822",
+      "PMID:29710196",
+      "PMID:29761339",
+      "PMID:30681346",
+      "PMID:30739754",
+      "PMID:30975860",
+      "PMID:31280832",
+      "PMID:3158692",
+      "PMID:31708475",
+      "PMID:31735781",
+      "PMID:32639329",
+      "PMID:33242417",
+      "PMID:33447843",
+      "PMID:33588347",
+      "PMID:33623987",
+      "PMID:34126727",
+      "PMID:34180388",
+      "PMID:34533409",
+      "PMID:34969871",
+      "PMID:3515244",
+      "PMID:35450574",
+      "PMID:35544052",
+      "PMID:35555885",
+      "PMID:35644869",
+      "PMID:35710280",
+      "PMID:36044874",
+      "PMID:36084640",
+      "PMID:36134835",
+      "PMID:36396186",
+      "PMID:36442670",
+      "PMID:36598161",
+      "PMID:36797478",
+      "PMID:36830740",
+      "PMID:37060436",
+      "PMID:37160197",
+      "PMID:37409452",
+      "PMID:37563454",
+      "PMID:37565978",
+      "PMID:37574021",
+      "PMID:37579849",
+      "PMID:37715354",
+      "PMID:37850394",
+      "PMID:38368032",
+      "PMID:38368037",
+      "PMID:38423942",
+      "PMID:39312653",
+      "PMID:7004293",
+      "PMID:7201843",
+      "PMID:7665141"
     ],
     "genes": [
       "MYH7",
@@ -25819,6 +31178,22 @@ window.searchData = [
     "frequencies": [
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:10797431",
+      "PMID:11956729",
+      "PMID:25187577",
+      "PMID:2572591",
+      "PMID:25823796",
+      "PMID:3057886",
+      "PMID:32399188",
+      "PMID:35225118",
+      "PMID:37126720",
+      "PMID:3717210",
+      "PMID:38076483",
+      "PMID:6641761",
+      "PMID:8175802",
+      "PMID:8599352"
+    ],
     "genes": [
       "COL2A1 Mutations"
     ],
@@ -25916,6 +31291,18 @@ window.searchData = [
       "HP_0040282",
       "HP_0040283"
     ],
+    "evidence_references": [
+      "DOI:10.1007/s00109-017-1602-9",
+      "DOI:10.1172/jci.insight.168796",
+      "PMID:23165795",
+      "PMID:29063142",
+      "PMID:36442838",
+      "PMID:37345656",
+      "PMID:38813446",
+      "PMID:41184854",
+      "PMID:41762373",
+      "PMID:7670477"
+    ],
     "genes": [
       "FGFR3 N540K mutation"
     ],
@@ -25991,6 +31378,13 @@ window.searchData = [
       "HP:0004322"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:20392236",
+      "PMID:26529632",
+      "PMID:26590809",
+      "PMID:32973344",
+      "PMID:34884378"
+    ],
     "genes": [
       "ALPL Mutations"
     ],
@@ -26071,6 +31465,10 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:23590662",
+      "PMID:37526143"
+    ],
     "genes": [
       "IDH1",
       "IDH2"
@@ -26149,6 +31547,11 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:26061751",
+      "PMID:36651583",
+      "PMID:40916936"
     ],
     "genes": [
       "IDH1",
@@ -26235,6 +31638,11 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:12901270",
+      "PMID:24569570",
+      "PMID:25536104"
+    ],
     "genes": [
       "IDH1",
       "IDH2",
@@ -26315,6 +31723,15 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:22072542",
+      "PMID:23071237",
+      "PMID:23071247",
+      "PMID:26478444",
+      "PMID:36651583",
+      "PMID:37743332",
+      "PMID:40916936"
     ],
     "genes": [
       "IDH1",
@@ -26399,6 +31816,23 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "DOI:10.1038/s41588-024-01802-x",
+      "DOI:10.1038/s41598-024-65857-w",
+      "DOI:10.1093/ckj/sfaf152",
+      "DOI:10.1093/glycob/cwae060",
+      "DOI:10.1186/s12882-024-03512-2",
+      "DOI:10.3389/fimmu.2024.1436923",
+      "DOI:10.3389/fneph.2023.1346769",
+      "DOI:10.3390/ijms251910340",
+      "DOI:10.5527/wjn.v13.i4.98709",
+      "PMID:22904352",
+      "PMID:35781866",
+      "PMID:38053977",
+      "PMID:38182298",
+      "PMID:38427309",
+      "PMID:39124764"
     ],
     "genes": [
       "CFHR1/CFHR3 Deletion",
@@ -26502,6 +31936,10 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:25809420",
+      "PMID:25988916"
+    ],
     "genes": [],
     "treatments": [
       "Glucocorticoids",
@@ -26585,6 +32023,20 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "DOI:10.1007/s00277-024-05999-z",
+      "DOI:10.1007/s40268-024-00490-6",
+      "DOI:10.1007/s44337-024-00008-8",
+      "DOI:10.1007/s44337-024-00040-8",
+      "DOI:10.1182/bloodadvances.2023012044",
+      "DOI:10.3390/hematolrep16020021",
+      "DOI:10.3390/ijms25042163",
+      "DOI:10.3390/jox13010005",
+      "PMID:32515487",
+      "PMID:37062251",
+      "PMID:38396839",
+      "PMID:38525349"
+    ],
     "genes": [],
     "treatments": [
       "Corticosteroids",
@@ -26645,6 +32097,12 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:26455322",
+      "PMID:28334876",
+      "PMID:31017643",
+      "PMID:32500973"
+    ],
     "genes": [
       "PDGFRB Gain-of-Function Mutations"
     ],
@@ -26686,6 +32144,32 @@ window.searchData = [
     "phenotype_hpo_categories": [],
     "phenotype_ids": [],
     "frequencies": [],
+    "evidence_references": [
+      "DOI:10.1002/mco2.662",
+      "DOI:10.1016/j.xcrm.2024.101829",
+      "DOI:10.1073/pnas.1412487111",
+      "DOI:10.1126/sciadv.abj2101",
+      "DOI:10.1128/iai.00291-08",
+      "DOI:10.1128/mbio.00681-25",
+      "DOI:10.1128/microbiolspec.dmih2-0031-2016",
+      "DOI:10.1146/annurev-immunol-082323-031642",
+      "DOI:10.1164/ajrccm.161.supplement_1.ltta-23",
+      "DOI:10.20944/preprints202405.1826.v1",
+      "DOI:10.3389/fimmu.2012.00389",
+      "DOI:10.3389/fimmu.2013.00185",
+      "DOI:10.3389/fimmu.2014.00614",
+      "DOI:10.3389/fimmu.2018.01330",
+      "DOI:10.3389/fimmu.2022.963923",
+      "DOI:10.3389/fimmu.2024.1303115",
+      "DOI:10.3389/fimmu.2025.1696366",
+      "DOI:10.3389/fmicb.2011.00012",
+      "DOI:10.7759/cureus.54275",
+      "PMID:10884944",
+      "PMID:17280841",
+      "PMID:31996461",
+      "PMID:36675263",
+      "PMID:40036700"
+    ],
     "genes": [],
     "treatments": [
       "Vaccination",
@@ -26787,6 +32271,14 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1177/10760296241278615",
+      "DOI:10.3390/ijms25115909",
+      "DOI:10.3390/pathogens13070561",
+      "DOI:10.3390/v16101535",
+      "DOI:10.3390/vetsci11110555",
+      "PMID:29955068"
+    ],
     "genes": [],
     "treatments": [
       "Neuraminidase Inhibitors",
@@ -26872,6 +32364,11 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:15168722",
+      "PMID:3083684",
+      "PMID:6434824"
+    ],
     "genes": [
       "Threonine dehydratase (enzyme level)"
     ],
@@ -26949,6 +32446,19 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.1080/17425255.2024.2349716",
+      "DOI:10.1136/gutjnl-2022-328515",
+      "DOI:10.3390/jcm12072558",
+      "DOI:10.3390/medicina61010109",
+      "DOI:10.3390/nu17010155",
+      "PMID:15100164",
+      "PMID:17241857",
+      "PMID:17593135",
+      "PMID:18252749",
+      "PMID:19595511",
+      "PMID:37048642"
     ],
     "genes": [
       "HTR3E",
@@ -27057,6 +32567,19 @@ window.searchData = [
       "OCCASIONAL",
       "VERY_RARE"
     ],
+    "evidence_references": [
+      "PMID:15505379",
+      "PMID:17304052",
+      "PMID:21104317",
+      "PMID:21659959",
+      "PMID:28053874",
+      "PMID:30253142",
+      "PMID:33432785",
+      "PMID:34544473",
+      "PMID:34869113",
+      "PMID:37309295",
+      "PMID:38137468"
+    ],
     "genes": [
       "ACAD8 pathogenic variants"
     ],
@@ -27164,6 +32687,18 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:19210957",
+      "PMID:27613073",
+      "PMID:30522498",
+      "PMID:30740403",
+      "PMID:34394177",
+      "PMID:36636590",
+      "PMID:36817957",
+      "PMID:36837923",
+      "PMID:38344522",
+      "PMID:41133704"
+    ],
     "genes": [
       "IVD variants"
     ],
@@ -27243,6 +32778,14 @@ window.searchData = [
     "frequencies": [
       "EXCLUDED"
     ],
+    "evidence_references": [
+      "PMID:1271196",
+      "PMID:7874170",
+      "PMID:7924855",
+      "PMID:8528214",
+      "PMID:8644708",
+      "PMID:9385368"
+    ],
     "genes": [
       "FGFR2 Mutations"
     ],
@@ -27318,6 +32861,46 @@ window.searchData = [
       "VERY_FREQUENT",
       "OCCASIONAL",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.1002/ana.24236",
+      "DOI:10.14744/epilepsi.2016.88319",
+      "DOI:10.3389/fped.2025.1583346",
+      "DOI:10.3390/ijms22115609",
+      "PMID:11393330",
+      "PMID:14631097",
+      "PMID:14706039",
+      "PMID:14706045",
+      "PMID:15508923",
+      "PMID:17627674",
+      "PMID:20074235",
+      "PMID:20486734",
+      "PMID:21729035",
+      "PMID:22931943",
+      "PMID:22946728",
+      "PMID:24798222",
+      "PMID:26262932",
+      "PMID:26492104",
+      "PMID:26552567",
+      "PMID:28314522",
+      "PMID:28419980",
+      "PMID:28508035",
+      "PMID:29555355",
+      "PMID:29722743",
+      "PMID:29880477",
+      "PMID:30082241",
+      "PMID:30541864",
+      "PMID:30683501",
+      "PMID:30685520",
+      "PMID:31444362",
+      "PMID:32554361",
+      "PMID:32861158",
+      "PMID:34070602",
+      "PMID:35394968",
+      "PMID:36216271",
+      "PMID:37329145",
+      "PMID:6771426",
+      "PMID:8270934"
     ],
     "genes": [
       "SYNGAP1",
@@ -27412,6 +32995,20 @@ window.searchData = [
       "HP:0002093"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "DOI:10.1073/pnas.2408551121",
+      "DOI:10.1101/2022.03.31.486414",
+      "DOI:10.1159/000534031",
+      "DOI:10.1186/s12920-023-01753-y",
+      "DOI:10.1186/s41065-025-00375-x",
+      "DOI:10.1371/journal.pgen.1010796",
+      "PMID:17468754",
+      "PMID:19442771",
+      "PMID:20037857",
+      "PMID:23339108",
+      "PMID:23456818",
+      "PMID:25575358"
+    ],
     "genes": [
       "DYNC2H1 Mutations",
       "IFT80 Mutations",
@@ -27578,6 +33175,53 @@ window.searchData = [
       "OCCASIONAL",
       "RARE"
     ],
+    "evidence_references": [
+      "GEO:GSE217001",
+      "GEO:GSE254556",
+      "PMID:31373179",
+      "PMID:33717386",
+      "PMID:33777383",
+      "PMID:33794348",
+      "PMID:34821546",
+      "PMID:34846692",
+      "PMID:34951506",
+      "PMID:34980503",
+      "PMID:35092359",
+      "PMID:35238134",
+      "PMID:35602833",
+      "PMID:35860112",
+      "PMID:36052101",
+      "PMID:36319078",
+      "PMID:36484066",
+      "PMID:36580738",
+      "PMID:36704348",
+      "PMID:36788019",
+      "PMID:36802443",
+      "PMID:36803942",
+      "PMID:37227088",
+      "PMID:37288221",
+      "PMID:37490694",
+      "PMID:37547106",
+      "PMID:37799488",
+      "PMID:37965976",
+      "PMID:37993833",
+      "PMID:38013309",
+      "PMID:38502237",
+      "PMID:39027323",
+      "PMID:39394465",
+      "PMID:39400299",
+      "PMID:39725884",
+      "PMID:39849212",
+      "PMID:40537162",
+      "PMID:40750754",
+      "PMID:40898267",
+      "PMID:40951761",
+      "PMID:41020477",
+      "PMID:41165761",
+      "clinicaltrials:NCT00873678",
+      "clinicaltrials:NCT01401998",
+      "clinicaltrials:NCT04874909"
+    ],
     "genes": [
       "CPLANE1",
       "CEP290",
@@ -27726,6 +33370,25 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "GEO:GSE75838",
+      "PMID:12915477",
+      "PMID:17115047",
+      "PMID:17363907",
+      "PMID:19700011",
+      "PMID:19945616",
+      "PMID:20301304",
+      "PMID:22512697",
+      "PMID:23076207",
+      "PMID:24511464",
+      "PMID:29144448",
+      "PMID:32973163",
+      "PMID:34881838",
+      "PMID:36689495",
+      "PMID:9038345",
+      "clinicaltrials:NCT03526159",
+      "clinicaltrials:NCT05111600"
+    ],
     "genes": [
       "LAMB3",
       "LAMA3",
@@ -27836,6 +33499,23 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1093/gastro/goac082",
+      "GEO:GSE277340",
+      "PMID:19822006",
+      "PMID:22171123",
+      "PMID:26826408",
+      "PMID:27384093",
+      "PMID:33801690",
+      "PMID:33822054",
+      "PMID:35988962",
+      "PMID:36359527",
+      "PMID:36809082",
+      "PMID:38066625",
+      "PMID:39623880",
+      "PMID:41199529",
+      "PMID:7881943"
+    ],
     "genes": [
       "BMPR1A",
       "SMAD4",
@@ -27908,6 +33588,11 @@ window.searchData = [
     ],
     "frequencies": [
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:23775962",
+      "PMID:27268913",
+      "PMID:41042158"
     ],
     "genes": [
       "KIT Exon 11 Mutations",
@@ -27988,6 +33673,12 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:32657049",
+      "PMID:33618059",
+      "PMID:34096690",
+      "PMID:35658005"
     ],
     "genes": [
       "KRAS",
@@ -28075,6 +33766,14 @@ window.searchData = [
       "HP:0200041"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:10053007",
+      "PMID:15663649",
+      "PMID:21271994",
+      "PMID:29689068",
+      "PMID:30288772",
+      "PMID:31335043"
+    ],
     "genes": [
       "KRT1 Dominant-Negative Mutations"
     ],
@@ -28194,6 +33893,23 @@ window.searchData = [
       "HP:0002960"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:11343317",
+      "PMID:15523636",
+      "PMID:15887282",
+      "PMID:20711175",
+      "PMID:21607748",
+      "PMID:22197486",
+      "PMID:24633898",
+      "PMID:25273096",
+      "PMID:26194542",
+      "PMID:28884922",
+      "PMID:29073101",
+      "PMID:30514738",
+      "PMID:31363182",
+      "PMID:31479440",
+      "PMID:34570271"
+    ],
     "genes": [
       "KMT2D",
       "KDM6A"
@@ -28289,6 +34005,11 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:16188485",
+      "PMID:34731971",
+      "PMID:7489408"
     ],
     "genes": [
       "HHV-8 Viral Oncogenes"
@@ -28409,6 +34130,81 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1016/j.pedneo.2023.05.002",
+      "DOI:10.1111/1756-185x.14816",
+      "DOI:10.1172/jci176938",
+      "DOI:10.3389/fimmu.2024.1323171",
+      "DOI:10.3389/fped.2024.1415941",
+      "DOI:10.3390/ijms252413322",
+      "DOI:10.52533/johs.2024.40109",
+      "PMID:10392592",
+      "PMID:10512599",
+      "PMID:10935427",
+      "PMID:1440951",
+      "PMID:15677370",
+      "PMID:15835487",
+      "PMID:16990356",
+      "PMID:17033807",
+      "PMID:1704148",
+      "PMID:21447126",
+      "PMID:23075819",
+      "PMID:23188196",
+      "PMID:23283289",
+      "PMID:23481152",
+      "PMID:24034380",
+      "PMID:26631821",
+      "PMID:27090101",
+      "PMID:27881022",
+      "PMID:28043685",
+      "PMID:28580712",
+      "PMID:28921836",
+      "PMID:29101553",
+      "PMID:29437127",
+      "PMID:30029859",
+      "PMID:30183655",
+      "PMID:30619331",
+      "PMID:30903929",
+      "PMID:31599798",
+      "PMID:31732547",
+      "PMID:31900257",
+      "PMID:31910632",
+      "PMID:31914832",
+      "PMID:31974671",
+      "PMID:32159800",
+      "PMID:32843441",
+      "PMID:32888683",
+      "PMID:3333141",
+      "PMID:33413220",
+      "PMID:33453126",
+      "PMID:33481812",
+      "PMID:33527178",
+      "PMID:33541111",
+      "PMID:34078404",
+      "PMID:34459958",
+      "PMID:34535199",
+      "PMID:34651205",
+      "PMID:34731266",
+      "PMID:34814144",
+      "PMID:34854940",
+      "PMID:34890998",
+      "PMID:35420684",
+      "PMID:36102118",
+      "PMID:36472296",
+      "PMID:36569014",
+      "PMID:36604937",
+      "PMID:36611091",
+      "PMID:37065507",
+      "PMID:37188888",
+      "PMID:37551875",
+      "PMID:37553209",
+      "PMID:38135926",
+      "PMID:39117827",
+      "PMID:6833960",
+      "PMID:7299613",
+      "PMID:9513217",
+      "PMID:9665974"
+    ],
     "genes": [
       "ITPKC",
       "FCGR2A",
@@ -28519,6 +34315,22 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1016/j.yadr.2007.07.011",
+      "DOI:10.1093/hmg/8.7.1237",
+      "DOI:10.1177/2050313x231204197",
+      "DOI:10.3390/biology10010059",
+      "PMID:10369869",
+      "PMID:11038186",
+      "PMID:11121146",
+      "PMID:12072018",
+      "PMID:14681042",
+      "PMID:19282408",
+      "PMID:20031451",
+      "PMID:30335335",
+      "PMID:6237617",
+      "PMID:9326398"
+    ],
     "genes": [
       "GJB2",
       "LOR"
@@ -28624,6 +34436,19 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "GEO:GSE47642",
+      "PMID:19057668",
+      "PMID:19762710",
+      "PMID:19945623",
+      "PMID:21936020",
+      "PMID:24681597",
+      "PMID:26937547",
+      "PMID:28501563",
+      "PMID:31340837",
+      "PMID:38371949",
+      "clinicaltrials:NCT04908215"
     ],
     "genes": [
       "FERMT1"
@@ -28732,6 +34557,14 @@ window.searchData = [
       "VERY_FREQUENT",
       "OCCASIONAL",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.1038/s41398-022-02199-z",
+      "DOI:10.1038/s41467-019-12947-3",
+      "DOI:10.1136/jmg-2023-109702",
+      "PMID:16826528",
+      "PMID:35633020",
+      "PMID:39746677"
     ],
     "genes": [
       "EHMT1 haploinsufficiency (9q34.3 deletion)",
@@ -28850,6 +34683,63 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1093/humrep/dead224",
+      "DOI:10.1186/s13073-023-01169-4",
+      "DOI:10.3389/fendo.2023.1266730",
+      "DOI:10.3389/fendo.2024.1394812",
+      "DOI:10.3389/fgene.2025.1639699",
+      "DOI:10.3390/antiox14050531",
+      "DOI:10.3390/children11050509",
+      "DOI:10.3390/pediatric16020036",
+      "PMID:1176138",
+      "PMID:17062147",
+      "PMID:17766718",
+      "PMID:18504390",
+      "PMID:18668569",
+      "PMID:19490778",
+      "PMID:20014369",
+      "PMID:20573461",
+      "PMID:20843200",
+      "PMID:21217607",
+      "PMID:21449864",
+      "PMID:21540567",
+      "PMID:21835671",
+      "PMID:22915094",
+      "PMID:24142635",
+      "PMID:25899809",
+      "PMID:26732150",
+      "PMID:26823086",
+      "PMID:27743676",
+      "PMID:28960039",
+      "PMID:29382506",
+      "PMID:29466784",
+      "PMID:30507702",
+      "PMID:30914274",
+      "PMID:31587581",
+      "PMID:31630146",
+      "PMID:32484281",
+      "PMID:32562095",
+      "PMID:32567016",
+      "PMID:32835378",
+      "PMID:33107323",
+      "PMID:34375016",
+      "PMID:34407199",
+      "PMID:34431088",
+      "PMID:3490207",
+      "PMID:35421871",
+      "PMID:35667865",
+      "PMID:35948402",
+      "PMID:36225116",
+      "PMID:37054629",
+      "PMID:37962976",
+      "PMID:38677872",
+      "PMID:38684424",
+      "PMID:4583182",
+      "PMID:5083415",
+      "PMID:5720649",
+      "PMID:9160389"
+    ],
     "genes": [
       "47,XXY Karyotype",
       "KDM6A",
@@ -28964,6 +34854,20 @@ window.searchData = [
       "HP:0000365"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:24475193",
+      "PMID:25592122",
+      "PMID:25604898",
+      "PMID:26626311",
+      "PMID:3276736",
+      "PMID:40475174",
+      "PMID:41378240",
+      "PMID:514691",
+      "PMID:7700721",
+      "PMID:7981752",
+      "PMID:8484485",
+      "PMID:8723084"
+    ],
     "genes": [
       "COL2A1 Mutations"
     ],
@@ -29030,6 +34934,12 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:26455322",
+      "PMID:32500973",
+      "PMID:34738614",
+      "PMID:35221873"
     ],
     "genes": [
       "PDGFRB Gain-of-Function Mutations"
@@ -29124,6 +35034,20 @@ window.searchData = [
       "HP:0011968"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:10992329",
+      "PMID:15901860",
+      "PMID:31527255",
+      "PMID:32912261",
+      "PMID:36113749",
+      "PMID:36519759",
+      "PMID:37048066",
+      "PMID:37628569",
+      "PMID:38390974",
+      "PMID:7354254",
+      "PMID:7581365",
+      "PMID:8634707"
+    ],
     "genes": [
       "GALC"
     ],
@@ -29209,6 +35133,29 @@ window.searchData = [
       "VERY_FREQUENT",
       "OBLIGATE",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:25246995",
+      "PMID:26806962",
+      "PMID:28913640",
+      "PMID:29803679",
+      "PMID:34118526",
+      "PMID:34213873",
+      "PMID:35051635",
+      "PMID:36245398",
+      "PMID:36428981",
+      "PMID:37254237",
+      "PMID:37353769",
+      "PMID:37435837",
+      "PMID:39621980",
+      "PMID:40065254",
+      "PMID:40312461",
+      "PMID:40568562",
+      "PMID:40613656",
+      "PMID:41552306",
+      "clinicaltrials:NCT00749060",
+      "clinicaltrials:NCT05058443",
+      "clinicaltrials:NCT05598606"
     ],
     "genes": [],
     "treatments": [
@@ -29311,6 +35258,18 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL",
       "VERY_RARE"
+    ],
+    "evidence_references": [
+      "PMID:22391998",
+      "PMID:24321868",
+      "PMID:26610379",
+      "PMID:28137912",
+      "PMID:29980873",
+      "PMID:37113859",
+      "PMID:37275239",
+      "PMID:38714179",
+      "PMID:38716347",
+      "PMID:38862727"
     ],
     "genes": [
       "L2HGDH variants"
@@ -29433,6 +35392,32 @@ window.searchData = [
       "OBLIGATE",
       "VERY_FREQUENT"
     ],
+    "evidence_references": [
+      "DOI:10.1097/md.0000000000033889",
+      "DOI:10.1136/bcr-2023-258290",
+      "DOI:10.3390/biology13100802",
+      "DOI:10.37349/ei.2024.00129",
+      "PMID:14977076",
+      "PMID:15269315",
+      "PMID:23648600",
+      "PMID:26536413",
+      "PMID:27435969",
+      "PMID:28306649",
+      "PMID:32353617",
+      "PMID:34411472",
+      "PMID:37621282",
+      "PMID:37953517",
+      "PMID:38472515",
+      "PMID:39540706",
+      "PMID:39670911",
+      "PMID:40225079",
+      "PMID:41146797",
+      "PMID:41158321",
+      "PMID:41310738",
+      "clinicaltrials:NCT00335920",
+      "clinicaltrials:NCT01231009",
+      "clinicaltrials:NCT05024448"
+    ],
     "genes": [
       "Susceptibility factors"
     ],
@@ -29521,6 +35506,18 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:11483392",
+      "PMID:12958597",
+      "PMID:20527995",
+      "PMID:20538597",
+      "PMID:28536304",
+      "PMID:29483193",
+      "PMID:29489177",
+      "PMID:30143794",
+      "PMID:30336494",
+      "PMID:36899857"
+    ],
     "genes": [],
     "treatments": [
       "Antiseizure medications",
@@ -29604,6 +35601,20 @@ window.searchData = [
       "HP:0002094"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "DOI:10.5505/respircase.2024.73604",
+      "PMID:34401285",
+      "PMID:34708697",
+      "PMID:35088581",
+      "PMID:35475077",
+      "PMID:35754673",
+      "PMID:35912848",
+      "PMID:36241572",
+      "PMID:36324124",
+      "PMID:36751263",
+      "PMID:37416498",
+      "PMID:41356730"
+    ],
     "genes": [],
     "treatments": [
       "Gluten-free diet",
@@ -29686,6 +35697,19 @@ window.searchData = [
       "HP:0002751"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:11837607",
+      "PMID:16648377",
+      "PMID:16801345",
+      "PMID:17202879",
+      "PMID:17510210",
+      "PMID:18377309",
+      "PMID:19505475",
+      "PMID:22190451",
+      "PMID:25536406",
+      "PMID:27048506",
+      "PMID:8609132"
+    ],
     "genes": [
       "FLNB Pathogenic Variants"
     ],
@@ -29785,6 +35809,34 @@ window.searchData = [
       "OCCASIONAL",
       "RARE",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.1038/s41598-024-53098-w",
+      "DOI:10.1186/s13023-024-03106-z",
+      "DOI:10.1186/s40792-023-01650-7",
+      "DOI:10.3389/fcell.2022.1022457",
+      "PMID:22151899",
+      "PMID:30232040",
+      "PMID:30245899",
+      "PMID:30783751",
+      "PMID:32593610",
+      "PMID:35039336",
+      "PMID:35236684",
+      "PMID:35596199",
+      "PMID:37073597",
+      "PMID:37230380",
+      "PMID:37436152",
+      "PMID:37441989",
+      "PMID:37816841",
+      "PMID:38380453",
+      "PMID:38761217",
+      "PMID:39260330",
+      "PMID:39543566",
+      "PMID:40227884",
+      "PMID:40330935",
+      "PMID:40579891",
+      "PMID:40629707",
+      "PMID:6873110"
     ],
     "genes": [
       "SOX2",
@@ -29911,6 +35963,42 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "GEO:GSE37567",
+      "GEO:GSE60598",
+      "PMID:10215516",
+      "PMID:1030853",
+      "PMID:1663439",
+      "PMID:17405745",
+      "PMID:19106433",
+      "PMID:20142857",
+      "PMID:20643234",
+      "PMID:22609695",
+      "PMID:2650022",
+      "PMID:28005215",
+      "PMID:28889260",
+      "PMID:29523605",
+      "PMID:29531415",
+      "PMID:3103564",
+      "PMID:32651990",
+      "PMID:33505133",
+      "PMID:3442386",
+      "PMID:3540517",
+      "PMID:36962532",
+      "PMID:37478813",
+      "PMID:40981357",
+      "PMID:6202140",
+      "PMID:6943483",
+      "PMID:8247416",
+      "PMID:8475950",
+      "PMID:9300927",
+      "PMID:9559103",
+      "PMID:965496",
+      "PMID:9799191",
+      "clinicaltrials:NCT00342849",
+      "clinicaltrials:NCT01573013",
+      "clinicaltrials:NCT05507021"
+    ],
     "genes": [],
     "treatments": [
       "Exposure cessation and source control",
@@ -29984,6 +36072,13 @@ window.searchData = [
     "frequencies": [
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:10563394",
+      "PMID:19634705",
+      "PMID:30712769",
+      "PMID:33968798",
+      "PMID:34345133"
+    ],
     "genes": [],
     "treatments": [
       "Liposomal amphotericin B therapy"
@@ -30036,6 +36131,10 @@ window.searchData = [
     ],
     "frequencies": [
       "COMMON"
+    ],
+    "evidence_references": [
+      "PMID:11791665",
+      "PMID:28763601"
     ],
     "genes": [],
     "treatments": [
@@ -30176,6 +36275,36 @@ window.searchData = [
       "OCCASIONAL",
       "RARE"
     ],
+    "evidence_references": [
+      "DOI:10.1128/iai.00419-24",
+      "DOI:10.1128/mbio.01906-24",
+      "DOI:10.1128/spectrum.03135-22",
+      "DOI:10.1371/journal.pntd.0012449",
+      "DOI:10.1371/journal.pone.0312466",
+      "DOI:10.3138/jammi-2023-0033",
+      "DOI:10.3389/fmicb.2023.1199660",
+      "DOI:10.3389/fmicb.2024.1403765",
+      "DOI:10.3390/jcm13154310",
+      "DOI:10.3390/kidneydial4020006",
+      "DOI:10.3390/microorganisms11071695",
+      "DOI:10.3390/pathogens12060787",
+      "GEO:GSE105104",
+      "GEO:GSE53818",
+      "GEO:GSE72946",
+      "GEO:GSE86630",
+      "PMID:17044471",
+      "PMID:23951234",
+      "PMID:24277745",
+      "PMID:24450239",
+      "PMID:28088326",
+      "PMID:28722888",
+      "PMID:29621837",
+      "PMID:35469592",
+      "PMID:36130240",
+      "clinicaltrials:NCT04034550",
+      "clinicaltrials:NCT05413720",
+      "clinicaltrials:NCT07127718"
+    ],
     "genes": [],
     "treatments": [
       "Antibiotic pharmacotherapy",
@@ -30267,6 +36396,20 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:10599728",
+      "PMID:11677662",
+      "PMID:11739418",
+      "PMID:16537395",
+      "PMID:17182655",
+      "PMID:17481601",
+      "PMID:20301394",
+      "PMID:23720786",
+      "PMID:25110390",
+      "PMID:27604558",
+      "PMID:9590292",
+      "PMID:9590293"
     ],
     "genes": [
       "SHOX deletions and point mutations"
@@ -30367,6 +36510,19 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1007/s12035-023-03266-2",
+      "DOI:10.1186/s10020-023-00774-8",
+      "PMID:10760551",
+      "PMID:18067674",
+      "PMID:19259384",
+      "PMID:22198833",
+      "PMID:24891139",
+      "PMID:27920633",
+      "PMID:32310539",
+      "PMID:36694014",
+      "PMID:8156315"
+    ],
     "genes": [
       "HPRT1 mutations"
     ],
@@ -30459,6 +36615,10 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:26014290",
+      "PMID:28572266"
+    ],
     "genes": [
       "TP53"
     ],
@@ -30509,6 +36669,10 @@ window.searchData = [
       "HP:0100725"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:38795165",
+      "PMID:40855389"
+    ],
     "genes": [],
     "treatments": [],
     "environmental": [],
@@ -30584,6 +36748,17 @@ window.searchData = [
     "frequencies": [
       "OBLIGATE",
       "VERY_FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.1016/j.ajhg.2011.11.011",
+      "DOI:10.1038/s41589-022-01159-4",
+      "DOI:10.1098/rsob.220274",
+      "DOI:10.3390/antiox13081023",
+      "PMID:22152680",
+      "PMID:24334290",
+      "PMID:28817111",
+      "PMID:32508887",
+      "PMID:39547509"
     ],
     "genes": [
       "LIAS loss-of-function variants"
@@ -30661,6 +36836,17 @@ window.searchData = [
     ],
     "frequencies": [
       "OBLIGATE"
+    ],
+    "evidence_references": [
+      "DOI:10.1016/j.jbc.2023.105046",
+      "DOI:10.1016/j.jbc.2024.107995",
+      "DOI:10.1177/1073858420936162",
+      "PMID:24256811",
+      "PMID:24341803",
+      "PMID:29681092",
+      "PMID:32508887",
+      "PMID:39199267",
+      "PMID:39547509"
     ],
     "genes": [
       "LIPT1 loss-of-function variants"
@@ -30755,6 +36941,21 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL",
       "VERY_FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.1002/mco2.721",
+      "DOI:10.33696/gastroenterology.5.054",
+      "DOI:10.3390/biomedicines12102229",
+      "DOI:10.3390/ijms25137405",
+      "DOI:10.3390/ijms25147873",
+      "DOI:10.3390/ijms252312859",
+      "DOI:10.3390/ph17121724",
+      "PMID:22164337",
+      "PMID:37159031",
+      "PMID:37780566",
+      "PMID:38534382",
+      "PMID:38642564",
+      "PMID:39063116"
     ],
     "genes": [
       "HFE",
@@ -30883,6 +37084,23 @@ window.searchData = [
       "HP:0001197"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "DOI:10.1016/j.heliyon.2025.e42116",
+      "DOI:10.1038/s41431-022-01279-4",
+      "DOI:10.1038/s44161-024-00562-5",
+      "DOI:10.1101/2025.10.01.679917",
+      "DOI:10.3389/fcell.2025.1580274",
+      "DOI:10.3390/diseases12110264",
+      "DOI:10.53941/ijddp.2024.100003",
+      "DOI:10.63028/10067/2079210151162165141",
+      "PMID:16601194",
+      "PMID:16928994",
+      "PMID:21217753",
+      "PMID:21493862",
+      "PMID:24577266",
+      "PMID:32339686",
+      "PMID:35662564"
+    ],
     "genes": [
       "TGFBR1 Mutations (LDS Type 1)",
       "TGFBR2 Mutations (LDS Type 2)",
@@ -30989,6 +37207,19 @@ window.searchData = [
       "VERY_FREQUENT",
       "OCCASIONAL",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:10229030",
+      "PMID:32840329",
+      "PMID:37644104",
+      "PMID:37754774",
+      "PMID:38245779",
+      "PMID:38263760",
+      "PMID:38595698",
+      "PMID:38904639",
+      "PMID:39088276",
+      "PMID:39203843",
+      "PMID:39283617"
     ],
     "genes": [
       "HADHA pathogenic variants causing LCHADD"
@@ -31144,6 +37375,53 @@ window.searchData = [
       "HP:0002018"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:15710782",
+      "PMID:24557875",
+      "PMID:27816065",
+      "PMID:28668382",
+      "PMID:30537570",
+      "PMID:33243837",
+      "PMID:34839263",
+      "PMID:34951953",
+      "PMID:35195253",
+      "PMID:35265728",
+      "PMID:35295802",
+      "PMID:35938771",
+      "PMID:36284805",
+      "PMID:36474804",
+      "PMID:36846556",
+      "PMID:37061399",
+      "PMID:37064029",
+      "PMID:37140960",
+      "PMID:37342500",
+      "PMID:37389095",
+      "PMID:37469536",
+      "PMID:37529714",
+      "PMID:37748514",
+      "PMID:37848036",
+      "PMID:37866679",
+      "PMID:37951572",
+      "PMID:38018736",
+      "PMID:38212464",
+      "PMID:38231397",
+      "PMID:38321404",
+      "PMID:38370438",
+      "PMID:38638822",
+      "PMID:38658496",
+      "PMID:38668888",
+      "PMID:38976065",
+      "PMID:39489523",
+      "PMID:39622313",
+      "PMID:39882369",
+      "PMID:40726775",
+      "PMID:40832032",
+      "PMID:41205594",
+      "PMID:41384162",
+      "PMID:41745098",
+      "PMID:41768981",
+      "clinicaltrials:NCT06452082"
+    ],
     "genes": [],
     "treatments": [
       "Activity pacing",
@@ -31235,6 +37513,23 @@ window.searchData = [
       "VERY_FREQUENT",
       "RARE"
     ],
+    "evidence_references": [
+      "PMID:33383265",
+      "PMID:33904596",
+      "PMID:34187738",
+      "PMID:35784784",
+      "PMID:35836715",
+      "PMID:36738888",
+      "PMID:37178657",
+      "PMID:37669817",
+      "PMID:37944093",
+      "PMID:38106765",
+      "PMID:38445409",
+      "PMID:38960547",
+      "PMID:39186393",
+      "PMID:39296495",
+      "clinicaltrials:NCT01091909"
+    ],
     "genes": [],
     "treatments": [
       "Airway Protection (Tracheostomy or Secured Airway)",
@@ -31304,6 +37599,43 @@ window.searchData = [
     ],
     "frequencies": [
       "COMMON"
+    ],
+    "evidence_references": [
+      "DOI:10.1016/j.trecan.2024.07.008",
+      "DOI:10.1038/s41417-024-00761-z",
+      "DOI:10.1038/s41420-024-02182-1",
+      "DOI:10.1038/s41467-024-48700-8",
+      "DOI:10.1038/s41571-024-00914-x",
+      "DOI:10.1038/s41572-024-00551-9",
+      "DOI:10.1073/pnas.0701059104",
+      "DOI:10.1073/pnas.0907781106",
+      "DOI:10.1165/rcmb.2023-0176ps",
+      "DOI:10.1186/s12943-024-02014-x",
+      "DOI:10.1186/s12943-025-02287-w",
+      "DOI:10.21037/atm-22-4479",
+      "DOI:10.21037/tlcr-24-662",
+      "DOI:10.21203/rs.3.rs-4396272/v1",
+      "DOI:10.3389/fcell.2025.1542967",
+      "DOI:10.3389/fimmu.2022.951817",
+      "DOI:10.3389/fimmu.2023.1275957",
+      "DOI:10.3389/fimmu.2025.1549276",
+      "DOI:10.3389/fimmu.2025.1679537",
+      "DOI:10.3389/fmolb.2021.731788",
+      "DOI:10.3389/fonc.2013.00135",
+      "DOI:10.3389/fonc.2021.672195",
+      "DOI:10.3389/fonc.2021.757323",
+      "DOI:10.3389/fonc.2022.873994",
+      "DOI:10.3389/fonc.2024.1379698",
+      "DOI:10.3389/fphar.2021.648407",
+      "DOI:10.3389/fphar.2023.1250893",
+      "DOI:10.3389/fphar.2024.1516650",
+      "DOI:10.3390/cancers17020255",
+      "PMID:19445746",
+      "PMID:22932130",
+      "PMID:26542886",
+      "PMID:29666219",
+      "PMID:40244052",
+      "PMID:40960909"
     ],
     "genes": [],
     "treatments": [
@@ -31406,6 +37738,29 @@ window.searchData = [
       "OCCASIONAL",
       "RARE"
     ],
+    "evidence_references": [
+      "PMID:17029130",
+      "PMID:17176487",
+      "PMID:24028811",
+      "PMID:26437159",
+      "PMID:29848409",
+      "PMID:30046879",
+      "PMID:33082765",
+      "PMID:33669940",
+      "PMID:34786243",
+      "PMID:34861197",
+      "PMID:36352974",
+      "PMID:36740841",
+      "PMID:37234726",
+      "PMID:37407232",
+      "PMID:37692616",
+      "PMID:40385752",
+      "PMID:40788480",
+      "PMID:41133080",
+      "clinicaltrials:NCT03584919",
+      "clinicaltrials:NCT03769194",
+      "clinicaltrials:NCT06785402"
+    ],
     "genes": [
       "HLA-DR4"
     ],
@@ -31476,6 +37831,11 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:21413271",
+      "PMID:38933431",
+      "PMID:39739969"
+    ],
     "genes": [],
     "treatments": [
       "Mass drug administration with albendazole plus ivermectin or DEC"
@@ -31541,6 +37901,27 @@ window.searchData = [
     ],
     "frequencies": [
       "COMMON"
+    ],
+    "evidence_references": [
+      "DOI:10.1007/s00428-023-03607-5",
+      "DOI:10.1073/pnas.82.9.2900",
+      "DOI:10.1177/20406207231173485",
+      "DOI:10.1200/jco.2010.32.8401",
+      "DOI:10.2214/ajr.10.7266",
+      "DOI:10.3389/fimmu.2024.1361009",
+      "DOI:10.3389/fimmu.2025.1620895",
+      "DOI:10.3389/fonc.2018.00533",
+      "DOI:10.3389/fonc.2018.00556",
+      "DOI:10.3389/fonc.2023.1199108",
+      "DOI:10.3390/ijms252111384",
+      "PMID:12764636",
+      "PMID:15618006",
+      "PMID:16304397",
+      "PMID:24333723",
+      "PMID:24679006",
+      "PMID:31894937",
+      "PMID:32433447",
+      "PMID:9830628"
     ],
     "genes": [],
     "treatments": [
@@ -31630,6 +38011,96 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1038/s41431-024-01550-w",
+      "DOI:10.1038/s41591-024-02942-7",
+      "DOI:10.1200/po.22.00675",
+      "DOI:10.1200/po.23.00332",
+      "DOI:10.32604/or.2025.063951",
+      "DOI:10.3389/or.2025.1549416",
+      "DOI:10.3390/cancers16050849",
+      "DOI:10.3390/ijms26094394",
+      "PMID:11854387",
+      "PMID:15962502",
+      "PMID:16136388",
+      "PMID:18602922",
+      "PMID:19466295",
+      "PMID:19817892",
+      "PMID:19914252",
+      "PMID:20028993",
+      "PMID:21287222",
+      "PMID:21325953",
+      "PMID:21419447",
+      "PMID:21970482",
+      "PMID:22067175",
+      "PMID:23176623",
+      "PMID:23264089",
+      "PMID:23411950",
+      "PMID:23604856",
+      "PMID:23681793",
+      "PMID:23700068",
+      "PMID:23700391",
+      "PMID:23951239",
+      "PMID:24027009",
+      "PMID:24333619",
+      "PMID:24443998",
+      "PMID:24495259",
+      "PMID:25427047",
+      "PMID:25430799",
+      "PMID:25701956",
+      "PMID:26886015",
+      "PMID:26974895",
+      "PMID:27241104",
+      "PMID:27546846",
+      "PMID:28038733",
+      "PMID:28376523",
+      "PMID:28722918",
+      "PMID:29071502",
+      "PMID:29233924",
+      "PMID:29345160",
+      "PMID:29345684",
+      "PMID:29710228",
+      "PMID:29791078",
+      "PMID:30027543",
+      "PMID:30461124",
+      "PMID:31273487",
+      "PMID:31296810",
+      "PMID:31319185",
+      "PMID:31554630",
+      "PMID:31615790",
+      "PMID:31629885",
+      "PMID:32875945",
+      "PMID:33094597",
+      "PMID:33357406",
+      "PMID:33516942",
+      "PMID:34023105",
+      "PMID:34091457",
+      "PMID:34224739",
+      "PMID:34302852",
+      "PMID:34611695",
+      "PMID:34630437",
+      "PMID:34698909",
+      "PMID:34798982",
+      "PMID:34798988",
+      "PMID:34919656",
+      "PMID:35306248",
+      "PMID:35315099",
+      "PMID:35328014",
+      "PMID:35435397",
+      "PMID:36031446",
+      "PMID:36202092",
+      "PMID:36418753",
+      "PMID:36434153",
+      "PMID:37072247",
+      "PMID:37088804",
+      "PMID:37262391",
+      "PMID:37478804",
+      "PMID:37625240",
+      "PMID:37728516",
+      "PMID:37845474",
+      "PMID:38003003",
+      "PMID:38466935"
+    ],
     "genes": [
       "MLH1",
       "MSH2",
@@ -31708,6 +38179,23 @@ window.searchData = [
     "frequencies": [
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "DOI:10.1002/edm2.385",
+      "DOI:10.1073/pnas.93.25.14355",
+      "DOI:10.1111/j.1399-0004.2007.00809.x",
+      "DOI:10.1126/science.6857268",
+      "DOI:10.3389/fmed.2021.809118",
+      "PMID:11263545",
+      "PMID:18838415",
+      "PMID:19224950",
+      "PMID:22166308",
+      "PMID:23574375",
+      "PMID:2380628",
+      "PMID:29317722",
+      "PMID:3054550",
+      "PMID:33975883",
+      "PMID:7904584"
     ],
     "genes": [
       "ACADM variants"
@@ -31807,6 +38295,17 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:20301461",
+      "PMID:20425814",
+      "PMID:25721700",
+      "PMID:28938254",
+      "PMID:33170557",
+      "PMID:33638179",
+      "PMID:35313898",
+      "PMID:36319802",
+      "PMID:39696717"
+    ],
     "genes": [
       "MECP2",
       "IRAK1"
@@ -31885,6 +38384,10 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:26729443",
+      "PMID:32657049"
     ],
     "genes": [
       "MET"
@@ -31985,6 +38488,12 @@ window.searchData = [
       "FREQUENT",
       "VERY_FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:10851256",
+      "PMID:27889061",
+      "PMID:7874167",
+      "PMID:8659547"
+    ],
     "genes": [
       "MITF",
       "MITF",
@@ -32070,6 +38579,15 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:15340260",
+      "PMID:29355075",
+      "PMID:33264544",
+      "PMID:35613396",
+      "PMID:35660797",
+      "PMID:36115290",
+      "PMID:41113075"
+    ],
     "genes": [
       "MLH1",
       "MSH2",
@@ -32153,6 +38671,15 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:15340260",
+      "PMID:19620942",
+      "PMID:26354523",
+      "PMID:34990208",
+      "PMID:35045221",
+      "PMID:35064011",
+      "PMID:39860407"
+    ],
     "genes": [
       "MLH1",
       "MSH2",
@@ -32228,6 +38755,16 @@ window.searchData = [
       "HP:0001712"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:11468689",
+      "PMID:12687499",
+      "PMID:15060111",
+      "PMID:23340379",
+      "PMID:26265212",
+      "PMID:31103816",
+      "PMID:32143290",
+      "PMID:32451864"
+    ],
     "genes": [
       "MYO6 pathogenic variants"
     ],
@@ -32324,6 +38861,19 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "DOI:10.1007/s40263-024-01114-y",
+      "DOI:10.1038/s41392-024-01738-y",
+      "DOI:10.1101/2025.05.03.25326369",
+      "DOI:10.3390/cells13050423",
+      "DOI:10.3390/ijms25020963",
+      "DOI:10.3390/ijtm4010010",
+      "PMID:20015486",
+      "PMID:38256041",
+      "PMID:38331979",
+      "PMID:38474387",
+      "PMID:39150594"
     ],
     "genes": [
       "SLC6A4",
@@ -32438,6 +38988,35 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1186/s12987-024-00541-9",
+      "DOI:10.58614/jahsm481",
+      "PMID:15295709",
+      "PMID:17355169",
+      "PMID:17568940",
+      "PMID:22445352",
+      "PMID:23035141",
+      "PMID:24372186",
+      "PMID:25889074",
+      "PMID:26261776",
+      "PMID:27759344",
+      "PMID:27939609",
+      "PMID:30218021",
+      "PMID:31821175",
+      "PMID:35921449",
+      "PMID:37399221",
+      "PMID:37708213",
+      "PMID:37748496",
+      "PMID:37924827",
+      "PMID:40056919",
+      "PMID:40701686",
+      "PMID:40991921",
+      "PMID:8644955",
+      "PMID:8846492",
+      "clinicaltrials:NCT04158713",
+      "clinicaltrials:NCT04704830",
+      "clinicaltrials:NCT05019729"
+    ],
     "genes": [
       "HBB (HbS trait)",
       "G6PD",
@@ -32529,6 +39108,11 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:21412769",
+      "PMID:23743993",
+      "PMID:25889843"
+    ],
     "genes": [
       "BAP1",
       "NF2",
@@ -32590,6 +39174,13 @@ window.searchData = [
       "HP:0003074"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:12021094",
+      "PMID:2304128",
+      "PMID:32922057",
+      "PMID:40049652",
+      "PMID:8640103"
+    ],
     "genes": [],
     "treatments": [],
     "environmental": [],
@@ -32689,6 +39280,33 @@ window.searchData = [
       "VERY_FREQUENT",
       "OCCASIONAL",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.1002/ajh.25487",
+      "PMID:15370245",
+      "PMID:15914363",
+      "PMID:16155021",
+      "PMID:17001159",
+      "PMID:19556426",
+      "PMID:19846810",
+      "PMID:19863180",
+      "PMID:20940415",
+      "PMID:21850989",
+      "PMID:26059948",
+      "PMID:26411584",
+      "PMID:32219041",
+      "PMID:32584970",
+      "PMID:33091144",
+      "PMID:34114641",
+      "PMID:35052318",
+      "PMID:38222137",
+      "PMID:41219853",
+      "PMID:7713480",
+      "PMID:9178843",
+      "clinicaltrials:NCT01415752",
+      "clinicaltrials:NCT02213926",
+      "clinicaltrials:NCT02601313",
+      "clinicaltrials:NCT03112174"
     ],
     "genes": [
       "CCND1/IGH Translocation",
@@ -32824,6 +39442,38 @@ window.searchData = [
       "FREQUENT",
       "OBLIGATE"
     ],
+    "evidence_references": [
+      "DOI:10.1002/jmd2.12419",
+      "DOI:10.1007/s11011-022-01109-y",
+      "DOI:10.1038/s41467-022-30880-w",
+      "DOI:10.1038/srep28775",
+      "DOI:10.1091/mbc.11.5.1919",
+      "DOI:10.1093/hmg/ddq507",
+      "DOI:10.1093/qjmed/hcae104",
+      "DOI:10.1101/2023.07.31.551364",
+      "DOI:10.1172/jci67217",
+      "DOI:10.1186/s12887-024-05266-0",
+      "DOI:10.1186/s13023-022-02353-2",
+      "DOI:10.1186/s13023-024-03411-7",
+      "DOI:10.12659/aot.939893",
+      "DOI:10.3389/fimmu.2025.1579945",
+      "DOI:10.3390/ijms26146992",
+      "DOI:10.3390/nu16183145",
+      "PMID:20136525",
+      "PMID:20301495",
+      "PMID:21098507",
+      "PMID:21839471",
+      "PMID:23086801",
+      "PMID:23478409",
+      "PMID:27373929",
+      "PMID:28919799",
+      "PMID:30023298",
+      "PMID:31559730",
+      "PMID:32491705",
+      "PMID:35578286",
+      "PMID:35672312",
+      "PMID:36550798"
+    ],
     "genes": [
       "BCKDHA",
       "BCKDHB",
@@ -32950,6 +39600,85 @@ window.searchData = [
       "VERY_FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1007/s00392-023-02221-4",
+      "DOI:10.3389/fcell.2023.1302285",
+      "DOI:10.3389/fgene.2024.1463318",
+      "DOI:10.3390/ijms25095025",
+      "DOI:10.3390/ijms25137367",
+      "DOI:10.3390/ijms26073067",
+      "PMID:11705149",
+      "PMID:11880731",
+      "PMID:11961443",
+      "PMID:12938084",
+      "PMID:16321689",
+      "PMID:17134646",
+      "PMID:17376944",
+      "PMID:17657824",
+      "PMID:17845137",
+      "PMID:17945136",
+      "PMID:18090894",
+      "PMID:19059503",
+      "PMID:20364556",
+      "PMID:20709720",
+      "PMID:21252480",
+      "PMID:21308160",
+      "PMID:21797750",
+      "PMID:22705998",
+      "PMID:23478494",
+      "PMID:23661206",
+      "PMID:24555249",
+      "PMID:24698610",
+      "PMID:24853997",
+      "PMID:25652356",
+      "PMID:25652400",
+      "PMID:25729264",
+      "PMID:25765122",
+      "PMID:26130954",
+      "PMID:26586198",
+      "PMID:26631233",
+      "PMID:26903455",
+      "PMID:27234404",
+      "PMID:27906200",
+      "PMID:28383843",
+      "PMID:28846673",
+      "PMID:28902582",
+      "PMID:28947563",
+      "PMID:29948025",
+      "PMID:29972109",
+      "PMID:30166242",
+      "PMID:30260057",
+      "PMID:30485715",
+      "PMID:31163209",
+      "PMID:31751304",
+      "PMID:31883816",
+      "PMID:32130918",
+      "PMID:32290873",
+      "PMID:33843540",
+      "PMID:33896616",
+      "PMID:34021688",
+      "PMID:34916231",
+      "PMID:35248143",
+      "PMID:35419902",
+      "PMID:35420547",
+      "PMID:35550817",
+      "PMID:36004597",
+      "PMID:36058493",
+      "PMID:36453629",
+      "PMID:36670079",
+      "PMID:36939732",
+      "PMID:37270806",
+      "PMID:37688493",
+      "PMID:38088571",
+      "PMID:38728377",
+      "PMID:39096853",
+      "PMID:6984233",
+      "PMID:7911041",
+      "PMID:8180508",
+      "PMID:9076882",
+      "PMID:9586151",
+      "PMID:9789865"
+    ],
     "genes": [
       "FBN1",
       "TGFBR1",
@@ -33027,6 +39756,19 @@ window.searchData = [
     "frequencies": [
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:1084202",
+      "PMID:15026601",
+      "PMID:17021300",
+      "PMID:19444035",
+      "PMID:27064958",
+      "PMID:27492813",
+      "PMID:31930430",
+      "PMID:37099684",
+      "PMID:37769709",
+      "PMID:41044867",
+      "PMID:8506491"
     ],
     "genes": [],
     "treatments": [
@@ -33123,6 +39865,48 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1007/s00404-022-06814-8",
+      "DOI:10.1038/s41576-023-00587-9",
+      "DOI:10.1101/2024.09.04.611229",
+      "DOI:10.1242/jcs.263869",
+      "DOI:10.3389/fneph.2023.1331847",
+      "PMID:17558409",
+      "PMID:17705300",
+      "PMID:18371931",
+      "PMID:18513680",
+      "PMID:18603929",
+      "PMID:19211713",
+      "PMID:19776033",
+      "PMID:20512146",
+      "PMID:21462283",
+      "PMID:21552264",
+      "PMID:21763481",
+      "PMID:22134259",
+      "PMID:23349226",
+      "PMID:24082939",
+      "PMID:25182137",
+      "PMID:26123494",
+      "PMID:26729329",
+      "PMID:28374938",
+      "PMID:29479449",
+      "PMID:31411728",
+      "PMID:33486889",
+      "PMID:34821546",
+      "PMID:34981460",
+      "PMID:35352487",
+      "PMID:38156946",
+      "PMID:38459147",
+      "PMID:39304719",
+      "PMID:39412385",
+      "PMID:40436881",
+      "PMID:40841990",
+      "PMID:40933483",
+      "PMID:41165761",
+      "PMID:41518077",
+      "PMID:8725749",
+      "clinicaltrials:NCT01401998"
+    ],
     "genes": [
       "MKS1",
       "TMEM67",
@@ -33215,6 +39999,18 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "DOI:10.1002/onco.13977",
+      "DOI:10.1007/s11864-023-01145-5",
+      "DOI:10.1007/s12022-021-09664-3",
+      "DOI:10.1056/nejmoa2005651",
+      "DOI:10.1186/s12964-024-01837-x",
+      "DOI:10.1200/jco.23.02503",
+      "DOI:10.1210/endrev/bnad013",
+      "DOI:10.3390/cancers15194865",
+      "PMID:32846061",
+      "PMID:40800658"
+    ],
     "genes": [
       "RET"
     ],
@@ -33293,6 +40089,10 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:35489737",
+      "PMID:41544627"
     ],
     "genes": [
       "PTCH1",
@@ -33375,6 +40175,15 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:17172831",
+      "PMID:21267586",
+      "PMID:22820256",
+      "PMID:32743560",
+      "PMID:33405951",
+      "PMID:40967259",
+      "PMID:41544627"
     ],
     "genes": [
       "CTNNB1",
@@ -33465,6 +40274,76 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "DOI:10.1007/s00428-024-04011-3",
+      "DOI:10.21873/anticanres.17341",
+      "DOI:10.3390/cancers16142508",
+      "DOI:10.46439/cancerbiology.6.075",
+      "PMID:10591787",
+      "PMID:11079795",
+      "PMID:11902552",
+      "PMID:12609784",
+      "PMID:14379056",
+      "PMID:14750241",
+      "PMID:15817400",
+      "PMID:1615092",
+      "PMID:16750612",
+      "PMID:16762733",
+      "PMID:17377384",
+      "PMID:17653760",
+      "PMID:18481261",
+      "PMID:1869648",
+      "PMID:19880040",
+      "PMID:20888464",
+      "PMID:22481578",
+      "PMID:22864798",
+      "PMID:22980259",
+      "PMID:24129063",
+      "PMID:24786371",
+      "PMID:24880943",
+      "PMID:25252745",
+      "PMID:25268584",
+      "PMID:26618123",
+      "PMID:27096540",
+      "PMID:27268913",
+      "PMID:27453302",
+      "PMID:27486690",
+      "PMID:28092363",
+      "PMID:28110826",
+      "PMID:28290622",
+      "PMID:28785360",
+      "PMID:28954104",
+      "PMID:29958291",
+      "PMID:29971818",
+      "PMID:30113042",
+      "PMID:30653639",
+      "PMID:30792255",
+      "PMID:31111470",
+      "PMID:32100974",
+      "PMID:32281145",
+      "PMID:32392930",
+      "PMID:32729623",
+      "PMID:3284306",
+      "PMID:33010324",
+      "PMID:33759772",
+      "PMID:33851646",
+      "PMID:34799033",
+      "PMID:34887981",
+      "PMID:35298329",
+      "PMID:35561684",
+      "PMID:35946357",
+      "PMID:36085074",
+      "PMID:36122342",
+      "PMID:36303818",
+      "PMID:36435868",
+      "PMID:37156689",
+      "PMID:38779794",
+      "PMID:3882344",
+      "PMID:8977557",
+      "PMID:8990709",
+      "PMID:9283554",
+      "PMID:9357498"
     ],
     "genes": [
       "BRAF",
@@ -33557,6 +40436,25 @@ window.searchData = [
       "VERY_FREQUENT",
       "RARE"
     ],
+    "evidence_references": [
+      "DOI:10.1007/s12105-018-00997-w",
+      "DOI:10.1097/dad.0000000000000257",
+      "DOI:10.1136/bcr-2019-229857",
+      "DOI:10.1177/1756284820934327",
+      "DOI:10.1186/s12903-024-04723-7",
+      "DOI:10.7759/cureus.80879",
+      "PMID:1524274",
+      "PMID:22657098",
+      "PMID:22836908",
+      "PMID:29191347",
+      "PMID:30627963",
+      "PMID:31466978",
+      "PMID:32782477",
+      "PMID:36532829",
+      "PMID:37510386",
+      "PMID:39135018",
+      "PMID:40255708"
+    ],
     "genes": [
       "TNF-\u03b1 pathway involvement",
       "IFN-\u03b3 pathway involvement in autoimmune/allergic context",
@@ -33636,6 +40534,19 @@ window.searchData = [
       "HP:0002017"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:11465871",
+      "PMID:12590850",
+      "PMID:15090872",
+      "PMID:21208440",
+      "PMID:22053211",
+      "PMID:27083887",
+      "PMID:28325925",
+      "PMID:29326686",
+      "PMID:29436285",
+      "PMID:30233382",
+      "PMID:35280304"
+    ],
     "genes": [],
     "treatments": [
       "Low-Sodium Diet",
@@ -33704,6 +40615,21 @@ window.searchData = [
     ],
     "frequencies": [
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:34181733",
+      "PMID:34618539",
+      "PMID:38898354",
+      "PMID:40178655",
+      "PMID:40625299",
+      "PMID:40645150",
+      "PMID:40802116",
+      "PMID:40802120",
+      "PMID:40924320",
+      "PMID:40940847",
+      "PMID:41094320",
+      "PMID:41466325",
+      "PMID:41663806"
     ],
     "genes": [
       "NOTCH3",
@@ -33814,6 +40740,24 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:12483361",
+      "PMID:18256395",
+      "PMID:19888294",
+      "PMID:20180106",
+      "PMID:22695177",
+      "PMID:24054147",
+      "PMID:25281031",
+      "PMID:27226607",
+      "PMID:29675083",
+      "PMID:30090842",
+      "PMID:31198482",
+      "PMID:32293788",
+      "PMID:32528851",
+      "PMID:32714836",
+      "PMID:34069220",
+      "PMID:406641"
+    ],
     "genes": [
       "ATP7A pathogenic variants"
     ],
@@ -33887,6 +40831,9 @@ window.searchData = [
       "OBLIGATE",
       "VERY_FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:41232971"
+    ],
     "genes": [
       "MCPyV T Antigens",
       "RB1",
@@ -33958,6 +40905,12 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:25809843",
+      "PMID:29094314",
+      "PMID:33197783",
+      "PMID:35547380"
     ],
     "genes": [],
     "treatments": [
@@ -34035,6 +40988,12 @@ window.searchData = [
       "HP:0009830"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:30828547",
+      "PMID:35065785",
+      "PMID:38564053",
+      "PMID:40577679"
+    ],
     "genes": [
       "ARSA"
     ],
@@ -34127,6 +41086,27 @@ window.searchData = [
       "HP:0002194"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:10929364",
+      "PMID:15695517",
+      "PMID:15880705",
+      "PMID:16088909",
+      "PMID:17403716",
+      "PMID:19834559",
+      "PMID:22859705",
+      "PMID:26372225",
+      "PMID:26587667",
+      "PMID:29522813",
+      "PMID:30010889",
+      "PMID:30024379",
+      "PMID:30027601",
+      "PMID:30209734",
+      "PMID:30543055",
+      "PMID:31633898",
+      "PMID:38510140",
+      "PMID:41454937",
+      "PMID:8220429"
+    ],
     "genes": [
       "COL10A1 Pathogenic Variants"
     ],
@@ -34208,6 +41188,11 @@ window.searchData = [
       "FREQUENT",
       "VERY_FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:27349894",
+      "PMID:36138404",
+      "PMID:37386445"
+    ],
     "genes": [
       "ESR1",
       "ERBB2 (HER2)",
@@ -34286,6 +41271,13 @@ window.searchData = [
       "FREQUENT",
       "VERY_FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:25632202",
+      "PMID:29201802",
+      "PMID:33591350",
+      "PMID:40530415",
+      "PMID:41027285"
     ],
     "genes": [
       "APC",
@@ -34366,6 +41358,19 @@ window.searchData = [
       "VERY_FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:15668283",
+      "PMID:16860627",
+      "PMID:18343948",
+      "PMID:25079317",
+      "PMID:25088196",
+      "PMID:29266530",
+      "PMID:32439934",
+      "PMID:34389165",
+      "PMID:37271124",
+      "PMID:39004993",
+      "PMID:41710815"
+    ],
     "genes": [
       "CDH1",
       "ERBB2 (HER2)",
@@ -34444,6 +41449,13 @@ window.searchData = [
     "frequencies": [
       "FREQUENT",
       "VERY_FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:18710423",
+      "PMID:19637355",
+      "PMID:29984212",
+      "PMID:36318440",
+      "PMID:41567639"
     ],
     "genes": [
       "CTNNB1",
@@ -34526,6 +41538,12 @@ window.searchData = [
       "OCCASIONAL",
       "VERY_FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:25788491",
+      "PMID:31343665",
+      "PMID:40023845",
+      "PMID:40609368"
+    ],
     "genes": [
       "BRAF",
       "NRAS",
@@ -34606,6 +41624,12 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:26222080",
+      "PMID:29989448",
+      "PMID:31343665",
+      "PMID:31627272"
+    ],
     "genes": [
       "EGFR",
       "ALK",
@@ -34678,6 +41702,12 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:27612856",
+      "PMID:31904865",
+      "PMID:38174379",
+      "PMID:40690248"
     ],
     "genes": [
       "TP53",
@@ -34761,6 +41791,11 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:35302596",
+      "PMID:35449152",
+      "PMID:41814069"
+    ],
     "genes": [
       "KRAS",
       "TP53",
@@ -34835,6 +41870,11 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:18639279",
+      "PMID:30535926",
+      "PMID:40063046"
     ],
     "genes": [
       "AR",
@@ -34916,6 +41956,11 @@ window.searchData = [
       "OCCASIONAL",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:28882737",
+      "PMID:37085424",
+      "PMID:41309336"
+    ],
     "genes": [
       "VHL",
       "PBRM1",
@@ -34987,6 +42032,12 @@ window.searchData = [
       "HP:0009826"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:19232556",
+      "PMID:20425821",
+      "PMID:21658220",
+      "PMID:28321993"
+    ],
     "genes": [
       "TRPV4 Pathogenic Variants"
     ],
@@ -35099,6 +42150,22 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:25205257",
+      "PMID:33422927",
+      "PMID:34847798",
+      "PMID:35348993",
+      "PMID:37078237",
+      "PMID:37169781",
+      "PMID:37243446",
+      "PMID:38030482",
+      "PMID:38132258",
+      "PMID:38271099",
+      "PMID:38760822",
+      "PMID:39075538",
+      "clinicaltrials:NCT04899310",
+      "clinicaltrials:NCT05295433"
+    ],
     "genes": [
       "MMUT (methylmalonyl-CoA mutase)",
       "MMAA (cblA complementation group)",
@@ -35190,6 +42257,42 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "DOI:10.1016/j.heliyon.2023.e14786",
+      "DOI:10.1186/s10194-023-01628-8",
+      "DOI:10.1186/s10194-024-01741-2",
+      "DOI:10.1186/s10194-024-01827-x",
+      "DOI:10.1186/s10194-024-01830-2",
+      "DOI:10.1523/jneurosci.0368-23.2023",
+      "DOI:10.3389/fneur.2024.1307319",
+      "DOI:10.3390/ijms241512268",
+      "DOI:10.3390/jcm13092701",
+      "DOI:10.3390/molecules29143385",
+      "DOI:10.3390/neurolint15030067",
+      "PMID:1525797",
+      "PMID:17970989",
+      "PMID:19076658",
+      "PMID:21666692",
+      "PMID:24494792",
+      "PMID:27713337",
+      "PMID:30893319",
+      "PMID:31873179",
+      "PMID:33305448",
+      "PMID:35143379",
+      "PMID:35322292",
+      "PMID:37487740",
+      "PMID:37495957",
+      "PMID:37569648",
+      "PMID:37755358",
+      "PMID:37889468",
+      "PMID:38508838",
+      "PMID:38619053",
+      "PMID:38910144",
+      "PMID:39080518",
+      "clinicaltrials:NCT06241313",
+      "clinicaltrials:NCT07040813",
+      "clinicaltrials:NCT07061847"
     ],
     "genes": [
       "CACNA1A",
@@ -35314,6 +42417,21 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:23065309",
+      "PMID:24314034",
+      "PMID:26109258",
+      "PMID:28132977",
+      "PMID:28515471",
+      "PMID:29956646",
+      "PMID:30682426",
+      "PMID:31730477",
+      "PMID:32253025",
+      "PMID:34543737",
+      "PMID:34878152",
+      "PMID:35023662",
+      "PMID:35677112"
+    ],
     "genes": [
       "HADHA and HADHB variants causing MTP deficiency"
     ],
@@ -35409,6 +42527,20 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.1093/rheumatology/keae158",
+      "DOI:10.1093/rheumatology/kew265",
+      "DOI:10.1186/s13075-025-03707-4",
+      "DOI:10.2147/itt.s390023",
+      "DOI:10.3389/fimmu.2019.01880",
+      "DOI:10.55563/clinexprheumatol/srma43",
+      "PMID:16084319",
+      "PMID:31440254",
+      "PMID:37497727",
+      "PMID:38479808",
+      "PMID:39876825",
+      "PMID:718271"
     ],
     "genes": [
       "HLA-DR4"
@@ -35541,6 +42673,80 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1038/s41392-023-01675-2",
+      "DOI:10.1101/2024.09.16.613292",
+      "DOI:10.1159/000540815",
+      "DOI:10.12932/ap-111024-1945",
+      "DOI:10.3389/fcimb.2023.1196699",
+      "DOI:10.3390/biomedicines12071457",
+      "PMID:12083817",
+      "PMID:15660652",
+      "PMID:17661673",
+      "PMID:18165539",
+      "PMID:18837778",
+      "PMID:20643162",
+      "PMID:23973323",
+      "PMID:27768891",
+      "PMID:29231870",
+      "PMID:35656836",
+      "PMID:35762024",
+      "PMID:35763248",
+      "PMID:35904894",
+      "PMID:35924502",
+      "PMID:36007687",
+      "PMID:36052723",
+      "PMID:36066176",
+      "PMID:36104166",
+      "PMID:36107794",
+      "PMID:36125794",
+      "PMID:36136939",
+      "PMID:36149253",
+      "PMID:36174912",
+      "PMID:36180382",
+      "PMID:36216412",
+      "PMID:36223653",
+      "PMID:36241815",
+      "PMID:36253513",
+      "PMID:36253931",
+      "PMID:36274490",
+      "PMID:36328951",
+      "PMID:36342045",
+      "PMID:36396927",
+      "PMID:36470502",
+      "PMID:36473345",
+      "PMID:36529507",
+      "PMID:36547989",
+      "PMID:36554659",
+      "PMID:36555584",
+      "PMID:36564155",
+      "PMID:36604361",
+      "PMID:36607751",
+      "PMID:36661039",
+      "PMID:36692495",
+      "PMID:36716982",
+      "PMID:36729940",
+      "PMID:36746493",
+      "PMID:36801633",
+      "PMID:36851785",
+      "PMID:36897017",
+      "PMID:36986374",
+      "PMID:37026012",
+      "PMID:37043648",
+      "PMID:37087871",
+      "PMID:37388159",
+      "PMID:37403493",
+      "PMID:37405735",
+      "PMID:37507009",
+      "PMID:37611023",
+      "PMID:37646742",
+      "PMID:37721247",
+      "PMID:38054557",
+      "PMID:38520832",
+      "PMID:38801568",
+      "PMID:38801572",
+      "PMID:38801573"
+    ],
     "genes": [
       "Monkeypox Virus Genome",
       "EGFR",
@@ -35663,6 +42869,21 @@ window.searchData = [
       "HP_0040283",
       "HP_0040284"
     ],
+    "evidence_references": [
+      "MONDO",
+      "PMID:10407462",
+      "PMID:15228235",
+      "PMID:16909048",
+      "PMID:23284007",
+      "PMID:2349162",
+      "PMID:25382447",
+      "PMID:27428347",
+      "PMID:36217295",
+      "PMID:36223065",
+      "PMID:36452994",
+      "PMID:36484746",
+      "PMID:41229651"
+    ],
     "genes": [
       "Familial hyperostosis frontalis interna"
     ],
@@ -35747,6 +42968,18 @@ window.searchData = [
       "HP:0001249"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "DOI:10.1016/j.isci.2024.108959",
+      "DOI:10.3390/biomedicines11041067",
+      "DOI:10.3390/cimb46030169",
+      "DOI:10.3390/ijms25021113",
+      "PMID:25624320",
+      "PMID:28595941",
+      "PMID:30442189",
+      "PMID:32780955",
+      "PMID:33578874",
+      "PMID:35216110"
+    ],
     "genes": [
       "MPS I (IDUA Mutations)",
       "MPS II (IDS Mutations)",
@@ -35817,6 +43050,22 @@ window.searchData = [
       "HP:0001249"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "DOI:10.1002/ajmg.a.37528",
+      "DOI:10.1002/dvdy.22636",
+      "DOI:10.1002/dvdy.22752",
+      "DOI:10.1002/jbmr.4042",
+      "DOI:10.1073/pnas.0910957106",
+      "DOI:10.1111/ceo.14507",
+      "DOI:10.1177/0022034512449170",
+      "PMID:10696568",
+      "PMID:18000976",
+      "PMID:18818193",
+      "PMID:20301588",
+      "PMID:24705944",
+      "PMID:26740388",
+      "PMID:9042914"
+    ],
     "genes": [
       "FGFR3 P250R Mutation"
     ],
@@ -35913,6 +43162,14 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:21778341",
+      "PMID:24622327",
+      "PMID:25042199",
+      "PMID:29157612",
+      "PMID:30181172",
+      "PMID:37288720"
     ],
     "genes": [],
     "treatments": [
@@ -36024,6 +43281,20 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:17584774",
+      "PMID:37217231",
+      "PMID:38221620",
+      "PMID:38228875",
+      "PMID:38243131",
+      "PMID:38365830",
+      "PMID:38951975",
+      "PMID:39092677",
+      "PMID:39273584",
+      "PMID:39455656",
+      "PMID:39520827",
+      "PMID:39950184"
+    ],
     "genes": [
       "ETFDH variants (most common cause)",
       "ETFA and ETFB variants",
@@ -36127,6 +43398,10 @@ window.searchData = [
       "OBLIGATE",
       "FREQUENT",
       "VERY_FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:11786689",
+      "PMID:21862994"
     ],
     "genes": [
       "RET"
@@ -36255,6 +43530,18 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1038/s41420-025-02840-y",
+      "DOI:10.1172/jci.insight.179071",
+      "PMID:29040572",
+      "PMID:30250212",
+      "PMID:32995353",
+      "PMID:33348459",
+      "PMID:37046037",
+      "PMID:37481223",
+      "PMID:38669583",
+      "PMID:39669623"
+    ],
     "genes": [
       "Autosomal Recessive FDXR Deficiency"
     ],
@@ -36373,6 +43660,16 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:12736280",
+      "PMID:18032763",
+      "PMID:18753647",
+      "PMID:25439696",
+      "PMID:31141632",
+      "PMID:33626253",
+      "PMID:34201396",
+      "PMID:35661166"
+    ],
     "genes": [
       "IGH Translocations",
       "TP53 Deletion",
@@ -36482,6 +43779,123 @@ window.searchData = [
       "VERY_FREQUENT",
       "COMMON"
     ],
+    "evidence_references": [
+      "PMID:10073279",
+      "PMID:10101582",
+      "PMID:10408718",
+      "PMID:10554672",
+      "PMID:11207871",
+      "PMID:11898533",
+      "PMID:12894379",
+      "PMID:12926840",
+      "PMID:15228757",
+      "PMID:15557527",
+      "PMID:15575796",
+      "PMID:15664543",
+      "PMID:15727225",
+      "PMID:16168933",
+      "PMID:16545751",
+      "PMID:17115075",
+      "PMID:17548563",
+      "PMID:17660530",
+      "PMID:17884680",
+      "PMID:17920542",
+      "PMID:19847447",
+      "PMID:20494325",
+      "PMID:20586738",
+      "PMID:20946934",
+      "PMID:20955903",
+      "PMID:21310812",
+      "PMID:21338381",
+      "PMID:21425267",
+      "PMID:21425268",
+      "PMID:21550344",
+      "PMID:21836034",
+      "PMID:22612755",
+      "PMID:22721362",
+      "PMID:22721366",
+      "PMID:22906614",
+      "PMID:22919874",
+      "PMID:23153835",
+      "PMID:23897142",
+      "PMID:24289836",
+      "PMID:24314685",
+      "PMID:24314688",
+      "PMID:24494618",
+      "PMID:24507511",
+      "PMID:24507514",
+      "PMID:24722325",
+      "PMID:25159125",
+      "PMID:25502788",
+      "PMID:25909791",
+      "PMID:25997994",
+      "PMID:2602337",
+      "PMID:26166264",
+      "PMID:26195047",
+      "PMID:26611270",
+      "PMID:26863109",
+      "PMID:27207446",
+      "PMID:27549763",
+      "PMID:27802296",
+      "PMID:28674983",
+      "PMID:28676141",
+      "PMID:28757204",
+      "PMID:29157397",
+      "PMID:29452342",
+      "PMID:29515568",
+      "PMID:29571849",
+      "PMID:29921609",
+      "PMID:30286958",
+      "PMID:30407467",
+      "PMID:30482317",
+      "PMID:30626509",
+      "PMID:30679040",
+      "PMID:31031747",
+      "PMID:31397221",
+      "PMID:31760649",
+      "PMID:31971066",
+      "PMID:32120056",
+      "PMID:32388832",
+      "PMID:32408148",
+      "PMID:32560364",
+      "PMID:32801039",
+      "PMID:32981685",
+      "PMID:33296981",
+      "PMID:3355400",
+      "PMID:33578205",
+      "PMID:33780808",
+      "PMID:33872085",
+      "PMID:33901207",
+      "PMID:34006674",
+      "PMID:34440810",
+      "PMID:34510165",
+      "PMID:34939452",
+      "PMID:35102733",
+      "PMID:35145009",
+      "PMID:35174869",
+      "PMID:35662071",
+      "PMID:35963325",
+      "PMID:35977131",
+      "PMID:36669485",
+      "PMID:36807901",
+      "PMID:36889543",
+      "PMID:37031630",
+      "PMID:37059571",
+      "PMID:37068931",
+      "PMID:37084150",
+      "PMID:37379870",
+      "PMID:37629092",
+      "PMID:37804765",
+      "PMID:38141562",
+      "PMID:38791450",
+      "PMID:38795594",
+      "PMID:3940867",
+      "PMID:40636815",
+      "PMID:7698890",
+      "PMID:7707085",
+      "PMID:8610486",
+      "PMID:9817541"
+    ],
     "genes": [
       "HLA-DRB1",
       "IL7R",
@@ -36575,6 +43989,19 @@ window.searchData = [
       "HP:0001500"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "DOI:10.1002/ajmg.a.38503",
+      "DOI:10.1002/jbmr.2761",
+      "DOI:10.1016/j.ajhg.2009.06.007",
+      "DOI:10.1093/hmg/ddx029",
+      "DOI:10.3390/genes14030724",
+      "PMID:10080184",
+      "PMID:11562478",
+      "PMID:16532400",
+      "PMID:21976273",
+      "PMID:34573339",
+      "PMID:36980996"
+    ],
     "genes": [
       "NOG Mutations (SYNS1)",
       "GDF5 Mutations (SYNS2)",
@@ -36685,6 +44112,23 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:20739256",
+      "PMID:21601954",
+      "PMID:27356913",
+      "PMID:29124503",
+      "PMID:29679174",
+      "PMID:31736705",
+      "PMID:32925365",
+      "PMID:35170728",
+      "PMID:36368713",
+      "PMID:36765380",
+      "PMID:36830639",
+      "PMID:36899876",
+      "PMID:38696728",
+      "PMID:40619876",
+      "PMID:40951129"
     ],
     "genes": [
       "SNCA",
@@ -36819,6 +44263,77 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1038/s41467-024-48699-y",
+      "DOI:10.1038/s41586-024-07722-4",
+      "DOI:10.1084/jem.20221518",
+      "DOI:10.1111/pai.13900",
+      "DOI:10.1136/bmjpo-2023-002344",
+      "DOI:10.1186/s10020-024-00806-x",
+      "DOI:10.3389/fimmu.2022.841126",
+      "DOI:10.3390/children11101174",
+      "DOI:10.3390/ijms24065711",
+      "PMID:28079913",
+      "PMID:29025800",
+      "PMID:30543921",
+      "PMID:32525700",
+      "PMID:32961074",
+      "PMID:33023287",
+      "PMID:33184170",
+      "PMID:33263756",
+      "PMID:33305475",
+      "PMID:33341814",
+      "PMID:33463100",
+      "PMID:33739452",
+      "PMID:33760725",
+      "PMID:33844652",
+      "PMID:33938473",
+      "PMID:34034587",
+      "PMID:34210761",
+      "PMID:34298578",
+      "PMID:34302327",
+      "PMID:34311990",
+      "PMID:34463724",
+      "PMID:34479244",
+      "PMID:34507344",
+      "PMID:34608458",
+      "PMID:34941014",
+      "PMID:35031708",
+      "PMID:35100745",
+      "PMID:35183528",
+      "PMID:35258639",
+      "PMID:35275051",
+      "PMID:35288706",
+      "PMID:35290661",
+      "PMID:35442269",
+      "PMID:35442571",
+      "PMID:35511400",
+      "PMID:35709786",
+      "PMID:35791863",
+      "PMID:35817427",
+      "PMID:35994614",
+      "PMID:36271769",
+      "PMID:36361640",
+      "PMID:36375463",
+      "PMID:36511208",
+      "PMID:36571257",
+      "PMID:36730963",
+      "PMID:36879079",
+      "PMID:36881797",
+      "PMID:36967485",
+      "PMID:36976476",
+      "PMID:37054392",
+      "PMID:37142896",
+      "PMID:37309831",
+      "PMID:37534417",
+      "PMID:37651206",
+      "PMID:37830631",
+      "PMID:37866138",
+      "PMID:38509432",
+      "PMID:38864099",
+      "PMID:38957128",
+      "PMID:8820774"
+    ],
     "genes": [
       "IL6",
       "IL10",
@@ -36948,6 +44463,26 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:22837795",
+      "PMID:24557875",
+      "PMID:25433843",
+      "PMID:25584525",
+      "PMID:25695122",
+      "PMID:27245705",
+      "PMID:28760971",
+      "PMID:31159884",
+      "PMID:31727160",
+      "PMID:31736966",
+      "PMID:32744306",
+      "PMID:32873297",
+      "PMID:33925784",
+      "PMID:35140252",
+      "PMID:36730360",
+      "PMID:36948138",
+      "PMID:37226227",
+      "PMID:37838675"
+    ],
     "genes": [
       "HLA-DRB1"
     ],
@@ -37046,6 +44581,25 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1038/s41433-024-03133-x",
+      "DOI:10.1038/s41467-024-53595-6",
+      "DOI:10.1080/1744666x.2022.2082946",
+      "DOI:10.1136/jnnp-2023-333097",
+      "DOI:10.1172/jci179742",
+      "DOI:10.3389/fimmu.2023.1110499",
+      "DOI:10.3389/fneur.2023.1229112",
+      "DOI:10.3389/fneur.2024.1339167",
+      "DOI:10.3390/cells13060556",
+      "DOI:10.3390/ijms22115755",
+      "PMID:21674519",
+      "PMID:21922466",
+      "PMID:27509100",
+      "PMID:29066163",
+      "PMID:29266249",
+      "PMID:36184373",
+      "PMID:37869140"
+    ],
     "genes": [
       "HLA-B8",
       "HLA-DR3",
@@ -37114,6 +44668,9 @@ window.searchData = [
     ],
     "frequencies": [
       "COMMON"
+    ],
+    "evidence_references": [
+      "PMID:35887499"
     ],
     "genes": [],
     "treatments": [],
@@ -37191,6 +44748,12 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:12351998",
+      "PMID:18974556",
+      "PMID:28780071",
+      "PMID:31326502"
     ],
     "genes": [
       "DMPK"
@@ -37282,6 +44845,17 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:26068232",
+      "PMID:27570737",
+      "PMID:27934952",
+      "PMID:29364180",
+      "PMID:33036647",
+      "PMID:33179600",
+      "PMID:33409766",
+      "PMID:38637895",
+      "PMID:38740568"
     ],
     "genes": [
       "NAGS pathogenic variants"
@@ -37385,6 +44959,12 @@ window.searchData = [
     "frequencies": [
       "OBLIGATE"
     ],
+    "evidence_references": [
+      "DOI:10.1159/000520553",
+      "PMID:28757203",
+      "PMID:32508887",
+      "PMID:39536593"
+    ],
     "genes": [
       "LIPT2 loss-of-function variants"
     ],
@@ -37466,6 +45046,10 @@ window.searchData = [
       "FREQUENT",
       "VERY_FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:23590662",
+      "PMID:40647396"
+    ],
     "genes": [
       "NPM1"
     ],
@@ -37537,6 +45121,10 @@ window.searchData = [
       "OBLIGATE",
       "VERY_FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:27268913",
+      "PMID:40023845"
+    ],
     "genes": [
       "NRAS Q61R",
       "NRAS Q61K",
@@ -37604,6 +45192,11 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:33258061",
+      "PMID:36914665",
+      "PMID:39988443"
     ],
     "genes": [
       "NTRK1",
@@ -37683,6 +45276,17 @@ window.searchData = [
       "OBLIGATE",
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:18830438",
+      "PMID:20671626",
+      "PMID:22893778",
+      "PMID:25728441",
+      "PMID:30694576",
+      "PMID:30837110",
+      "PMID:32227223",
+      "PMID:34935103",
+      "PMID:38077397"
     ],
     "genes": [
       "HLA-DQB1*06:02",
@@ -37783,6 +45387,11 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:24733735",
+      "PMID:25361008",
+      "PMID:41016806"
     ],
     "genes": [
       "HLA-A",
@@ -37902,6 +45511,31 @@ window.searchData = [
       "OBLIGATE",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:17160903",
+      "PMID:17272906",
+      "PMID:19208402",
+      "PMID:23378224",
+      "PMID:24268659",
+      "PMID:27858751",
+      "PMID:2804774",
+      "PMID:29931346",
+      "PMID:31228046",
+      "PMID:35810298",
+      "PMID:36661122",
+      "PMID:36703211",
+      "PMID:36714460",
+      "PMID:36893608",
+      "PMID:36960434",
+      "PMID:37432316",
+      "PMID:38376469",
+      "PMID:38500810",
+      "PMID:38634969",
+      "PMID:39651462",
+      "PMID:39691005",
+      "PMID:6481414",
+      "PMID:9372751"
+    ],
     "genes": [
       "NEB Mutations",
       "ACTA1 Mutations",
@@ -38020,6 +45654,69 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1038/s44321-025-00239-x",
+      "DOI:10.1101/2025.06.09.658557",
+      "DOI:10.1186/s12964-025-02143-w",
+      "DOI:10.1242/jcs.264141",
+      "DOI:10.12659/ajcr.941413",
+      "DOI:10.3389/fneph.2023.1331847",
+      "DOI:10.3390/genes14081582",
+      "PMID:10352410",
+      "PMID:12589180",
+      "PMID:14750102",
+      "PMID:15138899",
+      "PMID:15715116",
+      "PMID:15917209",
+      "PMID:16186680",
+      "PMID:16336577",
+      "PMID:16966065",
+      "PMID:17647025",
+      "PMID:18312782",
+      "PMID:19118152",
+      "PMID:19186246",
+      "PMID:20544799",
+      "PMID:20844548",
+      "PMID:20969579",
+      "PMID:21071979",
+      "PMID:21113628",
+      "PMID:21722602",
+      "PMID:22206729",
+      "PMID:23402468",
+      "PMID:24162855",
+      "PMID:25161209",
+      "PMID:25514144",
+      "PMID:25575298",
+      "PMID:26184788",
+      "PMID:26769764",
+      "PMID:27169608",
+      "PMID:27219042",
+      "PMID:29717526",
+      "PMID:29869359",
+      "PMID:30354828",
+      "PMID:30552565",
+      "PMID:31399984",
+      "PMID:31810733",
+      "PMID:32432520",
+      "PMID:32906116",
+      "PMID:33306870",
+      "PMID:33323469",
+      "PMID:34183231",
+      "PMID:34212438",
+      "PMID:34591160",
+      "PMID:34828368",
+      "PMID:35533128",
+      "PMID:35570616",
+      "PMID:35655331",
+      "PMID:35922195",
+      "PMID:36224286",
+      "PMID:36990420",
+      "PMID:37644229",
+      "PMID:37910243",
+      "PMID:37930417",
+      "PMID:7272960",
+      "PMID:9790573"
+    ],
     "genes": [
       "NPHP1",
       "NPHP3",
@@ -38111,6 +45808,34 @@ window.searchData = [
       "HP:0001508"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "DOI:10.1038/s42003-024-05780-y",
+      "DOI:10.3390/dermatopathology11030024",
+      "DOI:10.3390/genes14051080",
+      "GEO:GSE224280",
+      "GEO:GSE224409",
+      "PMID:27905021",
+      "PMID:35327681",
+      "PMID:35464459",
+      "PMID:36159989",
+      "PMID:38025195",
+      "PMID:38406644",
+      "PMID:38601387",
+      "PMID:38634098",
+      "PMID:38638763",
+      "PMID:39546052",
+      "PMID:39931731",
+      "PMID:40159127",
+      "PMID:40299794",
+      "PMID:40607310",
+      "PMID:40709761",
+      "PMID:40888388",
+      "PMID:40969297",
+      "PMID:41126693",
+      "clinicaltrials:NCT01545323",
+      "clinicaltrials:NCT04244006",
+      "clinicaltrials:NCT07151508"
+    ],
     "genes": [
       "SPINK5"
     ],
@@ -38209,6 +45934,18 @@ window.searchData = [
       "VERY_FREQUENT",
       "OCCASIONAL",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.1038/s41388-025-03635-2",
+      "DOI:10.1038/s41467-023-38239-5",
+      "DOI:10.1038/s44318-024-00206-1",
+      "DOI:10.1101/2022.08.16.504100",
+      "DOI:10.3389/fimmu.2023.1268645",
+      "DOI:10.3389/fimmu.2025.1637626",
+      "DOI:10.3390/jcm13164765",
+      "PMID:10985139",
+      "PMID:32296467",
+      "PMID:41560679"
     ],
     "genes": [
       "MYCN Amplification",
@@ -38309,6 +46046,11 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:32234870",
+      "PMID:33395032",
+      "PMID:9874851"
+    ],
     "genes": [
       "NF1"
     ],
@@ -38379,6 +46121,32 @@ window.searchData = [
     "frequencies": [
       "COMMON",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "DOI:10.1007/s00415-023-11910-z",
+      "DOI:10.1038/s41598-024-53661-5",
+      "DOI:10.1096/fj.09-141978",
+      "DOI:10.1111/1756-185x.14973",
+      "DOI:10.1111/cen3.70019",
+      "DOI:10.1126/sciadv.adq7560",
+      "DOI:10.1172/jci141694",
+      "DOI:10.1177/17562864251357393",
+      "DOI:10.1186/s41232-023-00291-5",
+      "DOI:10.1212/nxi.0000000000000343",
+      "DOI:10.1212/nxi.0000000000000727",
+      "DOI:10.1212/wnl.0000000000201465",
+      "DOI:10.3389/fimmu.2022.959469",
+      "DOI:10.3389/fimmu.2024.1320094",
+      "DOI:10.3389/fimmu.2025.1635989",
+      "DOI:10.3389/fneur.2017.00062",
+      "DOI:10.3390/ijms25063179",
+      "DOI:10.3390/ijms251910625",
+      "PMID:21368286",
+      "PMID:26092914",
+      "PMID:26656646",
+      "PMID:33741809",
+      "PMID:35454180",
+      "PMID:38819039"
     ],
     "genes": [],
     "treatments": [
@@ -38460,6 +46228,19 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1038/s41598-024-53661-5",
+      "DOI:10.3390/ijms251910625",
+      "DOI:10.4103/nrr.nrr-d-23-01325",
+      "PMID:26092914",
+      "PMID:31050279",
+      "PMID:31495497",
+      "PMID:32266705",
+      "PMID:33420337",
+      "PMID:35454180",
+      "PMID:36070074",
+      "PMID:36933107"
+    ],
     "genes": [
       "HLA-DRB1*03:01"
     ],
@@ -38537,6 +46318,12 @@ window.searchData = [
       "HP:0002376"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:31884868",
+      "PMID:35359645",
+      "PMID:35628533",
+      "PMID:37022340"
+    ],
     "genes": [
       "CLN Genes"
     ],
@@ -38646,6 +46433,20 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:15078881",
+      "PMID:18953351",
+      "PMID:20301473",
+      "PMID:20525256",
+      "PMID:22572546",
+      "PMID:26014711",
+      "PMID:28803710",
+      "PMID:29625568",
+      "PMID:33445799",
+      "PMID:33924575",
+      "PMID:39502943",
+      "PMID:9211849"
+    ],
     "genes": [
       "NPC1",
       "NPC2"
@@ -38706,6 +46507,9 @@ window.searchData = [
     ],
     "frequencies": [
       "COMMON"
+    ],
+    "evidence_references": [
+      "PMID:26437752"
     ],
     "genes": [],
     "treatments": [],
@@ -38798,6 +46602,125 @@ window.searchData = [
     "frequencies": [
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "DOI:10.1007/s12094-023-03337-9",
+      "DOI:10.1016/j.tips.2024.04.006",
+      "DOI:10.1038/s41467-024-48700-8",
+      "DOI:10.1038/s41467-024-50157-8",
+      "DOI:10.1038/s41586-024-07943-7",
+      "DOI:10.1371/journal.pone.0307580",
+      "DOI:10.3389/fimmu.2024.1439033",
+      "DOI:10.3389/fonc.2024.1357583",
+      "DOI:10.3389/fphar.2023.1125547",
+      "DOI:10.3390/cancers16234048",
+      "PMID:11720753",
+      "PMID:11754303",
+      "PMID:12075673",
+      "PMID:12094333",
+      "PMID:12824870",
+      "PMID:1329222",
+      "PMID:15056056",
+      "PMID:15477641",
+      "PMID:15723108",
+      "PMID:15946581",
+      "PMID:18957054",
+      "PMID:19020892",
+      "PMID:20004040",
+      "PMID:20429156",
+      "PMID:20471184",
+      "PMID:20536932",
+      "PMID:21233671",
+      "PMID:22550239",
+      "PMID:22932130",
+      "PMID:22987962",
+      "PMID:23322021",
+      "PMID:23621221",
+      "PMID:23647298",
+      "PMID:23723294",
+      "PMID:23857204",
+      "PMID:24857124",
+      "PMID:24976334",
+      "PMID:24998601",
+      "PMID:25145405",
+      "PMID:25240504",
+      "PMID:25322323",
+      "PMID:25351923",
+      "PMID:25359349",
+      "PMID:26222080",
+      "PMID:26690845",
+      "PMID:26729443",
+      "PMID:26775594",
+      "PMID:26927720",
+      "PMID:26990789",
+      "PMID:27166967",
+      "PMID:27188576",
+      "PMID:27416962",
+      "PMID:27466520",
+      "PMID:27467543",
+      "PMID:27491402",
+      "PMID:27637426",
+      "PMID:27926500",
+      "PMID:27988895",
+      "PMID:28017789",
+      "PMID:28059852",
+      "PMID:28089942",
+      "PMID:29107330",
+      "PMID:29140105",
+      "PMID:29432718",
+      "PMID:29484515",
+      "PMID:29666219",
+      "PMID:29989448",
+      "PMID:30441934",
+      "PMID:30520383",
+      "PMID:30537755",
+      "PMID:30878128",
+      "PMID:31151683",
+      "PMID:31627700",
+      "PMID:31720561",
+      "PMID:31862576",
+      "PMID:32013812",
+      "PMID:32107398",
+      "PMID:32140986",
+      "PMID:32189549",
+      "PMID:32657049",
+      "PMID:33306411",
+      "PMID:33387080",
+      "PMID:33435440",
+      "PMID:33533174",
+      "PMID:33563454",
+      "PMID:33618059",
+      "PMID:33755621",
+      "PMID:34083039",
+      "PMID:34125313",
+      "PMID:34154330",
+      "PMID:34325210",
+      "PMID:34484217",
+      "PMID:34807953",
+      "PMID:34911717",
+      "PMID:35200557",
+      "PMID:35224703",
+      "PMID:35468688",
+      "PMID:35525024",
+      "PMID:35559635",
+      "PMID:35709927",
+      "PMID:35986977",
+      "PMID:35993098",
+      "PMID:36269457",
+      "PMID:36806787",
+      "PMID:37086716",
+      "PMID:37130455",
+      "PMID:37390106",
+      "PMID:37625619",
+      "PMID:37681230",
+      "PMID:37920959",
+      "PMID:38159450",
+      "PMID:38377969",
+      "PMID:38469616",
+      "PMID:7540125",
+      "PMID:8709175",
+      "PMID:8853542",
+      "PMID:9498897"
     ],
     "genes": [
       "EGFR",
@@ -38916,6 +46839,17 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:36190515",
+      "PMID:36471344",
+      "PMID:38474060",
+      "PMID:38589924",
+      "PMID:39206282",
+      "PMID:39423724",
+      "PMID:40225406",
+      "PMID:41493948",
+      "PMID:445864"
     ],
     "genes": [
       "Glycine cleavage system gene variants"
@@ -39060,6 +46994,47 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1002/ajmga.70060",
+      "DOI:10.1007/s00431-023-05263-y",
+      "DOI:10.1007/s00431-026-06764-2",
+      "DOI:10.1007/s10557-022-07324-0",
+      "DOI:10.1016/j.jacc.2019.01.066",
+      "DOI:10.1016/j.jaccas.2026.107006",
+      "DOI:10.1097/MD.0000000000046340",
+      "DOI:10.1126/sciadv.adf4766",
+      "DOI:10.1158/1078-0432.ccr-24-1611",
+      "DOI:10.1159/000545410",
+      "DOI:10.1172/jci.insight.182382",
+      "DOI:10.1172/jci172839",
+      "DOI:10.3389/fped.2025.1475143",
+      "DOI:10.3390/children11111342",
+      "DOI:10.3390/genes15081015",
+      "DOI:10.3390/ijms26083515",
+      "DOI:10.3390/life14060731",
+      "GEO:GSE131069",
+      "GEO:GSE188238",
+      "GEO:GSE213798",
+      "PMID:10912404",
+      "PMID:11992261",
+      "PMID:17143285",
+      "PMID:17222357",
+      "PMID:17603483",
+      "PMID:18047172",
+      "PMID:20301303",
+      "PMID:23791108",
+      "PMID:24444506",
+      "PMID:31163979",
+      "PMID:34988410",
+      "PMID:36430334",
+      "PMID:38618951",
+      "PMID:39352760",
+      "PMID:41517739",
+      "PMID:41560462",
+      "PMID:41577878",
+      "PMID:41675685",
+      "PMID:41718520"
+    ],
     "genes": [
       "PTPN11",
       "SOS1",
@@ -39162,6 +47137,20 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "DOI:10.3390/biom14101223",
+      "DOI:10.3390/cimb47050343",
+      "DOI:10.3390/diagnostics15121482",
+      "DOI:10.3390/ijms25126681",
+      "DOI:10.3390/ijms25158202",
+      "DOI:10.3390/medicines12030019",
+      "PMID:14679177",
+      "PMID:17212793",
+      "PMID:27503945",
+      "PMID:38286821",
+      "PMID:38490517",
+      "PMID:39456156"
+    ],
     "genes": [
       "FTO",
       "MC4R",
@@ -39258,6 +47247,16 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.1183/16000617.0162-2024",
+      "DOI:10.3390/biomedicines12112503",
+      "DOI:10.3390/ijms24065478",
+      "DOI:10.3390/life14040425",
+      "PMID:36982552",
+      "PMID:38672697",
+      "PMID:39595069",
+      "PMID:39694586"
     ],
     "genes": [
       "PHOX2B",
@@ -39380,6 +47379,12 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:12457340",
+      "PMID:19338053",
+      "PMID:23606748",
+      "PMID:29902798"
+    ],
     "genes": [
       "GJA1 (Connexin 43)"
     ],
@@ -39485,6 +47490,23 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:14566439",
+      "PMID:19481194",
+      "PMID:24458798",
+      "PMID:25759469",
+      "PMID:28696225",
+      "PMID:28869591",
+      "PMID:29230162",
+      "PMID:29383834",
+      "PMID:30455931",
+      "PMID:32655339",
+      "PMID:35937024",
+      "PMID:36867021",
+      "PMID:36967195",
+      "PMID:37353964",
+      "PMID:9508243"
+    ],
     "genes": [
       "GPC6 mutations",
       "FZD2 mutations"
@@ -39543,6 +47565,9 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:16714198"
     ],
     "genes": [],
     "treatments": [
@@ -39652,6 +47677,25 @@ window.searchData = [
     "frequencies": [
       "HP_0040281"
     ],
+    "evidence_references": [
+      "PMID:10076884",
+      "PMID:17315533",
+      "PMID:23273567",
+      "PMID:23273569",
+      "PMID:23552673",
+      "PMID:24953221",
+      "PMID:26157786",
+      "PMID:27233067",
+      "PMID:27708270",
+      "PMID:28869677",
+      "PMID:31519471",
+      "PMID:34094554",
+      "PMID:39911177",
+      "PMID:40209709",
+      "PMID:40504975",
+      "PMID:40620719",
+      "PMID:6496568"
+    ],
     "genes": [
       "INPPL1 biallelic variants"
     ],
@@ -39744,6 +47788,21 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:12136059",
+      "PMID:31110235",
+      "PMID:31441224",
+      "PMID:33409766",
+      "PMID:34665389",
+      "PMID:35204506",
+      "PMID:35733937",
+      "PMID:36128655",
+      "PMID:37146589",
+      "PMID:37626723",
+      "PMID:39220945",
+      "PMID:39256843",
+      "PMID:39328593"
+    ],
     "genes": [
       "OTC variants"
     ],
@@ -39824,6 +47883,20 @@ window.searchData = [
       "HP:0001249"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "DOI:10.1038/s41467-023-37340-z",
+      "DOI:10.1080/15548627.2022.2067383",
+      "DOI:10.1093/hmg/ddaa029",
+      "DOI:10.1186/s12887-024-05304-x",
+      "DOI:10.15252/embj.2020106503",
+      "DOI:10.15252/embr.202154160",
+      "DOI:10.3390/genes14020327",
+      "PMID:16397067",
+      "PMID:19876934",
+      "PMID:23033313",
+      "PMID:41064626",
+      "PMID:9482645"
+    ],
     "genes": [
       "OFD1 Mutations"
     ],
@@ -39907,6 +47980,22 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.1038/s41584-023-01052-x",
+      "DOI:10.20944/preprints202409.0995.v2",
+      "DOI:10.2147/jir.s445573",
+      "DOI:10.2147/jir.s489613",
+      "DOI:10.2147/jir.s498914",
+      "DOI:10.3390/biomedicines12010009",
+      "DOI:10.3390/biomedicines12061262",
+      "DOI:10.3390/jcm13175212",
+      "PMID:15354794",
+      "PMID:17384641",
+      "PMID:31908149",
+      "PMID:33560326",
+      "PMID:36737426",
+      "PMID:38348279"
     ],
     "genes": [
       "GDF5",
@@ -39992,6 +48081,16 @@ window.searchData = [
     "frequencies": [
       "EXCLUDED"
     ],
+    "evidence_references": [
+      "DOI:10.1007/s00223-024-01266-5",
+      "DOI:10.1210/endrev/bnab017",
+      "DOI:10.1371/journal.pone.0309801",
+      "DOI:10.3390/jcm13123484",
+      "PMID:1353940",
+      "PMID:23529829",
+      "PMID:25944380",
+      "PMID:9443882"
+    ],
     "genes": [
       "COL1A1 Null Mutations"
     ],
@@ -40062,6 +48161,14 @@ window.searchData = [
       "HP:0002645"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "DOI:10.1007/s00223-024-01266-5",
+      "DOI:10.1021/acsptsci.3c00324",
+      "DOI:10.1172/jci.insight.171984",
+      "DOI:10.53846/goediss-7825",
+      "PMID:25289482",
+      "PMID:7643358"
+    ],
     "genes": [
       "COL1A1/COL1A2 Structural Mutations"
     ],
@@ -40132,6 +48239,23 @@ window.searchData = [
       "HP:0000592"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "DOI:10.1007/s00223-023-01171-3",
+      "DOI:10.1007/s00223-024-01236-x",
+      "DOI:10.1007/s00223-024-01248-7",
+      "DOI:10.1021/acsptsci.3c00324",
+      "DOI:10.1186/s13023-023-02627-3",
+      "PMID:10843163",
+      "PMID:15883638",
+      "PMID:25524970",
+      "PMID:25943292",
+      "PMID:25944380",
+      "PMID:30725642",
+      "PMID:33844744",
+      "PMID:34667502",
+      "PMID:38996209",
+      "PMID:7643358"
+    ],
     "genes": [
       "COL1A1/COL1A2 Mutations"
     ],
@@ -40203,6 +48327,20 @@ window.searchData = [
     ],
     "frequencies": [
       "EXCLUDED"
+    ],
+    "evidence_references": [
+      "DOI:10.1007/s00223-024-01202-7",
+      "DOI:10.1007/s00223-024-01248-7",
+      "DOI:10.1007/s00223-024-01293-2",
+      "DOI:10.1007/s00439-021-02302-2",
+      "DOI:10.1186/s13023-023-02849-5",
+      "DOI:10.1297/cpe.2025-0009",
+      "DOI:10.1515/jpem-2024-0512",
+      "DOI:10.3390/jcm13041065",
+      "DOI:10.3892/wasj.2024.284",
+      "DOI:10.56294/saludcyt2024894",
+      "PMID:25944380",
+      "PMID:7643358"
     ],
     "genes": [
       "COL1A1/COL1A2 Mutations"
@@ -40276,6 +48414,17 @@ window.searchData = [
     "frequencies": [
       "EXCLUDED"
     ],
+    "evidence_references": [
+      "DOI:10.1007/s00223-024-01266-5",
+      "DOI:10.1172/jci170369",
+      "DOI:10.1186/s40348-020-00101-9",
+      "DOI:10.1210/endrev/bnab017",
+      "DOI:10.3389/fendo.2021.622674",
+      "PMID:10976985",
+      "PMID:22863190",
+      "PMID:32797291",
+      "PMID:40282376"
+    ],
     "genes": [
       "IFITM5 c.-14C>T Mutation"
     ],
@@ -40346,6 +48495,22 @@ window.searchData = [
       "HP:0000938"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "DOI:10.1007/s00223-024-01266-5",
+      "DOI:10.1007/s00441-009-0872-0",
+      "DOI:10.1038/nm.3544",
+      "DOI:10.1056/nejmoa063804",
+      "DOI:10.1111/j.1399-0004.2011.01794.x",
+      "DOI:10.1152/ajplung.00313.2019",
+      "DOI:10.1210/clinem/dgae025",
+      "PMID:12110406",
+      "PMID:16439896",
+      "PMID:17055431",
+      "PMID:18566967",
+      "PMID:19895918",
+      "PMID:32797291",
+      "PMID:38214665"
+    ],
     "genes": [
       "CRTAP Mutations"
     ],
@@ -40416,6 +48581,9 @@ window.searchData = [
     ],
     "frequencies": [
       "OBLIGATE"
+    ],
+    "evidence_references": [
+      "PMID:29019756"
     ],
     "genes": [
       "FGFR1 gain-of-function mutations"
@@ -40522,6 +48690,17 @@ window.searchData = [
       "OBLIGATE",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:10888887",
+      "PMID:11207362",
+      "PMID:17632511",
+      "PMID:19802031",
+      "PMID:19953639",
+      "PMID:23877423",
+      "PMID:28655174",
+      "PMID:37465191",
+      "PMID:9849690"
+    ],
     "genes": [
       "TCIRG1 mutations",
       "CLCN7 mutations",
@@ -40609,6 +48788,34 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1038/s41413-024-00362-4",
+      "DOI:10.1186/s13018-023-04179-5",
+      "DOI:10.3389/fendo.2024.1487998",
+      "DOI:10.3390/biomedicines12081635",
+      "DOI:10.3390/biomedicines13061443",
+      "PMID:16927271",
+      "PMID:18567553",
+      "PMID:21874760",
+      "PMID:23748068",
+      "PMID:26318907",
+      "PMID:28168409",
+      "PMID:28572612",
+      "PMID:29559713",
+      "PMID:29691807",
+      "PMID:30631414",
+      "PMID:31400472",
+      "PMID:31897866",
+      "PMID:32411816",
+      "PMID:32900939",
+      "PMID:33242417",
+      "PMID:33597120",
+      "PMID:33692806",
+      "PMID:33835498",
+      "PMID:34807231",
+      "PMID:35773442",
+      "PMID:37723136"
+    ],
     "genes": [
       "LRP5",
       "SOST",
@@ -40695,6 +48902,37 @@ window.searchData = [
     "frequencies": [
       "COMMON"
     ],
+    "evidence_references": [
+      "DOI:10.1002/pdi3.18",
+      "DOI:10.1007/s00432-024-05787-2",
+      "DOI:10.1038/s41413-022-00237-6",
+      "DOI:10.1073/pnas.0805462105",
+      "DOI:10.1200/jco.2025.43.16_suppl.10045",
+      "DOI:10.3389/fcell.2021.645381",
+      "DOI:10.3389/fcell.2021.737314",
+      "DOI:10.3389/fcell.2023.1123065",
+      "DOI:10.3389/fimmu.2025.1579822",
+      "DOI:10.3389/fimmu.2025.1584450",
+      "DOI:10.3389/fonc.2020.00406",
+      "DOI:10.3389/fonc.2020.563255",
+      "DOI:10.3389/fonc.2023.1117867",
+      "DOI:10.3389/fphar.2024.1350187",
+      "DOI:10.3389/fphar.2024.1459057",
+      "DOI:10.3389/fpubh.2021.813625",
+      "DOI:10.3390/biom14020145",
+      "DOI:10.3390/ijms241310463",
+      "DOI:10.3390/ijms241411367",
+      "DOI:10.3892/ijmm.2025.5533",
+      "PMID:15736406",
+      "PMID:25704303",
+      "PMID:278229",
+      "PMID:28370561",
+      "PMID:289343",
+      "PMID:35164914",
+      "PMID:39615111",
+      "PMID:41154810",
+      "PMID:8781571"
+    ],
     "genes": [],
     "treatments": [
       "Surgical Resection",
@@ -40763,6 +49001,32 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:1601193",
+      "PMID:20717034",
+      "PMID:21298458",
+      "PMID:33112026",
+      "PMID:36060244",
+      "PMID:36080191",
+      "PMID:36632528",
+      "PMID:37108955",
+      "PMID:37223402",
+      "PMID:37257666",
+      "PMID:37367594",
+      "PMID:38375517",
+      "PMID:38450054",
+      "PMID:38486086",
+      "PMID:38578519",
+      "PMID:38962337",
+      "PMID:39376298",
+      "PMID:40317309",
+      "PMID:41019825",
+      "PMID:41452477",
+      "PMID:41596275",
+      "clinicaltrials:NCT01547221",
+      "clinicaltrials:NCT04432376",
+      "clinicaltrials:NCT05660382"
     ],
     "genes": [],
     "treatments": [
@@ -40857,6 +49121,11 @@ window.searchData = [
       "Frequent",
       "Occasional"
     ],
+    "evidence_references": [
+      "PMID:12612583",
+      "PMID:19773341",
+      "PMID:20301567"
+    ],
     "genes": [
       "FLNA Gain-of-Function Missense Variants"
     ],
@@ -40936,6 +49205,14 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:21720365",
+      "PMID:26493647",
+      "PMID:30917847",
+      "PMID:33011111",
+      "PMID:36082969",
+      "PMID:36252167"
+    ],
     "genes": [
       "TP53",
       "BRCA1",
@@ -41014,6 +49291,15 @@ window.searchData = [
     ],
     "frequencies": [
       "OBLIGATE"
+    ],
+    "evidence_references": [
+      "DOI:10.1038/s41416-024-02852-y",
+      "DOI:10.1056/nejmoa2404625",
+      "DOI:10.1101/2025.06.18.25329632",
+      "DOI:10.1158/2159-8290.cd-23-0944",
+      "DOI:10.1186/s13058-023-01718-0",
+      "PMID:37743730",
+      "PMID:39806949"
     ],
     "genes": [
       "PIK3CA"
@@ -41104,6 +49390,14 @@ window.searchData = [
       "HP:0011663"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:15489853",
+      "PMID:16567567",
+      "PMID:16823493",
+      "PMID:18662195",
+      "PMID:34120153",
+      "PMID:34191271"
+    ],
     "genes": [
       "PKP2 Loss-of-Function Variants"
     ],
@@ -41179,6 +49473,20 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:30307502",
+      "PMID:30726412",
+      "PMID:30819798",
+      "PMID:32213850",
+      "PMID:32716032",
+      "PMID:37440045",
+      "PMID:38474159",
+      "PMID:38540785",
+      "PMID:38743414",
+      "PMID:39515456",
+      "PMID:39908130",
+      "PMID:8202715"
     ],
     "genes": [
       "PRPH2 pathogenic variants",
@@ -41257,6 +49565,10 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:23190330",
+      "PMID:26089585"
+    ],
     "genes": [
       "PRPS1 Loss-of-Function Variants"
     ],
@@ -41331,6 +49643,10 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:23190330",
+      "PMID:26089585"
+    ],
     "genes": [
       "PRPS1 Gain-of-Function Variants"
     ],
@@ -41403,6 +49719,19 @@ window.searchData = [
       "OCCASIONAL",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:19032739",
+      "PMID:22670904",
+      "PMID:25403219",
+      "PMID:26169613",
+      "PMID:27054559",
+      "PMID:28596197",
+      "PMID:30754660",
+      "PMID:33860896",
+      "PMID:37887561",
+      "PMID:37947611",
+      "PMID:6837723"
+    ],
     "genes": [
       "PTCH1"
     ],
@@ -41471,6 +49800,15 @@ window.searchData = [
       "HP:0002023"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:10375510",
+      "PMID:10693759",
+      "PMID:15739154",
+      "PMID:20672375",
+      "PMID:24736735",
+      "PMID:28224613",
+      "PMID:29106787"
+    ],
     "genes": [
       "GLI3 Mutations (Truncating, Middle Third)"
     ],
@@ -41565,6 +49903,27 @@ window.searchData = [
       "OBLIGATE",
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.1093/carcin/bgae064",
+      "DOI:10.1146/annurev-pathmechdis-031621-024600",
+      "DOI:10.1186/s12943-023-01813-y",
+      "DOI:10.3389/fmed.2024.1369136",
+      "DOI:10.3390/cancers16162876",
+      "PMID:18772397",
+      "PMID:23331006",
+      "PMID:24131140",
+      "PMID:24509242",
+      "PMID:26343385",
+      "PMID:28129987",
+      "PMID:28507210",
+      "PMID:28810144",
+      "PMID:30366930",
+      "PMID:30575490",
+      "PMID:31157963",
+      "PMID:32593337",
+      "PMID:35142721",
+      "PMID:37404765"
     ],
     "genes": [
       "KRAS",
@@ -41685,6 +50044,17 @@ window.searchData = [
       "OCCASIONAL",
       "VERY_RARE"
     ],
+    "evidence_references": [
+      "PMID:10721805",
+      "PMID:20043327",
+      "PMID:21128317",
+      "PMID:24746205",
+      "PMID:28416122",
+      "PMID:28570009",
+      "PMID:29574408",
+      "PMID:34099908",
+      "PMID:35066614"
+    ],
     "genes": [
       "KRAS Mutations",
       "RNF43 Loss-of-Function",
@@ -41785,6 +50155,15 @@ window.searchData = [
       "HP:0001824"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:21252315",
+      "PMID:21306237",
+      "PMID:21306238",
+      "PMID:25014687",
+      "PMID:30566620",
+      "PMID:36260828",
+      "PMID:41794038"
+    ],
     "genes": [
       "MEN1",
       "DAXX",
@@ -41911,6 +50290,44 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "DOI:10.2147/ndt.s540718",
+      "DOI:10.3389/fnagi.2025.1617106",
+      "DOI:10.3390/cells14151161",
+      "DOI:10.3390/ijms25137183",
+      "PMID:15177059",
+      "PMID:15372591",
+      "PMID:17955331",
+      "PMID:19945904",
+      "PMID:20181069",
+      "PMID:24136244",
+      "PMID:25611507",
+      "PMID:27577098",
+      "PMID:27911343",
+      "PMID:27918765",
+      "PMID:30097731",
+      "PMID:31761667",
+      "PMID:34125001",
+      "PMID:34461264",
+      "PMID:35339179",
+      "PMID:36598534",
+      "PMID:36781627",
+      "PMID:37048085",
+      "PMID:37303175",
+      "PMID:37449597",
+      "PMID:38026955",
+      "PMID:38098067",
+      "PMID:38245249",
+      "PMID:38595283",
+      "PMID:39075566",
+      "PMID:39218077",
+      "PMID:40162911",
+      "PMID:41301797",
+      "PMID:7845407",
+      "PMID:9197268",
+      "metabolights:MTBLS10743",
+      "metabolights:MTBLS2266"
+    ],
     "genes": [
       "SNCA",
       "LRRK2",
@@ -42010,6 +50427,24 @@ window.searchData = [
       "OCCASIONAL",
       "RARE"
     ],
+    "evidence_references": [
+      "PMID:26438050",
+      "PMID:27051493",
+      "PMID:27188332",
+      "PMID:28010143",
+      "PMID:28389773",
+      "PMID:28613790",
+      "PMID:30200907",
+      "PMID:33559832",
+      "PMID:33845006",
+      "PMID:34568953",
+      "PMID:37976519",
+      "PMID:38155415",
+      "PMID:38645965",
+      "PMID:39360991",
+      "PMID:40642353",
+      "PMID:41334298"
+    ],
     "genes": [
       "HLA-DR15",
       "HLA-B51"
@@ -42103,6 +50538,87 @@ window.searchData = [
       "OCCASIONAL",
       "FREQUENT",
       "RARE"
+    ],
+    "evidence_references": [
+      "DOI:10.3389/fcimb.2018.00166",
+      "DOI:10.3390/microorganisms12081708",
+      "DOI:10.3390/v12121463",
+      "PMID:10590428",
+      "PMID:10645984",
+      "PMID:10821497",
+      "PMID:11418353",
+      "PMID:11560750",
+      "PMID:11993780",
+      "PMID:12116854",
+      "PMID:14675870",
+      "PMID:15485533",
+      "PMID:15645675",
+      "PMID:16332455",
+      "PMID:17505458",
+      "PMID:1765775",
+      "PMID:17935173",
+      "PMID:18198003",
+      "PMID:19480999",
+      "PMID:21040396",
+      "PMID:21332725",
+      "PMID:21351281",
+      "PMID:21502743",
+      "PMID:21680529",
+      "PMID:22708291",
+      "PMID:22777688",
+      "PMID:24195090",
+      "PMID:24403307",
+      "PMID:24962467",
+      "PMID:25283854",
+      "PMID:25965702",
+      "PMID:25990962",
+      "PMID:26044725",
+      "PMID:26845771",
+      "PMID:26940953",
+      "PMID:27235921",
+      "PMID:27511498",
+      "PMID:27664778",
+      "PMID:27806994",
+      "PMID:28377277",
+      "PMID:29512949",
+      "PMID:30028234",
+      "PMID:30124157",
+      "PMID:30843782",
+      "PMID:31266615",
+      "PMID:31323869",
+      "PMID:31850715",
+      "PMID:32143947",
+      "PMID:32286103",
+      "PMID:32510300",
+      "PMID:32559661",
+      "PMID:32646497",
+      "PMID:33124969",
+      "PMID:33346452",
+      "PMID:33944819",
+      "PMID:34369269",
+      "PMID:34833497",
+      "PMID:35062288",
+      "PMID:35192759",
+      "PMID:36619750",
+      "PMID:36811343",
+      "PMID:37132144",
+      "PMID:37175911",
+      "PMID:37434352",
+      "PMID:37544998",
+      "PMID:37775826",
+      "PMID:38861626",
+      "PMID:7756792",
+      "PMID:7899371",
+      "PMID:8042568",
+      "PMID:8361022",
+      "PMID:8396604",
+      "PMID:8649911",
+      "PMID:8668619",
+      "PMID:9031493",
+      "PMID:9095492",
+      "PMID:9220384",
+      "PMID:9372060",
+      "PMID:9595838"
     ],
     "genes": [],
     "treatments": [
@@ -42216,6 +50732,18 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:15627202",
+      "PMID:17115121",
+      "PMID:20301361",
+      "PMID:21401588",
+      "PMID:24680886",
+      "PMID:27882623",
+      "PMID:29478609",
+      "PMID:31585094",
+      "PMID:32610343",
+      "clinicaltrials:NCT06150716"
+    ],
     "genes": [
       "PLP1"
     ],
@@ -42294,6 +50822,17 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "DOI:10.1101/2025.02.10.637416",
+      "DOI:10.1177/12034754241266136",
+      "DOI:10.1186/s12865-023-00582-z",
+      "DOI:10.3389/fimmu.2023.1169947",
+      "DOI:10.3389/fimmu.2024.1500231",
+      "PMID:10878487",
+      "PMID:17377382",
+      "PMID:19811408",
+      "PMID:39075718"
+    ],
     "genes": [
       "HLA-DRB1*04",
       "HLA-DRB1*14"
@@ -42362,6 +50901,11 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:33449152",
+      "PMID:34738614",
+      "PMID:34894066"
     ],
     "genes": [
       "PDGFRB Gain-of-Function Mutations"
@@ -42437,6 +50981,25 @@ window.searchData = [
       "VERY_FREQUENT",
       "OCCASIONAL",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.1038/s41598-023-50751-8",
+      "DOI:10.1038/s41598-024-65188-w",
+      "DOI:10.1038/s43856-023-00431-5",
+      "DOI:10.1093/eurheartj/ehad562",
+      "DOI:10.1101/2025.09.23.678171",
+      "DOI:10.3389/fcvm.2023.1271100",
+      "DOI:10.3390/genes15010135",
+      "DOI:10.3390/ijms242216099",
+      "PMID:12480040",
+      "PMID:25282696",
+      "PMID:28874320",
+      "PMID:34389230",
+      "PMID:37452714",
+      "PMID:38003290",
+      "PMID:38182796",
+      "PMID:38401035",
+      "PMID:38961103"
     ],
     "genes": [
       "9p21.3 locus",
@@ -42558,6 +51121,14 @@ window.searchData = [
       "Rare",
       "Frequent",
       "Occasional"
+    ],
+    "evidence_references": [
+      "PMID:14988809",
+      "PMID:20301392",
+      "PMID:26471271",
+      "PMID:28457522",
+      "PMID:30547349",
+      "PMID:9883725"
     ],
     "genes": [
       "FLNA Loss-of-Function Variants"
@@ -42687,6 +51258,89 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1002/mgg3.2315",
+      "DOI:10.1007/s00418-023-02259-5",
+      "DOI:10.1038/s43856-024-00605-9",
+      "DOI:10.1101/2024.09.05.611330",
+      "DOI:10.1186/s12887-024-05246-4",
+      "DOI:10.1242/jcs.236943",
+      "DOI:10.3389/fnmol.2023.1170313",
+      "DOI:10.3389/fnmol.2025.1642590",
+      "DOI:10.3390/cells14020147",
+      "PMID:10408779",
+      "PMID:10904262",
+      "PMID:10972423",
+      "PMID:11060787",
+      "PMID:11769739",
+      "PMID:12473763",
+      "PMID:13129589",
+      "PMID:14527301",
+      "PMID:14619605",
+      "PMID:15858711",
+      "PMID:15868469",
+      "PMID:16819396",
+      "PMID:17055079",
+      "PMID:1710072",
+      "PMID:17671048",
+      "PMID:17682975",
+      "PMID:18758655",
+      "PMID:19933170",
+      "PMID:21397417",
+      "PMID:22974902",
+      "PMID:22978395",
+      "PMID:23671347",
+      "PMID:24030027",
+      "PMID:24172221",
+      "PMID:25179809",
+      "PMID:25465824",
+      "PMID:26305119",
+      "PMID:26453805",
+      "PMID:26615381",
+      "PMID:27941306",
+      "PMID:28320181",
+      "PMID:28409474",
+      "PMID:29070486",
+      "PMID:29282281",
+      "PMID:30237433",
+      "PMID:30656921",
+      "PMID:30739266",
+      "PMID:31005404",
+      "PMID:3119940",
+      "PMID:31254513",
+      "PMID:31884631",
+      "PMID:32165495",
+      "PMID:32399598",
+      "PMID:33417206",
+      "PMID:33417209",
+      "PMID:33417210",
+      "PMID:33955040",
+      "PMID:34534157",
+      "PMID:3460088",
+      "PMID:34628380",
+      "PMID:34804114",
+      "PMID:35227579",
+      "PMID:35331403",
+      "PMID:36249295",
+      "PMID:36291074",
+      "PMID:36293220",
+      "PMID:36649687",
+      "PMID:36720320",
+      "PMID:36870438",
+      "PMID:36914043",
+      "PMID:36980088",
+      "PMID:37567036",
+      "PMID:37802748",
+      "PMID:38409970",
+      "PMID:7685145",
+      "PMID:7957386",
+      "PMID:8184191",
+      "PMID:8507680",
+      "PMID:8729109",
+      "PMID:8914632",
+      "PMID:9264803",
+      "PMID:9458170"
+    ],
     "genes": [
       "PEX1",
       "PEX6",
@@ -42789,6 +51443,23 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:19541609",
+      "PMID:19916169",
+      "PMID:20301443",
+      "PMID:33513864",
+      "PMID:34680270",
+      "PMID:34928720",
+      "PMID:35988962",
+      "PMID:36925460",
+      "PMID:36970589",
+      "PMID:36998347",
+      "PMID:37054692",
+      "PMID:37377590",
+      "PMID:37892343",
+      "PMID:38036954",
+      "PMID:39623880"
+    ],
     "genes": [
       "STK11 (Serine/threonine kinase 11, also called LKB1)",
       "PTEN (Phosphatase and tensin homolog)"
@@ -42879,6 +51550,9 @@ window.searchData = [
       "VERY_FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:29019756"
+    ],
     "genes": [
       "FGFR1 gain-of-function mutations"
     ],
@@ -42959,6 +51633,10 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:25408859",
+      "PMID:41251904"
     ],
     "genes": [
       "BCR-ABL1 Fusion",
@@ -43050,6 +51728,20 @@ window.searchData = [
       "HP_0040281",
       "HP_0040282",
       "HP_0040283"
+    ],
+    "evidence_references": [
+      "PMID:11431708",
+      "PMID:12920066",
+      "PMID:17173049",
+      "PMID:21423165",
+      "PMID:22670140",
+      "PMID:23758760",
+      "PMID:24132240",
+      "PMID:24481935",
+      "PMID:25685306",
+      "PMID:29719671",
+      "PMID:31879555",
+      "PMID:35741804"
     ],
     "genes": [
       "SHANK3"
@@ -43157,6 +51849,43 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:17092471",
+      "PMID:17693179",
+      "PMID:21216643",
+      "PMID:21555948",
+      "PMID:21565303",
+      "PMID:24385074",
+      "PMID:2516176",
+      "PMID:27049649",
+      "PMID:29025426",
+      "PMID:29457794",
+      "PMID:29628378",
+      "PMID:30570999",
+      "PMID:31076506",
+      "PMID:32024337",
+      "PMID:32463598",
+      "PMID:3291200",
+      "PMID:33672234",
+      "PMID:34017006",
+      "PMID:34082800",
+      "PMID:35854334",
+      "PMID:35952926",
+      "PMID:36880400",
+      "PMID:37265600",
+      "PMID:38907189",
+      "PMID:3930839",
+      "PMID:39630157",
+      "PMID:6119011",
+      "PMID:8404969",
+      "PMID:987768",
+      "clinicaltrials:NCT00838435",
+      "clinicaltrials:NCT01212744",
+      "clinicaltrials:NCT04534842",
+      "geo:GSE112108",
+      "geo:GSE294755",
+      "geo:GSE55148"
+    ],
     "genes": [
       "PAH"
     ],
@@ -43245,6 +51974,14 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:15328326",
+      "PMID:17156452",
+      "PMID:24893135",
+      "PMID:32388798",
+      "PMID:32617052",
+      "PMID:33112834"
     ],
     "genes": [
       "SDHB",
@@ -43349,6 +52086,54 @@ window.searchData = [
       "OCCASIONAL",
       "RARE"
     ],
+    "evidence_references": [
+      "DOI:10.1007/s00401-023-02598-6",
+      "DOI:10.1093/brain/awad309",
+      "DOI:10.1101/2024.08.15.608062",
+      "DOI:10.1186/s13550-025-01296-6",
+      "DOI:10.1186/s40478-024-01738-7",
+      "PMID:10517506",
+      "PMID:10908910",
+      "PMID:11402143",
+      "PMID:11402147",
+      "PMID:11809165",
+      "PMID:12080867",
+      "PMID:12700289",
+      "PMID:15365985",
+      "PMID:16014652",
+      "PMID:16317256",
+      "PMID:16736722",
+      "PMID:17076146",
+      "PMID:18090424",
+      "PMID:19415691",
+      "PMID:20420119",
+      "PMID:20487487",
+      "PMID:21881831",
+      "PMID:21887521",
+      "PMID:22411252",
+      "PMID:24966676",
+      "PMID:26583316",
+      "PMID:27025090",
+      "PMID:28689508",
+      "PMID:28890134",
+      "PMID:29854017",
+      "PMID:30158706",
+      "PMID:30537913",
+      "PMID:30876954",
+      "PMID:31871139",
+      "PMID:32096036",
+      "PMID:32145523",
+      "PMID:32333004",
+      "PMID:32440921",
+      "PMID:32507758",
+      "PMID:35584922",
+      "PMID:36925418",
+      "PMID:37276800",
+      "PMID:37351604",
+      "PMID:38521060",
+      "PMID:38631765",
+      "PMID:9059759"
+    ],
     "genes": [
       "MAPT",
       "MAPT",
@@ -43406,6 +52191,11 @@ window.searchData = [
     ],
     "frequencies": [
       "COMMON"
+    ],
+    "evidence_references": [
+      "PMID:23332859",
+      "PMID:24396138",
+      "PMID:26304920"
     ],
     "genes": [],
     "treatments": [
@@ -43506,6 +52296,16 @@ window.searchData = [
       "HP:0100749"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:10922034",
+      "PMID:12951845",
+      "PMID:15207311",
+      "PMID:24198067",
+      "PMID:30940874",
+      "PMID:32435800",
+      "PMID:32435802",
+      "PMID:36261521"
+    ],
     "genes": [
       "ERAP2"
     ],
@@ -43565,6 +52365,17 @@ window.searchData = [
       "HP:0025044"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "DOI:10.1128/cmr.00050-07",
+      "DOI:10.1128/cmr.00075-18",
+      "DOI:10.1590/s1678-9946202567069",
+      "PMID:33553405",
+      "PMID:34034501",
+      "PMID:37549288",
+      "PMID:39099980",
+      "PMID:40705460",
+      "PMID:41431593"
+    ],
     "genes": [],
     "treatments": [
       "Albendazole therapy",
@@ -43653,6 +52464,21 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:19346236",
+      "PMID:20301424",
+      "PMID:23524344",
+      "PMID:24162855",
+      "PMID:29105594",
+      "PMID:32819584",
+      "PMID:36129975",
+      "PMID:36303074",
+      "PMID:39815096",
+      "PMID:40126492",
+      "PMID:40140667",
+      "PMID:40371605",
+      "PMID:41467628"
+    ],
     "genes": [
       "PKD1 Mutations",
       "PKD2 Mutations",
@@ -43737,6 +52563,19 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "DOI:10.1007/s13679-023-00531-2",
+      "DOI:10.1530/joe-24-0269",
+      "DOI:10.3389/fendo.2023.1149473",
+      "DOI:10.3389/fendo.2023.1273542",
+      "DOI:10.3389/fimmu.2024.1470283",
+      "DOI:10.3390/ijms24087454",
+      "PMID:14671196",
+      "PMID:24014605",
+      "PMID:38152131",
+      "PMID:39036884",
+      "PMID:40013621"
     ],
     "genes": [
       "DENND1A",
@@ -43838,6 +52677,10 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:40246933",
+      "PMID:41580684"
+    ],
     "genes": [
       "JAK2"
     ],
@@ -43927,6 +52770,21 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.1002/art.21103",
+      "DOI:10.1093/rheumatology/kez248",
+      "DOI:10.1097/md.0000000000040254",
+      "DOI:10.1186/s13075-024-03364-z",
+      "DOI:10.1186/s41232-025-00395-0",
+      "DOI:10.1371/journal.pone.0239176",
+      "DOI:10.3389/fimmu.2023.1191815",
+      "DOI:10.3389/fmed.2023.1158768",
+      "DOI:10.3389/fneur.2023.1328547",
+      "PMID:15934115",
+      "PMID:31257434",
+      "PMID:32936839",
+      "PMID:37483632"
     ],
     "genes": [
       "HLA-DRB1*0301"
@@ -44021,6 +52879,23 @@ window.searchData = [
     "frequencies": [
       "HP_0040281",
       "HP_0040282"
+    ],
+    "evidence_references": [
+      "PMID:16737883",
+      "PMID:17151339",
+      "PMID:17974725",
+      "PMID:18929906",
+      "PMID:20040311",
+      "PMID:20393176",
+      "PMID:24715333",
+      "PMID:26889246",
+      "PMID:32745073",
+      "PMID:33554498",
+      "PMID:34800399",
+      "PMID:37036722",
+      "PMID:38785980",
+      "PMID:39020349",
+      "PMID:39424261"
     ],
     "genes": [
       "GAA gene mutations"
@@ -44142,6 +53017,18 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:19687359",
+      "PMID:23616163",
+      "PMID:24647968",
+      "PMID:30001836",
+      "PMID:30372565",
+      "PMID:31412221",
+      "PMID:31495251",
+      "PMID:34144933",
+      "PMID:36055438",
+      "PMID:38163814"
+    ],
     "genes": [],
     "treatments": [
       "Exercise Training",
@@ -44220,6 +53107,14 @@ window.searchData = [
       "HP:0001945"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:20845425",
+      "PMID:22879519",
+      "PMID:25110406",
+      "PMID:25222658",
+      "PMID:40240062",
+      "PMID:7634977"
+    ],
     "genes": [],
     "treatments": [
       "Antibiotic Therapy",
@@ -44323,6 +53218,28 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:20301505",
+      "PMID:28371242",
+      "PMID:29691382",
+      "PMID:31920975",
+      "PMID:33856031",
+      "PMID:37051256",
+      "PMID:37386011",
+      "PMID:37685915",
+      "PMID:37919617",
+      "PMID:38321079",
+      "PMID:40004838",
+      "PMID:40136445",
+      "PMID:40409799",
+      "PMID:40708003",
+      "PMID:40917343",
+      "PMID:41224350",
+      "PMID:41574892",
+      "PMID:41677631",
+      "PMID:41683698",
+      "PMID:9861478"
+    ],
     "genes": [
       "SNRPN",
       "SNORD116",
@@ -44406,6 +53323,18 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.3390/cells13181580",
+      "DOI:10.3390/genes14020405",
+      "DOI:10.3390/ijms24076660",
+      "DOI:10.3390/ijms26167905",
+      "DOI:10.3748/wjg.v29.i37.5292",
+      "PMID:24556277",
+      "PMID:26953925",
+      "PMID:35704252",
+      "PMID:37047635",
+      "PMID:39329760"
     ],
     "genes": [
       "HLA-DRB1*08",
@@ -44521,6 +53450,18 @@ window.searchData = [
       "OCCASIONAL",
       "VERY_RARE"
     ],
+    "evidence_references": [
+      "PMID:36810318",
+      "PMID:38125748",
+      "PMID:38166572",
+      "PMID:38585546",
+      "PMID:38961493",
+      "PMID:39091928",
+      "PMID:39201429",
+      "PMID:39248612",
+      "PMID:39691889",
+      "PMID:40406429"
+    ],
     "genes": [
       "SLC22A5 (OCTN2) pathogenic variants"
     ],
@@ -44633,6 +53574,92 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1007/s40291-025-00801-w",
+      "DOI:10.1183/13993003.01769-2023",
+      "DOI:10.1542/peds.2023-063064",
+      "DOI:10.29057/mjmr.v12i24.12347",
+      "DOI:10.3390/cells13110974",
+      "PMID:10894096",
+      "PMID:11231901",
+      "PMID:11376511",
+      "PMID:11893720",
+      "PMID:12511725",
+      "PMID:15750039",
+      "PMID:15917207",
+      "PMID:16036877",
+      "PMID:17059358",
+      "PMID:17142159",
+      "PMID:19410203",
+      "PMID:19796826",
+      "PMID:19812481",
+      "PMID:19818430",
+      "PMID:19879441",
+      "PMID:20525503",
+      "PMID:2062156",
+      "PMID:21680564",
+      "PMID:22408195",
+      "PMID:22960754",
+      "PMID:23181248",
+      "PMID:25370419",
+      "PMID:25673230",
+      "PMID:26362507",
+      "PMID:26586601",
+      "PMID:26826908",
+      "PMID:27258773",
+      "PMID:28187057",
+      "PMID:28408202",
+      "PMID:28552099",
+      "PMID:28891733",
+      "PMID:28915070",
+      "PMID:29135867",
+      "PMID:29287859",
+      "PMID:29490941",
+      "PMID:29493257",
+      "PMID:29800551",
+      "PMID:29905515",
+      "PMID:30792130",
+      "PMID:30827358",
+      "PMID:31118369",
+      "PMID:31430425",
+      "PMID:31770003",
+      "PMID:31971980",
+      "PMID:32185794",
+      "PMID:32662935",
+      "PMID:33305974",
+      "PMID:33507585",
+      "PMID:33795320",
+      "PMID:33844744",
+      "PMID:33860637",
+      "PMID:33895745",
+      "PMID:34454779",
+      "PMID:34574829",
+      "PMID:34693619",
+      "PMID:35312075",
+      "PMID:35777446",
+      "PMID:35854386",
+      "PMID:35869935",
+      "PMID:36214320",
+      "PMID:36285978",
+      "PMID:36342963",
+      "PMID:36344229",
+      "PMID:36588099",
+      "PMID:36639347",
+      "PMID:36727596",
+      "PMID:37147124",
+      "PMID:37278553",
+      "PMID:37296588",
+      "PMID:37385806",
+      "PMID:37449771",
+      "PMID:37852905",
+      "PMID:37997295",
+      "PMID:38072392",
+      "PMID:38607006",
+      "PMID:38861625",
+      "PMID:39069333",
+      "PMID:39269762",
+      "PMID:9222635"
+    ],
     "genes": [
       "DNAI1",
       "DNAH5",
@@ -44709,6 +53736,32 @@ window.searchData = [
     ],
     "frequencies": [
       "COMMON"
+    ],
+    "evidence_references": [
+      "DOI:10.1002/1873-3468.12646",
+      "DOI:10.1007/s00415-024-12261-z",
+      "DOI:10.1080/21678421.2020.1837174",
+      "DOI:10.1080/21678421.2020.1837176",
+      "DOI:10.1101/2023.07.19.23292817",
+      "DOI:10.1212/wnl.0000000000000090",
+      "DOI:10.3389/fimmu.2017.01005",
+      "DOI:10.3389/fimmu.2022.924734",
+      "DOI:10.3389/fnagi.2022.892518",
+      "DOI:10.3389/fnagi.2023.1047897",
+      "DOI:10.3389/fncel.2015.00041",
+      "DOI:10.3389/fncel.2025.1671419",
+      "DOI:10.3389/fnins.2015.00448",
+      "DOI:10.3389/fnins.2019.01310",
+      "DOI:10.3389/fnins.2023.1189470",
+      "DOI:10.3389/fnmol.2017.00263",
+      "DOI:10.3389/fnmol.2020.00078",
+      "DOI:10.3389/fnmol.2022.1000183",
+      "DOI:10.3389/fnmol.2023.1172197",
+      "DOI:10.3390/jcm13020578",
+      "PMID:26515619",
+      "PMID:31036551",
+      "PMID:33602010",
+      "PMID:38891774"
     ],
     "genes": [],
     "treatments": [
@@ -44789,6 +53842,10 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:33477816",
+      "PMID:41514563"
+    ],
     "genes": [
       "JAK2",
       "CALR",
@@ -44855,6 +53912,29 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "DOI:10.1007/s00401-024-02834-7",
+      "DOI:10.1007/s12149-024-01958-w",
+      "DOI:10.1038/s41591-024-02973-0",
+      "DOI:10.1101/2024.02.09.579529",
+      "DOI:10.1136/jnnp-2023-332862",
+      "DOI:10.1186/s12974-024-03039-1",
+      "DOI:10.1212/nxg.0000000000000670",
+      "DOI:10.1212/wnl.0000000000009842",
+      "DOI:10.1212/wnl.0000000000201403",
+      "DOI:10.1212/wnl.0000000000209924",
+      "DOI:10.3233/jad-230912",
+      "DOI:10.3389/fnagi.2018.00230",
+      "DOI:10.3389/fneur.2013.00212",
+      "DOI:10.3389/fneur.2022.910054",
+      "DOI:10.3389/fnins.2019.00304",
+      "PMID:19300609",
+      "PMID:21666264",
+      "PMID:25765123",
+      "PMID:27999880",
+      "PMID:33618891",
+      "PMID:38347588"
     ],
     "genes": [
       "MAPT",
@@ -44930,6 +54010,15 @@ window.searchData = [
     "frequencies": [
       "FREQUENT",
       "VERY_FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.1016/j.lanepe.2024.101002",
+      "DOI:10.1097/hep.0000000000001093",
+      "DOI:10.3390/cells13191650",
+      "DOI:10.3390/cells13231997",
+      "PMID:39250501",
+      "PMID:39404413",
+      "clinicaltrials:NCT06037577"
     ],
     "genes": [
       "HLA-DRB1*03",
@@ -45032,6 +54121,63 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.1007/s00428-023-03516-7",
+      "DOI:10.1007/s12070-024-04719-3",
+      "DOI:10.1007/s12105-020-01135-1",
+      "DOI:10.1080/17474086.2018.1506326",
+      "DOI:10.1186/s13000-020-00936-w",
+      "DOI:10.3390/ijms252313213",
+      "DOI:10.4084/mjhid.2024.042",
+      "DOI:10.7759/cureus.78628",
+      "PMID:10592134",
+      "PMID:11107690",
+      "PMID:11338097",
+      "PMID:11709688",
+      "PMID:12643362",
+      "PMID:15252219",
+      "PMID:16613685",
+      "PMID:18381106",
+      "PMID:18479855",
+      "PMID:19558906",
+      "PMID:20359581",
+      "PMID:20422687",
+      "PMID:20440503",
+      "PMID:20466616",
+      "PMID:20706049",
+      "PMID:2190267",
+      "PMID:23790512",
+      "PMID:24387945",
+      "PMID:28351195",
+      "PMID:28876549",
+      "PMID:29025800",
+      "PMID:29571929",
+      "PMID:30639969",
+      "PMID:30709635",
+      "PMID:31785002",
+      "PMID:31894937",
+      "PMID:32352191",
+      "PMID:32719287",
+      "PMID:32725379",
+      "PMID:32755987",
+      "PMID:33091144",
+      "PMID:34600539",
+      "PMID:34754855",
+      "PMID:35314548",
+      "PMID:35373599",
+      "PMID:36943852",
+      "PMID:37997620",
+      "PMID:38044117",
+      "PMID:38742359",
+      "PMID:38779794",
+      "PMID:3891063",
+      "PMID:39080655",
+      "PMID:6583472",
+      "PMID:6690005",
+      "PMID:6931618",
+      "PMID:8189757",
+      "PMID:9157474"
     ],
     "genes": [],
     "treatments": [
@@ -45147,6 +54293,18 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL",
       "VERY_RARE"
+    ],
+    "evidence_references": [
+      "PMID:25205257",
+      "PMID:33093405",
+      "PMID:37110221",
+      "PMID:37482098",
+      "PMID:37689673",
+      "PMID:38132258",
+      "PMID:38200289",
+      "PMID:38992300",
+      "PMID:39681572",
+      "PMID:39695809"
     ],
     "genes": [
       "PCCA or PCCB variants"
@@ -45289,6 +54447,33 @@ window.searchData = [
       "OCCASIONAL",
       "VERY_RARE"
     ],
+    "evidence_references": [
+      "DOI:10.1038/s41598-021-86029-0",
+      "DOI:10.1038/srep17162",
+      "DOI:10.1055/a-2300-7002",
+      "DOI:10.1093/hmg/ddz116",
+      "DOI:10.1101/2024.01.26.577324",
+      "DOI:10.1101/mcs.a006134",
+      "DOI:10.1136/jmg-2024-110173",
+      "DOI:10.1186/s13023-023-03013-9",
+      "PMID:20301661",
+      "PMID:22876373",
+      "PMID:25009745",
+      "PMID:28661492",
+      "PMID:33987133",
+      "PMID:34668833",
+      "PMID:36113118",
+      "PMID:37692275",
+      "PMID:37975355",
+      "PMID:38074478",
+      "PMID:40058215",
+      "clinicaltrials:NCT00001403",
+      "clinicaltrials:NCT02594215",
+      "clinicaltrials:NCT03094832",
+      "clinicaltrials:NCT03317366",
+      "clinicaltrials:NCT04316546",
+      "clinicaltrials:NCT04980872"
+    ],
     "genes": [
       "AKT1"
     ],
@@ -45337,6 +54522,11 @@ window.searchData = [
       "HP:0200036"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "DOI:10.3389/fimmu.2023.1301817",
+      "PMID:37506977",
+      "PMID:38345154"
+    ],
     "genes": [],
     "treatments": [],
     "environmental": [],
@@ -45440,6 +54630,17 @@ window.searchData = [
       "OCCASIONAL",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:10695258",
+      "PMID:25905388",
+      "PMID:29959430",
+      "PMID:32481259",
+      "PMID:35410271",
+      "PMID:37014531",
+      "PMID:38103632",
+      "PMID:38423572",
+      "PMID:40972900"
+    ],
     "genes": [
       "GNAS"
     ],
@@ -45530,6 +54731,23 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "DOI:10.1007/s10787-024-01602-z",
+      "DOI:10.31661/gmj.vi.3854",
+      "DOI:10.3389/fimmu.2024.1331217",
+      "DOI:10.3389/fimmu.2025.1573905",
+      "DOI:10.3389/fimmu.2025.1643418",
+      "DOI:10.3390/ijms251810152",
+      "DOI:10.3390/jpm14050535",
+      "DOI:10.7759/cureus.68569",
+      "PMID:11069504",
+      "PMID:15708928",
+      "PMID:26131859",
+      "PMID:29928910",
+      "PMID:38686385",
+      "PMID:39337637",
+      "PMID:39576422"
     ],
     "genes": [
       "HLA-C*06:02",
@@ -45627,6 +54845,31 @@ window.searchData = [
     "frequencies": [
       "COMMON",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "DOI:10.1002/art.11331",
+      "DOI:10.1002/art.43286",
+      "DOI:10.1007/s11926-024-01144-x",
+      "DOI:10.1101/2025.08.26.25334362",
+      "DOI:10.1111/exd.12572",
+      "DOI:10.1111/exd.15151",
+      "DOI:10.1126/sciimmunol.adu0284",
+      "DOI:10.1155/2019/1824624",
+      "DOI:10.3389/fimmu.2023.1081256",
+      "DOI:10.3389/fimmu.2023.1100869",
+      "DOI:10.3389/fmed.2019.00014",
+      "DOI:10.3389/fphar.2021.672515",
+      "DOI:10.3390/nu17081323",
+      "DOI:10.3899/jrheum.2024-0593",
+      "DOI:10.3899/jrheum.2025-0273",
+      "DOI:10.46497/archrheumatol.2025.10934",
+      "PMID:14613270",
+      "PMID:2095178",
+      "PMID:21549221",
+      "PMID:22133017",
+      "PMID:32159793",
+      "PMID:36902329",
+      "PMID:40528683"
     ],
     "genes": [],
     "treatments": [
@@ -45732,6 +54975,13 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1038/s41392-025-02287-8",
+      "DOI:10.1038/s41598-024-64251-w",
+      "DOI:10.1164/rccm.202302-0327so",
+      "DOI:10.31083/j.rcm2506217",
+      "PMID:39581144"
+    ],
     "genes": [
       "BMPR2",
       "SMAD9",
@@ -45809,6 +55059,11 @@ window.searchData = [
       "HP:0000239"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:21569238",
+      "PMID:27558267",
+      "PMID:8703060"
+    ],
     "genes": [
       "CTSK Mutations"
     ],
@@ -45884,6 +55139,10 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:21221869",
+      "PMID:39502057"
     ],
     "genes": [
       "RET"
@@ -45967,6 +55226,11 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:32657049",
+      "PMID:35220468",
+      "PMID:38110308"
+    ],
     "genes": [
       "RET",
       "KIF5B"
@@ -46049,6 +55313,11 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:31720561",
+      "PMID:32327173",
+      "PMID:32657049"
     ],
     "genes": [
       "ROS1",
@@ -46134,6 +55403,16 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:26843488",
+      "PMID:26936822",
+      "PMID:27493202",
+      "PMID:29528978",
+      "PMID:32012938",
+      "PMID:35806195",
+      "PMID:36004681",
+      "PMID:37541846"
+    ],
     "genes": [
       "RPGR"
     ],
@@ -46209,6 +55488,14 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:19835880",
+      "PMID:26432584",
+      "PMID:32115705",
+      "PMID:35222090",
+      "PMID:37558300",
+      "PMID:39835466"
+    ],
     "genes": [
       "RYR2 gain-of-function variants"
     ],
@@ -46263,6 +55550,9 @@ window.searchData = [
     ],
     "frequencies": [
       "VERY_FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:12144896"
     ],
     "genes": [],
     "treatments": [
@@ -46355,6 +55645,17 @@ window.searchData = [
       "VERY_RARE",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "DOI:10.1515/tjb-2023-0197",
+      "DOI:10.3390/biomedicines12061331",
+      "DOI:10.3390/ijms241814385",
+      "PMID:24418302",
+      "PMID:25770637",
+      "PMID:28281457",
+      "PMID:29237099",
+      "PMID:39040029",
+      "PMID:40506673"
+    ],
     "genes": [],
     "treatments": [
       "Calcium Channel Blockers",
@@ -46441,6 +55742,36 @@ window.searchData = [
       "OCCASIONAL",
       "COMMON"
     ],
+    "evidence_references": [
+      "DOI:10.1002/ncp.10474",
+      "DOI:10.1007/s00431-024-05430-9",
+      "DOI:10.12775/qs.2024.19.53773",
+      "DOI:10.25060/residpediatr-2024.v14n3-1101",
+      "DOI:10.3389/fphar.2023.1163442",
+      "DOI:10.3390/nu16193287",
+      "DOI:10.3390/nu17111866",
+      "PMID:19278172",
+      "PMID:19931071",
+      "PMID:29448987",
+      "PMID:36936877",
+      "PMID:38054139",
+      "PMID:39033818",
+      "PMID:39310593",
+      "PMID:39896956",
+      "PMID:39947042",
+      "PMID:40738722",
+      "PMID:40933623",
+      "PMID:41007088",
+      "PMID:41113144",
+      "PMID:41146174",
+      "PMID:41171118",
+      "PMID:41173142",
+      "PMID:41239620",
+      "PMID:41246683",
+      "PMID:41281097",
+      "clinicaltrials:NCT02488109",
+      "clinicaltrials:NCT04966858"
+    ],
     "genes": [],
     "treatments": [
       "Controlled refeeding and caloric advancement",
@@ -46504,6 +55835,18 @@ window.searchData = [
     ],
     "frequencies": [
       "COMMON"
+    ],
+    "evidence_references": [
+      "DOI:10.1038/s41420-025-02479-9",
+      "DOI:10.1038/s41467-023-37211-7",
+      "DOI:10.1038/s41581-023-00800-2",
+      "DOI:10.1038/s41586-024-07812-3",
+      "DOI:10.1136/jitc-2023-008226",
+      "DOI:10.3390/cancers16030601",
+      "PMID:28898679",
+      "PMID:29656891",
+      "PMID:39926260",
+      "PMID:6625621"
     ],
     "genes": [],
     "treatments": [
@@ -46581,6 +55924,10 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:41567907",
+      "PMID:5279523"
+    ],
     "genes": [
       "RB1"
     ],
@@ -46653,6 +56000,31 @@ window.searchData = [
     "frequencies": [
       "Common",
       "Variable"
+    ],
+    "evidence_references": [
+      "DOI:10.1002/jpn3.12193",
+      "DOI:10.1002/ohn.735",
+      "DOI:10.1002/oto2.70014",
+      "DOI:10.1007/s00405-024-08644-7",
+      "DOI:10.1111/nmo.14328",
+      "DOI:10.1152/ajpgi.00007.2012",
+      "DOI:10.1152/ajpgi.00292.2018",
+      "DOI:10.1177/19160216251329012",
+      "DOI:10.1177/2473974x19834553",
+      "DOI:10.1177/2473974x20938342",
+      "DOI:10.3389/fneur.2022.1005655",
+      "PMID:31236539",
+      "PMID:35122356",
+      "PMID:36054518",
+      "PMID:37621856",
+      "PMID:38115814",
+      "PMID:38576368",
+      "PMID:38587015",
+      "PMID:38767031",
+      "PMID:39883449",
+      "PMID:40411338",
+      "PMID:41200864",
+      "PMID:41506952"
     ],
     "genes": [],
     "treatments": [
@@ -46729,6 +56101,12 @@ window.searchData = [
     ],
     "frequencies": [
       "VERY_FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:10508514",
+      "PMID:23103540",
+      "PMID:24615633",
+      "PMID:36642718"
     ],
     "genes": [
       "MECP2"
@@ -46861,6 +56239,131 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:10879785",
+      "PMID:11055006",
+      "PMID:11196709",
+      "PMID:11358413",
+      "PMID:11899747",
+      "PMID:12455813",
+      "PMID:12860726",
+      "PMID:14969069",
+      "PMID:15163106",
+      "PMID:15266230",
+      "PMID:15353290",
+      "PMID:15588970",
+      "PMID:15790351",
+      "PMID:15838240",
+      "PMID:16542468",
+      "PMID:16818462",
+      "PMID:17544962",
+      "PMID:1757925",
+      "PMID:17634141",
+      "PMID:17893996",
+      "PMID:18300568",
+      "PMID:1862580",
+      "PMID:19474183",
+      "PMID:19788068",
+      "PMID:20072731",
+      "PMID:20453440",
+      "PMID:20559644",
+      "PMID:21468143",
+      "PMID:22035393",
+      "PMID:22166850",
+      "PMID:22608255",
+      "PMID:22609003",
+      "PMID:23083758",
+      "PMID:23763801",
+      "PMID:23926091",
+      "PMID:24217093",
+      "PMID:24336335",
+      "PMID:24447879",
+      "PMID:24461540",
+      "PMID:24527481",
+      "PMID:25005390",
+      "PMID:25172238",
+      "PMID:25437284",
+      "PMID:25697599",
+      "PMID:25748549",
+      "PMID:26199263",
+      "PMID:26403254",
+      "PMID:2661576",
+      "PMID:2661577",
+      "PMID:26803313",
+      "PMID:27151711",
+      "PMID:27278642",
+      "PMID:27424016",
+      "PMID:28043173",
+      "PMID:28393498",
+      "PMID:28451788",
+      "PMID:28516867",
+      "PMID:28597065",
+      "PMID:29037901",
+      "PMID:29039317",
+      "PMID:29100265",
+      "PMID:29256110",
+      "PMID:29287304",
+      "PMID:29745893",
+      "PMID:29848426",
+      "PMID:30412434",
+      "PMID:30572135",
+      "PMID:3067866",
+      "PMID:30864557",
+      "PMID:30936222",
+      "PMID:30957405",
+      "PMID:312016",
+      "PMID:31376890",
+      "PMID:31656153",
+      "PMID:31848495",
+      "PMID:31895885",
+      "PMID:31899521",
+      "PMID:32071294",
+      "PMID:32370106",
+      "PMID:32550671",
+      "PMID:32582191",
+      "PMID:32638005",
+      "PMID:3266362",
+      "PMID:32678001",
+      "PMID:32712723",
+      "PMID:32830085",
+      "PMID:33216192",
+      "PMID:33329548",
+      "PMID:33346115",
+      "PMID:33461622",
+      "PMID:33692806",
+      "PMID:34339393",
+      "PMID:34404786",
+      "PMID:34628456",
+      "PMID:34675934",
+      "PMID:34688020",
+      "PMID:34894251",
+      "PMID:34958010",
+      "PMID:35087087",
+      "PMID:35273387",
+      "PMID:35367240",
+      "PMID:35758965",
+      "PMID:35897715",
+      "PMID:35953230",
+      "PMID:35958604",
+      "PMID:36155967",
+      "PMID:36319009",
+      "PMID:36539129",
+      "PMID:36544060",
+      "PMID:37158761",
+      "PMID:37344292",
+      "PMID:37410796",
+      "PMID:37475055",
+      "PMID:37700346",
+      "PMID:37740125",
+      "PMID:38251565",
+      "PMID:38411210",
+      "PMID:38643104",
+      "PMID:7354699",
+      "PMID:8465574",
+      "PMID:8601050",
+      "PMID:9667624",
+      "PMID:9836373"
+    ],
     "genes": [
       "HLA-DRB1",
       "PTPN22",
@@ -46968,6 +56471,35 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.1016/j.jaci.2017.11.061",
+      "DOI:10.1038/ncomms9718",
+      "DOI:10.1038/s41433-023-02581-1",
+      "DOI:10.1038/s41525-017-0024-5",
+      "DOI:10.1073/pnas.2102569120",
+      "DOI:10.1101/2020.05.18.101246",
+      "PMID:10905663",
+      "PMID:21910238",
+      "PMID:21977988",
+      "PMID:24837766",
+      "PMID:26454315",
+      "PMID:26522830",
+      "PMID:28623346",
+      "PMID:29265708",
+      "PMID:29391254",
+      "PMID:30455926",
+      "PMID:31527858",
+      "PMID:32017208",
+      "PMID:33059947",
+      "PMID:35063500",
+      "PMID:35450878",
+      "PMID:36795902",
+      "PMID:36802443",
+      "PMID:37225827",
+      "PMID:37666272",
+      "PMID:4988135",
+      "PMID:8172269"
     ],
     "genes": [
       "RNU4ATAC"
@@ -47086,6 +56618,46 @@ window.searchData = [
       "OCCASIONAL",
       "RARE"
     ],
+    "evidence_references": [
+      "GEO:GSE155141",
+      "GEO:GSE277020",
+      "GEO:GSE303282",
+      "GEO:GSE65914",
+      "PMID:11582639",
+      "PMID:19428039",
+      "PMID:25151931",
+      "PMID:27718519",
+      "PMID:28150107",
+      "PMID:34035646",
+      "PMID:35392024",
+      "PMID:37626650",
+      "PMID:39823143",
+      "PMID:40522449",
+      "PMID:40567003",
+      "PMID:40635520",
+      "PMID:40791837",
+      "PMID:40827152",
+      "PMID:40835085",
+      "PMID:40860281",
+      "PMID:40890957",
+      "PMID:41017054",
+      "PMID:41058755",
+      "PMID:41087666",
+      "PMID:41139274",
+      "PMID:41203722",
+      "PMID:41222206",
+      "PMID:41426892",
+      "PMID:41562711",
+      "PMID:41694889",
+      "PMID:41695827",
+      "PMID:41800255",
+      "PMID:41909715",
+      "PMID:41918801",
+      "clinicaltrials:NCT00126399",
+      "clinicaltrials:NCT01493947",
+      "clinicaltrials:NCT03380390",
+      "clinicaltrials:NCT05616923"
+    ],
     "genes": [
       "IRF1",
       "SLC22A5",
@@ -47181,6 +56753,17 @@ window.searchData = [
     "frequencies": [
       "HP_0040281"
     ],
+    "evidence_references": [
+      "DOI:10.1016/j.bone.2020.115579",
+      "DOI:10.1172/jci83926",
+      "DOI:10.1182/blood.v97.3.729",
+      "DOI:10.1371/journal.pone.0060264",
+      "PMID:10053006",
+      "PMID:10377013",
+      "PMID:19039991",
+      "PMID:24352917",
+      "PMID:38993719"
+    ],
     "genes": [
       "FGFR3 K650M mutation"
     ],
@@ -47273,6 +56856,15 @@ window.searchData = [
       "HP:0000453"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:11471164",
+      "PMID:15103725",
+      "PMID:20850526",
+      "PMID:29761634",
+      "PMID:29992659",
+      "PMID:32939873",
+      "PMID:34576017"
+    ],
     "genes": [
       "SHH loss-of-function variants"
     ],
@@ -47320,6 +56912,12 @@ window.searchData = [
       "HP:0004442"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:21681813",
+      "PMID:27606499",
+      "PMID:32499606",
+      "PMID:36414630"
+    ],
     "genes": [
       "SMAD6"
     ],
@@ -47390,6 +56988,16 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL",
       "RARE"
+    ],
+    "evidence_references": [
+      "PMID:19032739",
+      "PMID:25403219",
+      "PMID:25759019",
+      "PMID:26169613",
+      "PMID:28596197",
+      "PMID:29186568",
+      "PMID:33860896",
+      "PMID:35768194"
     ],
     "genes": [
       "SUFU"
@@ -47488,6 +57096,23 @@ window.searchData = [
       "HP:0000718"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "DOI:10.1038/s41598-025-12682-4",
+      "DOI:10.1126/sciadv.ade8346",
+      "PMID:24993898",
+      "PMID:28662915",
+      "PMID:29875421",
+      "PMID:33862140",
+      "PMID:34667062",
+      "PMID:35796883",
+      "PMID:37713976",
+      "PMID:37727271",
+      "PMID:39257666",
+      "PMID:39742826",
+      "PMID:39991440",
+      "PMID:40529477",
+      "clinicaltrials:NCT03047369"
+    ],
     "genes": [
       "SLC17A5"
     ],
@@ -47577,6 +57202,23 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:21410903",
+      "PMID:22596102",
+      "PMID:24663253",
+      "PMID:24882950",
+      "PMID:25506722",
+      "PMID:26376720",
+      "PMID:31485575",
+      "PMID:32407763",
+      "PMID:33173272",
+      "PMID:35011621",
+      "PMID:35156713",
+      "PMID:36778180",
+      "PMID:38227868",
+      "PMID:39082153",
+      "PMID:41095908"
     ],
     "genes": [
       "HLA-DRB1 Variants",
@@ -47694,6 +57336,22 @@ window.searchData = [
       "VERY_RARE",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:12039433",
+      "PMID:15069249",
+      "PMID:16972238",
+      "PMID:17405137",
+      "PMID:23186907",
+      "PMID:25736532",
+      "PMID:28215594",
+      "PMID:28267828",
+      "PMID:28940615",
+      "PMID:31217029",
+      "PMID:32429959",
+      "PMID:36749015",
+      "PMID:36930111",
+      "PMID:9804090"
+    ],
     "genes": [
       "No established monogenic etiology"
     ],
@@ -47753,6 +57411,10 @@ window.searchData = [
     "frequencies": [
       "COMMON"
     ],
+    "evidence_references": [
+      "PMID:30755943",
+      "PMID:35298417"
+    ],
     "genes": [],
     "treatments": [
       "Permethrin cream or ivermectin"
@@ -47810,6 +57472,10 @@ window.searchData = [
     "frequencies": [
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:24698483",
+      "PMID:30093684"
     ],
     "genes": [],
     "treatments": [
@@ -47898,6 +57564,116 @@ window.searchData = [
       "FREQUENT",
       "COMMON",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:10082190",
+      "PMID:10225329",
+      "PMID:10372507",
+      "PMID:11103877",
+      "PMID:11122987",
+      "PMID:11478416",
+      "PMID:11532718",
+      "PMID:11684348",
+      "PMID:12769630",
+      "PMID:14514482",
+      "PMID:15162166",
+      "PMID:15176765",
+      "PMID:15846745",
+      "PMID:16452608",
+      "PMID:16520822",
+      "PMID:16885207",
+      "PMID:17156977",
+      "PMID:17477206",
+      "PMID:17716100",
+      "PMID:17845145",
+      "PMID:18366307",
+      "PMID:18474210",
+      "PMID:18480098",
+      "PMID:18715755",
+      "PMID:19328655",
+      "PMID:1981107",
+      "PMID:19862852",
+      "PMID:20021319",
+      "PMID:20053864",
+      "PMID:20302823",
+      "PMID:20587767",
+      "PMID:20600464",
+      "PMID:20846490",
+      "PMID:2084786",
+      "PMID:20880828",
+      "PMID:21068828",
+      "PMID:21545448",
+      "PMID:21860049",
+      "PMID:22308256",
+      "PMID:22351070",
+      "PMID:22814247",
+      "PMID:23172002",
+      "PMID:23244011",
+      "PMID:23573605",
+      "PMID:23773889",
+      "PMID:23846857",
+      "PMID:24056909",
+      "PMID:24128684",
+      "PMID:24677735",
+      "PMID:24957864",
+      "PMID:24968777",
+      "PMID:24986384",
+      "PMID:25432637",
+      "PMID:25773224",
+      "PMID:26168930",
+      "PMID:26232243",
+      "PMID:26467909",
+      "PMID:26753951",
+      "PMID:26968981",
+      "PMID:27206569",
+      "PMID:27335156",
+      "PMID:28142064",
+      "PMID:28242515",
+      "PMID:28437056",
+      "PMID:28637195",
+      "PMID:28754595",
+      "PMID:29135426",
+      "PMID:29151090",
+      "PMID:29954475",
+      "PMID:30104335",
+      "PMID:30177576",
+      "PMID:30285728",
+      "PMID:30286368",
+      "PMID:30488088",
+      "PMID:31327504",
+      "PMID:31390645",
+      "PMID:31699627",
+      "PMID:31708048",
+      "PMID:31839552",
+      "PMID:32393158",
+      "PMID:32464195",
+      "PMID:32614046",
+      "PMID:33485408",
+      "PMID:33544627",
+      "PMID:34584230",
+      "PMID:34785041",
+      "PMID:35102081",
+      "PMID:35383683",
+      "PMID:35390609",
+      "PMID:35752547",
+      "PMID:36050663",
+      "PMID:36252418",
+      "PMID:37027026",
+      "PMID:37040138",
+      "PMID:37116354",
+      "PMID:37185055",
+      "PMID:37271040",
+      "PMID:37655417",
+      "PMID:37752221",
+      "PMID:37783300",
+      "PMID:39348",
+      "PMID:7654792",
+      "PMID:8626371",
+      "PMID:8749891",
+      "PMID:8823348",
+      "PMID:9278185",
+      "PMID:949230",
+      "PMID:9789265"
     ],
     "genes": [
       "DRD2",
@@ -48006,6 +57782,16 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:11200994",
+      "PMID:17952091",
+      "PMID:19508970",
+      "PMID:25997753",
+      "PMID:31423530",
+      "PMID:35934917",
+      "PMID:3799723",
+      "PMID:38058750"
+    ],
     "genes": [
       "SLC35D1 Loss-of-Function Mutations",
       "INPPL1 Mutations (Second Locus)"
@@ -48090,6 +57876,28 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:16638549",
+      "PMID:20093947",
+      "PMID:29054305",
+      "PMID:34210367",
+      "PMID:34318016",
+      "PMID:34396590",
+      "PMID:35804238",
+      "PMID:36093138",
+      "PMID:38634941",
+      "PMID:40046954",
+      "PMID:40051748",
+      "PMID:40110298",
+      "PMID:41054308",
+      "PMID:41070433",
+      "PMID:41556875",
+      "PMID:41625718",
+      "PMID:41625720",
+      "clinicaltrials:NCT00891527",
+      "clinicaltrials:NCT01548950",
+      "clinicaltrials:NCT03431649"
+    ],
     "genes": [
       "Genetic underpinnings"
     ],
@@ -48154,6 +57962,11 @@ window.searchData = [
       "HP:6000411"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:11179006",
+      "PMID:11181578",
+      "PMID:187366"
+    ],
     "genes": [
       "SOST Mutations"
     ],
@@ -48223,6 +58036,20 @@ window.searchData = [
     "frequencies": [
       "FREQUENT",
       "VERY_FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.1007/s40124-024-00315-9",
+      "DOI:10.1016/j.cardiores.2006.05.005",
+      "DOI:10.1038/s41598-024-56326-5",
+      "DOI:10.1093/nar/gkac941",
+      "DOI:10.1182/blood.2019004158",
+      "DOI:10.1186/s12888-020-02730-w",
+      "DOI:10.3389/fnut.2023.1265334",
+      "DOI:10.3390/diseases11020078",
+      "DOI:10.3390/molecules30030748",
+      "DOI:10.37275/bsm.v8i9.1066",
+      "PMID:37366866",
+      "PMID:37915623"
     ],
     "genes": [],
     "treatments": [
@@ -48308,6 +58135,27 @@ window.searchData = [
       "HP:0001000"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:16283346",
+      "PMID:19111149",
+      "PMID:20592880",
+      "PMID:22670617",
+      "PMID:25267545",
+      "PMID:27072777",
+      "PMID:30828791",
+      "PMID:35967915",
+      "PMID:36222212",
+      "PMID:37325288",
+      "PMID:40965088",
+      "PMID:40965095",
+      "PMID:40965103",
+      "PMID:41089687",
+      "PMID:41153741",
+      "clinicaltrials:NCT04091646",
+      "clinicaltrials:NCT04445987",
+      "clinicaltrials:NCT04973228",
+      "clinicaltrials:NCT07404033"
+    ],
     "genes": [],
     "treatments": [
       "Topical antifungal therapy",
@@ -48353,6 +58201,11 @@ window.searchData = [
       "HP:0000822"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "DOI:10.1186/s12882-025-04252-7",
+      "PMID:37115960",
+      "PMID:39729595"
+    ],
     "genes": [],
     "treatments": [],
     "environmental": [],
@@ -48407,6 +58260,34 @@ window.searchData = [
     "frequencies": [
       "COMMON",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "DOI:10.1002/alz.055310",
+      "DOI:10.1002/alz.12394",
+      "DOI:10.1002/alz.13915",
+      "DOI:10.1016/j.jalz.2017.06.2012",
+      "DOI:10.1016/j.nicl.2020.102369",
+      "DOI:10.1038/s41598-020-72847-1",
+      "DOI:10.1073/pnas.0707383104",
+      "DOI:10.1080/13554794.2019.1690665",
+      "DOI:10.1093/brain/awaa317",
+      "DOI:10.1093/brain/awaf369",
+      "DOI:10.1093/jnen/nlae032",
+      "DOI:10.1111/nan.12100",
+      "DOI:10.1111/neup.12859",
+      "DOI:10.1155/2021/9796576",
+      "DOI:10.1186/s13024-021-00503-x",
+      "DOI:10.1186/s13195-020-00600-x",
+      "DOI:10.1212/wn9.0000000000000064",
+      "DOI:10.3389/fnagi.2020.00268",
+      "DOI:10.3389/fncel.2025.1671419",
+      "DOI:10.3389/fnins.2018.00523",
+      "DOI:10.3390/ijms232415755",
+      "DOI:10.3390/ijms241411732",
+      "PMID:11287367",
+      "PMID:1706358",
+      "PMID:28286641",
+      "PMID:41089414"
     ],
     "genes": [],
     "treatments": [
@@ -48489,6 +58370,21 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1016/j.joto.2022.12.005",
+      "DOI:10.1097/01.mao.0000244370.47320.9a",
+      "DOI:10.1097/01.mlg.0000150702.28451.35",
+      "DOI:10.1097/mao.0b013e318161ab24",
+      "DOI:10.1177/000348941212100102",
+      "DOI:10.3389/fneur.2020.00891",
+      "DOI:10.3389/fneur.2021.704095",
+      "DOI:10.3389/fneur.2022.1035478",
+      "PMID:16222184",
+      "PMID:18223508",
+      "PMID:22312921",
+      "PMID:32982922",
+      "PMID:36742050"
+    ],
     "genes": [],
     "treatments": [
       "Observation and Symptom Management",
@@ -48569,6 +58465,21 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "VERY_RARE"
+    ],
+    "evidence_references": [
+      "DOI:10.1002/ana.10214",
+      "DOI:10.1002/iub.2767",
+      "DOI:10.1007/s10545-014-9759-7",
+      "DOI:10.1007/s11897-023-00592-3",
+      "DOI:10.1016/j.ymgme.2012.11.282",
+      "DOI:10.1091/mbc.e20-06-0390",
+      "DOI:10.1186/s13052-022-01370-y",
+      "DOI:10.1186/s40246-025-00723-y",
+      "DOI:10.3389/fped.2021.639687",
+      "DOI:10.3390/ijms222413484",
+      "PMID:34164355",
+      "PMID:38933059",
+      "PMID:8526648"
     ],
     "genes": [
       "AGK"
@@ -48667,6 +58578,14 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:20856114",
+      "PMID:29493962",
+      "PMID:32940644",
+      "PMID:36409683",
+      "PMID:37952487",
+      "PMID:40915309"
+    ],
     "genes": [
       "NLRC4 (NOD-like receptor family CARD domain-containing 4)",
       "NLRP3 (NLR family pyrin domain containing 3)",
@@ -48753,6 +58672,14 @@ window.searchData = [
       "HP:0001561"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:19442771",
+      "PMID:19648123",
+      "PMID:21211617",
+      "PMID:22791528",
+      "PMID:24183449",
+      "PMID:25313840"
+    ],
     "genes": [
       "DYNC2H1 Mutations (SRP Type III/Verma-Naumoff)",
       "NEK1 Mutations (SRP Type II/Majewski)",
@@ -48831,6 +58758,18 @@ window.searchData = [
       "HP:0003319"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "DOI:10.1038/ejhg.2014.61",
+      "DOI:10.1038/nature24283",
+      "DOI:10.1038/ng.2421",
+      "DOI:10.1101/2021.02.12.431010",
+      "DOI:10.1136/jmedgenet-2021-107695",
+      "PMID:23023332",
+      "PMID:23103230",
+      "PMID:24736733",
+      "PMID:38186910",
+      "PMID:9508238"
+    ],
     "genes": [
       "SKI Mutations"
     ],
@@ -48933,6 +58872,30 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1001/jama.2008.598",
+      "DOI:10.1001/jama.294.1.81",
+      "DOI:10.1007/s00277-025-06216-1",
+      "DOI:10.1016/j.bvth.2024.100015",
+      "DOI:10.1056/nejmoa2309676",
+      "DOI:10.1080/17474086.2017.1327809",
+      "DOI:10.1182/blood-2013-04-495887",
+      "DOI:10.1182/blood-2013-10-529982",
+      "DOI:10.1182/hematology.2023000467",
+      "DOI:10.3389/fphys.2024.1369120",
+      "DOI:10.3389/fphys.2024.1474569",
+      "DOI:10.3390/jcm13216404",
+      "PMID:15998894",
+      "PMID:18667698",
+      "PMID:24277079",
+      "PMID:24620350",
+      "PMID:29614632",
+      "PMID:37331373",
+      "PMID:38547025",
+      "PMID:38661449",
+      "PMID:3965046",
+      "PMID:7715639"
+    ],
     "genes": [
       "HBB",
       "BCL11A",
@@ -49017,6 +58980,11 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:11404606",
+      "PMID:23946747",
+      "PMID:8152774"
+    ],
     "genes": [],
     "treatments": [
       "Functional Endoscopic Sinus Surgery",
@@ -49096,6 +59064,18 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "DOI:10.1016/j.heliyon.2024.e36220",
+      "DOI:10.1136/ard-2023-224842",
+      "DOI:10.1186/s13075-024-03283-z",
+      "DOI:10.21203/rs.3.rs-4371628/v1",
+      "DOI:10.3389/fimmu.2024.1405126",
+      "DOI:10.55563/clinexprheumatol/cmmkod",
+      "DOI:10.55563/clinexprheumatol/i8iszc",
+      "PMID:33911236",
+      "PMID:38542233",
+      "PMID:38982205"
+    ],
     "genes": [
       "HLA-DR3",
       "HLA-DQ2",
@@ -49172,6 +59152,9 @@ window.searchData = [
     "frequencies": [
       "Very frequent",
       "Occasional"
+    ],
+    "evidence_references": [
+      "PMID:11841538"
     ],
     "genes": [
       "DSP Compound Heterozygous Mutations"
@@ -49262,6 +59245,13 @@ window.searchData = [
       "VERY_FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:24734358",
+      "PMID:33687006",
+      "PMID:36399634",
+      "PMID:40931078",
+      "PMID:8166467"
+    ],
     "genes": [
       "TP53",
       "RB1",
@@ -49345,6 +59335,16 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1111/nmo.14817",
+      "DOI:10.12775/qs.2024.36.56729",
+      "DOI:10.20944/preprints202403.1571.v1",
+      "DOI:10.20944/preprints202504.0613.v2",
+      "DOI:10.3389/fmed.2024.1490506",
+      "DOI:10.3748/wjg.v29.i22.3400",
+      "DOI:10.5056/jnm22168",
+      "PMID:38798120"
+    ],
     "genes": [],
     "treatments": [
       "Antibiotic therapy",
@@ -49408,6 +59408,10 @@ window.searchData = [
       "COMMON",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:28905944",
+      "PMID:34430847"
+    ],
     "genes": [],
     "treatments": [
       "Antivenom administration"
@@ -49455,6 +59459,11 @@ window.searchData = [
     ],
     "frequencies": [
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:16679166",
+      "PMID:27929101",
+      "PMID:28882382"
     ],
     "genes": [],
     "treatments": [
@@ -49543,6 +59552,20 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:21849212",
+      "PMID:30286250",
+      "PMID:31162175",
+      "PMID:31527661",
+      "PMID:31747995",
+      "PMID:32047839",
+      "PMID:33083526",
+      "PMID:33117025",
+      "PMID:33335101",
+      "PMID:34179686",
+      "PMID:37072472",
+      "PMID:39827235"
+    ],
     "genes": [],
     "treatments": [
       "Lower Body Negative Pressure",
@@ -49625,6 +59648,26 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "DOI:10.1007/s00415-024-12724-3",
+      "DOI:10.1007/s00431-024-05886-9",
+      "DOI:10.1016/j.ejpn.2024.06.001",
+      "DOI:10.1042/bst20231116",
+      "DOI:10.1093/braincomms/fcae239",
+      "DOI:10.1172/jci.insight.180992",
+      "DOI:10.1186/s12915-024-01888-z",
+      "DOI:10.3233/jnd-230122",
+      "DOI:10.3389/fncel.2023.1307636",
+      "DOI:10.3390/genes15080999",
+      "DOI:10.3390/ijms25137311",
+      "DOI:10.3390/ijms252011210",
+      "PMID:16364894",
+      "PMID:18572081",
+      "PMID:29091570",
+      "PMID:29183396",
+      "PMID:34320287",
+      "PMID:35715567"
+    ],
     "genes": [
       "SMN1",
       "SMN2"
@@ -49702,6 +59745,14 @@ window.searchData = [
       "HP:0000407"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:17635842",
+      "PMID:18470895",
+      "PMID:28145000",
+      "PMID:29566257",
+      "PMID:33407338",
+      "PMID:39086440"
+    ],
     "genes": [
       "FLNB Biallelic Truncating Variants"
     ],
@@ -49808,6 +59859,21 @@ window.searchData = [
     ],
     "frequencies": [
       "VERY_FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:28882145",
+      "PMID:30610452",
+      "PMID:31862401",
+      "PMID:32295219",
+      "PMID:34159694",
+      "PMID:34193099",
+      "PMID:34807422",
+      "PMID:36101818",
+      "PMID:36727144",
+      "PMID:36756177",
+      "PMID:37657630",
+      "PMID:38609428",
+      "PMID:39738060"
     ],
     "genes": [
       "B4GALT7",
@@ -49929,6 +59995,18 @@ window.searchData = [
       "HP:0001762"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:12925722",
+      "PMID:16280719",
+      "PMID:17163530",
+      "PMID:18328979",
+      "PMID:25187577",
+      "PMID:25451152",
+      "PMID:25604898",
+      "PMID:26443184",
+      "PMID:40602718",
+      "PMID:7550321"
+    ],
     "genes": [
       "COL2A1"
     ],
@@ -50051,6 +60129,34 @@ window.searchData = [
     "frequencies": [
       "HP_0040281"
     ],
+    "evidence_references": [
+      "DOI:10.1002/dvdy.24131",
+      "DOI:10.1002/mgg3.1139",
+      "DOI:10.1073/pnas.1302703111",
+      "DOI:10.3389/fgene.2022.960504",
+      "PMID:10743764",
+      "PMID:11878179",
+      "PMID:12968670",
+      "PMID:1971141",
+      "PMID:22028304",
+      "PMID:22155431",
+      "PMID:24475193",
+      "PMID:25592122",
+      "PMID:25604898",
+      "PMID:26443184",
+      "PMID:29439465",
+      "PMID:30608389",
+      "PMID:31523532",
+      "PMID:31824186",
+      "PMID:31958497",
+      "PMID:35581182",
+      "PMID:38076483",
+      "PMID:3977716",
+      "PMID:39953747",
+      "PMID:6499247",
+      "PMID:6807266",
+      "PMID:7550321"
+    ],
     "genes": [
       "COL2A1 Mutations"
     ],
@@ -50151,6 +60257,16 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:19232556",
+      "PMID:20577006",
+      "PMID:22791502",
+      "PMID:24577120",
+      "PMID:24644033",
+      "PMID:24830047",
+      "PMID:39825918",
+      "PMID:41225599"
     ],
     "genes": [
       "TRPV4 Mutations"
@@ -50261,6 +60377,42 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:15557430",
+      "PMID:18541085",
+      "PMID:19217903",
+      "PMID:20633576",
+      "PMID:21296825",
+      "PMID:21849212",
+      "PMID:28941524",
+      "PMID:29416601",
+      "PMID:29422768",
+      "PMID:30154332",
+      "PMID:30430917",
+      "PMID:31160660",
+      "PMID:31527661",
+      "PMID:32047839",
+      "PMID:33369172",
+      "PMID:34431609",
+      "PMID:35243166",
+      "PMID:35608843",
+      "PMID:36359858",
+      "PMID:37108526",
+      "PMID:37834872",
+      "PMID:37940365",
+      "PMID:38064509",
+      "PMID:38753338",
+      "PMID:38837708",
+      "PMID:39201545",
+      "PMID:39838063",
+      "PMID:39971915",
+      "PMID:9054934",
+      "clinicaltrials:NCT02402660",
+      "clinicaltrials:NCT03364153",
+      "clinicaltrials:NCT05244304",
+      "clinicaltrials:NCT05956626",
+      "clinicaltrials:NCT07161544"
     ],
     "genes": [
       "ABCA4",
@@ -50376,6 +60528,19 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:10951229",
+      "PMID:12707034",
+      "PMID:15536433",
+      "PMID:19029983",
+      "PMID:22322005",
+      "PMID:22541332",
+      "PMID:28476287",
+      "PMID:29188475",
+      "PMID:29793265",
+      "PMID:34577817",
+      "PMID:7477195"
+    ],
     "genes": [
       "HLA-B*15:02 Allele",
       "HLA-B*58:01 Allele"
@@ -50460,6 +60625,22 @@ window.searchData = [
       "HP:0003088"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "DOI:10.1002/dvdy.1178",
+      "DOI:10.1073/pnas.2422338121",
+      "PMID:10353778",
+      "PMID:11007540",
+      "PMID:17675240",
+      "PMID:19089441",
+      "PMID:20179744",
+      "PMID:20462780",
+      "PMID:23110709",
+      "PMID:24475193",
+      "PMID:31389106",
+      "PMID:32039712",
+      "PMID:36729830",
+      "PMID:40146061"
+    ],
     "genes": [
       "COL2A1 Mutations"
     ],
@@ -50547,6 +60728,34 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "DOI:10.1002/acn3.51791",
+      "DOI:10.1002/mdc3.14328",
+      "DOI:10.1007/s00415-023-11777-0",
+      "DOI:10.1007/s00415-023-12123-0",
+      "DOI:10.1007/s00415-025-13157-2",
+      "DOI:10.1007/s44337-025-00321-w",
+      "DOI:10.1073/pnas.2315100121",
+      "DOI:10.1212/nxi.0000000000200109",
+      "DOI:10.1212/nxi.0000000000200165",
+      "DOI:10.1212/nxi.0000000000200373",
+      "DOI:10.1212/wnl.51.1.85",
+      "DOI:10.3389/fimmu.2024.1519032",
+      "DOI:10.3389/fneur.2020.01017",
+      "DOI:10.7326/0003-4819-131-7-199910050-00008",
+      "DOI:10.7759/cureus.67887",
+      "PMID:10839351",
+      "PMID:11050023",
+      "PMID:11552003",
+      "PMID:11756577",
+      "PMID:15210535",
+      "PMID:15956168",
+      "PMID:16301686",
+      "PMID:3281011",
+      "PMID:35084720",
+      "PMID:37059468",
+      "PMID:40953327"
+    ],
     "genes": [
       "HLA-DRB1"
     ],
@@ -50611,6 +60820,9 @@ window.searchData = [
     ],
     "frequencies": [
       "Very frequent"
+    ],
+    "evidence_references": [
+      "PMID:9887343"
     ],
     "genes": [
       "DSP Heterozygous Null Mutations"
@@ -50684,6 +60896,11 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:15208645",
+      "PMID:32092619",
+      "PMID:9930576"
     ],
     "genes": [
       "SS18-SSX Fusion"
@@ -50832,6 +61049,120 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:12055395",
+      "PMID:12136236",
+      "PMID:12481500",
+      "PMID:1356074",
+      "PMID:14550881",
+      "PMID:14717922",
+      "PMID:15379880",
+      "PMID:15580984",
+      "PMID:15744116",
+      "PMID:158982",
+      "PMID:16218467",
+      "PMID:16530602",
+      "PMID:16572034",
+      "PMID:16966017",
+      "PMID:1751313",
+      "PMID:17711886",
+      "PMID:17910142",
+      "PMID:18325838",
+      "PMID:19013374",
+      "PMID:19591780",
+      "PMID:20414746",
+      "PMID:20453440",
+      "PMID:20962850",
+      "PMID:2203596",
+      "PMID:22127708",
+      "PMID:22192660",
+      "PMID:22192934",
+      "PMID:22301032",
+      "PMID:22312827",
+      "PMID:22385883",
+      "PMID:22832822",
+      "PMID:22999705",
+      "PMID:23164669",
+      "PMID:23251221",
+      "PMID:23456415",
+      "PMID:23846232",
+      "PMID:23912645",
+      "PMID:24763535",
+      "PMID:24763542",
+      "PMID:24834763",
+      "PMID:24992143",
+      "PMID:25022358",
+      "PMID:25037258",
+      "PMID:25183233",
+      "PMID:25216337",
+      "PMID:25318967",
+      "PMID:26170228",
+      "PMID:26233721",
+      "PMID:26330673",
+      "PMID:26494589",
+      "PMID:26951252",
+      "PMID:27590999",
+      "PMID:27709413",
+      "PMID:27742023",
+      "PMID:28078597",
+      "PMID:28130918",
+      "PMID:2860699",
+      "PMID:28623084",
+      "PMID:28900675",
+      "PMID:28941498",
+      "PMID:29087262",
+      "PMID:29224677",
+      "PMID:29503043",
+      "PMID:29925508",
+      "PMID:30009962",
+      "PMID:30375754",
+      "PMID:30454753",
+      "PMID:30488801",
+      "PMID:30631001",
+      "PMID:30988213",
+      "PMID:31082500",
+      "PMID:31232672",
+      "PMID:31507126",
+      "PMID:31575058",
+      "PMID:31909888",
+      "PMID:31943822",
+      "PMID:32237942",
+      "PMID:32295853",
+      "PMID:32725543",
+      "PMID:32884126",
+      "PMID:32896257",
+      "PMID:32956154",
+      "PMID:330103",
+      "PMID:33216192",
+      "PMID:33626435",
+      "PMID:33841392",
+      "PMID:34402453",
+      "PMID:34525002",
+      "PMID:34996081",
+      "PMID:35049409",
+      "PMID:3521977",
+      "PMID:35383534",
+      "PMID:35775489",
+      "PMID:35872103",
+      "PMID:36211391",
+      "PMID:36245280",
+      "PMID:36251502",
+      "PMID:36332998",
+      "PMID:36469203",
+      "PMID:36535611",
+      "PMID:36537191",
+      "PMID:36555640",
+      "PMID:37712757",
+      "PMID:37771217",
+      "PMID:37801591",
+      "PMID:38113962",
+      "PMID:38146370",
+      "PMID:6103441",
+      "PMID:7763220",
+      "PMID:8130682",
+      "PMID:8153398",
+      "PMID:9287379"
+    ],
     "genes": [
       "HLA-DR2",
       "HLA-DR3",
@@ -50950,6 +61281,25 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "DOI:10.1007/s00296-024-05699-x",
+      "DOI:10.1007/s10238-022-00841-0",
+      "DOI:10.1038/s41467-023-44541-z",
+      "DOI:10.1038/s41467-023-44645-6",
+      "DOI:10.1136/rmdopen-2023-003148",
+      "DOI:10.31138/mjr.270324.tis",
+      "DOI:10.3389/fimmu.2025.1551911",
+      "DOI:10.3389/fmolb.2023.1215039",
+      "DOI:10.3390/biomedicines12061331",
+      "DOI:10.3390/cimb45100490",
+      "DOI:10.3390/ijms25094728",
+      "DOI:10.3390/ijms26062421",
+      "DOI:10.53941/jmai.2025.100005",
+      "DOI:10.55563/clinexprheumatol/is29he",
+      "PMID:38147960",
+      "PMID:38296975",
+      "PMID:38927538"
+    ],
     "genes": [
       "HLA-DRB1",
       "IRF5",
@@ -51054,6 +61404,14 @@ window.searchData = [
       "RARE",
       "VERY_FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:24259342",
+      "PMID:30462380",
+      "PMID:34031074",
+      "PMID:36944446",
+      "PMID:37340830",
+      "PMID:39080280"
+    ],
     "genes": [
       "RBM10",
       "NUMB",
@@ -51138,6 +61496,11 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:11501939",
+      "PMID:25284770",
+      "PMID:30760895"
     ],
     "genes": [
       "TGFBI Missense Mutations"
@@ -51242,6 +61605,11 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:12070241",
+      "PMID:19676060",
+      "PMID:20556892"
+    ],
     "genes": [
       "TP63 Heterozygous Mutations"
     ],
@@ -51295,6 +61663,10 @@ window.searchData = [
     ],
     "frequencies": [
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:12932389",
+      "PMID:32461308"
     ],
     "genes": [],
     "treatments": [
@@ -51371,6 +61743,9 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:29191819"
     ],
     "genes": [],
     "treatments": [
@@ -51449,6 +61824,27 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "DOI:10.1242/dev.202899",
+      "DOI:10.3390/ijms25105179",
+      "DOI:10.5144/0256-4947.2021.232",
+      "GEO:GSE166358",
+      "GEO:GSE228411",
+      "GEO:GSE255946",
+      "PMID:10466415",
+      "PMID:12775010",
+      "PMID:15666299",
+      "PMID:18363703",
+      "PMID:25629078",
+      "PMID:278704",
+      "PMID:31914354",
+      "PMID:34897365",
+      "PMID:37128323",
+      "PMID:745217",
+      "clinicaltrials:NCT01746121",
+      "clinicaltrials:NCT03810859",
+      "clinicaltrials:NCT07250906"
     ],
     "genes": [
       "WNT10A",
@@ -51534,6 +61930,21 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:11216898",
+      "PMID:11500789",
+      "PMID:12108829",
+      "PMID:19820796",
+      "PMID:22025593",
+      "PMID:24011710",
+      "PMID:24534057",
+      "PMID:25143775",
+      "PMID:27491214",
+      "PMID:29618308",
+      "PMID:35145305",
+      "PMID:40710901",
+      "PMID:7732608"
     ],
     "genes": [
       "HEXA"
@@ -51634,6 +62045,30 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:18203178",
+      "PMID:20683999",
+      "PMID:25420144",
+      "PMID:25629734",
+      "PMID:26264464",
+      "PMID:26818738",
+      "PMID:27267311",
+      "PMID:27282200",
+      "PMID:32560786",
+      "PMID:32956079",
+      "PMID:33594261",
+      "PMID:33811134",
+      "PMID:35639255",
+      "PMID:36285361",
+      "PMID:37817707",
+      "PMID:38372889",
+      "PMID:40604848",
+      "PMID:40986435",
+      "PMID:41656275",
+      "clinicaltrials:NCT06278428",
+      "clinicaltrials:NCT06380192",
+      "clinicaltrials:NCT06700811"
+    ],
     "genes": [
       "KCNH1 pathogenic variants"
     ],
@@ -51701,6 +62136,13 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:11484687",
+      "PMID:29880477",
+      "PMID:38888005",
+      "PMID:39056027",
+      "PMID:9046965"
     ],
     "genes": [],
     "treatments": [
@@ -51770,6 +62212,10 @@ window.searchData = [
     ],
     "frequencies": [
       "Very frequent"
+    ],
+    "evidence_references": [
+      "PMID:20598277",
+      "PMID:26059211"
     ],
     "genes": [
       "FLNA c.5217G>A Recurrent Mutation"
@@ -51859,6 +62305,17 @@ window.searchData = [
       "OCCASIONAL",
       "VERY_RARE"
     ],
+    "evidence_references": [
+      "PMID:36835562",
+      "PMID:37024667",
+      "PMID:37175579",
+      "PMID:37820296",
+      "PMID:37891379",
+      "PMID:37967143",
+      "PMID:38275869",
+      "PMID:38541652",
+      "PMID:38791003"
+    ],
     "genes": [
       "KIT",
       "KRAS",
@@ -51947,6 +62404,14 @@ window.searchData = [
       "HP:0002878"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:32913098",
+      "PMID:34790820",
+      "PMID:35333944",
+      "PMID:38822438",
+      "PMID:40543524",
+      "PMID:40789865"
+    ],
     "genes": [],
     "treatments": [
       "Tetanus Immunoglobulin (TIG)",
@@ -52048,6 +62513,20 @@ window.searchData = [
     "frequencies": [
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "GEO:GSE213589",
+      "GEO:GSE269635",
+      "PMID:11192464",
+      "PMID:14579545",
+      "PMID:15252192",
+      "PMID:28761262",
+      "PMID:31335706",
+      "PMID:33438838",
+      "PMID:36403832",
+      "PMID:36537175",
+      "PMID:40884943",
+      "PMID:6338655"
     ],
     "genes": [],
     "treatments": [
@@ -52174,6 +62653,20 @@ window.searchData = [
       "HP_0040284",
       "HP_0040282"
     ],
+    "evidence_references": [
+      "DOI:10.1002/bdrc.10025",
+      "DOI:10.1172/jci.insight.189307",
+      "DOI:10.3390/ijms23147817",
+      "PMID:18698630",
+      "PMID:18923003",
+      "PMID:20301540",
+      "PMID:25231866",
+      "PMID:7773297",
+      "PMID:8845844",
+      "PMID:9582336",
+      "PMID:9811582",
+      "PMID:9887329"
+    ],
     "genes": [
       "FGFR3 gain-of-function mutations"
     ],
@@ -52276,6 +62769,25 @@ window.searchData = [
       "HP_0040281",
       "HP_0040282"
     ],
+    "evidence_references": [
+      "PMID:14751560",
+      "PMID:15843401",
+      "PMID:17561467",
+      "PMID:18698630",
+      "PMID:18923003",
+      "PMID:20034074",
+      "PMID:21204232",
+      "PMID:22843502",
+      "PMID:23972473",
+      "PMID:25231866",
+      "PMID:29458880",
+      "PMID:33116259",
+      "PMID:34597445",
+      "PMID:7773297",
+      "PMID:8845844",
+      "PMID:9582336",
+      "PMID:9887329"
+    ],
     "genes": [
       "FGFR3 K650E mutation"
     ],
@@ -52326,6 +62838,9 @@ window.searchData = [
     ],
     "frequencies": [
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "PMID:35618795"
     ],
     "genes": [],
     "treatments": [
@@ -52403,6 +62918,34 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:11422167",
+      "PMID:12113648",
+      "PMID:1271148",
+      "PMID:15095913",
+      "PMID:15953139",
+      "PMID:16281619",
+      "PMID:18633434",
+      "PMID:21146802",
+      "PMID:21793881",
+      "PMID:22037857",
+      "PMID:22884507",
+      "PMID:24318488",
+      "PMID:27192509",
+      "PMID:28543629",
+      "PMID:29974501",
+      "PMID:31553864",
+      "PMID:32092380",
+      "PMID:33386313",
+      "PMID:33397568",
+      "PMID:33609325",
+      "PMID:36048560",
+      "PMID:37340913",
+      "PMID:37900709",
+      "PMID:511427",
+      "PMID:7091064",
+      "PMID:9144701"
+    ],
     "genes": [
       "No specific genes identified"
     ],
@@ -52476,6 +63019,27 @@ window.searchData = [
     "frequencies": [
       "COMMON"
     ],
+    "evidence_references": [
+      "DOI:10.1007/s00415-024-12527-6",
+      "DOI:10.1016/j.amsu.2022.103870",
+      "DOI:10.1055/s-0044-1789342",
+      "DOI:10.1055/s-0045-1806986",
+      "DOI:10.1056/nejmcp1001112",
+      "DOI:10.1126/scitranslmed.aai9111",
+      "DOI:10.1212/01.con.0000403797.10612.d3",
+      "DOI:10.1212/01.con.0001097968.42765.7a",
+      "DOI:10.1212/nxi.0000000000000004",
+      "DOI:10.1212/nxi.0000000000200529",
+      "DOI:10.1590/s1678-9946202466066",
+      "DOI:10.3389/fmed.2025.1506201",
+      "MONDO",
+      "PMID:12045735",
+      "PMID:18417225",
+      "PMID:23999580",
+      "PMID:26009577",
+      "PMID:32644728",
+      "PMID:32979043"
+    ],
     "genes": [],
     "treatments": [
       "Corticosteroid Therapy",
@@ -52532,6 +63096,22 @@ window.searchData = [
       "HP:0002018"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:30020611",
+      "PMID:30725718",
+      "PMID:32809532",
+      "PMID:32966000",
+      "PMID:33064636",
+      "PMID:35358002",
+      "PMID:35839362",
+      "PMID:36180932",
+      "PMID:36221413",
+      "PMID:38052687",
+      "PMID:38458507",
+      "PMID:39453259",
+      "PMID:40024692",
+      "PMID:40035303"
+    ],
     "genes": [],
     "treatments": [
       "Oral rehydration therapy",
@@ -52598,6 +63178,13 @@ window.searchData = [
       "HP:0001159"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:17152067",
+      "PMID:18463159",
+      "PMID:20068592",
+      "PMID:24777739",
+      "PMID:35821352"
+    ],
     "genes": [
       "ZRS regulatory variants causing ectopic SHH expression"
     ],
@@ -52665,6 +63252,21 @@ window.searchData = [
     "frequencies": [
       "OBLIGATE",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "DOI:10.2147/bctt.s516542",
+      "DOI:10.3389/fonc.2024.1405491",
+      "DOI:10.3390/cancers17020228",
+      "DOI:10.53022/oarjbp.2024.10.2.0013",
+      "PMID:21633166",
+      "PMID:31045815",
+      "PMID:32046998",
+      "PMID:32101663",
+      "PMID:33475295",
+      "PMID:33882206",
+      "PMID:35987766",
+      "PMID:39806949",
+      "PMID:41518487"
     ],
     "genes": [
       "TP53",
@@ -52776,6 +63378,108 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:10734523",
+      "PMID:10970761",
+      "PMID:11120618",
+      "PMID:11290327",
+      "PMID:12164478",
+      "PMID:12643362",
+      "PMID:12816036",
+      "PMID:14745511",
+      "PMID:15535337",
+      "PMID:15623010",
+      "PMID:16131501",
+      "PMID:16136463",
+      "PMID:16209089",
+      "PMID:16882280",
+      "PMID:17508531",
+      "PMID:17943789",
+      "PMID:18173876",
+      "PMID:19496388",
+      "PMID:19845697",
+      "PMID:20529335",
+      "PMID:21333111",
+      "PMID:21813327",
+      "PMID:23219235",
+      "PMID:23460007",
+      "PMID:23531875",
+      "PMID:23626591",
+      "PMID:2425678",
+      "PMID:24429302",
+      "PMID:25319335",
+      "PMID:25361920",
+      "PMID:25440529",
+      "PMID:25607549",
+      "PMID:26018533",
+      "PMID:26198113",
+      "PMID:26634258",
+      "PMID:26758178",
+      "PMID:27245780",
+      "PMID:27499981",
+      "PMID:27553018",
+      "PMID:27598709",
+      "PMID:27727131",
+      "PMID:27784885",
+      "PMID:27847013",
+      "PMID:28220979",
+      "PMID:28410705",
+      "PMID:28577054",
+      "PMID:28803492",
+      "PMID:29196066",
+      "PMID:29358061",
+      "PMID:29461901",
+      "PMID:29900887",
+      "PMID:29910114",
+      "PMID:30021818",
+      "PMID:30054578",
+      "PMID:30306257",
+      "PMID:30307321",
+      "PMID:30454918",
+      "PMID:30513392",
+      "PMID:30762202",
+      "PMID:31599243",
+      "PMID:31641790",
+      "PMID:31666021",
+      "PMID:32324750",
+      "PMID:32482293",
+      "PMID:32551948",
+      "PMID:32755530",
+      "PMID:33106268",
+      "PMID:33199626",
+      "PMID:33276277",
+      "PMID:33296141",
+      "PMID:33306806",
+      "PMID:33393654",
+      "PMID:33645194",
+      "PMID:33720848",
+      "PMID:34049606",
+      "PMID:34270559",
+      "PMID:34397866",
+      "PMID:34400805",
+      "PMID:34639431",
+      "PMID:35180496",
+      "PMID:35189895",
+      "PMID:35577247",
+      "PMID:35704248",
+      "PMID:35710915",
+      "PMID:35809948",
+      "PMID:36451280",
+      "PMID:36920308",
+      "PMID:37057936",
+      "PMID:37094782",
+      "PMID:37289062",
+      "PMID:37743370",
+      "PMID:37977833",
+      "PMID:38317037",
+      "PMID:38736083",
+      "PMID:6338584",
+      "PMID:8553964",
+      "PMID:8623687",
+      "PMID:8758132",
+      "PMID:9949810",
+      "clinicaltrials:NCT03568383"
+    ],
     "genes": [
       "TREM2",
       "APOE",
@@ -52876,6 +63580,11 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:27226234",
+      "PMID:29478616",
+      "PMID:32222129"
+    ],
     "genes": [
       "TSC1",
       "TSC2"
@@ -52971,6 +63680,23 @@ window.searchData = [
       "VERY_FREQUENT",
       "OCCASIONAL",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:10645517",
+      "PMID:15238624",
+      "PMID:19255562",
+      "PMID:19539549",
+      "PMID:21142846",
+      "PMID:22713499",
+      "PMID:23200164",
+      "PMID:24858318",
+      "PMID:25677883",
+      "PMID:27087122",
+      "PMID:29436080",
+      "PMID:30850326",
+      "PMID:31484880",
+      "PMID:33851804",
+      "PMID:36609186"
     ],
     "genes": [],
     "treatments": [
@@ -53076,6 +63802,21 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "DOI:10.1007/s00592-024-02300-6",
+      "DOI:10.1007/s43152-024-00056-3",
+      "DOI:10.1038/s42255-024-01140-6",
+      "DOI:10.3390/ijms25031504",
+      "DOI:10.3390/ijms26031094",
+      "DOI:10.3390/nu17162708",
+      "PMID:12231074",
+      "PMID:29939616",
+      "PMID:30150719",
+      "PMID:37035220",
+      "PMID:38338783",
+      "PMID:38831203",
+      "PMID:9398128"
     ],
     "genes": [
       "TCF7L2",
@@ -53225,6 +63966,125 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:10522815",
+      "PMID:11149158",
+      "PMID:11334504",
+      "PMID:11347740",
+      "PMID:11508279",
+      "PMID:11554771",
+      "PMID:11822099",
+      "PMID:11845220",
+      "PMID:11921414",
+      "PMID:12185667",
+      "PMID:12474677",
+      "PMID:12477252",
+      "PMID:12949265",
+      "PMID:1490695",
+      "PMID:15137354",
+      "PMID:15306833",
+      "PMID:15342014",
+      "PMID:15529622",
+      "PMID:15734872",
+      "PMID:16085737",
+      "PMID:16280652",
+      "PMID:16529680",
+      "PMID:17130534",
+      "PMID:17203405",
+      "PMID:17496359",
+      "PMID:17627511",
+      "PMID:17691946",
+      "PMID:18357774",
+      "PMID:18502304",
+      "PMID:19267337",
+      "PMID:2006409",
+      "PMID:20640941",
+      "PMID:20666700",
+      "PMID:20723813",
+      "PMID:20723814",
+      "PMID:21162649",
+      "PMID:21281836",
+      "PMID:21584767",
+      "PMID:22184118",
+      "PMID:22461703",
+      "PMID:22847316",
+      "PMID:22891485",
+      "PMID:23075321",
+      "PMID:23290727",
+      "PMID:23393684",
+      "PMID:23506377",
+      "PMID:23774118",
+      "PMID:24003924",
+      "PMID:24485215",
+      "PMID:24864506",
+      "PMID:26397266",
+      "PMID:26404926",
+      "PMID:26492519",
+      "PMID:26605913",
+      "PMID:26816135",
+      "PMID:27017348",
+      "PMID:27659143",
+      "PMID:27903991",
+      "PMID:27959859",
+      "PMID:28159476",
+      "PMID:28544185",
+      "PMID:28625830",
+      "PMID:28685788",
+      "PMID:2923250",
+      "PMID:29682912",
+      "PMID:30215903",
+      "PMID:30628751",
+      "PMID:30833370",
+      "PMID:31280235",
+      "PMID:31331105",
+      "PMID:31346658",
+      "PMID:31401790",
+      "PMID:31426099",
+      "PMID:31593953",
+      "PMID:32256447",
+      "PMID:32312302",
+      "PMID:32342453",
+      "PMID:33071962",
+      "PMID:3309680",
+      "PMID:33274481",
+      "PMID:33479911",
+      "PMID:33483996",
+      "PMID:33595181",
+      "PMID:33715053",
+      "PMID:33825933",
+      "PMID:33970586",
+      "PMID:34362315",
+      "PMID:34407376",
+      "PMID:34599655",
+      "PMID:34691077",
+      "PMID:34872983",
+      "PMID:34922394",
+      "PMID:34942009",
+      "PMID:34946827",
+      "PMID:35254878",
+      "PMID:3528691",
+      "PMID:35456511",
+      "PMID:35466445",
+      "PMID:36476434",
+      "PMID:36877454",
+      "PMID:36950864",
+      "PMID:37065759",
+      "PMID:37469057",
+      "PMID:37820077",
+      "PMID:37921158",
+      "PMID:38272591",
+      "PMID:38409439",
+      "PMID:38551884",
+      "PMID:40734585",
+      "PMID:6378696",
+      "PMID:6409465",
+      "PMID:6749365",
+      "PMID:8741809",
+      "PMID:8934932",
+      "PMID:9314011",
+      "PMID:9353155",
+      "PMID:9645989"
+    ],
     "genes": [
       "HLA-DQ2",
       "HLA-DQ8",
@@ -53341,6 +64201,15 @@ window.searchData = [
       "OCCASIONAL",
       "VERY_FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:28771246",
+      "PMID:36980965",
+      "PMID:38132825",
+      "PMID:38505790",
+      "PMID:39050308",
+      "PMID:39728402",
+      "PMID:9689118"
+    ],
     "genes": [
       "FAH deficiency"
     ],
@@ -53444,6 +64313,34 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "DOI:10.1038/s41590-024-01994-8",
+      "DOI:10.1038/s41591-024-02895-x",
+      "DOI:10.3389/fcimb.2025.1626614",
+      "DOI:10.3390/biomedicines13020305",
+      "DOI:10.3748/wjg.v30.i3.252",
+      "PMID:18936492",
+      "PMID:21407188",
+      "PMID:23023125",
+      "PMID:25307765",
+      "PMID:25506359",
+      "PMID:25646159",
+      "PMID:26185088",
+      "PMID:26902011",
+      "PMID:27310658",
+      "PMID:28836573",
+      "PMID:30837080",
+      "PMID:31272578",
+      "PMID:31470005",
+      "PMID:31778828",
+      "PMID:34418586",
+      "PMID:38314135",
+      "PMID:38724705",
+      "PMID:39435148",
+      "PMID:39438660",
+      "PMID:39461795",
+      "PMID:41589595"
+    ],
     "genes": [
       "IL23R",
       "HNF4A",
@@ -53539,6 +64436,13 @@ window.searchData = [
       "HP:0000823"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:10330342",
+      "PMID:16530712",
+      "PMID:3621662",
+      "PMID:8923944",
+      "PMID:9207801"
+    ],
     "genes": [
       "TBX3 Mutations"
     ],
@@ -53645,6 +64549,24 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1002/jimd.12609",
+      "DOI:10.1002/jimd.12807",
+      "DOI:10.1007/s11604-023-01396-0",
+      "DOI:10.1016/j.pediatrneurol.2024.06.013",
+      "DOI:10.1126/scitranslmed.adh1334",
+      "DOI:10.1186/s13023-023-02800-8",
+      "DOI:10.1186/s13023-025-03625-3",
+      "DOI:10.3390/app14041647",
+      "DOI:10.3390/biom13020396",
+      "DOI:10.3390/metabo15070446",
+      "DOI:10.3390/metabo15090573",
+      "DOI:10.3390/nu16010013",
+      "PMID:30982989",
+      "PMID:31110235",
+      "PMID:37938118",
+      "PMID:39121557"
+    ],
     "genes": [
       "Ornithine transcarbamylase (OTC) deficiency",
       "Carbamoyl phosphate synthetase I (CPS1) deficiency",
@@ -53718,6 +64640,11 @@ window.searchData = [
       "HP:0001025"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "DOI:10.1186/s13223-024-00931-6",
+      "PMID:31899843",
+      "PMID:40845419"
+    ],
     "genes": [],
     "treatments": [],
     "environmental": [],
@@ -53783,6 +64710,10 @@ window.searchData = [
     "frequencies": [
       "OBLIGATE",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:23877823",
+      "PMID:27268913"
     ],
     "genes": [
       "GNAQ Q209",
@@ -53902,6 +64833,17 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:20301763",
+      "PMID:37367883",
+      "PMID:37512487",
+      "PMID:37960342",
+      "PMID:38015438",
+      "PMID:38651394",
+      "PMID:39203843",
+      "PMID:39399475",
+      "PMID:40149952"
+    ],
     "genes": [
       "ACADVL variants"
     ],
@@ -53981,6 +64923,13 @@ window.searchData = [
       "HP:0000407"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:11181578",
+      "PMID:11836356",
+      "PMID:15965026",
+      "PMID:23074140",
+      "PMID:9463328"
+    ],
     "genes": [
       "SOST Regulatory Deletion"
     ],
@@ -54052,6 +65001,19 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
+    ],
+    "evidence_references": [
+      "PMID:24645145",
+      "PMID:24816400",
+      "PMID:28349350",
+      "PMID:28723606",
+      "PMID:29934719",
+      "PMID:31213497",
+      "PMID:31941797",
+      "PMID:33008511",
+      "PMID:34570907",
+      "PMID:38465699",
+      "PMID:40129600"
     ],
     "genes": [],
     "treatments": [
@@ -54146,6 +65108,107 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "DOI:10.25259/ijdvl_793_2023",
+      "DOI:10.3390/ijms24119749",
+      "DOI:10.3390/ijms25084409",
+      "DOI:10.3390/jcm12185861",
+      "DOI:10.3390/jcm13175225",
+      "DOI:10.3390/life15050684",
+      "PMID:11681494",
+      "PMID:12709002",
+      "PMID:15357832",
+      "PMID:15609264",
+      "PMID:16405601",
+      "PMID:16420246",
+      "PMID:17241584",
+      "PMID:17243956",
+      "PMID:17250545",
+      "PMID:17289548",
+      "PMID:17637824",
+      "PMID:18460889",
+      "PMID:19178066",
+      "PMID:20149899",
+      "PMID:20197744",
+      "PMID:20410501",
+      "PMID:20445292",
+      "PMID:20526339",
+      "PMID:20540698",
+      "PMID:20578892",
+      "PMID:21054565",
+      "PMID:21515266",
+      "PMID:22099450",
+      "PMID:22237197",
+      "PMID:22561518",
+      "PMID:22994670",
+      "PMID:23796814",
+      "PMID:25184918",
+      "PMID:25572727",
+      "PMID:25838868",
+      "PMID:26057504",
+      "PMID:26724277",
+      "PMID:26728804",
+      "PMID:26769615",
+      "PMID:27274556",
+      "PMID:27638438",
+      "PMID:27723757",
+      "PMID:28164884",
+      "PMID:28206724",
+      "PMID:28317524",
+      "PMID:28317525",
+      "PMID:28317529",
+      "PMID:28317533",
+      "PMID:28445194",
+      "PMID:29124690",
+      "PMID:29704874",
+      "PMID:30850197",
+      "PMID:30988213",
+      "PMID:31209143",
+      "PMID:31437444",
+      "PMID:31580326",
+      "PMID:3168334",
+      "PMID:31986193",
+      "PMID:32013982",
+      "PMID:32064670",
+      "PMID:32462299",
+      "PMID:32838589",
+      "PMID:33039241",
+      "PMID:33098225",
+      "PMID:33181260",
+      "PMID:33200838",
+      "PMID:33278065",
+      "PMID:33346939",
+      "PMID:33350506",
+      "PMID:33431938",
+      "PMID:33757175",
+      "PMID:34104234",
+      "PMID:34169570",
+      "PMID:34245476",
+      "PMID:34686989",
+      "PMID:34780118",
+      "PMID:34806278",
+      "PMID:35094387",
+      "PMID:35096274",
+      "PMID:35166101",
+      "PMID:35457678",
+      "PMID:35637045",
+      "PMID:35653192",
+      "PMID:36433836",
+      "PMID:36980277",
+      "PMID:37000977",
+      "PMID:37062442",
+      "PMID:37230937",
+      "PMID:37405428",
+      "PMID:37481827",
+      "PMID:37919864",
+      "PMID:37975615",
+      "PMID:38038734",
+      "PMID:38160837",
+      "PMID:38477910",
+      "PMID:6600753",
+      "PMID:7036910",
+      "PMID:7593796"
     ],
     "genes": [
       "NALP1",
@@ -54258,6 +65321,13 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "PMID:11114720",
+      "PMID:15162797",
+      "PMID:19671042",
+      "PMID:34818478",
+      "PMID:37980175"
+    ],
     "genes": [
       "VHL"
     ],
@@ -54352,6 +65422,18 @@ window.searchData = [
       "HP:0000707"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:26288590",
+      "PMID:32896657",
+      "PMID:34093562",
+      "PMID:37727483",
+      "PMID:38414785",
+      "PMID:38525769",
+      "PMID:40062480",
+      "PMID:40204565",
+      "PMID:40398847",
+      "PMID:40660514"
+    ],
     "genes": [],
     "treatments": [
       "Ceftriaxone induction followed by trimethoprim/sulfamethoxazole",
@@ -54448,6 +65530,18 @@ window.searchData = [
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
+    ],
+    "evidence_references": [
+      "DOI:10.1158/1541-7786.mcr-23-0930",
+      "PMID:25018051",
+      "PMID:25670083",
+      "PMID:27512769",
+      "PMID:32893998",
+      "PMID:33394739",
+      "PMID:37385707",
+      "PMID:37916284",
+      "PMID:38110397",
+      "PMID:39034876"
     ],
     "genes": [
       "WT1 Mutations",
@@ -54604,6 +65698,53 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1007/s00198-017-4295-6",
+      "DOI:10.1007/s00428-004-1047-8",
+      "DOI:10.1007/s10072-020-05013-0",
+      "DOI:10.1016/B978-0-444-63625-6.00010-0",
+      "DOI:10.1016/j.jhep.2023.04.007",
+      "DOI:10.1016/j.pharmthera.2023.108529",
+      "DOI:10.1038/s41467-024-47001-4",
+      "DOI:10.1093/braincomms/fcae329",
+      "DOI:10.1097/MPG.0000000000003196",
+      "DOI:10.1136/gut.2005.087262",
+      "DOI:10.1152/physiol.00032.2025",
+      "DOI:10.1186/s12974-024-03178-5",
+      "DOI:10.1186/s13023-022-02245-5",
+      "DOI:10.1289/ehp.02110s5695",
+      "DOI:10.3389/fmed.2025.1673283",
+      "DOI:10.3390/cells13141214",
+      "DOI:10.3390/ijms25094753",
+      "DOI:10.3390/ijms25126487",
+      "DOI:10.3390/ijms25147545",
+      "DOI:10.3390/jcm11143975",
+      "PMID:12426114",
+      "PMID:15205951",
+      "PMID:16382340",
+      "PMID:16709660",
+      "PMID:18395099",
+      "PMID:23518715",
+      "PMID:24517326",
+      "PMID:25002079",
+      "PMID:28433096",
+      "PMID:28433112",
+      "PMID:28433113",
+      "PMID:29110062",
+      "PMID:30254379",
+      "PMID:30452922",
+      "PMID:31179301",
+      "PMID:33360697",
+      "PMID:33474589",
+      "PMID:35197085",
+      "PMID:35887738",
+      "PMID:37116715",
+      "PMID:37741465",
+      "PMID:38565173",
+      "PMID:38731973",
+      "PMID:39334421",
+      "PMID:41006805"
+    ],
     "genes": [
       "ATP7B"
     ],
@@ -54692,6 +65833,15 @@ window.searchData = [
     "frequencies": [
       "FREQUENT",
       "VERY_RARE"
+    ],
+    "evidence_references": [
+      "DOI:10.1007/978-3-642-94912-8_6",
+      "PMID:1210460",
+      "PMID:2233764",
+      "PMID:27843372",
+      "PMID:3092775",
+      "PMID:3572917",
+      "PMID:8150635"
     ],
     "genes": [],
     "treatments": [
@@ -54789,6 +65939,21 @@ window.searchData = [
       "OCCASIONAL",
       "FREQUENT"
     ],
+    "evidence_references": [
+      "PMID:18474167",
+      "PMID:25137600",
+      "PMID:29199884",
+      "PMID:30289612",
+      "PMID:32914558",
+      "PMID:33599186",
+      "PMID:34572183",
+      "PMID:37075791",
+      "PMID:40404199",
+      "PMID:41017003",
+      "PMID:41225980",
+      "PMID:41303083",
+      "PMID:9774859"
+    ],
     "genes": [
       "Chromosome 4p16.3 Deletion"
     ],
@@ -54867,6 +66032,16 @@ window.searchData = [
       "HP:0001363"
     ],
     "frequencies": [],
+    "evidence_references": [
+      "PMID:11062477",
+      "PMID:26135520",
+      "PMID:29460029",
+      "PMID:29947083",
+      "PMID:31104833",
+      "PMID:37263386",
+      "PMID:37321578",
+      "PMID:7550339"
+    ],
     "genes": [
       "PHEX Mutations"
     ],
@@ -54943,6 +66118,13 @@ window.searchData = [
       "VERY_FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.64898/2026.04.01.715876",
+      "PMID:28777935",
+      "PMID:38491959",
+      "PMID:39413657",
+      "PMID:40152536"
+    ],
     "genes": [
       "YWHAG variants"
     ],
@@ -54988,6 +66170,9 @@ window.searchData = [
     ],
     "frequencies": [
       "COMMON"
+    ],
+    "evidence_references": [
+      "PMID:40036381"
     ],
     "genes": [],
     "treatments": [
@@ -55062,6 +66247,19 @@ window.searchData = [
       "FREQUENT",
       "OCCASIONAL"
     ],
+    "evidence_references": [
+      "DOI:10.1016/j.ejmg.2020.104116",
+      "DOI:10.1371/journal.pone.0244505",
+      "DOI:10.1515/biol-2022-0602",
+      "DOI:10.3389/fgene.2019.01060",
+      "DOI:10.3390/ijms24098268",
+      "DOI:10.3390/ijms24119256",
+      "PMID:33444416",
+      "PMID:36797513",
+      "PMID:37215500",
+      "PMID:38421525",
+      "PMID:39704248"
+    ],
     "genes": [
       "TELO2 mutations"
     ],
@@ -55083,7 +66281,9 @@ window.searchData = [
 ];
 window.searchMetrics = {
   "total_disorder_pages": 595,
+  "total_unique_evidence_sources": 9727,
   "total_unique_disease_categories": 35,
+  "total_unique_phenotype_categories": 135,
   "total_pathographs": 586,
   "total_unique_pathological_events": 2508
 };

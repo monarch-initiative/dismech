@@ -145,6 +145,23 @@ def _longest_path_length(edges: list[tuple[str, str]]) -> int:
     return max(distances.values()) if distances else 0
 
 
+def _collect_reference_ids(value: Any) -> set[str]:
+    """Recursively collect evidence/reference identifiers from nested disorder data."""
+    references: set[str] = set()
+
+    if isinstance(value, dict):
+        reference_value = value.get("reference")
+        if isinstance(reference_value, str) and reference_value.strip():
+            references.add(reference_value.strip())
+        for nested_value in value.values():
+            references.update(_collect_reference_ids(nested_value))
+    elif isinstance(value, list):
+        for item in value:
+            references.update(_collect_reference_ids(item))
+
+    return references
+
+
 def slugify(name: str) -> str:
     """Convert a disorder name to a filename-safe slug."""
     return name.replace(' ', '_').replace('/', '_').replace('(', '').replace(')', '')
@@ -252,6 +269,7 @@ class BrowserExporter:
         causal_edges = len(graph.edges)
         causal_longest_path = _longest_path_length(
             [(edge.source, edge.target) for edge in graph.edges])
+        evidence_references = sorted(_collect_reference_ids(disorder))
 
         return {
             "name": name,
@@ -271,6 +289,7 @@ class BrowserExporter:
             "phenotype_hpo_categories": sorted(hpo_broad_categories),
             "phenotype_ids": phenotype_ids,
             "frequencies": frequencies,
+            "evidence_references": evidence_references,
             "genes": genes,
             "treatments": treatments,
             "environmental": environmental,
@@ -294,6 +313,18 @@ class BrowserExporter:
             for record in records
             if (category := record.get("category"))
         }
+        phenotype_categories = {
+            phenotype_category.strip()
+            for record in records
+            for phenotype_category in (record.get("phenotype_categories") or [])
+            if phenotype_category
+        }
+        evidence_references = {
+            reference_id.strip()
+            for record in records
+            for reference_id in (record.get("evidence_references") or [])
+            if reference_id
+        }
         unique_pathological_events = {
             pathophysiology_name.strip()
             for record in records
@@ -306,7 +337,9 @@ class BrowserExporter:
 
         return {
             "total_disorder_pages": len(records),
+            "total_unique_evidence_sources": len(evidence_references),
             "total_unique_disease_categories": len(categories),
+            "total_unique_phenotype_categories": len(phenotype_categories),
             "total_pathographs": total_pathographs,
             "total_unique_pathological_events": len(unique_pathological_events),
         }

@@ -58,6 +58,17 @@ def test_extract_disorder_with_valid_data():
         "biochemical": [
             {"name": "Biomarker 1"},
         ],
+        "references": [
+            {"reference": "PMID:123"},
+            {"reference": "DOI:10.1000/test"},
+        ],
+        "phenotypes": [
+            {
+                "name": "Phenotype A",
+                "category": "Musculoskeletal",
+                "evidence": [{"reference": "PMID:123"}],
+            }
+        ],
     }
 
     exporter = BrowserExporter()
@@ -71,6 +82,8 @@ def test_extract_disorder_with_valid_data():
     assert record["treatments"] == ["Treatment A", "Treatment B"]
     assert record["environmental"] == ["Environmental Factor 1"]
     assert record["biochemical"] == ["Biomarker 1"]
+    assert record["phenotype_categories"] == ["Musculoskeletal"]
+    assert record["evidence_references"] == ["DOI:10.1000/test", "PMID:123"]
 
 
 def test_export_to_js_with_problematic_file():
@@ -119,14 +132,20 @@ def test_build_summary_metrics():
     records = [
         {
             "category": "Genetic",
+            "phenotype_categories": ["Musculoskeletal"],
+            "evidence_references": ["PMID:1", "DOI:10.1/test"],
             "pathophysiology": ["Shared Event", "Unique Event A"],
         },
         {
             "category": "Genetic",
+            "phenotype_categories": ["Musculoskeletal", "Systemic"],
+            "evidence_references": ["PMID:1", "PMID:2"],
             "pathophysiology": ["Shared Event"],
         },
         {
             "category": "Inflammatory",
+            "phenotype_categories": [],
+            "evidence_references": [],
             "pathophysiology": [],
         },
     ]
@@ -135,7 +154,9 @@ def test_build_summary_metrics():
 
     assert metrics == {
         "total_disorder_pages": 3,
+        "total_unique_evidence_sources": 3,
         "total_unique_disease_categories": 2,
+        "total_unique_phenotype_categories": 2,
         "total_pathographs": 2,
         "total_unique_pathological_events": 2,
     }
