@@ -83,7 +83,6 @@ def test_extract_disorder_with_valid_data():
     assert record["environmental"] == ["Environmental Factor 1"]
     assert record["biochemical"] == ["Biomarker 1"]
     assert record["phenotype_categories"] == ["Musculoskeletal"]
-    assert record["evidence_references"] == ["DOI:10.1000/test", "PMID:123"]
 
 
 def test_export_to_js_with_problematic_file():
@@ -128,29 +127,39 @@ biochemical:
 
 
 def test_build_summary_metrics():
-    """Test landing-page summary metrics aggregation from exported records."""
-    records = [
+    """Test landing-page summary metrics aggregation from raw disorder data."""
+    disorders = [
         {
             "category": "Genetic",
-            "phenotype_categories": ["Musculoskeletal"],
-            "evidence_references": ["PMID:1", "DOI:10.1/test"],
-            "pathophysiology": ["Shared Event", "Unique Event A"],
+            "phenotypes": [
+                {"category": "Musculoskeletal"},
+                {"category": "Systemic"},
+            ],
+            "pathophysiology": [
+                {"name": "Shared Event"},
+                {"name": "Unique Event A"},
+            ],
+            "references": [
+                {"reference": "PMID:1"},
+                {"reference": "DOI:10.1/test"},
+            ],
         },
         {
             "category": "Genetic",
-            "phenotype_categories": ["Musculoskeletal", "Systemic"],
-            "evidence_references": ["PMID:1", "PMID:2"],
-            "pathophysiology": ["Shared Event"],
+            "phenotypes": [{"category": "Musculoskeletal"}],
+            "pathophysiology": [{"name": "Shared Event"}],
+            "treatments": [
+                {"name": "Treatment", "evidence": [{"reference": "PMID:2"}]},
+            ],
         },
         {
             "category": "Inflammatory",
-            "phenotype_categories": [],
-            "evidence_references": [],
+            "phenotypes": [],
             "pathophysiology": [],
         },
     ]
 
-    metrics = BrowserExporter.build_summary_metrics(records)
+    metrics = BrowserExporter.build_summary_metrics(disorders)
 
     assert metrics == {
         "total_disorder_pages": 3,

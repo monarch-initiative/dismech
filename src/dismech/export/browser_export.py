@@ -269,8 +269,6 @@ class BrowserExporter:
         causal_edges = len(graph.edges)
         causal_longest_path = _longest_path_length(
             [(edge.source, edge.target) for edge in graph.edges])
-        evidence_references = sorted(_collect_reference_ids(disorder))
-
         return {
             "name": name,
             "disease_id": disease_id,
@@ -289,7 +287,6 @@ class BrowserExporter:
             "phenotype_hpo_categories": sorted(hpo_broad_categories),
             "phenotype_ids": phenotype_ids,
             "frequencies": frequencies,
-            "evidence_references": evidence_references,
             "genes": genes,
             "treatments": treatments,
             "environmental": environmental,
@@ -306,37 +303,36 @@ class BrowserExporter:
         }
 
     @staticmethod
-    def build_summary_metrics(records: list[dict[str, Any]]) -> dict[str, int]:
-        """Aggregate landing-page summary metrics from exported browser records."""
+    def build_summary_metrics(disorders: list[dict[str, Any]]) -> dict[str, int]:
+        """Aggregate landing-page summary metrics directly from disorder data."""
         categories = {
-            category.strip()
-            for record in records
-            if (category := record.get("category"))
+            category.strip() for disorder in disorders if (category := disorder.get("category"))
         }
         phenotype_categories = {
             phenotype_category.strip()
-            for record in records
-            for phenotype_category in (record.get("phenotype_categories") or [])
-            if phenotype_category
+            for disorder in disorders
+            for phenotype in (disorder.get("phenotypes") or [])
+            if (phenotype_category := phenotype.get("category"))
         }
         evidence_references = {
             reference_id.strip()
-            for record in records
-            for reference_id in (record.get("evidence_references") or [])
+            for disorder in disorders
+            for reference_id in _collect_reference_ids(disorder)
             if reference_id
         }
         unique_pathological_events = {
             pathophysiology_name.strip()
-            for record in records
-            for pathophysiology_name in (record.get("pathophysiology") or [])
+            for disorder in disorders
+            for pathophysiology in (disorder.get("pathophysiology") or [])
+            if (pathophysiology_name := pathophysiology.get("name"))
             if pathophysiology_name
         }
         total_pathographs = sum(
-            1 for record in records if record.get("pathophysiology")
+            1 for disorder in disorders if disorder.get("pathophysiology")
         )
 
         return {
-            "total_disorder_pages": len(records),
+            "total_disorder_pages": len(disorders),
             "total_unique_evidence_sources": len(evidence_references),
             "total_unique_disease_categories": len(categories),
             "total_unique_phenotype_categories": len(phenotype_categories),
@@ -369,12 +365,14 @@ class BrowserExporter:
     def export_to_js(self, disorder_files: list[Path], output_path: Path) -> None:
         """Export all disorder files to a JavaScript data file."""
         records = []
+        disorders = []
         for file_path in disorder_files:
             disorder = self.load_disorder(file_path)
+            disorders.append(disorder)
             record = self.extract_disorder(disorder, file_path.name)
             records.append(record)
 
-        metrics = self.build_summary_metrics(records)
+        metrics = self.build_summary_metrics(disorders)
         js_content = f"window.searchData = {json.dumps(records, indent=2)};\n"
         js_content += f"window.searchMetrics = {json.dumps(metrics, indent=2)};\n"
         js_content += "window.dispatchEvent(new Event('searchDataReady'));\n"
