@@ -286,6 +286,31 @@ class BrowserExporter:
             "causal_graph_longest_path": str(causal_longest_path),
         }
 
+    @staticmethod
+    def build_summary_metrics(records: list[dict[str, Any]]) -> dict[str, int]:
+        """Aggregate landing-page summary metrics from exported browser records."""
+        categories = {
+            category.strip()
+            for record in records
+            if (category := record.get("category"))
+        }
+        unique_pathological_events = {
+            pathophysiology_name.strip()
+            for record in records
+            for pathophysiology_name in (record.get("pathophysiology") or [])
+            if pathophysiology_name
+        }
+        total_pathographs = sum(
+            1 for record in records if record.get("pathophysiology")
+        )
+
+        return {
+            "total_disorder_pages": len(records),
+            "total_unique_disease_categories": len(categories),
+            "total_pathographs": total_pathographs,
+            "total_unique_pathological_events": len(unique_pathological_events),
+        }
+
     def _write_hpo_category_cache(self, output_path: Path) -> None:
         """Write the accumulated HP-to-category cache as JSON for use by the renderer."""
         cache_path = output_path.parent / "hpo_category_cache.json"
@@ -316,7 +341,9 @@ class BrowserExporter:
             record = self.extract_disorder(disorder, file_path.name)
             records.append(record)
 
+        metrics = self.build_summary_metrics(records)
         js_content = f"window.searchData = {json.dumps(records, indent=2)};\n"
+        js_content += f"window.searchMetrics = {json.dumps(metrics, indent=2)};\n"
         js_content += "window.dispatchEvent(new Event('searchDataReady'));\n"
 
         with open(output_path, "w") as f:

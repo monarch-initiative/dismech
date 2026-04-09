@@ -110,4 +110,32 @@ biochemical:
         with open(output_file) as f:
             content = f.read()
         assert "window.searchData" in content
+        assert "window.searchMetrics" in content
         assert "Test Disorder" in content
+
+
+def test_build_summary_metrics():
+    """Test landing-page summary metrics aggregation from exported records."""
+    records = [
+        {
+            "category": "Genetic",
+            "pathophysiology": ["Shared Event", "Unique Event A"],
+        },
+        {
+            "category": "Genetic",
+            "pathophysiology": ["Shared Event"],
+        },
+        {
+            "category": "Inflammatory",
+            "pathophysiology": [],
+        },
+    ]
+
+    metrics = BrowserExporter.build_summary_metrics(records)
+
+    assert metrics == {
+        "total_disorder_pages": 3,
+        "total_unique_disease_categories": 2,
+        "total_pathographs": 2,
+        "total_unique_pathological_events": 2,
+    }
