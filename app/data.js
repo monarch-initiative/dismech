@@ -2380,13 +2380,13 @@ window.searchData = [
       "rhabdomyosarcoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-02-16T20:19:38Z",
+    "updated_date": "2026-04-10T17:19:54Z",
     "subtypes": [
       "PAX3-FOXO1 Fusion-Positive",
       "PAX7-FOXO1 Fusion-Positive",
       "Fusion-Negative Alveolar Rhabdomyosarcoma"
     ],
-    "description": "Alveolar rhabdomyosarcoma (ARMS) is an aggressive pediatric soft tissue sarcoma characterized by skeletal muscle differentiation and distinctive chromosomal translocations involving PAX3 or PAX7 fused to FOXO1. The PAX3-FOXO1 fusion, resulting from t(2;13)(q35;q14), is present in approximately 55% of cases and confers a worse prognosis. PAX7-FOXO1 from t(1;13)(p36;q14) occurs in about 22% of cases with somewhat better outcomes. Approximately 20% are fusion-negative and behave more like embryonal rhabdomyosarcoma. The PAX-FOXO1 fusion proteins function as aberrant transcription factors driving myogenic differentiation arrest and proliferation.",
+    "description": "Alveolar rhabdomyosarcoma (ARMS) is an aggressive pediatric soft tissue sarcoma characterized by skeletal muscle differentiation and distinctive chromosomal translocations involving PAX3 or PAX7 fused to FOXO1. Among fusion-positive tumors, PAX3-FOXO1 arising from t(2;13)(q35;q14) is the dominant fusion subtype, reported in roughly 70-90% of cases, and confers a worse prognosis. PAX7-FOXO1 from t(1;13)(p36;q14) accounts for most of the remaining fusion-positive cases and is generally associated with somewhat better outcomes. Approximately 20% are fusion-negative and behave more like embryonal rhabdomyosarcoma. The PAX-FOXO1 fusion proteins function as aberrant transcription factors driving myogenic differentiation arrest and proliferation.",
     "pathophysiology": [
       "PAX-FOXO1 Fusion Oncogene",
       "Blocked Myogenic Differentiation",
@@ -11360,7 +11360,7 @@ window.searchData = [
       "soft tissue sarcoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-01-26T04:02:22Z",
+    "updated_date": "2026-04-10T17:32:34Z",
     "subtypes": [
       "Classic Clear Cell Sarcoma",
       "Clear Cell Sarcoma of the Gastrointestinal Tract"
@@ -11390,15 +11390,16 @@ window.searchData = [
       "Constitutional"
     ],
     "phenotype_hpo_categories": [
+      "Cardiovascular",
       "Constitutional",
       "Growth",
-      "Musculoskeletal",
+      "Immune",
       "Neoplasm"
     ],
     "phenotype_ids": [
       "HP:0031459",
-      "HP:0002653",
-      "HP:0002664",
+      "HP:0012531",
+      "HP:0002716",
       "HP:0001824"
     ],
     "frequencies": [
@@ -15591,7 +15592,7 @@ window.searchData = [
       "Chromosomal Disorder"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-04-05T16:05:00Z",
+    "updated_date": "2026-04-10T01:38:32Z",
     "subtypes": [],
     "description": "A chromosomal disorder caused by trisomy 21, characterized by intellectual disability, distinctive facial features, hypotonia, and increased risk of congenital heart defects, hypothyroidism, and leukemia.",
     "pathophysiology": [
@@ -15623,7 +15624,7 @@ window.searchData = [
     "biological_processes": [
       "type I interferon-mediated signaling pathway",
       "cell surface receptor signaling pathway via JAK-STAT",
-      "heart development",
+      "cardiac muscle cell differentiation",
       "canonical Wnt signaling pathway",
       "neurogenesis",
       "astrocyte differentiation",
@@ -30061,7 +30062,7 @@ window.searchData = [
       "spirochetal infection"
     ],
     "creation_date": "2026-03-03T16:18:51Z",
-    "updated_date": "2026-03-08T18:31:34Z",
+    "updated_date": "2026-04-10T16:56:38Z",
     "subtypes": [
       "Anicteric leptospirosis",
       "Severe icteric leptospirosis (Weil disease)",
@@ -30069,9 +30070,11 @@ window.searchData = [
     ],
     "description": "Leptospirosis is a zoonotic spirochetal infection caused by pathogenic Leptospira species, with clinical severity ranging from self-limited febrile illness to severe multi-organ dysfunction (including jaundice, pulmonary hemorrhage, and acute kidney injury).",
     "pathophysiology": [
+      "VM protein-mediated epithelial barrier disruption",
       "ColA-mediated collagen degradation",
       "Barrier transcytosis across endothelial and epithelial monolayers",
       "Hematogenous leptospiral dissemination",
+      "cGAS-STING-dependent type I interferon response",
       "TLR2 signaling activation in monocytes and macrophages",
       "Cytokine and chemokine upregulation",
       "NLRP3 inflammasome complex assembly",
@@ -30081,28 +30084,34 @@ window.searchData = [
       "Persistent tissue colonization by Leptospira",
       "Leptospiral GLP engagement of Na/K-ATPase",
       "Na/K-ATPase dysfunction in endothelial and kidney epithelial cells",
+      "VE-cadherin adherens junction disruption in endothelial cells",
       "Pulmonary microvascular damage in hemorrhagic leptospirosis",
       "Multi-organ tissue injury in severe leptospirosis",
       "Coagulation derangement in critical leptospirosis"
     ],
     "cell_types": [
+      "epithelial cell",
       "endothelial cell",
       "kidney epithelial cell",
-      "monocyte",
       "macrophage",
+      "monocyte",
       "platelet"
     ],
     "cell_type_ids": [
+      "CL:0000066",
       "CL:0000115",
       "CL:0002518",
-      "CL:0000576",
       "CL:0000235",
+      "CL:0000576",
       "CL:0000233"
     ],
     "biological_processes": [
+      "cell junction organization",
+      "tight junction disassembly",
       "collagen catabolic process",
       "transcytosis",
       "response to molecule of bacterial origin",
+      "cGAS-STING signaling pathway",
       "toll-like receptor signaling pathway",
       "positive regulation of cytokine production",
       "NLRP3 inflammasome complex assembly",
@@ -30110,6 +30119,7 @@ window.searchData = [
       "complement activation",
       "response to lipopolysaccharide",
       "inflammatory response",
+      "adherens junction organization",
       "blood coagulation"
     ],
     "phenotypes": [
@@ -30190,10 +30200,10 @@ window.searchData = [
     "source_file": "Leptospirosis.yaml",
     "page_url": "../pages/disorders/Leptospirosis.html",
     "num_phenotypes": 15,
-    "num_pathophysiology": 15,
+    "num_pathophysiology": 18,
     "num_genes": 0,
     "num_treatments": 6,
-    "causal_graph_edges": "20",
+    "causal_graph_edges": "23",
     "causal_graph_longest_path": "8"
   },
   {
@@ -33246,7 +33256,7 @@ window.searchData = [
       "medulloblastoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-02-27T21:53:00Z",
+    "updated_date": "2026-04-10T17:05:57Z",
     "subtypes": [
       "SHH-Activated, TP53-Wildtype Medulloblastoma",
       "SHH-Activated, TP53-Mutant Medulloblastoma"
@@ -33265,7 +33275,7 @@ window.searchData = [
     ],
     "biological_processes": [
       "smoothened signaling pathway",
-      "positive regulation of gene expression",
+      "positive regulation of transcription by RNA polymerase II",
       "cell population proliferation",
       "cerebellum development"
     ],
@@ -55083,10 +55093,10 @@ window.searchData = [
 ];
 window.searchMetrics = {
   "total_disorder_pages": 595,
-  "total_unique_evidence_sources": 9727,
+  "total_unique_evidence_sources": 9737,
   "total_unique_disease_categories": 35,
   "total_unique_phenotype_categories": 135,
   "total_pathographs": 586,
-  "total_unique_pathological_events": 2508
+  "total_unique_pathological_events": 2511
 };
 window.dispatchEvent(new Event('searchDataReady'));
