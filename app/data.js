@@ -15591,7 +15591,7 @@ window.searchData = [
       "Chromosomal Disorder"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-04-05T16:05:00Z",
+    "updated_date": "2026-04-10T01:38:32Z",
     "subtypes": [],
     "description": "A chromosomal disorder caused by trisomy 21, characterized by intellectual disability, distinctive facial features, hypotonia, and increased risk of congenital heart defects, hypothyroidism, and leukemia.",
     "pathophysiology": [
@@ -15623,7 +15623,7 @@ window.searchData = [
     "biological_processes": [
       "type I interferon-mediated signaling pathway",
       "cell surface receptor signaling pathway via JAK-STAT",
-      "heart development",
+      "cardiac muscle cell differentiation",
       "canonical Wnt signaling pathway",
       "neurogenesis",
       "astrocyte differentiation",
