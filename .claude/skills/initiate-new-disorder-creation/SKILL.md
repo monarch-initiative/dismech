@@ -116,7 +116,10 @@ citations. To set up:
 
 OpenScientist jobs are asynchronous — the provider submits a job, then polls
 until completion. Jobs are queued server-side and processed sequentially, so
-wait times depend on queue depth.
+wait times depend on queue depth. The API's `/report` endpoint returns PDF;
+the provider automatically extracts the markdown `final_report.md` from the
+`/artifacts` ZIP. The artifacts ZIP also contains provenance data (iteration
+transcripts, generated plots as PNG/JSON) and agent logs.
 
 Timing varies by provider. As a rule of thumb:
 
