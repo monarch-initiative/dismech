@@ -92,6 +92,7 @@ Depending on user preference, use one or more of the following commands
 - `just research-disorder falcon DISORDER_NAME`
 - `just research-disorder openai DISORDER_NAME`
 - `just research-disorder cyberian DISORDER_NAME`
+- `just research-disorder openscientist DISORDER_NAME`
 
 Use the filesystem-friendly name here.
 
@@ -102,12 +103,31 @@ evidence snippets, and relevance scores. The `just research-disorder asta ...`
 command automatically uses an Asta-specific template tailored for this output
 style.
 
+`openscientist` requires `OPENSCIENTIST_API_KEY` to be exported in the
+environment. OpenScientist (https://www.openscientist.io) is an autonomous AI
+research agent from Berkeley Lab that runs iterative hypothesis-driven research
+using PubMed search and code execution. It produces markdown reports with PMID
+citations. To set up:
+
+1. Sign up at https://www.openscientist.io
+2. Wait for admin approval (required before jobs can run)
+3. Generate an API key (shown once in `name:secret` format)
+4. `export OPENSCIENTIST_API_KEY="name:secret"`
+
+OpenScientist jobs are asynchronous — the provider submits a job, then polls
+until completion. Jobs are queued server-side and processed sequentially, so
+wait times depend on queue depth. The API's `/report` endpoint returns PDF;
+the provider automatically extracts the markdown `final_report.md` from the
+`/artifacts` ZIP. The artifacts ZIP also contains provenance data (iteration
+transcripts, generated plots as PNG/JSON) and agent logs.
+
 Timing varies by provider. As a rule of thumb:
 
 - `asta` usually completes in seconds
 - `openai` and `perplexity` usually complete within a few minutes
 - `falcon` may take 20 minutes or longer
 - `cyberian` runtime varies with workflow complexity and can also be long-running
+- `openscientist` typically takes 10–30 minutes depending on queue depth and iteration count
 
 On completion, this will create a file here:
 
