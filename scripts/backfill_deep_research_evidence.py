@@ -346,39 +346,62 @@ def extract_supporting_text(cache_path: Path, title: str) -> str | None:
 
 
 def guess_evidence_source(title: str, supporting_text: str | None) -> str:
+    title_haystack = title.lower()
     haystack = f"{title} {supporting_text or ''}".lower()
 
-    def has(pattern: str) -> bool:
-        return re.search(pattern, haystack) is not None
+    def has(text: str, pattern: str) -> bool:
+        return re.search(pattern, text) is not None
 
-    if has(r"\b(systematic review|meta-analysis|consensus|guideline|statement)\b"):
-        return "OTHER"
-    if has(
-        r"\b(in silico|simulation|docking|machine learning|network analysis|computational|"
-        r"algorithm|predict(?:ion)?|forecast(?:ing)?|model(?:ing)?|indirect measure)\b"
-    ):
-        return "COMPUTATIONAL"
-    if has(
+    review_pattern = (
+        r"\b(systematic review|meta-analysis|consensus|guideline|statement)\b"
+    )
+    computational_pattern = (
+        r"\b(in silico|simulation|docking|machine learning|network analysis|"
+        r"computational|algorithm|predict(?:ion)?|forecast(?:ing)?|mathematical "
+        r"model(?:ling|ing)|transmission models?|epifil|geofil|indirect measure)\b"
+    )
+    title_model_pattern = (
+        r"\b(experimental models?|animal models?|infected mice|infected rats|murine|"
+        r"mouse|mice|rat|rats|zebrafish|drosophila|porcine|pig|rabbit|rabbits|"
+        r"nonhuman primate|macaque|hamster|hamsters|guinea pigs?|gerbil|gerbils|"
+        r"mongolian gerbils?|veterinary)\b"
+    )
+    combined_model_pattern = (
+        r"\b(mouse|mice|murine|rat|rats|zebrafish|drosophila|canine|dog|dogs|"
+        r"porcine|pig|rabbit|rabbits|cat|cats|horse|horses|equine|bovine|cattle|"
+        r"nonhuman primate|macaque|hamster|hamsters|guinea pigs?|gerbil|gerbils|"
+        r"mongolian gerbils?|veterinary)\b"
+    )
+    human_pattern = (
         r"\b(patient|patients|cohort|trial|participants|adult|adults|child|children|"
         r"infants?|newborns?|neonates?|women|men|people|persons|population|"
         r"human|humans|epidemiolog(?:y|ical)|cross-sectional|mixed methods|survey|"
         r"dog bite cases?|dog owners?|case report|case series|prospective|retrospective|"
-        r"hospital-based|post-exposure prophylaxis|preexposure prophylaxis|vaccination schedule|"
-        r"public health|mortality|deaths?)\b"
+        r"hospital-based|post-exposure prophylaxis|preexposure prophylaxis|"
+        r"vaccination schedule|public health|mortality|deaths?)\b"
+    )
+    in_vitro_pattern = (
+        r"\b(in vitro|cell line|cell-based|cell culture|organoid|ex vivo|fibroblast|"
+        r"keratinocyte)\b"
+    )
+
+    if has(haystack, review_pattern):
+        return "OTHER"
+    if has(haystack, computational_pattern):
+        return "COMPUTATIONAL"
+    if has(title_haystack, title_model_pattern):
+        return "MODEL_ORGANISM"
+    if has(title_haystack, in_vitro_pattern) and has(
+        title_haystack, combined_model_pattern
     ):
+        return "MODEL_ORGANISM"
+    if has(haystack, in_vitro_pattern) and not has(haystack, human_pattern):
+        return "IN_VITRO"
+    if has(haystack, human_pattern):
         return "HUMAN_CLINICAL"
-    if has(
-        r"\b(mouse|mice|murine|rat|rats|zebrafish|drosophila|porcine|pig|rabbit|rabbits|"
-        r"nonhuman primate|macaque|hamster|guinea pig)\b"
-    ):
+    if has(haystack, combined_model_pattern):
         return "MODEL_ORGANISM"
-    if has(
-        r"\b(canine|dog|dogs|cat|cats|horse|horses|equine|bovine|cattle|veterinary)\b"
-    ):
-        return "MODEL_ORGANISM"
-    if has(
-        r"\b(in vitro|cell line|cell-based|cell culture|organoid|ex vivo|fibroblast|keratinocyte)\b"
-    ):
+    if has(haystack, in_vitro_pattern):
         return "IN_VITRO"
     return "OTHER"
 
