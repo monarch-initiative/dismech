@@ -2,7 +2,7 @@
 reference_id: "DOI:10.1007/s11060-023-04250-5"
 title: Updates on the WHO diagnosis of IDH-mutant glioma
 authors:
-- David.E. Reuss
+- David E. Reuss
 journal: Journal of Neuro-Oncology
 year: '2023'
 doi: 10.1007/s11060-023-04250-5
@@ -10,7 +10,7 @@ content_type: abstract_only
 ---
 
 # Updates on the WHO diagnosis of IDH-mutant glioma
-**Authors:** David.E. Reuss
+**Authors:** David E. Reuss
 **Journal:** Journal of Neuro-Oncology (2023)
 **DOI:** [10.1007/s11060-023-04250-5](https://doi.org/10.1007/s11060-023-04250-5)
 
