@@ -464,7 +464,7 @@ window.searchData = [
       "non-small cell lung carcinoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-03-07T19:27:08Z",
+    "updated_date": "2026-04-11T14:31:37Z",
     "subtypes": [
       "EML4-ALK NSCLC",
       "Non-EML4 ALK Fusion NSCLC"
@@ -5881,7 +5881,7 @@ window.searchData = [
       "Neglected tropical disease"
     ],
     "creation_date": "2026-01-26T15:40:02Z",
-    "updated_date": "2026-01-26T15:40:02Z",
+    "updated_date": "2026-04-11T01:06:52Z",
     "subtypes": [],
     "description": "Bejel (endemic syphilis) is a non-venereal treponemal infection caused by Treponema pallidum subsp. endemicum.",
     "pathophysiology": [],
@@ -7227,7 +7227,7 @@ window.searchData = [
       "Neglected tropical disease"
     ],
     "creation_date": "2026-01-26T15:56:41Z",
-    "updated_date": "2026-01-26T15:56:41Z",
+    "updated_date": "2026-04-11T01:06:52Z",
     "subtypes": [],
     "description": "Buruli ulcer is an indolent necrotizing disease of the skin and subcutaneous tissues caused by Mycobacterium ulcerans, leading to deep ulcerations and disability.",
     "pathophysiology": [
@@ -8679,7 +8679,7 @@ window.searchData = [
       "Foodborne infection"
     ],
     "creation_date": "2026-02-26T22:44:59Z",
-    "updated_date": "2026-04-06T16:43:56Z",
+    "updated_date": "2026-04-11T01:06:52Z",
     "subtypes": [],
     "description": "A foodborne bacterial enteric infection, most commonly caused by Campylobacter jejuni and Campylobacter coli, characterized by acute inflammatory diarrhea and potential post-infectious sequelae.",
     "pathophysiology": [
@@ -9625,7 +9625,7 @@ window.searchData = [
       "uterine cancer"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-03-18T00:00:00Z",
+    "updated_date": "2026-04-11T15:11:34Z",
     "subtypes": [
       "Squamous Cell Carcinoma",
       "Adenocarcinoma",
@@ -9656,7 +9656,7 @@ window.searchData = [
       "Abnormal Vaginal Bleeding",
       "Vaginal Discharge",
       "Pelvic Pain",
-      "Urinary Symptoms"
+      "Hematuria"
     ],
     "phenotype_categories": [
       "Gynecologic",
@@ -9675,9 +9675,7 @@ window.searchData = [
       "HP:0000790"
     ],
     "frequencies": [
-      "VERY_FREQUENT",
-      "FREQUENT",
-      "OCCASIONAL"
+      "FREQUENT"
     ],
     "genes": [
       "TP53",
@@ -9713,7 +9711,7 @@ window.searchData = [
       "Protozoal infection"
     ],
     "creation_date": "2026-01-26T15:56:41Z",
-    "updated_date": "2026-01-26T15:56:41Z",
+    "updated_date": "2026-04-11T00:41:29Z",
     "subtypes": [],
     "description": "Chagas disease (American trypanosomiasis) is a vector-borne protozoal infection caused by Trypanosoma cruzi, transmitted by triatomine insects, with an intracellular amastigote phase in human tissues and chronic cardiac morbidity.",
     "pathophysiology": [
@@ -9753,6 +9751,101 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Charcot-Marie-Tooth Disease Type 2",
+    "disease_id": "MONDO:0018993",
+    "category": "Genetic",
+    "parents": [
+      "Charcot-Marie-Tooth disease"
+    ],
+    "creation_date": "2026-04-08T23:00:00Z",
+    "updated_date": "2026-04-11T20:00:00Z",
+    "subtypes": [
+      "CMT2A",
+      "CMT2E",
+      "CMT2B",
+      "CMT2D",
+      "CMT2I/J"
+    ],
+    "description": "Charcot-Marie-Tooth disease type 2 (CMT2) is a group of inherited peripheral neuropathies characterized by axonal degeneration of peripheral nerves without primary demyelination. Unlike CMT1, which involves Schwann cell dysfunction and demyelination, CMT2 is primarily an axonopathy with normal or near-normal nerve conduction velocities (>38 m/s) but reduced compound muscle action potential amplitudes. CMT2 is genetically heterogeneous, with over 20 subtypes identified, the most common being CMT2A (MFN2 mutations) and CMT2E (NEFL mutations). Clinical features include progressive distal muscle weakness and atrophy, sensory loss, foot deformities, and areflexia, typically with onset in the first to second decade of life.\n",
+    "pathophysiology": [
+      "Mitochondrial Fragmentation",
+      "Impaired Mitochondrial Axonal Transport",
+      "Neurofilament Assembly Disruption",
+      "Impaired Endosomal Trafficking",
+      "Distal Axonal Degeneration"
+    ],
+    "cell_types": [
+      "Motor neuron",
+      "Sensory neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000100",
+      "CL:0000101"
+    ],
+    "biological_processes": [
+      "Mitochondrial fusion",
+      "Axonal transport of mitochondria",
+      "Neurofilament cytoskeleton organization",
+      "Endosome to lysosome transport",
+      "Autophagy"
+    ],
+    "phenotypes": [
+      "Distal Muscle Weakness",
+      "Distal Sensory Loss",
+      "Foot Deformity (Pes Cavus)",
+      "Distal Lower Limb Muscle Atrophy",
+      "Reduced Deep Tendon Reflexes",
+      "Steppage Gait",
+      "Distal Upper Limb Muscle Weakness"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002460",
+      "HP:0002936",
+      "HP:0001761",
+      "HP:0008944",
+      "HP:0001284",
+      "HP:0003376",
+      "HP:0003484"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "MFN2",
+      "NEFL",
+      "RAB7A",
+      "GARS1",
+      "MPZ"
+    ],
+    "treatments": [
+      "Physical Therapy and Rehabilitation",
+      "Orthotic Devices",
+      "Surgical Management",
+      "Avoidance of Neurotoxic Medications"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Charcot-Marie-Tooth_Disease_Type_2.yaml",
+    "page_url": "../pages/disorders/Charcot-Marie-Tooth_Disease_Type_2.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 5,
+    "num_genes": 5,
+    "num_treatments": 4,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Chemotherapy-Induced Diarrhea",
@@ -9986,7 +10079,7 @@ window.searchData = [
       "Neglected tropical disease"
     ],
     "creation_date": "2026-01-26T15:56:41Z",
-    "updated_date": "2026-01-26T15:56:41Z",
+    "updated_date": "2026-04-11T01:06:52Z",
     "subtypes": [],
     "description": "Chikungunya is an arboviral disease caused by chikungunya virus and transmitted by Aedes mosquitoes, presenting with acute fever, rash, and incapacitating arthralgia.",
     "pathophysiology": [],
@@ -10428,7 +10521,7 @@ window.searchData = [
       "Neglected tropical disease"
     ],
     "creation_date": "2026-01-26T15:56:41Z",
-    "updated_date": "2026-01-26T15:56:41Z",
+    "updated_date": "2026-04-11T01:06:52Z",
     "subtypes": [],
     "description": "Chromoblastomycosis is a chronic fungal disease of the skin and subcutaneous tissues caused by dematiaceous fungi.",
     "pathophysiology": [],
@@ -10554,7 +10647,7 @@ window.searchData = [
       "Renal Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-02-17T21:53:14Z",
+    "updated_date": "2026-04-04T12:00:00Z",
     "subtypes": [
       "Diabetic Nephropathy",
       "Hypertensive Nephrosclerosis",
@@ -10579,7 +10672,7 @@ window.searchData = [
       "CL:0000186"
     ],
     "biological_processes": [
-      "Fibrosis",
+      "Glomerular Fibrosis",
       "RAAS Signaling"
     ],
     "phenotypes": [
@@ -13850,7 +13943,7 @@ window.searchData = [
       "Neglected tropical disease"
     ],
     "creation_date": "2026-01-26T15:56:41Z",
-    "updated_date": "2026-01-26T15:56:41Z",
+    "updated_date": "2026-04-11T01:06:52Z",
     "subtypes": [],
     "description": "Cystic echinococcosis is a helminthic disease caused by the larval stage of Echinococcus granulosus.",
     "pathophysiology": [
@@ -15968,7 +16061,7 @@ window.searchData = [
       "Neglected tropical disease"
     ],
     "creation_date": "2026-01-26T15:56:41Z",
-    "updated_date": "2026-01-26T15:56:41Z",
+    "updated_date": "2026-04-11T01:06:52Z",
     "subtypes": [],
     "description": "Dracunculiasis (guinea worm disease) is caused by Dracunculus medinensis and is transmitted through contaminated drinking water containing infected copepods.",
     "pathophysiology": [
@@ -16468,7 +16561,7 @@ window.searchData = [
       "gastric cancer"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-02-16T20:19:38Z",
+    "updated_date": "2026-04-11T14:33:29Z",
     "subtypes": [],
     "description": "Epstein-Barr virus (EBV)-associated gastric cancer is a distinct molecular subtype of gastric adenocarcinoma characterized by clonal EBV infection of tumor cells, extreme CpG island methylator phenotype (CIMP-high), frequent PIK3CA mutations, and JAK2/PD-L1/PD-L2 amplifications. EBV-positive gastric cancers comprise approximately 9% of all gastric cancers worldwide and show unique features including prominent lymphoid infiltration, better prognosis than other subtypes, and potential responsiveness to immune checkpoint inhibitors. The viral oncoproteins LMP1, LMP2A, and EBNA1 drive epigenetic reprogramming and survival signaling in infected epithelial cells.",
     "pathophysiology": [
@@ -19925,7 +20018,7 @@ window.searchData = [
       "Neglected tropical disease"
     ],
     "creation_date": "2026-01-26T15:56:41Z",
-    "updated_date": "2026-01-26T15:56:41Z",
+    "updated_date": "2026-04-11T01:06:52Z",
     "subtypes": [],
     "description": "Foodborne trematodiases are infections with food-borne trematodes, including liver, lung, and intestinal flukes.",
     "pathophysiology": [],
@@ -21010,7 +21103,7 @@ window.searchData = [
       "protozoan infectious disease"
     ],
     "creation_date": "2026-03-02T20:53:58Z",
-    "updated_date": "2026-03-02T22:56:51Z",
+    "updated_date": "2026-04-11T01:06:52Z",
     "subtypes": [
       "Acute symptomatic giardiasis",
       "Chronic giardiasis with malabsorption",
@@ -23131,7 +23224,7 @@ window.searchData = [
       "head and neck squamous cell carcinoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-01-26T04:02:22Z",
+    "updated_date": "2026-04-11T14:32:29Z",
     "subtypes": [
       "Tonsillar Squamous Cell Carcinoma",
       "Base of Tongue Squamous Cell Carcinoma"
@@ -23187,7 +23280,6 @@ window.searchData = [
       "HP:0001824"
     ],
     "frequencies": [
-      "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
     ],
@@ -25364,7 +25456,7 @@ window.searchData = [
       "Protozoal infection"
     ],
     "creation_date": "2026-01-26T15:56:41Z",
-    "updated_date": "2026-01-26T15:56:41Z",
+    "updated_date": "2026-04-11T00:41:29Z",
     "subtypes": [],
     "description": "Human African trypanosomiasis (sleeping sickness) is a tsetse fly\u2013borne infection caused by Trypanosoma brucei subspecies, characterized by an early hemolymphatic stage and a later meningoencephalitic stage with sleep-wake disturbances.",
     "pathophysiology": [
@@ -26323,7 +26415,7 @@ window.searchData = [
       "acute myeloid leukemia"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-01-26T04:02:22Z",
+    "updated_date": "2026-04-11T14:30:51Z",
     "subtypes": [
       "IDH1-Mutated AML",
       "IDH2-Mutated AML"
@@ -26331,7 +26423,8 @@ window.searchData = [
     "description": "IDH-mutated acute myeloid leukemia is characterized by mutations in isocitrate dehydrogenase genes IDH1 (6-10% of AML) or IDH2 (8-12% of AML). These mutations confer neomorphic enzymatic activity, producing the oncometabolite 2-hydroxyglutarate (2-HG) instead of alpha-ketoglutarate. Elevated 2-HG inhibits alpha-ketoglutarate- dependent dioxygenases, causing epigenetic dysregulation and differentiation block. The development of targeted IDH inhibitors (ivosidenib for IDH1, enasidenib for IDH2) represents a paradigm of metabolic-targeted cancer therapy, inducing differentiation rather than cytotoxicity.",
     "pathophysiology": [
       "IDH Neomorphic Enzyme Activity",
-      "2-HG Accumulation and Dioxygenase Inhibition",
+      "2-HG Accumulation",
+      "Dioxygenase Inhibition",
       "DNA Hypermethylation",
       "Histone Methylation Dysregulation",
       "Differentiation Block"
@@ -26395,11 +26488,11 @@ window.searchData = [
     "source_file": "IDH_Mutant_AML.yaml",
     "page_url": "../pages/disorders/Acute_Myeloid_Leukemia,_IDH-Mutated.html",
     "num_phenotypes": 5,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 6,
     "num_genes": 2,
     "num_treatments": 5,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "IDH-Mutant Astrocytoma",
@@ -28529,7 +28622,7 @@ window.searchData = [
       "sarcoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-04-10T00:00:00Z",
     "subtypes": [
       "Classic Kaposi Sarcoma",
       "Endemic Kaposi Sarcoma",
@@ -28575,7 +28668,6 @@ window.searchData = [
       "Pulmonary"
     ],
     "phenotype_hpo_categories": [
-      "Blood",
       "Cardiovascular",
       "Digestive",
       "Immune",
@@ -28584,16 +28676,16 @@ window.searchData = [
       "Respiratory"
     ],
     "phenotype_ids": [
-      "HP:0000953",
+      "HP:0011355",
       "HP:0001004",
       "HP:0002716",
-      "HP:0002239",
-      "HP:0002094"
+      "HP:0011024",
+      "HP:0002088"
     ],
     "frequencies": [
       "VERY_FREQUENT",
-      "FREQUENT",
-      "OCCASIONAL"
+      "OCCASIONAL",
+      "FREQUENT"
     ],
     "genes": [
       "HHV-8 Viral Oncogenes"
@@ -30337,7 +30429,7 @@ window.searchData = [
       "Protozoal infection"
     ],
     "creation_date": "2026-01-26T03:01:01Z",
-    "updated_date": "2026-01-26T03:01:01Z",
+    "updated_date": "2026-04-11T01:06:52Z",
     "subtypes": [
       "Visceral leishmaniasis",
       "Cutaneous leishmaniasis",
@@ -30393,7 +30485,7 @@ window.searchData = [
       "Neglected tropical disease"
     ],
     "creation_date": "2026-01-26T15:56:41Z",
-    "updated_date": "2026-02-27T21:52:59Z",
+    "updated_date": "2026-04-11T00:41:29Z",
     "subtypes": [],
     "description": "Leprosy is a chronic infectious disease caused by Mycobacterium leprae that primarily affects the skin and peripheral nervous system.",
     "pathophysiology": [
@@ -31839,7 +31931,7 @@ window.searchData = [
       "Filariasis"
     ],
     "creation_date": "2026-01-26T03:01:01Z",
-    "updated_date": "2026-02-27T21:53:00Z",
+    "updated_date": "2026-04-11T01:06:52Z",
     "subtypes": [],
     "description": "Lymphatic filariasis is a mosquito-borne nematode infection in which adult filarial worms inhabit lymphatic vessels, causing lymphatic dysfunction and chronic morbidity including lymphedema and hydrocele.",
     "pathophysiology": [
@@ -32868,7 +32960,7 @@ window.searchData = [
       "mesothelial neoplasm"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-04-11T02:00:00Z",
     "subtypes": [
       "Epithelioid Mesothelioma",
       "Sarcomatoid Mesothelioma",
@@ -34790,7 +34882,7 @@ window.searchData = [
       "hepatocellular carcinoma"
     ],
     "creation_date": "2026-03-28T21:45:00Z",
-    "updated_date": "2026-03-29T02:21:26Z",
+    "updated_date": "2026-04-10T22:27:38Z",
     "subtypes": [],
     "description": "Metastatic hepatocellular carcinoma (HCC) is advanced HCC with vascular invasion, portal vein tumor thrombus, or extrahepatic spread most often to lung, bone, adrenal gland, or lymph node. The metastatic phenotype develops on a background of chronic liver disease, viral hepatitis, cirrhosis, and frequent activation of Wnt/beta-catenin and angiogenic signaling pathways.",
     "pathophysiology": [
@@ -35028,7 +35120,7 @@ window.searchData = [
       "ovarian carcinoma"
     ],
     "creation_date": "2026-03-28T21:40:00Z",
-    "updated_date": "2026-03-29T02:21:26Z",
+    "updated_date": "2026-04-11T14:29:25Z",
     "subtypes": [],
     "description": "Metastatic ovarian cancer is usually advanced epithelial ovarian carcinoma, most often high-grade serous ovarian cancer, with dominant transcoelomic spread throughout the peritoneal cavity. Its metastatic biology is characterized by ascitic shedding, multicellular spheroid formation, mesothelial and extracellular matrix interactions, EMT-like plasticity, homologous recombination defects in BRCA-associated cases, and recurrent platinum resistance.",
     "pathophysiology": [
@@ -35036,7 +35128,8 @@ window.searchData = [
       "Mesothelial Crosstalk and Platinum Resistance",
       "EMT and Mesenchymal Plasticity",
       "BRCA-Associated Homologous Recombination Deficiency",
-      "Angiogenesis and Immune Evasion"
+      "Tumor Angiogenesis",
+      "Immune Evasion"
     ],
     "cell_types": [],
     "cell_type_ids": [],
@@ -35088,7 +35181,7 @@ window.searchData = [
     "source_file": "Metastatic_Ovarian_Cancer.yaml",
     "page_url": "../pages/disorders/Metastatic_Ovarian_Cancer.html",
     "num_phenotypes": 4,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 6,
     "num_genes": 4,
     "num_treatments": 0,
     "causal_graph_edges": "0",
@@ -35185,14 +35278,16 @@ window.searchData = [
       "prostate cancer"
     ],
     "creation_date": "2026-03-28T21:25:00Z",
-    "updated_date": "2026-03-29T02:21:26Z",
+    "updated_date": "2026-04-11T14:40:11Z",
     "subtypes": [],
     "description": "Metastatic prostate cancer is advanced prostate adenocarcinoma that has spread beyond the prostate and regional lymph nodes, most commonly to bone, lymph node, liver, and lung. The metastatic state is sustained by persistent androgen receptor signaling, lineage plasticity under treatment pressure, osteoblastic bone tropism, and progressive emergence of castration resistance.",
     "pathophysiology": [
       "Persistent Androgen Receptor Signaling",
-      "EMT and Metastatic Dissemination",
+      "Epithelial-Mesenchymal Transition",
+      "Metastatic Dissemination",
       "Osteoblastic Bone Tropism",
-      "Castration Resistance and Clonal Evolution",
+      "Castration Resistance",
+      "Clonal Evolution and Lineage Plasticity",
       "Immune Evasion in Metastatic Sites"
     ],
     "cell_types": [],
@@ -35201,8 +35296,8 @@ window.searchData = [
       "androgen receptor signaling pathway",
       "epithelial to mesenchymal transition",
       "positive regulation of cell migration",
-      "wound healing",
-      "signal transduction",
+      "positive regulation of ossification",
+      "cell fate commitment",
       "negative regulation of immune response"
     ],
     "phenotypes": [
@@ -35244,11 +35339,11 @@ window.searchData = [
     "source_file": "Metastatic_Prostate_Cancer.yaml",
     "page_url": "../pages/disorders/Metastatic_Prostate_Cancer.html",
     "num_phenotypes": 4,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 7,
     "num_genes": 4,
     "num_treatments": 0,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "1"
   },
   {
     "name": "Metastatic Renal Cell Carcinoma",
@@ -35258,24 +35353,27 @@ window.searchData = [
       "renal cell carcinoma"
     ],
     "creation_date": "2026-03-28T21:30:00Z",
-    "updated_date": "2026-03-29T02:21:26Z",
+    "updated_date": "2026-04-10T12:00:00Z",
     "subtypes": [],
     "description": "Metastatic renal cell carcinoma (RCC) is advanced RCC with dissemination most commonly to lung, bone, liver, and brain. Clear cell biology predominates and is driven by VHL loss, HIF stabilization, intense angiogenesis, and context-dependent immune responsiveness that has made checkpoint blockade a core therapy in modern mRCC.",
     "pathophysiology": [
-      "VHL Loss and HIF Stabilization",
+      "VHL Inactivation",
+      "HIF Transcription Factor Stabilization",
       "VEGF-Dependent Angiogenesis",
-      "Invasion and Hematogenous Dissemination",
+      "Tumor Cell Invasion",
+      "Hematogenous Dissemination",
       "Immune Microenvironment and Checkpoint Sensitivity",
       "Immune Evasion"
     ],
     "cell_types": [],
     "cell_type_ids": [],
     "biological_processes": [
+      "proteasome-mediated VHL-dependent degradation of HIF-\u03b1",
       "response to hypoxia",
       "angiogenesis",
       "epithelial to mesenchymal transition",
       "cell migration",
-      "immune system process",
+      "adaptive immune response",
       "negative regulation of immune response"
     ],
     "phenotypes": [
@@ -35325,11 +35423,11 @@ window.searchData = [
     "source_file": "Metastatic_Renal_Cell_Carcinoma.yaml",
     "page_url": "../pages/disorders/Metastatic_Renal_Cell_Carcinoma.html",
     "num_phenotypes": 5,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 7,
     "num_genes": 4,
     "num_treatments": 0,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "3",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Metatropic Dysplasia",
@@ -37485,7 +37583,7 @@ window.searchData = [
       "Neglected tropical disease"
     ],
     "creation_date": "2026-01-26T15:56:41Z",
-    "updated_date": "2026-01-26T15:56:41Z",
+    "updated_date": "2026-04-11T01:06:52Z",
     "subtypes": [],
     "description": "Mycetoma is a chronic infection of the skin and subcutaneous tissues caused by fungi or bacteria.",
     "pathophysiology": [
@@ -38117,7 +38215,7 @@ window.searchData = [
       "pharyngeal carcinoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-03-28T00:00:00Z",
+    "updated_date": "2026-04-11T15:09:12Z",
     "subtypes": [
       "Non-keratinizing Carcinoma",
       "Keratinizing Squamous Cell Carcinoma"
@@ -39077,7 +39175,7 @@ window.searchData = [
       "Neglected tropical disease"
     ],
     "creation_date": "2026-01-26T15:56:41Z",
-    "updated_date": "2026-01-26T15:56:41Z",
+    "updated_date": "2026-04-11T00:41:29Z",
     "subtypes": [],
     "description": "Noma (cancrum oris) is an aggressive orofacial gangrenous disease that damages hard and soft tissues of the mouth and face.",
     "pathophysiology": [
@@ -39892,6 +39990,89 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Okur-Chung Neurodevelopmental Syndrome",
+    "disease_id": "MONDO:0014893",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental disorder",
+      "Intellectual disability syndrome"
+    ],
+    "creation_date": "2026-04-09T17:17:18Z",
+    "updated_date": "2026-04-11T02:36:00Z",
+    "subtypes": [],
+    "description": "Okur-Chung neurodevelopmental syndrome (OCNDS) is an ultra-rare autosomal dominant neurodevelopmental disorder caused by heterozygous pathogenic variants in CSNK2A1, which encodes the catalytic CK2alpha subunit of protein kinase CK2. Core manifestations include global developmental delay, intellectual disability, severe speech and language impairment, hypotonia, dysmorphic features, microcephaly in a substantial subset, dysphagia and other gastrointestinal problems, seizures in a minority, and occasional congenital heart abnormalities. Current mechanistic evidence does not support a single uniform gain-of-function model; instead, pathogenic variants can reduce CK2alpha kinase activity, alter subcellular localization, or rewire substrate specificity, converging on abnormal phosphoregulation and synaptic dysfunction in the developing nervous system.",
+    "pathophysiology": [
+      "CSNK2A1-dependent CK2alpha kinase dysfunction",
+      "Synaptic phosphoregulation defects"
+    ],
+    "cell_types": [
+      "glutamatergic neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000679"
+    ],
+    "biological_processes": [
+      "protein phosphorylation",
+      "synapse organization",
+      "regulation of synaptic plasticity",
+      "synaptic transmission, glutamatergic"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Intellectual disability",
+      "Delayed speech and language development",
+      "Behavioral abnormalities",
+      "Hypotonia",
+      "Microcephaly",
+      "Dysphagia",
+      "Congenital heart defect",
+      "Seizures"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Behavioral",
+      "Gastrointestinal",
+      "Cardiac"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0000750",
+      "HP:0000708",
+      "HP:0001252",
+      "HP:0000252",
+      "HP:0002015",
+      "HP:0001627",
+      "HP:0001250"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "CSNK2A1"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Okur_Chung_neurodevelopmental_syndrome.yaml",
+    "page_url": "../pages/disorders/Okur-Chung_Neurodevelopmental_Syndrome.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Omodysplasia",
     "disease_id": "MONDO:0017136",
     "category": "Mendelian",
@@ -40010,7 +40191,7 @@ window.searchData = [
       "Neglected tropical disease"
     ],
     "creation_date": "2026-01-26T15:56:41Z",
-    "updated_date": "2026-01-26T15:56:41Z",
+    "updated_date": "2026-04-11T00:41:29Z",
     "subtypes": [],
     "description": "Onchocerciasis (river blindness) is a filarial infection caused by Onchocerca volvulus, transmitted by black flies, leading to pruritus, dermatitis, and ocular disease that can progress to blindness.",
     "pathophysiology": [],
@@ -40348,92 +40529,84 @@ window.searchData = [
       "Degenerative Joint Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-02-17T21:53:14Z",
+    "updated_date": "2026-04-11T02:51:44Z",
     "subtypes": [
       "Primary Osteoarthritis",
       "Secondary Osteoarthritis",
-      "Erosive Osteoarthritis"
+      "Erosive Hand Osteoarthritis"
     ],
-    "description": "Progressive loss of articular cartilage due to imbalance between catabolic and anabolic processes. Matrix metalloproteinases and aggrecanases degrade cartilage components.\n",
+    "description": "Osteoarthritis is a common, heterogeneous degenerative disorder of mobile joints that is now understood as a whole-joint disease rather than isolated \"wear and tear\" of cartilage. Pathobiology spans articular cartilage, subchondral bone, synovium, ligaments, periarticular muscle, and pain-processing pathways, producing chronic joint pain, stiffness, reduced mobility, and disability. Age, high BMI, prior major joint injury, and polygenic susceptibility modify risk, while current treatment remains focused on symptom control, function, and late-stage joint replacement.",
     "pathophysiology": [
-      "Cartilage Degradation",
-      "Subchondral Bone Changes",
-      "Synovial Inflammation"
+      "Cartilage Matrix Catabolism",
+      "Chondrocyte Senescence",
+      "Synovial Macrophage-Fibroblast Crosstalk",
+      "Subchondral Bone Remodeling"
     ],
     "cell_types": [
       "Chondrocyte",
-      "Osteoblast",
+      "Macrophage",
+      "fibroblast-like synovial cell",
       "Osteoclast",
-      "Synoviocyte",
-      "Macrophage"
+      "Osteoblast"
     ],
     "cell_type_ids": [
       "CL:0000138",
-      "CL:0000062",
+      "CL:0000235",
+      "CL:0002301",
       "CL:0000092",
-      "CL:0000214",
-      "CL:0000235"
+      "CL:0000062"
     ],
     "biological_processes": [
-      "Cartilage Catabolism",
-      "Inflammatory Response"
+      "collagen catabolic process",
+      "proteoglycan catabolic process",
+      "cellular senescence",
+      "inflammatory response",
+      "bone remodeling"
     ],
     "phenotypes": [
       "Joint Pain",
       "Joint Stiffness",
-      "Joint Swelling",
-      "Reduced Range of Motion",
-      "Crepitus"
+      "Limitation of Joint Mobility"
     ],
     "phenotype_categories": [
       "Musculoskeletal"
     ],
     "phenotype_hpo_categories": [
       "Constitutional",
-      "Metabolism",
       "Musculoskeletal"
     ],
     "phenotype_ids": [
       "HP:0002829",
       "HP:0001387",
-      "HP:0001386",
-      "HP:0001376",
-      "HP:0034431"
+      "HP:0001376"
     ],
     "frequencies": [
-      "VERY_FREQUENT",
-      "FREQUENT"
+      "VERY_FREQUENT"
     ],
     "genes": [
-      "GDF5",
-      "FRZB",
-      "ASPN",
-      "COL2A1"
+      "GDF5 susceptibility variant"
     ],
     "treatments": [
-      "Acetaminophen",
-      "NSAIDs",
-      "Physical Therapy",
+      "Exercise",
       "Weight Loss",
-      "Intra-articular Corticosteroid Injections",
-      "Intra-articular Hyaluronic Acid",
-      "Joint Replacement Surgery"
+      "NSAIDs",
+      "Intra-articular Glucocorticoid Injections",
+      "Total Joint Replacement"
     ],
     "environmental": [
-      "Obesity",
-      "Joint Injury",
-      "Occupational Overuse",
-      "Age"
+      "Age",
+      "High BMI",
+      "Major Joint Injury"
     ],
     "biochemical": [],
     "source_file": "Osteoarthritis.yaml",
     "page_url": "../pages/disorders/Osteoarthritis.html",
-    "num_phenotypes": 5,
-    "num_pathophysiology": 3,
-    "num_genes": 4,
-    "num_treatments": 7,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "num_phenotypes": 3,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "1"
   },
   {
     "name": "Osteogenesis Imperfecta Type I",
@@ -41216,7 +41389,7 @@ window.searchData = [
       "Fungal infection"
     ],
     "creation_date": "2026-02-16T00:00:00Z",
-    "updated_date": "2026-02-16T00:00:00Z",
+    "updated_date": "2026-04-11T01:06:52Z",
     "subtypes": [],
     "description": "Otomycosis is a superficial fungal infection of the external auditory canal, commonly caused by Aspergillus and Candida species. It accounts for approximately 5-25% of otitis externa cases worldwide, with higher prevalence in tropical and subtropical climates. Predisposing factors include prior antibiotic or steroid ear drop use, trauma from ear cleaning, and humid environments. Clinical features include pruritus, otalgia, otorrhea, and conductive hearing loss due to fungal debris obstructing the ear canal. Otomycosis is increasingly recognized as a biofilm-related infection, which contributes to treatment failure and recurrence. Management centers on thorough aural toilet followed by topical antifungal agents.\n",
     "pathophysiology": [
@@ -43881,7 +44054,7 @@ window.searchData = [
       "Neglected tropical disease"
     ],
     "creation_date": "2026-01-26T15:40:02Z",
-    "updated_date": "2026-01-26T15:40:02Z",
+    "updated_date": "2026-04-04T23:04:34Z",
     "subtypes": [],
     "description": "Pinta is a non-venereal treponematosis caused by Treponema carateum.",
     "pathophysiology": [],
@@ -46734,7 +46907,7 @@ window.searchData = [
       "Neglected tropical disease"
     ],
     "creation_date": "2026-01-26T15:56:41Z",
-    "updated_date": "2026-01-26T15:56:41Z",
+    "updated_date": "2026-04-11T00:45:07Z",
     "subtypes": [],
     "description": "Rabies is an acute, progressive viral encephalitis caused by rabies virus, typically transmitted through animal bites with centrifugal spread to the salivary glands.",
     "pathophysiology": [
@@ -48222,7 +48395,7 @@ window.searchData = [
       "Neglected tropical disease"
     ],
     "creation_date": "2026-01-26T15:56:41Z",
-    "updated_date": "2026-02-27T21:53:03Z",
+    "updated_date": "2026-04-11T01:06:52Z",
     "subtypes": [],
     "description": "Scabies is a contagious parasitic skin disease caused by Sarcoptes scabiei infestation.",
     "pathophysiology": [
@@ -48273,7 +48446,7 @@ window.searchData = [
       "Neglected tropical disease"
     ],
     "creation_date": "2026-01-26T03:01:01Z",
-    "updated_date": "2026-01-26T03:01:01Z",
+    "updated_date": "2026-04-11T01:06:52Z",
     "subtypes": [],
     "description": "Schistosomiasis is a helminth infection caused by blood flukes of the genus Schistosoma, with disease driven by egg deposition that triggers granulomatous inflammation in intestinal, hepatosplenic, and urogenital tissues.",
     "pathophysiology": [
@@ -49928,7 +50101,7 @@ window.searchData = [
       "Neglected tropical disease"
     ],
     "creation_date": "2026-01-26T15:56:41Z",
-    "updated_date": "2026-02-27T21:53:04Z",
+    "updated_date": "2026-04-11T01:06:52Z",
     "subtypes": [],
     "description": "Soil-transmitted helminthiases are intestinal nematode infections caused by Ascaris, Trichuris, hookworms, and Strongyloides, transmitted through contaminated environments and resulting in chronic morbidity.",
     "pathophysiology": [
@@ -51860,7 +52033,7 @@ window.searchData = [
       "Neglected tropical disease"
     ],
     "creation_date": "2026-01-26T15:56:41Z",
-    "updated_date": "2026-01-26T15:56:41Z",
+    "updated_date": "2026-04-11T01:06:52Z",
     "subtypes": [],
     "description": "Taeniasis/cysticercosis is caused by Taenia solium, with intestinal taeniasis and tissue cysticercosis including neurocysticercosis, a major cause of seizures in endemic regions.",
     "pathophysiology": [
@@ -52891,7 +53064,7 @@ window.searchData = [
       "Neglected tropical disease"
     ],
     "creation_date": "2026-01-26T15:56:41Z",
-    "updated_date": "2026-01-26T15:56:41Z",
+    "updated_date": "2026-04-11T01:06:52Z",
     "subtypes": [],
     "description": "Trachoma is a neglected tropical disease caused by conjunctival infection with Chlamydia trachomatis, leading to chronic conjunctival inflammation, scarring, trichiasis, and blindness.",
     "pathophysiology": [
@@ -54878,7 +55051,7 @@ window.searchData = [
       "Malabsorption syndrome"
     ],
     "creation_date": "2026-01-14T23:44:48Z",
-    "updated_date": "2026-02-27T21:53:05Z",
+    "updated_date": "2026-04-11T01:06:52Z",
     "subtypes": [],
     "description": "Whipple disease is a chronic, multisystem infection caused by the actinomycete Tropheryma whipplei. It most commonly presents with weight loss, diarrhea, malabsorption, and migratory arthralgias, and can involve cardiac, neurologic, and ocular systems.\n",
     "pathophysiology": [
@@ -55555,7 +55728,7 @@ window.searchData = [
       "Neglected tropical disease"
     ],
     "creation_date": "2026-01-26T15:56:41Z",
-    "updated_date": "2026-01-26T15:56:41Z",
+    "updated_date": "2026-04-11T00:45:07Z",
     "subtypes": [],
     "description": "Yaws is a chronic and disfiguring bacterial infection caused by Treponema pallidum subsp. pertenue.",
     "pathophysiology": [],
@@ -55670,11 +55843,11 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 602,
-  "total_unique_evidence_sources": 9823,
+  "total_disorder_pages": 604,
+  "total_unique_evidence_sources": 10231,
   "total_unique_disease_categories": 35,
   "total_unique_phenotype_categories": 137,
-  "total_pathographs": 593,
-  "total_unique_pathological_events": 2540
+  "total_pathographs": 595,
+  "total_unique_pathological_events": 2554
 };
 window.dispatchEvent(new Event('searchDataReady'));
