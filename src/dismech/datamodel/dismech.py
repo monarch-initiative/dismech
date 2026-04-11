@@ -1,5 +1,5 @@
 # Auto generated from dismech.yaml by pythongen.py version: 0.0.1
-# Generation date: 2026-04-06T12:41:14
+# Generation date: 2026-04-10T18:02:25
 # Schema: dismech
 #
 # id: https://w3id.org/monarch-initiative/dismech
@@ -1971,6 +1971,48 @@ class ExternalAssertion(YAMLRoot):
 
 
 @dataclass(repr=False)
+class TrackedIssue(YAMLRoot):
+    """
+    Structured pointer to an external tracker issue (typically a GitHub issue) used to record curation provenance. Use
+    this for things like upstream ontology term requests, ontology coverage gaps, schema follow-ups, or any external
+    ticket tied to a dismech object, instead of stashing raw URLs in free-text `notes` fields. Attachable at multiple
+    levels of the model (disease entries, mappings, etc.).
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["TrackedIssue"]
+    class_class_curie: ClassVar[str] = "dismech:TrackedIssue"
+    class_name: ClassVar[str] = "TrackedIssue"
+    class_model_uri: ClassVar[URIRef] = DISMECH.TrackedIssue
+
+    url: Union[str, URI] = None
+    title: Optional[str] = None
+    tracked_issue_role: Optional[str] = None
+    tracked_issue_status: Optional[str] = None
+    notes: Optional[str] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.url):
+            self.MissingRequiredField("url")
+        if not isinstance(self.url, URI):
+            self.url = URI(self.url)
+
+        if self.title is not None and not isinstance(self.title, str):
+            self.title = str(self.title)
+
+        if self.tracked_issue_role is not None and not isinstance(self.tracked_issue_role, str):
+            self.tracked_issue_role = str(self.tracked_issue_role)
+
+        if self.tracked_issue_status is not None and not isinstance(self.tracked_issue_status, str):
+            self.tracked_issue_status = str(self.tracked_issue_status)
+
+        if self.notes is not None and not isinstance(self.notes, str):
+            self.notes = str(self.notes)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
 class Finding(YAMLRoot):
     """
     A key finding or claim extracted from a source (publication or dataset)
@@ -2678,6 +2720,7 @@ class Disease(YAMLRoot):
     definitions: Optional[Union[dict[Union[str, DefinitionName], Union[dict, "Definition"]], list[Union[dict, "Definition"]]]] = empty_dict()
     mappings: Optional[Union[dict, "DiseaseMappings"]] = None
     external_assertions: Optional[Union[dict[Union[str, ExternalAssertionName], Union[dict, ExternalAssertion]], list[Union[dict, ExternalAssertion]]]] = empty_dict()
+    tracked_issues: Optional[Union[Union[dict, TrackedIssue], list[Union[dict, TrackedIssue]]]] = empty_list()
     notes: Optional[str] = None
     review_notes: Optional[str] = None
     curation_history: Optional[Union[Union[dict, CurationEvent], list[Union[dict, CurationEvent]]]] = empty_list()
@@ -2787,6 +2830,10 @@ class Disease(YAMLRoot):
             self.mappings = DiseaseMappings(**as_dict(self.mappings))
 
         self._normalize_inlined_as_list(slot_name="external_assertions", slot_type=ExternalAssertion, key_name="name", keyed=True)
+
+        if not isinstance(self.tracked_issues, list):
+            self.tracked_issues = [self.tracked_issues] if self.tracked_issues is not None else []
+        self.tracked_issues = [v if isinstance(v, TrackedIssue) else TrackedIssue(**as_dict(v)) for v in self.tracked_issues]
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -3826,6 +3873,7 @@ class TermMapping(YAMLRoot):
     mapping_source: Optional[str] = None
     mapping_justification: Optional[str] = None
     consistency: Optional[Union[Union[dict, "MappingConsistency"], list[Union[dict, "MappingConsistency"]]]] = empty_list()
+    tracked_issues: Optional[Union[Union[dict, TrackedIssue], list[Union[dict, TrackedIssue]]]] = empty_list()
     notes: Optional[str] = None
 
     def __post_init__(self, *_: str, **kwargs: Any):
@@ -3848,6 +3896,10 @@ class TermMapping(YAMLRoot):
         if not isinstance(self.consistency, list):
             self.consistency = [self.consistency] if self.consistency is not None else []
         self.consistency = [v if isinstance(v, MappingConsistency) else MappingConsistency(**as_dict(v)) for v in self.consistency]
+
+        if not isinstance(self.tracked_issues, list):
+            self.tracked_issues = [self.tracked_issues] if self.tracked_issues is not None else []
+        self.tracked_issues = [v if isinstance(v, TrackedIssue) else TrackedIssue(**as_dict(v)) for v in self.tracked_issues]
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -7298,6 +7350,15 @@ slots.min_age_years = Slot(uri=DISMECH.min_age_years, name="min_age_years", curi
 slots.max_age_years = Slot(uri=DISMECH.max_age_years, name="max_age_years", curie=DISMECH.curie('max_age_years'),
                    model_uri=DISMECH.max_age_years, domain=None, range=Optional[float])
 
+slots.tracked_issues = Slot(uri=DISMECH.tracked_issues, name="tracked_issues", curie=DISMECH.curie('tracked_issues'),
+                   model_uri=DISMECH.tracked_issues, domain=None, range=Optional[Union[Union[dict, TrackedIssue], list[Union[dict, TrackedIssue]]]])
+
+slots.tracked_issue_role = Slot(uri=DISMECH.tracked_issue_role, name="tracked_issue_role", curie=DISMECH.curie('tracked_issue_role'),
+                   model_uri=DISMECH.tracked_issue_role, domain=None, range=Optional[str])
+
+slots.tracked_issue_status = Slot(uri=DISMECH.tracked_issue_status, name="tracked_issue_status", curie=DISMECH.curie('tracked_issue_status'),
+                   model_uri=DISMECH.tracked_issue_status, domain=None, range=Optional[str])
+
 slots.proteinStructure__pdb_id = Slot(uri=DISMECH.pdb_id, name="proteinStructure__pdb_id", curie=DISMECH.curie('pdb_id'),
                    model_uri=DISMECH.proteinStructure__pdb_id, domain=None, range=str)
 
@@ -7486,6 +7547,12 @@ slots.ExternalAssertion_source = Slot(uri=DISMECH.source, name="ExternalAssertio
 
 slots.ExternalAssertion_external_id = Slot(uri=DISMECH.external_id, name="ExternalAssertion_external_id", curie=DISMECH.curie('external_id'),
                    model_uri=DISMECH.ExternalAssertion_external_id, domain=ExternalAssertion, range=str)
+
+slots.TrackedIssue_url = Slot(uri=DISMECH.url, name="TrackedIssue_url", curie=DISMECH.curie('url'),
+                   model_uri=DISMECH.TrackedIssue_url, domain=TrackedIssue, range=Union[str, URI])
+
+slots.TrackedIssue_title = Slot(uri=DISMECH.title, name="TrackedIssue_title", curie=DISMECH.curie('title'),
+                   model_uri=DISMECH.TrackedIssue_title, domain=TrackedIssue, range=Optional[str])
 
 slots.HistopathologyFinding_name = Slot(uri=DISMECH.name, name="HistopathologyFinding_name", curie=DISMECH.curie('name'),
                    model_uri=DISMECH.HistopathologyFinding_name, domain=HistopathologyFinding, range=Union[str, HistopathologyFindingName])
