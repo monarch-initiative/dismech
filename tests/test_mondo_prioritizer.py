@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import csv
+import json
 from copy import deepcopy
 from pathlib import Path
 
+import pytest
 import yaml
 from typer.testing import CliRunner
 
@@ -37,6 +39,17 @@ def _write_candidate_tsv(path: Path, rows: list[dict[str, str]]) -> None:
         writer = csv.DictWriter(stream, fieldnames=fieldnames, delimiter="\t")
         writer.writeheader()
         writer.writerows(rows)
+
+
+def _write_json(path: Path, payload: list[dict[str, str]]) -> None:
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+
+def _write_jsonl(path: Path, rows: list[dict[str, str]]) -> None:
+    path.write_text(
+        "\n".join(json.dumps(row, sort_keys=True) for row in rows) + "\n",
+        encoding="utf-8",
+    )
 
 
 def _build_candidate_rows() -> list[dict[str, str]]:
@@ -204,6 +217,36 @@ def test_scoring_assigns_expected_specificity_buckets_and_actions(
     assert by_label["obsolete unclassified cardiomyopathy"].score < 0
 
 
+def test_mondo_id_match_falls_back_to_file_when_label_differs(tmp_path: Path) -> None:
+    kb_dir = tmp_path / "kb"
+    kb_dir.mkdir()
+    _write_yaml(
+        kb_dir / "Long_QT_Syndrome.yaml",
+        {
+            "name": "LQT Syndrome",
+            "disease_term": {
+                "term": {"id": "MONDO:0002442", "label": "long QT syndrome"}
+            },
+        },
+    )
+    candidate_path = tmp_path / "candidates.tsv"
+    _write_candidate_tsv(
+        candidate_path,
+        [row for row in _build_candidate_rows() if row["mondo_id"] == "MONDO:0002442"],
+    )
+
+    results = score_candidates(
+        load_candidates(candidate_path),
+        coverage=build_coverage_index(kb_dir),
+        config=load_config(),
+    )
+
+    assert len(results) == 1
+    assert results[0].recommended_action == "ALREADY_CURATED"
+    assert results[0].curated_match == "Long_QT_Syndrome.yaml"
+    assert results[0].score < 0
+
+
 def test_config_override_changes_weighted_score(tmp_path: Path) -> None:
     kb_dir = _build_kb_dir(tmp_path)
     candidate_path = tmp_path / "candidates.tsv"
@@ -232,6 +275,42 @@ def test_config_override_changes_weighted_score(tmp_path: Path) -> None:
     assert (
         rescored["long QT syndrome 1"].score - baseline["long QT syndrome 1"].score
     ) == 20
+
+
+def test_load_candidates_accepts_json_and_jsonl(tmp_path: Path) -> None:
+    rows = _build_candidate_rows()[:2]
+    json_path = tmp_path / "candidates.json"
+    jsonl_path = tmp_path / "candidates.jsonl"
+    _write_json(json_path, rows)
+    _write_jsonl(jsonl_path, rows)
+
+    json_candidates = load_candidates(json_path)
+    jsonl_candidates = load_candidates(jsonl_path)
+
+    assert [candidate.mondo_id for candidate in json_candidates] == [
+        "MONDO:0002442",
+        "MONDO:0100316",
+    ]
+    assert [candidate.mondo_id for candidate in jsonl_candidates] == [
+        "MONDO:0002442",
+        "MONDO:0100316",
+    ]
+
+
+def test_load_candidates_rejects_rows_missing_required_fields(tmp_path: Path) -> None:
+    bad_path = tmp_path / "bad.json"
+    _write_json(
+        bad_path,
+        [
+            {
+                "label": "missing mondo id",
+                "definition": "invalid candidate row",
+            }
+        ],
+    )
+
+    with pytest.raises(ValueError, match="MONDO id and label"):
+        load_candidates(bad_path)
 
 
 def test_cli_scores_candidates_end_to_end(tmp_path: Path) -> None:

@@ -73,6 +73,7 @@ class CoverageIndex:
     curated_ids: set[str]
     curated_labels: set[str]
     label_to_file: dict[str, str]
+    id_to_file: dict[str, str]
 
 
 @dataclass
@@ -225,12 +226,14 @@ def build_coverage_index(kb_dir: Path) -> CoverageIndex:
     curated_ids: set[str] = set()
     curated_labels: set[str] = set()
     label_to_file: dict[str, str] = {}
+    id_to_file: dict[str, str] = {}
 
     for path in iter_disease_files(kb_dir):
         data = load_yaml_object(path)
         disease_id = get_disease_term_id(data)
         if disease_id:
             curated_ids.add(disease_id)
+            id_to_file[disease_id] = path.name
 
         labels = [
             _normalize_text(data.get("name")),
@@ -247,6 +250,7 @@ def build_coverage_index(kb_dir: Path) -> CoverageIndex:
         curated_ids=curated_ids,
         curated_labels=curated_labels,
         label_to_file=label_to_file,
+        id_to_file=id_to_file,
     )
 
 
@@ -351,7 +355,9 @@ def score_candidates(
         normalized_label = _normalize_text(candidate.label)
         curated_match = None
         if candidate.mondo_id in coverage.curated_ids:
-            curated_match = coverage.label_to_file.get(normalized_label)
+            curated_match = coverage.label_to_file.get(
+                normalized_label
+            ) or coverage.id_to_file.get(candidate.mondo_id)
         elif normalized_label in coverage.curated_labels:
             curated_match = coverage.label_to_file.get(normalized_label)
 
@@ -533,7 +539,7 @@ def _write_output(
     try:
         selected = results[:top] if top else results
         if format == "table":
-            stream.write(_render_table(results, top=top))
+            stream.write(_render_table(selected))
             stream.write("\n")
         elif format == "json":
             json.dump(
