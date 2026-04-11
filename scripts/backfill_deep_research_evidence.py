@@ -29,6 +29,16 @@ DOI_URL_RE = re.compile(r"https?://(?:dx\.)?doi\.org/([^\s\],)]+)", re.IGNORECAS
 DOI_PREFIX_RE = re.compile(r"\bDOI\s*:\s*([^\s\],)]+)", re.IGNORECASE)
 DOI_TOKEN_RE = re.compile(r"\b10\.\d{4,9}/[^\s\],;]+", re.IGNORECASE)
 SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+(?=[A-Z0-9(])")
+LEADING_SECTION_LABEL_RE = re.compile(
+    r"^(?:abstract|summary)\s*[:/\-]?\s*",
+    re.IGNORECASE,
+)
+LEADING_SUBSECTION_LABEL_RE = re.compile(
+    r"^(?:background(?:/introduction)?|context and justification|purpose|objectives?|"
+    r"methods(?: and main results)?|results?|conclusions?|discussion|introduction|aims?)"
+    r"\s*[:/\-]?\s*",
+    re.IGNORECASE,
+)
 
 HOLDER_NAME = "Deep research literature mapping"
 
@@ -95,6 +105,14 @@ def parse_args() -> argparse.Namespace:
         help=(
             "Create a top-level references[].findings[].evidence item for deep-research "
             "references that do not already have one."
+        ),
+    )
+    parser.add_argument(
+        "--repair-findings",
+        action="store_true",
+        help=(
+            "Normalize existing top-level reference findings generated from deep research "
+            "(repair snippets, evidence_source values, and cache-derived titles)."
         ),
     )
     return parser.parse_args()
@@ -300,22 +318,35 @@ def normalize_cache_body(body: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-def extract_supporting_text(cache_path: Path, title: str) -> str:
+def strip_leading_section_labels(text: str) -> str:
+    cleaned = text.strip().lstrip("•").strip()
+    while True:
+        updated = LEADING_SECTION_LABEL_RE.sub("", cleaned, count=1)
+        updated = LEADING_SUBSECTION_LABEL_RE.sub("", updated, count=1)
+        updated = updated.strip().lstrip("•").strip()
+        if updated == cleaned:
+            return cleaned
+        cleaned = updated
+
+
+def extract_supporting_text(cache_path: Path, title: str) -> str | None:
     _, body = parse_cache_metadata_and_body(cache_path)
     normalized = normalize_cache_body(body)
     if normalized:
         for sentence in SENTENCE_SPLIT_RE.split(normalized):
-            candidate = sentence.strip(" \"'")
+            candidate = strip_leading_section_labels(sentence.strip(" \"'"))
             if len(candidate) < 40:
                 continue
             if candidate.lower().startswith(("author information", "copyright")):
                 continue
+            if normalize_title(candidate) == normalize_title(title):
+                continue
             return candidate
-    return title
+    return None
 
 
-def guess_evidence_source(title: str, supporting_text: str) -> str:
-    haystack = f"{title} {supporting_text}".lower()
+def guess_evidence_source(title: str, supporting_text: str | None) -> str:
+    haystack = f"{title} {supporting_text or ''}".lower()
 
     def has(pattern: str) -> bool:
         return re.search(pattern, haystack) is not None
@@ -323,21 +354,32 @@ def guess_evidence_source(title: str, supporting_text: str) -> str:
     if has(r"\b(systematic review|meta-analysis|consensus|guideline|statement)\b"):
         return "OTHER"
     if has(
-        r"\b(mouse|mice|murine|rat|rats|zebrafish|drosophila|canine|dog|dogs|porcine|pig|rabbit|rabbits)\b"
+        r"\b(in silico|simulation|docking|machine learning|network analysis|computational|"
+        r"algorithm|predict(?:ion)?|forecast(?:ing)?|model(?:ing)?|indirect measure)\b"
+    ):
+        return "COMPUTATIONAL"
+    if has(
+        r"\b(patient|patients|cohort|trial|participants|adult|adults|child|children|"
+        r"infants?|newborns?|neonates?|women|men|people|persons|population|"
+        r"human|humans|epidemiolog(?:y|ical)|cross-sectional|mixed methods|survey|"
+        r"dog bite cases?|dog owners?|case report|case series|prospective|retrospective|"
+        r"hospital-based|post-exposure prophylaxis|preexposure prophylaxis|vaccination schedule|"
+        r"public health|mortality|deaths?)\b"
+    ):
+        return "HUMAN_CLINICAL"
+    if has(
+        r"\b(mouse|mice|murine|rat|rats|zebrafish|drosophila|porcine|pig|rabbit|rabbits|"
+        r"nonhuman primate|macaque|hamster|guinea pig)\b"
+    ):
+        return "MODEL_ORGANISM"
+    if has(
+        r"\b(canine|dog|dogs|cat|cats|horse|horses|equine|bovine|cattle|veterinary)\b"
     ):
         return "MODEL_ORGANISM"
     if has(
         r"\b(in vitro|cell line|cell-based|cell culture|organoid|ex vivo|fibroblast|keratinocyte)\b"
     ):
         return "IN_VITRO"
-    if has(
-        r"\b(in silico|simulation|docking|machine learning|network analysis|computational|algorithm|predict(?:ion)?)\b"
-    ):
-        return "COMPUTATIONAL"
-    if has(
-        r"\b(patient|patients|cohort|trial|participants|adult|adults|children|case report|case series|prospective|retrospective|clinical)\b"
-    ):
-        return "HUMAN_CLINICAL"
     return "OTHER"
 
 
@@ -375,28 +417,95 @@ def append_auto_finding(
         return False
 
     supporting_text = extract_supporting_text(cache_path, title)
-    statement = supporting_text if len(supporting_text) <= 240 else title.rstrip(".")
-    evidence_source = guess_evidence_source(title, supporting_text)
-
-    evidence_item = CommentedMap()
-    evidence_item["reference"] = reference
-    evidence_item["reference_title"] = title
-    evidence_item["supports"] = "SUPPORT"
-    evidence_item["evidence_source"] = evidence_source
-    evidence_item["snippet"] = supporting_text
-    evidence_item["explanation"] = (
-        f"Deep research cited this publication as relevant literature for "
-        f"{disorder.replace('_', ' ')}."
-    )
+    if supporting_text:
+        statement = (
+            supporting_text if len(supporting_text) <= 240 else title.rstrip(".")
+        )
+    else:
+        statement = title.rstrip(".")
 
     finding = CommentedMap()
     finding["statement"] = statement
-    finding["supporting_text"] = supporting_text
-    finding["evidence"] = CommentedSeq([evidence_item])
+    finding["supporting_text"] = supporting_text or title
+
+    if supporting_text:
+        evidence_source = guess_evidence_source(title, supporting_text)
+        evidence_item = CommentedMap()
+        evidence_item["reference"] = reference
+        evidence_item["reference_title"] = title
+        evidence_item["supports"] = "SUPPORT"
+        evidence_item["evidence_source"] = evidence_source
+        evidence_item["snippet"] = supporting_text
+        evidence_item["explanation"] = (
+            f"Deep research cited this publication as relevant literature for "
+            f"{disorder.replace('_', ' ')}."
+        )
+        finding["evidence"] = CommentedSeq([evidence_item])
 
     findings = ensure_findings_list(ref_item)
     findings.append(finding)
     return True
+
+
+def repair_existing_findings(
+    ref_item: MutableMapping[str, Any],
+    reference: str,
+    title: str,
+    cache_path: Path,
+) -> bool:
+    changed = False
+    cache_title = parse_cache_title(cache_path)
+    effective_title = cache_title or title
+    if ref_item.get("title") != effective_title:
+        ref_item["title"] = effective_title
+        changed = True
+
+    findings = ref_item.get("findings")
+    if not isinstance(findings, list):
+        return changed
+
+    supporting_text = extract_supporting_text(cache_path, effective_title)
+    statement = (
+        supporting_text
+        if supporting_text and len(supporting_text) <= 240
+        else effective_title.rstrip(".")
+    )
+
+    for finding in findings:
+        if not isinstance(finding, MutableMapping):
+            continue
+        if supporting_text:
+            if finding.get("statement") != statement:
+                finding["statement"] = statement
+                changed = True
+            if finding.get("supporting_text") != supporting_text:
+                finding["supporting_text"] = supporting_text
+                changed = True
+
+        evidence_items = finding.get("evidence")
+        if not isinstance(evidence_items, list):
+            continue
+
+        if not supporting_text:
+            del finding["evidence"]
+            changed = True
+            continue
+
+        evidence_source = guess_evidence_source(effective_title, supporting_text)
+        for evidence in evidence_items:
+            if not isinstance(evidence, MutableMapping):
+                continue
+            if evidence.get("reference_title") != effective_title:
+                evidence["reference_title"] = effective_title
+                changed = True
+            if evidence.get("snippet") != supporting_text:
+                evidence["snippet"] = supporting_text
+                changed = True
+            if evidence.get("evidence_source") != evidence_source:
+                evidence["evidence_source"] = evidence_source
+                changed = True
+
+    return changed
 
 
 def fetch_reference(reference: str, timeout_seconds: int) -> bool:
@@ -753,6 +862,30 @@ def main() -> int:
                             cache_path,
                         ):
                             changed = True
+
+        if args.repair_findings:
+            refs = ensure_references_list(data)
+            for item in refs:
+                if not (
+                    isinstance(item, MutableMapping)
+                    and isinstance(item.get("reference"), str)
+                    and (canon := canonical_ref(item.get("reference", "")))
+                    and canon in cited_ref_to_files
+                ):
+                    continue
+                cache_path = cache_path_for_ref(canon, args.references_cache_dir)
+                if not cache_path.exists() and args.fetch_missing_cache:
+                    fetch_reference(canon, args.fetch_timeout_seconds)
+                title = item.get("title")
+                if not isinstance(title, str) or not title.strip():
+                    title = canon
+                if repair_existing_findings(
+                    item,
+                    canon,
+                    title.strip(),
+                    cache_path,
+                ):
+                    changed = True
 
         if changed and args.apply:
             if "updated_date" in data:
