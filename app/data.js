@@ -28529,7 +28529,7 @@ window.searchData = [
       "sarcoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-04-10T00:00:00Z",
     "subtypes": [
       "Classic Kaposi Sarcoma",
       "Endemic Kaposi Sarcoma",
@@ -28575,7 +28575,6 @@ window.searchData = [
       "Pulmonary"
     ],
     "phenotype_hpo_categories": [
-      "Blood",
       "Cardiovascular",
       "Digestive",
       "Immune",
@@ -28584,16 +28583,16 @@ window.searchData = [
       "Respiratory"
     ],
     "phenotype_ids": [
-      "HP:0000953",
+      "HP:0011355",
       "HP:0001004",
       "HP:0002716",
-      "HP:0002239",
-      "HP:0002094"
+      "HP:0011024",
+      "HP:0002088"
     ],
     "frequencies": [
       "VERY_FREQUENT",
-      "FREQUENT",
-      "OCCASIONAL"
+      "OCCASIONAL",
+      "FREQUENT"
     ],
     "genes": [
       "HHV-8 Viral Oncogenes"
@@ -32868,7 +32867,7 @@ window.searchData = [
       "mesothelial neoplasm"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-01-26T15:28:38Z",
+    "updated_date": "2026-04-11T02:00:00Z",
     "subtypes": [
       "Epithelioid Mesothelioma",
       "Sarcomatoid Mesothelioma",
@@ -35258,24 +35257,27 @@ window.searchData = [
       "renal cell carcinoma"
     ],
     "creation_date": "2026-03-28T21:30:00Z",
-    "updated_date": "2026-03-29T02:21:26Z",
+    "updated_date": "2026-04-10T12:00:00Z",
     "subtypes": [],
     "description": "Metastatic renal cell carcinoma (RCC) is advanced RCC with dissemination most commonly to lung, bone, liver, and brain. Clear cell biology predominates and is driven by VHL loss, HIF stabilization, intense angiogenesis, and context-dependent immune responsiveness that has made checkpoint blockade a core therapy in modern mRCC.",
     "pathophysiology": [
-      "VHL Loss and HIF Stabilization",
+      "VHL Inactivation",
+      "HIF Transcription Factor Stabilization",
       "VEGF-Dependent Angiogenesis",
-      "Invasion and Hematogenous Dissemination",
+      "Tumor Cell Invasion",
+      "Hematogenous Dissemination",
       "Immune Microenvironment and Checkpoint Sensitivity",
       "Immune Evasion"
     ],
     "cell_types": [],
     "cell_type_ids": [],
     "biological_processes": [
+      "proteasome-mediated VHL-dependent degradation of HIF-\u03b1",
       "response to hypoxia",
       "angiogenesis",
       "epithelial to mesenchymal transition",
       "cell migration",
-      "immune system process",
+      "adaptive immune response",
       "negative regulation of immune response"
     ],
     "phenotypes": [
@@ -35325,11 +35327,11 @@ window.searchData = [
     "source_file": "Metastatic_Renal_Cell_Carcinoma.yaml",
     "page_url": "../pages/disorders/Metastatic_Renal_Cell_Carcinoma.html",
     "num_phenotypes": 5,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 7,
     "num_genes": 4,
     "num_treatments": 0,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "3",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Metatropic Dysplasia",
@@ -39892,6 +39894,89 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Okur-Chung Neurodevelopmental Syndrome",
+    "disease_id": "MONDO:0014893",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental disorder",
+      "Intellectual disability syndrome"
+    ],
+    "creation_date": "2026-04-09T17:17:18Z",
+    "updated_date": "2026-04-11T02:36:00Z",
+    "subtypes": [],
+    "description": "Okur-Chung neurodevelopmental syndrome (OCNDS) is an ultra-rare autosomal dominant neurodevelopmental disorder caused by heterozygous pathogenic variants in CSNK2A1, which encodes the catalytic CK2alpha subunit of protein kinase CK2. Core manifestations include global developmental delay, intellectual disability, severe speech and language impairment, hypotonia, dysmorphic features, microcephaly in a substantial subset, dysphagia and other gastrointestinal problems, seizures in a minority, and occasional congenital heart abnormalities. Current mechanistic evidence does not support a single uniform gain-of-function model; instead, pathogenic variants can reduce CK2alpha kinase activity, alter subcellular localization, or rewire substrate specificity, converging on abnormal phosphoregulation and synaptic dysfunction in the developing nervous system.",
+    "pathophysiology": [
+      "CSNK2A1-dependent CK2alpha kinase dysfunction",
+      "Synaptic phosphoregulation defects"
+    ],
+    "cell_types": [
+      "glutamatergic neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000679"
+    ],
+    "biological_processes": [
+      "protein phosphorylation",
+      "synapse organization",
+      "regulation of synaptic plasticity",
+      "synaptic transmission, glutamatergic"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Intellectual disability",
+      "Delayed speech and language development",
+      "Behavioral abnormalities",
+      "Hypotonia",
+      "Microcephaly",
+      "Dysphagia",
+      "Congenital heart defect",
+      "Seizures"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Behavioral",
+      "Gastrointestinal",
+      "Cardiac"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0000750",
+      "HP:0000708",
+      "HP:0001252",
+      "HP:0000252",
+      "HP:0002015",
+      "HP:0001627",
+      "HP:0001250"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "CSNK2A1"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Okur_Chung_neurodevelopmental_syndrome.yaml",
+    "page_url": "../pages/disorders/Okur-Chung_Neurodevelopmental_Syndrome.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Omodysplasia",
     "disease_id": "MONDO:0017136",
     "category": "Mendelian",
@@ -40348,92 +40433,84 @@ window.searchData = [
       "Degenerative Joint Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-02-17T21:53:14Z",
+    "updated_date": "2026-04-11T02:51:44Z",
     "subtypes": [
       "Primary Osteoarthritis",
       "Secondary Osteoarthritis",
-      "Erosive Osteoarthritis"
+      "Erosive Hand Osteoarthritis"
     ],
-    "description": "Progressive loss of articular cartilage due to imbalance between catabolic and anabolic processes. Matrix metalloproteinases and aggrecanases degrade cartilage components.\n",
+    "description": "Osteoarthritis is a common, heterogeneous degenerative disorder of mobile joints that is now understood as a whole-joint disease rather than isolated \"wear and tear\" of cartilage. Pathobiology spans articular cartilage, subchondral bone, synovium, ligaments, periarticular muscle, and pain-processing pathways, producing chronic joint pain, stiffness, reduced mobility, and disability. Age, high BMI, prior major joint injury, and polygenic susceptibility modify risk, while current treatment remains focused on symptom control, function, and late-stage joint replacement.",
     "pathophysiology": [
-      "Cartilage Degradation",
-      "Subchondral Bone Changes",
-      "Synovial Inflammation"
+      "Cartilage Matrix Catabolism",
+      "Chondrocyte Senescence",
+      "Synovial Macrophage-Fibroblast Crosstalk",
+      "Subchondral Bone Remodeling"
     ],
     "cell_types": [
       "Chondrocyte",
-      "Osteoblast",
+      "Macrophage",
+      "fibroblast-like synovial cell",
       "Osteoclast",
-      "Synoviocyte",
-      "Macrophage"
+      "Osteoblast"
     ],
     "cell_type_ids": [
       "CL:0000138",
-      "CL:0000062",
+      "CL:0000235",
+      "CL:0002301",
       "CL:0000092",
-      "CL:0000214",
-      "CL:0000235"
+      "CL:0000062"
     ],
     "biological_processes": [
-      "Cartilage Catabolism",
-      "Inflammatory Response"
+      "collagen catabolic process",
+      "proteoglycan catabolic process",
+      "cellular senescence",
+      "inflammatory response",
+      "bone remodeling"
     ],
     "phenotypes": [
       "Joint Pain",
       "Joint Stiffness",
-      "Joint Swelling",
-      "Reduced Range of Motion",
-      "Crepitus"
+      "Limitation of Joint Mobility"
     ],
     "phenotype_categories": [
       "Musculoskeletal"
     ],
     "phenotype_hpo_categories": [
       "Constitutional",
-      "Metabolism",
       "Musculoskeletal"
     ],
     "phenotype_ids": [
       "HP:0002829",
       "HP:0001387",
-      "HP:0001386",
-      "HP:0001376",
-      "HP:0034431"
+      "HP:0001376"
     ],
     "frequencies": [
-      "VERY_FREQUENT",
-      "FREQUENT"
+      "VERY_FREQUENT"
     ],
     "genes": [
-      "GDF5",
-      "FRZB",
-      "ASPN",
-      "COL2A1"
+      "GDF5 susceptibility variant"
     ],
     "treatments": [
-      "Acetaminophen",
-      "NSAIDs",
-      "Physical Therapy",
+      "Exercise",
       "Weight Loss",
-      "Intra-articular Corticosteroid Injections",
-      "Intra-articular Hyaluronic Acid",
-      "Joint Replacement Surgery"
+      "NSAIDs",
+      "Intra-articular Glucocorticoid Injections",
+      "Total Joint Replacement"
     ],
     "environmental": [
-      "Obesity",
-      "Joint Injury",
-      "Occupational Overuse",
-      "Age"
+      "Age",
+      "High BMI",
+      "Major Joint Injury"
     ],
     "biochemical": [],
     "source_file": "Osteoarthritis.yaml",
     "page_url": "../pages/disorders/Osteoarthritis.html",
-    "num_phenotypes": 5,
-    "num_pathophysiology": 3,
-    "num_genes": 4,
-    "num_treatments": 7,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "num_phenotypes": 3,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "1"
   },
   {
     "name": "Osteogenesis Imperfecta Type I",
@@ -55670,11 +55747,11 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 602,
-  "total_unique_evidence_sources": 9823,
+  "total_disorder_pages": 603,
+  "total_unique_evidence_sources": 9837,
   "total_unique_disease_categories": 35,
   "total_unique_phenotype_categories": 137,
-  "total_pathographs": 593,
-  "total_unique_pathological_events": 2540
+  "total_pathographs": 594,
+  "total_unique_pathological_events": 2545
 };
 window.dispatchEvent(new Event('searchDataReady'));
