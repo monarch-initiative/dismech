@@ -262,7 +262,7 @@ validate-graphs:
 
 # Run all QC checks (full validation + modules + deep-research report checks)
 [group('QC')]
-qc: validate-all validate-modules qc-deep-research
+qc: validate-all validate-modules qc-deep-research check-reference-heuristics
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -372,6 +372,13 @@ gen-dashboard:
 validate-references file:
     @just fix-references-cache
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
+
+# Heuristically scan references_cache/ for fabricated/hallucinated metadata.
+# See dismech#871: catches LLM placeholder author lists like
+# "Smith AB, Johnson CD, Williams EF, Brown GH, Davis IJ, Miller KL".
+[group('QC')]
+check-reference-heuristics:
+    uv run python -m dismech.reference_cache_heuristics references_cache
 
 # Validate ALL snippet/reference pairs against PubMed across all disorder files
 # Warning: First run may take a while as it fetches ~1400 uncached PMIDs from PubMed

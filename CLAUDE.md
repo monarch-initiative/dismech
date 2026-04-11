@@ -488,6 +488,13 @@ just validate kb/disorders/MyDisease.yaml
 3. Run `just validate-references kb/disorders/YourFile.yaml`
 4. If snippet doesn't match, fix it to be an exact quote or find a different PMID
 
+**Hallucination heuristics (dismech#871):** `just check-reference-heuristics`
+scans `references_cache/` for LLM placeholder author lists (alphabetised
+top-50 English surnames, sequential two-letter initials like
+`Smith AB, Johnson CD, Williams EF, ...`). It runs as part of `just qc`.
+Heuristics are a defence-in-depth layer only — `just fetch-reference` fetching
+real PubMed metadata is still the primary safeguard.
+
 ## Git Best Practices
 
 ### What to commit
