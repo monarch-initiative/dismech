@@ -124,6 +124,28 @@ def test_check_cache_file_flags_synthetic_bad_cache(tmp_path: Path):
     assert any("alphabetical sequence" in r for r in finding.reasons)
 
 
+def test_check_cache_file_reports_malformed_yaml(tmp_path: Path):
+    """Future malformed caches should surface as findings, not crash the sweep.
+
+    Reproduces the structural shape of the historic ``PMID_36147170.md`` bug:
+    a quoted scalar value followed by an indented mapping with no parent.
+    """
+    broken = tmp_path / "PMID_88888888.md"
+    broken.write_text(
+        "---\n"
+        "authors:\n"
+        "- A\n"
+        'doi: "!!python/object/new:Bio.Entrez.Parser.StringElement"\n'
+        "  args:\n"
+        "  - 10.1/foo\n"
+        "---\n",
+        encoding="utf-8",
+    )
+    finding = check_cache_file(broken)
+    assert isinstance(finding, Finding)
+    assert any("malformed YAML" in r for r in finding.reasons)
+
+
 def test_check_cache_file_passes_real_cache(tmp_path: Path):
     good = tmp_path / "PMID_12345678.md"
     good.write_text(

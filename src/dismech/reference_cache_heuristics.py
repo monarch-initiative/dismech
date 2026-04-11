@@ -6,8 +6,11 @@ Issue #871: An AI-generated reference cache for PMID:36919950 contained entirely
 fabricated metadata that passed snippet validation because the snippet was
 written to match the fake cache. The author list was a classic LLM
 placeholder pattern: ``Smith AB, Johnson CD, Williams EF, Brown GH, Davis IJ,
-Miller KL`` -- common English surnames in alphabetical order, each followed by
-a unique two-letter initial pair that progresses through the alphabet.
+Miller KL`` -- six common English surnames where each is followed by a unique
+two-letter initial pair and the initials together progress through the
+alphabet (AB, CD, EF, GH, IJ, KL). The surnames themselves are *not* in
+alphabetical order; that is a separate LLM placeholder shape called out in
+the issue body and detected by ``detect_alphabetical_common_surnames``.
 
 This module implements lightweight heuristics that flag such patterns. It is
 intentionally conservative: real PubMed entries occasionally contain a few
@@ -164,10 +167,11 @@ def detect_sequential_initials(authors: Iterable[str]) -> str | None:
     parsed = [_parse_author(a) for a in authors]
     if len(parsed) < 3 or any(p is None for p in parsed):
         return None
+    # After the guard above every element is a (surname, initials) tuple.
+    initials_strings = [p[1] for p in parsed if p is not None]
     # Multi-letter initials only -- real papers use single-letter initials
     # constantly, so requiring ≥2 letters per author makes this signal much
     # more specific.
-    initials_strings = [p[1] for p in parsed if p is not None]
     if not all(len(i) >= 2 for i in initials_strings):
         return None
     letters = [c for s in initials_strings for c in s]
@@ -218,29 +222,47 @@ def _ignore_unknown_tag(loader, tag_suffix, node):  # type: ignore[no-untyped-de
     return None
 
 
-_TolerantLoader.add_multi_constructor("!", _ignore_unknown_tag)
-_TolerantLoader.add_multi_constructor("tag:", _ignore_unknown_tag)
+# Narrow prefixes: only intercept python-object-style tags. SafeLoader's
+# built-in constructors for ``tag:yaml.org,2002:int`` etc. must continue to
+# fire so that typed scalars (years, booleans) round-trip correctly.
+_TolerantLoader.add_multi_constructor("!python/", _ignore_unknown_tag)
+_TolerantLoader.add_multi_constructor("tag:yaml.org,2002:python/", _ignore_unknown_tag)
 
 
-def _load_frontmatter(path: Path) -> dict | None:
-    """Parse the YAML frontmatter from a reference cache markdown file."""
+def _extract_frontmatter_text(path: Path) -> str | None:
+    """Return the YAML frontmatter slice of a markdown file, or ``None``."""
     text = path.read_text(encoding="utf-8")
     if not text.startswith("---"):
         return None
     end = text.find("\n---", 3)
     if end == -1:
         return None
-    frontmatter = text[3:end]
-    data = yaml.load(frontmatter, Loader=_TolerantLoader)  # noqa: S506
-    if not isinstance(data, dict):
-        return None
-    return data
+    return text[3:end]
 
 
 def check_cache_file(path: Path) -> Finding | None:
-    """Check a single reference cache file for suspicious metadata."""
-    data = _load_frontmatter(path)
-    if data is None:
+    """Check a single reference cache file for suspicious metadata.
+
+    Returns a ``Finding`` if the file is structurally broken (malformed YAML
+    frontmatter) or if its author list trips any heuristic. Returns ``None``
+    for files that parse cleanly and pass every check.
+    """
+    frontmatter = _extract_frontmatter_text(path)
+    if frontmatter is None:
+        return None
+    try:
+        data = yaml.load(frontmatter, Loader=_TolerantLoader)  # noqa: S506
+    except yaml.YAMLError as exc:
+        # A future cache file with malformed YAML should surface as a finding,
+        # not crash the whole sweep. Reporting it lets curators regenerate it
+        # via ``just fetch-reference``.
+        return Finding(
+            path=path,
+            reference_id=path.stem,
+            reasons=(f"malformed YAML frontmatter: {exc.__class__.__name__}",),
+            authors=(),
+        )
+    if not isinstance(data, dict):
         return None
     raw_authors = data.get("authors") or []
     if not isinstance(raw_authors, list):
