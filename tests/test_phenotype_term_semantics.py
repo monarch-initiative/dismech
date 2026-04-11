@@ -21,7 +21,6 @@ This module fills the QC gap with two cheap, deterministic guardrails:
 
 from __future__ import annotations
 
-import glob
 from pathlib import Path
 from typing import Iterator
 
@@ -32,7 +31,7 @@ ROOT_DIR = Path(__file__).parent.parent
 KB_DIR = ROOT_DIR / "kb" / "disorders"
 
 DISORDER_FILES = sorted(
-    f for f in glob.glob(str(KB_DIR / "*.yaml")) if not f.endswith(".history.yaml")
+    str(p) for p in KB_DIR.glob("*.yaml") if not p.name.endswith(".history.yaml")
 )
 
 # Frozen allowlist of MONDO IDs intentionally used in ``phenotype_term`` slots.
