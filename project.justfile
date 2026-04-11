@@ -56,7 +56,7 @@ validate-all:
         exit 1
     fi
 
-# Full validation of a single disorder file (schema + terms + references)
+# Full validation of a single disorder file (schema + terms + references + phenotype_term semantics)
 [group('QC')]
 validate file:
     #!/usr/bin/env bash
@@ -68,6 +68,8 @@ validate file:
     echo "Reference validation..."
     just fix-references-cache
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
+    echo "Phenotype_term semantic validation..."
+    uv run python -m dismech.validate_phenotype_terms --file {{file}}
     echo "✓ All validations passed for {{file}}"
 
 # Schema-only validation (fast, structure check)
@@ -260,9 +262,19 @@ validate-terms-legacy:
 validate-graphs:
     uv run python -m dismech.graph --validate {{kb_dir}}
 
+# Validate phenotype_term semantics for a single file (issue #817)
+[group('QC')]
+validate-phenotype-terms file:
+    uv run python -m dismech.validate_phenotype_terms --file {{file}}
+
+# Validate phenotype_term semantics for all disorders (issue #817)
+[group('QC')]
+validate-phenotype-terms-all:
+    uv run python -m dismech.validate_phenotype_terms --validate {{kb_dir}}
+
 # Run all QC checks (full validation + modules + deep-research report checks)
 [group('QC')]
-qc: validate-all validate-modules qc-deep-research
+qc: validate-all validate-modules validate-phenotype-terms-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
