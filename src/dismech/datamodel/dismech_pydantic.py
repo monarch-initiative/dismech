@@ -1,4 +1,4 @@
-from __future__ import annotations 
+from __future__ import annotations
 
 import re
 import sys
@@ -7,8 +7,8 @@ from datetime import (
     datetime,
     time
 )
-from decimal import Decimal 
-from enum import Enum 
+from decimal import Decimal
+from enum import Enum
 from typing import (
     Any,
     ClassVar,
@@ -6868,9 +6868,10 @@ class Pathophysiology(ConfiguredBaseModel):
                        'Pathophysiology',
                        'AnimalModel'],
          'examples': [{'value': '[{preferred_term: HLA-DQ2}, {preferred_term: INS}]'}]} })
-    subtypes: Optional[list[str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'subtypes',
-         'domain_of': ['Pathophysiology'],
-         'examples': [{'value': "['DENV-1', 'DENV-2', 'DENV-3', 'DENV-4']"}]} })
+    subtypes: Optional[list[str]] = Field(default=None, description="""Names of subtypes (foreign keys to this disease's `has_subtypes[].name`) associated with a phenotype, biochemical finding, pathophysiology node, or other subtyped entry. Use this multivalued form when an item is characteristic of more than one subtype with overlapping features. For single-subtype associations, the scalar `subtype` slot may still be used.""", json_schema_extra = { "linkml_meta": {'alias': 'subtypes',
+         'domain_of': ['Pathophysiology', 'Phenotype', 'Biochemical'],
+         'examples': [{'value': "['DENV-1', 'DENV-2', 'DENV-3', 'DENV-4']"},
+                      {'value': "['Type 1', 'Type 2']"}]} })
     cellular_components: Optional[list[CellularComponentDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'cellular_components',
          'domain_of': ['Pathophysiology'],
          'examples': [{'value': '[{preferred_term: Peroxisome}]'}]} })
@@ -7161,6 +7162,10 @@ class Phenotype(ConfiguredBaseModel):
                        'HistopathologyFinding',
                        'Genetic'],
          'examples': [{'value': 'Eyelid Myoclonia with Absences'}]} })
+    subtypes: Optional[list[str]] = Field(default=None, description="""Names of subtypes (foreign keys to this disease's `has_subtypes[].name`) associated with a phenotype, biochemical finding, pathophysiology node, or other subtyped entry. Use this multivalued form when an item is characteristic of more than one subtype with overlapping features. For single-subtype associations, the scalar `subtype` slot may still be used.""", json_schema_extra = { "linkml_meta": {'alias': 'subtypes',
+         'domain_of': ['Pathophysiology', 'Phenotype', 'Biochemical'],
+         'examples': [{'value': "['DENV-1', 'DENV-2', 'DENV-3', 'DENV-4']"},
+                      {'value': "['Type 1', 'Type 2']"}]} })
     phenotype_contexts: Optional[list[PhenotypeContext]] = Field(default=None, description="""Context-specific qualifications of this phenotype's frequency, severity, or onset. Each context can optionally specify a genetic context, demographic stratum, or disease subtype. When no context qualifiers are set, provides evidence for the base frequency/severity claim (addressing the frequency-evidence separation problem).""", json_schema_extra = { "linkml_meta": {'alias': 'phenotype_contexts', 'domain_of': ['Phenotype']} })
 
 
@@ -7318,6 +7323,10 @@ class Biochemical(ConfiguredBaseModel):
                        'HistopathologyFinding',
                        'Genetic'],
          'examples': [{'value': 'Eyelid Myoclonia with Absences'}]} })
+    subtypes: Optional[list[str]] = Field(default=None, description="""Names of subtypes (foreign keys to this disease's `has_subtypes[].name`) associated with a phenotype, biochemical finding, pathophysiology node, or other subtyped entry. Use this multivalued form when an item is characteristic of more than one subtype with overlapping features. For single-subtype associations, the scalar `subtype` slot may still be used.""", json_schema_extra = { "linkml_meta": {'alias': 'subtypes',
+         'domain_of': ['Pathophysiology', 'Phenotype', 'Biochemical'],
+         'examples': [{'value': "['DENV-1', 'DENV-2', 'DENV-3', 'DENV-4']"},
+                      {'value': "['Type 1', 'Type 2']"}]} })
     cell_types: Optional[list[CellTypeDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'cell_types',
          'domain_of': ['ExperimentalModel', 'Pathophysiology', 'Biochemical'],
          'examples': [{'value': '[{preferred_term: Macrophage}, {preferred_term: T '
@@ -12556,4 +12565,3 @@ ComorbidityHypothesis.model_rebuild()
 UpstreamConditionHypothesis.model_rebuild()
 MechanisticHypothesis.model_rebuild()
 DiseaseCollection.model_rebuild()
-

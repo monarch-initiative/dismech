@@ -256,6 +256,93 @@ Use OAK to search for MAXO terms:
 uv run runoak -i sqlite:obo:maxo search "physical therapy"
 ```
 
+#### Therapeutic Agent Pattern (drug + drug class on pharmacotherapy)
+
+MAXO treatment terms describe the **medical action** (e.g., pharmacotherapy, chemotherapy,
+vaccination) but not the specific agent involved. When the action is generic but a
+specific drug or drug class is involved, combine the MAXO action term with the
+`therapeutic_agent` slot, which is multivalued and bindable to CHEBI (for specific drugs)
+or NCIT (for drug classes).
+
+**When to use `therapeutic_agent`:**
+- `treatment_term` is a generic MAXO action like `MAXO:0000058` (pharmacotherapy),
+  `MAXO:0000647` (chemotherapy), `MAXO:0001017` (vaccination), or `MAXO:0000014` (radiation therapy)
+- A specific drug, chemical, or drug class is referenced in the `name` / `description`
+- You want the treatment to be machine-queryable by drug identity
+
+**Ontology selection:**
+- **CHEBI**: preferred for specific small-molecule drugs (`CHEBI:36796` duloxetine, `CHEBI:46345` 5-fluorouracil)
+- **NCIT**: use for drug classes, or for biologics/newer drugs that lack a CHEBI term
+  (`NCIT:C20401` Monoclonal Antibody, `NCIT:C2322` Corticosteroid, `NCIT:C65216` Adalimumab)
+- Leave `therapeutic_agent` absent when the treatment is non-pharmacological
+  (surgery, physical therapy, counseling, dietary intervention — use `dietary_modifications` for the latter)
+
+**Example — single specific drug (CHEBI):**
+```yaml
+treatments:
+- name: Duloxetine
+  description: SNRI, FDA-approved for fibromyalgia chronic pain management.
+  treatment_term:
+    preferred_term: pharmacotherapy
+    term:
+      id: MAXO:0000058
+      label: pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: duloxetine
+      term:
+        id: CHEBI:36796
+        label: duloxetine
+```
+
+**Example — drug class (NCIT) when CHEBI is too specific:**
+```yaml
+treatments:
+- name: Anti-TNF Biologic Therapy
+  description: TNF inhibitors such as adalimumab or infliximab.
+  treatment_term:
+    preferred_term: anti-TNF biologic therapy
+    term:
+      id: MAXO:0000058
+      label: pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: monoclonal antibody
+      term:
+        id: NCIT:C20401
+        label: Monoclonal Antibody
+```
+
+**Example — combination therapy (multivalued):**
+```yaml
+treatments:
+- name: FOLFIRINOX
+  description: Combination chemotherapy regimen for pancreatic adenocarcinoma.
+  treatment_term:
+    preferred_term: chemotherapy
+    term:
+      id: MAXO:0000647
+      label: chemotherapy
+    therapeutic_agent:
+    - preferred_term: fluorouracil
+      term:
+        id: CHEBI:46345
+        label: 5-fluorouracil
+    - preferred_term: irinotecan
+      term:
+        id: CHEBI:80630
+        label: irinotecan
+    - preferred_term: oxaliplatin
+      term:
+        id: CHEBI:31941
+        label: oxaliplatin
+```
+
+**Guidelines:**
+- `therapeutic_agent` is optional at the schema level but **recommended whenever `treatment_term` is MAXO:0000058** or another generic action term where a specific drug is involved.
+- Use OAK to verify CHEBI terms: `uv run runoak -i sqlite:obo:chebi search "duloxetine"`
+- For NCIT drug-class terms, the local `ncit` adapter is configured in `conf/oak_config.yaml`.
+- A dedicated `treatment.name` (e.g., "Duloxetine") should still match common clinical usage; `therapeutic_agent` carries the machine-readable identifier.
+- Do NOT put the drug name in `preferred_term` on `treatment_term` — `preferred_term` describes the action (pharmacotherapy), `therapeutic_agent.preferred_term` describes the agent.
+
 ### Subtype Naming Conventions
 
 The `name` field on `Subtype` (in `has_subtypes`) serves as the **foreign key target** — other sections
@@ -440,7 +527,18 @@ If a claim is well-established but you cannot find a quotable snippet:
 | "Reference not found" | PMID doesn't exist | Verify PMID on PubMed |
 | Low similarity score | Wrong PMID for the paper | Check abstract matches topic |
 
-### 6. Running Full QC
+### 6. Frequency Qualifiers Need Their Own Evidence
+
+Phenotype `frequency:` values (FREQUENT, OCCASIONAL, etc.) make a *separate*
+quantitative claim from the disease–phenotype association itself. Most snippets
+support only the association, not the band. See
+[`docs/frequency-evidence-guidelines.md`](docs/frequency-evidence-guidelines.md)
+for the curator SOP: acceptable evidence patterns (direct quantitative,
+derived counts, qualitative-term mapping, clinical estimate), the literature-term
+→ enum mapping table, and worked examples. **When in doubt, omit `frequency:`
+rather than fabricate justification.**
+
+### 7. Running Full QC
 
 ```bash
 # All validation checks
