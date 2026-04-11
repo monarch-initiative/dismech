@@ -522,6 +522,19 @@ def _extract_node_metadata(item: dict[str, Any]) -> dict[str, Any]:
             )
         ]
 
+    # Molecular functions
+    molecular_functions = item.get("molecular_functions", []) or []
+    if molecular_functions:
+        meta["molecular_functions"] = [
+            label
+            for mf in molecular_functions
+            if isinstance(mf, dict)
+            if (
+                label := mf.get("preferred_term")
+                or (mf.get("term", {}) or {}).get("label", "")
+            )
+        ]
+
     # Genes
     gene_labels: list[str] = []
     gene = item.get("gene")
@@ -630,7 +643,12 @@ def _extract_node_metadata(item: dict[str, Any]) -> dict[str, Any]:
                 if (
                     label := (
                         (dietary_item.get("food", {}) or {}).get("preferred_term")
-                        or (((dietary_item.get("food", {}) or {}).get("term", {}) or {}).get("label", ""))
+                        or (
+                            (
+                                (dietary_item.get("food", {}) or {}).get("term", {})
+                                or {}
+                            ).get("label", "")
+                        )
                     )
                 )
                 if (action := str(dietary_item.get("action") or ""))
