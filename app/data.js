@@ -33645,6 +33645,136 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Mediator Complex Neurodevelopmental Disorder",
+    "disease_id": "MONDO:0002320",
+    "category": "Genetic",
+    "parents": [
+      "Neurodevelopmental Disorder",
+      "Transcriptional Regulation Disorder"
+    ],
+    "creation_date": "2026-04-11T00:00:00Z",
+    "updated_date": "2026-04-11T12:00:00Z",
+    "subtypes": [
+      "MED13",
+      "MED13L",
+      "MED12",
+      "MED23"
+    ],
+    "description": "A group of neurodevelopmental disorders caused by germline mutations in genes encoding subunits of the Mediator complex, a multi-protein assembly required for RNA polymerase II-dependent transcription. The Mediator complex bridges gene-specific transcription factors and the general transcription machinery, and its disruption leads to dysregulated gene expression during neurodevelopment. Shared phenotypic features across subtypes include intellectual disability, speech and language delay, behavioral abnormalities, and variable structural brain and cardiac anomalies. The four recognized subtypes involve mutations in MED13 (CDK8 kinase module), MED13L (CDK8 kinase module paralog), MED12 (CDK8 kinase module), and MED23 (tail module), reflecting that different functional modules of the Mediator complex contribute to distinct but overlapping neurodevelopmental phenotypes.",
+    "pathophysiology": [
+      "Mediator Complex Disruption",
+      "CDK8 Kinase Module Dysfunction",
+      "Neurodevelopmental Transcriptional Dysregulation",
+      "Cardiac Developmental Defects",
+      "Tail Module Disruption and Immediate Early Gene Dysregulation"
+    ],
+    "cell_types": [
+      "neuron",
+      "migratory neural crest cell",
+      "cardiac muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000333",
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "Transcription by RNA polymerase II",
+      "Regulation of gene expression",
+      "Wnt signaling pathway",
+      "Notch signaling pathway",
+      "Neuron projection development",
+      "Dendrite development",
+      "Heart morphogenesis",
+      "Immediate-early gene transcription"
+    ],
+    "phenotypes": [
+      "Intellectual Disability",
+      "Speech and Language Delay",
+      "Autism Spectrum Disorder",
+      "Attention Deficit-Hyperactivity Disorder",
+      "Hypotonia",
+      "Seizures",
+      "Corpus Callosum Anomalies",
+      "White Matter Abnormalities",
+      "Poor Overall Growth",
+      "Obstipation",
+      "Ocular Anomalies",
+      "Distinctive Facial Dysmorphism (MED13L)",
+      "Congenital Heart Defects",
+      "Relative Macrocephaly",
+      "Imperforate Anus and Anal Anomalies",
+      "Broad Thumbs and Halluces",
+      "Characteristic Facial Features (MED12)",
+      "Spasticity",
+      "Dystonia and Choreoathetosis",
+      "Microcephaly"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Behavioral",
+      "Growth",
+      "Gastrointestinal",
+      "Ophthalmologic",
+      "Craniofacial",
+      "Cardiovascular",
+      "Skeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001249",
+      "HP:0000750",
+      "HP:0000729",
+      "HP:0007018",
+      "HP:0001252",
+      "HP:0001250",
+      "HP:0001273",
+      "HP:0002500",
+      "HP:0001510",
+      "HP:0002019",
+      "HP:0000478",
+      "HP:0001999",
+      "HP:0001627",
+      "HP:0000256",
+      "HP:0002023",
+      "HP:0011304",
+      "HP:0001257",
+      "HP:0001332",
+      "HP:0000252"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "MED13 Haploinsufficiency",
+      "MED13L Haploinsufficiency",
+      "MED12 Hemizygous Variants",
+      "MED23 Biallelic Variants"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Mediator_Complex_Neurodevelopmental_Disorder.yaml",
+    "page_url": "../pages/disorders/Mediator_Complex_Neurodevelopmental_Disorder.html",
+    "num_phenotypes": 20,
+    "num_pathophysiology": 5,
+    "num_genes": 4,
+    "num_treatments": 0,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "2"
+  },
+  {
     "name": "Medullary Thyroid Carcinoma",
     "disease_id": "MONDO:0015277",
     "category": "",
@@ -55843,11 +55973,11 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 604,
-  "total_unique_evidence_sources": 10231,
+  "total_disorder_pages": 605,
+  "total_unique_evidence_sources": 10245,
   "total_unique_disease_categories": 35,
   "total_unique_phenotype_categories": 137,
-  "total_pathographs": 595,
-  "total_unique_pathological_events": 2554
+  "total_pathographs": 596,
+  "total_unique_pathological_events": 2559
 };
 window.dispatchEvent(new Event('searchDataReady'));
