@@ -1,4 +1,4 @@
-from __future__ import annotations
+from __future__ import annotations 
 
 import re
 import sys
@@ -7,8 +7,8 @@ from datetime import (
     datetime,
     time
 )
-from decimal import Decimal
-from enum import Enum
+from decimal import Decimal 
+from enum import Enum 
 from typing import (
     Any,
     ClassVar,
@@ -871,6 +871,78 @@ class RegulatoryElementTypeEnum(str, Enum):
     Locus_control_region = "LOCUS_CONTROL_REGION"
     """
     A cluster of regulatory elements that controls expression of a gene cluster (e.g., the beta-globin LCR).
+    """
+
+
+class GeneDiseaseRelationshipEnum(str, Enum):
+    """
+    The qualitative relationship between a gene (or locus) and a disease. Use to constrain the free-text `association` slot to a controlled vocabulary aligned with ClinGen gene-disease validity concepts and common cancer/somatic driver classifications. The free-text `association` slot may still be used for narrative detail.
+    """
+    Causative = "CAUSATIVE"
+    """
+    Variants in the gene are sufficient to cause the disease in a mendelian or near-mendelian sense (corresponds to ClinGen "Definitive" or "Strong" gene-disease validity).
+    """
+    Risk_factor = "RISK_FACTOR"
+    """
+    Variants in the gene increase risk of disease but are neither necessary nor sufficient to cause it. Includes common-variant associations and HLA risk alleles.
+    """
+    Protective = "PROTECTIVE"
+    """
+    Variants in the gene reduce the risk or severity of disease.
+    """
+    Modifier = "MODIFIER"
+    """
+    Variants in the gene modify the severity, age of onset, or expressivity of disease without being a primary driver.
+    """
+    Susceptibility = "SUSCEPTIBILITY"
+    """
+    Variants in the gene confer susceptibility to disease in combination with other genetic or environmental factors. Used for polygenic susceptibility loci such as GWAS hits.
+    """
+    Somatic_driver = "SOMATIC_DRIVER"
+    """
+    Somatic alterations in the gene drive tumor initiation or progression (e.g., recurrent oncogenic drivers in cancer).
+    """
+    Cooperating_alteration = "COOPERATING"
+    """
+    Co-occurring somatic or germline alterations that cooperate with a primary driver to shape disease behavior or therapy response.
+    """
+    Biomarker = "BIOMARKER"
+    """
+    Gene whose expression, mutation, or amplification status serves as a diagnostic, prognostic, or predictive biomarker without a required causal role.
+    """
+    Disputed = "DISPUTED"
+    """
+    Reported gene-disease association whose validity is contested (corresponds to ClinGen "Disputed" or "Refuted").
+    """
+    Unknown = "UNKNOWN"
+    """
+    The relationship between the gene and the disease is unclear or not yet classified.
+    """
+
+
+class VariantOriginEnum(str, Enum):
+    """
+    The origin of variation in a gene with respect to a disease entry. Bound to GENO allele origin terms.
+    """
+    Germline = "GERMLINE"
+    """
+    germline allele origin
+    """
+    Somatic = "SOMATIC"
+    """
+    somatic allele origin
+    """
+    De_novo = "DE_NOVO"
+    """
+    de novo allele origin
+    """
+    Germline_and_somatic = "GERMLINE_AND_SOMATIC"
+    """
+    The gene is implicated by both germline and somatic variants in the disease (e.g., tumor suppressors with two-hit mechanisms).
+    """
+    Unknown = "UNKNOWN"
+    """
+    unknown allele origin
     """
 
 
@@ -4011,6 +4083,7 @@ class GeneticContext(ConfiguredBaseModel):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -4062,6 +4135,7 @@ class OnsetDescriptor(ConfiguredBaseModel):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -4130,6 +4204,7 @@ class PhenotypeContext(ConfiguredBaseModel):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -4243,7 +4318,7 @@ class Dataset(ConfiguredBaseModel):
          'domain_of': ['Dataset'],
          'implements': ['linkml:authoritative_reference']} })
     title: Optional[str] = Field(default=None, description="""Title of the publication""", json_schema_extra = { "linkml_meta": {'alias': 'title',
-         'domain_of': ['Dataset', 'PublicationReference'],
+         'domain_of': ['Dataset', 'PublicationReference', 'TrackedIssue'],
          'implements': ['linkml:title']} })
     description: Optional[str] = Field(default=None, description="""A description of the dataset. This may typically be redundant with the `title` slot, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the title slot.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
@@ -4366,6 +4441,7 @@ class Dataset(ConfiguredBaseModel):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -4566,6 +4642,7 @@ class ExperimentalModel(ConfiguredBaseModel):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -4775,6 +4852,7 @@ class ClinicalTrial(ConfiguredBaseModel):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -4976,6 +5054,7 @@ class ComputationalModel(ConfiguredBaseModel):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -5113,6 +5192,7 @@ class ModelVariable(ConfiguredBaseModel):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -5435,6 +5515,7 @@ class DifferentialDiagnosis(ConfiguredBaseModel):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -6060,7 +6141,7 @@ class PublicationReference(ConfiguredBaseModel):
          'examples': [{'value': 'PMID:35533128'}],
          'implements': ['linkml:authoritative_reference']} })
     title: Optional[str] = Field(default=None, description="""Title of the publication""", json_schema_extra = { "linkml_meta": {'alias': 'title',
-         'domain_of': ['Dataset', 'PublicationReference'],
+         'domain_of': ['Dataset', 'PublicationReference', 'TrackedIssue'],
          'implements': ['linkml:title']} })
     found_in: Optional[list[str]] = Field(default=None, description="""Deep-research output files where this reference was cited""", json_schema_extra = { "linkml_meta": {'alias': 'found_in', 'domain_of': ['PublicationReference']} })
     findings: Optional[list[Finding]] = Field(default=None, description="""Key findings or claims extracted from this source (publication or dataset)""", json_schema_extra = { "linkml_meta": {'alias': 'findings',
@@ -6113,7 +6194,7 @@ class ExternalAssertion(ConfiguredBaseModel):
     source: str = Field(default=..., description="""Source dataset or provenance label""", json_schema_extra = { "linkml_meta": {'alias': 'source', 'domain_of': ['ExternalAssertion', 'AssociationSignal']} })
     assertion_type: Optional[str] = Field(default=None, description="""Type/category of the external assertion or registry record""", json_schema_extra = { "linkml_meta": {'alias': 'assertion_type', 'domain_of': ['ExternalAssertion']} })
     external_id: str = Field(default=..., description="""Identifier used by the external resource (e.g., CCID:009009, CA2573049045)""", json_schema_extra = { "linkml_meta": {'alias': 'external_id', 'domain_of': ['ExternalAssertion']} })
-    url: Optional[str] = Field(default=None, description="""URL for the external assertion or registry record""", json_schema_extra = { "linkml_meta": {'alias': 'url', 'domain_of': ['ExternalAssertion']} })
+    url: Optional[str] = Field(default=None, description="""URL for the external assertion or registry record""", json_schema_extra = { "linkml_meta": {'alias': 'url', 'domain_of': ['ExternalAssertion', 'TrackedIssue']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -6210,6 +6291,71 @@ class ExternalAssertion(ConfiguredBaseModel):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
+                       'Prevalence',
+                       'ProgressionInfo',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'Treatment',
+                       'Transmission',
+                       'Diagnosis',
+                       'ClassificationAssignment',
+                       'Definition',
+                       'CriteriaSet',
+                       'TermMapping',
+                       'MappingConsistency',
+                       'ComorbidityAssociation',
+                       'AssociationSignal',
+                       'AssociationMetric',
+                       'AssociationStatistics',
+                       'MechanisticHypothesis'],
+         'examples': [{'value': 'Contagious stage where symptoms appear and the '
+                                'bacteria can be spread to others.'}]} })
+
+
+class TrackedIssue(ConfiguredBaseModel):
+    """
+    Structured pointer to an external tracker issue (typically a GitHub issue) used to record curation provenance. Use this for things like upstream ontology term requests, ontology coverage gaps, schema follow-ups, or any external ticket tied to a dismech object, instead of stashing raw URLs in free-text `notes` fields. Attachable at multiple levels of the model (disease entries, mappings, etc.).
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'title': {'description': 'Short human-readable title of the '
+                                                 'tracked issue.',
+                                  'name': 'title'},
+                        'url': {'description': 'Canonical URL of the tracked issue.',
+                                'name': 'url',
+                                'required': True}}})
+
+    url: str = Field(default=..., description="""Canonical URL of the tracked issue.""", json_schema_extra = { "linkml_meta": {'alias': 'url', 'domain_of': ['ExternalAssertion', 'TrackedIssue']} })
+    title: Optional[str] = Field(default=None, description="""Short human-readable title of the tracked issue.""", json_schema_extra = { "linkml_meta": {'alias': 'title',
+         'domain_of': ['Dataset', 'PublicationReference', 'TrackedIssue'],
+         'implements': ['linkml:title']} })
+    tracked_issue_role: Optional[str] = Field(default=None, description="""Role this tracked issue plays relative to the dismech content it is attached to. Free-text but common values include \"ontology_term_request\", \"ontology_coverage_gap\", \"schema_followup\", \"curation_followup\", and \"external_tracker_link\".""", json_schema_extra = { "linkml_meta": {'alias': 'tracked_issue_role',
+         'domain_of': ['TrackedIssue'],
+         'examples': [{'value': 'ontology_term_request'}, {'value': 'schema_followup'}]} })
+    tracked_issue_status: Optional[str] = Field(default=None, description="""Last known status of the tracked issue (e.g., \"OPEN\", \"CLOSED\", \"MERGED\"). This is a curator-recorded snapshot and may drift from the live tracker state.""", json_schema_extra = { "linkml_meta": {'alias': 'tracked_issue_status',
+         'domain_of': ['TrackedIssue'],
+         'examples': [{'value': 'OPEN'}, {'value': 'CLOSED'}]} })
+    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'notes',
+         'domain_of': ['GeneticContext',
+                       'OnsetDescriptor',
+                       'PhenotypeContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -6366,6 +6512,7 @@ class Prevalence(ConfiguredBaseModel):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -6486,6 +6633,7 @@ class ProgressionInfo(ConfiguredBaseModel):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -6614,6 +6762,7 @@ class EpidemiologyInfo(ConfiguredBaseModel):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -6908,6 +7057,7 @@ class Pathophysiology(ConfiguredBaseModel):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -7125,6 +7275,7 @@ class Phenotype(ConfiguredBaseModel):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -7277,6 +7428,7 @@ class Biochemical(ConfiguredBaseModel):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -7523,6 +7675,7 @@ class HistopathologyFinding(ConfiguredBaseModel):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -7652,9 +7805,15 @@ class Genetic(ConfiguredBaseModel):
                        'UpstreamConditionHypothesis',
                        'MechanisticHypothesis'],
          'recommended': True} })
-    association: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'association',
+    association: Optional[str] = Field(default=None, description="""Free-text descriptor of how the gene is associated with the disease. For a controlled vocabulary, also set `relationship_type`.""", json_schema_extra = { "linkml_meta": {'alias': 'association',
          'domain_of': ['Genetic'],
          'examples': [{'value': 'Susceptibility'}]} })
+    relationship_type: Optional[GeneDiseaseRelationshipEnum] = Field(default=None, description="""Controlled-vocabulary classification of the gene-disease relationship (e.g., causative, risk factor, modifier, somatic driver). Use this in addition to the free-text `association` slot when possible.""", json_schema_extra = { "linkml_meta": {'alias': 'relationship_type',
+         'domain_of': ['Genetic'],
+         'examples': [{'value': 'RISK_FACTOR'}]} })
+    variant_origin: Optional[VariantOriginEnum] = Field(default=None, description="""The origin of disease-associated variation in this gene (germline, somatic, de novo, or both). Bound to GENO allele origin terms.""", json_schema_extra = { "linkml_meta": {'alias': 'variant_origin',
+         'domain_of': ['Genetic'],
+         'examples': [{'value': 'SOMATIC'}]} })
     review_notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'review_notes',
          'domain_of': ['ClinicalTrial',
                        'Subtype',
@@ -7707,6 +7866,7 @@ class Genetic(ConfiguredBaseModel):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -7838,6 +7998,7 @@ class Environmental(ConfiguredBaseModel):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -8111,6 +8272,7 @@ class Disease(ConfiguredBaseModel):
     definitions: Optional[list[Definition]] = Field(default=None, description="""Definitions or diagnostic criteria for this disease""", json_schema_extra = { "linkml_meta": {'alias': 'definitions', 'domain_of': ['Disease']} })
     mappings: Optional[DiseaseMappings] = Field(default=None, description="""External identifier mappings for this disease (SSSOM-inspired)""", json_schema_extra = { "linkml_meta": {'alias': 'mappings', 'domain_of': ['Disease']} })
     external_assertions: Optional[list[ExternalAssertion]] = Field(default=None, description="""External curated assertions or registry records relevant to this entity""", json_schema_extra = { "linkml_meta": {'alias': 'external_assertions', 'domain_of': ['Disease', 'Variant']} })
+    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'alias': 'tracked_issues', 'domain_of': ['Disease', 'TermMapping']} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'notes',
          'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -8122,6 +8284,7 @@ class Disease(ConfiguredBaseModel):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -8323,6 +8486,7 @@ class Stage(ConfiguredBaseModel):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -8494,6 +8658,7 @@ class AgentLifeCycle(ConfiguredBaseModel):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -8678,6 +8843,7 @@ class AgentLifeCycleStage(ConfiguredBaseModel):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -8991,6 +9157,7 @@ class Treatment(ConfiguredBaseModel):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -9310,6 +9477,7 @@ class Transmission(ConfiguredBaseModel):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -9519,6 +9687,7 @@ class Diagnosis(ConfiguredBaseModel):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -10187,6 +10356,7 @@ class ClassificationAssignment(ConfiguredBaseModel):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -10286,6 +10456,7 @@ class ICDOMorphologyAssignment(ClassificationAssignment):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -10385,6 +10556,7 @@ class HarrisonsChapterAssignment(ClassificationAssignment):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -10484,6 +10656,7 @@ class LysosomalStorageAssignment(ClassificationAssignment):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -10583,6 +10756,7 @@ class MechanisticNosologyAssignment(ClassificationAssignment):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -10682,6 +10856,7 @@ class IUISAssignment(ClassificationAssignment):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -10781,6 +10956,7 @@ class ChannelopathyAssignment(ClassificationAssignment):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -10967,6 +11143,7 @@ class Definition(ConfiguredBaseModel):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -11140,6 +11317,7 @@ class CriteriaSet(ConfiguredBaseModel):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -11256,6 +11434,7 @@ class TermMapping(ConfiguredBaseModel):
     mapping_source: Optional[str] = Field(default=None, description="""Source of the mapping (e.g., MONDO, ICD-10-CM, manual curation)""", json_schema_extra = { "linkml_meta": {'alias': 'mapping_source', 'domain_of': ['TermMapping']} })
     mapping_justification: Optional[str] = Field(default=None, description="""Brief rationale or justification for the mapping""", json_schema_extra = { "linkml_meta": {'alias': 'mapping_justification', 'domain_of': ['TermMapping']} })
     consistency: Optional[list[MappingConsistency]] = Field(default=None, description="""Consistency assertions for this mapping against other sources""", json_schema_extra = { "linkml_meta": {'alias': 'consistency', 'domain_of': ['TermMapping']} })
+    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'alias': 'tracked_issues', 'domain_of': ['Disease', 'TermMapping']} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'notes',
          'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -11267,6 +11446,7 @@ class TermMapping(ConfiguredBaseModel):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -11320,6 +11500,7 @@ class ICD10CMMapping(TermMapping):
     mapping_source: Optional[str] = Field(default=None, description="""Source of the mapping (e.g., MONDO, ICD-10-CM, manual curation)""", json_schema_extra = { "linkml_meta": {'alias': 'mapping_source', 'domain_of': ['TermMapping']} })
     mapping_justification: Optional[str] = Field(default=None, description="""Brief rationale or justification for the mapping""", json_schema_extra = { "linkml_meta": {'alias': 'mapping_justification', 'domain_of': ['TermMapping']} })
     consistency: Optional[list[MappingConsistency]] = Field(default=None, description="""Consistency assertions for this mapping against other sources""", json_schema_extra = { "linkml_meta": {'alias': 'consistency', 'domain_of': ['TermMapping']} })
+    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'alias': 'tracked_issues', 'domain_of': ['Disease', 'TermMapping']} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'notes',
          'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -11331,6 +11512,7 @@ class ICD10CMMapping(TermMapping):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -11384,6 +11566,7 @@ class ICD11FMapping(TermMapping):
     mapping_source: Optional[str] = Field(default=None, description="""Source of the mapping (e.g., MONDO, ICD-10-CM, manual curation)""", json_schema_extra = { "linkml_meta": {'alias': 'mapping_source', 'domain_of': ['TermMapping']} })
     mapping_justification: Optional[str] = Field(default=None, description="""Brief rationale or justification for the mapping""", json_schema_extra = { "linkml_meta": {'alias': 'mapping_justification', 'domain_of': ['TermMapping']} })
     consistency: Optional[list[MappingConsistency]] = Field(default=None, description="""Consistency assertions for this mapping against other sources""", json_schema_extra = { "linkml_meta": {'alias': 'consistency', 'domain_of': ['TermMapping']} })
+    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'alias': 'tracked_issues', 'domain_of': ['Disease', 'TermMapping']} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'notes',
          'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -11395,6 +11578,7 @@ class ICD11FMapping(TermMapping):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -11448,6 +11632,7 @@ class MondoMapping(TermMapping):
     mapping_source: Optional[str] = Field(default=None, description="""Source of the mapping (e.g., MONDO, ICD-10-CM, manual curation)""", json_schema_extra = { "linkml_meta": {'alias': 'mapping_source', 'domain_of': ['TermMapping']} })
     mapping_justification: Optional[str] = Field(default=None, description="""Brief rationale or justification for the mapping""", json_schema_extra = { "linkml_meta": {'alias': 'mapping_justification', 'domain_of': ['TermMapping']} })
     consistency: Optional[list[MappingConsistency]] = Field(default=None, description="""Consistency assertions for this mapping against other sources""", json_schema_extra = { "linkml_meta": {'alias': 'consistency', 'domain_of': ['TermMapping']} })
+    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'alias': 'tracked_issues', 'domain_of': ['Disease', 'TermMapping']} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'notes',
          'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -11459,6 +11644,7 @@ class MondoMapping(TermMapping):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -11517,6 +11703,7 @@ class MappingConsistency(ConfiguredBaseModel):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -11717,6 +11904,7 @@ class ComorbidityAssociation(ConfiguredBaseModel):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -11861,6 +12049,7 @@ class AssociationSignal(ConfiguredBaseModel):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -11927,6 +12116,7 @@ class AssociationMetric(ConfiguredBaseModel):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -12018,6 +12208,7 @@ class AssociationStatistics(ConfiguredBaseModel):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -12423,6 +12614,7 @@ class MechanisticHypothesis(ConfiguredBaseModel):
                        'ModelVariable',
                        'DifferentialDiagnosis',
                        'ExternalAssertion',
+                       'TrackedIssue',
                        'Prevalence',
                        'ProgressionInfo',
                        'EpidemiologyInfo',
@@ -12511,6 +12703,7 @@ ModelMechanismLink.model_rebuild()
 ProteinStructure.model_rebuild()
 PublicationReference.model_rebuild()
 ExternalAssertion.model_rebuild()
+TrackedIssue.model_rebuild()
 Finding.model_rebuild()
 Prevalence.model_rebuild()
 ProgressionInfo.model_rebuild()
@@ -12565,3 +12758,4 @@ ComorbidityHypothesis.model_rebuild()
 UpstreamConditionHypothesis.model_rebuild()
 MechanisticHypothesis.model_rebuild()
 DiseaseCollection.model_rebuild()
+

@@ -1,5 +1,5 @@
 # Auto generated from dismech.yaml by pythongen.py version: 0.0.1
-# Generation date: 2026-04-10T17:39:19
+# Generation date: 2026-04-10T18:06:56
 # Schema: dismech
 #
 # id: https://w3id.org/monarch-initiative/dismech
@@ -1971,6 +1971,48 @@ class ExternalAssertion(YAMLRoot):
 
 
 @dataclass(repr=False)
+class TrackedIssue(YAMLRoot):
+    """
+    Structured pointer to an external tracker issue (typically a GitHub issue) used to record curation provenance. Use
+    this for things like upstream ontology term requests, ontology coverage gaps, schema follow-ups, or any external
+    ticket tied to a dismech object, instead of stashing raw URLs in free-text `notes` fields. Attachable at multiple
+    levels of the model (disease entries, mappings, etc.).
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["TrackedIssue"]
+    class_class_curie: ClassVar[str] = "dismech:TrackedIssue"
+    class_name: ClassVar[str] = "TrackedIssue"
+    class_model_uri: ClassVar[URIRef] = DISMECH.TrackedIssue
+
+    url: Union[str, URI] = None
+    title: Optional[str] = None
+    tracked_issue_role: Optional[str] = None
+    tracked_issue_status: Optional[str] = None
+    notes: Optional[str] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.url):
+            self.MissingRequiredField("url")
+        if not isinstance(self.url, URI):
+            self.url = URI(self.url)
+
+        if self.title is not None and not isinstance(self.title, str):
+            self.title = str(self.title)
+
+        if self.tracked_issue_role is not None and not isinstance(self.tracked_issue_role, str):
+            self.tracked_issue_role = str(self.tracked_issue_role)
+
+        if self.tracked_issue_status is not None and not isinstance(self.tracked_issue_status, str):
+            self.tracked_issue_status = str(self.tracked_issue_status)
+
+        if self.notes is not None and not isinstance(self.notes, str):
+            self.notes = str(self.notes)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
 class Finding(YAMLRoot):
     """
     A key finding or claim extracted from a source (publication or dataset)
@@ -2513,6 +2555,8 @@ class Genetic(YAMLRoot):
     presence: Optional[str] = None
     evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
     association: Optional[str] = None
+    relationship_type: Optional[Union[str, "GeneDiseaseRelationshipEnum"]] = None
+    variant_origin: Optional[Union[str, "VariantOriginEnum"]] = None
     review_notes: Optional[str] = None
     subtype: Optional[str] = None
     frequency: Optional[Union[dict, Any]] = None
@@ -2540,6 +2584,12 @@ class Genetic(YAMLRoot):
 
         if self.association is not None and not isinstance(self.association, str):
             self.association = str(self.association)
+
+        if self.relationship_type is not None and not isinstance(self.relationship_type, GeneDiseaseRelationshipEnum):
+            self.relationship_type = GeneDiseaseRelationshipEnum(self.relationship_type)
+
+        if self.variant_origin is not None and not isinstance(self.variant_origin, VariantOriginEnum):
+            self.variant_origin = VariantOriginEnum(self.variant_origin)
 
         if self.review_notes is not None and not isinstance(self.review_notes, str):
             self.review_notes = str(self.review_notes)
@@ -2688,6 +2738,7 @@ class Disease(YAMLRoot):
     definitions: Optional[Union[dict[Union[str, DefinitionName], Union[dict, "Definition"]], list[Union[dict, "Definition"]]]] = empty_dict()
     mappings: Optional[Union[dict, "DiseaseMappings"]] = None
     external_assertions: Optional[Union[dict[Union[str, ExternalAssertionName], Union[dict, ExternalAssertion]], list[Union[dict, ExternalAssertion]]]] = empty_dict()
+    tracked_issues: Optional[Union[Union[dict, TrackedIssue], list[Union[dict, TrackedIssue]]]] = empty_list()
     notes: Optional[str] = None
     review_notes: Optional[str] = None
     curation_history: Optional[Union[Union[dict, CurationEvent], list[Union[dict, CurationEvent]]]] = empty_list()
@@ -2797,6 +2848,10 @@ class Disease(YAMLRoot):
             self.mappings = DiseaseMappings(**as_dict(self.mappings))
 
         self._normalize_inlined_as_list(slot_name="external_assertions", slot_type=ExternalAssertion, key_name="name", keyed=True)
+
+        if not isinstance(self.tracked_issues, list):
+            self.tracked_issues = [self.tracked_issues] if self.tracked_issues is not None else []
+        self.tracked_issues = [v if isinstance(v, TrackedIssue) else TrackedIssue(**as_dict(v)) for v in self.tracked_issues]
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -3836,6 +3891,7 @@ class TermMapping(YAMLRoot):
     mapping_source: Optional[str] = None
     mapping_justification: Optional[str] = None
     consistency: Optional[Union[Union[dict, "MappingConsistency"], list[Union[dict, "MappingConsistency"]]]] = empty_list()
+    tracked_issues: Optional[Union[Union[dict, TrackedIssue], list[Union[dict, TrackedIssue]]]] = empty_list()
     notes: Optional[str] = None
 
     def __post_init__(self, *_: str, **kwargs: Any):
@@ -3858,6 +3914,10 @@ class TermMapping(YAMLRoot):
         if not isinstance(self.consistency, list):
             self.consistency = [self.consistency] if self.consistency is not None else []
         self.consistency = [v if isinstance(v, MappingConsistency) else MappingConsistency(**as_dict(v)) for v in self.consistency]
+
+        if not isinstance(self.tracked_issues, list):
+            self.tracked_issues = [self.tracked_issues] if self.tracked_issues is not None else []
+        self.tracked_issues = [v if isinstance(v, TrackedIssue) else TrackedIssue(**as_dict(v)) for v in self.tracked_issues]
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -4762,6 +4822,92 @@ class RegulatoryElementTypeEnum(EnumDefinitionImpl):
     _defn = EnumDefinition(
         name="RegulatoryElementTypeEnum",
         description="Type of gene regulatory element disrupted by a non-coding variant.",
+    )
+
+class GeneDiseaseRelationshipEnum(EnumDefinitionImpl):
+    """
+    The qualitative relationship between a gene (or locus) and a disease. Use to constrain the free-text `association`
+    slot to a controlled vocabulary aligned with ClinGen gene-disease validity concepts and common cancer/somatic
+    driver classifications. The free-text `association` slot may still be used for narrative detail.
+    """
+    CAUSATIVE = PermissibleValue(
+        text="CAUSATIVE",
+        title="Causative",
+        description="""Variants in the gene are sufficient to cause the disease in a mendelian or near-mendelian sense (corresponds to ClinGen \"Definitive\" or \"Strong\" gene-disease validity).""")
+    RISK_FACTOR = PermissibleValue(
+        text="RISK_FACTOR",
+        title="Risk factor",
+        description="""Variants in the gene increase risk of disease but are neither necessary nor sufficient to cause it. Includes common-variant associations and HLA risk alleles.""")
+    PROTECTIVE = PermissibleValue(
+        text="PROTECTIVE",
+        title="Protective",
+        description="Variants in the gene reduce the risk or severity of disease.")
+    MODIFIER = PermissibleValue(
+        text="MODIFIER",
+        title="Modifier",
+        description="""Variants in the gene modify the severity, age of onset, or expressivity of disease without being a primary driver.""")
+    SUSCEPTIBILITY = PermissibleValue(
+        text="SUSCEPTIBILITY",
+        title="Susceptibility",
+        description="""Variants in the gene confer susceptibility to disease in combination with other genetic or environmental factors. Used for polygenic susceptibility loci such as GWAS hits.""")
+    SOMATIC_DRIVER = PermissibleValue(
+        text="SOMATIC_DRIVER",
+        title="Somatic driver",
+        description="""Somatic alterations in the gene drive tumor initiation or progression (e.g., recurrent oncogenic drivers in cancer).""")
+    COOPERATING = PermissibleValue(
+        text="COOPERATING",
+        title="Cooperating alteration",
+        description="""Co-occurring somatic or germline alterations that cooperate with a primary driver to shape disease behavior or therapy response.""")
+    BIOMARKER = PermissibleValue(
+        text="BIOMARKER",
+        title="Biomarker",
+        description="""Gene whose expression, mutation, or amplification status serves as a diagnostic, prognostic, or predictive biomarker without a required causal role.""")
+    DISPUTED = PermissibleValue(
+        text="DISPUTED",
+        title="Disputed",
+        description="""Reported gene-disease association whose validity is contested (corresponds to ClinGen \"Disputed\" or \"Refuted\").""")
+    UNKNOWN = PermissibleValue(
+        text="UNKNOWN",
+        title="Unknown",
+        description="The relationship between the gene and the disease is unclear or not yet classified.")
+
+    _defn = EnumDefinition(
+        name="GeneDiseaseRelationshipEnum",
+        description="""The qualitative relationship between a gene (or locus) and a disease. Use to constrain the free-text `association` slot to a controlled vocabulary aligned with ClinGen gene-disease validity concepts and common cancer/somatic driver classifications. The free-text `association` slot may still be used for narrative detail.""",
+    )
+
+class VariantOriginEnum(EnumDefinitionImpl):
+    """
+    The origin of variation in a gene with respect to a disease entry. Bound to GENO allele origin terms.
+    """
+    GERMLINE = PermissibleValue(
+        text="GERMLINE",
+        title="Germline",
+        description="germline allele origin",
+        meaning=GENO["0000888"])
+    SOMATIC = PermissibleValue(
+        text="SOMATIC",
+        title="Somatic",
+        description="somatic allele origin",
+        meaning=GENO["0000882"])
+    DE_NOVO = PermissibleValue(
+        text="DE_NOVO",
+        title="De novo",
+        description="de novo allele origin",
+        meaning=GENO["0000880"])
+    GERMLINE_AND_SOMATIC = PermissibleValue(
+        text="GERMLINE_AND_SOMATIC",
+        title="Germline and somatic",
+        description="""The gene is implicated by both germline and somatic variants in the disease (e.g., tumor suppressors with two-hit mechanisms).""")
+    UNKNOWN = PermissibleValue(
+        text="UNKNOWN",
+        title="Unknown",
+        description="unknown allele origin",
+        meaning=GENO["0000881"])
+
+    _defn = EnumDefinition(
+        name="VariantOriginEnum",
+        description="""The origin of variation in a gene with respect to a disease entry. Bound to GENO allele origin terms.""",
     )
 
 class ModifierEnum(EnumDefinitionImpl):
@@ -6724,6 +6870,12 @@ slots.synonyms = Slot(uri=DISMECH.synonyms, name="synonyms", curie=DISMECH.curie
 slots.association = Slot(uri=DISMECH.association, name="association", curie=DISMECH.curie('association'),
                    model_uri=DISMECH.association, domain=None, range=Optional[str])
 
+slots.relationship_type = Slot(uri=DISMECH.relationship_type, name="relationship_type", curie=DISMECH.curie('relationship_type'),
+                   model_uri=DISMECH.relationship_type, domain=None, range=Optional[Union[str, "GeneDiseaseRelationshipEnum"]])
+
+slots.variant_origin = Slot(uri=DISMECH.variant_origin, name="variant_origin", curie=DISMECH.curie('variant_origin'),
+                   model_uri=DISMECH.variant_origin, domain=None, range=Optional[Union[str, "VariantOriginEnum"]])
+
 slots.inheritance = Slot(uri=DISMECH.inheritance, name="inheritance", curie=DISMECH.curie('inheritance'),
                    model_uri=DISMECH.inheritance, domain=None, range=Optional[Union[dict[Union[str, InheritanceName], Union[dict, Inheritance]], list[Union[dict, Inheritance]]]])
 
@@ -7308,6 +7460,15 @@ slots.min_age_years = Slot(uri=DISMECH.min_age_years, name="min_age_years", curi
 slots.max_age_years = Slot(uri=DISMECH.max_age_years, name="max_age_years", curie=DISMECH.curie('max_age_years'),
                    model_uri=DISMECH.max_age_years, domain=None, range=Optional[float])
 
+slots.tracked_issues = Slot(uri=DISMECH.tracked_issues, name="tracked_issues", curie=DISMECH.curie('tracked_issues'),
+                   model_uri=DISMECH.tracked_issues, domain=None, range=Optional[Union[Union[dict, TrackedIssue], list[Union[dict, TrackedIssue]]]])
+
+slots.tracked_issue_role = Slot(uri=DISMECH.tracked_issue_role, name="tracked_issue_role", curie=DISMECH.curie('tracked_issue_role'),
+                   model_uri=DISMECH.tracked_issue_role, domain=None, range=Optional[str])
+
+slots.tracked_issue_status = Slot(uri=DISMECH.tracked_issue_status, name="tracked_issue_status", curie=DISMECH.curie('tracked_issue_status'),
+                   model_uri=DISMECH.tracked_issue_status, domain=None, range=Optional[str])
+
 slots.proteinStructure__pdb_id = Slot(uri=DISMECH.pdb_id, name="proteinStructure__pdb_id", curie=DISMECH.curie('pdb_id'),
                    model_uri=DISMECH.proteinStructure__pdb_id, domain=None, range=str)
 
@@ -7496,6 +7657,12 @@ slots.ExternalAssertion_source = Slot(uri=DISMECH.source, name="ExternalAssertio
 
 slots.ExternalAssertion_external_id = Slot(uri=DISMECH.external_id, name="ExternalAssertion_external_id", curie=DISMECH.curie('external_id'),
                    model_uri=DISMECH.ExternalAssertion_external_id, domain=ExternalAssertion, range=str)
+
+slots.TrackedIssue_url = Slot(uri=DISMECH.url, name="TrackedIssue_url", curie=DISMECH.curie('url'),
+                   model_uri=DISMECH.TrackedIssue_url, domain=TrackedIssue, range=Union[str, URI])
+
+slots.TrackedIssue_title = Slot(uri=DISMECH.title, name="TrackedIssue_title", curie=DISMECH.curie('title'),
+                   model_uri=DISMECH.TrackedIssue_title, domain=TrackedIssue, range=Optional[str])
 
 slots.HistopathologyFinding_name = Slot(uri=DISMECH.name, name="HistopathologyFinding_name", curie=DISMECH.curie('name'),
                    model_uri=DISMECH.HistopathologyFinding_name, domain=HistopathologyFinding, range=Union[str, HistopathologyFindingName])
