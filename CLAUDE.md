@@ -440,7 +440,18 @@ If a claim is well-established but you cannot find a quotable snippet:
 | "Reference not found" | PMID doesn't exist | Verify PMID on PubMed |
 | Low similarity score | Wrong PMID for the paper | Check abstract matches topic |
 
-### 6. Running Full QC
+### 6. Frequency Qualifiers Need Their Own Evidence
+
+Phenotype `frequency:` values (FREQUENT, OCCASIONAL, etc.) make a *separate*
+quantitative claim from the disease–phenotype association itself. Most snippets
+support only the association, not the band. See
+[`docs/frequency-evidence-guidelines.md`](docs/frequency-evidence-guidelines.md)
+for the curator SOP: acceptable evidence patterns (direct quantitative,
+derived counts, qualitative-term mapping, clinical estimate), the literature-term
+→ enum mapping table, and worked examples. **When in doubt, omit `frequency:`
+rather than fabricate justification.**
+
+### 7. Running Full QC
 
 ```bash
 # All validation checks
