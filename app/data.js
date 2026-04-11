@@ -2380,13 +2380,13 @@ window.searchData = [
       "rhabdomyosarcoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-02-16T20:19:38Z",
+    "updated_date": "2026-04-10T17:19:54Z",
     "subtypes": [
       "PAX3-FOXO1 Fusion-Positive",
       "PAX7-FOXO1 Fusion-Positive",
       "Fusion-Negative Alveolar Rhabdomyosarcoma"
     ],
-    "description": "Alveolar rhabdomyosarcoma (ARMS) is an aggressive pediatric soft tissue sarcoma characterized by skeletal muscle differentiation and distinctive chromosomal translocations involving PAX3 or PAX7 fused to FOXO1. The PAX3-FOXO1 fusion, resulting from t(2;13)(q35;q14), is present in approximately 55% of cases and confers a worse prognosis. PAX7-FOXO1 from t(1;13)(p36;q14) occurs in about 22% of cases with somewhat better outcomes. Approximately 20% are fusion-negative and behave more like embryonal rhabdomyosarcoma. The PAX-FOXO1 fusion proteins function as aberrant transcription factors driving myogenic differentiation arrest and proliferation.",
+    "description": "Alveolar rhabdomyosarcoma (ARMS) is an aggressive pediatric soft tissue sarcoma characterized by skeletal muscle differentiation and distinctive chromosomal translocations involving PAX3 or PAX7 fused to FOXO1. Among fusion-positive tumors, PAX3-FOXO1 arising from t(2;13)(q35;q14) is the dominant fusion subtype, reported in roughly 70-90% of cases, and confers a worse prognosis. PAX7-FOXO1 from t(1;13)(p36;q14) accounts for most of the remaining fusion-positive cases and is generally associated with somewhat better outcomes. Approximately 20% are fusion-negative and behave more like embryonal rhabdomyosarcoma. The PAX-FOXO1 fusion proteins function as aberrant transcription factors driving myogenic differentiation arrest and proliferation.",
     "pathophysiology": [
       "PAX-FOXO1 Fusion Oncogene",
       "Blocked Myogenic Differentiation",
@@ -10034,6 +10034,95 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Cholangiocarcinoma",
+    "disease_id": "MONDO:0019087",
+    "category": "",
+    "parents": [
+      "adenocarcinoma of gallbladder and extrahepatic biliary tract"
+    ],
+    "creation_date": "2026-04-08T00:00:00Z",
+    "updated_date": "2026-04-10T00:00:00Z",
+    "subtypes": [
+      "Intrahepatic",
+      "Perihilar",
+      "Distal"
+    ],
+    "description": "Cholangiocarcinoma (CCA) is a heterogeneous group of malignancies arising from the epithelial cells of the bile ducts. It is classified anatomically into intrahepatic (iCCA), perihilar (pCCA), and distal (dCCA) subtypes. Risk factors include primary sclerosing cholangitis, liver fluke infection, hepatolithiasis, and chronic biliary inflammation, though approximately 50% of Western cases lack identifiable risk factors. CCA is characterized by a dense desmoplastic stroma, frequent actionable molecular alterations (IDH1/2 mutations, FGFR2 fusions, BRAF mutations, HER2 amplification), and an immunosuppressive tumor microenvironment. Gemcitabine-cisplatin plus durvalumab or pembrolizumab is the current first-line standard, with targeted therapies for molecularly defined subsets.",
+    "pathophysiology": [
+      "Chronic Biliary Inflammation and Cholestasis",
+      "Accumulation of Oncogenic Mutations",
+      "Epigenetic Dysregulation",
+      "Desmoplastic Stromal Reaction",
+      "Immunosuppressive Tumor Microenvironment",
+      "Enhanced Cell Proliferation and Survival"
+    ],
+    "cell_types": [
+      "cholangiocyte",
+      "cancer-associated fibroblast",
+      "tumor-associated macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:1000488",
+      "CL:0000057",
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "inflammatory response",
+      "response to oxidative stress",
+      "regulation of cell population proliferation",
+      "chromatin organization",
+      "epigenetic regulation of gene expression",
+      "extracellular matrix organization",
+      "immune response",
+      "cell population proliferation"
+    ],
+    "phenotypes": [
+      "Obstructive Jaundice",
+      "Abdominal Pain",
+      "Unintentional Weight Loss",
+      "Pruritus",
+      "Hepatomegaly"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Integument"
+    ],
+    "phenotype_ids": [
+      "HP:0012334",
+      "HP:0002027",
+      "HP:0001824",
+      "HP:0000989",
+      "HP:0002240"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Gemcitabine-Cisplatin Plus Immune Checkpoint Inhibitor",
+      "Surgical Resection",
+      "Adjuvant Capecitabine",
+      "Targeted Therapy for Molecular Subtypes",
+      "Immune Checkpoint Inhibitor Therapy"
+    ],
+    "environmental": [
+      "Liver Fluke Infection",
+      "Primary Sclerosing Cholangitis"
+    ],
+    "biochemical": [],
+    "source_file": "Cholangiocarcinoma.yaml",
+    "page_url": "../pages/disorders/Cholangiocarcinoma.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 6,
+    "num_genes": 0,
+    "num_treatments": 5,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "2"
+  },
+  {
     "name": "Cholera",
     "disease_id": "MONDO:0015766",
     "category": "Infectious Disease",
@@ -10248,6 +10337,87 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "24",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Chorea-acanthocytosis",
+    "disease_id": "MONDO:0008695",
+    "category": "Mendelian",
+    "parents": [
+      "Neuroacanthocytosis",
+      "Neurodegenerative Disorder",
+      "Movement Disorder"
+    ],
+    "creation_date": "2026-04-08T14:54:53Z",
+    "updated_date": "2026-04-08T14:54:53Z",
+    "subtypes": [],
+    "description": "Chorea-acanthocytosis (ChAc) is an ultra-rare autosomal recessive neurodegenerative movement disorder caused by biallelic VPS13A loss-of-function variants. It belongs to the core neuroacanthocytosis syndromes and typically combines chorea or dystonia, prominent orofacial dyskinesia with tongue or lip biting, dysphagia, seizures, cognitive decline, elevated creatine kinase, and variably detectable acanthocytes. Diagnosis is established by VPS13A genetic testing or absent chorein on Western blot.\n",
+    "pathophysiology": [
+      "VPS13A Loss of Function and Chorein Deficiency",
+      "Membrane Contact Site Dysfunction with Impaired Lipid Transport",
+      "Impaired Autophagy and Muscle Homeostasis",
+      "Basal Ganglia and Caudate Degeneration"
+    ],
+    "cell_types": [
+      "fibroblast",
+      "muscle cell",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000057",
+      "CL:0000187",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "lipid transport",
+      "mitochondrial calcium ion homeostasis",
+      "autophagy"
+    ],
+    "phenotypes": [
+      "Chorea",
+      "Orofacial dyskinesia",
+      "Dysphagia",
+      "Seizure",
+      "Cognitive impairment",
+      "Acanthocytosis",
+      "Elevated circulating creatine kinase concentration"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Digestive",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002072",
+      "HP:0002310",
+      "HP:0002015",
+      "HP:0001250",
+      "HP:0100543",
+      "HP:0001927",
+      "HP:0003236"
+    ],
+    "frequencies": [],
+    "genes": [
+      "VPS13A"
+    ],
+    "treatments": [
+      "Supportive care",
+      "Globus pallidus internus deep brain stimulation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Chorea-acanthocytosis.yaml",
+    "page_url": "../pages/disorders/Chorea-acanthocytosis.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Chromoblastomycosis",
@@ -11360,7 +11530,7 @@ window.searchData = [
       "soft tissue sarcoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-01-26T04:02:22Z",
+    "updated_date": "2026-04-10T17:32:34Z",
     "subtypes": [
       "Classic Clear Cell Sarcoma",
       "Clear Cell Sarcoma of the Gastrointestinal Tract"
@@ -11390,15 +11560,16 @@ window.searchData = [
       "Constitutional"
     ],
     "phenotype_hpo_categories": [
+      "Cardiovascular",
       "Constitutional",
       "Growth",
-      "Musculoskeletal",
+      "Immune",
       "Neoplasm"
     ],
     "phenotype_ids": [
       "HP:0031459",
-      "HP:0002653",
-      "HP:0002664",
+      "HP:0012531",
+      "HP:0002716",
       "HP:0001824"
     ],
     "frequencies": [
@@ -14490,6 +14661,79 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Dentatorubral-Pallidoluysian Atrophy",
+    "disease_id": "MONDO:0007435",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodegenerative Disorders",
+      "Trinucleotide Repeat Disorders"
+    ],
+    "creation_date": "2026-04-08T15:03:27Z",
+    "updated_date": "2026-04-11T00:58:44Z",
+    "subtypes": [
+      "Juvenile-onset DRPLA",
+      "Adult-onset DRPLA"
+    ],
+    "description": "Dentatorubral-pallidoluysian atrophy (DRPLA) is an autosomal dominant neurodegenerative polyglutamine disorder caused by CAG repeat expansion in ATN1. Expanded atrophin-1 drives neuronal intranuclear inclusions, transcriptional dysregulation, and selective degeneration of the dentatorubral and pallidoluysian systems. Clinical presentation is age-dependent: juvenile-onset disease often manifests as progressive myoclonus epilepsy with intellectual disability, whereas adult-onset disease more often presents with progressive cerebellar ataxia, choreoathetosis, and dementia.",
+    "pathophysiology": [
+      "ATN1 CAG Repeat Expansion",
+      "Regional CAG Repeat Mosaicism",
+      "Polyglutamine Atrophin-1 Aggregation",
+      "ATN1 Transcriptional Co-repressor Dysregulation",
+      "Proteostasis Failure",
+      "Dentatorubral-Pallidoluysian System Degeneration"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "Inclusion body assembly",
+      "Regulation of transcription by RNA polymerase II",
+      "Autophagy",
+      "Response to oxidative stress"
+    ],
+    "phenotypes": [
+      "Progressive cerebellar ataxia",
+      "Seizures",
+      "Myoclonus",
+      "Choreoathetosis",
+      "Dementia",
+      "Intellectual disability"
+    ],
+    "phenotype_categories": [
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002073",
+      "HP:0001250",
+      "HP:0001336",
+      "HP:0001266",
+      "HP:0000726",
+      "HP:0001249"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ATN1"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Dentatorubral-Pallidoluysian_Atrophy.yaml",
+    "page_url": "../pages/disorders/Dentatorubral-Pallidoluysian_Atrophy.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Dermatofibrosarcoma Protuberans",
     "disease_id": "MONDO:0011934",
     "category": "",
@@ -15591,7 +15835,7 @@ window.searchData = [
       "Chromosomal Disorder"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-04-05T16:05:00Z",
+    "updated_date": "2026-04-10T01:38:32Z",
     "subtypes": [],
     "description": "A chromosomal disorder caused by trisomy 21, characterized by intellectual disability, distinctive facial features, hypotonia, and increased risk of congenital heart defects, hypothyroidism, and leukemia.",
     "pathophysiology": [
@@ -15623,7 +15867,7 @@ window.searchData = [
     "biological_processes": [
       "type I interferon-mediated signaling pathway",
       "cell surface receptor signaling pathway via JAK-STAT",
-      "heart development",
+      "cardiac muscle cell differentiation",
       "canonical Wnt signaling pathway",
       "neurogenesis",
       "astrocyte differentiation",
@@ -22337,7 +22581,7 @@ window.searchData = [
       "diffuse glioma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-04-03T00:00:00Z",
+    "updated_date": "2026-04-07T16:21:17Z",
     "subtypes": [
       "Diffuse Intrinsic Pontine Glioma (DIPG)",
       "Thalamic H3 K27M-Mutant Glioma",
@@ -25158,6 +25402,67 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Huntington disease-like 2",
+    "disease_id": "MONDO:0011671",
+    "category": "Genetic",
+    "parents": [
+      "Neurodegenerative Disorder",
+      "Movement Disorder"
+    ],
+    "creation_date": "2026-04-11T00:31:29Z",
+    "updated_date": "2026-04-11T01:45:43Z",
+    "subtypes": [],
+    "description": "Huntington disease-like 2 (HDL2) is a rare autosomal dominant neurodegenerative HD phenocopy caused by a pathogenic CTG/CAG repeat expansion in JPH3. Reported cases have overwhelmingly involved people with definite or probable African ancestry and the disorder presents with progressive movement, cognitive, and psychiatric decline.",
+    "pathophysiology": [
+      "JPH3 trinucleotide repeat expansion",
+      "Toxic JPH3 repeat RNA accumulation",
+      "Reduced JPH3 expression",
+      "Frontostriatal neurodegeneration"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "regulation of cytosolic calcium ion concentration"
+    ],
+    "phenotypes": [
+      "Chorea",
+      "Dementia",
+      "Parkinsonism",
+      "Psychiatric symptoms"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002072",
+      "HP:0000726",
+      "HP:0001300",
+      "HP:0000708"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "JPH3 CTG/CAG repeat expansion"
+    ],
+    "treatments": [
+      "Genetic counseling",
+      "Supportive symptomatic management"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Huntington_Disease-like_2.yaml",
+    "page_url": "../pages/disorders/Huntington_disease-like_2.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Huntington Disease",
@@ -28986,6 +29291,86 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Koolen-de Vries syndrome",
+    "disease_id": "MONDO:0012496",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental disorder",
+      "Chromatin disorder"
+    ],
+    "creation_date": "2026-04-09T17:11:02Z",
+    "updated_date": "2026-04-09T17:11:02Z",
+    "subtypes": [],
+    "description": "Koolen-de Vries syndrome is a multisystem neurodevelopmental disorder caused by KANSL1 haploinsufficiency, either through a recurrent 17q21.31 microdeletion encompassing KANSL1 or a heterozygous pathogenic KANSL1 variant. Core manifestations include hypotonia, global developmental delay, moderate intellectual disability, marked expressive language impairment, and a characteristic craniofacial and behavioral phenotype with additional structural brain, cardiac, urogenital, and musculoskeletal anomalies in a subset of affected individuals.\n",
+    "pathophysiology": [
+      "KANSL1 haploinsufficiency",
+      "Autophagosome accumulation in KANSL1-deficient neurons",
+      "Synaptic dysfunction in KANSL1-deficient neurons"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "chromatin organization",
+      "regulation of gene expression",
+      "autophagy",
+      "chemical synaptic transmission"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Intellectual disability",
+      "Hypotonia",
+      "Expressive language delay",
+      "Seizures",
+      "Congenital heart defects",
+      "Abnormal corpus callosum morphology"
+    ],
+    "phenotype_categories": [
+      "Cognitive",
+      "Neurologic",
+      "Communication",
+      "Cardiovascular",
+      "Structural"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0001252",
+      "HP:0002474",
+      "HP:0001250",
+      "HP:0001627",
+      "HP:0001273"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "KANSL1"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [
+      "Blood DNA methylation episignature"
+    ],
+    "source_file": "Koolen_de_Vries_syndrome.yaml",
+    "page_url": "../pages/disorders/Koolen-de_Vries_syndrome.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Kosaki_Overgrowth_Syndrome",
     "disease_id": "MONDO:0014704",
     "category": "Genetic",
@@ -30061,7 +30446,7 @@ window.searchData = [
       "spirochetal infection"
     ],
     "creation_date": "2026-03-03T16:18:51Z",
-    "updated_date": "2026-03-08T18:31:34Z",
+    "updated_date": "2026-04-10T16:56:38Z",
     "subtypes": [
       "Anicteric leptospirosis",
       "Severe icteric leptospirosis (Weil disease)",
@@ -30069,9 +30454,11 @@ window.searchData = [
     ],
     "description": "Leptospirosis is a zoonotic spirochetal infection caused by pathogenic Leptospira species, with clinical severity ranging from self-limited febrile illness to severe multi-organ dysfunction (including jaundice, pulmonary hemorrhage, and acute kidney injury).",
     "pathophysiology": [
+      "VM protein-mediated epithelial barrier disruption",
       "ColA-mediated collagen degradation",
       "Barrier transcytosis across endothelial and epithelial monolayers",
       "Hematogenous leptospiral dissemination",
+      "cGAS-STING-dependent type I interferon response",
       "TLR2 signaling activation in monocytes and macrophages",
       "Cytokine and chemokine upregulation",
       "NLRP3 inflammasome complex assembly",
@@ -30081,28 +30468,34 @@ window.searchData = [
       "Persistent tissue colonization by Leptospira",
       "Leptospiral GLP engagement of Na/K-ATPase",
       "Na/K-ATPase dysfunction in endothelial and kidney epithelial cells",
+      "VE-cadherin adherens junction disruption in endothelial cells",
       "Pulmonary microvascular damage in hemorrhagic leptospirosis",
       "Multi-organ tissue injury in severe leptospirosis",
       "Coagulation derangement in critical leptospirosis"
     ],
     "cell_types": [
+      "epithelial cell",
       "endothelial cell",
       "kidney epithelial cell",
-      "monocyte",
       "macrophage",
+      "monocyte",
       "platelet"
     ],
     "cell_type_ids": [
+      "CL:0000066",
       "CL:0000115",
       "CL:0002518",
-      "CL:0000576",
       "CL:0000235",
+      "CL:0000576",
       "CL:0000233"
     ],
     "biological_processes": [
+      "cell junction organization",
+      "tight junction disassembly",
       "collagen catabolic process",
       "transcytosis",
       "response to molecule of bacterial origin",
+      "cGAS-STING signaling pathway",
       "toll-like receptor signaling pathway",
       "positive regulation of cytokine production",
       "NLRP3 inflammasome complex assembly",
@@ -30110,6 +30503,7 @@ window.searchData = [
       "complement activation",
       "response to lipopolysaccharide",
       "inflammatory response",
+      "adherens junction organization",
       "blood coagulation"
     ],
     "phenotypes": [
@@ -30190,10 +30584,10 @@ window.searchData = [
     "source_file": "Leptospirosis.yaml",
     "page_url": "../pages/disorders/Leptospirosis.html",
     "num_phenotypes": 15,
-    "num_pathophysiology": 15,
+    "num_pathophysiology": 18,
     "num_genes": 0,
     "num_treatments": 6,
-    "causal_graph_edges": "20",
+    "causal_graph_edges": "23",
     "causal_graph_longest_path": "8"
   },
   {
@@ -33246,7 +33640,7 @@ window.searchData = [
       "medulloblastoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-02-27T21:53:00Z",
+    "updated_date": "2026-04-10T17:05:57Z",
     "subtypes": [
       "SHH-Activated, TP53-Wildtype Medulloblastoma",
       "SHH-Activated, TP53-Mutant Medulloblastoma"
@@ -33265,7 +33659,7 @@ window.searchData = [
     ],
     "biological_processes": [
       "smoothened signaling pathway",
-      "positive regulation of gene expression",
+      "positive regulation of transcription by RNA polymerase II",
       "cell population proliferation",
       "cerebellum development"
     ],
@@ -38406,7 +38800,7 @@ window.searchData = [
       "Demyelinating Disease"
     ],
     "creation_date": "2026-01-15T00:00:04Z",
-    "updated_date": "2026-02-27T21:53:01Z",
+    "updated_date": "2026-04-10T00:00:00Z",
     "subtypes": [
       "AQP4-IgG Seropositive NMOSD",
       "MOG-IgG Associated Disease",
@@ -39198,6 +39592,108 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Obesity Due to MC4R Pathway Disruption",
+    "disease_id": "MONDO:0011122",
+    "category": "Metabolic",
+    "parents": [
+      "Obesity",
+      "Neuroendocrine Disorders"
+    ],
+    "creation_date": "2026-04-09T17:59:45Z",
+    "updated_date": "2026-04-11T00:20:31Z",
+    "subtypes": [
+      "Acquired HO",
+      "Congenital HO",
+      "Syndromic",
+      "LEP",
+      "LEPR",
+      "POMC",
+      "PCSK1",
+      "MC4R",
+      "SH2B1",
+      "NCOA1"
+    ],
+    "description": "Obesity due to MC4R pathway disruption is a mechanism-based umbrella entry for obesity states that converge on impaired leptin-melanocortin signaling in the hypothalamus. The shared disease logic is failure of satiety-promoting and energy expenditure-promoting signaling through the leptin/POMC/MC4R axis, whether caused by acquired hypothalamic injury, congenital structural hypothalamic abnormalities, syndromic upstream pathway defects, or rare monogenic disorders involving LEP, LEPR, POMC, PCSK1, MC4R, SH2B1, or NCOA1.",
+    "pathophysiology": [
+      "MC4R pathway signaling failure",
+      "Hyperphagia and failed satiety",
+      "Reduced energy expenditure and rapid adipose accumulation"
+    ],
+    "cell_types": [
+      "hypothalamus cell",
+      "neuron",
+      "adipocyte"
+    ],
+    "cell_type_ids": [
+      "CL:2000030",
+      "CL:0000540",
+      "CL:0000136"
+    ],
+    "biological_processes": [
+      "adenylate cyclase-modulating G protein-coupled receptor signaling pathway",
+      "lipid metabolic process"
+    ],
+    "phenotypes": [
+      "Hyperphagia",
+      "Obesity",
+      "Hypogonadotropic hypogonadism",
+      "Delayed puberty",
+      "Recurrent respiratory infections",
+      "Insulin resistance"
+    ],
+    "phenotype_categories": [
+      "Metabolic",
+      "Endocrine",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Endocrine",
+      "Genitourinary",
+      "Growth",
+      "Immune",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002591",
+      "HP:0001513",
+      "HP:0000044",
+      "HP:0000823",
+      "HP:0002205",
+      "HP:0000855"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "LEP",
+      "LEPR",
+      "POMC",
+      "PCSK1",
+      "MC4R",
+      "SH2B1",
+      "NCOA1"
+    ],
+    "treatments": [
+      "Dietary and lifestyle intervention",
+      "Metreleptin replacement",
+      "Setmelanotide",
+      "GLP-1 receptor agonist therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Obesity_Due_to_MC4R_Pathway_Disruption.yaml",
+    "page_url": "../pages/disorders/Obesity_Due_to_MC4R_Pathway_Disruption.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 3,
+    "num_genes": 7,
+    "num_treatments": 4,
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Obstructive Sleep Apnea",
@@ -40160,7 +40656,7 @@ window.searchData = [
       "Osteogenesis imperfecta"
     ],
     "creation_date": "2026-02-06T03:25:37Z",
-    "updated_date": "2026-04-04T00:00:00Z",
+    "updated_date": "2026-04-10T00:00:00Z",
     "subtypes": [],
     "description": "Osteogenesis imperfecta type IV represents moderate severity OI, intermediate between the mild type I and severe type III. Caused by dominant-negative mutations in COL1A1 or COL1A2, affected individuals have moderate bone fragility, variable short stature, normal or near-normal scleral hue (distinguishing it from type I), and may have dentinogenesis imperfecta. Phenotypic severity is highly variable, overlapping with both milder and more severe forms.\n",
     "pathophysiology": [
@@ -40174,7 +40670,7 @@ window.searchData = [
     ],
     "biological_processes": [
       "Collagen Fibril Organization",
-      "Bone Development"
+      "Bone Mineralization"
     ],
     "phenotypes": [
       "Moderate Short Stature",
@@ -49649,6 +50145,98 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Spinocerebellar ataxia type 17",
+    "disease_id": "MONDO:0011781",
+    "category": "Mendelian",
+    "parents": [
+      "Hereditary cerebellar ataxia",
+      "Neurodegenerative Disease",
+      "Movement Disorder"
+    ],
+    "creation_date": "2026-04-10T00:00:00Z",
+    "updated_date": "2026-04-10T00:00:00Z",
+    "subtypes": [],
+    "description": "Spinocerebellar ataxia type 17 (SCA17) is a rare autosomal dominant polyglutamine neurodegenerative disorder caused by CAG/CAA repeat expansion in TBP. The syndrome combines progressive cerebellar ataxia with cognitive decline, psychiatric symptoms, and extrapyramidal movement disorders including chorea, dystonia, and parkinsonism. Disease expression is highly variable, with onset ranging from childhood to late adulthood, reduced penetrance at borderline repeat lengths, and relatively uncommon anticipation because the TBP repeat tract is partly stabilized by CAA interruptions. No disease-modifying therapy is established; current management is symptomatic and supportive.",
+    "pathophysiology": [
+      "Polyglutamine-expanded TBP disrupts transcriptional programs",
+      "Cerebellar INPP5A loss drives Purkinje cell vulnerability",
+      "Astrocyte-mediated NF-kappaB neuroinflammation amplifies neuronal injury",
+      "Calpain-mediated TBP fragmentation",
+      "Impaired proteostasis promotes mutant TBP aggregation"
+    ],
+    "cell_types": [
+      "Purkinje cell",
+      "astrocyte",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000121",
+      "CL:0000127",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "regulation of transcription by RNA polymerase II",
+      "intracellular calcium ion homeostasis",
+      "IP3-linked calcium signaling",
+      "inflammatory response",
+      "canonical NF-kappaB signal transduction",
+      "cytokine production",
+      "proteolysis",
+      "inclusion body assembly",
+      "autophagy"
+    ],
+    "phenotypes": [
+      "Progressive gait ataxia",
+      "Cognitive impairment",
+      "Dementia",
+      "Chorea",
+      "Dystonia",
+      "Parkinsonism",
+      "Dysarthria",
+      "Depression",
+      "Psychosis"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Cognitive",
+      "Psychiatric"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002066",
+      "HP:0100543",
+      "HP:0000726",
+      "HP:0002072",
+      "HP:0001332",
+      "HP:0001300",
+      "HP:0001260",
+      "HP:0000716",
+      "HP:0000709"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "TBP"
+    ],
+    "treatments": [
+      "Supportive and rehabilitative care",
+      "Granulocyte-colony stimulating factor (preclinical)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Spinocerebellar_Ataxia_Type_17.yaml",
+    "page_url": "../pages/disorders/Spinocerebellar_ataxia_type_17.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "2"
+  },
+  {
     "name": "Spondylocarpotarsal Synostosis Syndrome",
     "disease_id": "MONDO:0010094",
     "category": "Mendelian",
@@ -55082,11 +55670,11 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 595,
-  "total_unique_evidence_sources": 9727,
+  "total_disorder_pages": 602,
+  "total_unique_evidence_sources": 9823,
   "total_unique_disease_categories": 35,
-  "total_unique_phenotype_categories": 135,
-  "total_pathographs": 586,
-  "total_unique_pathological_events": 2508
+  "total_unique_phenotype_categories": 137,
+  "total_pathographs": 593,
+  "total_unique_pathological_events": 2540
 };
 window.dispatchEvent(new Event('searchDataReady'));
