@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05616923
+reference_id: "clinicaltrials:NCT05616923"
 title: Topical Mitogenic-Activated Protein Kinase (MAPK) Inhibition in Rosacea
 content_type: summary
 ---
