@@ -89,48 +89,61 @@ def disease_term_id(data: dict) -> str | None:
     return None
 
 
+def _validate_data(data: dict, filename: str) -> tuple[list[str], set[str]]:
+    """Run both semantic checks against already-loaded YAML data.
+
+    Returns ``(issues, used_mondo)`` where ``used_mondo`` is the set of
+    MONDO CURIEs found in ``phenotype_term`` slots (used by
+    :func:`validate_all_disorders` for the stale-allowlist check).
+    """
+    issues: list[str] = []
+    used_mondo: set[str] = set()
+
+    own_id = disease_term_id(data)
+    for curie, label in iter_phenotype_terms(data):
+        # Check 1: disorder must not use its own id as a phenotype_term.
+        if own_id and curie == own_id:
+            issues.append(
+                f"{filename} uses its own id {own_id} as a phenotype_term "
+                f"(preferred_term={label!r}). A disease cannot be a "
+                f"phenotype of itself; move to differential_diagnoses, "
+                f"comorbidities, or remove it."
+            )
+        # Check 2: MONDO phenotype_terms must be on the allowlist.
+        if curie.startswith("MONDO:"):
+            used_mondo.add(curie)
+            if curie not in ALLOWED_MONDO_PHENOTYPE_TERMS:
+                issues.append(
+                    f"{filename} uses MONDO term {curie} "
+                    f"(preferred_term={label!r}) as a phenotype_term, but "
+                    f"it is not on ALLOWED_MONDO_PHENOTYPE_TERMS. If this "
+                    f"is a legitimate disease-as-feature pattern, add the "
+                    f"CURIE to src/dismech/validate_phenotype_terms.py "
+                    f"with a one-line justification. Otherwise replace "
+                    f"with an HP term."
+                )
+
+    return issues, used_mondo
+
+
 def validate_file(yaml_path: Path) -> list[str]:
     """Run both semantic checks against a single disorder file.
 
     Returns a (possibly empty) list of issue strings.
     """
     data = yaml.safe_load(yaml_path.read_text())
-    issues: list[str] = []
-
-    # Check 1: disorder must not use its own id as a phenotype_term.
-    own_id = disease_term_id(data)
-    if own_id:
-        for curie, label in iter_phenotype_terms(data):
-            if curie == own_id:
-                issues.append(
-                    f"{yaml_path.name} uses its own id {own_id} as a "
-                    f"phenotype_term (preferred_term={label!r}). A disease "
-                    f"cannot be a phenotype of itself; move to "
-                    f"differential_diagnoses, comorbidities, or remove it."
-                )
-
-    # Check 2: MONDO phenotype_terms must be on the allowlist.
-    for curie, label in iter_phenotype_terms(data):
-        if curie.startswith("MONDO:") and curie not in ALLOWED_MONDO_PHENOTYPE_TERMS:
-            issues.append(
-                f"{yaml_path.name} uses MONDO term {curie} "
-                f"(preferred_term={label!r}) as a phenotype_term, but it is "
-                f"not on ALLOWED_MONDO_PHENOTYPE_TERMS. If this is a "
-                f"legitimate disease-as-feature pattern, add the CURIE to "
-                f"src/dismech/validate_phenotype_terms.py with a one-line "
-                f"justification. Otherwise replace with an HP term."
-            )
-
+    issues, _ = _validate_data(data, yaml_path.name)
     return issues
 
 
 def validate_all_disorders(input_dir: Path) -> dict[str, list[str]]:
     """Validate every disorder file in ``input_dir``.
 
-    Returns a dict mapping filename to list of issue strings (only files with
-    issues are included). Also returns a synthetic ``"_stale_allowlist"`` key
-    if the allowlist contains entries that are no longer used in the KB --
-    this keeps the allowlist honest as files evolve.
+    Returns a dict mapping filename to list of issue strings (only files
+    with issues are included). Also returns a synthetic
+    ``"_stale_allowlist"`` key if the allowlist contains entries that are
+    no longer used in the KB -- this keeps the allowlist honest as files
+    evolve.
     """
     issues: dict[str, list[str]] = {}
     used_mondo: set[str] = set()
@@ -138,22 +151,18 @@ def validate_all_disorders(input_dir: Path) -> dict[str, list[str]]:
     for yaml_path in sorted(input_dir.glob("*.yaml")):
         if yaml_path.name.endswith(".history.yaml"):
             continue
-        file_issues = validate_file(yaml_path)
+        data = yaml.safe_load(yaml_path.read_text())
+        file_issues, file_used = _validate_data(data, yaml_path.name)
         if file_issues:
             issues[yaml_path.name] = file_issues
-
-        # Collect used MONDO terms for the stale-allowlist check.
-        data = yaml.safe_load(yaml_path.read_text())
-        for curie, _ in iter_phenotype_terms(data):
-            if curie.startswith("MONDO:"):
-                used_mondo.add(curie)
+        used_mondo.update(file_used)
 
     stale = ALLOWED_MONDO_PHENOTYPE_TERMS - used_mondo
     if stale:
         issues["_stale_allowlist"] = [
             f"ALLOWED_MONDO_PHENOTYPE_TERMS contains entries that are no "
-            f"longer used as a phenotype_term anywhere in {input_dir}. Please "
-            f"remove: {sorted(stale)}"
+            f"longer used as a phenotype_term anywhere in {input_dir}. "
+            f"Please remove: {sorted(stale)}"
         ]
 
     return issues

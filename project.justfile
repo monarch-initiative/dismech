@@ -9,7 +9,7 @@ ref_validator_config := "conf/reference_validator_config.yaml"
 # Wrapper script that patches linkml-reference-validator for network resilience
 ref_validator := "scripts/run_reference_validator.sh"
 
-# Validate all disorder YAML files (schema + terms + references)
+# Validate all disorder YAML files (schema + terms + references + phenotype_term semantics)
 # Runs all validations and reports ALL errors at the end
 [group('QC')]
 validate-all:
@@ -36,6 +36,11 @@ validate-all:
         ref_output=$({{ref_validator}} validate data "$f" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} 2>&1)
         if echo "$ref_output" | grep -q "\[ERROR\]"; then
             errors+="  [REFERENCES]\n$(echo "$ref_output" | grep -A2 "\[ERROR\]")\n"
+        fi
+        # Phenotype_term semantic validation (issue #817)
+        pt_output=$(uv run python -m dismech.validate_phenotype_terms --file "$f" 2>&1)
+        if [ $? -ne 0 ]; then
+            errors+="  [PHENOTYPE_TERMS]\n$pt_output\n"
         fi
         if [ -n "$errors" ]; then
             failed_files+=("$f")
