@@ -304,6 +304,7 @@ def normalize_cache_body(body: str) -> str:
         text = text.split("## Content", 1)[1]
     text = text.replace("\r", "\n")
     text = text.replace("&lt;", "<").replace("&gt;", ">")
+    text = re.sub(r"</?[^>\n]+>", " ", text)
     text = re.sub(r"\n{2,}", "\n\n", text)
     if "BACKGROUND:" in text:
         text = text.split("BACKGROUND:", 1)[1]
@@ -318,6 +319,11 @@ def normalize_cache_body(body: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
+def extract_cache_context(cache_path: Path) -> str:
+    _, body = parse_cache_metadata_and_body(cache_path)
+    return normalize_cache_body(body)
+
+
 def strip_leading_section_labels(text: str) -> str:
     cleaned = text.strip().lstrip("•").strip()
     while True:
@@ -330,8 +336,7 @@ def strip_leading_section_labels(text: str) -> str:
 
 
 def extract_supporting_text(cache_path: Path, title: str) -> str | None:
-    _, body = parse_cache_metadata_and_body(cache_path)
-    normalized = normalize_cache_body(body)
+    normalized = extract_cache_context(cache_path)
     if normalized:
         for sentence in SENTENCE_SPLIT_RE.split(normalized):
             candidate = strip_leading_section_labels(sentence.strip(" \"'"))
@@ -345,9 +350,11 @@ def extract_supporting_text(cache_path: Path, title: str) -> str | None:
     return None
 
 
-def guess_evidence_source(title: str, supporting_text: str | None) -> str:
+def guess_evidence_source(
+    title: str, supporting_text: str | None, context_text: str | None = None
+) -> str:
     title_haystack = title.lower()
-    haystack = f"{title} {supporting_text or ''}".lower()
+    haystack = f"{title} {supporting_text or ''} {context_text or ''}".lower()
 
     def has(text: str, pattern: str) -> bool:
         return re.search(pattern, text) is not None
@@ -440,6 +447,7 @@ def append_auto_finding(
         return False
 
     supporting_text = extract_supporting_text(cache_path, title)
+    context_text = extract_cache_context(cache_path)
     if supporting_text:
         statement = (
             supporting_text if len(supporting_text) <= 240 else title.rstrip(".")
@@ -452,7 +460,7 @@ def append_auto_finding(
     finding["supporting_text"] = supporting_text or title
 
     if supporting_text:
-        evidence_source = guess_evidence_source(title, supporting_text)
+        evidence_source = guess_evidence_source(title, supporting_text, context_text)
         evidence_item = CommentedMap()
         evidence_item["reference"] = reference
         evidence_item["reference_title"] = title
@@ -488,6 +496,7 @@ def repair_existing_findings(
         return changed
 
     supporting_text = extract_supporting_text(cache_path, effective_title)
+    context_text = extract_cache_context(cache_path)
     statement = (
         supporting_text
         if supporting_text and len(supporting_text) <= 240
@@ -514,7 +523,9 @@ def repair_existing_findings(
             changed = True
             continue
 
-        evidence_source = guess_evidence_source(effective_title, supporting_text)
+        evidence_source = guess_evidence_source(
+            effective_title, supporting_text, context_text
+        )
         for evidence in evidence_items:
             if not isinstance(evidence, MutableMapping):
                 continue
