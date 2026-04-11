@@ -322,6 +322,10 @@ def test_subtype_foreign_keys(filepath):
             val = item.get("subtype")
             if val and val not in valid_subtypes:
                 errors.append(f"{section}[{i}].subtype={val!r}")
+            # Multivalued `subtypes` (plural) — issue #963
+            for k, sval in enumerate(item.get("subtypes", []) or []):
+                if sval and sval not in valid_subtypes:
+                    errors.append(f"{section}[{i}].subtypes[{k}]={sval!r}")
             # Also check phenotype_contexts
             for j, ctx in enumerate(item.get("phenotype_contexts", [])):
                 val = ctx.get("subtype")
@@ -342,6 +346,57 @@ def test_subtype_foreign_keys(filepath):
         f"Subtype FK mismatches in {Path(filepath).name}. "
         f"Valid subtypes: {valid_subtypes}. Bad refs: {errors}"
     )
+
+
+def test_phenotype_multivalued_subtypes_validates(validator, tmp_path):
+    """Issue #963: a phenotype may be associated with multiple subtypes.
+
+    A phenotype using the multivalued `subtypes` slot with a list of subtype
+    names should validate against the schema, and the FK check should accept
+    list values.
+    """
+    disease = {
+        "name": "Test Multi-Subtype Disease",
+        "disease_term": {
+            "term": {"id": "MONDO:0000001", "label": "disease or disorder"}
+        },
+        "has_subtypes": [
+            {"name": "Type 1", "description": "Subtype one."},
+            {"name": "Type 2", "description": "Subtype two."},
+        ],
+        "phenotypes": [
+            {
+                "name": "Shared phenotype",
+                "description": "A phenotype seen in both subtypes.",
+                "subtypes": ["Type 1", "Type 2"],
+            },
+        ],
+    }
+
+    report = validator.validate(disease, target_class="Disease")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+    assert not errors, f"Unexpected validation errors: {[str(e) for e in errors]}"
+
+    # Reuse the FK check logic by writing to disk and invoking the test fn.
+    fake_path = tmp_path / "TestMulti.yaml"
+    fake_path.write_text(yaml.safe_dump(disease, sort_keys=False))
+    test_subtype_foreign_keys(str(fake_path))
+
+
+def test_phenotype_multivalued_subtypes_fk_catches_bad_refs(tmp_path):
+    """Bad subtype name in the multivalued `subtypes` list must be caught."""
+    disease = {
+        "name": "Bad Multi-Subtype",
+        "has_subtypes": [{"name": "Type 1"}],
+        "phenotypes": [
+            {"name": "P", "subtypes": ["Type 1", "Type 99 (not declared)"]},
+        ],
+    }
+    fake_path = tmp_path / "BadMulti.yaml"
+    fake_path.write_text(yaml.safe_dump(disease, sort_keys=False))
+
+    with pytest.raises(AssertionError, match="Type 99"):
+        test_subtype_foreign_keys(str(fake_path))
 
 
 @pytest.mark.parametrize("filepath", DISORDER_FILES)

@@ -1,5 +1,5 @@
 # Auto generated from dismech.yaml by pythongen.py version: 0.0.1
-# Generation date: 2026-04-06T12:41:14
+# Generation date: 2026-04-10T17:39:19
 # Schema: dismech
 #
 # id: https://w3id.org/monarch-initiative/dismech
@@ -2315,6 +2315,7 @@ class Phenotype(YAMLRoot):
     severity: Optional[str] = None
     notes: Optional[str] = None
     subtype: Optional[str] = None
+    subtypes: Optional[Union[str, list[str]]] = empty_list()
     phenotype_contexts: Optional[Union[Union[dict, PhenotypeContext], list[Union[dict, PhenotypeContext]]]] = empty_list()
 
     def __post_init__(self, *_: str, **kwargs: Any):
@@ -2358,6 +2359,10 @@ class Phenotype(YAMLRoot):
         if self.subtype is not None and not isinstance(self.subtype, str):
             self.subtype = str(self.subtype)
 
+        if not isinstance(self.subtypes, list):
+            self.subtypes = [self.subtypes] if self.subtypes is not None else []
+        self.subtypes = [v if isinstance(v, str) else str(v) for v in self.subtypes]
+
         if not isinstance(self.phenotype_contexts, list):
             self.phenotype_contexts = [self.phenotype_contexts] if self.phenotype_contexts is not None else []
         self.phenotype_contexts = [v if isinstance(v, PhenotypeContext) else PhenotypeContext(**as_dict(v)) for v in self.phenotype_contexts]
@@ -2383,6 +2388,7 @@ class Biochemical(YAMLRoot):
     notes: Optional[str] = None
     context: Optional[str] = None
     subtype: Optional[str] = None
+    subtypes: Optional[Union[str, list[str]]] = empty_list()
     cell_types: Optional[Union[Union[dict, CellTypeDescriptor], list[Union[dict, CellTypeDescriptor]]]] = empty_list()
     assays: Optional[Union[Union[dict, AssayDescriptor], list[Union[dict, AssayDescriptor]]]] = empty_list()
     mappings_list: Optional[Union[Union[dict, ModelVariableDescriptor], list[Union[dict, ModelVariableDescriptor]]]] = empty_list()
@@ -2415,6 +2421,10 @@ class Biochemical(YAMLRoot):
 
         if self.subtype is not None and not isinstance(self.subtype, str):
             self.subtype = str(self.subtype)
+
+        if not isinstance(self.subtypes, list):
+            self.subtypes = [self.subtypes] if self.subtypes is not None else []
+        self.subtypes = [v if isinstance(v, str) else str(v) for v in self.subtypes]
 
         if not isinstance(self.cell_types, list):
             self.cell_types = [self.cell_types] if self.cell_types is not None else []
