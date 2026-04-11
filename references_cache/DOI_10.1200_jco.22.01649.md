@@ -1,0 +1,258 @@
+---
+reference_id: "DOI:10.1200/jco.22.01649"
+title: Niraparib and Abiraterone Acetate for Metastatic Castration-Resistant Prostate Cancer
+authors:
+- Kim N. Chi
+- Dana Rathkopf
+- Matthew R. Smith
+- Eleni Efstathiou
+- Gerhardt Attard
+- David Olmos
+- Ji Youl Lee
+- Eric J. Small
+- Andrea J. Pereira de Santana Gomes
+- Guilhem Roubaud
+- Marniza Saad
+- Bogdan Zurawski
+- Valerii Sakalo
+- Gary E. Mason
+- Peter Francis
+- George Wang
+- Daphne Wu
+- Brooke Diorio
+- Angela Lopez-Gitlitz
+- Shahneen Sandhu
+- Maria Alvarez
+- Gabriela Gatica
+- Martin Greco
+- Ernesto Korbenfeld
+- Esteban Metrebian
+- Jorge Salinas
+- Alejandro Salvatierra
+- Marcelo Tatangelo
+- Tom Ferguson
+- Howard Gurney
+- Elizabeth Hovey
+- Anthony Joshua
+- Matos Marco
+- Gavin Marx
+- Michelle Morris
+- Siobhan Ng
+- David Pook
+- Shahneen Sandhu
+- Ali Tafreshi
+- Thean Hsiang Tan
+- Tsvetanka Tosheva
+- Livia Andrade
+- Felipe Cruz
+- Luiza Faria
+- Jose Figueiredo
+- Fabio Franke
+- Andrea Juliana Gomes
+- Ariel Kann
+- Celio Kussumoto
+- Suelen Martins
+- Andre Murad
+- Helio Pinczowski
+- Giovani Pioner
+- Luis Pires
+- Daniel Preto
+- Gisele Santos
+- Eduardo Silva
+- Jamile Silva
+- Luciano Viana
+- Karina Vianna
+- Adriano Paula
+- Zhiwen Chen
+- Kim Chi
+- Urban Emmenegger
+- Neil Fleshner
+- Sunil Parimi
+- Fred Saad
+- Francisco Vera-Badillo
+- Hongqian Guo
+- Hong Luo
+- Lulin Ma
+- Mingxing Qui
+- Wei Xue
+- Guo Yonglian
+- Lei Li
+- Jinxian Pu
+- Song Zheng
+- Qing Zou
+- Milos Brodak
+- Milan Hora
+- Vladimir Samal
+- Vladimir Student
+- Jaroslav Vanasek
+- Emmanuelle Bompas
+- Philippe Barthelemy
+- Delphine Borchiellini
+- Aude Flechon
+- Hakim Mahammedi
+- Guilhem Roubaud
+- Antoine Thiery-Vuillemin
+- Diego Tosi
+- Spaeth Dominique
+- Carole Helissey
+- Martin Boegemann
+- Susan Feyerabend
+- Eva Hellmis
+- Martin Schostak
+- Gerhardt Attard
+- Anna Lydon
+- Ian Sayers
+- Omi Parikh
+- Duncan Wheatley
+- Peter Arkosy
+- Jozsef Erfan
+- Lajos Geczi
+- Peter Nyirady
+- Judit Olah
+- Istvan Papos
+- Bela Piko
+- Raanan Berger
+- Avivit Peer
+- Umberto Basso
+- Sergio Bracarda
+- Orazio Caffo
+- Francesco Carrozza
+- Gianluca Del Conte
+- Luca Galli
+- Donatello Gasparro
+- Sandro Pignata
+- Riccardo Ricotta
+- Daniele Santini
+- Giampaolo Tortora
+- Seoksoo Byun
+- SeolHo Choo
+- ByungHa Chung
+- Jaeyoung Joung
+- Wonho Jung
+- Taek Won Kang
+- Cheol Kwak
+- TaeGyun Kwon
+- Hyo Jin Lee
+- Ji Youl Lee
+- SeongIl Seo
+- YoungDeuk Choi
+- HongKoo Ha
+- ChoungSoo Kim
+- Flora Li Tze Chong
+- Chun Sen Lim
+- Vijayan Manogran
+- Hwoei Fen Soo Hoo
+- Guan Chou Teh
+- Marniza Saad
+- David Calvo Dominguez
+- Abraham Cardenas
+- Julia Saenz
+- Andre Bergman
+- Helgi Helgason
+- C.B. Hunting
+- Rik Somford
+- Tomasz Byrski
+- Tomasz Drewa
+- Dorota Filarska
+- Jolanta LuniewskaBury
+- Adam Marcheluk
+- Konrad Talasiewicz
+- Krzysztof Tupikowski
+- Renata Zaucha
+- Bogdan Zurawski
+- Pedro Madeira
+- Andre Mansinho
+- Nuno Vau
+- Anna Alyasova
+- Victoria Chistyakova
+- Denis Khvorostenko
+- Dmitry Kirtbaya
+- Gennady Kolesnikov
+- Evgeny Kopyltsov
+- Igor Lifirenko
+- Alexander Lykov
+- Konstantin Penkov
+- Andrey Semenov
+- Mikhail Shkolnik
+- Pavel Skopin
+- Roman Smirnov
+- Evgeny Usynin
+- Sergey Varlamov
+- Vladimir Vladimirov
+- Teresa Alonso
+- Sara Breijo
+- Elena Castro
+- Enrique Gallardo
+- Jose Gutierrez Banos
+- Alvaro Juarez
+- Rebeca Lozano
+- Pablo Maroto
+- Javier Puente
+- Alejo Rodriguez-Vida
+- Regina Girones
+- Begona Mellado
+- Enrique Castellanos
+- Chunde Li
+- Chao-Hsiang Chang
+- Hsiao-Jen Chung
+- Kuan-Hua Huang
+- Yen-Chuan Ou
+- Yu-Chieh Tsai
+- Shian-Shiang Wang
+- Wen-Jeng Wu
+- See Tong Pang
+- Cagatay Arslan
+- Devrim Cabuk
+- Hasan Coskun
+- Mahmut Gumus
+- Mustafa Ozguroglu
+- Berna Oksuzoglu
+- Berksoy Sahin
+- Deniz Tural
+- Bulent Yalcin
+- Irfan Cicin
+- Igor Bondarenko
+- Yaroslav Gotsuliak
+- Yevhen Hotko
+- Gennadii Khareba
+- Oleksandr Lychkovskyy
+- Iryna Lytvyn
+- Taron Nalbandyan
+- Viktor Paramonov
+- Valerii Sakalo
+- Eduard Stakhovsky
+- Viktor Stus
+- Sunil Babu
+- Alan Bryce
+- David Cahn
+- Herta Chao
+- Franklin Chu
+- Curtis Dunshee
+- Oscar Goodman
+- Michael Grable
+- Jason Hafron
+- Joelle Hamilton
+- Ralph Hauke
+- Joseph Maly
+- David Morris
+- Gregg Newman
+- Patrick Pilie
+- Neal Shore
+- Paul Sieber
+- Matthew Smith
+- Andrew Trainer
+- Ronald Tutrone
+journal: Journal of Clinical Oncology
+year: '2023'
+doi: 10.1200/jco.22.01649
+content_type: abstract_only
+---
+
+# Niraparib and Abiraterone Acetate for Metastatic Castration-Resistant Prostate Cancer
+**Authors:** Kim N. Chi, Dana Rathkopf, Matthew R. Smith, Eleni Efstathiou, Gerhardt Attard, David Olmos, Ji Youl Lee, Eric J. Small, Andrea J. Pereira de Santana Gomes, Guilhem Roubaud, Marniza Saad, Bogdan Zurawski, Valerii Sakalo, Gary E. Mason, Peter Francis, George Wang, Daphne Wu, Brooke Diorio, Angela Lopez-Gitlitz, Shahneen Sandhu, Maria Alvarez, Gabriela Gatica, Martin Greco, Ernesto Korbenfeld, Esteban Metrebian, Jorge Salinas, Alejandro Salvatierra, Marcelo Tatangelo, Tom Ferguson, Howard Gurney, Elizabeth Hovey, Anthony Joshua, Matos Marco, Gavin Marx, Michelle Morris, Siobhan Ng, David Pook, Shahneen Sandhu, Ali Tafreshi, Thean Hsiang Tan, Tsvetanka Tosheva, Livia Andrade, Felipe Cruz, Luiza Faria, Jose Figueiredo, Fabio Franke, Andrea Juliana Gomes, Ariel Kann, Celio Kussumoto, Suelen Martins, Andre Murad, Helio Pinczowski, Giovani Pioner, Luis Pires, Daniel Preto, Gisele Santos, Eduardo Silva, Jamile Silva, Luciano Viana, Karina Vianna, Adriano Paula, Zhiwen Chen, Kim Chi, Urban Emmenegger, Neil Fleshner, Sunil Parimi, Fred Saad, Francisco Vera-Badillo, Hongqian Guo, Hong Luo, Lulin Ma, Mingxing Qui, Wei Xue, Guo Yonglian, Lei Li, Jinxian Pu, Song Zheng, Qing Zou, Milos Brodak, Milan Hora, Vladimir Samal, Vladimir Student, Jaroslav Vanasek, Emmanuelle Bompas, Philippe Barthelemy, Delphine Borchiellini, Aude Flechon, Hakim Mahammedi, Guilhem Roubaud, Antoine Thiery-Vuillemin, Diego Tosi, Spaeth Dominique, Carole Helissey, Martin Boegemann, Susan Feyerabend, Eva Hellmis, Martin Schostak, Gerhardt Attard, Anna Lydon, Ian Sayers, Omi Parikh, Duncan Wheatley, Peter Arkosy, Jozsef Erfan, Lajos Geczi, Peter Nyirady, Judit Olah, Istvan Papos, Bela Piko, Raanan Berger, Avivit Peer, Umberto Basso, Sergio Bracarda, Orazio Caffo, Francesco Carrozza, Gianluca Del Conte, Luca Galli, Donatello Gasparro, Sandro Pignata, Riccardo Ricotta, Daniele Santini, Giampaolo Tortora, Seoksoo Byun, SeolHo Choo, ByungHa Chung, Jaeyoung Joung, Wonho Jung, Taek Won Kang, Cheol Kwak, TaeGyun Kwon, Hyo Jin Lee, Ji Youl Lee, SeongIl Seo, YoungDeuk Choi, HongKoo Ha, ChoungSoo Kim, Flora Li Tze Chong, Chun Sen Lim, Vijayan Manogran, Hwoei Fen Soo Hoo, Guan Chou Teh, Marniza Saad, David Calvo Dominguez, Abraham Cardenas, Julia Saenz, Andre Bergman, Helgi Helgason, C.B. Hunting, Rik Somford, Tomasz Byrski, Tomasz Drewa, Dorota Filarska, Jolanta LuniewskaBury, Adam Marcheluk, Konrad Talasiewicz, Krzysztof Tupikowski, Renata Zaucha, Bogdan Zurawski, Pedro Madeira, Andre Mansinho, Nuno Vau, Anna Alyasova, Victoria Chistyakova, Denis Khvorostenko, Dmitry Kirtbaya, Gennady Kolesnikov, Evgeny Kopyltsov, Igor Lifirenko, Alexander Lykov, Konstantin Penkov, Andrey Semenov, Mikhail Shkolnik, Pavel Skopin, Roman Smirnov, Evgeny Usynin, Sergey Varlamov, Vladimir Vladimirov, Teresa Alonso, Sara Breijo, Elena Castro, Enrique Gallardo, Jose Gutierrez Banos, Alvaro Juarez, Rebeca Lozano, Pablo Maroto, Javier Puente, Alejo Rodriguez-Vida, Regina Girones, Begona Mellado, Enrique Castellanos, Chunde Li, Chao-Hsiang Chang, Hsiao-Jen Chung, Kuan-Hua Huang, Yen-Chuan Ou, Yu-Chieh Tsai, Shian-Shiang Wang, Wen-Jeng Wu, See Tong Pang, Cagatay Arslan, Devrim Cabuk, Hasan Coskun, Mahmut Gumus, Mustafa Ozguroglu, Berna Oksuzoglu, Berksoy Sahin, Deniz Tural, Bulent Yalcin, Irfan Cicin, Igor Bondarenko, Yaroslav Gotsuliak, Yevhen Hotko, Gennadii Khareba, Oleksandr Lychkovskyy, Iryna Lytvyn, Taron Nalbandyan, Viktor Paramonov, Valerii Sakalo, Eduard Stakhovsky, Viktor Stus, Sunil Babu, Alan Bryce, David Cahn, Herta Chao, Franklin Chu, Curtis Dunshee, Oscar Goodman, Michael Grable, Jason Hafron, Joelle Hamilton, Ralph Hauke, Joseph Maly, David Morris, Gregg Newman, Patrick Pilie, Neal Shore, Paul Sieber, Matthew Smith, Andrew Trainer, Ronald Tutrone
+**Journal:** Journal of Clinical Oncology (2023)
+**DOI:** [10.1200/jco.22.01649](https://doi.org/10.1200/jco.22.01649)
+
+## Content
+
+PURPOSEMetastatic castration-resistant prostate cancer (mCRPC) remains a lethal disease with current standard-of-care therapies. Homologous recombination repair (HRR) gene alterations, including BRCA1/2 alterations, can sensitize cancer cells to poly (ADP-ribose) polymerase inhibition, which may improve outcomes in treatment-naïve mCRPC when combined with androgen receptor signaling inhibition.METHODSMAGNITUDE (ClinicalTrials.gov identifier: NCT03748641 ) is a phase III, randomized, double-blinded study that evaluates niraparib and abiraterone acetate plus prednisone (niraparib + AAP) in patients with (HRR+, n = 423) or without (HRR−, n = 247) HRR-associated gene alterations, as prospectively determined by tissue/plasma-based assays. Patients were assigned 1:1 to receive niraparib + AAP or placebo + AAP. The primary end point, radiographic progression-free survival (rPFS) assessed by central review, was evaluated first in the BRCA1/2 subgroup and then in the full HRR+ cohort, with secondary end points analyzed for the full HRR+ cohort if rPFS was statistically significant. A futility analysis was preplanned in the HRR− cohort.RESULTSMedian rPFS in the BRCA1/2 subgroup was significantly longer in the niraparib + AAP group compared with the placebo + AAP group (16.6 v 10.9 months; hazard ratio [HR], 0.53; 95% CI, 0.36 to 0.79; P = .001). In the overall HRR+ cohort, rPFS was significantly longer in the niraparib + AAP group compared with the placebo + AAP group (16.5 v 13.7 months; HR, 0.73; 95% CI, 0.56 to 0.96; P = .022). These findings were supported by improvement in the secondary end points of time to symptomatic progression and time to initiation of cytotoxic chemotherapy. In the HRR− cohort, futility was declared per the prespecified criteria. Treatment with niraparib + AAP was tolerable, with anemia and hypertension as the most reported grade ≥ 3 adverse events.CONCLUSIONCombination treatment with niraparib + AAP significantly lengthened rPFS in patients with HRR+ mCRPC compared with standard-of-care AAP.[Media: see text]
