@@ -279,6 +279,101 @@ enums:
         description: >-
           A cluster of regulatory elements that controls expression of a
           gene cluster (e.g., the beta-globin LCR).
+  GeneDiseaseRelationshipEnum:
+    description: >-
+      The qualitative relationship between a gene (or locus) and a disease.
+      Use to constrain the free-text `association` slot to a controlled
+      vocabulary aligned with ClinGen gene-disease validity concepts and
+      common cancer/somatic driver classifications. The free-text
+      `association` slot may still be used for narrative detail.
+    permissible_values:
+      CAUSATIVE:
+        title: Causative
+        description: >-
+          Variants in the gene are sufficient to cause the disease in a
+          mendelian or near-mendelian sense (corresponds to ClinGen
+          "Definitive" or "Strong" gene-disease validity).
+      RISK_FACTOR:
+        title: Risk factor
+        description: >-
+          Variants in the gene increase risk of disease but are neither
+          necessary nor sufficient to cause it. Includes common-variant
+          associations and HLA risk alleles.
+      PROTECTIVE:
+        title: Protective
+        description: >-
+          Variants in the gene reduce the risk or severity of disease.
+      MODIFIER:
+        title: Modifier
+        description: >-
+          Variants in the gene modify the severity, age of onset, or
+          expressivity of disease without being a primary driver.
+      SUSCEPTIBILITY:
+        title: Susceptibility
+        description: >-
+          Variants in the gene confer susceptibility to disease in
+          combination with other genetic or environmental factors. Used
+          for polygenic susceptibility loci such as GWAS hits.
+      SOMATIC_DRIVER:
+        title: Somatic driver
+        description: >-
+          Somatic alterations in the gene drive tumor initiation or
+          progression (e.g., recurrent oncogenic drivers in cancer).
+      COOPERATING:
+        title: Cooperating alteration
+        description: >-
+          Co-occurring somatic or germline alterations that cooperate with
+          a primary driver to shape disease behavior or therapy response.
+      BIOMARKER:
+        title: Biomarker
+        description: >-
+          Gene whose expression, mutation, or amplification status serves
+          as a diagnostic, prognostic, or predictive biomarker without a
+          required causal role.
+      DISPUTED:
+        title: Disputed
+        description: >-
+          Reported gene-disease association whose validity is contested
+          (corresponds to ClinGen "Disputed" or "Refuted").
+      UNKNOWN:
+        title: Unknown
+        description: >-
+          The relationship between the gene and the disease is unclear or
+          not yet classified.
+  VariantOriginEnum:
+    description: >-
+      The origin of variation in a gene with respect to a disease entry.
+      Bound to GENO allele origin terms.
+    permissible_values:
+      GERMLINE:
+        title: Germline
+        description: germline allele origin
+        notes:
+          - Variant present in the germline (inherited or constitutional).
+        meaning: GENO:0000888
+      SOMATIC:
+        title: Somatic
+        description: somatic allele origin
+        notes:
+          - Variant acquired in somatic tissue after fertilization.
+        meaning: GENO:0000882
+      DE_NOVO:
+        title: De novo
+        description: de novo allele origin
+        notes:
+          - Variant arising as a new mutation in the proband, not present in parents.
+        meaning: GENO:0000880
+      GERMLINE_AND_SOMATIC:
+        title: Germline and somatic
+        description: >-
+          The gene is implicated by both germline and somatic variants in
+          the disease (e.g., tumor suppressors with two-hit mechanisms).
+      UNKNOWN:
+        title: Unknown
+        description: unknown allele origin
+        notes:
+          - Origin of the variant is unspecified or not determined.
+        meaning: GENO:0000881
   ModifierEnum:
     description: Qualifiers for direction, intensity, or pathological state of a descriptor
     permissible_values:
@@ -1274,8 +1369,16 @@ slots:
     range: GeneDescriptor
     inlined_as_list: true
   subtypes:
+    description: >-
+      Names of subtypes (foreign keys to this disease's `has_subtypes[].name`)
+      associated with a phenotype, biochemical finding, pathophysiology node,
+      or other subtyped entry. Use this multivalued form when an item is
+      characteristic of more than one subtype with overlapping features.
+      For single-subtype associations, the scalar `subtype` slot may still
+      be used.
     examples:
       - value: '[''DENV-1'', ''DENV-2'', ''DENV-3'', ''DENV-4'']'
+      - value: '[''Type 1'', ''Type 2'']'
     multivalued: true
     range: string
   has_subtypes:
@@ -1456,9 +1559,27 @@ slots:
     range: string
     multivalued: true
   association:
+    description: >-
+      Free-text descriptor of how the gene is associated with the disease.
+      For a controlled vocabulary, also set `relationship_type`.
     examples:
       - value: Susceptibility
     range: string
+  relationship_type:
+    description: >-
+      Controlled-vocabulary classification of the gene-disease relationship
+      (e.g., causative, risk factor, modifier, somatic driver). Use this in
+      addition to the free-text `association` slot when possible.
+    examples:
+      - value: RISK_FACTOR
+    range: GeneDiseaseRelationshipEnum
+  variant_origin:
+    description: >-
+      The origin of disease-associated variation in this gene (germline,
+      somatic, de novo, or both). Bound to GENO allele origin terms.
+    examples:
+      - value: SOMATIC
+    range: VariantOriginEnum
   inheritance:
     examples:
       - value: Autosomal Dominant
@@ -2284,6 +2405,35 @@ slots:
     description: >-
       Maximum (latest) age of onset in years.
     range: float
+  tracked_issues:
+    description: >-
+      Structured pointers to external tracker issues (e.g., GitHub ontology
+      term requests, schema follow-ups) that provide curation provenance for
+      this entry or nested object. Use this in preference to stashing issue
+      URLs inside free-text `notes` fields so they can be validated, rendered,
+      and queried consistently.
+    multivalued: true
+    range: TrackedIssue
+    inlined_as_list: true
+  tracked_issue_role:
+    description: >-
+      Role this tracked issue plays relative to the dismech content it is
+      attached to. Free-text but common values include
+      "ontology_term_request", "ontology_coverage_gap", "schema_followup",
+      "curation_followup", and "external_tracker_link".
+    examples:
+      - value: ontology_term_request
+      - value: schema_followup
+    range: string
+  tracked_issue_status:
+    description: >-
+      Last known status of the tracked issue (e.g., "OPEN", "CLOSED",
+      "MERGED"). This is a curator-recorded snapshot and may drift from the
+      live tracker state.
+    examples:
+      - value: OPEN
+      - value: CLOSED
+    range: string
 
 classes:
   Any:
@@ -3050,6 +3200,26 @@ classes:
         required: true
       external_id:
         required: true
+  TrackedIssue:
+    description: >-
+      Structured pointer to an external tracker issue (typically a GitHub
+      issue) used to record curation provenance. Use this for things like
+      upstream ontology term requests, ontology coverage gaps, schema
+      follow-ups, or any external ticket tied to a dismech object, instead of
+      stashing raw URLs in free-text `notes` fields. Attachable at multiple
+      levels of the model (disease entries, mappings, etc.).
+    slots:
+      - url
+      - title
+      - tracked_issue_role
+      - tracked_issue_status
+      - notes
+    slot_usage:
+      url:
+        required: true
+        description: Canonical URL of the tracked issue.
+      title:
+        description: Short human-readable title of the tracked issue.
   Finding:
     description: A key finding or claim extracted from a source (publication or dataset)
     slots:
@@ -3133,6 +3303,7 @@ classes:
       - severity
       - notes
       - subtype
+      - subtypes
       - phenotype_contexts
   Biochemical:
     slots:
@@ -3145,6 +3316,7 @@ classes:
       - notes
       - context
       - subtype
+      - subtypes
       - cell_types
       - assays
       - mappings_list
@@ -3190,6 +3362,8 @@ classes:
       - presence
       - evidence
       - association
+      - relationship_type
+      - variant_origin
       - review_notes
       - subtype
       - frequency
@@ -3256,6 +3430,7 @@ classes:
       - definitions
       - mappings
       - external_assertions
+      - tracked_issues
       - notes
       - review_notes
       - curation_history
@@ -3538,6 +3713,7 @@ classes:
       - mapping_source
       - mapping_justification
       - consistency
+      - tracked_issues
       - notes
     slot_usage:
       term:
