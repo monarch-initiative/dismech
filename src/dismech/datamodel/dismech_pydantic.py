@@ -1,4 +1,4 @@
-from __future__ import annotations
+from __future__ import annotations 
 
 import re
 import sys
@@ -7,8 +7,8 @@ from datetime import (
     datetime,
     time
 )
-from decimal import Decimal
-from enum import Enum
+from decimal import Decimal 
+from enum import Enum 
 from typing import (
     Any,
     ClassVar,
@@ -871,6 +871,78 @@ class RegulatoryElementTypeEnum(str, Enum):
     Locus_control_region = "LOCUS_CONTROL_REGION"
     """
     A cluster of regulatory elements that controls expression of a gene cluster (e.g., the beta-globin LCR).
+    """
+
+
+class GeneDiseaseRelationshipEnum(str, Enum):
+    """
+    The qualitative relationship between a gene (or locus) and a disease. Use to constrain the free-text `association` slot to a controlled vocabulary aligned with ClinGen gene-disease validity concepts and common cancer/somatic driver classifications. The free-text `association` slot may still be used for narrative detail.
+    """
+    Causative = "CAUSATIVE"
+    """
+    Variants in the gene are sufficient to cause the disease in a mendelian or near-mendelian sense (corresponds to ClinGen "Definitive" or "Strong" gene-disease validity).
+    """
+    Risk_factor = "RISK_FACTOR"
+    """
+    Variants in the gene increase risk of disease but are neither necessary nor sufficient to cause it. Includes common-variant associations and HLA risk alleles.
+    """
+    Protective = "PROTECTIVE"
+    """
+    Variants in the gene reduce the risk or severity of disease.
+    """
+    Modifier = "MODIFIER"
+    """
+    Variants in the gene modify the severity, age of onset, or expressivity of disease without being a primary driver.
+    """
+    Susceptibility = "SUSCEPTIBILITY"
+    """
+    Variants in the gene confer susceptibility to disease in combination with other genetic or environmental factors. Used for polygenic susceptibility loci such as GWAS hits.
+    """
+    Somatic_driver = "SOMATIC_DRIVER"
+    """
+    Somatic alterations in the gene drive tumor initiation or progression (e.g., recurrent oncogenic drivers in cancer).
+    """
+    Cooperating_alteration = "COOPERATING"
+    """
+    Co-occurring somatic or germline alterations that cooperate with a primary driver to shape disease behavior or therapy response.
+    """
+    Biomarker = "BIOMARKER"
+    """
+    Gene whose expression, mutation, or amplification status serves as a diagnostic, prognostic, or predictive biomarker without a required causal role.
+    """
+    Disputed = "DISPUTED"
+    """
+    Reported gene-disease association whose validity is contested (corresponds to ClinGen "Disputed" or "Refuted").
+    """
+    Unknown = "UNKNOWN"
+    """
+    The relationship between the gene and the disease is unclear or not yet classified.
+    """
+
+
+class VariantOriginEnum(str, Enum):
+    """
+    The origin of variation in a gene with respect to a disease entry. Bound to GENO allele origin terms.
+    """
+    Germline = "GERMLINE"
+    """
+    germline allele origin
+    """
+    Somatic = "SOMATIC"
+    """
+    somatic allele origin
+    """
+    De_novo = "DE_NOVO"
+    """
+    de novo allele origin
+    """
+    Germline_and_somatic = "GERMLINE_AND_SOMATIC"
+    """
+    The gene is implicated by both germline and somatic variants in the disease (e.g., tumor suppressors with two-hit mechanisms).
+    """
+    Unknown = "UNKNOWN"
+    """
+    unknown allele origin
     """
 
 
@@ -6945,9 +7017,10 @@ class Pathophysiology(ConfiguredBaseModel):
                        'Pathophysiology',
                        'AnimalModel'],
          'examples': [{'value': '[{preferred_term: HLA-DQ2}, {preferred_term: INS}]'}]} })
-    subtypes: Optional[list[str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'subtypes',
-         'domain_of': ['Pathophysiology'],
-         'examples': [{'value': "['DENV-1', 'DENV-2', 'DENV-3', 'DENV-4']"}]} })
+    subtypes: Optional[list[str]] = Field(default=None, description="""Names of subtypes (foreign keys to this disease's `has_subtypes[].name`) associated with a phenotype, biochemical finding, pathophysiology node, or other subtyped entry. Use this multivalued form when an item is characteristic of more than one subtype with overlapping features. For single-subtype associations, the scalar `subtype` slot may still be used.""", json_schema_extra = { "linkml_meta": {'alias': 'subtypes',
+         'domain_of': ['Pathophysiology', 'Phenotype', 'Biochemical'],
+         'examples': [{'value': "['DENV-1', 'DENV-2', 'DENV-3', 'DENV-4']"},
+                      {'value': "['Type 1', 'Type 2']"}]} })
     cellular_components: Optional[list[CellularComponentDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'cellular_components',
          'domain_of': ['Pathophysiology'],
          'examples': [{'value': '[{preferred_term: Peroxisome}]'}]} })
@@ -7240,6 +7313,10 @@ class Phenotype(ConfiguredBaseModel):
                        'HistopathologyFinding',
                        'Genetic'],
          'examples': [{'value': 'Eyelid Myoclonia with Absences'}]} })
+    subtypes: Optional[list[str]] = Field(default=None, description="""Names of subtypes (foreign keys to this disease's `has_subtypes[].name`) associated with a phenotype, biochemical finding, pathophysiology node, or other subtyped entry. Use this multivalued form when an item is characteristic of more than one subtype with overlapping features. For single-subtype associations, the scalar `subtype` slot may still be used.""", json_schema_extra = { "linkml_meta": {'alias': 'subtypes',
+         'domain_of': ['Pathophysiology', 'Phenotype', 'Biochemical'],
+         'examples': [{'value': "['DENV-1', 'DENV-2', 'DENV-3', 'DENV-4']"},
+                      {'value': "['Type 1', 'Type 2']"}]} })
     phenotype_contexts: Optional[list[PhenotypeContext]] = Field(default=None, description="""Context-specific qualifications of this phenotype's frequency, severity, or onset. Each context can optionally specify a genetic context, demographic stratum, or disease subtype. When no context qualifiers are set, provides evidence for the base frequency/severity claim (addressing the frequency-evidence separation problem).""", json_schema_extra = { "linkml_meta": {'alias': 'phenotype_contexts', 'domain_of': ['Phenotype']} })
 
 
@@ -7398,6 +7475,10 @@ class Biochemical(ConfiguredBaseModel):
                        'HistopathologyFinding',
                        'Genetic'],
          'examples': [{'value': 'Eyelid Myoclonia with Absences'}]} })
+    subtypes: Optional[list[str]] = Field(default=None, description="""Names of subtypes (foreign keys to this disease's `has_subtypes[].name`) associated with a phenotype, biochemical finding, pathophysiology node, or other subtyped entry. Use this multivalued form when an item is characteristic of more than one subtype with overlapping features. For single-subtype associations, the scalar `subtype` slot may still be used.""", json_schema_extra = { "linkml_meta": {'alias': 'subtypes',
+         'domain_of': ['Pathophysiology', 'Phenotype', 'Biochemical'],
+         'examples': [{'value': "['DENV-1', 'DENV-2', 'DENV-3', 'DENV-4']"},
+                      {'value': "['Type 1', 'Type 2']"}]} })
     cell_types: Optional[list[CellTypeDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'cell_types',
          'domain_of': ['ExperimentalModel', 'Pathophysiology', 'Biochemical'],
          'examples': [{'value': '[{preferred_term: Macrophage}, {preferred_term: T '
@@ -7724,9 +7805,15 @@ class Genetic(ConfiguredBaseModel):
                        'UpstreamConditionHypothesis',
                        'MechanisticHypothesis'],
          'recommended': True} })
-    association: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'association',
+    association: Optional[str] = Field(default=None, description="""Free-text descriptor of how the gene is associated with the disease. For a controlled vocabulary, also set `relationship_type`.""", json_schema_extra = { "linkml_meta": {'alias': 'association',
          'domain_of': ['Genetic'],
          'examples': [{'value': 'Susceptibility'}]} })
+    relationship_type: Optional[GeneDiseaseRelationshipEnum] = Field(default=None, description="""Controlled-vocabulary classification of the gene-disease relationship (e.g., causative, risk factor, modifier, somatic driver). Use this in addition to the free-text `association` slot when possible.""", json_schema_extra = { "linkml_meta": {'alias': 'relationship_type',
+         'domain_of': ['Genetic'],
+         'examples': [{'value': 'RISK_FACTOR'}]} })
+    variant_origin: Optional[VariantOriginEnum] = Field(default=None, description="""The origin of disease-associated variation in this gene (germline, somatic, de novo, or both). Bound to GENO allele origin terms.""", json_schema_extra = { "linkml_meta": {'alias': 'variant_origin',
+         'domain_of': ['Genetic'],
+         'examples': [{'value': 'SOMATIC'}]} })
     review_notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'review_notes',
          'domain_of': ['ClinicalTrial',
                        'Subtype',
@@ -12671,3 +12758,4 @@ ComorbidityHypothesis.model_rebuild()
 UpstreamConditionHypothesis.model_rebuild()
 MechanisticHypothesis.model_rebuild()
 DiseaseCollection.model_rebuild()
+

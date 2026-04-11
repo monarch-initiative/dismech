@@ -1,5 +1,5 @@
 # Auto generated from dismech.yaml by pythongen.py version: 0.0.1
-# Generation date: 2026-04-10T18:02:25
+# Generation date: 2026-04-10T18:06:56
 # Schema: dismech
 #
 # id: https://w3id.org/monarch-initiative/dismech
@@ -2357,6 +2357,7 @@ class Phenotype(YAMLRoot):
     severity: Optional[str] = None
     notes: Optional[str] = None
     subtype: Optional[str] = None
+    subtypes: Optional[Union[str, list[str]]] = empty_list()
     phenotype_contexts: Optional[Union[Union[dict, PhenotypeContext], list[Union[dict, PhenotypeContext]]]] = empty_list()
 
     def __post_init__(self, *_: str, **kwargs: Any):
@@ -2400,6 +2401,10 @@ class Phenotype(YAMLRoot):
         if self.subtype is not None and not isinstance(self.subtype, str):
             self.subtype = str(self.subtype)
 
+        if not isinstance(self.subtypes, list):
+            self.subtypes = [self.subtypes] if self.subtypes is not None else []
+        self.subtypes = [v if isinstance(v, str) else str(v) for v in self.subtypes]
+
         if not isinstance(self.phenotype_contexts, list):
             self.phenotype_contexts = [self.phenotype_contexts] if self.phenotype_contexts is not None else []
         self.phenotype_contexts = [v if isinstance(v, PhenotypeContext) else PhenotypeContext(**as_dict(v)) for v in self.phenotype_contexts]
@@ -2425,6 +2430,7 @@ class Biochemical(YAMLRoot):
     notes: Optional[str] = None
     context: Optional[str] = None
     subtype: Optional[str] = None
+    subtypes: Optional[Union[str, list[str]]] = empty_list()
     cell_types: Optional[Union[Union[dict, CellTypeDescriptor], list[Union[dict, CellTypeDescriptor]]]] = empty_list()
     assays: Optional[Union[Union[dict, AssayDescriptor], list[Union[dict, AssayDescriptor]]]] = empty_list()
     mappings_list: Optional[Union[Union[dict, ModelVariableDescriptor], list[Union[dict, ModelVariableDescriptor]]]] = empty_list()
@@ -2457,6 +2463,10 @@ class Biochemical(YAMLRoot):
 
         if self.subtype is not None and not isinstance(self.subtype, str):
             self.subtype = str(self.subtype)
+
+        if not isinstance(self.subtypes, list):
+            self.subtypes = [self.subtypes] if self.subtypes is not None else []
+        self.subtypes = [v if isinstance(v, str) else str(v) for v in self.subtypes]
 
         if not isinstance(self.cell_types, list):
             self.cell_types = [self.cell_types] if self.cell_types is not None else []
@@ -2545,6 +2555,8 @@ class Genetic(YAMLRoot):
     presence: Optional[str] = None
     evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
     association: Optional[str] = None
+    relationship_type: Optional[Union[str, "GeneDiseaseRelationshipEnum"]] = None
+    variant_origin: Optional[Union[str, "VariantOriginEnum"]] = None
     review_notes: Optional[str] = None
     subtype: Optional[str] = None
     frequency: Optional[Union[dict, Any]] = None
@@ -2572,6 +2584,12 @@ class Genetic(YAMLRoot):
 
         if self.association is not None and not isinstance(self.association, str):
             self.association = str(self.association)
+
+        if self.relationship_type is not None and not isinstance(self.relationship_type, GeneDiseaseRelationshipEnum):
+            self.relationship_type = GeneDiseaseRelationshipEnum(self.relationship_type)
+
+        if self.variant_origin is not None and not isinstance(self.variant_origin, VariantOriginEnum):
+            self.variant_origin = VariantOriginEnum(self.variant_origin)
 
         if self.review_notes is not None and not isinstance(self.review_notes, str):
             self.review_notes = str(self.review_notes)
@@ -4806,6 +4824,92 @@ class RegulatoryElementTypeEnum(EnumDefinitionImpl):
         description="Type of gene regulatory element disrupted by a non-coding variant.",
     )
 
+class GeneDiseaseRelationshipEnum(EnumDefinitionImpl):
+    """
+    The qualitative relationship between a gene (or locus) and a disease. Use to constrain the free-text `association`
+    slot to a controlled vocabulary aligned with ClinGen gene-disease validity concepts and common cancer/somatic
+    driver classifications. The free-text `association` slot may still be used for narrative detail.
+    """
+    CAUSATIVE = PermissibleValue(
+        text="CAUSATIVE",
+        title="Causative",
+        description="""Variants in the gene are sufficient to cause the disease in a mendelian or near-mendelian sense (corresponds to ClinGen \"Definitive\" or \"Strong\" gene-disease validity).""")
+    RISK_FACTOR = PermissibleValue(
+        text="RISK_FACTOR",
+        title="Risk factor",
+        description="""Variants in the gene increase risk of disease but are neither necessary nor sufficient to cause it. Includes common-variant associations and HLA risk alleles.""")
+    PROTECTIVE = PermissibleValue(
+        text="PROTECTIVE",
+        title="Protective",
+        description="Variants in the gene reduce the risk or severity of disease.")
+    MODIFIER = PermissibleValue(
+        text="MODIFIER",
+        title="Modifier",
+        description="""Variants in the gene modify the severity, age of onset, or expressivity of disease without being a primary driver.""")
+    SUSCEPTIBILITY = PermissibleValue(
+        text="SUSCEPTIBILITY",
+        title="Susceptibility",
+        description="""Variants in the gene confer susceptibility to disease in combination with other genetic or environmental factors. Used for polygenic susceptibility loci such as GWAS hits.""")
+    SOMATIC_DRIVER = PermissibleValue(
+        text="SOMATIC_DRIVER",
+        title="Somatic driver",
+        description="""Somatic alterations in the gene drive tumor initiation or progression (e.g., recurrent oncogenic drivers in cancer).""")
+    COOPERATING = PermissibleValue(
+        text="COOPERATING",
+        title="Cooperating alteration",
+        description="""Co-occurring somatic or germline alterations that cooperate with a primary driver to shape disease behavior or therapy response.""")
+    BIOMARKER = PermissibleValue(
+        text="BIOMARKER",
+        title="Biomarker",
+        description="""Gene whose expression, mutation, or amplification status serves as a diagnostic, prognostic, or predictive biomarker without a required causal role.""")
+    DISPUTED = PermissibleValue(
+        text="DISPUTED",
+        title="Disputed",
+        description="""Reported gene-disease association whose validity is contested (corresponds to ClinGen \"Disputed\" or \"Refuted\").""")
+    UNKNOWN = PermissibleValue(
+        text="UNKNOWN",
+        title="Unknown",
+        description="The relationship between the gene and the disease is unclear or not yet classified.")
+
+    _defn = EnumDefinition(
+        name="GeneDiseaseRelationshipEnum",
+        description="""The qualitative relationship between a gene (or locus) and a disease. Use to constrain the free-text `association` slot to a controlled vocabulary aligned with ClinGen gene-disease validity concepts and common cancer/somatic driver classifications. The free-text `association` slot may still be used for narrative detail.""",
+    )
+
+class VariantOriginEnum(EnumDefinitionImpl):
+    """
+    The origin of variation in a gene with respect to a disease entry. Bound to GENO allele origin terms.
+    """
+    GERMLINE = PermissibleValue(
+        text="GERMLINE",
+        title="Germline",
+        description="germline allele origin",
+        meaning=GENO["0000888"])
+    SOMATIC = PermissibleValue(
+        text="SOMATIC",
+        title="Somatic",
+        description="somatic allele origin",
+        meaning=GENO["0000882"])
+    DE_NOVO = PermissibleValue(
+        text="DE_NOVO",
+        title="De novo",
+        description="de novo allele origin",
+        meaning=GENO["0000880"])
+    GERMLINE_AND_SOMATIC = PermissibleValue(
+        text="GERMLINE_AND_SOMATIC",
+        title="Germline and somatic",
+        description="""The gene is implicated by both germline and somatic variants in the disease (e.g., tumor suppressors with two-hit mechanisms).""")
+    UNKNOWN = PermissibleValue(
+        text="UNKNOWN",
+        title="Unknown",
+        description="unknown allele origin",
+        meaning=GENO["0000881"])
+
+    _defn = EnumDefinition(
+        name="VariantOriginEnum",
+        description="""The origin of variation in a gene with respect to a disease entry. Bound to GENO allele origin terms.""",
+    )
+
 class ModifierEnum(EnumDefinitionImpl):
     """
     Qualifiers for direction, intensity, or pathological state of a descriptor
@@ -6765,6 +6869,12 @@ slots.synonyms = Slot(uri=DISMECH.synonyms, name="synonyms", curie=DISMECH.curie
 
 slots.association = Slot(uri=DISMECH.association, name="association", curie=DISMECH.curie('association'),
                    model_uri=DISMECH.association, domain=None, range=Optional[str])
+
+slots.relationship_type = Slot(uri=DISMECH.relationship_type, name="relationship_type", curie=DISMECH.curie('relationship_type'),
+                   model_uri=DISMECH.relationship_type, domain=None, range=Optional[Union[str, "GeneDiseaseRelationshipEnum"]])
+
+slots.variant_origin = Slot(uri=DISMECH.variant_origin, name="variant_origin", curie=DISMECH.curie('variant_origin'),
+                   model_uri=DISMECH.variant_origin, domain=None, range=Optional[Union[str, "VariantOriginEnum"]])
 
 slots.inheritance = Slot(uri=DISMECH.inheritance, name="inheritance", curie=DISMECH.curie('inheritance'),
                    model_uri=DISMECH.inheritance, domain=None, range=Optional[Union[dict[Union[str, InheritanceName], Union[dict, Inheritance]], list[Union[dict, Inheritance]]]])
