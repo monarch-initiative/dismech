@@ -15514,15 +15514,16 @@ window.searchData = [
       "Autophagic vacuolar myopathies"
     ],
     "creation_date": "2026-02-03T19:04:58Z",
-    "updated_date": "2026-04-06T22:37:07Z",
+    "updated_date": "2026-04-12T22:17:10Z",
     "subtypes": [],
-    "description": "Danon disease is an X-linked dominant disorder caused by pathogenic variants in LAMP2 (lysosome-associated membrane protein 2), leading to defective autophagosome-lysosome fusion and accumulation of autophagic vacuoles in cardiac and skeletal muscle. The disease primarily manifests as the triad of hypertrophic cardiomyopathy, skeletal myopathy, and intellectual disability in affected males. Female carriers may develop milder cardiac manifestations later in life due to X-chromosome inactivation mosaicism. The prognosis is poor in males, with rapid progression towards heart failure, and only heart transplantation modifies the disease course.\n",
+    "description": "Danon disease is an X-linked dominant LAMP2-related lysosomal myopathy and cardiomyopathy in which loss of LAMP-2, especially the muscle-enriched LAMP-2B isoform, impairs autophagosome-lysosome fusion. The resulting block in autophagic flux drives accumulation of autophagic vacuoles, defective mitophagy, mitochondrial injury, metabolic remodeling, fibrosis, and progressive cardiac dysfunction. Affected males usually present in childhood or adolescence with hypertrophic cardiomyopathy, skeletal myopathy, and intellectual disability, whereas females tend to develop later and more variable, often cardiac-predominant disease.\n",
     "pathophysiology": [
       "LAMP2 protein deficiency",
       "Impaired autophagosome-lysosome fusion",
       "Autophagic vacuole accumulation",
       "Impaired mitophagy",
-      "Mitochondrial dysfunction and oxidative stress"
+      "Mitochondrial dysfunction and oxidative stress",
+      "Cardiac metabolic remodeling and fibrosis"
     ],
     "cell_types": [
       "cardiomyocyte",
@@ -15537,12 +15538,16 @@ window.searchData = [
       "macroautophagy",
       "autophagosome maturation",
       "mitophagy",
-      "response to oxidative stress"
+      "response to oxidative stress",
+      "glycolytic process",
+      "extracellular matrix organization"
     ],
     "phenotypes": [
       "Hypertrophic cardiomyopathy",
+      "Dilated cardiomyopathy",
       "Skeletal myopathy",
       "Intellectual disability",
+      "Arrhythmia",
       "Wolff-Parkinson-White syndrome",
       "Retinal dystrophy"
     ],
@@ -15555,8 +15560,10 @@ window.searchData = [
     ],
     "phenotype_ids": [
       "HP:0001639",
+      "HP:0001644",
       "HP:0003198",
       "HP:0001249",
+      "HP:0011675",
       "HP:0001716",
       "HP:0000556"
     ],
@@ -15567,18 +15574,18 @@ window.searchData = [
     ],
     "treatments": [
       "Heart transplantation",
-      "Gene therapy (AAV9.LAMP2B)"
+      "Gene therapy (RP-A501; AAV9.LAMP2B)"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Danon_disease.yaml",
     "page_url": "../pages/disorders/Danon_disease.html",
-    "num_phenotypes": 5,
-    "num_pathophysiology": 5,
+    "num_phenotypes": 7,
+    "num_pathophysiology": 6,
     "num_genes": 2,
     "num_treatments": 2,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "DeSanto-Shinawi syndrome",
@@ -16883,9 +16890,10 @@ window.searchData = [
       "Genetic Disorder"
     ],
     "creation_date": "2026-03-06T00:00:00Z",
-    "updated_date": "2026-03-08T00:00:00Z",
+    "updated_date": "2026-04-12T22:13:03Z",
     "subtypes": [
       "Familial Dilated Cardiomyopathy",
+      "LMNA-related DCM",
       "Idiopathic Dilated Cardiomyopathy",
       "Peripartum Cardiomyopathy",
       "Alcoholic Cardiomyopathy",
@@ -16894,6 +16902,9 @@ window.searchData = [
     "description": "Mutations in genes encoding sarcomeric proteins (e.g., TTN, MYH7, TNNT2) and cytoskeletal proteins (e.g., DES, LMNA) disrupt force generation and transmission within cardiomyocytes, leading to impaired contractility and progressive ventricular dilation. Truncating variants in TTN are the most common genetic cause, found in approximately 15% of familial DCM cases.\n",
     "pathophysiology": [
       "Sarcomeric and Cytoskeletal Dysfunction",
+      "LMNA Haploinsufficiency",
+      "Atrioventricular Nodal Apoptosis",
+      "LMNA-related Dilative Myocardial Remodeling",
       "Neurohormonal Activation",
       "Myocardial Fibrosis",
       "RNA Splicing Dysregulation",
@@ -16911,6 +16922,8 @@ window.searchData = [
     ],
     "biological_processes": [
       "cardiac muscle contraction",
+      "nuclear envelope organization",
+      "apoptotic process",
       "renin-angiotensin regulation of aldosterone production",
       "extracellular matrix organization",
       "mitochondrion organization"
@@ -16922,6 +16935,8 @@ window.searchData = [
       "Dyspnea",
       "Palpitations",
       "Arrhythmia",
+      "Atrioventricular block",
+      "Ventricular tachycardia",
       "Fatigue",
       "Peripheral edema"
     ],
@@ -16943,6 +16958,8 @@ window.searchData = [
       "HP:0002094",
       "HP:0001962",
       "HP:0011675",
+      "HP:0001678",
+      "HP:0004756",
       "HP:0012378",
       "HP:0012398"
     ],
@@ -16969,12 +16986,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Dilated_Cardiomyopathy.yaml",
     "page_url": "../pages/disorders/Dilated_Cardiomyopathy.html",
-    "num_phenotypes": 8,
-    "num_pathophysiology": 7,
+    "num_phenotypes": 10,
+    "num_pathophysiology": 10,
     "num_genes": 4,
     "num_treatments": 7,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Dorsalgia",
@@ -20202,9 +20219,9 @@ window.searchData = [
       "X-linked genetic disorders"
     ],
     "creation_date": "2026-01-08T17:12:45Z",
-    "updated_date": "2026-02-16T20:19:38Z",
+    "updated_date": "2026-04-12T22:56:30Z",
     "subtypes": [],
-    "description": "Fabry disease is an X-linked lysosomal storage disorder caused by pathogenic variants in GLA that reduce or abolish \u03b1-galactosidase A activity, leading to lysosomal accumulation of glycosphingolipids, principally globotriaosylceramide (Gb3) and its deacylated derivative globotriaosylsphingosine (lyso-Gb3). Substrate accumulation initiates a network of cellular stress responses including endoplasmic reticulum stress, autophagy impairment, mitochondrial dysfunction, and activation of innate immune pathways, leading to progressive organ damage in kidney, heart, vasculature, and nervous system.\n",
+    "description": "Fabry disease is an X-linked lysosomal storage disorder caused by pathogenic variants in GLA that reduce or abolish \u03b1-galactosidase A activity, leading to lysosomal accumulation of glycosphingolipids, principally globotriaosylceramide (Gb3) and its deacylated derivative globotriaosylsphingosine (lyso-Gb3). Substrate accumulation initiates a network of cellular stress responses including endoplasmic reticulum stress, autophagy impairment, mitochondrial dysfunction, and activation of innate immune pathways, leading to progressive organ damage in kidney, heart, vasculature, and nervous system. In the heart, Fabry disease typically progresses from pre-hypertrophic sphingolipid storage and coronary microvascular dysfunction to left ventricular hypertrophy, myocardial inflammation, replacement fibrosis, conduction disease, and heart failure.\n",
     "pathophysiology": [
       "Lysosomal alpha-galactosidase A deficiency and Gb3 accumulation",
       "Endoplasmic reticulum stress and unfolded protein response",
@@ -20212,13 +20229,30 @@ window.searchData = [
       "Autophagy impairment",
       "Innate immune activation and inflammation",
       "Endothelial dysfunction and vascular remodeling",
-      "Fibrosis and extracellular matrix remodeling"
+      "Fibrosis and extracellular matrix remodeling",
+      "Cardiomyocyte glycosphingolipid storage",
+      "Cardiomyocyte hypertrophic remodeling",
+      "Coronary microvascular dysfunction",
+      "Subendocardial ischemic injury",
+      "Myocardial inflammation",
+      "Myocardial fibrosis",
+      "Arrhythmogenic ventricular remodeling"
     ],
     "cell_types": [
-      "endothelial cell"
+      "endothelial cell",
+      "cardiomyocyte",
+      "blood vessel endothelial cell",
+      "blood vessel smooth muscle cell",
+      "macrophage",
+      "cardiac fibroblast"
     ],
     "cell_type_ids": [
-      "CL:0000115"
+      "CL:0000115",
+      "CL:0000746",
+      "CL:0000071",
+      "CL:0019018",
+      "CL:0000235",
+      "CL:0002548"
     ],
     "biological_processes": [
       "glycosphingolipid metabolic process",
@@ -20232,7 +20266,9 @@ window.searchData = [
       "inflammatory response",
       "leukocyte adhesion to endothelial cells",
       "extracellular matrix organization",
-      "transforming growth factor beta signaling pathway"
+      "transforming growth factor beta signaling pathway",
+      "vasodilation",
+      "response to hypoxia"
     ],
     "phenotypes": [
       "Acrodystrophic neuropathic pain",
@@ -20240,7 +20276,10 @@ window.searchData = [
       "Proteinuria",
       "Chronic kidney disease",
       "Left ventricular hypertrophy",
+      "Myocardial fibrosis",
       "Cardiac arrhythmia",
+      "Cardiac conduction abnormality",
+      "Heart failure",
       "Stroke"
     ],
     "phenotype_categories": [
@@ -20262,8 +20301,11 @@ window.searchData = [
       "HP:0001014",
       "HP:0000093",
       "HP:0012622",
-      "HP:0001638",
+      "HP:0001712",
+      "HP:0001685",
       "HP:0011675",
+      "HP:0031546",
+      "HP:0001635",
       "HP:0001297"
     ],
     "frequencies": [
@@ -20286,12 +20328,12 @@ window.searchData = [
     ],
     "source_file": "Fabry_Disease.yaml",
     "page_url": "../pages/disorders/Fabry_disease.html",
-    "num_phenotypes": 7,
-    "num_pathophysiology": 7,
+    "num_phenotypes": 10,
+    "num_pathophysiology": 14,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Familial Adenomatous Polyposis",
@@ -44162,6 +44204,81 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "PRKAG2-related cardiomyopathy",
+    "disease_id": "MONDO:0800484",
+    "category": "Genetic",
+    "parents": [
+      "Cardiovascular Disease",
+      "Genetic Disorder"
+    ],
+    "creation_date": "2026-04-12T22:29:21Z",
+    "updated_date": "2026-04-12T22:52:03Z",
+    "subtypes": [],
+    "description": "PRKAG2-related cardiomyopathy, also referred to as PRKAG2 cardiac syndrome, is an autosomal dominant metabolic cardiomyopathy caused by pathogenic variants in PRKAG2, which encodes the gamma-2 regulatory subunit of AMP-activated protein kinase (AMPK). The disorder combines left ventricular hypertrophy, ventricular preexcitation, and progressive conduction system disease, and differs from sarcomeric hypertrophic cardiomyopathy through its glycogen storage phenotype and its relative paucity of myocardial fibrosis before end-stage disease.",
+    "pathophysiology": [
+      "Dysregulated AMPK signaling and metabolic remodeling",
+      "Glycogen-filled cardiomyocytes disrupt atrioventricular insulation",
+      "Increased insulin-AKT signaling drives cardiomyocyte hypertrophy",
+      "Attenuated TGF-beta signaling limits myocardial fibrosis"
+    ],
+    "cell_types": [
+      "cardiomyocyte",
+      "cardiac fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000746",
+      "CL:0002548"
+    ],
+    "biological_processes": [
+      "glycogen metabolic process",
+      "glucose metabolic process",
+      "insulin receptor signaling pathway",
+      "negative regulation of transforming growth factor beta receptor signaling pathway"
+    ],
+    "phenotypes": [
+      "Left ventricular hypertrophy",
+      "Ventricular preexcitation",
+      "Wolff-Parkinson-White syndrome",
+      "Atrioventricular block",
+      "Bradycardia",
+      "Atrial fibrillation",
+      "Congestive heart failure"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_ids": [
+      "HP:0001712",
+      "HP:0004309",
+      "HP:0001716",
+      "HP:0001678",
+      "HP:0001662",
+      "HP:0005110",
+      "HP:0001635"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PRKAG2 activating variants"
+    ],
+    "treatments": [
+      "Permanent Pacemaker Placement",
+      "Heart Transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "PRKAG2-related_Cardiomyopathy.yaml",
+    "page_url": "../pages/disorders/PRKAG2-related_cardiomyopathy.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "PRPH2-Related Retinopathy",
     "disease_id": "MONDO:1040055",
     "category": "Mendelian",
@@ -58592,11 +58709,11 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 636,
-  "total_unique_evidence_sources": 11167,
+  "total_disorder_pages": 637,
+  "total_unique_evidence_sources": 11193,
   "total_unique_disease_categories": 35,
   "total_unique_phenotype_categories": 138,
-  "total_pathographs": 627,
-  "total_unique_pathological_events": 2706
+  "total_pathographs": 628,
+  "total_unique_pathological_events": 2721
 };
 window.dispatchEvent(new Event('searchDataReady'));
