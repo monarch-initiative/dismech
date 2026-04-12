@@ -568,6 +568,17 @@ def _extract_node_metadata(item: dict[str, Any]) -> dict[str, Any]:
     if gene_labels:
         meta["genes"] = list(dict.fromkeys(gene_labels))
 
+    # Subtype applicability
+    subtype_labels: list[str] = []
+    subtype = item.get("subtype")
+    if subtype:
+        subtype_labels.append(str(subtype))
+    subtypes = item.get("subtypes", []) or []
+    if subtypes:
+        subtype_labels.extend(str(value) for value in subtypes if value)
+    if subtype_labels:
+        meta["subtypes"] = list(dict.fromkeys(subtype_labels))
+
     # Role (pathophysiology)
     if item.get("role"):
         meta["role"] = item["role"]
