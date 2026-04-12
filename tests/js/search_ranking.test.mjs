@@ -34,19 +34,55 @@ function loadSchema() {
 
 function extractWindowJson(code, prefix) {
     const normalized = code.replace(/\r\n/g, '\n').trim();
-    const dispatchIndex = normalized.lastIndexOf('window.dispatchEvent(');
-    const assignment = (dispatchIndex === -1
-        ? normalized
-        : normalized.slice(0, dispatchIndex)).trim();
-
-    if (!assignment.startsWith(prefix)) {
+    if (!normalized.startsWith(prefix)) {
         throw new Error(`Expected content starting with "${prefix}"`);
     }
 
-    return assignment
-        .slice(prefix.length)
-        .replace(/;\s*$/, '')
-        .trim();
+    const payload = normalized.slice(prefix.length).trimStart();
+    const opener = payload[0];
+    const closer = opener === '[' ? ']' : opener === '{' ? '}' : null;
+
+    if (!closer) {
+        throw new Error(`Expected JSON array/object after "${prefix}"`);
+    }
+
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+
+    for (let i = 0; i < payload.length; i += 1) {
+        const ch = payload[i];
+
+        if (inString) {
+            if (escaped) {
+                escaped = false;
+            } else if (ch === '\\') {
+                escaped = true;
+            } else if (ch === '"') {
+                inString = false;
+            }
+            continue;
+        }
+
+        if (ch === '"') {
+            inString = true;
+            continue;
+        }
+
+        if (ch === opener) {
+            depth += 1;
+            continue;
+        }
+
+        if (ch === closer) {
+            depth -= 1;
+            if (depth === 0) {
+                return payload.slice(0, i + 1);
+            }
+        }
+    }
+
+    throw new Error(`Could not find the end of the JSON payload for "${prefix}"`);
 }
 
 // ---------------------------------------------------------------------------
@@ -140,7 +176,7 @@ describe('search data loading', () => {
     });
 
     it('extracts JSON cleanly from generated wrapper code', () => {
-        const wrapped = "window.searchData = [1,2,3];\r\nwindow.dispatchEvent(new Event('searchDataReady'));";
+        const wrapped = "window.searchData = [1,2,3];\r\nwindow.dispatchEvent(new Event('searchDataReady'));\nconsole.log('ignored');";
         assert.equal(extractWindowJson(wrapped, 'window.searchData = '), '[1,2,3]');
     });
 });
