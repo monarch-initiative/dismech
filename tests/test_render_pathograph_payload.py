@@ -135,6 +135,74 @@ def test_rendered_stargardt_pathograph_payload_includes_treatments_and_genetics(
     assert f">Pathograph {len(graph_data['nodes'])}</a>" in html
 
 
+def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyped(
+    tmp_path: Path,
+) -> None:
+    """Mediatoropathy graph should preserve branch hierarchy and subtype metadata."""
+    repo_root = Path(__file__).resolve().parents[1]
+    disorder_path = (
+        repo_root
+        / "kb"
+        / "disorders"
+        / "Mediator_Complex_Neurodevelopmental_Disorder.yaml"
+    )
+    output_path = (
+        tmp_path
+        / "pages"
+        / "disorders"
+        / "Mediator_Complex_Neurodevelopmental_Disorder.html"
+    )
+
+    render_disorder(disorder_path, output_path=output_path)
+    html = output_path.read_text()
+    graph_data = _extract_graph_data(html)
+    edges = {(edge["source"], edge["target"]) for edge in graph_data["edges"]}
+    node_meta = {node["id"]: node.get("meta", {}) for node in graph_data["nodes"]}
+
+    assert ("Mediator Complex Disruption", "CDK8 Kinase Module Dysfunction") in edges
+    assert (
+        "Mediator Complex Disruption",
+        "Tail Module Disruption and Immediate Early Gene Dysregulation",
+    ) in edges
+    assert (
+        "CDK8 Kinase Module Dysfunction",
+        "Neurodevelopmental Transcriptional Dysregulation",
+    ) in edges
+    assert ("CDK8 Kinase Module Dysfunction", "Cardiac Developmental Defects") in edges
+    assert (
+        "Tail Module Disruption and Immediate Early Gene Dysregulation",
+        "Neurodevelopmental Transcriptional Dysregulation",
+    ) in edges
+    assert (
+        "Neurodevelopmental Transcriptional Dysregulation",
+        "Cortical Neuron Migration and Projection Defects",
+    ) in edges
+
+    assert (
+        "Mediator Complex Disruption",
+        "Neurodevelopmental Transcriptional Dysregulation",
+    ) not in edges
+    assert ("Mediator Complex Disruption", "Cardiac Developmental Defects") not in edges
+
+    assert node_meta["CDK8 Kinase Module Dysfunction"]["subtypes"] == [
+        "MED13",
+        "MED13L",
+        "MED12",
+    ]
+    assert node_meta["Tail Module Disruption and Immediate Early Gene Dysregulation"][
+        "subtypes"
+    ] == ["MED23"]
+    assert node_meta["Cortical Neuron Migration and Projection Defects"][
+        "subtypes"
+    ] == ["MED13"]
+    assert node_meta["Cardiac Developmental Defects"]["subtypes"] == [
+        "MED13",
+        "MED13L",
+        "MED12",
+    ]
+    assert "Subtypes:" in html
+
+
 @pytest.mark.parametrize(
     ("filename", "expected_edges", "expected_nodes", "expected_functions"),
     [
