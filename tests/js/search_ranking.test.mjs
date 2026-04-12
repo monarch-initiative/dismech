@@ -24,21 +24,29 @@ const root = join(__dirname, '..', '..');
 
 function loadAppData() {
     const dataCode = readFileSync(join(root, 'app', 'data.js'), 'utf-8');
-    // Extract JSON array from: window.searchData = [...];
-    const jsonStr = dataCode
-        .replace(/^window\.searchData\s*=\s*/, '')
-        .replace(/;\s*window\.dispatchEvent\(.*\)\s*;?\s*$/, '')
-        .trim();
-    return JSON.parse(jsonStr);
+    return JSON.parse(extractWindowJson(dataCode, 'window.searchData = '));
 }
 
 function loadSchema() {
     const schemaCode = readFileSync(join(root, 'app', 'schema.js'), 'utf-8');
-    const jsonStr = schemaCode
-        .replace(/^window\.searchSchema\s*=\s*/, '')
-        .replace(/;\s*window\.dispatchEvent\(.*\)\s*;?\s*$/, '')
+    return JSON.parse(extractWindowJson(schemaCode, 'window.searchSchema = '));
+}
+
+function extractWindowJson(code, prefix) {
+    const normalized = code.replace(/\r\n/g, '\n').trim();
+    const dispatchIndex = normalized.lastIndexOf('window.dispatchEvent(');
+    const assignment = (dispatchIndex === -1
+        ? normalized
+        : normalized.slice(0, dispatchIndex)).trim();
+
+    if (!assignment.startsWith(prefix)) {
+        throw new Error(`Expected content starting with "${prefix}"`);
+    }
+
+    return assignment
+        .slice(prefix.length)
+        .replace(/;\s*$/, '')
         .trim();
-    return JSON.parse(jsonStr);
 }
 
 // ---------------------------------------------------------------------------
@@ -129,6 +137,11 @@ describe('search data loading', () => {
     it('schema has fieldBoosts configured', () => {
         assert.ok(schema.fieldBoosts, 'fieldBoosts missing from schema');
         assert.ok(schema.fieldBoosts.name > 1, 'name should be boosted');
+    });
+
+    it('extracts JSON cleanly from generated wrapper code', () => {
+        const wrapped = "window.searchData = [1,2,3];\r\nwindow.dispatchEvent(new Event('searchDataReady'));";
+        assert.equal(extractWindowJson(wrapped, 'window.searchData = '), '[1,2,3]');
     });
 });
 
