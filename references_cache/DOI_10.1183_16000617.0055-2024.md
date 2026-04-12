@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1183/16000617.0055-2024
+reference_id: "DOI:10.1183/16000617.0055-2024"
 title: Pathophysiology and genomics of bronchiectasis
 authors:
 - Lidia Perea

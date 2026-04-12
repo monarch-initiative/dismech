@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1590/acb386823
+reference_id: "DOI:10.1590/acb386823"
 title: "Are both distinct epithelial and stromal cells molecular analysis from phyllodes tumors versus fibroadenoma components affected in breast fibroepithelial progression?"
 authors:
 - Ângela Flavia Logullo Waitzberg

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.5114/polp.2024.146394
+reference_id: "DOI:10.5114/polp.2024.146394"
 title: "Inherited glycosylphosphatidylinositol deficiency disorders: a new group of inherited metabolic disorders"
 authors:
 - Michał Patalan

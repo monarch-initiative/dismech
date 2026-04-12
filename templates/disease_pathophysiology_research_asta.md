@@ -1,0 +1,1 @@
+Pathophysiology and clinical mechanisms of {disease_name}. Core disease mechanisms, molecular and cellular pathways, involved genes and proteins, relevant metabolites or drugs, affected cell types and anatomical structures, disease progression, major clinical phenotypes and complications, and treatment-relevant mechanism papers.

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12931-024-02931-x
+reference_id: "DOI:10.1186/s12931-024-02931-x"
 title: "The clinical impacts of lung microbiome in bronchiectasis with fixed airflow obstruction: a prospective cohort study"
 authors:
 - Yen-Fu Chen

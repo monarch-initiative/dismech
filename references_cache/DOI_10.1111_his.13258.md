@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/his.13258
+reference_id: "DOI:10.1111/his.13258"
 title: "Myxoid fibroadenomas differ from conventional fibroadenomas: a hypothesis‐generating study"
 authors:
 - John R Lozada

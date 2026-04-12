@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.xhgg.2023.100213
+reference_id: "DOI:10.1016/j.xhgg.2023.100213"
 title: Variants in ACTC1 underlie distal arthrogryposis accompanied by congenital heart defects
 authors:
 - Jessica X. Chong

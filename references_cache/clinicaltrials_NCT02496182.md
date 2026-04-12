@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT02496182
+reference_id: "clinicaltrials:NCT02496182"
 title: Pirfenidone in the Chronic Hypersensitivity Pneumonitis Treatment
 content_type: summary
 ---

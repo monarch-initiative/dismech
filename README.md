@@ -131,6 +131,37 @@ YAML files are rendered to browsable HTML pages with clickable ontology term lin
 uv run python -m dismech.render --all
 ```
 
+### CX2 Export For NDEx
+
+Disorder pathographs can also be exported as CX2 networks for publication to NDEx.
+
+```bash
+# Write CX2 JSON to a file
+uv run dismech-cx2 kb/disorders/Stargardt_Disease.yaml -o Stargardt_Disease.cx2.json
+
+# Same flow via justfile target
+just export-cx2 kb/disorders/Stargardt_Disease.yaml -o Stargardt_Disease.cx2.json
+
+# Export all disorders to a directory, skipping those with no pathograph edges
+just export-cx2-all -o /tmp/cx2
+
+# Upload directly to NDEx using env vars
+export NDEX_USERNAME=...
+export NDEX_PASSWORD=...
+uv run dismech-cx2 kb/disorders/Stargardt_Disease.yaml --ndex-upload
+
+# Bulk upload all disorders to the NDEx test server
+export NDEX_USERNAME=...
+export NDEX_PASSWORD=...
+just upload-cx2-test-all
+```
+
+`dismech-cx2` uses the existing pathograph graph model, preserves node and edge metadata,
+and applies a deterministic layout so the uploaded network is immediately viewable in
+NDEx. Add `--dot-layout` if Graphviz and `pydot` are available and you want a Graphviz
+layout instead of the built-in layered layout. The default NDEx upload visibility is
+`PUBLIC`, and the `just` upload targets default the host to `https://test.ndexbio.org`.
+
 ## Agentic Curation Guide
 
 This knowledge base is curated with **Claude Code** — an AI agent that knows the schema, validates ontology terms, and checks evidence against PubMed abstracts. There are two ways to start curating:
@@ -165,10 +196,25 @@ You can also ask the agent open-ended questions, request targeted edits, or run 
 > Which files have the lowest compliance scores?
 ```
 
-**Optional — deep research provider:** For comprehensive literature search, set up an [Edison Scientific](https://platform.edisonscientific.com/) API key:
+**Optional — deep research providers:**
+
+For narrative-style deep research, set up an [Edison Scientific](https://platform.edisonscientific.com/) API key:
 ```bash
 export EDISON_API_KEY=your_key_here
 ```
+
+For literature-search-style retrieval via Asta, request an API key from [Allen AI Asta](https://allenai.org/asta/resources/mcp) and export:
+```bash
+export ASTA_API_KEY=your_key_here
+```
+
+Then run:
+```bash
+just research-disorder asta Liver_Cirrhosis
+```
+
+Asta outputs are typically literature packets rather than polished narrative reports:
+they prioritize relevant papers, summaries, snippets, and metadata such as PMID/DOI.
 
 ### Route 2: Use Claude Code on the web
 

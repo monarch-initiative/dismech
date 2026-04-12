@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1183/13993003.01966-2023
+reference_id: "DOI:10.1183/13993003.01966-2023"
 title: Airway IL-1β is related to disease severity and mucociliary function in bronchiectasis
 authors:
 - Lidia Perea

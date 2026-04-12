@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12891-025-09069-x
+reference_id: "DOI:10.1186/s12891-025-09069-x"
 title: "Juvenile idiopathic arthritis or skeletal dysplasia: first case report of camptodactyly-arthropathy-coxa vara-pericarditis from Iran"
 authors:
 - Niloofar Shashaani
