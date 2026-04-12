@@ -373,10 +373,10 @@ fix-references-cache:
         if modified:
             md_file.write_text(f"---{chr(10).join(new_lines)}---{body}", encoding="utf-8")
 
-# Run search ranking tests (JavaScript, uses Node.js + MiniSearch)
+# Run browser search tests (JavaScript, uses Node.js + MiniSearch)
 [group('QC')]
 test-search:
-    node --test tests/js/search_ranking.test.mjs
+    node --test tests/js/*.test.mjs
 
 # Run pytest tests (with verbose output)
 [group('QC')]

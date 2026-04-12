@@ -485,6 +485,7 @@
     <script src="https://cdn.jsdelivr.net/npm/minisearch@7.1.1/dist/umd/index.min.js"></script>
     <script src="schema.js"></script>
     <script src="data.js"></script>
+    <script src="search_sort_state.js"></script>
     <script>
         class FacetedSearch {
             constructor() {
@@ -693,14 +694,7 @@
             }
 
             render() {
-                // Auto-switch to relevance sort when there's a search query
-                if (this.searchQuery && this._preSortBy === undefined) {
-                    this._preSortBy = this.sortBy;
-                    this.sortBy = 'relevance';
-                } else if (!this.searchQuery && this._preSortBy !== undefined) {
-                    this.sortBy = this._preSortBy;
-                    delete this._preSortBy;
-                }
+                window.SearchSortState.sync(this);
 
                 const filtered = this.filter();
                 this.facetCounts = this.computeFacetCounts(filtered);
@@ -1007,9 +1001,7 @@
                 document.getElementById('resultsContainer').addEventListener('click', (e) => {
                     if (e.target.id === 'clearFilters') {
                         this.activeFilters = {};
-                        this.searchQuery = '';
-                        this.sortBy = this._preSortBy || 'name-asc';
-                        delete this._preSortBy;
+                        window.SearchSortState.reset(this, 'name-asc');
                         document.getElementById('searchInput').value = '';
                         this.expandedFacets.clear();
                         this.render();
@@ -1019,11 +1011,7 @@
                 // Sort selector
                 document.getElementById('resultsContainer').addEventListener('change', (e) => {
                     if (e.target.id === 'sortSelect') {
-                        this.sortBy = e.target.value;
-                        // If user manually changes sort during search, stop auto-switching
-                        if (this._preSortBy !== undefined && e.target.value !== 'relevance') {
-                            delete this._preSortBy;
-                        }
+                        window.SearchSortState.selectSort(this, e.target.value);
                         this.render();
                     }
                 });
