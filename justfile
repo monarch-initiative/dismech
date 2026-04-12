@@ -63,6 +63,17 @@ _setup_part2: gen-project gen-doc
 [group('project management')]
 install:
   uv sync --group dev
+  @if [ -f package-lock.json ] || [ -f package.json ]; then \
+    if ! command -v npm >/dev/null 2>&1; then \
+      echo "npm is required to install browser search test dependencies."; \
+      exit 1; \
+    fi; \
+    if [ -f package-lock.json ]; then \
+      npm ci; \
+    else \
+      npm install; \
+    fi; \
+  fi
 
 # Updates project template and LinkML package
 [group('project management')]
@@ -85,7 +96,7 @@ deploy: site
 
 # Run all tests
 [group('model development')]
-test: _test-schema _test-python _test-examples
+test: _test-schema _test-python _test-examples test-search
 
 # Run linting
 [group('model development')]
