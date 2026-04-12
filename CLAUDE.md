@@ -609,7 +609,11 @@ just validate kb/disorders/MyDisease.yaml
 3. Run `just validate-references kb/disorders/YourFile.yaml`
 4. If snippet doesn't match, fix it to be an exact quote or find a different PMID
 
-## Git Best Practices
+## Git/GitHub Best Practices
+
+### Use worktrees
+
+Allows for parallel work. Canonical location is ~/worktrees/
 
 ### What to commit
 
@@ -650,3 +654,16 @@ After pushing fixes, comment on the PR summarizing:
 - What you changed and why
 - What you intentionally did NOT change, with reasoning
 - Validation results
+
+### Reviews
+
+Your PR will always be removed by an automated Claude reviewer. This usually happens within a few minutes.
+The reviewer will mark your PR as being ready to merge or requiring changes. Be sure to address all changes.
+Try and address even "optional" changes if they improve overall quality and completion.
+
+If you disagree you can say so, but provide clearly articulated arguments in the PR comments. Never get
+into back and forth. If something cannot be resolved, stop, and assign a human like @cmungall to the PR, and ask
+them to facilitate.
+
+Note that sometimes it will appear that a review has stalled, but in fact this is usually because
+the PR is in conflict. Actively try and manage this, resolve conflicts carefully.
