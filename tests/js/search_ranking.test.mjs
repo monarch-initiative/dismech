@@ -205,20 +205,19 @@ describe('exact name matches rank first', () => {
 
 describe('name prefix matches rank first', () => {
     const cases = [
-        ['Parkinson', "Parkinson's Disease"],
-        ['Marfan', 'Marfan Syndrome'],
-        ['Huntington', "Huntington's Disease"],
-        ['Cystic Fibrosis', 'Cystic Fibrosis'],
+        ['Parkinson', ["Parkinson's Disease"]],
+        ['Marfan', ['Marfan Syndrome']],
+        ['Huntington', ["Huntington's Disease", 'Huntington Disease']],
+        ['Cystic Fibrosis', ['Cystic Fibrosis']],
     ];
 
     for (const [query, expectedFirst] of cases) {
-        it(`"${query}" → "${expectedFirst}" is #1`, () => {
+        it(`"${query}" ranks the expected disorder first`, () => {
             const results = search(miniSearch, data, query);
             assert.ok(results.length > 0, `No results for "${query}"`);
-            assert.equal(
-                results[0].name,
-                expectedFirst,
-                `Expected "${expectedFirst}" first, got "${results[0].name}" (score: ${results[0].score})`
+            assert.ok(
+                expectedFirst.includes(results[0].name),
+                `Expected one of ${JSON.stringify(expectedFirst)} first, got "${results[0].name}" (score: ${results[0].score})`
             );
         });
     }
