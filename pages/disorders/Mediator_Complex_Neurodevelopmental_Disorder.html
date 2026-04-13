@@ -1716,6 +1716,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1727,6 +1728,7 @@
         treatment: "Treatments",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        computational_model: "Computational Models",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1737,6 +1739,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        computational_model: "#65a30d",
         orphan: "#dc2626"
     };
     var NODE_TYPE_ICONS = {
@@ -1747,6 +1750,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        computational_model: "🧮",
         orphan: "?"
     };
     var EXPERIMENTAL_MODEL_TYPE_ICONS = {
@@ -1770,6 +1774,9 @@
         if (nodeData && nodeData.node_type === "experimental_model") {
             var modelType = nodeData.meta && nodeData.meta.model_type;
             return getModelTypeIcon(modelType);
+        }
+        if (nodeData && nodeData.node_type === "computational_model") {
+            return NODE_TYPE_ICONS.computational_model;
         }
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
@@ -2024,6 +2031,17 @@
 
         /* -- Tooltip -- */
         function showTooltip(event, n) {
+            function formatHistopathologyTerm(term) {
+                var display = term.preferred_term || term.name || term.term_label || term.term_id || "";
+                if (term.term_id && term.term_label && term.term_label !== display) {
+                    return display + ' -> ' + term.term_id + ' (' + term.term_label + ')';
+                }
+                if (term.term_id) {
+                    return display + ' -> ' + term.term_id;
+                }
+                return display;
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2048,7 +2066,9 @@
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
             if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
             if (meta.dietary_modifications && meta.dietary_modifications.length) metaParts.push('<span>Diet: ' + escapeHtml(meta.dietary_modifications.join(", ")) + '</span>');
-            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(((n.node_type === "experimental_model" ? getModelTypeIcon(meta.model_type) + ' ' : '')) + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_software) metaParts.push('<span>Software: ' + escapeHtml(meta.model_software) + '</span>');
+            if (meta.model_format) metaParts.push('<span>Format: ' + escapeHtml(meta.model_format) + '</span>');
             if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
             if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
@@ -2057,6 +2077,11 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.histopathology_terms && meta.histopathology_terms.length) {
+                metaParts.push(
+                    '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
+                );
+            }
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
 
             /* Linked experimental models */
@@ -2078,6 +2103,29 @@
                 });
                 modelHtml += '</div>';
                 html.push(modelHtml);
+            }
+
+            if (meta.computational_models && meta.computational_models.length) {
+                var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
+                meta.computational_models.forEach(function(model) {
+                    compHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    compHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((NODE_TYPE_ICONS.computational_model || "") + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        compHtml += ' <span style="color:#4d7c0f; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.model_software) {
+                        compHtml += ' <span style="color:#6b7280;">' + escapeHtml(model.model_software) + '</span>';
+                    }
+                    if (model.description) {
+                        compHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    compHtml += '</div>';
+                });
+                compHtml += '</div>';
+                html.push(compHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2474,15 +2522,16 @@
                 
                 
                 
+                
+                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">MED13-related intellectual developmental disorder (MRD61)</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
+                        MED13-related intellectual developmental disorder (MRD61)
                         
                         
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0032485" target="_blank">MONDO:0032485</a>
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0032485" target="_blank">MONDO:0032485</a>
                         
                         
                     </div>
@@ -2498,9 +2547,12 @@
                             <span class="subtype-inheritance-tag">{&#39;name&#39;: &#39;Autosomal Dominant&#39;}</span>
                             
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Caused by heterozygous (usually de novo) variants in MED13, encoding a subunit of the CDK8 kinase module of the Mediator complex. Characterized by intellectual disability, expressive speech delay, behavioral abnormalities (ASD, ADHD), nonspecific dysmorphic features, obstipation, and poor overall growth. This subtype often falls at the milder end of the Mediator spectrum, but severe presentations with epilepsy, structural brain anomalies, and additional congenital complications have also been reported.</div>
+                    
                     
                     
                     
@@ -2562,15 +2614,16 @@
                 
                 
                 
+                
+                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">MED13L syndrome (MRFACD)</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
+                        MED13L syndrome (MRFACD)
                         
                         
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0014773" target="_blank">MONDO:0014773</a>
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0014773" target="_blank">MONDO:0014773</a>
                         
                         
                     </div>
@@ -2586,9 +2639,12 @@
                             <span class="subtype-inheritance-tag">{&#39;name&#39;: &#39;Autosomal Dominant&#39;}</span>
                             
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Caused by heterozygous (mostly de novo) variants in MED13L, a paralog of MED13 also in the CDK8 kinase module. The most syndromic subtype, characterized by mild to profound intellectual disability, distinctive facial dysmorphism (depressed nasal bridge, bulbous nasal tip, upslanting palpebral fissures, macrostomia), congenital heart defects with variable penetrance, hypotonia, seizures, and corpus callosum anomalies. Also known as Asadollahi-Rauch syndrome.</div>
+                    
                     
                     
                     
@@ -2650,15 +2706,16 @@
                 
                 
                 
+                
+                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">MED12-related intellectual disability (FG syndrome / Opitz-Kaveggia)</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
+                        MED12-related intellectual disability (FG syndrome / Opitz-Kaveggia)
                         
                         
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0100000" target="_blank">MONDO:0100000</a>
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0100000" target="_blank">MONDO:0100000</a>
                         
                         
                     </div>
@@ -2674,9 +2731,12 @@
                             <span class="subtype-inheritance-tag">{&#39;name&#39;: &#39;X-linked Recessive&#39;}</span>
                             
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Caused by hemizygous variants in MED12, encoding a subunit of the CDK8 kinase module. FG syndrome type 1 (Opitz-Kaveggia syndrome) is caused by the recurrent p.R961W missense variant. Characterized by moderate to severe intellectual disability, relative macrocephaly, imperforate anus or constipation, congenital hypotonia, corpus callosum agenesis or hypoplasia, broad thumbs and halluces, and characteristic facial features with tall forehead, downslanting palpebral fissures, and small ears.</div>
+                    
                     
                     
                     
@@ -2718,15 +2778,16 @@
                 
                 
                 
+                
+                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">MED23-related intellectual disability (MRT18)</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
+                        MED23-related intellectual disability (MRT18)
                         
                         
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0013651" target="_blank">MONDO:0013651</a>
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0013651" target="_blank">MONDO:0013651</a>
                         
                         
                     </div>
@@ -2742,9 +2803,12 @@
                             <span class="subtype-inheritance-tag">{&#39;name&#39;: &#39;Autosomal Recessive&#39;}</span>
                             
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Caused by biallelic (homozygous or compound heterozygous) variants in MED23, encoding a subunit of the tail module of the Mediator complex. Distinguished from other Mediator subtypes by prominent movement disorder features (spasticity, dystonia, choreoathetosis), autosomal recessive inheritance, and seizures with or without epilepsy. Brain imaging may show hypomyelination, pontine hypoplasia, and thin corpus callosum.</div>
+                    
                     
                     
                     
@@ -2875,6 +2939,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3020,6 +3085,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3142,6 +3208,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3318,6 +3385,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3426,6 +3494,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
                 
@@ -3540,6 +3609,7 @@
     
                     
                 </div>
+                
                 
                 
                 
