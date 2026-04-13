@@ -566,10 +566,15 @@ def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyp
         ),
         (
             "RYR2_CPVT.yaml",
-            {("RYR2 gain-of-function variants", "RYR2 Gain-of-Function Calcium Leak")},
-            {"RYR2 gain-of-function variants": "genetic"},
             {
-                "RYR2 Gain-of-Function Calcium Leak": [
+                (
+                    "RYR2 pathogenic variants",
+                    "Defective Sarcoplasmic Reticulum Calcium Release Control",
+                )
+            },
+            {"RYR2 pathogenic variants": "genetic"},
+            {
+                "Defective Sarcoplasmic Reticulum Calcium Release Control": [
                     "ryanodine-sensitive calcium-release channel activity"
                 ]
             },
